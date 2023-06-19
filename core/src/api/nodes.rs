@@ -28,6 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						"error updating config".into(),
 					)
 				})
+				.map(|_| ())
 		})
 	})
 }

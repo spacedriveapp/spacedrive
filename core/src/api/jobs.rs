@@ -115,11 +115,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							match groups.entry(group_key) {
 								// Create new job group with metadata
 								Entry::Vacant(e) => {
-									let id = job.parent_id.clone().unwrap_or(job.id.clone());
+									let id = job.parent_id.unwrap_or(job.id);
 									let group = JobGroup {
 										id: id.to_string(),
 										action: action_name.clone(),
-										status: job.status.clone(),
+										status: job.status,
 										jobs: vec![report.clone()],
 										created_at: job.created_at.unwrap_or(Utc::now()),
 									};
@@ -134,8 +134,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						}
 					}
 
-					let mut groups_vec: Vec<JobGroup> =
-						groups.into_iter().map(|(_, v)| v).collect();
+					let mut groups_vec: Vec<JobGroup> = groups.into_values().collect();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
 					// Update the index after sorting the groups
@@ -154,7 +153,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("isActive", {
 			R.with2(library()).query(|(ctx, _), _: ()| async move {
-				Ok(ctx.jobs.get_running_reports().await.len() > 0)
+				Ok(!ctx.jobs.get_running_reports().await.is_empty())
 			})
 		})
 		.procedure("clear", {

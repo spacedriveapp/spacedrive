@@ -12,6 +12,7 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react';
+import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import Icon from '../Layout/Sidebar/Icon';
@@ -23,6 +24,7 @@ const Section = tw.div`space-y-0.5`;
 
 export default () => {
 	const os = useOperatingSystem();
+	const isPairingEnabled = useFeatureFlag('p2pPairing');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
@@ -68,7 +70,7 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="library/nodes" disabled>
+					<SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
 						<Icon component={ShareNetwork} />
 						Nodes
 					</SidebarLink>

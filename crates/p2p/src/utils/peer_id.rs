@@ -9,6 +9,12 @@ pub struct PeerId(
 	pub(crate)  libp2p::PeerId,
 );
 
+// impl PeerId {
+// 	pub fn to_string(&self) -> String {
+// 		self.0.to_string()
+// 	}
+// }
+
 impl FromStr for PeerId {
 	#[allow(deprecated)]
 	type Err = libp2p::core::ParseError;

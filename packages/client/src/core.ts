@@ -16,7 +16,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node: Node | null }[] } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; node: Node | null }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -55,8 +55,9 @@ export type Procedures = {
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: NodeConfig } | 
+        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
+        { key: "p2p.pair", input: LibraryArgs<PeerId>, result: number } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -90,7 +91,7 @@ export type CreateLibraryArgs = { name: string }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
-export type EditLibraryArgs = { id: string; name: string | null; description: string | null }
+export type EditLibraryArgs = { id: string; name: string | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths }
 
@@ -151,16 +152,11 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-/**
- * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
- */
-export type LibraryConfig = { name: string; description: string }
-
-export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Location = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -179,18 +175,15 @@ export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; node_id: number | null; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type MaybeNot<T> = T | { not: T }
 
+export type MaybeUndefined<T> = null | null | T
+
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
-export type Node = { id: number; pub_id: number[]; name: string; platform: number; date_created: string }
-
-/**
- * NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
- */
-export type NodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
+export type Node = { id: number; pub_id: number[]; name: string; platform: number; date_created: string; identity: number[] | null; node_peer_id: string | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -238,6 +231,8 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
+
+export type SanitisedLibraryConfig = { name: string; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 

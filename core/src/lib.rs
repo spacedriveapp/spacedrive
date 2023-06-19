@@ -17,7 +17,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
@@ -42,7 +42,6 @@ pub struct NodeContext {
 	pub jobs: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub p2p: Arc<P2PManager>,
 }
 
 pub struct Node {
@@ -73,48 +72,25 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
-		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await?;
-
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
 				config: config.clone(),
 				jobs: jobs.clone(),
 				location_manager: location_manager.clone(),
-				p2p: p2p.clone(),
+				// p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 			},
 		)
 		.await?;
+		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data.apply(&library_manager).await?;
+			init_data
+				.apply(&library_manager, config.get().await)
+				.await?;
 		}
-
-		tokio::spawn({
-			let library_manager = library_manager.clone();
-
-			async move {
-				while let Ok((library_id, operations)) = p2p_rx.recv().await {
-					debug!("going to ingest {} operations", operations.len());
-
-					let Some(library) = library_manager.get_library(library_id).await else {
-						warn!("no library found!");
-						continue;
-					};
-
-					for op in operations {
-						library.sync.ingest_op(op).await.unwrap_or_else(|err| {
-							error!(
-								"error ingesting operation for library '{}': {err:?}",
-								library.id
-							);
-						});
-					}
-				}
-			}
-		});
 
 		let router = api::mount();
 		let node = Node {
@@ -239,7 +215,7 @@ pub enum NodeError {
 	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(#[from] sd_p2p::ManagerError),
 	#[error("invalid platform integer: {0}")]
-	InvalidPlatformInt(i32),
+	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
