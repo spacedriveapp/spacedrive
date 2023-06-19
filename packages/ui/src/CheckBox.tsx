@@ -27,11 +27,11 @@ export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root>
 export const RadixCheckbox = (props: RadixCheckboxProps) => (
 	<div className="flex items-center">
 		<Checkbox.Root
-			className="flex h-[17px] w-[17px] shrink-0 rounded-md bg-app-button"
+			className="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-md border border-app-line bg-app-button radix-state-checked:bg-accent"
 			id={props.name}
 			{...props}
 		>
-			<Checkbox.Indicator className="flex h-[17px] w-[17px] items-center justify-center rounded-md bg-accent">
+			<Checkbox.Indicator className="text-white">
 				<Check weight="bold" size={14} />
 			</Checkbox.Indicator>
 		</Checkbox.Root>
