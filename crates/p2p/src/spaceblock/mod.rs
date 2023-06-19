@@ -66,16 +66,20 @@ impl SpaceblockRequest {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, SpacedropRequestError> {
-		let name_len = stream
-			.read_u16_le()
-			.await
-			.map_err(SpacedropRequestError::NameLenIoError)?;
-		let mut name = vec![0u8; name_len as usize];
-		stream
-			.read_exact(&mut name)
-			.await
-			.map_err(SpacedropRequestError::NameIoError)?;
-		let name = String::from_utf8(name).map_err(SpacedropRequestError::NameFormatError)?;
+		let name = {
+			let len = stream
+				.read_u16_le()
+				.await
+				.map_err(SpacedropRequestError::NameLenIoError)?;
+
+			let mut buf = vec![0u8; len as usize];
+			stream
+				.read_exact(&mut buf)
+				.await
+				.map_err(SpacedropRequestError::NameIoError)?;
+
+			String::from_utf8(buf).map_err(SpacedropRequestError::NameFormatError)?
+		};
 
 		let size = stream
 			.read_u64_le()

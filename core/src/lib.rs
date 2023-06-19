@@ -215,7 +215,7 @@ pub enum NodeError {
 	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(#[from] sd_p2p::ManagerError),
 	#[error("invalid platform integer: {0}")]
-	InvalidPlatformInt(i32),
+	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),

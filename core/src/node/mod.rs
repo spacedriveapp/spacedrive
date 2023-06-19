@@ -7,7 +7,7 @@ mod config;
 pub use config::*;
 
 #[allow(clippy::upper_case_acronyms)]
-#[repr(i32)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
 pub enum Platform {
 	Unknown = 0,
@@ -40,10 +40,10 @@ impl Platform {
 	}
 }
 
-impl TryFrom<i32> for Platform {
+impl TryFrom<u8> for Platform {
 	type Error = NodeError;
 
-	fn try_from(value: i32) -> Result<Self, Self::Error> {
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
 		let s = match value {
 			0 => Self::Unknown,
 			1 => Self::Windows,

@@ -1,5 +1,7 @@
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
 use sd_p2p::{
@@ -105,7 +107,24 @@ impl Header {
 	}
 }
 
+#[derive(Debug, Error)]
+pub enum NodeInformationError {
+	#[error("io error reading node information library name length: {0}")]
+	NameLenIoError(std::io::Error),
+	#[error("io error decoding node information library name: {0}")]
+	ErrorDecodingName(std::io::Error),
+	#[error("io error formatting node information library name: {0}")]
+	NameFormatError(FromUtf8Error),
+	#[error("io error reading node information public key length: {0}")]
+	PublicKeyLenIoError(std::io::Error),
+	#[error("io error decoding node information public key: {0}")]
+	ErrorDecodingPublicKey(std::io::Error),
+	#[error("io error reading node information platform id: {0}")]
+	PlatformIdError(std::io::Error),
+}
+
 /// is shared between nodes during pairing and contains the information to identify the node.
+#[derive(Debug, PartialEq, Eq)]
 pub struct NodeInformation {
 	pub name: String,
 	pub public_key: Vec<u8>,
@@ -113,37 +132,112 @@ pub struct NodeInformation {
 }
 
 impl NodeInformation {
-	pub fn to_bytes(&self) -> Vec<u8> {
-		let buf = Vec::new();
+	pub async fn from_stream(
+		stream: &mut (impl AsyncRead + Unpin),
+	) -> Result<Self, NodeInformationError> {
+		let name = {
+			let len = stream
+				.read_u16_le()
+				.await
+				.map_err(NodeInformationError::NameLenIoError)?;
 
-		// TODO
-		// buf.extend_from_slice((self.name.len() as u16).as_le_bytes());
+			let mut buf = vec![0u8; len as usize];
+			stream
+				.read_exact(&mut buf)
+				.await
+				.map_err(NodeInformationError::ErrorDecodingName)?;
+
+			String::from_utf8(buf).map_err(NodeInformationError::NameFormatError)?
+		};
+
+		let public_key = {
+			let len = stream
+				.read_u16_le()
+				.await
+				.map_err(NodeInformationError::PublicKeyLenIoError)?;
+
+			let mut buf = vec![0u8; len as usize];
+			stream
+				.read_exact(&mut buf)
+				.await
+				.map_err(NodeInformationError::ErrorDecodingPublicKey)?;
+			buf
+		};
+
+		let platform = stream
+			.read_u8()
+			.await
+			.map_err(NodeInformationError::PlatformIdError)?;
+
+		Ok(Self {
+			name,
+			public_key,
+			platform: Platform::try_from(platform).unwrap_or(Platform::Unknown),
+		})
+	}
+
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let mut buf = Vec::new();
+
+		// Name
+		let len_buf = (self.name.len() as u16).to_le_bytes();
+		if self.name.len() > u16::MAX as usize {
+			panic!("Name is too long!"); // TODO: Error handling
+		}
+		buf.extend_from_slice(&len_buf);
+		buf.extend(self.name.as_bytes());
+
+		// Public key // TODO: Can I use a fixed size array?
+		let len_buf = (self.public_key.len() as u16).to_le_bytes();
+		if self.public_key.len() > u16::MAX as usize {
+			panic!("Public key is too long!"); // TODO: Error handling
+		}
+		buf.extend_from_slice(&len_buf);
+		buf.extend(self.public_key.clone());
+
+		// Platform
+		buf.push(self.platform as u8);
 
 		buf
 	}
 }
 
-// TODO: Unit test it because binary protocols are error prone
-// #[cfg(test)]
-// mod tests {
-// 	use super::*;
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-// 	#[test]
-// 	fn test_proto() {
-// 		assert_eq!(
-// 			Header::from_bytes(&Header::Ping.to_bytes()),
-// 			Ok(Header::Ping)
-// 		);
+	#[tokio::test]
+	async fn test_node_information() {
+		let original = NodeInformation {
+			name: "Name".into(),
+			public_key: vec![b'a', b'b', b'c'],
+			platform: Platform::current(),
+		};
 
-// 		assert_eq!(
-// 			Header::from_bytes(&Header::Spacedrop.to_bytes()),
-// 			Ok(Header::Spacedrop)
-// 		);
+		let buf = original.to_bytes();
+		let mut cursor = std::io::Cursor::new(buf);
+		let info = NodeInformation::from_stream(&mut cursor).await.unwrap();
 
-// 		let uuid = Uuid::new_v4();
-// 		assert_eq!(
-// 			Header::from_bytes(&Header::Sync(uuid).to_bytes()),
-// 			Ok(Header::Sync(uuid))
-// 		);
-// 	}
-// }
+		assert_eq!(original, info);
+	}
+
+	// TODO: Unit test it because binary protocols are error prone
+	// #[test]
+	// fn test_proto() {
+	// 	assert_eq!(
+	// 		Header::from_bytes(&Header::Ping.to_bytes()),
+	// 		Ok(Header::Ping)
+	// 	);
+
+	// 	assert_eq!(
+	// 		Header::from_bytes(&Header::Spacedrop.to_bytes()),
+	// 		Ok(Header::Spacedrop)
+	// 	);
+
+	// 	let uuid = Uuid::new_v4();
+	// 	assert_eq!(
+	// 		Header::from_bytes(&Header::Sync(uuid).to_bytes()),
+	// 		Ok(Header::Sync(uuid))
+	// 	);
+	// }
+}
