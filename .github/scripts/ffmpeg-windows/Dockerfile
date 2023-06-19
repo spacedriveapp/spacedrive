@@ -1,6 +1,6 @@
 ARG FFMPEG_VERSION=6.0
 
-FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest@sha256:69e7ee385c41ae4580161fbd1cf14e1d199a81c39e398e8421225d86d8f2d3f3 AS base
+FROM vvasconcellos/base-win64:2023_06_10 AS base
 
 ENV TARGET=win64
 
