@@ -89,6 +89,7 @@ impl SyncManager {
 		Ok(res)
 	}
 
+	#[allow(unused_variables)]
 	pub async fn write_op<'item, Q: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,

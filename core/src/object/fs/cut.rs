@@ -4,6 +4,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
+	location::file_path_helper::push_location_relative_path,
 	object::fs::{construct_target_filename, error::FileSystemJobsError},
 	prisma::{file_path, location},
 	util::error::FileIOError,
@@ -56,7 +57,7 @@ impl StatefulJob for FileCutterJob {
 	) -> Result<(), JobError> {
 		let Library { db, .. } = &ctx.library;
 
-		let (sources_location_path, mut targets_location_path) =
+		let (sources_location_path, targets_location_path) =
 			fetch_source_and_target_location_paths(
 				db,
 				state.init.source_location_id,
@@ -64,10 +65,13 @@ impl StatefulJob for FileCutterJob {
 			)
 			.await?;
 
-		targets_location_path.push(&state.init.target_location_relative_directory_path);
+		let full_target_directory_path = push_location_relative_path(
+			targets_location_path,
+			&state.init.target_location_relative_directory_path,
+		);
 
 		state.data = Some(FileCutterJobState {
-			full_target_directory_path: targets_location_path,
+			full_target_directory_path,
 		});
 
 		state.steps = get_many_files_datas(
