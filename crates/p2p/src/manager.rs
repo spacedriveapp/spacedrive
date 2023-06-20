@@ -1,5 +1,5 @@
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -41,7 +41,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
-		let peer_id = PeerId(keypair.peer_id());
+		let peer_id = PeerId(keypair.raw_peer_id());
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
 
 		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
@@ -67,7 +67,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 			.boxed(),
 			SpaceTime::new(this.clone()),
-			keypair.peer_id(),
+			keypair.raw_peer_id(),
 		)
 		.build();
 		{
@@ -92,6 +92,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 				mdns,
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
+				on_establish_streams: HashMap::new(),
 			},
 		))
 	}
@@ -129,6 +130,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
+	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
 	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
@@ -136,6 +138,8 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.await;
 		let mut stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
+
+			()
 		})?;
 		stream.write_discriminator().await.unwrap(); // TODO: Error handling
 		Ok(stream)

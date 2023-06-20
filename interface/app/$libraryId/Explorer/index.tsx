@@ -7,12 +7,13 @@ import ExplorerContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
 import { Inspector } from './Inspector';
-import View from './View';
+import View, { ExplorerViewProps } from './View';
 import { useExplorerSearchParams } from './util';
 
 interface Props {
 	items: ExplorerItem[] | null;
 	onLoadMore?(): void;
+	emptyNotice?: ExplorerViewProps['emptyNotice'];
 }
 
 export default function Explorer(props: Props) {
@@ -31,7 +32,7 @@ export default function Explorer(props: Props) {
 			selectedItemId
 				? props.items?.find((item) => item.item.id === selectedItemId)
 				: undefined,
-		[selectedItemId]
+		[selectedItemId, props.items]
 	);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -41,9 +42,8 @@ export default function Explorer(props: Props) {
 		onError: (err) => {
 			console.error('Error in RSPC subscription new thumbnail', err);
 		},
-		onData: (cas_id) => {
-			console.log({ cas_id });
-			explorerStore.addNewThumbnail(cas_id);
+		onData: (thumbKey) => {
+			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
 
@@ -74,10 +74,10 @@ export default function Explorer(props: Props) {
 							onSelectedChange={setSelectedItemId}
 							contextMenu={<ContextMenu data={selectedItem} />}
 							emptyNotice={
-								<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-									<FolderNotchOpen size={100} opacity={0.3} />
-									<p className="mt-5 text-xs">This folder is empty</p>
-								</div>
+								props.emptyNotice || {
+									icon: FolderNotchOpen,
+									message: 'This folder is empty'
+								}
 							}
 						/>
 					</div>

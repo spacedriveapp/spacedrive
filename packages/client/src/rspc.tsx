@@ -1,4 +1,4 @@
-import { ProcedureDef, inferProcedureResult, inferSubscriptionResult } from '@rspc/client';
+import { ProcedureDef } from '@rspc/client';
 import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
 import { Context, createReactQueryHooks } from '@rspc/react/v2';
 import { QueryClient } from '@tanstack/react-query';
@@ -20,12 +20,12 @@ type StripLibraryArgsFromInput<
 	NeverOverNull extends boolean
 > = T extends any
 	? T['input'] extends LibraryArgs<infer E>
-		? {
-				key: T['key'];
-				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
-				result: T['result'];
-		  }
-		: never
+	? {
+		key: T['key'];
+		input: NeverOverNull extends true ? (E extends null ? never : E) : E;
+		result: T['result'];
+	}
+	: never
 	: never;
 
 type NonLibraryProceduresDef = {

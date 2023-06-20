@@ -1,5 +1,5 @@
 use crate::{
-	prisma::{file_path, PrismaClient},
+	prisma::{file_path, location, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
@@ -18,9 +18,9 @@ use tracing::error;
 
 pub mod isolated_file_path_data;
 
-pub use isolated_file_path_data::IsolatedFilePathData;
-
-use super::LocationId;
+pub use isolated_file_path_data::{
+	join_location_relative_path, push_location_relative_path, IsolatedFilePathData,
+};
 
 // File Path selectables!
 file_path::select!(file_path_just_pub_id { pub_id });
@@ -63,16 +63,26 @@ file_path::select!(file_path_to_isolate {
 	name
 	extension
 });
+file_path::select!(file_path_to_isolate_with_id {
+	id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+});
 file_path::select!(file_path_to_handle_custom_uri {
 	materialized_path
 	is_dir
 	name
 	extension
 	location: select {
+		id
 		path
 	}
 });
 file_path::select!(file_path_to_full_path {
+	id
 	materialized_path
 	is_dir
 	name
@@ -97,10 +107,12 @@ pub struct FilePathMetadata {
 
 #[derive(Error, Debug)]
 pub enum FilePathError {
+	#[error("file path not found: <id='{0}'>")]
+	IdNotFound(file_path::id::Type),
 	#[error("file Path not found: <path='{}'>", .0.display())]
 	NotFound(Box<Path>),
 	#[error("location '{0}' not found")]
-	LocationNotFound(i32),
+	LocationNotFound(location::id::Type),
 	#[error("received an invalid sub path: <location_path='{}', sub_path='{}'>", .location_path.display(), .sub_path.display())]
 	InvalidSubPath {
 		location_path: Box<Path>,
@@ -114,21 +126,23 @@ pub enum FilePathError {
 		.sub_path.display()
 	)]
 	SubPathParentNotInLocation {
-		location_id: LocationId,
+		location_id: location::id::Type,
 		sub_path: Box<Path>,
 	},
 	#[error("unable to extract materialized path from location: <id='{}', path='{}'>", .location_id, .path.display())]
 	UnableToExtractMaterializedPath {
-		location_id: LocationId,
+		location_id: location::id::Type,
 		path: Box<Path>,
 	},
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] QueryError),
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
+	#[error("received an invalid filename and extension: <filename_and_extension='{0}'>")]
+	InvalidFilenameAndExtension(String),
 }
 
 #[cfg(feature = "location-watcher")]
@@ -145,8 +159,9 @@ pub async fn create_file_path(
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
-	use crate::{prisma::location, sync, util::db::uuid_to_bytes};
+	use crate::{sync, util::db::uuid_to_bytes};
 
+	use sd_prisma::prisma;
 	use serde_json::json;
 	use uuid::Uuid;
 
@@ -195,25 +210,22 @@ pub async fn create_file_path(
 				},
 				params,
 			),
-			db.file_path().create(
-				pub_id,
-				location::id::equals(location.id),
-				materialized_path.into_owned(),
-				name.into_owned(),
-				extension.into_owned(),
-				metadata.inode.to_le_bytes().into(),
-				metadata.device.to_le_bytes().into(),
-				{
-					use file_path::*;
-					vec![
-						cas_id::set(cas_id),
-						is_dir::set(is_dir),
-						size_in_bytes::set(metadata.size_in_bytes.to_string()),
-						date_created::set(metadata.created_at.into()),
-						date_modified::set(metadata.modified_at.into()),
-					]
-				},
-			),
+			db.file_path().create(pub_id, {
+				use file_path::*;
+				vec![
+					location::connect(prisma::location::id::equals(location.id)),
+					materialized_path::set(Some(materialized_path.into_owned())),
+					name::set(Some(name.into_owned())),
+					extension::set(Some(extension.into_owned())),
+					inode::set(Some(metadata.inode.to_le_bytes().into())),
+					device::set(Some(metadata.device.to_le_bytes().into())),
+					cas_id::set(cas_id),
+					is_dir::set(Some(is_dir)),
+					size_in_bytes::set(Some(metadata.size_in_bytes.to_string())),
+					date_created::set(Some(metadata.created_at.into())),
+					date_modified::set(Some(metadata.modified_at.into())),
+				]
+			}),
 		)
 		.await?;
 
@@ -222,12 +234,12 @@ pub async fn create_file_path(
 
 #[cfg(feature = "location-watcher")]
 pub async fn check_existing_file_path(
-	materialized_path: &IsolatedFilePathData<'_>,
+	iso_file_path: &IsolatedFilePathData<'_>,
 	db: &PrismaClient,
 ) -> Result<bool, FilePathError> {
 	Ok(db
 		.file_path()
-		.count(filter_existing_file_path_params(materialized_path))
+		.count(filter_existing_file_path_params(iso_file_path))
 		.exec()
 		.await? > 0)
 }
@@ -243,11 +255,11 @@ pub fn filter_existing_file_path_params(
 	}: &IsolatedFilePathData,
 ) -> Vec<file_path::WhereParam> {
 	vec![
-		file_path::location_id::equals(*location_id),
-		file_path::materialized_path::equals(materialized_path.to_string()),
-		file_path::is_dir::equals(*is_dir),
-		file_path::name::equals(name.to_string()),
-		file_path::extension::equals(extension.to_string()),
+		file_path::location_id::equals(Some(*location_id)),
+		file_path::materialized_path::equals(Some(materialized_path.to_string())),
+		file_path::is_dir::equals(Some(*is_dir)),
+		file_path::name::equals(Some(name.to_string())),
+		file_path::extension::equals(Some(extension.to_string())),
 	]
 }
 
@@ -265,25 +277,11 @@ pub fn loose_find_existing_file_path_params(
 	}: &IsolatedFilePathData,
 ) -> Vec<file_path::WhereParam> {
 	vec![
-		file_path::location_id::equals(*location_id),
-		file_path::materialized_path::equals(materialized_path.to_string()),
-		file_path::name::equals(name.to_string()),
-		file_path::extension::equals(extension.to_string()),
+		file_path::location_id::equals(Some(*location_id)),
+		file_path::materialized_path::equals(Some(materialized_path.to_string())),
+		file_path::name::equals(Some(name.to_string())),
+		file_path::extension::equals(Some(extension.to_string())),
 	]
-}
-
-#[cfg(feature = "location-watcher")]
-pub async fn get_parent_dir(
-	materialized_path: &IsolatedFilePathData<'_>,
-	db: &PrismaClient,
-) -> Result<Option<file_path::Data>, FilePathError> {
-	db.file_path()
-		.find_first(filter_existing_file_path_params(
-			&materialized_path.parent(),
-		))
-		.exec()
-		.await
-		.map_err(Into::into)
 }
 
 pub async fn ensure_sub_path_is_in_location(

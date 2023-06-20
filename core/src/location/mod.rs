@@ -1,14 +1,18 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobManagerError},
+	job::{Job, JobError, JobManagerError},
 	library::Library,
+	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
 	sync,
-	util::{db::uuid_to_bytes, error::FileIOError},
+	util::{
+		db::{chain_optional_iter, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use std::{
@@ -18,7 +22,10 @@ use std::{
 
 use futures::future::TryFutureExt;
 use normpath::PathExt;
-use prisma_client_rust::QueryError;
+use prisma_client_rust::{
+	operator::{and, or},
+	or, QueryError,
+};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -37,7 +44,7 @@ use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
-pub type LocationId = i32;
+use file_path_helper::IsolatedFilePathData;
 
 // Location includes!
 location::include!(location_with_indexer_rules {
@@ -117,24 +124,24 @@ impl LocationCreateArgs {
 				library.id,
 				uuid,
 				&self.path,
-				location.name.clone(),
+				location.name,
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
 				Ok(library
 					.location_manager()
-					.add(location.id, library.clone())
+					.add(location.data.id, library.clone())
 					.await?)
 			})
 			.await
 			{
-				delete_location(library, location.id).await?;
+				delete_location(library, location.data.id).await?;
 				Err(err)?;
 			}
 
-			info!("Created location: {location:?}");
+			info!("Created location: {:?}", &location.data);
 
-			Ok(Some(location))
+			Ok(Some(location.data))
 		} else {
 			Ok(None)
 		}
@@ -183,20 +190,20 @@ impl LocationCreateArgs {
 
 		if let Some(location) = location {
 			metadata
-				.add_library(library.id, uuid, &self.path, location.name.clone())
+				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
 			library
 				.location_manager()
-				.add(location.id, library.clone())
+				.add(location.data.id, library.clone())
 				.await?;
 
 			info!(
-				"Added library (library_id = {}) to location: {location:?}",
-				library.id
+				"Added library (library_id = {}) to location: {:?}",
+				library.id, &location.data
 			);
 
-			Ok(Some(location))
+			Ok(Some(location.data))
 		} else {
 			Ok(None)
 		}
@@ -211,7 +218,7 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: i32,
+	pub id: location::id::Type,
 	pub name: Option<String>,
 	pub generate_preview_media: Option<bool>,
 	pub sync_preview_media: Option<bool>,
@@ -232,22 +239,31 @@ impl LocationUpdateArgs {
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
 				.clone()
-				.filter(|name| &location.name != name)
-				.map(|v| ((location::name::NAME, json!(v)), location::name::set(v))),
+				.filter(|name| location.name.as_ref() != Some(name))
+				.map(|v| {
+					(
+						(location::name::NAME, json!(v)),
+						location::name::set(Some(v)),
+					)
+				}),
 			self.generate_preview_media.map(|v| {
 				(
 					(location::generate_preview_media::NAME, json!(v)),
-					location::generate_preview_media::set(v),
+					location::generate_preview_media::set(Some(v)),
 				)
 			}),
 			self.sync_preview_media.map(|v| {
 				(
 					(location::sync_preview_media::NAME, json!(v)),
-					location::sync_preview_media::set(v),
+					location::sync_preview_media::set(Some(v)),
 				)
 			}),
-			self.hidden
-				.map(|v| ((location::hidden::NAME, json!(v)), location::hidden::set(v))),
+			self.hidden.map(|v| {
+				(
+					(location::hidden::NAME, json!(v)),
+					location::hidden::set(Some(v)),
+				)
+			}),
 		]
 		.into_iter()
 		.flatten()
@@ -275,13 +291,15 @@ impl LocationUpdateArgs {
 			)
 			.await?;
 
-			if location.node_id == library.node_local_id {
-				if let Some(mut metadata) =
-					SpacedriveLocationMetadataFile::try_load(&location.path).await?
-				{
-					metadata
-						.update(library.id, self.name.expect("TODO"))
-						.await?;
+			if location.node_id == Some(library.node_local_id) {
+				if let Some(path) = &location.path {
+					if let Some(mut metadata) =
+						SpacedriveLocationMetadataFile::try_load(path).await?
+					{
+						metadata
+							.update(library.id, self.name.expect("TODO"))
+							.await?;
+					}
 				}
 			}
 		}
@@ -325,7 +343,10 @@ impl LocationUpdateArgs {
 	}
 }
 
-pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqueQuery {
+pub fn find_location(
+	library: &Library,
+	location_id: location::id::Type,
+) -> location::FindUniqueQuery {
 	library
 		.db
 		.location()
@@ -334,7 +355,7 @@ pub fn find_location(library: &Library, location_id: i32) -> location::FindUniqu
 
 async fn link_location_and_indexer_rules(
 	library: &Library,
-	location_id: i32,
+	location_id: location::id::Type,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
 	library
@@ -356,7 +377,7 @@ pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
-	if location.node_id != library.node_local_id {
+	if location.node_id != Some(library.node_local_id) {
 		return Ok(());
 	}
 
@@ -390,7 +411,7 @@ pub async fn scan_location_sub_path(
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != library.node_local_id {
+	if location.node_id != Some(library.node_local_id) {
 		return Ok(());
 	}
 
@@ -421,10 +442,10 @@ pub async fn light_scan_location(
 	library: Library,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobManagerError> {
+) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	if location.node_id != library.node_local_id {
+	if location.node_id != Some(library.node_local_id) {
 		return Ok(());
 	}
 
@@ -467,12 +488,18 @@ pub async fn relink_location(
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id),
-			vec![location::path::set(path)],
+			vec![location::path::set(Some(path))],
 		),
 	)
 	.await?;
 
 	Ok(())
+}
+
+#[derive(Debug)]
+pub struct CreatedLocationResult {
+	pub name: String,
+	pub data: location_with_indexer_rules::Data,
 }
 
 async fn create_location(
@@ -481,7 +508,7 @@ async fn create_location(
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 	dry_run: bool,
-) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
+) -> Result<Option<CreatedLocationResult>, LocationError> {
 	let Library { db, sync, .. } = &library;
 
 	let mut path = location_path.as_ref().to_path_buf();
@@ -524,7 +551,7 @@ async fn create_location(
 	if library
 		.db
 		.location()
-		.count(vec![location::path::equals(location_path.clone())])
+		.count(vec![location::path::equals(Some(location_path.clone()))])
 		.exec()
 		.await? > 0
 	{
@@ -559,29 +586,30 @@ async fn create_location(
 					pub_id: location_pub_id.as_bytes().to_vec(),
 				},
 				[
+					(location::name::NAME, json!(&name)),
+					(location::path::NAME, json!(&location_path)),
 					(
 						location::node::NAME,
 						json!(sync::node::SyncId {
 							pub_id: uuid_to_bytes(library.id)
 						}),
 					),
-					(location::name::NAME, json!(&name)),
-					(location::path::NAME, json!(&location_path)),
 				],
 			),
 			db.location()
 				.create(
 					location_pub_id.as_bytes().to_vec(),
-					name,
-					location_path,
-					node::id::equals(library.node_local_id),
-					vec![],
+					vec![
+						location::name::set(Some(name.clone())),
+						location::path::set(Some(location_path)),
+						location::node::connect(node::id::equals(library.node_local_id)),
+					],
 				)
 				.include(location_with_indexer_rules::include()),
 		)
 		.await?;
 
-	debug!("created in db");
+	debug!("New location created in db");
 
 	if !indexer_rules_ids.is_empty() {
 		link_location_and_indexer_rules(library, location.id, indexer_rules_ids).await?;
@@ -596,10 +624,16 @@ async fn create_location(
 
 	invalidate_query!(library, "locations.list");
 
-	Ok(Some(location))
+	Ok(Some(CreatedLocationResult {
+		data: location,
+		name,
+	}))
 }
 
-pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), LocationError> {
+pub async fn delete_location(
+	library: &Library,
+	location_id: location::id::Type,
+) -> Result<(), LocationError> {
 	let Library { db, .. } = library;
 
 	library
@@ -622,11 +656,11 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 		.exec()
 		.await?;
 
-	if location.node_id == library.node_local_id {
-		if let Ok(Some(mut metadata)) =
-			SpacedriveLocationMetadataFile::try_load(&location.path).await
-		{
-			metadata.remove_library(library.id).await?;
+	if location.node_id == Some(library.node_local_id) {
+		if let Some(path) = &location.path {
+			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+				metadata.remove_library(library.id).await?;
+			}
 		}
 	}
 
@@ -642,19 +676,24 @@ pub async fn delete_location(library: &Library, location_id: i32) -> Result<(), 
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
 	library: &Library,
-	location_id: i32,
-	parent_materialized_path: Option<String>,
+	location_id: location::id::Type,
+	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
-	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
-		vec![
-			file_path::location_id::equals(location_id),
-			file_path::materialized_path::starts_with(parent_materialized_path),
-		]
-	} else {
-		vec![file_path::location_id::equals(location_id)]
-	};
+	let children_params = chain_optional_iter(
+		[file_path::location_id::equals(Some(location_id))],
+		[parent_iso_file_path.and_then(|parent| {
+			parent
+				.materialized_path_for_children()
+				.map(|materialized_path| {
+					or![
+						and(filter_existing_file_path_params(parent)),
+						file_path::materialized_path::starts_with(materialized_path),
+					]
+				})
+		})],
+	);
 
 	// Fetching all object_ids from all children file_paths
 	let object_ids = db

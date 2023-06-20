@@ -34,7 +34,12 @@ async fn main() {
 
 	let _guard = Node::init_logger(&data_dir);
 
-	let (node, router) = Node::new(data_dir).await.expect("Unable to create node");
+	let (node, router) = match Node::new(data_dir).await {
+		Ok(d) => d,
+		Err(e) => {
+			panic!("{}", e.to_string())
+		}
+	};
 	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()

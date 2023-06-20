@@ -53,7 +53,7 @@ export const Component = () => {
 			)}
 		>
 			<DragRegion className="z-50 h-9" />
-			<div className="-mt-5 flex grow flex-col p-10">
+			<div className="-mt-5 flex grow flex-col gap-8 p-10">
 				<div className="flex grow flex-col items-center justify-center">
 					<Outlet />
 				</div>

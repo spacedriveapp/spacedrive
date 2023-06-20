@@ -1,7 +1,16 @@
 use crate::{
 	library::Library,
-	prisma::{indexer_rule, PrismaClient},
-	util::error::{FileIOError, NonUtf8PathError},
+	prisma::indexer_rule,
+	util::{
+		db::{maybe_missing, uuid_to_bytes, MissingFieldError},
+		error::{FileIOError, NonUtf8PathError},
+	},
+};
+
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	path::Path,
 };
 
 use chrono::{DateTime, Utc};
@@ -11,36 +20,34 @@ use rmp_serde::{self, decode, encode};
 use rspc::ErrorCode;
 use serde::{de, ser, Deserialize, Serialize};
 use specta::Type;
-use std::{
-	collections::{HashMap, HashSet},
-	marker::PhantomData,
-	path::Path,
-};
 use thiserror::Error;
 use tokio::fs;
 use tracing::debug;
+use uuid::Uuid;
 
 #[derive(Error, Debug)]
 pub enum IndexerRuleError {
 	// User errors
 	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
-	#[error("glob builder error")]
+	#[error("glob builder error: {0}")]
 	Glob(#[from] globset::Error),
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
 
 	// Internal Errors
-	#[error("indexer rule parameters encode error")]
+	#[error("indexer rule parameters encode error: {0}")]
 	RuleParametersRMPEncode(#[from] encode::Error),
-	#[error("indexer rule parameters decode error")]
+	#[error("indexer rule parameters decode error: {0}")]
 	RuleParametersRMPDecode(#[from] decode::Error),
-	#[error("accept by its children file I/O error")]
+	#[error("accept by its children file I/O error: {0}")]
 	AcceptByItsChildrenFileIO(FileIOError),
-	#[error("reject by its children file I/O error")]
+	#[error("reject by its children file I/O error: {0}")]
 	RejectByItsChildrenFileIO(FileIOError),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<IndexerRuleError> for rspc::Error {
@@ -117,11 +124,23 @@ impl IndexerRuleCreateArgs {
 			return Ok(None);
 		}
 
+		let date_created = Utc::now();
+
+		use indexer_rule::*;
+
 		Ok(Some(
 			library
 				.db
 				.indexer_rule()
-				.create(self.name, rules_data, vec![])
+				.create(
+					uuid_to_bytes(generate_pub_id()),
+					vec![
+						name::set(Some(self.name)),
+						rules_per_kind::set(Some(rules_data)),
+						date_created::set(Some(date_created.into())),
+						date_modified::set(Some(date_created.into())),
+					],
+				)
 				.exec()
 				.await?,
 		))
@@ -443,52 +462,11 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
-		Self {
-			id: None,
-			name,
-			default,
-			rules,
-			date_created: Utc::now(),
-			date_modified: Utc::now(),
-		}
-	}
-
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path>,
 	) -> Result<Vec<(RuleKind, bool)>, IndexerRuleError> {
 		try_join_all(self.rules.iter().map(|rule| rule.apply(source.as_ref()))).await
-	}
-
-	pub async fn save(self, client: &PrismaClient) -> Result<(), IndexerRuleError> {
-		if let Some(id) = self.id {
-			client
-				.indexer_rule()
-				.upsert(
-					indexer_rule::id::equals(id),
-					indexer_rule::create(
-						self.name,
-						rmp_serde::to_vec_named(&self.rules)?,
-						vec![indexer_rule::default::set(self.default)],
-					),
-					vec![indexer_rule::date_modified::set(Utc::now().into())],
-				)
-				.exec()
-				.await?;
-		} else {
-			client
-				.indexer_rule()
-				.create(
-					self.name,
-					rmp_serde::to_vec_named(&self.rules)?,
-					vec![indexer_rule::default::set(self.default)],
-				)
-				.exec()
-				.await?;
-		}
-
-		Ok(())
 	}
 
 	pub async fn apply_all(
@@ -515,11 +493,14 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: Some(data.id),
-			name: data.name.clone(),
-			default: data.default,
-			rules: rmp_serde::from_slice(&data.rules_per_kind)?,
-			date_created: data.date_created.into(),
-			date_modified: data.date_modified.into(),
+			name: maybe_missing(data.name.clone(), "indexer_rule.name")?,
+			default: maybe_missing(data.default, "indexer_rule.default")?,
+			rules: rmp_serde::from_slice(maybe_missing(
+				&data.rules_per_kind,
+				"indexer_rule.rules_per_kind",
+			)?)?,
+			date_created: maybe_missing(data.date_created, "indexer_rule.date_created")?.into(),
+			date_modified: maybe_missing(data.date_modified, "indexer_rule.date_modified")?.into(),
 		})
 	}
 }
@@ -626,11 +607,234 @@ async fn reject_dir_for_its_children(
 	Ok(true)
 }
 
+pub fn generate_pub_id() -> Uuid {
+	loop {
+		let pub_id = Uuid::new_v4();
+		if pub_id.as_u128() >= 0xFFF {
+			return pub_id;
+		}
+	}
+}
+
+mod seeder {
+	use crate::{
+		location::indexer::rules::{IndexerRuleError, RulePerKind},
+		prisma::PrismaClient,
+		util::db::uuid_to_bytes,
+	};
+	use chrono::Utc;
+	use sd_prisma::prisma::indexer_rule;
+	use thiserror::Error;
+	use uuid::Uuid;
+
+	#[derive(Error, Debug)]
+	pub enum SeederError {
+		#[error("Failed to run indexer rules seeder: {0}")]
+		IndexerRules(#[from] IndexerRuleError),
+		#[error("An error occurred with the database while applying migrations: {0}")]
+		DatabaseError(#[from] prisma_client_rust::QueryError),
+	}
+
+	struct SystemIndexerRule {
+		name: &'static str,
+		rules: Vec<RulePerKind>,
+		default: bool,
+	}
+
+	pub async fn seeder(client: &PrismaClient) -> Result<(), SeederError> {
+		// DO NOT REORDER THIS ARRAY!
+		for (i, rule) in [
+			no_os_protected(),
+			no_hidden(),
+			only_git_repos(),
+			only_images(),
+		]
+		.into_iter()
+		.enumerate()
+		{
+			let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
+			let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
+
+			use indexer_rule::*;
+
+			let data = vec![
+				name::set(Some(rule.name.to_string())),
+				rules_per_kind::set(Some(rules.clone())),
+				default::set(Some(rule.default)),
+				date_created::set(Some(Utc::now().into())),
+				date_modified::set(Some(Utc::now().into())),
+			];
+
+			client
+				.indexer_rule()
+				.upsert(
+					indexer_rule::pub_id::equals(pub_id.clone()),
+					indexer_rule::create(pub_id.clone(), data.clone()),
+					data,
+				)
+				.exec()
+				.await?;
+		}
+
+		Ok(())
+	}
+
+	fn no_os_protected() -> SystemIndexerRule {
+		SystemIndexerRule {
+        // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
+        // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
+        name: "No OS protected",
+        default: true,
+        rules: vec![
+            RulePerKind::new_reject_files_by_globs_str(
+                [
+                    vec![
+                        "**/.spacedrive",
+                    ],
+                    // Globset, even on Windows, requires the use of / as a separator
+                    // https://github.com/github/gitignore/blob/main/Global/Windows.gitignore
+                    // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+                    #[cfg(target_os = "windows")]
+                    vec![
+                        // Windows thumbnail cache files
+                        "**/{Thumbs.db,Thumbs.db:encryptable,ehthumbs.db,ehthumbs_vista.db}",
+                        // Dump file
+                        "**/*.stackdump",
+                        // Folder config file
+                        "**/[Dd]esktop.ini",
+                        // Recycle Bin used on file shares
+                        "**/$RECYCLE.BIN",
+                        // Chkdsk recovery directory
+                        "**/FOUND.[0-9][0-9][0-9]",
+                        // Reserved names
+                        "**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}",
+                        "**/{CON,PRN,AUX,NUL,COM0,COM1,COM2,COM3,COM4,COM5,COM6,COM7,COM8,COM9,LPT0,LPT1,LPT2,LPT3,LPT4,LPT5,LPT6,LPT7,LPT8,LPT9}.*",
+                        // User special files
+                        "C:/Users/*/NTUSER.DAT*",
+                        "C:/Users/*/ntuser.dat*",
+                        "C:/Users/*/{ntuser.ini,ntuser.dat,NTUSER.DAT}",
+                        // User special folders (most of these the user dont even have permission to access)
+                        "C:/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings}",
+                        // System special folders
+                        "C:/{$Recycle.Bin,$WinREAgent,Documents and Settings,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}",
+                        // NTFS internal dir, can exists on any drive
+                        "[A-Z]:/System Volume Information",
+                        // System special files
+                        "C:/{config,pagefile,hiberfil}.sys",
+                        // Windows can create a swapfile on any drive
+                        "[A-Z]:/swapfile.sys",
+                        "C:/DumpStack.log.tmp",
+                    ],
+                    // https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
+                    // https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW14
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
+                    vec![
+                        "**/.{DS_Store,AppleDouble,LSOverride}",
+                        // Icon must end with two \r
+                        "**/Icon\r\r",
+                        // Thumbnails
+                        "**/._*",
+                    ],
+                    #[cfg(target_os = "macos")]
+                    vec![
+                        "/{System,Network,Library,Applications}",
+                        "/Users/*/{Library,Applications}",
+						"**/*.photoslibrary/{database,external,private,resources,scope}",
+                        // Files that might appear in the root of a volume
+                        "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
+                        // Directories potentially created on remote AFP share
+                        "**/.{AppleDB,AppleDesktop,apdisk}",
+                        "**/{Network Trash Folder,Temporary Items}",
+                    ],
+                    // https://github.com/github/gitignore/blob/main/Global/Linux.gitignore
+                    #[cfg(target_os = "linux")]
+                    vec![
+                        "**/*~",
+                        // temporary files which can be created if a process still has a handle open of a deleted file
+                        "**/.fuse_hidden*",
+                        // KDE directory preferences
+                        "**/.directory",
+                        // Linux trash folder which might appear on any partition or disk
+                        "**/.Trash-*",
+                        // .nfs files are created when an open file is removed but is still being accessed
+                        "**/.nfs*",
+                    ],
+                    #[cfg(target_os = "android")]
+                    vec![
+                        "**/.nomedia",
+                        "**/.thumbnails",
+                    ],
+                    // https://en.wikipedia.org/wiki/Unix_filesystem#Conventional_directory_layout
+                    // https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard
+                    #[cfg(target_family = "unix")]
+                    vec![
+                        // Directories containing unix memory/device mapped files/dirs
+                        "/{dev,sys,proc}",
+                        // Directories containing special files for current running programs
+                        "/{run,var,boot}",
+                        // ext2-4 recovery directory
+                        "**/lost+found",
+                    ],
+                ]
+                .into_iter()
+                .flatten()
+            ).expect("this is hardcoded and should always work"),
+        ],
+    }
+	}
+
+	fn no_hidden() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "No Hidden",
+			default: true,
+			rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
+				.expect("this is hardcoded and should always work")],
+		}
+	}
+
+	fn only_git_repos() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "Only Git Repositories",
+			default: false,
+			rules: vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
+				[".git".to_string()].into_iter().collect(),
+			)],
+		}
+	}
+
+	fn only_images() -> SystemIndexerRule {
+		SystemIndexerRule {
+			name: "Only Images",
+			default: false,
+			rules: vec![RulePerKind::new_accept_files_by_globs_str([
+				"*.{avif,bmp,gif,ico,jpeg,jpg,png,svg,tif,tiff,webp}",
+			])
+			.expect("this is hardcoded and should always work")],
+		}
+	}
+}
+
+pub use seeder::*;
+
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 	use tempfile::tempdir;
 	use tokio::fs;
+
+	impl IndexerRule {
+		pub fn new(name: String, default: bool, rules: Vec<RulePerKind>) -> Self {
+			Self {
+				id: None,
+				name,
+				default,
+				rules,
+				date_created: Utc::now(),
+				date_modified: Utc::now(),
+			}
+		}
+	}
 
 	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
 		indexer_rule

@@ -33,6 +33,7 @@ interface ListViewItemProps {
 	row: Row<ExplorerItem>;
 	columnSizing: ColumnSizingState;
 	paddingX: number;
+	selected: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
@@ -136,10 +137,10 @@ export default () => {
 							{filePathData && (
 								<RenameTextBox
 									filePathData={filePathData}
-									selected={selected}
 									disabled={
-										Array.isArray(explorerView.selected) &&
-										explorerView.selected.length > 1
+										!selected ||
+										(Array.isArray(explorerView.selected) &&
+											explorerView.selected.length > 1)
 									}
 									activeClassName="absolute z-50 top-0.5 left-[58px] max-w-[calc(100%-60px)]"
 								/>
@@ -186,7 +187,7 @@ export default () => {
 				accessorFn: (file) => getExplorerItemData(file).casId
 			}
 		],
-		[explorerView.selected, explorerStore.isRenaming]
+		[explorerView.selected]
 	);
 
 	const table = useReactTable({
@@ -253,7 +254,7 @@ export default () => {
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
 	) {
-		if (!explorerView.onSelectedChange) return;
+		if (!explorerView.onSelectedChange || e.button !== 0) return;
 
 		const rowIndex = row.index;
 		const itemId = row.original.item.id;
@@ -328,8 +329,8 @@ export default () => {
 			}
 
 			explorerView.onSelectedChange?.([...updated]);
-		} else if (e.button === 0) {
-			explorerView.onSelectedChange?.(explorerView.multiSelect ? [itemId] : itemId);
+		} else {
+			explorerView.onSelectedChange(explorerView.multiSelect ? [itemId] : itemId);
 			setRanges([[itemId, itemId]]);
 		}
 	}
@@ -507,7 +508,7 @@ export default () => {
 				}
 			}
 		},
-		{ when: !explorerStore.isRenaming }
+		{ when: !explorerView.isRenaming }
 	);
 
 	return (
@@ -670,7 +671,7 @@ export default () => {
 												key={row.id}
 												className={clsx(
 													'absolute left-0 top-0 flex w-full',
-													explorerStore.isRenaming && selected && 'z-10'
+													explorerView.isRenaming && selected && 'z-10'
 												)}
 												style={{
 													height: `${virtualRow.size}px`,
@@ -683,12 +684,15 @@ export default () => {
 												}}
 											>
 												<div
-													onMouseDown={(e) => handleRowClick(e, row)}
+													onMouseDown={(e) => {
+														e.stopPropagation();
+														handleRowClick(e, row);
+													}}
 													onContextMenu={() => handleRowContextMenu(row)}
 													className={clsx(
 														'relative flex h-full w-full rounded-md border',
 														virtualRow.index % 2 === 0 &&
-															'bg-[#00000006] dark:bg-[#00000030]',
+															'bg-app-darkBox',
 														selected
 															? 'border-accent !bg-accent/10'
 															: 'border-transparent',
@@ -708,6 +712,7 @@ export default () => {
 														row={row}
 														paddingX={paddingX}
 														columnSizing={columnSizing}
+														selected={selected}
 													/>
 												</div>
 											</div>

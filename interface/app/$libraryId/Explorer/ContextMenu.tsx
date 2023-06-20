@@ -92,9 +92,9 @@ export default (props: PropsWithChildren) => {
 								params.path &&
 								copyFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
-									source_path_id: store.cutCopyState.sourcePathId,
+									sources_file_path_ids: [store.cutCopyState.sourcePathId],
 									target_location_id: store.locationId,
-									target_path: params.path,
+									target_location_relative_directory_path: params.path,
 									target_file_name_suffix: null
 								});
 						} else {
@@ -102,9 +102,9 @@ export default (props: PropsWithChildren) => {
 								params.path &&
 								cutFiles.mutate({
 									source_location_id: store.cutCopyState.sourceLocationId,
-									source_path_id: store.cutCopyState.sourcePathId,
+									sources_file_path_ids: [store.cutCopyState.sourcePathId],
 									target_location_id: store.locationId,
-									target_path: params.path
+									target_location_relative_directory_path: params.path
 								});
 						}
 					}}

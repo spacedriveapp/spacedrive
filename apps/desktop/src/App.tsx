@@ -20,6 +20,7 @@ import '@sd/ui/style';
 import {
 	appReady,
 	getFilePathOpenWithApps,
+	lockAppTheme,
 	openFilePath,
 	openFilePathWith,
 	openLogsDir
@@ -58,7 +59,11 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		convertFileSrc(
+			`thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}`,
+			'spacedrive'
+		),
 	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
 		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
 		if (_linux_workaround && customUriServerUrl) {
@@ -80,7 +85,8 @@ const platform: Platform = {
 	openLogsDir,
 	openFilePath,
 	getFilePathOpenWithApps,
-	openFilePathWith
+	openFilePathWith,
+	lockAppTheme
 };
 
 const queryClient = new QueryClient();

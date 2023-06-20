@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { forwardRef, memo } from 'react';
-import { ChangeEvent, ChangeEventHandler } from 'react';
+import { ChangeEvent, ChangeEventHandler, forwardRef, memo } from 'react';
 import { Input } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';

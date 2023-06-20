@@ -9,10 +9,11 @@ use crate::{
 	util::AbortOnDrop,
 };
 
+use std::path::PathBuf;
+
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
 
 use super::{utils::library, Ctx, R};
 
@@ -28,12 +29,16 @@ pub enum ExplorerContext {
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_thumbnail is determined by the local existence of a thumbnail
-		has_thumbnail: bool,
+		// has_local_thumbnail is true only if there is local existence of a thumbnail
+		has_local_thumbnail: bool,
+		// thumbnail_key is present if there is a cas_id
+		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
+		thumbnail_key: Option<Vec<String>>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_thumbnail: bool,
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
 }
@@ -63,7 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("get", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -74,7 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("getWithRules", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -102,12 +107,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					delete_location(&library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
-				})
+				},
+			)
 		})
 		.procedure("relink", {
 			R.with2(library())
@@ -128,8 +134,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("fullRescan", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					// rescan location
 					scan_location(
 						&library,
@@ -141,12 +147,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					)
 					.await
 					.map_err(Into::into)
-				})
+				},
+			)
 		})
 		.procedure("quickRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LightScanArgs {
-				pub location_id: i32,
+				pub location_id: location::id::Type,
 				pub sub_path: String,
 			}
 
@@ -208,7 +215,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 					{
-						if indexer_rule.default {
+						if indexer_rule.default.unwrap_or_default() {
 							return Err(rspc::Error::new(
 								ErrorCode::Forbidden,
 								format!("Indexer rule <id={indexer_rule_id}> can't be deleted"),
@@ -271,7 +278,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					library
 						.db
 						.indexer_rule()

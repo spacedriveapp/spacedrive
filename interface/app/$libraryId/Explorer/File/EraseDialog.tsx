@@ -30,7 +30,7 @@ export default (props: Props) => {
 			onSubmit={form.handleSubmit((data) =>
 				eraseFile.mutateAsync({
 					location_id: props.location_id,
-					path_id: props.path_id,
+					file_path_ids: [props.path_id],
 					passes: data.passes.toString()
 				})
 			)}

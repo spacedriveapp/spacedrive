@@ -8,11 +8,11 @@ export function useIsDark(): boolean {
 	const [isDark, setIsDark] = useState(themeStore.theme === 'dark');
 
 	useEffect(() => {
-		 if (themeStore.syncThemeWithSystem) {
+		if (themeStore.syncThemeWithSystem) {
 			if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
 				setIsDark(true);
 			} else setIsDark(false);
-		 } else {
+		} else {
 			if (themeStore.theme === 'dark') {
 				setIsDark(true);
 			} else if (themeStore.theme === 'vanilla') {

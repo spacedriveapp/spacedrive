@@ -1,19 +1,17 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { z } from 'zod';
 import {
-	ExplorerItem,
 	useLibraryContext,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
 import { Folder } from '~/components/Folder';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useKeyDeleteFile,
 	useZodRouteParams
 } from '~/hooks';
 import Explorer from '../Explorer';
@@ -57,14 +55,16 @@ export const Component = () => {
 		<>
 			<TopBarPortal
 				left={
-					<div className='group flex flex-row items-center space-x-2'>
-						<span>
+					<div className="group flex flex-row items-center space-x-2">
+						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="text-sm font-medium">
+							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
 								{path ? getLastSectionOfPath(path) : location.data?.name}
 							</span>
 						</span>
-						{location.data && <LocationOptions location={location.data} path={path || ""} />}
+						{location.data && (
+							<LocationOptions location={location.data} path={path || ''} />
+						)}
 					</div>
 				}
 				right={
@@ -114,7 +114,8 @@ const useItems = () => {
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
-		keepPreviousData: true
+		keepPreviousData: true,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);

@@ -1,4 +1,9 @@
-use crate::{job::JobManagerError, library::Library, util::error::FileIOError};
+use crate::{
+	job::JobManagerError,
+	library::Library,
+	prisma::location,
+	util::{db::MissingFieldError, error::FileIOError},
+};
 
 use std::{
 	collections::BTreeSet,
@@ -18,7 +23,7 @@ use tracing::{debug, error};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use super::{file_path_helper::FilePathError, LocationId};
+use super::file_path_helper::FilePathError;
 
 #[cfg(feature = "location-watcher")]
 mod watcher;
@@ -36,7 +41,7 @@ enum ManagementMessageAction {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct LocationManagementMessage {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	action: ManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
@@ -53,7 +58,7 @@ enum WatcherManagementMessageAction {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct WatcherManagementMessage {
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	action: WatcherManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
@@ -84,10 +89,10 @@ pub enum LocationManagerError {
 	FailedToStopOrReinitWatcher { reason: String },
 
 	#[error("Missing location from database: <id='{0}'>")]
-	MissingLocation(LocationId),
+	MissingLocation(location::id::Type),
 
 	#[error("Non local location: <id='{0}'>")]
-	NonLocalLocation(LocationId),
+	NonLocalLocation(location::id::Type),
 
 	#[error("failed to move file '{}' for reason: {reason}", .path.display())]
 	MoveError { path: Box<Path>, reason: String },
@@ -102,6 +107,8 @@ pub enum LocationManagerError {
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
 	JobManager(#[from] JobManagerError),
+	#[error("missing-field")]
+	MissingField(#[from] MissingFieldError),
 
 	#[error("invalid inode")]
 	InvalidInode,
@@ -168,7 +175,7 @@ impl LocationManager {
 	#[allow(unused_variables)]
 	async fn location_management_message(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
@@ -196,7 +203,7 @@ impl LocationManager {
 	#[allow(unused_variables)]
 	async fn watcher_management_message(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
@@ -222,7 +229,7 @@ impl LocationManager {
 
 	pub async fn add(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Add)
@@ -231,7 +238,7 @@ impl LocationManager {
 
 	pub async fn remove(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Remove)
@@ -240,7 +247,7 @@ impl LocationManager {
 
 	pub async fn stop_watcher(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(location_id, library, WatcherManagementMessageAction::Stop)
@@ -249,7 +256,7 @@ impl LocationManager {
 
 	pub async fn reinit_watcher(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(
@@ -262,7 +269,7 @@ impl LocationManager {
 
 	pub async fn temporary_stop(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 	) -> Result<StopWatcherGuard, LocationManagerError> {
 		self.stop_watcher(location_id, library.clone()).await?;
@@ -276,7 +283,7 @@ impl LocationManager {
 
 	pub async fn temporary_ignore_events_for_path(
 		&self,
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
@@ -446,7 +453,7 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
-						if location.node_id == library.node_local_id {
+						if location.node_id == Some(library.node_local_id) {
 							let is_online = match check_online(&location, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {
@@ -551,7 +558,7 @@ impl Drop for LocationManager {
 #[must_use = "this `StopWatcherGuard` must be held for some time, so the watcher is stopped"]
 pub struct StopWatcherGuard<'m> {
 	manager: &'m LocationManager,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Option<Library>,
 }
 
@@ -573,7 +580,7 @@ impl Drop for StopWatcherGuard<'_> {
 pub struct IgnoreEventsForPathGuard<'m> {
 	manager: &'m LocationManager,
 	path: Option<PathBuf>,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Option<Library>,
 }
 

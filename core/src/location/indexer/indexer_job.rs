@@ -1,11 +1,12 @@
 use crate::{
-	file_paths_db_fetcher_fn,
+	extract_job_data_mut, file_paths_db_fetcher_fn,
 	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		IsolatedFilePathData,
 	},
 	to_remove_db_fetcher_fn,
+	util::db::maybe_missing,
 };
 
 use std::{path::Path, sync::Arc};
@@ -58,11 +59,12 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
-		mut ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let location_id = state.init.location.id;
-		let location_path = Path::new(&state.init.location.path);
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		let db = Arc::clone(&ctx.library.db);
 
@@ -107,7 +109,7 @@ impl StatefulJob for IndexerJob {
 			walk(
 				&to_walk_path,
 				&indexer_rules,
-				update_notifier_fn(BATCH_SIZE, &mut ctx),
+				update_notifier_fn(BATCH_SIZE, ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
@@ -144,7 +146,7 @@ impl StatefulJob for IndexerJob {
 		);
 
 		IndexerJobData::on_scan_progress(
-			&mut ctx,
+			ctx,
 			vec![ScanProgress::Message(format!(
 				"Starting saving {total_paths} files or directories, \
 					there still {to_walk_count} directories to index",
@@ -174,24 +176,21 @@ impl StatefulJob for IndexerJob {
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		mut ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let data = state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state");
+		let data = extract_job_data_mut!(state);
 
 		match &state.steps[0] {
 			IndexerJobStepInput::Save(step) => {
 				let start_time = Instant::now();
 
 				IndexerJobData::on_scan_progress(
-					&mut ctx,
+					ctx,
 					vec![
 						ScanProgress::SavedChunks(step.chunk_idx),
 						ScanProgress::Message(format!(
-							"Writing {}/{} to db",
+							"Writing chunk {} of {} to database",
 							step.chunk_idx, data.total_save_steps
 						)),
 					],
@@ -206,7 +205,9 @@ impl StatefulJob for IndexerJob {
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = state.init.location.id;
-				let location_path = Path::new(&state.init.location.path);
+				let location_path =
+					maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+
 				let db = Arc::clone(&ctx.library.db);
 
 				let scan_start = Instant::now();
@@ -220,7 +221,7 @@ impl StatefulJob for IndexerJob {
 					keep_walking(
 						to_walk_entry,
 						&data.indexer_rules,
-						update_notifier_fn(BATCH_SIZE, &mut ctx),
+						update_notifier_fn(BATCH_SIZE, ctx),
 						file_paths_db_fetcher_fn!(&db),
 						to_remove_db_fetcher_fn!(location_id, location_path, &db),
 						iso_file_path_factory(location_id, location_path),
@@ -235,8 +236,8 @@ impl StatefulJob for IndexerJob {
 				data.removed_count += remove_non_existing_file_paths(to_remove, &db).await?;
 				data.db_write_time += db_delete_time.elapsed();
 
-				let old_total = data.total_paths;
-				let old_steps_count = state.steps.len() as u64;
+				let _old_total = data.total_paths;
+				let _old_steps_count = state.steps.len() as u64;
 
 				state.steps.extend(
 					walked
@@ -255,14 +256,14 @@ impl StatefulJob for IndexerJob {
 						.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
 				);
 
-				IndexerJobData::on_scan_progress(
-					&mut ctx,
-					vec![ScanProgress::Message(format!(
-						"Scanned more {} files or directories; {} more directories to scan",
-						data.total_paths - old_total,
-						state.steps.len() as u64 - old_steps_count - data.total_paths
-					))],
-				);
+				// IndexerJobData::on_scan_progress(
+				// 	&mut ctx,
+				// 	vec![ScanProgress::Message(format!(
+				// 		"Scanned more {} files or directories; {} more directories to scan",
+				// 		data.total_paths - old_total,
+				// 		state.steps.len() as u64 - old_steps_count - data.total_paths
+				// 	))],
+				// );
 
 				if !errors.is_empty() {
 					return Err(JobError::StepCompletedWithErrors(
@@ -275,7 +276,10 @@ impl StatefulJob for IndexerJob {
 		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_indexer(&state.init.location.path, state, ctx)
+	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		let location_path =
+			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+
+		finalize_indexer(location_path, state, ctx)
 	}
 }

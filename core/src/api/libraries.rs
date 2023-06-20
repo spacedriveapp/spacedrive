@@ -1,7 +1,7 @@
 use crate::{
-	invalidate_query,
 	library::LibraryConfig,
 	prisma::statistics,
+	util::MaybeUndefined,
 	volume::{get_volumes, save_volume},
 };
 
@@ -98,20 +98,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let new_library = ctx
 					.library_manager
-					.create(LibraryConfig {
-						name: args.name.to_string(),
-						..Default::default()
-					})
+					.create(
+						LibraryConfig::new(args.name.to_string(), ctx.config.get().await.id),
+						ctx.config.get().await,
+					)
 					.await?;
-
-				invalidate_query!(
-					// SAFETY: This unwrap is alright as we just created the library
-					ctx.library_manager
-						.get_library(new_library.uuid)
-						.await
-						.expect("We just created the library. Where do it be?"),
-					"library.statistics"
-				);
 
 				Ok(new_library)
 			})
@@ -121,7 +112,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct EditLibraryArgs {
 				pub id: Uuid,
 				pub name: Option<String>,
-				pub description: Option<String>,
+				pub description: MaybeUndefined<String>,
 			}
 
 			R.mutation(|ctx, args: EditLibraryArgs| async move {

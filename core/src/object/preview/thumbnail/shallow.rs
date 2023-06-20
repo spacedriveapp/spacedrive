@@ -1,17 +1,13 @@
 use super::{
 	ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
-	THUMBNAIL_CACHE_DIR_NAME,
 };
 use crate::{
 	invalidate_query,
 	job::JobError,
 	library::Library,
-	location::{
-		file_path_helper::{
-			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-			file_path_for_thumbnailer, IsolatedFilePathData,
-		},
-		LocationId,
+	location::file_path_helper::{
+		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
 	object::preview::thumbnail,
 	prisma::{file_path, location, PrismaClient},
@@ -19,6 +15,7 @@ use crate::{
 };
 use sd_file_ext::extensions::Extension;
 use std::path::{Path, PathBuf};
+use thumbnail::init_thumbnail_dir;
 use tokio::fs;
 use tracing::info;
 
@@ -32,13 +29,13 @@ pub async fn shallow_thumbnailer(
 ) -> Result<(), JobError> {
 	let Library { db, .. } = &library;
 
-	let thumbnail_dir = library
-		.config()
-		.data_directory()
-		.join(THUMBNAIL_CACHE_DIR_NAME);
+	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
 
 	let location_id = location.id;
-	let location_path = PathBuf::from(&location.path);
+	let location_path = match &location.path {
+		Some(v) => PathBuf::from(v),
+		None => return Ok(()),
+	};
 
 	let (path, iso_file_path) = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)
@@ -117,7 +114,7 @@ pub async fn shallow_thumbnailer(
 	.flatten();
 
 	for file in all_files {
-		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, &library)
+		thumbnail::inner_process_step(&file, &location_path, &thumbnail_dir, location, library)
 			.await?;
 	}
 
@@ -128,7 +125,7 @@ pub async fn shallow_thumbnailer(
 
 async fn get_files_by_extensions(
 	db: &PrismaClient,
-	location_id: LocationId,
+	location_id: location::id::Type,
 	parent_isolated_file_path_data: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 	kind: ThumbnailerJobStepKind,
@@ -136,13 +133,13 @@ async fn get_files_by_extensions(
 	Ok(db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(location_id),
+			file_path::location_id::equals(Some(location_id)),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::materialized_path::equals(
+			file_path::materialized_path::equals(Some(
 				parent_isolated_file_path_data
 					.materialized_path_for_children()
 					.expect("sub path iso_file_path must be a directory"),
-			),
+			)),
 		])
 		.select(file_path_for_thumbnailer::select())
 		.exec()

@@ -21,9 +21,9 @@ enum ModelSyncType<'a> {
 	Local {
 		id: FieldVec<'a>,
 	},
-	Owned {
-		id: FieldVec<'a>,
-	},
+	// Owned {
+	// 	id: FieldVec<'a>,
+	// },
 	Shared {
 		id: FieldVec<'a>,
 	},
@@ -56,7 +56,7 @@ impl<'a> ModelSyncType<'a> {
 
 		Some(match attr.name {
 			"local" => Self::Local { id },
-			"owned" => Self::Owned { id },
+			// "owned" => Self::Owned { id },
 			"shared" => Self::Shared { id },
 			_ => return None,
 		})
@@ -64,7 +64,7 @@ impl<'a> ModelSyncType<'a> {
 
 	fn sync_id(&self) -> Vec<FieldWalker> {
 		match self {
-			Self::Owned { id } => id.clone(),
+			// Self::Owned { id } => id.clone(),
 			Self::Local { id } => id.clone(),
 			Self::Shared { id } => id.clone(),
 			_ => vec![],
@@ -76,7 +76,7 @@ impl ToTokens for ModelSyncType<'_> {
 	fn to_tokens(&self, tokens: &mut TokenStream) {
 		let variant = match self {
 			Self::Local { .. } => "Local",
-			Self::Owned { .. } => "Owned",
+			// Self::Owned { .. } => "Owned",
 			Self::Shared { .. } => "Shared",
 			Self::Relation { .. } => "Relation",
 		};
@@ -246,7 +246,7 @@ impl PrismaGenerator for SDSyncGenerator {
 
 					sync_type.and_then(|a| {
 						let data_type = match a {
-							ModelSyncType::Owned { .. } => quote!(OwnedOperationData),
+							// ModelSyncType::Owned { .. } => quote!(OwnedOperationData),
 							ModelSyncType::Shared { .. } => quote!(SharedOperationData),
 							ModelSyncType::Relation { .. } => {
 								quote!(RelationOperationData)
@@ -263,12 +263,12 @@ impl PrismaGenerator for SDSyncGenerator {
 						let cond = quote!(if op.model == prisma::#model_name_snake::NAME);
 
 						let match_case = match a {
-							ModelSyncType::Owned { .. } => {
-								quote! {
-									#op_type_enum::Owned(op) #cond =>
-										Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
-								}
-							}
+							// ModelSyncType::Owned { .. } => {
+							// 	quote! {
+							// 		#op_type_enum::Owned(op) #cond =>
+							// 			Self::#model_name_pascal(serde_json::from_value(op.record_id).ok()?, op.data)
+							// 	}
+							// }
 							ModelSyncType::Shared { .. } => {
 								quote! {
 									#op_type_enum::Shared(op) #cond =>

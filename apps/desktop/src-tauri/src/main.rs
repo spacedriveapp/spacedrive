@@ -17,6 +17,8 @@ use tracing::{debug, error};
 #[cfg(target_os = "linux")]
 mod app_linux;
 
+mod theme;
+
 mod file;
 mod menu;
 
@@ -52,7 +54,10 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
-		.js_init_script(format!(r#"window.__SD_ERROR__ = `{err}`;"#))
+		.js_init_script(format!(
+			r#"window.__SD_ERROR__ = `{}`;"#,
+			err.to_string().replace('`', "\"")
+		))
 		.build()
 }
 
@@ -161,7 +166,8 @@ async fn main() -> tauri::Result<()> {
 			open_logs_dir,
 			file::open_file_path,
 			file::get_file_path_open_with_apps,
-			file::open_file_path_with
+			file::open_file_path_with,
+			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;
 

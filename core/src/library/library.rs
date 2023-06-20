@@ -9,17 +9,18 @@ use crate::{
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
 };
 
 use std::{
+	collections::HashMap,
 	fmt::{Debug, Formatter},
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
-use sd_crypto::keys::keymanager::KeyManager;
+use sd_p2p::spacetunnel::Identity;
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
@@ -39,11 +40,13 @@ pub struct Library {
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
-	pub key_manager: Arc<KeyManager>,
+	// pub key_manager: Arc<KeyManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
+	/// p2p identity
+	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
 }
 
@@ -101,20 +104,46 @@ impl Library {
 	}
 
 	/// Returns the full path of a file
-	pub async fn get_file_path(&self, id: i32) -> Result<Option<PathBuf>, LibraryManagerError> {
-		Ok(self
-			.db
-			.file_path()
-			.find_first(vec![
-				file_path::location::is(vec![location::node_id::equals(self.node_local_id)]),
-				file_path::id::equals(id),
-			])
-			.select(file_path_to_full_path::select())
-			.exec()
-			.await?
-			.map(|record| {
-				Path::new(&record.location.path)
-					.join(IsolatedFilePathData::from((record.location.id, &record)))
-			}))
+	pub async fn get_file_paths(
+		&self,
+		ids: Vec<file_path::id::Type>,
+	) -> Result<HashMap<file_path::id::Type, Option<PathBuf>>, LibraryManagerError> {
+		let mut out = ids
+			.iter()
+			.copied()
+			.map(|id| (id, None))
+			.collect::<HashMap<_, _>>();
+
+		out.extend(
+			self.db
+				.file_path()
+				.find_many(vec![
+					file_path::location::is(vec![location::node_id::equals(Some(
+						self.node_local_id,
+					))]),
+					file_path::id::in_vec(ids),
+				])
+				.select(file_path_to_full_path::select())
+				.exec()
+				.await?
+				.into_iter()
+				.flat_map(|file_path| {
+					let location = maybe_missing(&file_path.location, "file_path.location")?;
+
+					Ok::<_, LibraryManagerError>((
+						file_path.id,
+						location
+							.path
+							.as_ref()
+							.map(|location_path| {
+								IsolatedFilePathData::try_from((location.id, &file_path))
+									.map(|data| Path::new(&location_path).join(data))
+							})
+							.transpose()?,
+					))
+				}),
+		);
+
+		Ok(out)
 	}
 }

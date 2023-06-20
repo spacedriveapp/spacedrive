@@ -1,5 +1,5 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { CheckBox, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
 
 interface Propps extends UseDialogProps {
@@ -18,7 +18,7 @@ export default (props: Propps) => {
 			onSubmit={form.handleSubmit(() =>
 				deleteFile.mutateAsync({
 					location_id: props.location_id,
-					path_id: props.path_id
+					file_path_ids: [props.path_id]
 				})
 			)}
 			dialog={useDialog(props)}
@@ -27,7 +27,12 @@ export default (props: Propps) => {
 			loading={deleteFile.isLoading}
 			ctaLabel="Delete"
 		>
-			<p>TODO: checkbox for "delete all matching files" (only if a file is selected)</p>
+			<Tooltip label="Coming soon">
+				<div className="flex items-center opacity-50">
+					<CheckBox disabled className="!mt-0" />
+					<p className="text-sm text-ink-faint">Delete all matching files</p>
+				</div>
+			</Tooltip>
 		</Dialog>
 	);
 };

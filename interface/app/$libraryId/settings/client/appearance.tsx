@@ -1,11 +1,10 @@
 import clsx from 'clsx';
-import { ArrowClockwise, CheckCircle } from 'phosphor-react';
-import { useEffect } from 'react';
-import { useState } from 'react';
-import { getThemeStore, useThemeStore } from '@sd/client';
-import { Themes } from '@sd/client';
-import { Button, Divider, Slider, forms } from '@sd/ui';
-import { InfoText } from '@sd/ui/src/forms';
+import { useMotionValueEvent, useScroll } from 'framer-motion';
+import { CheckCircle } from 'phosphor-react';
+import { useEffect, useRef, useState } from 'react';
+import { Themes, getThemeStore, useThemeStore } from '@sd/client';
+import { Button, Slider, forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -56,10 +55,20 @@ const themes: Theme[] = [
 ];
 
 export const Component = () => {
+	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
+	const themesRef = useRef<HTMLDivElement>(null);
+	const [themeScroll, setThemeScroll] = useState(0);
+	const { scrollX } = useScroll({
+		container: themesRef
+	});
+	useMotionValueEvent(scrollX, 'change', (latest) => {
+		setThemeScroll(latest);
+	});
+
 	const form = useZodForm({
 		schema
 	});
@@ -70,12 +79,15 @@ export const Component = () => {
 
 	useEffect(() => {
 		const subscription = form.watch(() => onSubmit());
-		return () => subscription.unsubscribe();
+		return () => {
+			subscription.unsubscribe();
+		};
 	}, [form, onSubmit]);
 
 	const themeSelectHandler = (theme: Theme['themeValue']) => {
 		setSelectedTheme(theme);
 		if (theme === 'system') {
+			lockAppTheme?.('Auto');
 			getThemeStore().syncThemeWithSystem = true;
 		} else if (theme === 'vanilla') {
 			getThemeStore().syncThemeWithSystem = false;
@@ -96,7 +108,6 @@ export const Component = () => {
 			document.documentElement.style.setProperty('--dark-hue', hue.toString());
 		}
 	};
-
 	return (
 		<>
 			<Form form={form} onSubmit={onSubmit}>
@@ -106,19 +117,12 @@ export const Component = () => {
 					rightArea={
 						<div>
 							<Button
-								disabled={
-									themeStore.theme === 'dark' && themeStore.hueValue === 235
-								}
-								variant={
-									themeStore.theme === 'dark' && themeStore.hueValue === 235
-										? 'outline'
-										: 'accent'
-								}
+								disabled={themeStore.hueValue === 235}
+								variant={themeStore.hueValue === 235 ? 'outline' : 'accent'}
 								size="sm"
 								className="flex items-center gap-1"
 								onClick={() => {
 									hueSliderHandler(235);
-									themeSelectHandler('dark');
 								}}
 							>
 								Reset
@@ -126,14 +130,22 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div className="mb-14 mt-8 flex h-[90px] w-full flex-wrap gap-5">
+				<div
+					style={{
+						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
+							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
+						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
+					}}
+					ref={themesRef}
+					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
+				>
 					{themes.map((theme, i) => {
 						return (
 							<div
 								onClick={() => themeSelectHandler(theme.themeValue)}
 								className={clsx(
 									selectedTheme !== theme.themeValue && 'opacity-70',
-									'transition-all duration-200 hover:translate-y-[-3.5px]'
+									'h-[100px] transition-all duration-200  hover:translate-y-[3.5px] lg:first:ml-0 '
 								)}
 								key={i}
 							>
@@ -152,28 +164,27 @@ export const Component = () => {
 						);
 					})}
 				</div>
-				<Setting mini title="Theme hue value" description="Change the hue of the theme">
-					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
-						<div className="w-full">
-							<Slider
-								value={[themeStore.hueValue ?? 235]}
-								onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
-								min={0}
-								max={359}
-								step={1}
-								defaultValue={[235]}
-							/>
-							<p className="text-center text-xs text-ink-faint">
-								{themeStore.hueValue}
-							</p>
+
+				{themeStore.theme === 'dark' && (
+					<Setting mini title="Theme hue value" description="Change the hue of the theme">
+						<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
+							<div className="w-full">
+								<Slider
+									value={[themeStore.hueValue ?? 235]}
+									onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
+									min={0}
+									max={359}
+									step={1}
+									defaultValue={[235]}
+								/>
+								<p className="text-center text-xs text-ink-faint">
+									{themeStore.hueValue}
+								</p>
+							</div>
 						</div>
-					</div>
-				</Setting>
-				{themeStore.theme === 'vanilla' && (
-					<p className="mb-3 text-xs text-red-700">
-						Hue color changes visible in dark mode only
-					</p>
+					</Setting>
 				)}
+
 				<Setting
 					mini
 					title="UI Animations"
@@ -182,6 +193,7 @@ export const Component = () => {
 				>
 					<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
 				</Setting>
+
 				<Setting
 					mini
 					title="Blur Effects"
@@ -204,7 +216,7 @@ function Theme(props: ThemeProps) {
 					props.border,
 					props.textColor,
 					props.className,
-					'relative h-full w-[150px] overflow-hidden rounded-lg'
+					'relative h-[90px] w-[150px] overflow-hidden rounded-lg'
 				)}
 			>
 				<div
@@ -224,7 +236,7 @@ function Theme(props: ThemeProps) {
 					/>
 				)}
 			</div>
-			<p className="mt-3 text-center text-sm">{props.themeName}</p>
+			<p className="my-3 text-center text-sm">{props.themeName}</p>
 		</div>
 	);
 }
@@ -232,15 +244,11 @@ function Theme(props: ThemeProps) {
 function SystemTheme(props: ThemeProps) {
 	return (
 		<div className="h-full w-[150px]">
-			<div className="relative flex h-full">
+			<div className="relative flex h-[90px]">
 				<div className="relative h-full w-[50%] grow overflow-hidden rounded-l-lg bg-black">
 					<Theme className="rounded-r-none" {...themes[1]!} />
 				</div>
-				<div
-					className={clsx(
-						'relative h-full w-[50%] grow overflow-hidden rounded-r-lg'
-					)}
-				>
+				<div className={clsx('relative h-full w-[50%] grow overflow-hidden rounded-r-lg')}>
 					<Theme className="rounded-l-none" {...themes[0]!} />
 				</div>
 				{props.isSelected && (

@@ -8,21 +8,25 @@ use crate::{
 	prisma::{file_path, location, object, PrismaClient},
 	sync,
 	sync::SyncManager,
-	util::db::uuid_to_bytes,
+	util::{
+		db::{maybe_missing, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_sync::CRDTOperation;
 
-use futures::future::join_all;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 };
+
+use futures::future::join_all;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::fs;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -42,7 +46,7 @@ pub enum FileIdentifierJobError {
 	// Internal Errors
 	#[error(transparent)]
 	FilePathError(#[from] FilePathError),
-	#[error("database error")]
+	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 }
 
@@ -58,10 +62,12 @@ impl FileMetadata {
 	pub async fn new(
 		location_path: impl AsRef<Path>,
 		iso_file_path: &IsolatedFilePathData<'_>, // TODO: use dedicated CreateUnchecked type
-	) -> Result<FileMetadata, io::Error> {
+	) -> Result<FileMetadata, FileIOError> {
 		let path = location_path.as_ref().join(iso_file_path);
 
-		let fs_metadata = fs::metadata(&path).await?;
+		let fs_metadata = fs::metadata(&path)
+			.await
+			.map_err(|e| FileIOError::from((&path, e)))?;
 
 		assert!(
 			!fs_metadata.is_dir(),
@@ -74,7 +80,9 @@ impl FileMetadata {
 			.map(Into::into)
 			.unwrap_or(ObjectKind::Unknown);
 
-		let cas_id = generate_cas_id(&path, fs_metadata.len()).await?;
+		let cas_id = generate_cas_id(&path, fs_metadata.len())
+			.await
+			.map_err(|e| FileIOError::from((&path, e)))?;
 
 		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
@@ -100,20 +108,21 @@ async fn identifier_job_step(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
+	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
+
 	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
 		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
-		FileMetadata::new(
-			&location.path,
-			&IsolatedFilePathData::from((location.id, file_path)),
+		let meta = FileMetadata::new(
+			&location_path,
+			&IsolatedFilePathData::try_from((location.id, file_path))?,
 		)
-		.await
-		.map(|params| {
-			(
-				// SAFETY: This should never happen
-				Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
-				(params, file_path),
-			)
-		})
+		.await?;
+
+		Ok((
+			// SAFETY: This should never happen
+			Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
+			(meta, file_path),
+		)) as Result<_, JobError>
 	}))
 	.await
 	.into_iter()
@@ -124,7 +133,7 @@ async fn identifier_job_step(
 
 		data
 	})
-	.collect::<HashMap<_, _>>();
+	.collect::<HashMap<Uuid, (FileMetadata, &file_path_for_file_identifier::Data)>>();
 
 	let unique_cas_ids = file_path_metas
 		.values()
@@ -239,25 +248,22 @@ async fn identifier_job_step(
 
 					let kind = meta.kind as i32;
 
-					let object_creation_args = (
-						[sync.shared_create(sync_id())]
-							.into_iter()
-							.chain(
-								[
-									(object::date_created::NAME, json!(fp.date_created)),
-									(object::kind::NAME, json!(kind)),
-								]
-								.into_iter()
-								.map(|(f, v)| sync.shared_update(sync_id(), f, v)),
-							)
-							.collect::<Vec<_>>(),
-						object::create_unchecked(
-							uuid_to_bytes(object_pub_id),
-							vec![
-								object::date_created::set(fp.date_created),
-								object::kind::set(kind),
-							],
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+						(
+							(object::date_created::NAME, json!(fp.date_created)),
+							object::date_created::set(fp.date_created),
 						),
+						(
+							(object::kind::NAME, json!(kind)),
+							object::kind::set(Some(kind)),
+						),
+					]
+					.into_iter()
+					.unzip();
+
+					let object_creation_args = (
+						sync.unique_shared_create(sync_id(), sync_params),
+						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 					);
 
 					(object_creation_args, {
@@ -278,7 +284,7 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync.concat(), db.object().create_many(db_params))
+				(sync, db.object().create_many(db_params))
 			})
 			.await
 			.unwrap_or_else(|e| {
@@ -340,7 +346,7 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut i32,
+	cursor: &mut file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize), JobError> {
@@ -351,7 +357,7 @@ async fn process_identifier_file_paths(
 		orphan_count
 	);
 
-	let counts = identifier_job_step(&library, location, file_paths).await?;
+	let counts = identifier_job_step(library, location, file_paths).await?;
 
 	// set the step data cursor to the last row of this chunk
 	if let Some(last_row) = file_paths.last() {

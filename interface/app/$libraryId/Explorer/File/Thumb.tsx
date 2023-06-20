@@ -4,6 +4,7 @@ import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState }
 import { ExplorerItem, useLibraryContext } from '@sd/client';
 import { PDFViewer } from '~/components';
 import {
+	getExplorerStore,
 	useCallbackToWatchResize,
 	useExplorerItemData,
 	useExplorerStore,
@@ -131,7 +132,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 
 		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
-		} else if (itemData.hasThumbnail) {
+		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
 			setThumbType(ThumbType.Icon);
@@ -139,7 +140,14 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId: itemLocationId } = itemData;
+		const {
+			casId,
+			kind,
+			isDir,
+			extension,
+			locationId: itemLocationId,
+			thumbnailKey
+		} = itemData;
 		const locationId = itemLocationId ?? explorerLocationId;
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -158,14 +166,14 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			case ThumbType.Thumbnail:
-				if (casId) {
-					setSrc(platform.getThumbnailUrlById(casId));
+				if (casId && thumbnailKey) {
+					setSrc(platform.getThumbnailUrlByThumbKey(thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);
 				}
 				break;
 			default:
-				setSrc(getIcon(kind, isDark, extension, isDir));
+				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
 	}, [
@@ -183,7 +191,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const onError = () => {
 		setLoaded(false);
 		setThumbType((prevThumbType) => {
-			return prevThumbType === ThumbType.Original && itemData.hasThumbnail
+			return prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
 				? ThumbType.Thumbnail
 				: ThumbType.Icon;
 		});
@@ -234,6 +242,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										src={src}
 										onError={onError}
 										autoPlay
+										onVolumeChange={(e) => {
+											const video = e.target as HTMLVideoElement;
+											getExplorerStore().mediaPlayerVolume = video.volume;
+										}}
 										controls={props.mediaControls}
 										onCanPlay={(e) => {
 											const video = e.target as HTMLVideoElement;
@@ -241,6 +253,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											// https://github.com/facebook/react/issues/10389
 											video.loop = !props.mediaControls;
 											video.muted = !props.mediaControls;
+											video.volume = getExplorerStore().mediaPlayerVolume;
 										}}
 										className={clsx(
 											childClassName,

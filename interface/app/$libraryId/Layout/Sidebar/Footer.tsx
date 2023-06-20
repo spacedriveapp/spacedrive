@@ -1,7 +1,6 @@
 import { Gear } from 'phosphor-react';
 import { useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, Popover, Tooltip } from '@sd/ui';
-import { dialogManager } from '@sd/ui';
+import { Button, ButtonLink, Popover, Tooltip, dialogManager } from '@sd/ui';
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
 import { IsRunningJob, JobsManager } from './JobManager';
