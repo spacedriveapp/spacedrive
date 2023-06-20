@@ -126,7 +126,7 @@ model FilePath {
     materialized_path String?
 
     // the name and extension, MUST have 'COLLATE NOCASE' in migration
-    name      String? @default("")
+    name      String?
     extension String?
 
     size_in_bytes String?
