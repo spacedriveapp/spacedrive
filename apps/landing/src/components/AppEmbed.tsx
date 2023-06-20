@@ -55,7 +55,14 @@ const AppEmbed = () => {
 
 	return (
 		<div className="w-screen">
-			<div className="relative z-20 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+			{renderBloom && (
+				<div className="relative mx-auto max-w-full sm:w-full sm:max-w-[1400px]">
+					<div className="bloom burst bloom-one" />
+					<div className="bloom burst bloom-three" />
+					<div className="bloom burst bloom-two" />
+				</div>
+			)}
+			<div className="relative z-30 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div
 					className={clsx(
 						'relative m-auto h-full max-w-7xl rounded-lg border border-gray-550 opacity-0 transition-opacity',
@@ -68,7 +75,7 @@ const AppEmbed = () => {
 							ref={iFrame}
 							referrerPolicy="origin-when-cross-origin"
 							className={clsx(
-								'shadow-iframe inset-center shadow-top z-30 h-full w-full rounded-lg bg-gray-850',
+								'shadow-iframe inset-center z-30 h-full w-full rounded-lg bg-gray-850',
 								iFrameAppReady
 									? 'fade-in-app-embed opacity-100'
 									: 'ml-[-10000px] opacity-0'
@@ -80,9 +87,8 @@ const AppEmbed = () => {
 					)}
 
 					{renderImage && (
-						<div className="fade-in-app-embed shadow-top landing-img z-40 h-full w-auto" />
+						<div className="fade-in-app-embed landing-img z-40 h-full w-auto" />
 					)}
-					<div className="burst inset-center-blur absolute z-20 h-[50px] w-[50px] rounded-full bg-blue-500 opacity-40 blur-3xl lg:h-[400px] xl:bottom-0 xl:h-[850px] xl:w-[850px]"></div>
 				</div>
 			</div>
 		</div>
@@ -96,4 +102,3 @@ export const AppEmbedPlaceholder = () => {
 };
 
 export default AppEmbed;
-
