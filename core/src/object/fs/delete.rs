@@ -12,7 +12,8 @@ use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::fs;
+use tokio::{fs, io};
+use tracing::warn;
 
 use super::{get_location_path_from_location_id, get_many_files_datas, FileData};
 
@@ -71,12 +72,28 @@ impl StatefulJob for FileDeleterJob {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
-		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
+		match if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			fs::remove_dir_all(&step.full_path).await
 		} else {
 			fs::remove_file(&step.full_path).await
+		} {
+			Ok(()) => { /*	Everything is awesome! */ }
+			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+				warn!(
+					"File not found in the file system, will remove from database: {}",
+					step.full_path.display()
+				);
+				ctx.library
+					.db
+					.file_path()
+					.delete(file_path::id::equals(step.file_path.id))
+					.exec()
+					.await?;
+			}
+			Err(e) => {
+				return Err(JobError::from(FileIOError::from((&step.full_path, e))));
+			}
 		}
-		.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

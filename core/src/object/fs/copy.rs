@@ -4,7 +4,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::IsolatedFilePathData,
+	location::file_path_helper::{join_location_relative_path, IsolatedFilePathData},
 	prisma::{file_path, location},
 	util::{
 		db::{maybe_missing, MissingFieldError},
@@ -86,8 +86,10 @@ impl StatefulJob for FileCopierJob {
 		.into_iter()
 		.flat_map(|file_data| {
 			// add the currently viewed subdirectory to the location root
-			let mut full_target_path =
-				targets_location_path.join(&state.init.target_location_relative_directory_path);
+			let mut full_target_path = join_location_relative_path(
+				&targets_location_path,
+				&state.init.target_location_relative_directory_path,
+			);
 
 			full_target_path.push(construct_target_filename(
 				&file_data,

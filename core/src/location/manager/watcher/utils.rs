@@ -100,9 +100,12 @@ pub(super) async fn create_dir(
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
-		&& check_existing_file_path(&parent_iso_file_path, &library.db).await?
+		&& !check_existing_file_path(&parent_iso_file_path, &library.db).await?
 	{
-		warn!("Watcher found a directory without parent");
+		warn!(
+			"Watcher found a directory without parent: {}",
+			&iso_file_path
+		);
 		return Ok(());
 	};
 
@@ -169,9 +172,9 @@ pub(super) async fn create_file(
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
-		&& check_existing_file_path(&parent_iso_file_path, &library.db).await?
+		&& !check_existing_file_path(&parent_iso_file_path, &library.db).await?
 	{
-		warn!("Watcher found a file without parent");
+		warn!("Watcher found a file without parent: {}", &iso_file_path);
 		return Ok(());
 	};
 
@@ -596,12 +599,12 @@ pub(super) async fn remove_by_file_path(
 
 			// if is doesn't, we can remove it safely from our db
 			if is_dir {
-				let materialized_path = maybe_missing(
-					file_path.materialized_path.clone(),
-					"file_path.materialized_path",
-				)?;
-
-				delete_directory(library, location_id, Some(materialized_path)).await?;
+				delete_directory(
+					library,
+					location_id,
+					Some(&IsolatedFilePathData::try_from(file_path)?),
+				)
+				.await?;
 			} else {
 				db.file_path()
 					.delete(file_path::pub_id::equals(file_path.pub_id.clone()))

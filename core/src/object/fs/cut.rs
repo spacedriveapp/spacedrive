@@ -4,6 +4,7 @@ use crate::{
 		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
 	},
 	library::Library,
+	location::file_path_helper::push_location_relative_path,
 	object::fs::{construct_target_filename, error::FileSystemJobsError},
 	prisma::{file_path, location},
 	util::error::FileIOError,
@@ -64,7 +65,10 @@ impl StatefulJob for FileCutterJob {
 			)
 			.await?;
 
-		targets_location_path.push(&state.init.target_location_relative_directory_path);
+		push_location_relative_path(
+			&mut targets_location_path,
+			&state.init.target_location_relative_directory_path,
+		);
 
 		state.data = Some(FileCutterJobState {
 			full_target_directory_path: targets_location_path,

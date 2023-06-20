@@ -2,6 +2,7 @@ use crate::{
 	invalidate_query,
 	job::{Job, JobError, JobManagerError},
 	library::Library,
+	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
@@ -21,7 +22,10 @@ use std::{
 
 use futures::future::TryFutureExt;
 use normpath::PathExt;
-use prisma_client_rust::QueryError;
+use prisma_client_rust::{
+	operator::{and, or},
+	QueryError,
+};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -39,6 +43,8 @@ pub use error::LocationError;
 use indexer::IndexerJobInit;
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
+
+use file_path_helper::IsolatedFilePathData;
 
 // Location includes!
 location::include!(location_with_indexer_rules {
@@ -671,13 +677,25 @@ pub async fn delete_location(
 pub async fn delete_directory(
 	library: &Library,
 	location_id: location::id::Type,
-	parent_materialized_path: Option<String>,
+	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
 	let children_params = chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
-		[parent_materialized_path.map(file_path::materialized_path::starts_with)],
+		parent_iso_file_path
+			.map(|parent| {
+				parent
+					.materialized_path_for_children()
+					.map(|materialized_path| {
+						[Some(or(vec![
+							and(filter_existing_file_path_params(parent)),
+							file_path::materialized_path::starts_with(materialized_path),
+						]))]
+					})
+					.unwrap_or([None])
+			})
+			.unwrap_or([None]),
 	);
 
 	// Fetching all object_ids from all children file_paths
