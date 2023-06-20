@@ -24,7 +24,7 @@ export const Component = () => {
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
+	const [selectedCategory, setSelectedCategory] = useState<Category>('Photos');
 
 	const { items, query, loadMore } = useItems(selectedCategory);
 

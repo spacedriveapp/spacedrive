@@ -8,25 +8,25 @@ import { useIsDark } from '~/hooks';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
-const CategoryList = [
-	'Recents',
-	'Favorites',
-	'Photos',
-	'Videos',
-	'Movies',
-	'Music',
-	'Documents',
-	'Downloads',
-	'Encrypted',
-	'Projects',
-	'Applications',
-	'Archives',
-	'Databases',
-	'Games',
-	'Books',
-	'Contacts',
-	'Trash'
-] as Category[];
+const CategoryList: { name: Category; disabled?: boolean }[] = [
+	{ name: 'Photos' },
+	{ name: 'Videos' },
+	{ name: 'Music' },
+	{ name: 'Encrypted' },
+	{ name: 'Books' },
+	{ name: 'Recents', disabled: true },
+	{ name: 'Favorites', disabled: true },
+	{ name: 'Movies', disabled: true },
+	{ name: 'Documents', disabled: true },
+	{ name: 'Downloads', disabled: true },
+	{ name: 'Projects', disabled: true },
+	{ name: 'Applications', disabled: true },
+	{ name: 'Archives', disabled: true },
+	{ name: 'Databases', disabled: true },
+	{ name: 'Games', disabled: true },
+	{ name: 'Contacts', disabled: true },
+	{ name: 'Trash', disabled: true }
+];
 
 export const Categories = (props: { selected: Category; onSelectedChanged(c: Category): void }) => {
 	const categories = useLibraryQuery(['categories.list']);
@@ -78,13 +78,14 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				ref={ref}
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
-					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${scroll > 0 ? '10%' : '0%'
-						}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
+					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
+						scroll > 0 ? '10%' : '0%'
+					}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
 				}}
 			>
 				{categories.data &&
 					CategoryList.map((category, index) => {
-						const iconString = IconForCategory[category] || 'Document';
+						const iconString = IconForCategory[category.name] || 'Document';
 						return (
 							<motion.div
 								onViewportEnter={() => lastCategoryVisibleHandler(index)}
@@ -95,14 +96,15 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									margin: '0% -120px 0% 0%'
 								}}
 								className="min-w-fit"
-								key={category}
+								key={category.name}
 							>
 								<CategoryButton
-									category={category}
+									category={category.name}
 									icon={getIcon(iconString, isDark)}
-									items={categories.data[category]}
-									selected={props.selected === category}
-									onClick={() => props.onSelectedChanged(category)}
+									items={categories.data[category.name]}
+									selected={props.selected === category.name}
+									onClick={() => props.onSelectedChanged(category.name)}
+									disabled={category.disabled}
 								/>
 							</motion.div>
 						);
