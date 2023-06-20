@@ -9,12 +9,12 @@ import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
 const CategoryList: { name: Category; disabled?: boolean }[] = [
+	{ name: 'Recents' },
 	{ name: 'Photos' },
 	{ name: 'Videos' },
 	{ name: 'Music' },
 	{ name: 'Encrypted' },
 	{ name: 'Books' },
-	{ name: 'Recents', disabled: true },
 	{ name: 'Favorites', disabled: true },
 	{ name: 'Movies', disabled: true },
 	{ name: 'Documents', disabled: true },
