@@ -24,7 +24,7 @@ use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{
 	operator::{and, or},
-	QueryError,
+	or, QueryError,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -683,19 +683,16 @@ pub async fn delete_directory(
 
 	let children_params = chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
-		parent_iso_file_path
-			.map(|parent| {
-				parent
-					.materialized_path_for_children()
-					.map(|materialized_path| {
-						[Some(or(vec![
-							and(filter_existing_file_path_params(parent)),
-							file_path::materialized_path::starts_with(materialized_path),
-						]))]
-					})
-					.unwrap_or([None])
-			})
-			.unwrap_or([None]),
+		[parent_iso_file_path.and_then(|parent| {
+			parent
+				.materialized_path_for_children()
+				.map(|materialized_path| {
+					or![
+						and(filter_existing_file_path_params(parent)),
+						file_path::materialized_path::starts_with(materialized_path),
+					]
+				})
+		})],
 	);
 
 	// Fetching all object_ids from all children file_paths

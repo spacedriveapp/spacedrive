@@ -544,8 +544,12 @@ pub fn join_location_relative_path(
 		})
 }
 
-pub fn push_location_relative_path(location_path: &mut PathBuf, relative_path: impl AsRef<Path>) {
+pub fn push_location_relative_path(
+	mut location_path: PathBuf,
+	relative_path: impl AsRef<Path>,
+) -> PathBuf {
 	let relative_path = relative_path.as_ref();
+
 	location_path.push(if relative_path.starts_with(MAIN_SEPARATOR_STR) {
 		relative_path
 			.strip_prefix(MAIN_SEPARATOR_STR)
@@ -553,6 +557,8 @@ pub fn push_location_relative_path(location_path: &mut PathBuf, relative_path: i
 	} else {
 		relative_path
 	});
+
+	location_path
 }
 
 #[cfg(test)]
