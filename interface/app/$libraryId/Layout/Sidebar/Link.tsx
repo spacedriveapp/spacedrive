@@ -28,10 +28,17 @@ const Link = forwardRef<
 
 	return (
 		<NavLink
-			onClick={(e) => (disabled ? e.preventDefault() : onClick?.(e))}
+			onClick={(e) => {
+				// Prevent default action if Command (metaKey) or Control is pressed
+				if (e.metaKey || e.ctrlKey || disabled) {
+					e.preventDefault();
+				} else {
+					onClick?.(e);
+				}
+			}}
 			className={({ isActive }) =>
 				clsx(
-					"ring-0", // Remove ugly outline ring on Chrome Windows & Linux
+					'ring-0', // Remove ugly outline ring on Chrome Windows & Linux
 					styles({ active: isActive, transparent: os === 'macOS' }),
 					disabled && 'pointer-events-none opacity-50',
 					className

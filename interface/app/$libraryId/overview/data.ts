@@ -1,18 +1,8 @@
 import { iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import deepMerge from 'ts-deepmerge';
-import {
-	Category,
-	FilePathSearchArgs,
-	ObjectKind,
-	ObjectKindKey,
-	ObjectSearchArgs,
-	useLibraryContext,
-	useRspcLibraryContext
-} from '@sd/client';
+import { Category, useLibraryContext, useRspcLibraryContext } from '@sd/client';
 import { getExplorerStore, useExplorerStore } from '~/hooks';
-import { useExplorerOrder } from '../Explorer/util';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
@@ -32,32 +22,19 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 	Trash: iconNames.Trash
 };
 
-// Map the category to the ObjectKind for searching
-const SearchableCategories: Record<string, ObjectKindKey> = {
-	Photos: 'Image',
-	Videos: 'Video',
-	Music: 'Audio',
-	Documents: 'Document',
-	Encrypted: 'Encrypted',
-	Books: 'Book'
-} satisfies Partial<Record<Category, ObjectKindKey>>;
-
 const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
 
 // this is a gross function so it's in a separate hook :)
-export function useItems(selectedCategory: Category) {
+export function useItems(category: Category) {
 	const explorerStore = useExplorerStore();
-	const ctx = useRspcLibraryContext();
+	const rspc = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
-	const searchableCategory = SearchableCategories[selectedCategory];
-	const searchableCategoryKind =
-		searchableCategory !== undefined ? (ObjectKind[searchableCategory] as number) : undefined;
+	const kind = explorerStore.layoutMode === 'media' ? [5, 7] : undefined;
 
-	const kind = searchableCategoryKind ? [searchableCategoryKind] : undefined;
-	if (explorerStore.layoutMode === 'media') [5, 7].forEach((v) => kind?.push(v));
+	const isObjectQuery = OBJECT_CATEGORIES.includes(category);
 
-	const isObjectQuery = OBJECT_CATEGORIES.includes(selectedCategory);
+	const objectFilter = { category, kind };
 
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
@@ -67,19 +44,14 @@ export function useItems(selectedCategory: Category) {
 			'search.paths',
 			{
 				library_id: library.uuid,
-				arg: deepMerge(
-					{
-						take: 50,
-						filter: {
-							object: { kind }
-						}
-					},
-					categorySearchPathsArgs(selectedCategory)
-				)
+				arg: {
+					take: 50,
+					filter: { object: objectFilter }
+				}
 			}
 		] as const,
 		queryFn: ({ pageParam: cursor, queryKey }) =>
-			ctx.client.query([
+			rspc.client.query([
 				'search.paths',
 				{
 					...queryKey[1].arg,
@@ -101,19 +73,14 @@ export function useItems(selectedCategory: Category) {
 			'search.objects',
 			{
 				library_id: library.uuid,
-				arg: deepMerge(
-					{
-						take: 50,
-						filter: {
-							kind
-						}
-					},
-					categorySearchObjectsArgs(selectedCategory)
-				)
+				arg: {
+					take: 50,
+					filter: objectFilter
+				}
 			}
 		] as const,
 		queryFn: ({ pageParam: cursor, queryKey }) =>
-			ctx.client.query([
+			rspc.client.query([
 				'search.objects',
 				{
 					...queryKey[1].arg,
@@ -144,29 +111,4 @@ export function useItems(selectedCategory: Category) {
 				query: pathsQuery,
 				loadMore
 		  };
-}
-
-function categorySearchPathsArgs(_: string): FilePathSearchArgs {
-	return {};
-}
-
-function categorySearchObjectsArgs(category: string): ObjectSearchArgs {
-	if (category === 'Recents')
-		return {
-			order: { dateAccessed: 'Desc' },
-			filter: {
-				dateAccessed: {
-					not: null
-				}
-			}
-		};
-
-	if (category === 'Favorites')
-		return {
-			filter: {
-				favorite: true
-			}
-		};
-
-	return {};
 }

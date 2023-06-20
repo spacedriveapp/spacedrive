@@ -55,7 +55,7 @@ export function ErrorPage({
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
-
+	const isDev = process.env.NODE_ENV === 'development';
 	if (!submessage && debug.enabled)
 		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
@@ -99,7 +99,7 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
-							className="mt-4 max-w-xs border-transparent bg-red-500"
+							className="max-w-xs mt-4 bg-red-500 border-transparent"
 							onClick={() => {
 								// @ts-expect-error
 								window.__TAURI_INVOKE__('reset_spacedrive');
@@ -107,6 +107,12 @@ export function ErrorPage({
 						>
 							Reset Spacedrive
 						</Button>
+						{isDev && (
+							<p className="mt-2 font-bold">
+								You need to manually reset the app after pressing this button in the
+								dev environment. This however works seamlessly in production.
+							</p>
+						)}
 					</div>
 				)}
 			</div>
