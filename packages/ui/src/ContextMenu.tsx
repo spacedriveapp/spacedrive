@@ -116,10 +116,15 @@ const Item = ({
 	keybind,
 	variant,
 	iconProps,
+	onClick,
 	...props
 }: ContextMenuItemProps & RadixCM.MenuItemProps) => {
 	return (
-		<RadixCM.Item className={contextMenuItemClassNames} {...props}>
+		<RadixCM.Item
+			className={contextMenuItemClassNames}
+			onClick={(e) => !props.disabled && onClick?.(e)}
+			{...props}
+		>
 			<ContextMenuDivItem
 				{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
 			/>
@@ -147,7 +152,7 @@ const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextM
 			{label && <span className="flex-1 truncate">{label}</span>}
 
 			{keybind && (
-				<span className="text-xs font-medium text-menu-faint group-radix-highlighted:text-white">
+				<span className="text-xs font-medium group-radix-highlighted:text-white">
 					{keybind}
 				</span>
 			)}
