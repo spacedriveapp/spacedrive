@@ -125,9 +125,9 @@ model FilePath {
     // the path of the file relative to its location
     materialized_path String?
 
-    // the name and extension
+    // the name and extension, MUST have 'COLLATE NOCASE' in migration
     name      String?
-    extension String? // Extension MUST have 'COLLATE NOCASE' in migration
+    extension String?
 
     size_in_bytes String?
 
