@@ -15,7 +15,7 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 		<Link
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
-			className="cursor-pointer duration-300 p-4 opacity-75 text-gray-300 no-underline transition hover:text-gray-50 hover:opacity-100"
+			className="cursor-pointer p-4 text-gray-300 no-underline transition hover:text-gray-50"
 			rel="noreferrer"
 		>
 			{props.children}
@@ -59,21 +59,19 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed z-[55] h-20 w-full transition',
+				'fixed z-[55] h-16 w-full px-2 transition',
 				isAtTop
 					? 'bg-transparent'
 					: 'backdrop-blur'
 			)}
 		>
-			<div className="relative m-auto flex h-full justify-between max-w-[100rem] items-center p-5 ">
-				<div className="w-96">
-					<Link href="/" className="flex flex-row items-center">
-						<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />
-						<h3 className="text-xl font-bold text-white">Spacedrive</h3>
-					</Link>
-				</div>
+			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
+				<Link href="/" className="absolute flex flex-row items-center">
+					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />
+					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
+				</Link>
 
-				<div className="hidden space-x-4 text-white lg:block border border-opacity-20 border-gray-300 p-2 px-5 rounded-full py-2 bg-gray-300 bg-opacity-10">
+				<div className="m-auto hidden space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
@@ -87,13 +85,14 @@ export default function NavBar() {
 						) : null}
 					</div>
 				</div>
+				<div className="flex-1 lg:hidden" />
 				<Dropdown.Root
 					button={
-						<Button className="ml-[140px] hover:!bg-transparent  cursor-pointer" size="icon">
+						<Button className="ml-[140px] hover:!bg-transparent" size="icon">
 							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
 						</Button>
 					}
-					className="right-4 block w-44 text-white lg:hidden"
+					className="right-4 top-2 block h-6 w-44 text-white lg:hidden"
 					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500 text-[15px]"
 				>
 					<Dropdown.Section>
@@ -137,16 +136,16 @@ export default function NavBar() {
 					</Dropdown.Section>
 				</Dropdown.Root>
 
-				<div className="hidden flex-row lg:flex w-96 space-x-5 justify-end">
+				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<Discord className="h-6 w-6 text-white hover:opacity-50 duration-300" />
+						<Discord className="h-6 w-6 text-white opacity-100 hover:opacity-50 duration-300" />
 					</Link>
 					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="h-6 w-6 text-white hover:opacity-50 duration-300" />
+						<Github className="h-6 w-6 text-white opacity-100 hover:opacity-50 duration-300" />
 					</Link>
 				</div>
 			</div>
