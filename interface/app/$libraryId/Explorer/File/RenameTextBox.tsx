@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef, useState } from 'react';
 import { useKey } from 'rooks';
-import { FilePath, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { FilePath, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { showAlertDialog } from '~/components';
 import useClickOutside from '~/hooks/useClickOutside';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -16,6 +16,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 export default ({ filePathData, className, activeClassName, disabled, ...props }: Props) => {
 	const explorerView = useExplorerViewContext();
 	const os = useOperatingSystem();
+	const rspc = useRspcLibraryContext();
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -23,7 +24,8 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 	const [renamable, setRenamable] = useState(false);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
-		onError: () => reset()
+		onError: () => reset(),
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
 	});
 
 	const fileName = `${filePathData?.name}${
