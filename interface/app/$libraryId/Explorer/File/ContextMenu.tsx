@@ -238,7 +238,7 @@ export default ({ data }: Props) => {
 					onClick={() => {
 						generateThumbnails.mutate({
 							id: getExplorerStore().locationId!,
-							path: '/'
+							path: params.path ?? ''
 						});
 					}}
 					label="Regen Thumbnails"

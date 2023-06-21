@@ -2,7 +2,7 @@ use crate::{
 	location::{indexer::IndexerError, LocationError},
 	object::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
-		preview::ThumbnailerError,
+		preview::ThumbnailerError, validation::ValidatorError,
 	},
 	util::{db::MissingFieldError, error::FileIOError},
 };
@@ -62,6 +62,8 @@ pub enum JobError {
 	ThumbnailError(#[from] ThumbnailerError),
 	#[error(transparent)]
 	IdentifierError(#[from] FileIdentifierJobError),
+	#[error(transparent)]
+	Validator(#[from] ValidatorError),
 	#[error(transparent)]
 	FileSystemJobsError(#[from] FileSystemJobsError),
 	#[error(transparent)]
