@@ -5,11 +5,14 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+import { Info } from 'phosphor-react';
+import { Tooltip } from '@sd/ui';
 
 interface StatItemProps {
 	title: string;
 	bytes: bigint;
 	isLoading: boolean;
+	info?: string;
 }
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
@@ -17,6 +20,12 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
+};
+const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+	total_bytes_capacity: 'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
+	preview_media_bytes: 'The total size of all preview media files, such as thumbnails.',
+	library_db_size: 'The size of the library database.',
+	total_bytes_free: 'Free space available on all nodes connected to the library.'
 };
 
 const EMPTY_STATISTICS = {
@@ -53,7 +62,14 @@ const StatItem = (props: StatItemProps) => {
 				!bytes && 'hidden'
 			)}
 		>
-			<span className="text-sm text-gray-400">{title}</span>
+			<span className="whitespace-nowrap text-sm text-gray-400 ">{title}
+				{props.info && (
+					<Tooltip tooltipClassName='bg-black' label={props.info}>
+						<Info weight='fill' className='-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint' />
+					</Tooltip>
+				)}
+			</span>
+
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
@@ -97,6 +113,7 @@ export default () => {
 							title={StatItemNames[key as keyof Statistics]!}
 							bytes={BigInt(value)}
 							isLoading={platform.demoMode ? false : stats.isLoading}
+							info={StatDescriptions[key as keyof Statistics]}
 						/>
 					);
 				})}
