@@ -37,7 +37,7 @@ pub async fn shallow_thumbnailer(
 		None => return Ok(()),
 	};
 
-	let (path, iso_file_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
+	let (path, iso_file_path) = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)
 			.await
 			.map_err(ThumbnailerError::from)?;

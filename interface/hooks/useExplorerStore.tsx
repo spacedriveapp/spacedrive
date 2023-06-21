@@ -1,7 +1,7 @@
+import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
-import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
@@ -41,7 +41,7 @@ const state = {
 	multiSelectIndexes: [] as number[],
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: {
-		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
+		sourceParentPath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
 		sourcePathId: 0,
 		actionType: 'Cut',

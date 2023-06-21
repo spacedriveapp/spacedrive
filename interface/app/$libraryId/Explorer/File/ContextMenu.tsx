@@ -87,10 +87,8 @@ export default ({ data }: Props) => {
 				label="Cut"
 				keybind="⌘X"
 				onClick={() => {
-					if (params.path === undefined) return;
-
 					getExplorerStore().cutCopyState = {
-						sourcePath: params.path,
+						sourceParentPath: params.path ?? '/',
 						sourceLocationId: store.locationId!,
 						sourcePathId: data.item.id,
 						actionType: 'Cut',
@@ -98,17 +96,14 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Scissors}
-				disabled
 			/>
 
 			<ContextMenu.Item
 				label="Copy"
 				keybind="⌘C"
 				onClick={() => {
-					if (params.path === undefined) return;
-
 					getExplorerStore().cutCopyState = {
-						sourcePath: params.path,
+						sourceParentPath: params.path ?? '/',
 						sourceLocationId: store.locationId!,
 						sourcePathId: data.item.id,
 						actionType: 'Copy',
@@ -116,24 +111,20 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Copy}
-				disabled
 			/>
 
 			<ContextMenu.Item
 				label="Duplicate"
 				keybind="⌘D"
 				onClick={() => {
-					if (params.path === undefined) return;
-
 					copyFiles.mutate({
 						source_location_id: store.locationId!,
 						sources_file_path_ids: [data.item.id],
 						target_location_id: store.locationId!,
-						target_location_relative_directory_path: params.path,
+						target_location_relative_directory_path: params.path ?? '/',
 						target_file_name_suffix: ' copy'
 					});
 				}}
-				disabled
 			/>
 
 			<ContextMenu.Item
@@ -238,7 +229,7 @@ export default ({ data }: Props) => {
 					onClick={() => {
 						generateThumbnails.mutate({
 							id: getExplorerStore().locationId!,
-							path: params.path ?? ''
+							path: params.path ?? '/'
 						});
 					}}
 					label="Regen Thumbnails"

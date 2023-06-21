@@ -5,7 +5,7 @@ use crate::{
 
 use std::{
 	fs::Metadata,
-	path::{Path, PathBuf},
+	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 	time::SystemTime,
 };
 
@@ -228,18 +228,6 @@ pub async fn create_file_path(
 	Ok(created_path)
 }
 
-#[cfg(feature = "location-watcher")]
-pub async fn check_existing_file_path(
-	iso_file_path: &IsolatedFilePathData<'_>,
-	db: &PrismaClient,
-) -> Result<bool, FilePathError> {
-	Ok(db
-		.file_path()
-		.count(filter_existing_file_path_params(iso_file_path))
-		.exec()
-		.await? > 0)
-}
-
 pub fn filter_existing_file_path_params(
 	IsolatedFilePathData {
 		materialized_path,
@@ -285,13 +273,17 @@ pub async fn ensure_sub_path_is_in_location(
 	sub_path: impl AsRef<Path>,
 ) -> Result<PathBuf, FilePathError> {
 	let mut sub_path = sub_path.as_ref();
-	if sub_path.starts_with("/") {
+	let location_path = location_path.as_ref();
+	if sub_path.starts_with(MAIN_SEPARATOR_STR) {
+		if sub_path == Path::new(MAIN_SEPARATOR_STR) {
+			// We're dealing with the location root path here
+			return Ok(location_path.to_path_buf());
+		}
 		// SAFETY: we just checked that it starts with the separator
 		sub_path = sub_path
-			.strip_prefix("/")
+			.strip_prefix(MAIN_SEPARATOR_STR)
 			.expect("we just checked that it starts with the separator");
 	}
-	let location_path = location_path.as_ref();
 
 	if !sub_path.starts_with(location_path) {
 		// If the sub_path doesn't start with the location_path, we have to check if it's a
@@ -334,12 +326,12 @@ pub async fn check_file_path_exists<E>(
 where
 	E: From<QueryError>,
 {
-	db.file_path()
-		.count(filter_existing_file_path_params(iso_file_path))
-		.exec()
-		.await
-		.map(|count| count > 0)
-		.map_err(Into::into)
+	Ok(iso_file_path.is_root()
+		|| db
+			.file_path()
+			.count(filter_existing_file_path_params(iso_file_path))
+			.exec()
+			.await? > 0)
 }
 
 pub async fn ensure_sub_path_is_directory(
@@ -347,6 +339,11 @@ pub async fn ensure_sub_path_is_directory(
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), FilePathError> {
 	let mut sub_path = sub_path.as_ref();
+
+	if sub_path == Path::new(MAIN_SEPARATOR_STR) {
+		// Sub path for the location root path is always a directory
+		return Ok(());
+	}
 
 	match fs::metadata(sub_path).await {
 		Ok(meta) => {

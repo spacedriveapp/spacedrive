@@ -47,13 +47,6 @@ export default (props: PropsWithChildren) => {
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
-	const isPastable =
-		store.cutCopyState.sourceLocationId !== store.locationId
-			? true
-			: store.cutCopyState.sourcePath !== params.path
-			? true
-			: false;
-
 	return (
 		<CM.Root trigger={props.children}>
 			<OpenInNativeExplorer />
@@ -83,36 +76,32 @@ export default (props: PropsWithChildren) => {
 				icon={Repeat}
 			/>
 
-			{isPastable && (
-				<CM.Item
-					label="Paste"
-					keybind="⌘V"
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						if (store.cutCopyState.actionType == 'Copy') {
-							store.locationId &&
-								params.path &&
-								copyFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									sources_file_path_ids: [store.cutCopyState.sourcePathId],
-									target_location_id: store.locationId,
-									target_location_relative_directory_path: params.path,
-									target_file_name_suffix: null
-								});
-						} else {
-							store.locationId &&
-								params.path &&
-								cutFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									sources_file_path_ids: [store.cutCopyState.sourcePathId],
-									target_location_id: store.locationId,
-									target_location_relative_directory_path: params.path
-								});
-						}
-					}}
-					icon={Clipboard}
-				/>
-			)}
+			<CM.Item
+				label="Paste"
+				keybind="⌘V"
+				hidden={!store.cutCopyState.active}
+				onClick={() => {
+					if (store.cutCopyState.actionType == 'Copy') {
+						store.locationId &&
+							copyFiles.mutate({
+								source_location_id: store.cutCopyState.sourceLocationId,
+								sources_file_path_ids: [store.cutCopyState.sourcePathId],
+								target_location_id: store.locationId,
+								target_location_relative_directory_path: params.path ?? '/',
+								target_file_name_suffix: store.cutCopyState.sourceParentPath === (params.path ?? '/') ? ' copy' : null
+							});
+					} else {
+						store.locationId && store.cutCopyState.sourceParentPath !== params.path &&
+							cutFiles.mutate({
+								source_location_id: store.cutCopyState.sourceLocationId,
+								sources_file_path_ids: [store.cutCopyState.sourcePathId],
+								target_location_id: store.locationId,
+								target_location_relative_directory_path: params.path ?? '/',
+							});
+					}
+				}}
+				icon={Clipboard}
+			/>
 
 			<CM.Item
 				label="Deselect"
@@ -132,7 +121,7 @@ export default (props: PropsWithChildren) => {
 						store.locationId &&
 						generateThumbsForLocation.mutate({
 							id: store.locationId,
-							path: params.path ?? ''
+							path: params.path ?? '/'
 						})
 					}
 					label="Regen Thumbnails"
@@ -141,7 +130,7 @@ export default (props: PropsWithChildren) => {
 				<CM.Item
 					onClick={() =>
 						store.locationId &&
-						objectValidator.mutate({ id: store.locationId, path: params.path ?? '' })
+						objectValidator.mutate({ id: store.locationId, path: params.path ?? '/' })
 					}
 					label="Generate Checksums"
 					icon={ShieldCheck}
