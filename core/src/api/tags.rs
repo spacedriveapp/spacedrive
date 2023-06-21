@@ -95,22 +95,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
+					let Library { db, .. } = &library;
+
 					if args.unassign {
-						for id in args.object_ids {
-							library
-								.db
-								.tag_on_object()
-								.delete_many(vec![
-									tag_on_object::tag_id::equals(args.tag_id),
-									tag_on_object::object_id::equals(id),
-								])
-								.exec()
-								.await?;
-						}
+						db.tag_on_object()
+							.delete_many(vec![
+								tag_on_object::tag_id::equals(args.tag_id),
+								tag_on_object::object_id::in_vec(args.object_ids),
+							])
+							.exec()
+							.await?;
 					} else {
-						library
-							.db
-							.tag_on_object()
+						db.tag_on_object()
 							.create_many(
 								args.object_ids
 									.iter()
