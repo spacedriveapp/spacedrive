@@ -6,17 +6,19 @@ import {
 	ReactNode,
 	isValidElement,
 	memo,
+	useCallback,
+	useEffect,
 	useState
 } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKey } from 'rooks';
 import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
+import { ContextMenu, ModifierKeys } from '@sd/ui';
 import {
 	ExplorerLayoutMode,
 	getExplorerStore,
 	useExplorerConfigStore,
-	useExplorerStore
+	useOperatingSystem
 } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import {
@@ -107,6 +109,7 @@ export default memo(
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
+		const os = useOperatingSystem();
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
 
@@ -131,6 +134,25 @@ export default memo(
 				getExplorerStore().quickViewObject = null;
 			}
 		});
+
+		const handleExplorerShortcut = useCallback(
+			(event: KeyboardEvent) => {
+				if (
+					event.key.toUpperCase() === 'I' &&
+					event.getModifierState(
+						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+					)
+				) {
+					getExplorerStore().showInspector = !getExplorerStore().showInspector;
+				}
+			},
+			[os]
+		);
+
+		useEffect(() => {
+			document.body.addEventListener('keydown', handleExplorerShortcut);
+			return () => document.body.removeEventListener('keydown', handleExplorerShortcut);
+		}, [handleExplorerShortcut]);
 
 		const emptyNoticeIcon = (icon?: Icon) => {
 			let Icon = icon;

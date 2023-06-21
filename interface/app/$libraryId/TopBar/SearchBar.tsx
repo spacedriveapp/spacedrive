@@ -1,13 +1,13 @@
 import clsx from 'clsx';
-import { useCallback, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useLocation, useNavigate, useResolvedPath } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
-import { useKey, useKeys } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
-import { Input, Shortcut } from '@sd/ui';
+import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useZodSearchParams } from '~/hooks';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { getSearchStore } from '~/hooks/useSearchStore';
+import { keybindForOs } from '~/util/keybinds';
 import { SEARCH_PARAMS } from '../search';
 
 export default () => {
@@ -19,6 +19,7 @@ export default () => {
 
 	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
+	const keybind = keybindForOs(os);
 
 	// Wrapping param updates in a transition allows us to track whether
 	// updating the params triggers a Suspense somewhere else, providing a free
@@ -45,8 +46,37 @@ export default () => {
 		[searchPath.pathname, location.pathname, updateParams]
 	);
 
-	useKeys([os === 'macOS' ? 'Meta' : 'Ctrl', 'f'], () => searchRef.current?.focus());
-	useKey('Escape', () => searchRef.current?.blur());
+	const focusHandler = useCallback(
+		(event: KeyboardEvent) => {
+			if (
+				event.key.toUpperCase() === 'F' &&
+				event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+			) {
+				event.preventDefault();
+				searchRef.current?.focus();
+			}
+		},
+		[os]
+	);
+
+	const blurHandler = useCallback((event: KeyboardEvent) => {
+		console.log(event.key, document.activeElement === searchRef.current);
+		if (event.key === 'Escape' && document.activeElement === searchRef.current) {
+			// Check if element is in focus, then remove it
+			event.preventDefault();
+			searchRef.current?.blur();
+		}
+	}, []);
+
+	useEffect(() => {
+		const input = searchRef.current;
+		document.body.addEventListener('keydown', focusHandler);
+		input?.addEventListener('keydown', blurHandler);
+		return () => {
+			document.body.removeEventListener('keydown', focusHandler);
+			input?.removeEventListener('keydown', blurHandler);
+		};
+	}, [blurHandler, focusHandler]);
 
 	return (
 		<Input
@@ -79,25 +109,15 @@ export default () => {
 							'pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden'
 						)}
 					>
-						{platform === 'browser' ? (
+						{
 							<Shortcut
-								chars="⌘F"
-								aria-label={'Press Command-F to focus search bar'}
+								chars={keybind([ModifierKeys.Control], ['F'])}
+								aria-label={`Press ${
+									os === 'macOS' ? 'Command' : ModifierKeys.Control
+								}-F to focus search bar`}
 								className="border-none"
 							/>
-						) : os === 'macOS' ? (
-							<Shortcut
-								chars="⌘F"
-								aria-label={'Press Command-F to focus search bar'}
-								className="border-none"
-							/>
-						) : (
-							<Shortcut
-								chars="CTRL+F"
-								aria-label={'Press CTRL-F to focus search bar'}
-								className="border-none"
-							/>
-						)}
+						}
 					</div>
 					{/* This indicates whether the search is loading, a spinner could be put here */}
 					{/* {_isPending && <div className="h-8 w-8 bg-red-500" />} */}
