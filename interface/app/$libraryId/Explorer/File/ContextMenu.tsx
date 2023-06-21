@@ -24,6 +24,7 @@ import OpenWith from './ContextMenu/OpenWith';
 import DeleteDialog from './DeleteDialog';
 // import EncryptDialog from './EncryptDialog';
 import EraseDialog from './EraseDialog';
+import { showAlertDialog } from '~/components';
 
 interface Props {
 	data?: ExplorerItem;
@@ -310,13 +311,19 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 							<ContextMenu.Item
 								label="Open"
 								keybind={keybind([ModifierKeys.Control], ['O'])}
-								onClick={() => {
+								onClick={async () => {
 									props.data.type === 'Path' &&
 										props.data.item.object_id &&
 										updateAccessTime.mutate(props.data.item.object_id);
 
-									// FIXME: treat error properly
-									openFilePath(library.uuid, [filePath.id]);
+									try {
+										await openFilePath(library.uuid, [filePath.id]);
+									} catch (error) {
+										showAlertDialog({
+											title: 'Error',
+											value: `Couldn't open file, due to an error: ${error}`
+										});
+									}
 								}}
 							/>
 						)}
