@@ -98,6 +98,7 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Scissors}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -115,6 +116,7 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Copy}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -131,6 +133,7 @@ export default ({ data }: Props) => {
 						target_file_name_suffix: ' copy'
 					});
 				}}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -159,6 +162,7 @@ export default ({ data }: Props) => {
 						url: 'https://spacedrive.com'
 					});
 				}}
+				disabled
 			/>
 
 			<ContextMenu.Separator />
@@ -218,10 +222,10 @@ export default ({ data }: Props) => {
 						}
 					}}
 				/> */}
-				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
+				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" disabled />
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-					<ContextMenu.Item label="PNG" />
-					<ContextMenu.Item label="WebP" />
+					<ContextMenu.Item label="PNG" disabled />
+					<ContextMenu.Item label="WebP" disabled />
 				</ContextMenu.SubMenu>
 				<ContextMenu.Item
 					onClick={() => {
@@ -234,11 +238,12 @@ export default ({ data }: Props) => {
 					onClick={() => {
 						generateThumbnails.mutate({
 							id: getExplorerStore().locationId!,
-							path: '/'
+							path: params.path ?? ''
 						});
 					}}
 					label="Regen Thumbnails"
 					icon={Package}
+					disabled
 				/>
 				<ContextMenu.Item
 					variant="danger"
@@ -253,6 +258,7 @@ export default ({ data }: Props) => {
 							/>
 						));
 					}}
+					disabled
 				/>
 			</ContextMenu.SubMenu>
 

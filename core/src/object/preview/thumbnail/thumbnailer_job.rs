@@ -12,7 +12,11 @@ use crate::{
 	prisma::{file_path, location, PrismaClient},
 };
 
-use std::{collections::VecDeque, hash::Hash, path::PathBuf};
+use std::{
+	collections::VecDeque,
+	hash::Hash,
+	path::{Path, PathBuf},
+};
 
 use sd_file_ext::extensions::Extension;
 
@@ -77,33 +81,34 @@ impl StatefulJob for ThumbnailerJob {
 			None => return Ok(()),
 		};
 
-		let (path, iso_file_path) = if let Some(ref sub_path) = state.init.sub_path {
-			let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
-				.await
-				.map_err(ThumbnailerError::from)?;
-			ensure_sub_path_is_directory(&location_path, sub_path)
-				.await
-				.map_err(ThumbnailerError::from)?;
-
-			let sub_iso_file_path =
-				IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+		let (path, iso_file_path) = match &state.init.sub_path {
+			Some(sub_path) if sub_path != Path::new("") && sub_path != Path::new("/") => {
+				let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
+					.await
+					.map_err(ThumbnailerError::from)?;
+				ensure_sub_path_is_directory(&location_path, sub_path)
+					.await
 					.map_err(ThumbnailerError::from)?;
 
-			ensure_file_path_exists(
-				sub_path,
-				&sub_iso_file_path,
-				db,
-				ThumbnailerError::SubPathNotFound,
-			)
-			.await?;
+				let sub_iso_file_path =
+					IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
+						.map_err(ThumbnailerError::from)?;
 
-			(full_path, sub_iso_file_path)
-		} else {
-			(
+				ensure_file_path_exists(
+					sub_path,
+					&sub_iso_file_path,
+					db,
+					ThumbnailerError::SubPathNotFound,
+				)
+				.await?;
+
+				(full_path, sub_iso_file_path)
+			}
+			_ => (
 				location_path.to_path_buf(),
 				IsolatedFilePathData::new(location_id, &location_path, &location_path, true)
 					.map_err(ThumbnailerError::from)?,
-			)
+			),
 		};
 
 		info!("Searching for images in location {location_id} at directory {iso_file_path}");

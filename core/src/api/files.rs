@@ -18,7 +18,7 @@ use crate::{
 use std::path::Path;
 
 use chrono::Utc;
-use futures::future::try_join_all;
+use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -237,9 +237,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map_err(LocationError::FilePath)?;
 
 					let mut new_file_full_path = location_path.join(iso_file_path.parent());
-					new_file_full_path.push(new_file_name);
 					if !new_extension.is_empty() {
-						new_file_full_path.set_extension(new_extension);
+						new_file_full_path.push(format!("{}.{}", new_file_name, new_extension));
+					} else {
+						new_file_full_path.push(new_file_name);
 					}
 
 					match fs::metadata(&new_file_full_path).await {
@@ -270,19 +271,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})?;
 
-					library
-						.db
-						.file_path()
-						.update(
-							file_path::id::equals(from_file_path_id),
-							vec![
-								file_path::name::set(Some(new_file_name.to_string())),
-								file_path::extension::set(Some(new_extension.to_string())),
-							],
-						)
-						.exec()
-						.await?;
-
 					Ok(())
 				}
 
@@ -304,7 +292,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					};
 
-					let to_update = try_join_all(
+					let errors = join_all(
 						library
 							.db
 							.file_path()
@@ -313,12 +301,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?
 							.into_iter()
-							.flat_map(|file_path| {
-								let id = file_path.id;
-
-								IsolatedFilePathData::try_from(file_path).map(|d| (id, d))
-							})
-							.map(|(file_path_id, iso_file_path)| {
+							.flat_map(IsolatedFilePathData::try_from)
+							.map(|iso_file_path| {
 								let from = location_path.join(&iso_file_path);
 								let mut to = location_path.join(iso_file_path.parent());
 								let full_name = iso_file_path.full_name();
@@ -339,57 +323,37 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 											"Invalid file name".to_string(),
 										))
 									} else {
-										fs::rename(&from, &to)
-											.await
-											.map_err(|e| {
-												error!(
-													"Failed to rename file from: '{}' to: '{}'",
+										fs::rename(&from, &to).await.map_err(|e| {
+											error!(
+													"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
 													from.display(),
 													to.display()
 												);
-												rspc::Error::with_cause(
-													ErrorCode::Conflict,
-													"Failed to rename file".to_string(),
-													e,
-												)
-											})
-											.map(|_| {
-												let (name, extension) =
-												IsolatedFilePathData::separate_name_and_extension_from_str(
-												&replaced_full_name,
-												)
-												.expect("we just built this full name and validated it");
-
-												(
-													file_path_id,
-													(name.to_string(), extension.to_string()),
-												)
-											})
+											rspc::Error::with_cause(
+												ErrorCode::Conflict,
+												"Failed to rename file".to_string(),
+												e,
+											)
+										})
 									}
 								}
 							}),
 					)
-					.await?;
+					.await
+					.into_iter()
+					.filter_map(Result::err)
+					.collect::<Vec<_>>();
 
-					// TODO: dispatch sync update events
-
-					library
-						.db
-						._batch(
-							to_update
+					if !errors.is_empty() {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::Conflict,
+							errors
 								.into_iter()
-								.map(|(file_path_id, (new_name, new_extension))| {
-									library.db.file_path().update(
-										file_path::id::equals(file_path_id),
-										vec![
-											file_path::name::set(Some(new_name)),
-											file_path::extension::set(Some(new_extension)),
-										],
-									)
-								})
-								.collect::<Vec<_>>(),
-						)
-						.await?;
+								.map(|e| e.to_string())
+								.collect::<Vec<_>>()
+								.join("\n"),
+						));
+					}
 
 					Ok(())
 				}
