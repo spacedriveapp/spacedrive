@@ -13,6 +13,7 @@ import {
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import classes from './Thumb.module.scss';
+import { getItemLocation } from '../util';
 
 interface ThumbnailProps {
 	src: string;
@@ -101,7 +102,8 @@ const Thumbnail = memo(
 enum ThumbType {
 	Icon,
 	Original,
-	Thumbnail
+	Thumbnail,
+	Location
 }
 
 export interface ThumbProps {
@@ -117,6 +119,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 	const itemData = useExplorerItemData(props.data);
+	const locationData = getItemLocation(props.data);
 	const { library } = useLibraryContext();
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
@@ -134,6 +137,8 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
+		} else if (locationData) {
+			setThumbType(ThumbType.Location);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
@@ -171,6 +176,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				} else {
 					setThumbType(ThumbType.Icon);
 				}
+				break;
+			case ThumbType.Location:
+				setSrc(getIcon("Folder", isDark, extension, true));
 				break;
 			default:
 				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));

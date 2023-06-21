@@ -1,88 +1,44 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import clsx from 'clsx';
-import { HTMLAttributes, useEffect, useRef, useState } from 'react';
+import { ComponentProps, forwardRef, useEffect, useRef, useState } from 'react';
 import { useKey } from 'rooks';
-import { FilePath, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { showAlertDialog } from '~/components';
-import useClickOutside from '~/hooks/useClickOutside';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { useExplorerViewContext } from '../ViewContext';
 
-interface Props extends HTMLAttributes<HTMLDivElement> {
-	filePathData: FilePath;
+type Props = ComponentProps<'div'> & {
+	itemId: number;
+	locationId: number | null;
+	text: string | null;
 	activeClassName?: string;
 	disabled?: boolean;
-}
+	renameHandler: (name: string) => Promise<void>;
+};
 
-export default ({ filePathData, className, activeClassName, disabled, ...props }: Props) => {
+
+export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(({ className, activeClassName, disabled, ...props }, _ref) => {
 	const explorerView = useExplorerViewContext();
 	const os = useOperatingSystem();
-	const rspc = useRspcLibraryContext();
-
-	const ref = useRef<HTMLDivElement>(null);
 
 	const [allowRename, setAllowRename] = useState(false);
 	const [renamable, setRenamable] = useState(false);
 
-	const renameFile = useLibraryMutation(['files.renameFile'], {
-		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
-	});
 
-	const fileName = `${filePathData?.name}${
-		filePathData?.extension && `.${filePathData.extension}`
-	}`;
+	const funnyRef = useRef<HTMLDivElement>(null);
+	const ref = typeof _ref === 'function' ? { current: funnyRef.current } : _ref;
 
-	// Reset to original file name
-	function reset() {
-		if (ref.current) {
-			ref.current.innerText = fileName;
-		}
-	}
-
-	// Handle renaming
-	async function rename() {
-		if (!ref.current) return;
-
-		const newName = ref.current.innerText.trim();
-		if (!newName) return reset();
-
-		if (!filePathData) return;
-
-		const oldName =
-			filePathData.is_dir || !filePathData.extension
-				? filePathData.name
-				: filePathData.name + '.' + filePathData.extension;
-
-		if (!oldName || !filePathData.location_id || newName === oldName) return;
-
-		try {
-			await renameFile.mutateAsync({
-				location_id: filePathData.location_id,
-				kind: {
-					One: {
-						from_file_path_id: filePathData.id,
-						to: newName
-					}
-				}
-			});
-		} catch (e) {
-			showAlertDialog({
-				title: 'Error',
-				value: String(e)
-			});
-		}
-	}
 
 	// Highlight file name up to extension or
 	// fully if it's a directory or has no extension
-	function highlightFileName() {
-		if (ref.current) {
+	function highlightText() {
+		if (ref?.current) {
 			const range = document.createRange();
 			const node = ref.current.firstChild;
 			if (!node) return;
 
 			range.setStart(node, 0);
-			range.setEnd(node, filePathData?.name?.length || 0);
+			range.setEnd(node, props?.text?.length || 0);
 
 			const sel = window.getSelection();
 			sel?.removeAllRanges();
@@ -92,10 +48,33 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 
 	// Blur field
 	function blur() {
-		if (ref.current) {
+		if (ref?.current) {
 			ref.current.blur();
 			setAllowRename(false);
 		}
+	}
+
+
+	// Reset to original file name
+	function reset() {
+		if (ref?.current) {
+			ref.current.innerText = props.text || '';
+		}
+	}
+
+	async function handleRename() {
+		if (!ref?.current) return;
+
+		const newName = ref?.current.innerText.trim();
+		if (!newName) return reset();
+
+		if (!props.locationId) return;
+
+		const oldName = props.text
+
+		if (!oldName || !props.locationId || newName === oldName) return;
+
+		await props.renameHandler(newName);
 	}
 
 	// Handle keydown events
@@ -112,7 +91,7 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 			case 'z':
 				if (os === 'macOS' ? e.metaKey : e.ctrlKey) {
 					reset();
-					highlightFileName();
+					highlightText();
 				}
 				break;
 		}
@@ -123,9 +102,9 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 		if (allowRename) {
 			explorerView.setIsRenaming(true);
 			setTimeout(() => {
-				if (ref.current) {
+				if (ref?.current) {
 					ref.current.focus();
-					highlightFileName();
+					highlightText();
 				}
 			});
 		}
@@ -141,7 +120,7 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
-			if (ref.current && !ref.current.contains(event.target as Node)) {
+			if (ref?.current && !ref.current.contains(event.target as Node)) {
 				blur();
 			}
 		}
@@ -185,14 +164,98 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 				}
 			}}
 			onBlur={async () => {
-				await rename();
+				await handleRename();
 				setAllowRename(false);
 				explorerView.setIsRenaming(false);
 			}}
 			onKeyDown={handleKeyDown}
 			{...props}
 		>
-			{fileName}
+			{props.text}
 		</div>
 	);
+});
+
+
+export const RenamePathTextBox = (props: Omit<Props, "renameHandler"> & { isDir: boolean, extension?: string | null }) => {
+	const rspc = useRspcLibraryContext();
+	const ref = useRef<HTMLDivElement>(null);
+
+	const renameFile = useLibraryMutation(['files.renameFile'], {
+		onError: () => reset(),
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+	});
+
+
+	// Reset to original file name
+	function reset() {
+		if (ref?.current) {
+			ref.current.innerText = props.text || '';
+		}
+	}
+
+	const fileName = props.isDir || !props.extension ? props.text : props.text + '.' + props.extension;
+
+	// Handle renaming
+	async function rename(newName: string) {
+		if (!props.locationId || newName === fileName) return;
+		try {
+			await renameFile.mutateAsync({
+				location_id: props.locationId,
+				kind: {
+					One: {
+						from_file_path_id: props.itemId,
+						to: newName
+					}
+				}
+			});
+		} catch (e) {
+			showAlertDialog({
+				title: 'Error',
+				value: String(e)
+			});
+		}
+	}
+
+	return <RenameTextBoxBase {...props} text={fileName} renameHandler={rename} ref={ref} />
+
+};
+
+export const RenameLocationTextBox = (props: Omit<Props, "renameHandler">) => {
+	const rspc = useRspcLibraryContext();
+	const ref = useRef<HTMLDivElement>(null);
+
+	const renameLocation = useLibraryMutation(['locations.update'], {
+		onError: () => reset(),
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+	});
+
+	// Reset to original file name
+	function reset() {
+		if (ref?.current) {
+			ref.current.innerText = props.text || '';
+		}
+	}
+
+	// Handle renaming
+	async function rename(newName: string) {
+		if (!props.locationId) return;
+		try {
+			await renameLocation.mutateAsync({
+				id: props.locationId,
+				name: newName,
+				generate_preview_media: null,
+				sync_preview_media: null,
+				hidden: null,
+				indexer_rules_ids: []
+			});
+		} catch (e) {
+			showAlertDialog({
+				title: 'Error',
+				value: String(e)
+			});
+		}
+	}
+
+	return <RenameTextBoxBase {...props} renameHandler={rename} ref={ref} />
 };

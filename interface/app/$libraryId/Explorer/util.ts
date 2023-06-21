@@ -1,13 +1,6 @@
 import { useMemo } from 'react';
 import { z } from 'zod';
-import {
-	ExplorerItem,
-	FilePathSearchOrdering,
-	ObjectKind,
-	ObjectKindKey,
-	isObject,
-	isPath
-} from '@sd/client';
+import { ExplorerItem, FilePathSearchOrdering, ObjectKind, ObjectKindKey } from '@sd/client';
 import { useExplorerStore, useZodSearchParams } from '~/hooks';
 
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
@@ -32,11 +25,19 @@ export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 }
 
 export function getItemObject(data: ExplorerItem) {
-	return isObject(data) ? data.item : data.item.object;
+	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
 }
 
 export function getItemFilePath(data: ExplorerItem) {
-	return isObject(data) ? data.item.file_paths[0] : data.item;
+	return data.type === 'Path'
+		? data.item
+		: data.type === 'Object'
+		? data.item.file_paths[0]
+		: null;
+}
+
+export function getItemLocation(data: ExplorerItem) {
+	return data.type === 'Location' ? data.item : null;
 }
 
 export function getExplorerItemData(data: ExplorerItem) {
@@ -46,7 +47,7 @@ export function getExplorerItemData(data: ExplorerItem) {
 	return {
 		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
 		casId: filePath?.cas_id || null,
-		isDir: isPath(data) && data.item.is_dir,
+		isDir: getItemFilePath(data)?.is_dir || false,
 		extension: filePath?.extension || null,
 		locationId: filePath?.location_id || null,
 		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated

@@ -41,6 +41,11 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
+	Location {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: location::Data,
+	},
 }
 
 #[derive(Serialize, Deserialize, Type, Debug)]
@@ -103,7 +108,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("update", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationUpdateArgs| async move {
-					args.update(&library).await.map_err(Into::into)
+					let ret = args.update(&library).await.map_err(Into::into);
+					invalidate_query!(library, "locations.list");
+					ret
 				})
 		})
 		.procedure("delete", {

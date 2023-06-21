@@ -16,16 +16,17 @@ import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
 import TagsContextMenu from './TagsContextMenu';
+import { Button } from '@sd/ui';
 
 type TriggeredContextItem =
 	| {
-			type: 'location';
-			locationId: number;
-	  }
+		type: 'location';
+		locationId: number;
+	}
 	| {
-			type: 'tag';
-			tagId: number;
-	  };
+		type: 'tag';
+		tagId: number;
+	};
 
 export const LibrarySection = () => {
 	const node = useBridgeQuery(['nodeState']);
@@ -63,27 +64,14 @@ export const LibrarySection = () => {
 					)
 				}
 			>
-				{/* <SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Laptop} className="w-5 h-5 mr-1" />
-					<span className="truncate">Jamie's MBP</span>
-				</SidebarLink>
-				<SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Mobile} className="w-5 h-5 mr-1" />
-					<span className="truncate">spacephone</span>
-				</SidebarLink>
-				<SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Server} className="w-5 h-5 mr-1" />
-					<span className="truncate">titan</span>
-				</SidebarLink>
-				{(locations.data?.length || 0) < 4 && (
-					<Button variant="dotted" className="w-full mt-1">
-						Connect Node
-					</Button>
-				)} */}
-				<SidebarLink disabled className="group relative w-full" to={`/`} key={'jeff'}>
+				{node.data && <SidebarLink className="group relative w-full" to={`node/${node.data.id}`} key={node.data.id}>
 					<img src={Laptop} className="mr-1 h-5 w-5" />
-					<span className="truncate">{node.data?.name}</span>
-				</SidebarLink>
+					<span className="truncate">{node.data.name}</span>
+				</SidebarLink>}
+				<Button variant="dotted" className="mt-1 w-full">
+					Connect Node
+				</Button>
+
 			</Section>
 			<Section
 				name="Locations"
@@ -128,7 +116,7 @@ export const LibrarySection = () => {
 						</LocationsContextMenu>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && <AddLocationButton className="mt-1" />}
+				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
 				<Section

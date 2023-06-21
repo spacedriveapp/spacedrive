@@ -15,7 +15,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
+import { ExplorerItem, FilePath, ObjectKind, isPath } from '@sd/client';
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
@@ -23,11 +23,12 @@ import {
 } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
 import { ViewItem } from '.';
-import RenameTextBox from '../File/RenameTextBox';
+import { RenamePathTextBox } from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
+import { getExplorerItemData, getItemFilePath, getItemLocation, getItemObject } from '../util';
+import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
@@ -105,7 +106,6 @@ export default () => {
 	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
 	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
-	const getObjectData = (data: ExplorerItem) => (isObject(data) ? data.item : data.item.object);
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
@@ -116,12 +116,12 @@ export default () => {
 				minSize: 200,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
+					const locationData = getItemLocation(file);
 					const filePathData = getItemFilePath(file);
-					return filePathData && getFileName(filePathData);
+					return locationData ? locationData.name : filePathData && getFileName(filePathData);
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
-					const filePathData = getItemFilePath(file);
 
 					const selectedId = Array.isArray(explorerView.selected)
 						? explorerView.selected[0]
@@ -134,17 +134,11 @@ export default () => {
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
 								<FileThumb data={file} size={35} />
 							</div>
-							{filePathData && (
-								<RenameTextBox
-									filePathData={filePathData}
-									disabled={
-										!selected ||
-										(Array.isArray(explorerView.selected) &&
-											explorerView.selected.length > 1)
-									}
-									activeClassName="absolute z-50 top-0.5 left-[58px] max-w-[calc(100%-60px)]"
-								/>
-							)}
+							<RenamableItemText allowHighlight={false} item={file} selected={selected} disabled={
+								!selected ||
+								(Array.isArray(explorerView.selected) &&
+									explorerView.selected.length > 1)
+							} />
 						</div>
 					);
 				}
@@ -156,7 +150,7 @@ export default () => {
 				accessorFn: (file) => {
 					return isPath(file) && file.item.is_dir
 						? 'Folder'
-						: ObjectKind[getObjectData(file)?.kind || 0];
+						: ObjectKind[getItemObject(file)?.kind || 0];
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
@@ -164,7 +158,7 @@ export default () => {
 						<InfoPill className="bg-app-button/50">
 							{isPath(file) && file.item.is_dir
 								? 'Folder'
-								: ObjectKind[getObjectData(file)?.kind || 0]}
+								: ObjectKind[getItemObject(file)?.kind || 0]}
 						</InfoPill>
 					);
 				}
@@ -235,11 +229,11 @@ export default () => {
 					...sizing,
 					...(nameSize !== undefined && nameColumnMinSize !== undefined
 						? {
-								name:
-									newNameSize >= nameColumnMinSize
-										? newNameSize
-										: nameColumnMinSize
-						  }
+							name:
+								newNameSize >= nameColumnMinSize
+									? newNameSize
+									: nameColumnMinSize
+						}
 						: {})
 				};
 			});
@@ -282,18 +276,18 @@ export default () => {
 
 			const indexes = isCurrentHigher
 				? Array.from(
-						{
-							length:
-								currentRowIndex -
-								rangeEndItem.index +
-								(rangeEndItem.index === 0 ? 1 : 0)
-						},
-						(_, i) => rangeStartRow.index + i + 1
-				  )
+					{
+						length:
+							currentRowIndex -
+							rangeEndItem.index +
+							(rangeEndItem.index === 0 ? 1 : 0)
+					},
+					(_, i) => rangeStartRow.index + i + 1
+				)
 				: Array.from(
-						{ length: rangeEndItem.index - currentRowIndex },
-						(_, i) => rangeStartRow.index - (i + 1)
-				  );
+					{ length: rangeEndItem.index - currentRowIndex },
+					(_, i) => rangeStartRow.index - (i + 1)
+				);
 
 			const updated = new Set(explorerView.selected);
 			if (isCurrentHigher) {
@@ -398,7 +392,7 @@ export default () => {
 
 				const loadMoreOnIndex =
 					rowsBeforeLoadMore > rows.length ||
-					lastRow.index > rows.length - rowsBeforeLoadMore
+						lastRow.index > rows.length - rowsBeforeLoadMore
 						? rows.length - 1
 						: rows.length - rowsBeforeLoadMore;
 
@@ -425,9 +419,9 @@ export default () => {
 					if (lastSelectedRow) {
 						const nextRow =
 							rows[
-								e.key === 'ArrowUp'
-									? lastSelectedRow.index - 1
-									: lastSelectedRow.index + 1
+							e.key === 'ArrowUp'
+								? lastSelectedRow.index - 1
+								: lastSelectedRow.index + 1
 							];
 
 						if (nextRow) {
@@ -549,16 +543,16 @@ export default () => {
 																i === 0
 																	? size + paddingX
 																	: i ===
-																	  headerGroup.headers.length - 1
-																	? size - paddingX
-																	: size
+																		headerGroup.headers.length - 1
+																		? size - paddingX
+																		: size
 														}}
 														onClick={() => {
 															if (header.column.getCanSort()) {
 																if (isSorted) {
 																	getExplorerStore().orderByDirection =
 																		explorerStore.orderByDirection ===
-																		'Asc'
+																			'Asc'
 																			? 'Desc'
 																			: 'Asc';
 																} else {
@@ -583,7 +577,7 @@ export default () => {
 
 																{isSorted ? (
 																	explorerStore.orderByDirection ===
-																	'Asc' ? (
+																		'Asc' ? (
 																		<CaretUp className="shrink-0 text-ink-faint" />
 																	) : (
 																		<CaretDown className="shrink-0 text-ink-faint" />
@@ -592,25 +586,25 @@ export default () => {
 
 																{(i !==
 																	headerGroup.headers.length -
-																		1 ||
+																	1 ||
 																	(i ===
 																		headerGroup.headers.length -
-																			1 &&
+																		1 &&
 																		!locked)) && (
-																	<div
-																		onClick={(e) =>
-																			e.stopPropagation()
-																		}
-																		onMouseDown={(e) => {
-																			setLocked(false);
-																			header.getResizeHandler()(
-																				e
-																			);
-																		}}
-																		onTouchStart={header.getResizeHandler()}
-																		className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
-																	/>
-																)}
+																		<div
+																			onClick={(e) =>
+																				e.stopPropagation()
+																			}
+																			onMouseDown={(e) => {
+																				setLocked(false);
+																				header.getResizeHandler()(
+																					e
+																				);
+																			}}
+																			onTouchStart={header.getResizeHandler()}
+																			className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+																		/>
+																	)}
 															</div>
 														)}
 													</div>
@@ -640,10 +634,9 @@ export default () => {
 													className="absolute left-0 top-0 flex w-full py-px"
 													style={{
 														height: `${virtualRow.size}px`,
-														transform: `translateY(${
-															virtualRow.start -
+														transform: `translateY(${virtualRow.start -
 															rowVirtualizer.options.scrollMargin
-														}px)`,
+															}px)`,
 														paddingLeft: `${paddingX}px`,
 														paddingRight: `${paddingX}px`
 													}}
@@ -675,10 +668,9 @@ export default () => {
 												)}
 												style={{
 													height: `${virtualRow.size}px`,
-													transform: `translateY(${
-														virtualRow.start -
+													transform: `translateY(${virtualRow.start -
 														rowVirtualizer.options.scrollMargin
-													}px)`,
+														}px)`,
 													paddingLeft: `${paddingX}px`,
 													paddingRight: `${paddingX}px`
 												}}
@@ -692,16 +684,16 @@ export default () => {
 													className={clsx(
 														'relative flex h-full w-full rounded-md border',
 														virtualRow.index % 2 === 0 &&
-															'bg-app-darkBox',
+														'bg-app-darkBox',
 														selected
 															? 'border-accent !bg-accent/10'
 															: 'border-transparent',
 														selected &&
-															selectedPrior &&
-															'rounded-t-none border-t-0 border-t-transparent',
+														selectedPrior &&
+														'rounded-t-none border-t-0 border-t-transparent',
 														selected &&
-															selectedNext &&
-															'rounded-b-none border-b-0 border-b-transparent'
+														selectedNext &&
+														'rounded-b-none border-b-0 border-b-transparent'
 													)}
 												>
 													{selectedPrior && (

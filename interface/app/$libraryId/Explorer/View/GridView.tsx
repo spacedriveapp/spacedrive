@@ -1,13 +1,13 @@
+import { ExplorerItem, formatBytes } from '@sd/client';
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, formatBytes } from '@sd/client';
 import GridList from '~/components/GridList';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { ViewItem } from '.';
-import RenameTextBox from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath } from '../util';
+import { getItemFilePath, getItemLocation } from '../util';
+import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
 	data: ExplorerItem;
@@ -16,9 +16,17 @@ interface GridViewItemProps {
 }
 
 const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProps) => {
-	const filePathData = data ? getItemFilePath(data) : null;
+	const filePathData = getItemFilePath(data);
+	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+
+	const showSize =
+		(!filePathData?.is_dir &&
+			!location &&
+			explorerStore.showBytesInGridView &&
+			(!explorerView.isRenaming ||
+				(explorerView.isRenaming && !selected)));
 
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>
@@ -27,30 +35,16 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 			</div>
 
 			<div className="flex flex-col justify-center">
-				{filePathData && (
-					<RenameTextBox
-						filePathData={filePathData}
-						disabled={!selected}
+				<RenamableItemText item={data} selected={selected} />
+				{showSize && (
+					<span
 						className={clsx(
-							'text-center font-medium text-ink',
-							selected && 'bg-accent text-white dark:text-ink'
+							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
-						style={{
-							maxHeight: explorerStore.gridItemSize / 3
-						}}
-						activeClassName="!text-ink"
-					/>
+					>
+						{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+					</span>
 				)}
-				{explorerStore.showBytesInGridView &&
-					(!explorerView.isRenaming || (explorerView.isRenaming && !selected)) && (
-						<span
-							className={clsx(
-								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
-							)}
-						>
-							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-						</span>
-					)}
 			</div>
 		</ViewItem>
 	);
