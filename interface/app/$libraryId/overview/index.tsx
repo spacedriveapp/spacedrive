@@ -2,12 +2,7 @@ import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import {
-	KeybindProvider,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useOperatingSystem
-} from '~/hooks';
+import { useExplorerStore, useExplorerTopBarOptions, useOperatingSystem } from '~/hooks';
 import ContextMenu from '../Explorer/File/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import View from '../Explorer/View';
