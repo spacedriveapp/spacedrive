@@ -7,7 +7,7 @@ use crate::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, object, PrismaClient},
+	prisma::{file_path, indexer_rules_in_location, location, node, PrismaClient},
 	sync,
 	util::{
 		db::{chain_optional_iter, uuid_to_bytes},
@@ -22,14 +22,11 @@ use std::{
 
 use futures::future::TryFutureExt;
 use normpath::PathExt;
-use prisma_client_rust::{
-	operator::{and, or},
-	or, QueryError,
-};
+use prisma_client_rust::{operator::and, or, QueryError};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
-use tokio::{fs, io};
+use tokio::{fs, io, task};
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -664,10 +661,9 @@ pub async fn delete_location(
 		}
 	}
 
-	library.orphan_remover.invoke().await;
+	invalidate_query!(library, "locations.list");
 
 	info!("Location {} deleted", location_id);
-	invalidate_query!(library, "locations.list");
 
 	Ok(())
 }
@@ -695,30 +691,9 @@ pub async fn delete_directory(
 		})],
 	);
 
-	// Fetching all object_ids from all children file_paths
-	let object_ids = db
-		.file_path()
-		.find_many(children_params.clone())
-		.select(file_path::select!({ object_id }))
-		.exec()
-		.await?
-		.into_iter()
-		.filter_map(|file_path| file_path.object_id)
-		.collect();
-
-	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
-	// delete all children file_paths
 	db.file_path().delete_many(children_params).exec().await?;
 
-	// delete all children objects
-	db.object()
-		.delete_many(vec![
-			object::id::in_vec(object_ids),
-			// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
-			object::file_paths::none(vec![]),
-		])
-		.exec()
-		.await?;
+	library.orphan_remover.invoke().await;
 
 	invalidate_query!(library, "search.paths");
 
