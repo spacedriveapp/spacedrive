@@ -239,7 +239,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   _arch="$(uname -m)"
 
   # Symlink original macOS utils to avoid problems on system where the user has installed GNU utils
-  ln -s "/usr/bin/tar" "${_deps_dir}/tar"
+  ln -fs "/usr/bin/tar" "${_deps_dir}/tar"
 
   if ! has jq; then
     echo "Download jq build..."
