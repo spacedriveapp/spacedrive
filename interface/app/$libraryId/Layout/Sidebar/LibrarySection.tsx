@@ -9,6 +9,7 @@ import {
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
+import { Button } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
@@ -16,26 +17,34 @@ import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
 import TagsContextMenu from './TagsContextMenu';
-import { Button } from '@sd/ui';
 
 type TriggeredContextItem =
 	| {
-		type: 'location';
-		locationId: number;
-	}
+			type: 'location';
+			locationId: number;
+	  }
 	| {
-		type: 'tag';
-		tagId: number;
-	};
+			type: 'tag';
+			tagId: number;
+	  };
+
+const SEE_MORE_LOCATIONS_COUNT = 5;
 
 export const LibrarySection = () => {
 	const node = useBridgeQuery(['nodeState']);
-	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
 		null
+	);
+
+	const [seeMoreLocations, setSeeMoreLocations] = useState(false);
+
+	const locations = locationsQuery.data?.slice(
+		0,
+		seeMoreLocations ? undefined : SEE_MORE_LOCATIONS_COUNT
 	);
 
 	useEffect(() => {
@@ -64,14 +73,19 @@ export const LibrarySection = () => {
 					)
 				}
 			>
-				{node.data && <SidebarLink className="group relative w-full" to={`node/${node.data.id}`} key={node.data.id}>
-					<img src={Laptop} className="mr-1 h-5 w-5" />
-					<span className="truncate">{node.data.name}</span>
-				</SidebarLink>}
+				{node.data && (
+					<SidebarLink
+						className="group relative w-full"
+						to={`node/${node.data.id}`}
+						key={node.data.id}
+					>
+						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<span className="truncate">{node.data.name}</span>
+					</SidebarLink>
+				)}
 				<Button variant="dotted" className="mt-1 w-full">
 					Connect Node
 				</Button>
-
 			</Section>
 			<Section
 				name="Locations"
@@ -81,7 +95,7 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{locations.data?.map((location) => {
+				{locations?.map((location) => {
 					const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
@@ -116,6 +130,14 @@ export const LibrarySection = () => {
 						</LocationsContextMenu>
 					);
 				})}
+				{locationsQuery.data?.[SEE_MORE_LOCATIONS_COUNT - 1] && (
+					<div
+						onClick={() => setSeeMoreLocations(!seeMoreLocations)}
+						className="mb-1 ml-2 mt-0.5 cursor-pointer text-center text-tiny font-semibold text-ink-faint/50 transition hover:text-accent"
+					>
+						See {seeMoreLocations ? 'less' : 'more'}
+					</div>
+				)}
 				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
