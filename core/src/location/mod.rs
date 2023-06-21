@@ -22,10 +22,7 @@ use std::{
 
 use futures::future::TryFutureExt;
 use normpath::PathExt;
-use prisma_client_rust::{
-	operator::{and, or},
-	or, QueryError,
-};
+use prisma_client_rust::{operator::and, or, QueryError};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
