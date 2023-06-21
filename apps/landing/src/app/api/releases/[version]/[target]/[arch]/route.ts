@@ -25,10 +25,11 @@ async function githubFetch(path: string) {
 
 async function getRelease({ version }: z.infer<typeof schemas.params>): Promise<any> {
 	switch (version) {
-		case 'alpha':
+		case 'alpha': {
 			const data = await githubFetch(`/repos/${ORG}/${REPO}/releases`);
 
 			return data.find((d: any) => d.tag_name.includes('alpha'));
+		}
 		case 'stable':
 			return githubFetch(`https://api.github.com/repos/${ORG}/${REPO}/releases/latest`);
 		default:
@@ -39,7 +40,7 @@ async function getRelease({ version }: z.infer<typeof schemas.params>): Promise<
 }
 
 export async function GET(_: Request, extra: { params: object }) {
-	let params = await schemas.params.parseAsync(extra.params);
+	const params = await schemas.params.parseAsync(extra.params);
 
 	const release = await getRelease(params);
 
