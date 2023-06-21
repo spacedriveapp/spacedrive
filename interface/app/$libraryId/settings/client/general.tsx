@@ -1,6 +1,6 @@
 import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
-import { Card, Input, Switch, tw } from '@sd/ui';
+import { Button, Card, Input, Label, Switch, tw } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -53,14 +53,14 @@ export const Component = () => {
 							/>
 						</div>
 					</div>
-					<div className="mt-5 flex items-center space-x-3">
-						<Switch size="sm" checked />
+					<div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
+						<Switch size="sm" />
 						<span className="text-sm font-medium text-ink-dull">
-							Run daemon when app closed
+							Run Spacedrive in the background when app closed
 						</span>
 					</div>
-					<div className="mt-3">
-						<div
+					<div className="mt-6 gap-2">
+						{/* <div
 							onClick={() => {
 								if (node.data && platform?.openLink) {
 									platform.openLink(node.data.data_path);
@@ -72,9 +72,23 @@ export const Component = () => {
 								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder
 							</b>
 							<span className="select-text">{node.data?.data_path}</span>
-						</div>
+						</div> */}
 
-						<Input value={node.data?.data_path + '/logs'} />
+						<div>
+							<NodeSettingLabel>
+								Data Folder
+							</NodeSettingLabel>
+							<div className='mt-2 flex w-full flex-row gap-2'>
+								<Input className='grow' value={node.data?.data_path} />
+								<Button size="sm" variant="outline">Change</Button>
+							</div>
+						</div>
+						{/* <div className='mb-1'>
+							<Label className="text-sm font-medium text-ink-faint">
+								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
+							</Label>
+							<Input value={node.data?.data_path + '/logs'} />
+						</div> */}
 
 					</div>
 				</div>
@@ -86,6 +100,7 @@ export const Component = () => {
 					description="Enable extra debugging features within the app."
 				>
 					<Switch
+						size="md"
 						checked={debugState.enabled}
 						onClick={() => (getDebugState().enabled = !debugState.enabled)}
 					/>

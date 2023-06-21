@@ -15,7 +15,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { ExplorerItem, FilePath, ObjectKind, isPath } from '@sd/client';
+import { ExplorerItem, FilePath, ObjectKind, bytesToNumber, formatBytes, isPath } from '@sd/client';
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
@@ -167,7 +167,12 @@ export default () => {
 				id: 'sizeInBytes',
 				header: 'Size',
 				size: 100,
-				accessorFn: (file) => byteSize(Number(getItemFilePath(file)?.size_in_bytes || 0))
+				accessorFn: (file) => {
+					const file_path = getItemFilePath(file);
+					if (!file_path || !file_path.size_in_bytes_bytes) return;
+
+					return byteSize(bytesToNumber(file_path.size_in_bytes_bytes))
+				},
 			},
 			{
 				id: 'dateCreated',
@@ -175,10 +180,31 @@ export default () => {
 				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
 			},
 			{
+				id: 'dateModified',
+				header: 'Date Modified',
+				accessorFn: (file) => dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
+			},
+			{
+				id: 'dateIndexed',
+				header: 'Date Indexed',
+				accessorFn: (file) => dayjs(getItemFilePath(file)?.date_indexed).format('MMM Do YYYY')
+			},
+			{
+				id: 'dateAccessed',
+				header: 'Date Accessed',
+				accessorFn: (file) => dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
+			},
+			{
 				header: 'Content ID',
 				enableSorting: false,
 				size: 180,
 				accessorFn: (file) => getExplorerItemData(file).casId
+			},
+			{
+				header: 'Object ID',
+				enableSorting: false,
+				size: 180,
+				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
 		[explorerView.selected]

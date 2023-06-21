@@ -36,13 +36,13 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 
 			<div className="flex flex-col justify-center">
 				<RenamableItemText item={data} selected={selected} />
-				{showSize && (
+				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
 							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
 					>
-						{formatBytes(Number(filePathData?.size_in_bytes || 0))}
+						{formatBytes(filePathData.size_in_bytes_bytes)}
 					</span>
 				)}
 			</div>
@@ -75,19 +75,7 @@ export default () => {
 			preventContextMenuSelection={!explorerView.contextMenu}
 		>
 			{({ index, item: Item }) => {
-				if (!explorerView.items) {
-					return (
-						<Item className="p-px">
-							<div className="aspect-square animate-pulse rounded-md bg-app-box" />
-							<div className="mx-2 mt-3 h-2 animate-pulse rounded bg-app-box" />
-							{explorerStore.showBytesInGridView && (
-								<div className="mx-8 mt-2 h-1 animate-pulse rounded bg-app-box" />
-							)}
-						</Item>
-					);
-				}
-
-				const item = explorerView.items[index];
+				const item = explorerView.items?.[index];
 				if (!item) return null;
 
 				const isSelected = Array.isArray(explorerView.selected)

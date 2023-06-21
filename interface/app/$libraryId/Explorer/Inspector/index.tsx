@@ -108,9 +108,8 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
 								<MetaValue>
-									{`${context.path}/${data.item.materialized_path}${
-										data.item.name
-									}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
+									{`${context.path}/${data.item.materialized_path}${data.item.name
+										}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
 								</MetaValue>
 							</MetaContainer>
 						)}
@@ -151,13 +150,16 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						</MetaContainer>
 						<Divider />
 						<MetaContainer className="!flex-row space-x-2">
-							<MetaTextLine>
-								<InspectorIcon component={Cube} />
-								<span className="mr-1.5">Size</span>
-								<MetaValue>
-									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-								</MetaValue>
-							</MetaTextLine>
+							{
+								filePathData?.size_in_bytes_bytes &&
+								<MetaTextLine>
+									<InspectorIcon component={Cube} />
+									<span className="mr-1.5">Size</span>
+									<MetaValue>
+										{formatBytes(filePathData.size_in_bytes_bytes)}
+									</MetaValue>
+								</MetaTextLine>
+							}
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />

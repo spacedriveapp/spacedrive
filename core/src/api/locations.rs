@@ -17,7 +17,7 @@ use specta::Type;
 
 use super::{utils::library, Ctx, R};
 
-#[derive(Serialize, Deserialize, Type, Debug)]
+#[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerContext {
 	Location(location::Data),
@@ -25,7 +25,7 @@ pub enum ExplorerContext {
 	// Space(object_in_space::Data),
 }
 
-#[derive(Serialize, Deserialize, Type, Debug)]
+#[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
@@ -48,7 +48,7 @@ pub enum ExplorerItem {
 	},
 }
 
-#[derive(Serialize, Deserialize, Type, Debug)]
+#[derive(Serialize, Type, Debug)]
 pub struct ExplorerData {
 	pub context: ExplorerContext,
 	pub items: Vec<ExplorerItem>,

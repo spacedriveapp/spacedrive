@@ -132,9 +132,8 @@ export const Component = () => {
 				/>
 				<div
 					style={{
-						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
-							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
-						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
+						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
+							}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
 					}}
 					ref={themesRef}
 					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
@@ -165,7 +164,7 @@ export const Component = () => {
 					})}
 				</div>
 
-				{themeStore.theme === 'dark' && (
+				{/* {themeStore.theme === 'dark' && (
 					<Setting mini title="Theme hue value" description="Change the hue of the theme">
 						<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
 							<div className="w-full">
@@ -183,25 +182,28 @@ export const Component = () => {
 							</div>
 						</div>
 					</Setting>
-				)}
+				)} */}
 
-				<Setting
-					mini
-					title="UI Animations"
-					className="opacity-30"
-					description="Dialogs and other UI elements will animate when opening and closing."
-				>
-					<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
-				</Setting>
+				<div className='flex flex-col gap-4'>
 
-				<Setting
-					mini
-					title="Blur Effects"
-					className="opacity-30"
-					description="Some components will have a blur effect applied to them."
-				>
-					<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
-				</Setting>
+					<Setting
+						mini
+						title="UI Animations"
+						className="opacity-30"
+						description="Dialogs and other UI elements will animate when opening and closing."
+					>
+						<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
+					</Setting>
+
+					<Setting
+						mini
+						title="Blur Effects"
+						className="opacity-30"
+						description="Some components will have a blur effect applied to them."
+					>
+						<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
+					</Setting>
+				</div>
 			</Form>
 		</>
 	);
