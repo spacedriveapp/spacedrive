@@ -18,7 +18,9 @@ use tracing::error;
 
 pub mod isolated_file_path_data;
 
-pub use isolated_file_path_data::IsolatedFilePathData;
+pub use isolated_file_path_data::{
+	join_location_relative_path, push_location_relative_path, IsolatedFilePathData,
+};
 
 // File Path selectables!
 file_path::select!(file_path_just_pub_id { pub_id });
@@ -42,10 +44,6 @@ file_path::select!(file_path_for_object_validator {
 	name
 	extension
 	integrity_checksum
-	location: select {
-		id
-		pub_id
-	}
 });
 file_path::select!(file_path_for_thumbnailer {
 	materialized_path

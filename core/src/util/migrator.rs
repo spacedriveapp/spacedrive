@@ -2,7 +2,7 @@ use std::{
 	any::type_name,
 	fs::File,
 	io::{self, BufReader, Seek, Write},
-	path::Path,
+	path::{Path, PathBuf},
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -23,10 +23,12 @@ pub struct BaseConfig {
 
 /// System for managing app level migrations on a config file so we can introduce breaking changes to the app without the user needing to reset their whole system.
 #[async_trait::async_trait]
-pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
+pub trait Migrate: Sized + DeserializeOwned + Serialize {
 	const CURRENT_VERSION: u32;
 
 	type Ctx: Sync;
+
+	fn default(path: PathBuf) -> Result<Self, MigratorError>;
 
 	async fn migrate(
 		from_version: u32,
@@ -90,7 +92,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
 			false => Ok(serde_json::from_value(Value::Object(
-				Self::default().save(path)?.other,
+				Self::default(path.into())?.save(path)?.other,
 			))?),
 		}
 	}
@@ -128,6 +130,8 @@ pub enum MigratorError {
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("We detected a Spacedrive config from a super early version of the app!")]
 	HasSuperLegacyConfig,
+	#[error("file '{}' was not found by the migrator!", .0.display())]
+	ConfigFileMissing(PathBuf),
 	#[error("custom migration error: {0}")]
 	Custom(String),
 }
@@ -153,6 +157,10 @@ mod test {
 		const CURRENT_VERSION: u32 = 3;
 
 		type Ctx = ();
+
+		fn default(_path: PathBuf) -> Result<Self, MigratorError> {
+			Ok(<Self as Default>::default())
+		}
 
 		async fn migrate(
 			to_version: u32,

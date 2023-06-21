@@ -46,7 +46,7 @@ export const Component = () => {
 					className="flex w-fit gap-2"
 					variant="accent"
 				>
-					<Github className="h-4 w-4 fill-ink" />
+					<Github className="h-4 w-4 fill-white" />
 					Star on GitHub
 				</Button>
 				<Button

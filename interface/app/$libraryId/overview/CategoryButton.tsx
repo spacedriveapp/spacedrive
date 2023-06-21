@@ -13,7 +13,7 @@ export default ({ category, icon, items, selected, onClick }: CategoryButtonProp
 		<div
 			onClick={onClick}
 			className={clsx(
-				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm',
+				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm outline-none focus:bg-app-selectedItem/50',
 				selected && 'bg-app-selectedItem'
 			)}
 		>

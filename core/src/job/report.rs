@@ -215,6 +215,7 @@ impl JobReport {
 
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
 		let now = Utc::now();
+
 		self.created_at = Some(now);
 
 		library
@@ -231,6 +232,8 @@ impl JobReport {
 						job::date_created::set(Some(now.into())),
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(|d| d.into())),
+						job::task_count::set(Some(1)),
+						job::completed_task_count::set(Some(0)),
 					],
 					[self
 						.parent_id

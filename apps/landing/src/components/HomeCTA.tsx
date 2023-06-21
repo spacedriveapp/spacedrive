@@ -141,7 +141,7 @@ export function HomeCTA() {
 			</div>
 			<p
 				className={clsx(
-					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-450 fade-in',
+					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-400 fade-in',
 					{
 						'mt-10': waitlistError,
 						'mt-3': !waitlistError

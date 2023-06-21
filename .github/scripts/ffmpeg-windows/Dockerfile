@@ -1,6 +1,6 @@
 ARG FFMPEG_VERSION=6.0
 
-FROM ghcr.io/btbn/ffmpeg-builds/base-win64:latest@sha256:69e7ee385c41ae4580161fbd1cf14e1d199a81c39e398e8421225d86d8f2d3f3 AS base
+FROM vvasconcellos/base-win64:2023_06_10 AS base
 
 ENV TARGET=win64
 
@@ -90,6 +90,10 @@ FROM layer-45 AS layer-50-kvazaar
 
 RUN --mount=src=scripts.d/50-kvazaar.sh,dst=/stage.sh run_stage /stage.sh
 
+FROM layer-45 AS layer-50-libde265
+
+RUN --mount=src=scripts.d/50-libde265.sh,dst=/stage.sh run_stage /stage.sh
+
 FROM layer-45 AS layer-50-libjxl
 
 RUN --mount=src=scripts.d/50-libjxl.sh,dst=/stage.sh run_stage /stage.sh
@@ -172,6 +176,8 @@ COPY --from=layer-50-dav1d /opt/dlls /opt/dlls
 COPY --from=layer-50-ffnvcodec $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-kvazaar $FFBUILD_PREFIX/. $FFBUILD_PREFIX
+
+COPY --from=layer-50-libde265 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-libjxl $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 

@@ -55,7 +55,6 @@ export function ErrorPage({
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
-
 	if (!submessage && debug.enabled)
 		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
@@ -101,11 +100,13 @@ export function ErrorPage({
 							variant="colored"
 							className="mt-4 max-w-xs border-transparent bg-red-500"
 							onClick={() => {
+								localStorage.clear();
+
 								// @ts-expect-error
 								window.__TAURI_INVOKE__('reset_spacedrive');
 							}}
 						>
-							Reset Spacedrive
+							Reset Spacedrive & Quit App
 						</Button>
 					</div>
 				)}

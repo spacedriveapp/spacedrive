@@ -42,7 +42,10 @@ async fn reset_spacedrive(app_handle: tauri::AppHandle) {
 
 	fs::remove_dir_all(data_dir).unwrap();
 
-	app_handle.restart();
+	// TODO: Restarting the app doesn't work in dev (cause Tauri's devserver shutdown) and in prod makes the app go unresponsive until you click in/out on macOS
+	// app_handle.restart();
+
+	app_handle.exit(0);
 }
 
 #[tauri::command(async)]

@@ -16,6 +16,7 @@ import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks'
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
+import { useExplorerViewContext } from '../ViewContext';
 import { getItemFilePath, useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
@@ -29,6 +30,8 @@ interface Props {
 
 export default ({ data }: Props) => {
 	const store = useExplorerStore();
+	const explorerView = useExplorerViewContext();
+	const explorerStore = useExplorerStore();
 	const [params] = useExplorerSearchParams();
 	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
 
@@ -63,11 +66,13 @@ export default ({ data }: Props) => {
 
 			<OpenInNativeExplorer />
 
-			<ContextMenu.Item
-				label="Rename"
-				keybind="Enter"
-				onClick={() => (getExplorerStore().isRenaming = true)}
-			/>
+			{explorerStore.layoutMode === 'media' || (
+				<ContextMenu.Item
+					label="Rename"
+					keybind="Enter"
+					onClick={() => explorerView.setIsRenaming(true)}
+				/>
+			)}
 
 			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
 				<ContextMenu.Item
@@ -93,6 +98,7 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Scissors}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -110,6 +116,7 @@ export default ({ data }: Props) => {
 					};
 				}}
 				icon={Copy}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -126,6 +133,7 @@ export default ({ data }: Props) => {
 						target_file_name_suffix: ' copy'
 					});
 				}}
+				disabled
 			/>
 
 			<ContextMenu.Item
@@ -154,6 +162,7 @@ export default ({ data }: Props) => {
 						url: 'https://spacedrive.com'
 					});
 				}}
+				disabled
 			/>
 
 			<ContextMenu.Separator />
@@ -213,10 +222,10 @@ export default ({ data }: Props) => {
 						}
 					}}
 				/> */}
-				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" />
+				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" disabled />
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-					<ContextMenu.Item label="PNG" />
-					<ContextMenu.Item label="WebP" />
+					<ContextMenu.Item label="PNG" disabled />
+					<ContextMenu.Item label="WebP" disabled />
 				</ContextMenu.SubMenu>
 				<ContextMenu.Item
 					onClick={() => {
@@ -229,11 +238,12 @@ export default ({ data }: Props) => {
 					onClick={() => {
 						generateThumbnails.mutate({
 							id: getExplorerStore().locationId!,
-							path: '/'
+							path: params.path ?? ''
 						});
 					}}
 					label="Regen Thumbnails"
 					icon={Package}
+					disabled
 				/>
 				<ContextMenu.Item
 					variant="danger"
@@ -248,6 +258,7 @@ export default ({ data }: Props) => {
 							/>
 						));
 					}}
+					disabled
 				/>
 			</ContextMenu.SubMenu>
 

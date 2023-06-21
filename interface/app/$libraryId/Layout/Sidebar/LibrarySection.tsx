@@ -2,7 +2,13 @@ import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { arraysEqual, useBridgeQuery, useLibraryQuery, useOnlineLocations } from '@sd/client';
+import {
+	arraysEqual,
+	useBridgeQuery,
+	useFeatureFlag,
+	useLibraryQuery,
+	useOnlineLocations
+} from '@sd/client';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
@@ -26,6 +32,7 @@ export const LibrarySection = () => {
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
+	const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
 		null
 	);
@@ -47,9 +54,13 @@ export const LibrarySection = () => {
 			<Section
 				name="Nodes"
 				actionArea={
-					<Link to="settings/library/nodes">
+					isPairingEnabled ? (
+						<Link to="settings/library/nodes">
+							<SubtleButton />
+						</Link>
+					) : (
 						<SubtleButton />
-					</Link>
+					)
 				}
 			>
 				{/* <SidebarLink className="relative w-full group" to={`/`}>

@@ -1,6 +1,7 @@
 use crate::{
 	library::LibraryConfig,
 	prisma::statistics,
+	util::MaybeUndefined,
 	volume::{get_volumes, save_volume},
 };
 
@@ -97,10 +98,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let new_library = ctx
 					.library_manager
-					.create(LibraryConfig {
-						name: args.name.to_string(),
-						..Default::default()
-					})
+					.create(
+						LibraryConfig::new(args.name.to_string(), ctx.config.get().await.id),
+						ctx.config.get().await,
+					)
 					.await?;
 
 				Ok(new_library)
@@ -111,7 +112,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct EditLibraryArgs {
 				pub id: Uuid,
 				pub name: Option<String>,
-				pub description: Option<String>,
+				pub description: MaybeUndefined<String>,
 			}
 
 			R.mutation(|ctx, args: EditLibraryArgs| async move {

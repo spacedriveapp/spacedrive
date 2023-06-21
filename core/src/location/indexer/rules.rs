@@ -2,7 +2,7 @@ use crate::{
 	library::Library,
 	prisma::indexer_rule,
 	util::{
-		db::uuid_to_bytes,
+		db::{maybe_missing, uuid_to_bytes, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 	},
 };
@@ -46,6 +46,8 @@ pub enum IndexerRuleError {
 	RejectByItsChildrenFileIO(FileIOError),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<IndexerRuleError> for rspc::Error {
@@ -122,16 +124,22 @@ impl IndexerRuleCreateArgs {
 			return Ok(None);
 		}
 
+		let date_created = Utc::now();
+
+		use indexer_rule::*;
+
 		Ok(Some(
 			library
 				.db
 				.indexer_rule()
 				.create(
-					self.name,
-					rules_data,
-					vec![indexer_rule::pub_id::set(Some(uuid_to_bytes(
-						generate_pub_id(),
-					)))],
+					uuid_to_bytes(generate_pub_id()),
+					vec![
+						name::set(Some(self.name)),
+						rules_per_kind::set(Some(rules_data)),
+						date_created::set(Some(date_created.into())),
+						date_modified::set(Some(date_created.into())),
+					],
 				)
 				.exec()
 				.await?,
@@ -485,11 +493,14 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
 			id: Some(data.id),
-			name: data.name.clone(),
-			default: data.default,
-			rules: rmp_serde::from_slice(&data.rules_per_kind)?,
-			date_created: data.date_created.into(),
-			date_modified: data.date_modified.into(),
+			name: maybe_missing(data.name.clone(), "indexer_rule.name")?,
+			default: maybe_missing(data.default, "indexer_rule.default")?,
+			rules: rmp_serde::from_slice(maybe_missing(
+				&data.rules_per_kind,
+				"indexer_rule.rules_per_kind",
+			)?)?,
+			date_created: maybe_missing(data.date_created, "indexer_rule.date_created")?.into(),
+			date_modified: maybe_missing(data.date_modified, "indexer_rule.date_modified")?.into(),
 		})
 	}
 }
@@ -611,6 +622,7 @@ mod seeder {
 		prisma::PrismaClient,
 		util::db::uuid_to_bytes,
 	};
+	use chrono::Utc;
 	use sd_prisma::prisma::indexer_rule;
 	use thiserror::Error;
 	use uuid::Uuid;
@@ -643,24 +655,22 @@ mod seeder {
 			let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
 			let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
 
+			use indexer_rule::*;
+
+			let data = vec![
+				name::set(Some(rule.name.to_string())),
+				rules_per_kind::set(Some(rules.clone())),
+				default::set(Some(rule.default)),
+				date_created::set(Some(Utc::now().into())),
+				date_modified::set(Some(Utc::now().into())),
+			];
+
 			client
 				.indexer_rule()
 				.upsert(
 					indexer_rule::pub_id::equals(pub_id.clone()),
-					indexer_rule::create(
-						rule.name.to_string(),
-						rules.clone(),
-						vec![
-							indexer_rule::pub_id::set(Some(pub_id.clone())),
-							indexer_rule::default::set(rule.default),
-						],
-					),
-					vec![
-						indexer_rule::name::set(rule.name.to_string()),
-						indexer_rule::rules_per_kind::set(rules),
-						indexer_rule::pub_id::set(Some(pub_id.clone())),
-						indexer_rule::default::set(rule.default),
-					],
+					indexer_rule::create(pub_id.clone(), data.clone()),
+					data,
 				)
 				.exec()
 				.await?;
@@ -729,6 +739,7 @@ mod seeder {
                     vec![
                         "/{System,Network,Library,Applications}",
                         "/Users/*/{Library,Applications}",
+						"**/*.photoslibrary/{database,external,private,resources,scope}",
                         // Files that might appear in the root of a volume
                         "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
                         // Directories potentially created on remote AFP share

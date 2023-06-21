@@ -24,7 +24,10 @@ const LibraryGeneralSettingsScreen = ({
 
 	const form = useZodForm({
 		schema,
-		defaultValues: { name: library.config.name, description: library.config.description }
+		defaultValues: {
+			name: library.config.name,
+			description: library.config.description || undefined
+		}
 	});
 
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
