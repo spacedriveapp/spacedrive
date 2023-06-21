@@ -23,7 +23,7 @@ const switchStyles = cva(
 			}
 		},
 		defaultVariants: {
-			size: 'lg'
+			size: 'md'
 		}
 	}
 );
@@ -38,7 +38,7 @@ const thumbStyles = cva(
 			}
 		},
 		defaultVariants: {
-			size: 'lg'
+			size: 'md'
 		}
 	}
 );

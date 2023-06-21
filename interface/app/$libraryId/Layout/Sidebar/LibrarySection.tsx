@@ -9,7 +9,7 @@ import {
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
@@ -83,9 +83,15 @@ export const LibrarySection = () => {
 						<span className="truncate">{node.data.name}</span>
 					</SidebarLink>
 				)}
-				<Button variant="dotted" className="mt-1 w-full">
-					Connect Node
-				</Button>
+				<Tooltip
+					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
+					tooltipClassName="bg-black"
+					position="right"
+				>
+					<Button disabled variant="dotted" className="mt-1 w-full">
+						Connect Node
+					</Button>
+				</Tooltip>
 			</Section>
 			<Section
 				name="Locations"

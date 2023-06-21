@@ -54,12 +54,7 @@ export const Component = () => {
 							/>
 						</div>
 					</div>
-					<div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
-						<Switch size="sm" />
-						<span className="text-sm font-medium text-ink-dull">
-							Run Spacedrive in the background when app closed
-						</span>
-					</div>
+
 					<div className="mt-6 gap-2">
 						{/* <div
 							onClick={() => {
@@ -90,6 +85,12 @@ export const Component = () => {
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
 						</div> */}
+					</div>
+					<div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
+						<Switch size="sm" />
+						<span className="text-sm font-medium text-ink-dull">
+							Run Spacedrive in the background when app closed
+						</span>
 					</div>
 				</div>
 			</Card>

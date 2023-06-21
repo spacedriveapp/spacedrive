@@ -25,14 +25,14 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				<SidebarLink to="spacedrop">
+				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
 				<SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
-				</SidebarLink>
+				</SidebarLink> */}
 			</div>
 			{library && <LibrarySection />}
 			<Section name="Tools" actionArea={<SubtleButton />}>
