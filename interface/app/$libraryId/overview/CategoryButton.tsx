@@ -6,17 +6,15 @@ interface CategoryButtonProps {
 	icon: string;
 	selected?: boolean;
 	onClick?: () => void;
-	disabled?: boolean;
 }
 
-export default ({ category, icon, items, selected, onClick, disabled }: CategoryButtonProps) => {
+export default ({ category, icon, items, selected, onClick }: CategoryButtonProps) => {
 	return (
 		<div
-			onClick={() => !disabled && onClick?.()}
+			onClick={onClick}
 			className={clsx(
 				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm outline-none focus:bg-app-selectedItem/50',
-				selected && 'bg-app-selectedItem',
-				disabled && 'cursor-not-allowed opacity-30'
+				selected && 'bg-app-selectedItem'
 			)}
 		>
 			<img src={icon} className="mr-3 h-12 w-12" />

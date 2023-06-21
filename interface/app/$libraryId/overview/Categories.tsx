@@ -8,25 +8,25 @@ import { useIsDark } from '~/hooks';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
-const CategoryList: { name: Category; disabled?: boolean }[] = [
-	{ name: 'Recents' },
-	{ name: 'Photos' },
-	{ name: 'Videos' },
-	{ name: 'Music' },
-	{ name: 'Encrypted' },
-	{ name: 'Books' },
-	{ name: 'Favorites', disabled: true },
-	{ name: 'Movies', disabled: true },
-	{ name: 'Documents', disabled: true },
-	{ name: 'Downloads', disabled: true },
-	{ name: 'Projects', disabled: true },
-	{ name: 'Applications', disabled: true },
-	{ name: 'Archives', disabled: true },
-	{ name: 'Databases', disabled: true },
-	{ name: 'Games', disabled: true },
-	{ name: 'Contacts', disabled: true },
-	{ name: 'Trash', disabled: true }
-];
+const CategoryList = [
+	'Recents',
+	'Favorites',
+	'Photos',
+	'Videos',
+	'Movies',
+	'Music',
+	'Documents',
+	'Downloads',
+	'Encrypted',
+	'Projects',
+	'Applications',
+	'Archives',
+	'Databases',
+	'Games',
+	'Books',
+	'Contacts',
+	'Trash'
+] as Category[];
 
 export const Categories = (props: { selected: Category; onSelectedChanged(c: Category): void }) => {
 	const categories = useLibraryQuery(['categories.list']);
@@ -85,7 +85,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 			>
 				{categories.data &&
 					CategoryList.map((category, index) => {
-						const iconString = IconForCategory[category.name] || 'Document';
+						const iconString = IconForCategory[category] || 'Document';
 						return (
 							<motion.div
 								onViewportEnter={() => lastCategoryVisibleHandler(index)}
@@ -96,15 +96,14 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									margin: '0% -120px 0% 0%'
 								}}
 								className="min-w-fit"
-								key={category.name}
+								key={category}
 							>
 								<CategoryButton
-									category={category.name}
+									category={category}
 									icon={getIcon(iconString, isDark)}
-									items={categories.data[category.name]}
-									selected={props.selected === category.name}
-									onClick={() => props.onSelectedChanged(category.name)}
-									disabled={category.disabled}
+									items={categories.data[category]}
+									selected={props.selected === category}
+									onClick={() => props.onSelectedChanged(category)}
 								/>
 							</motion.div>
 						);
