@@ -1,3 +1,4 @@
+import { Laptop, Node } from '@sd/assets/icons';
 import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Button, Card, Input, Label, Switch, tw } from '@sd/ui';
@@ -29,8 +30,10 @@ export const Component = () => {
 						</div>
 					</div>
 
-					<hr className="mb-4 mt-2 border-app-line" />
-					<div className="grid grid-cols-3 gap-2">
+					<hr className="mb-4 mt-2 flex  w-full border-app-line" />
+					<div className="flex w-full items-center gap-5">
+						<img src={Node} className="mt-2 h-14 w-14" />
+
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input
@@ -38,7 +41,6 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
-								disabled
 							/>
 						</div>
 						<div className="flex flex-col">
@@ -49,7 +51,6 @@ export const Component = () => {
 								onChange={() => {
 									/* TODO */
 								}}
-								disabled
 							/>
 						</div>
 					</div>
@@ -75,12 +76,12 @@ export const Component = () => {
 						</div> */}
 
 						<div>
-							<NodeSettingLabel>
-								Data Folder
-							</NodeSettingLabel>
-							<div className='mt-2 flex w-full flex-row gap-2'>
-								<Input className='grow' value={node.data?.data_path} />
-								<Button size="sm" variant="outline">Change</Button>
+							<NodeSettingLabel>Data Folder</NodeSettingLabel>
+							<div className="mt-2 flex w-full flex-row gap-2">
+								<Input className="grow" value={node.data?.data_path} />
+								<Button size="sm" variant="outline">
+									Change
+								</Button>
 							</div>
 						</div>
 						{/* <div className='mb-1'>
@@ -89,7 +90,6 @@ export const Component = () => {
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
 						</div> */}
-
 					</div>
 				</div>
 			</Card>

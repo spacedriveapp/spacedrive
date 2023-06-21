@@ -1,12 +1,12 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import { Info } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { Info } from 'phosphor-react';
-import { Tooltip } from '@sd/ui';
 
 interface StatItemProps {
 	title: string;
@@ -22,7 +22,8 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
-	total_bytes_capacity: 'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
+	total_bytes_capacity:
+		'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
 	preview_media_bytes: 'The total size of all preview media files, such as thumbnails.',
 	library_db_size: 'The size of the library database.',
 	total_bytes_free: 'Free space available on all nodes connected to the library.'
@@ -58,14 +59,18 @@ const StatItem = (props: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
+				'group flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
-			<span className="whitespace-nowrap text-sm text-gray-400 ">{title}
+			<span className="whitespace-nowrap text-sm text-gray-400 ">
+				{title}
 				{props.info && (
-					<Tooltip tooltipClassName='bg-black' label={props.info}>
-						<Info weight='fill' className='-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint' />
+					<Tooltip tooltipClassName="bg-black" label={props.info}>
+						<Info
+							weight="fill"
+							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover:opacity-70"
+						/>
 					</Tooltip>
 				)}
 			</span>
