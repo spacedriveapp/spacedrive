@@ -6,9 +6,10 @@ interface CategoryButtonProps {
 	icon: string;
 	selected?: boolean;
 	onClick?: () => void;
+	disabled?: boolean;
 }
 
-export default ({ category, icon, items, selected, onClick }: CategoryButtonProps) => {
+export default ({ category, icon, items, selected, onClick, disabled }: CategoryButtonProps) => {
 	return (
 		<div
 			onClick={onClick}
