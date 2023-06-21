@@ -26,7 +26,7 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
+import { getExplorerItemData, getItemFilePath, getItemLocation } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -43,11 +43,20 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(data);
+	const location = getItemLocation(data);
 
 	const explorerConfig = useExplorerConfigStore();
 
 	const onDoubleClick = () => {
-		if (isPath(data) && data.item.is_dir) {
+		if (location) {
+			navigate({
+				pathname: `/${library.uuid}/location/${location.id}`,
+				search: createSearchParams({
+					path: `/`
+				}).toString()
+			});
+		}
+		else if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({
@@ -167,7 +176,7 @@ export default memo(
 				}
 			>
 				{contextProps.items === null ||
-				(contextProps.items && contextProps.items.length > 0) ? (
+					(contextProps.items && contextProps.items.length > 0) ? (
 					<ViewContext.Provider
 						value={
 							{

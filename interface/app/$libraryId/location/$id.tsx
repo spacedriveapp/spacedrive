@@ -40,7 +40,7 @@ export const Component = () => {
 				sub_path: path ?? ''
 			}
 		],
-		{ onData() {} }
+		{ onData() { } }
 	);
 
 	const explorerStore = getExplorerStore();
@@ -59,7 +59,7 @@ export const Component = () => {
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{path ? getLastSectionOfPath(path) : location.data?.name}
+								{path && path?.length > 1 ? getLastSectionOfPath(path) : location.data?.name}
 							</span>
 						</span>
 						{location.data && (
