@@ -10,6 +10,8 @@ export function keybind<T extends string>(
 	keys: T[],
 	tauriOs: OperatingSystem
 ) {
+	if (keys.length === 0) return '';
+
 	const os = tauriOs === 'macOS' ? 'macOS' : tauriOs === 'windows' ? 'Windows' : 'Other';
 
 	const keySymbol = keys.map(capitalize).map((key) => {
@@ -17,7 +19,10 @@ export function keybind<T extends string>(
 		return symbol ? symbol[os] ?? symbol.Other : key;
 	});
 
-	if (keySymbol.length === 0) return '';
+	if (os === 'macOS' && !modifers.includes(ModifierKeys.Meta)) {
+		const index = modifers.findIndex((modifier) => modifier === ModifierKeys.Control);
+		if (index !== -1) modifers[index] = ModifierKeys.Meta;
+	}
 
 	const modifierSymbol = modifers.map((modifier) => {
 		const symbol = modifierSymbols[modifier];

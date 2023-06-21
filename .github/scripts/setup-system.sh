@@ -244,7 +244,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   if ! has jq; then
     echo "Download jq build..."
 
-    # Determine the machine's achitecture
+    # Determine the machine's architecture
     case "$_arch" in
       x86_64)
         _jq_url='https://packages.macports.org/jq/jq-1.6_4.darwin_19.x86_64.tbz2'
