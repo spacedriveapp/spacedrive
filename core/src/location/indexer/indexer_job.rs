@@ -268,7 +268,9 @@ impl StatefulJob for IndexerJob {
 						ScanProgress::Message(format!(
 							"Scanned more {} files or directories; {} more directories to scan",
 							data.total_paths - old_total,
-							state.steps.len() as u64 - old_steps_count - data.total_paths
+							(state.steps.len() as u64)
+								.saturating_sub(old_steps_count)
+								.saturating_sub(data.total_paths)
 						)),
 					],
 				);
