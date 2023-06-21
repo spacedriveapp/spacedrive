@@ -61,7 +61,7 @@ export const Component = () => {
 			</div>
 			<div className="flex justify-center p-4">
 				<p className="text-xs text-ink-dull opacity-50">
-					&copy; 2023 Spacedrive Technology Inc.
+					&copy; 2022 Spacedrive Technology Inc.
 				</p>
 			</div>
 			<div className="absolute -z-10">
