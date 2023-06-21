@@ -30,6 +30,7 @@ export const OpenInNativeExplorer = () => {
 						// console.log('TODO', store.contextMenuActiveItem);
 						// platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
 					}}
+					disabled
 				/>
 			)}
 		</>
@@ -71,6 +72,7 @@ export default (props: PropsWithChildren) => {
 						url: 'https://spacedrive.com'
 					});
 				}}
+				disabled
 			/>
 
 			<CM.Separator />
@@ -132,6 +134,7 @@ export default (props: PropsWithChildren) => {
 					}
 					label="Regen Thumbnails"
 					icon={Image}
+					disabled
 				/>
 				<CM.Item
 					onClick={() =>
@@ -140,6 +143,7 @@ export default (props: PropsWithChildren) => {
 					}
 					label="Generate Checksums"
 					icon={ShieldCheck}
+					disabled
 				/>
 			</CM.SubMenu>
 		</CM.Root>
