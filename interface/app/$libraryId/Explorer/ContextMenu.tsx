@@ -130,11 +130,13 @@ export default (props: PropsWithChildren) => {
 				<CM.Item
 					onClick={() =>
 						store.locationId &&
-						generateThumbsForLocation.mutate({ id: store.locationId, path: params.path ?? '' })
+						generateThumbsForLocation.mutate({
+							id: store.locationId,
+							path: params.path ?? ''
+						})
 					}
 					label="Regen Thumbnails"
 					icon={Image}
-					disabled
 				/>
 				<CM.Item
 					onClick={() =>
@@ -143,7 +145,6 @@ export default (props: PropsWithChildren) => {
 					}
 					label="Generate Checksums"
 					icon={ShieldCheck}
-					disabled
 				/>
 			</CM.SubMenu>
 		</CM.Root>
