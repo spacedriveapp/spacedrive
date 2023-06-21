@@ -232,15 +232,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: ObjectValidatorArgs| async move {
-					if find_location(&library, args.id).exec().await?.is_none() {
+					let Some(location) =  find_location(&library, args.id)
+						.exec()
+						.await?
+						else {
 						return Err(LocationError::IdNotFound(args.id).into());
-					}
+					};
 
 					library
 						.spawn_job(ObjectValidatorJobInit {
-							location_id: args.id,
-							path: args.path,
-							background: true,
+							location,
+							sub_path: Some(args.path),
 						})
 						.await
 						.map_err(Into::into)
