@@ -77,26 +77,27 @@ impl StatefulJob for IndexerJob {
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(IndexerError::from)?;
 
-		let to_walk_path = if let Some(ref sub_path) = state.init.sub_path {
-			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
-				.await
-				.map_err(IndexerError::from)?;
-			ensure_sub_path_is_directory(location_path, sub_path)
-				.await
-				.map_err(IndexerError::from)?;
+		let to_walk_path = match &state.init.sub_path {
+			Some(sub_path) if sub_path != Path::new("") && sub_path != Path::new("/") => {
+				let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
+					.await
+					.map_err(IndexerError::from)?;
+				ensure_sub_path_is_directory(location_path, sub_path)
+					.await
+					.map_err(IndexerError::from)?;
 
-			ensure_file_path_exists(
-				sub_path,
-				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
-					.map_err(IndexerError::from)?,
-				&db,
-				IndexerError::SubPathNotFound,
-			)
-			.await?;
+				ensure_file_path_exists(
+					sub_path,
+					&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+						.map_err(IndexerError::from)?,
+					&db,
+					IndexerError::SubPathNotFound,
+				)
+				.await?;
 
-			full_path
-		} else {
-			location_path.to_path_buf()
+				full_path
+			}
+			_ => location_path.to_path_buf(),
 		};
 
 		let scan_start = Instant::now();

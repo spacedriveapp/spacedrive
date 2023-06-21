@@ -83,29 +83,30 @@ impl StatefulJob for FileIdentifierJob {
 		let location_path =
 			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
-		let maybe_sub_iso_file_path = if let Some(ref sub_path) = state.init.sub_path {
-			let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
-				.await
-				.map_err(FileIdentifierJobError::from)?;
-			ensure_sub_path_is_directory(location_path, sub_path)
-				.await
-				.map_err(FileIdentifierJobError::from)?;
-
-			let sub_iso_file_path =
-				IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+		let maybe_sub_iso_file_path = match &state.init.sub_path {
+			Some(sub_path) if sub_path != Path::new("") && sub_path != Path::new("/") => {
+				let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
+					.await
+					.map_err(FileIdentifierJobError::from)?;
+				ensure_sub_path_is_directory(location_path, sub_path)
+					.await
 					.map_err(FileIdentifierJobError::from)?;
 
-			ensure_file_path_exists(
-				sub_path,
-				&sub_iso_file_path,
-				db,
-				FileIdentifierJobError::SubPathNotFound,
-			)
-			.await?;
+				let sub_iso_file_path =
+					IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+						.map_err(FileIdentifierJobError::from)?;
 
-			Some(sub_iso_file_path)
-		} else {
-			None
+				ensure_file_path_exists(
+					sub_path,
+					&sub_iso_file_path,
+					db,
+					FileIdentifierJobError::SubPathNotFound,
+				)
+				.await?;
+
+				Some(sub_iso_file_path)
+			}
+			_ => None,
 		};
 
 		let orphan_count =
