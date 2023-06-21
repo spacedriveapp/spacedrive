@@ -18,9 +18,11 @@ use crate::{
 use std::{
 	collections::HashSet,
 	path::{Component, Path, PathBuf},
+	time::Instant,
 };
 
 use futures::future::TryFutureExt;
+use itertools::Itertools;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use serde::Deserialize;
@@ -691,11 +693,13 @@ pub async fn delete_directory(
 		})],
 	);
 
-	db.file_path().delete_many(children_params).exec().await?;
-
-	library.orphan_remover.invoke().await;
+	for params in children_params.chunks(8192) {
+		db.file_path().delete_many(params.to_vec()).exec().await?;
+	}
 
 	invalidate_query!(library, "search.paths");
+
+	library.orphan_remover.invoke().await;
 
 	Ok(())
 }
