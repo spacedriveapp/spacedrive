@@ -128,7 +128,7 @@ export default (props: PropsWithChildren) => {
 				<CM.Item
 					onClick={() =>
 						store.locationId &&
-						generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+						generateThumbsForLocation.mutate({ id: store.locationId, path: params.path ?? '' })
 					}
 					label="Regen Thumbnails"
 					icon={Image}
@@ -136,7 +136,7 @@ export default (props: PropsWithChildren) => {
 				<CM.Item
 					onClick={() =>
 						store.locationId &&
-						objectValidator.mutate({ id: store.locationId, path: '' })
+						objectValidator.mutate({ id: store.locationId, path: params.path ?? '' })
 					}
 					label="Generate Checksums"
 					icon={ShieldCheck}

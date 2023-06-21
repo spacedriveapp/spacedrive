@@ -44,10 +44,6 @@ file_path::select!(file_path_for_object_validator {
 	name
 	extension
 	integrity_checksum
-	location: select {
-		id
-		pub_id
-	}
 });
 file_path::select!(file_path_for_thumbnailer {
 	materialized_path
