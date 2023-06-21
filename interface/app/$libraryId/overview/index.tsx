@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { z } from '@sd/ui/src/forms';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
+import {
+	KeybindProvider,
+	useExplorerStore,
+	useExplorerTopBarOptions,
+	useOperatingSystem
+} from '~/hooks';
 import ContextMenu from '../Explorer/File/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import View from '../Explorer/View';
@@ -17,6 +22,8 @@ import { useItems } from './data';
 export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 export const Component = () => {
+	const os = useOperatingSystem();
+
 	const explorerStore = useExplorerStore();
 
 	const page = usePageLayout();
