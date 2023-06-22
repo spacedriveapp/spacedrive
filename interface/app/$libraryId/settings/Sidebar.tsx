@@ -1,5 +1,6 @@
 import {
 	Books,
+	Cloud,
 	FlyingSaucer,
 	GearSix,
 	HardDrive,
@@ -70,10 +71,10 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
+					{/* <SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
 						<Icon component={ShareNetwork} />
 						Nodes
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						Locations
@@ -81,6 +82,10 @@ export default () => {
 					<SidebarLink to="library/tags">
 						<Icon component={TagSimple} />
 						Tags
+					</SidebarLink>
+					<SidebarLink disabled to="library/clouds">
+						<Icon component={Cloud} />
+						Clouds
 					</SidebarLink>
 					<SidebarLink to="library/keys" disabled>
 						<Icon component={Key} />

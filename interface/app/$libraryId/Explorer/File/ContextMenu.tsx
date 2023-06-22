@@ -10,14 +10,20 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { ExplorerItem, isObject, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerItem,
+	getItemFilePath,
+	getItemObject,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath, useExplorerSearchParams } from '../util';
+import { useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -33,7 +39,7 @@ export default ({ data }: Props) => {
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
 	const [params] = useExplorerSearchParams();
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const objectData = data ? getItemObject(data) : null;
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);

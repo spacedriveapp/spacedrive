@@ -184,8 +184,8 @@ pub async fn create_file_path(
 			(name::NAME, json!(name)),
 			(extension::NAME, json!(extension)),
 			(
-				size_in_bytes::NAME,
-				json!(metadata.size_in_bytes.to_string()),
+				size_in_bytes_bytes::NAME,
+				json!(metadata.size_in_bytes.to_be_bytes().to_vec()),
 			),
 			(inode::NAME, json!(metadata.inode.to_le_bytes())),
 			(device::NAME, json!(metadata.device.to_le_bytes())),
@@ -217,7 +217,7 @@ pub async fn create_file_path(
 					device::set(Some(metadata.device.to_le_bytes().into())),
 					cas_id::set(cas_id),
 					is_dir::set(Some(is_dir)),
-					size_in_bytes::set(Some(metadata.size_in_bytes.to_string())),
+					size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
 					date_created::set(Some(metadata.created_at.into())),
 					date_modified::set(Some(metadata.modified_at.into())),
 				]

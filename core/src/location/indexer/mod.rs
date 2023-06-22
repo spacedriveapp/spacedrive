@@ -13,6 +13,7 @@ use std::{
 	time::Duration,
 };
 
+use chrono::Utc;
 use rspc::ErrorCode;
 use sd_prisma::prisma_sync;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -179,10 +180,12 @@ async fn execute_indexer_save_step(
 				),
 				(
 					(
-						size_in_bytes::NAME,
-						json!(entry.metadata.size_in_bytes.to_string()),
+						size_in_bytes_bytes::NAME,
+						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
 					),
-					size_in_bytes::set(Some(entry.metadata.size_in_bytes.to_string())),
+					size_in_bytes_bytes::set(Some(
+						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					)),
 				),
 				(
 					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
@@ -199,6 +202,10 @@ async fn execute_indexer_save_step(
 				(
 					(date_modified::NAME, json!(entry.metadata.modified_at)),
 					date_modified::set(Some(entry.metadata.modified_at.into())),
+				),
+				(
+					(date_indexed::NAME, json!(Utc::now())),
+					date_indexed::set(Some(Utc::now().into())),
 				),
 			]
 			.into_iter()

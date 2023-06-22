@@ -1,85 +1,26 @@
-// import { Gear, Lock, MagnifyingGlass, X } from 'phosphor-react';
-// import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
-// import { Button, Tabs } from '@sd/ui';
-// import KeyList from './List';
-// import KeyMounter from './Mounter';
-// import NotSetup from './NotSetup';
-// import NotUnlocked from './NotUnlocked';
+/* eslint-disable tailwindcss/classnames-order */
+import { Keys } from '@sd/assets/icons';
+import { Button, Tooltip } from '@sd/ui';
 
-// export function KeyManager() {
-// 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-// 	const isSetup = useLibraryQuery(['keys.isSetup']);
+export function KeyManager() {
+	// const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
+	// const isSetup = useLibraryQuery(['keys.isSetup']);
 
-// 	if (!isSetup?.data) return <NotSetup />;
-// 	if (!isUnlocked?.data) return <NotUnlocked />;
-// 	else return <Unlocked />;
-// }
-
-// const Unlocked = () => {
-// 	const { library } = useLibraryContext();
-// 	const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
-
-// 	const unmountAll = useLibraryMutation('keys.unmountAll');
-// 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
-
-// 	return (
-// 		<div className="w-[350px]">
-// 			<Tabs.Root defaultValue="keys">
-// 				<div className="min-w-32 flex flex-col">
-// 					<Tabs.List>
-// 						{/* <Input placeholder="Search" /> */}
-// 						{/* <Tabs.Trigger className="!rounded-md text-sm font-medium" value="mount">
-// 							Mount
-// 						</Tabs.Trigger>
-// 						<Tabs.Trigger className="!rounded-md text-sm font-medium" value="keys">
-// 							Keys
-// 						</Tabs.Trigger> */}
-// 						<Button size="icon" variant="subtle" className="text-ink-faint">
-// 							<MagnifyingGlass className="h-4 w-4 text-ink-faint" />
-// 						</Button>
-// 						<div className="grow" />
-// 						<Button
-// 							size="icon"
-// 							onClick={() => {
-// 								unmountAll
-// 									.mutateAsync(null)
-// 									.then(() => clearMasterPassword.mutateAsync(null))
-// 									.then(() => isUnlocked.refetch());
-// 							}}
-// 							variant="subtle"
-// 							className="text-ink-faint"
-// 						>
-// 							<Lock className="h-4 w-4 text-ink-faint" />
-// 						</Button>
-// 						<Button size="icon" variant="subtle" className="text-ink-faint">
-// 							<Gear className="h-4 w-4 text-ink-faint" />
-// 						</Button>
-// 						<Button size="icon" variant="subtle" className="text-ink-faint">
-// 							<X className="h-4 w-4 text-ink-faint" />
-// 						</Button>
-// 					</Tabs.List>
-// 				</div>
-// 				<Tabs.Content value="keys">
-// 					<Keys />
-// 				</Tabs.Content>
-// 				<Tabs.Content value="mount">
-// 					<KeyMounter />
-// 				</Tabs.Content>
-// 			</Tabs.Root>
-// 		</div>
-// 	);
-// };
-
-// const Keys = () => {
-// 	return (
-// 		<div className="flex h-full max-h-[360px] flex-col">
-// 			<div className="custom-scroll overlay-scroll p-3">
-// 				<div className="">
-// 					<div className="space-y-1.5">
-// 						<KeyList />
-// 					</div>
-// 				</div>
-// 			</div>
-// 		</div>
-// 	);
-// };
+	return (
+		<div className="flex h-full max-w-[300px] flex-col">
+			<div className="flex w-full flex-col items-center p-4">
+				<img src={Keys} className="h-14 w-14" />
+				<span className="text-lg font-bold">Key Manager</span>
+				<span className="mt-2 text-center text-ink-dull">
+					Create encryption keys, mount and unmount your keys to see files decrypted on
+					the fly.
+				</span>
+				<Tooltip className="w-full" label="Coming soon!">
+					<Button disabled className="mt-4 w-full" variant="accent">
+						Set up
+					</Button>
+				</Tooltip>
+			</div>
+		</div>
+	);
+}

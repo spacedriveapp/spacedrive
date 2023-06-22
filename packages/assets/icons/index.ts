@@ -42,6 +42,7 @@ import Heart from './Heart.png';
 import HeartFlat from './HeartFlat.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
+import Keys from './Keys.png';
 import Laptop from './Laptop.png';
 import Mesh from './Mesh.png';
 import Mesh_Light from './Mesh_Light.png';
@@ -108,6 +109,7 @@ export {
 	HeartFlat,
 	Image,
 	Image_Light,
+	Keys,
 	Laptop,
 	Mesh,
 	Mesh_Light,

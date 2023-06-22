@@ -1,13 +1,13 @@
+import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, formatBytes } from '@sd/client';
+import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
 import GridList from '~/components/GridList';
-import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { useExplorerStore } from '~/hooks';
 import { ViewItem } from '.';
-import RenameTextBox from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath } from '../util';
+import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
 	data: ExplorerItem;
@@ -16,9 +16,16 @@ interface GridViewItemProps {
 }
 
 const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProps) => {
-	const filePathData = data ? getItemFilePath(data) : null;
+	const filePathData = getItemFilePath(data);
+	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+
+	const showSize =
+		!filePathData?.is_dir &&
+		!location &&
+		explorerStore.showBytesInGridView &&
+		(!explorerView.isRenaming || (explorerView.isRenaming && !selected));
 
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>
@@ -27,30 +34,16 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 			</div>
 
 			<div className="flex flex-col justify-center">
-				{filePathData && (
-					<RenameTextBox
-						filePathData={filePathData}
-						disabled={!selected}
+				<RenamableItemText item={data} selected={selected} />
+				{showSize && filePathData?.size_in_bytes_bytes && (
+					<span
 						className={clsx(
-							'text-center font-medium text-ink',
-							selected && 'bg-accent text-white dark:text-ink'
+							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
-						style={{
-							maxHeight: explorerStore.gridItemSize / 3
-						}}
-						activeClassName="!text-ink"
-					/>
+					>
+						{byteSize(bytesToNumber(filePathData.size_in_bytes_bytes)).toString()}
+					</span>
 				)}
-				{explorerStore.showBytesInGridView &&
-					(!explorerView.isRenaming || (explorerView.isRenaming && !selected)) && (
-						<span
-							className={clsx(
-								'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
-							)}
-						>
-							{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-						</span>
-					)}
 			</div>
 		</ViewItem>
 	);
@@ -81,19 +74,7 @@ export default () => {
 			preventContextMenuSelection={!explorerView.contextMenu}
 		>
 			{({ index, item: Item }) => {
-				if (!explorerView.items) {
-					return (
-						<Item className="p-px">
-							<div className="aspect-square animate-pulse rounded-md bg-app-box" />
-							<div className="mx-2 mt-3 h-2 animate-pulse rounded bg-app-box" />
-							{explorerStore.showBytesInGridView && (
-								<div className="mx-8 mt-2 h-1 animate-pulse rounded bg-app-box" />
-							)}
-						</Item>
-					);
-				}
-
-				const item = explorerView.items[index];
+				const item = explorerView.items?.[index];
 				if (!item) return null;
 
 				const isSelected = Array.isArray(explorerView.selected)

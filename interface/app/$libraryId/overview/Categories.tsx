@@ -69,7 +69,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 					scroll > 0
 						? 'cursor-pointer bg-app/50 opacity-100 hover:opacity-95'
 						: 'pointer-events-none',
-					'sticky left-[15px] z-40 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[15px] z-40 -ml-4 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
