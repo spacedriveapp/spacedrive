@@ -1,7 +1,7 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { z } from 'zod';
-import { useLibraryQuery } from '@sd/client';
+import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import {
 	SortOrder,
 	getExplorerStore,
@@ -10,7 +10,6 @@ import {
 	useZodSearchParams
 } from '~/hooks';
 import Explorer from './Explorer';
-import { getExplorerItemData } from './Explorer/util';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarOptions from './TopBar/TopBarOptions';
 

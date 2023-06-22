@@ -1,6 +1,13 @@
 import React from 'react';
 import { Alert, Pressable, View, ViewStyle } from 'react-native';
-import { ExplorerItem, ObjectKind, isObject, isPath, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	ObjectKind,
+	getItemFilePath,
+	getItemObject,
+	isPath,
+	useLibraryQuery
+} from '@sd/client';
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -10,8 +17,8 @@ type Props = {
 };
 
 const InfoTagPills = ({ data, style }: Props) => {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const objectData = getItemObject(data);
+	const filePath = getItemFilePath(data);
 
 	const tagsQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: Boolean(objectData)
