@@ -13,8 +13,8 @@ import {
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
+import { KeyManager } from '~/app/$libraryId/KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
-// import { KeyManager } from '../app/$libraryId/KeyManager';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
 export const useExplorerTopBarOptions = () => {
@@ -83,13 +83,13 @@ export const useExplorerTopBarOptions = () => {
 	const { client } = useRspcLibraryContext();
 
 	const explorerToolOptions: ToolOption[] = [
-		// {
-		// 	toolTipLabel: 'Key Manager',
-		// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
-		// 	popOverComponent: <KeyManager />,
-		// 	individual: true,
-		// 	showAtResolution: 'xl:flex'
-		// },
+		{
+			toolTipLabel: 'Key Manager',
+			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			popOverComponent: <KeyManager />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
 		{
 			toolTipLabel: 'Tag Assign Mode',
 			icon: (

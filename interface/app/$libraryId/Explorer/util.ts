@@ -1,13 +1,6 @@
 import { useMemo } from 'react';
 import { z } from 'zod';
-import {
-	ExplorerItem,
-	FilePathSearchOrdering,
-	ObjectKind,
-	ObjectKindKey,
-	isObject,
-	isPath
-} from '@sd/client';
+import { FilePathSearchOrdering } from '@sd/client';
 import { useExplorerStore, useZodSearchParams } from '~/hooks';
 
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
@@ -29,29 +22,6 @@ export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 	}, [explorerStore.orderBy, explorerStore.orderByDirection]);
 
 	return ordering;
-}
-
-export function getItemObject(data: ExplorerItem) {
-	return isObject(data) ? data.item : data.item.object;
-}
-
-export function getItemFilePath(data: ExplorerItem) {
-	return isObject(data) ? data.item.file_paths[0] : data.item;
-}
-
-export function getExplorerItemData(data: ExplorerItem) {
-	const filePath = getItemFilePath(data);
-	const objectData = getItemObject(data);
-
-	return {
-		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		casId: filePath?.cas_id || null,
-		isDir: isPath(data) && data.item.is_dir,
-		extension: filePath?.extension || null,
-		locationId: filePath?.location_id || null,
-		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
-		thumbnailKey: data.thumbnail_key
-	};
 }
 
 export const SEARCH_PARAMS = z.object({

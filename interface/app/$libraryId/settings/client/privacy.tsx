@@ -18,6 +18,7 @@ export const Component = () => {
 					checked={shareTelemetry}
 					onClick={() => (telemetryStore.shareTelemetry = !shareTelemetry)}
 					className="m-2 ml-4"
+					size="md"
 				/>
 			</Setting>
 		</>

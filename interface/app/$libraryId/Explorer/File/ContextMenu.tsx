@@ -10,14 +10,22 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { ExplorerItem, isObject, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu, dialogManager } from '@sd/ui';
+import {
+	ExplorerItem,
+	getItemFilePath,
+	getItemObject,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
+import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+import { keybindForOs } from '~/util/keybinds';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath, useExplorerSearchParams } from '../util';
+import { useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -29,11 +37,13 @@ interface Props {
 }
 
 export default ({ data }: Props) => {
+	const os = useOperatingSystem();
 	const store = useExplorerStore();
+	const keybind = keybindForOs(os);
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
 	const [params] = useExplorerSearchParams();
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const objectData = data ? getItemObject(data) : null;
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
@@ -56,7 +66,7 @@ export default ({ data }: Props) => {
 				<>
 					<ContextMenu.Item
 						label="Details"
-						keybind="⌘I"
+						keybind={keybind([ModifierKeys.Control], ['I'])}
 						// icon={Sidebar}
 						onClick={() => (getExplorerStore().showInspector = true)}
 					/>
@@ -69,7 +79,7 @@ export default ({ data }: Props) => {
 			{explorerStore.layoutMode === 'media' || (
 				<ContextMenu.Item
 					label="Rename"
-					keybind="Enter"
+					keybind={keybind([], ['Enter'])}
 					onClick={() => explorerView.setIsRenaming(true)}
 				/>
 			)}
@@ -85,7 +95,7 @@ export default ({ data }: Props) => {
 
 			<ContextMenu.Item
 				label="Cut"
-				keybind="⌘X"
+				keybind={keybind([ModifierKeys.Control], ['X'])}
 				onClick={() => {
 					if (params.path === undefined) return;
 
@@ -103,7 +113,7 @@ export default ({ data }: Props) => {
 
 			<ContextMenu.Item
 				label="Copy"
-				keybind="⌘C"
+				keybind={keybind([ModifierKeys.Control], ['C'])}
 				onClick={() => {
 					if (params.path === undefined) return;
 
@@ -121,7 +131,7 @@ export default ({ data }: Props) => {
 
 			<ContextMenu.Item
 				label="Duplicate"
-				keybind="⌘D"
+				keybind={keybind([ModifierKeys.Control], ['D'])}
 				onClick={() => {
 					if (params.path === undefined) return;
 
@@ -222,7 +232,12 @@ export default ({ data }: Props) => {
 						}
 					}}
 				/> */}
-				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" disabled />
+				<ContextMenu.Item
+					label="Compress"
+					icon={Package}
+					keybind={keybind([ModifierKeys.Control], ['B'])}
+					disabled
+				/>
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 					<ContextMenu.Item label="PNG" disabled />
 					<ContextMenu.Item label="WebP" disabled />
@@ -268,7 +283,7 @@ export default ({ data }: Props) => {
 				icon={Trash}
 				label="Delete"
 				variant="danger"
-				keybind="⌘DEL"
+				keybind={keybind([ModifierKeys.Control], ['Delete'])}
 				onClick={() => {
 					dialogManager.create((dp) => (
 						<DeleteDialog
@@ -285,6 +300,7 @@ export default ({ data }: Props) => {
 
 const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(props.data);
@@ -300,14 +316,20 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 						{openFilePath && (
 							<ContextMenu.Item
 								label="Open"
-								keybind="⌘O"
-								onClick={() => {
+								keybind={keybind([ModifierKeys.Control], ['O'])}
+								onClick={async () => {
 									props.data.type === 'Path' &&
 										props.data.item.object_id &&
 										updateAccessTime.mutate(props.data.item.object_id);
 
-									// FIXME: treat error properly
-									openFilePath(library.uuid, [filePath.id]);
+									try {
+										await openFilePath(library.uuid, [filePath.id]);
+									} catch (error) {
+										showAlertDialog({
+											title: 'Error',
+											value: `Couldn't open file, due to an error: ${error}`
+										});
+									}
 								}}
 							/>
 						)}
@@ -316,7 +338,7 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 				)}
 				<ContextMenu.Item
 					label="Quick view"
-					keybind="␣"
+					keybind={keybind([], [' '])}
 					onClick={() => (getExplorerStore().quickViewObject = props.data)}
 				/>
 			</>

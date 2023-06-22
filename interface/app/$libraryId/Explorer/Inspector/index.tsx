@@ -1,5 +1,6 @@
 // import types from '../../constants/file-types.json';
 import { Image, Image_Light } from '@sd/assets/icons';
+import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
@@ -9,7 +10,9 @@ import {
 	Location,
 	ObjectKind,
 	Tag,
-	formatBytes,
+	bytesToNumber,
+	getItemFilePath,
+	getItemObject,
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
@@ -17,7 +20,6 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useExplorerStore, useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
-import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -151,13 +153,17 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						</MetaContainer>
 						<Divider />
 						<MetaContainer className="!flex-row space-x-2">
-							<MetaTextLine>
-								<InspectorIcon component={Cube} />
-								<span className="mr-1.5">Size</span>
-								<MetaValue>
-									{formatBytes(Number(filePathData?.size_in_bytes || 0))}
-								</MetaValue>
-							</MetaTextLine>
+							{filePathData?.size_in_bytes_bytes && (
+								<MetaTextLine>
+									<InspectorIcon component={Cube} />
+									<span className="mr-1.5">Size</span>
+									<MetaValue>
+										{byteSize(
+											bytesToNumber(filePathData.size_in_bytes_bytes)
+										).toString()}
+									</MetaValue>
+								</MetaTextLine>
+							)}
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />

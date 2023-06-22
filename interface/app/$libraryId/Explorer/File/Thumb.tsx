@@ -1,7 +1,7 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ExplorerItem, useLibraryContext } from '@sd/client';
+import { ExplorerItem, getItemLocation, useLibraryContext } from '@sd/client';
 import { PDFViewer } from '~/components';
 import {
 	getExplorerStore,
@@ -52,13 +52,13 @@ const Thumbnail = memo(
 						videoBarsSize
 							? size && size.height >= size.width
 								? {
-									borderLeftWidth: videoBarsSize,
-									borderRightWidth: videoBarsSize
-								}
+										borderLeftWidth: videoBarsSize,
+										borderRightWidth: videoBarsSize
+								  }
 								: {
-									borderTopWidth: videoBarsSize,
-									borderBottomWidth: videoBarsSize
-								}
+										borderTopWidth: videoBarsSize,
+										borderBottomWidth: videoBarsSize
+								  }
 							: {}
 					}
 					onLoad={props.onLoad}
@@ -76,11 +76,11 @@ const Thumbnail = memo(
 							props.cover
 								? {}
 								: size
-									? {
+								? {
 										marginTop: Math.floor(size.height / 2) - 2,
 										marginLeft: Math.floor(size.width / 2) - 2
-									}
-									: { display: 'none' }
+								  }
+								: { display: 'none' }
 						}
 						className={clsx(
 							props.cover
@@ -101,7 +101,8 @@ const Thumbnail = memo(
 enum ThumbType {
 	Icon,
 	Original,
-	Thumbnail
+	Thumbnail,
+	Location
 }
 
 export interface ThumbProps {
@@ -117,6 +118,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 	const itemData = useExplorerItemData(props.data);
+	const locationData = getItemLocation(props.data);
 	const { library } = useLibraryContext();
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
@@ -134,10 +136,12 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
+		} else if (locationData) {
+			setThumbType(ThumbType.Location);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
-	}, [props.loadOriginal, itemData]);
+	}, [props.loadOriginal, locationData, itemData]);
 
 	useEffect(() => {
 		const {
@@ -171,6 +175,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				} else {
 					setThumbType(ThumbType.Icon);
 				}
+				break;
+			case ThumbType.Location:
+				setSrc(getIcon('Folder', isDark, extension, true));
 				break;
 			default:
 				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
@@ -208,9 +215,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				size &&
-				kind !== 'Video' &&
-				thumbType !== ThumbType.Icon &&
-				'border-2 border-transparent',
+					kind !== 'Video' &&
+					thumbType !== ThumbType.Icon &&
+					'border-2 border-transparent',
 				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
 				props.className
 			)}
@@ -312,9 +319,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										'shadow shadow-black/30'
 									],
 									size &&
-									(kind === 'Video'
-										? 'border-x-0 border-black'
-										: size > 60 && 'border-2 border-app-line'),
+										(kind === 'Video'
+											? 'border-x-0 border-black'
+											: size > 60 && 'border-2 border-app-line'),
 									props.className
 								)}
 								crossOrigin={ThumbType.Original && 'anonymous'} // Here it is ok, because it is not a react attr

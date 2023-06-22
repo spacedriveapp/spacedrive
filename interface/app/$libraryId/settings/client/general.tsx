@@ -1,5 +1,4 @@
-import { Database } from 'phosphor-react';
-import { useState } from 'react';
+import { Node } from '@sd/assets/icons';
 import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
@@ -50,8 +49,10 @@ export const Component = () => {
 						</div>
 					</div>
 
-					<hr className="mb-4 mt-2 border-app-line" />
-					<div className="grid grid-cols-3 gap-2">
+					<hr className="mb-4 mt-2 flex  w-full border-app-line" />
+					<div className="flex w-full items-center gap-5">
+						<img src={Node} className="mt-2 h-14 w-14" />
+
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input
@@ -67,18 +68,12 @@ export const Component = () => {
 								onChange={() => {
 									alert('TODO');
 								}}
-								disabled
 							/>
 						</div> */}
 					</div>
-					{/* <div className="mt-5 flex items-center space-x-3">
-						<Switch size="sm" checked />
-						<span className="text-sm font-medium text-ink-dull">
-							Run daemon when app closed
-						</span>
-					</div> */}
-					<div className="mt-3">
-						<div
+
+					<div className="mt-6 gap-2">
+						{/* <div
 							onClick={() => {
 								if (node.data && platform?.openLink) {
 									platform.openLink(node.data.data_path);
@@ -90,8 +85,30 @@ export const Component = () => {
 								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder
 							</b>
 							<span className="select-text">{node.data?.data_path}</span>
+						</div> */}
+
+						<div>
+							<NodeSettingLabel>Data Folder</NodeSettingLabel>
+							<div className="mt-2 flex w-full flex-row gap-2">
+								<Input className="grow" value={node.data?.data_path} />
+								{/* <Button size="sm" variant="outline">
+									Change
+								</Button> */}
+							</div>
 						</div>
+						{/* <div className='mb-1'>
+							<Label className="text-sm font-medium text-ink-faint">
+								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
+							</Label>
+							<Input value={node.data?.data_path + '/logs'} />
+						</div> */}
 					</div>
+					{/* <div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
+						<Switch size="sm" />
+						<span className="text-sm font-medium text-ink-dull">
+							Run Spacedrive in the background when app closed
+						</span>
+					</div> */}
 				</div>
 			</Card>
 			{isDev && (
@@ -101,6 +118,7 @@ export const Component = () => {
 					description="Enable extra debugging features within the app."
 				>
 					<Switch
+						size="md"
 						checked={debugState.enabled}
 						onClick={() => (getDebugState().enabled = !debugState.enabled)}
 					/>
