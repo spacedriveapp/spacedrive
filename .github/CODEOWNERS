@@ -19,7 +19,7 @@
 /crates/ @spacedriveapp/backend
 
 # server app
-/apps/server/ @backend
+/apps/server/ @spacedriveapp/@backend
 
 # landing site
 /apps/landing/ @spacedriveapp/frontend
