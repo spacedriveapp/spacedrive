@@ -17,7 +17,7 @@ import { KeyManager } from '~/app/$libraryId/KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
-export const useExplorerTopBarOptions = () => {
+export const useExplorerTopBarOptions = (options?: { disableViewOptions: string[] }) => {
 	const explorerStore = useExplorerStore();
 
 	const explorerViewOptions: ToolOption[] = [
@@ -35,13 +35,13 @@ export const useExplorerTopBarOptions = () => {
 			onClick: () => (getExplorerStore().layoutMode = 'rows'),
 			showAtResolution: 'sm:flex'
 		},
-		{
-			toolTipLabel: 'Columns view',
-			icon: <Columns className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'columns',
-			onClick: () => (getExplorerStore().layoutMode = 'columns'),
-			showAtResolution: 'sm:flex'
-		},
+		// {
+		// 	toolTipLabel: 'Columns view',
+		// 	icon: <Columns className={TOP_BAR_ICON_STYLE} />,
+		// 	topBarActive: explorerStore.layoutMode === 'columns',
+		// 	// onClick: () => (getExplorerStore().layoutMode = 'columns'),
+		// 	showAtResolution: 'sm:flex'
+		// },
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
@@ -49,7 +49,9 @@ export const useExplorerTopBarOptions = () => {
 			onClick: () => (getExplorerStore().layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
 		}
-	];
+	].filter(
+		(option) => !options?.disableViewOptions.includes(option.toolTipLabel)
+	) as ToolOption[];
 
 	const explorerControlOptions: ToolOption[] = [
 		{

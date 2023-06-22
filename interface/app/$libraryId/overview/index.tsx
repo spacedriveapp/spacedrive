@@ -24,7 +24,7 @@ export const Component = () => {
 	const page = usePageLayout();
 
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
+		useExplorerTopBarOptions({ disableViewOptions: ['List view'] });
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
