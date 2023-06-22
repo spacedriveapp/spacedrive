@@ -22,6 +22,7 @@ const pageRoutes: RouteObject = {
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
+	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'search', lazy: () => import('./search') }
 ];

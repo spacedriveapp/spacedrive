@@ -233,10 +233,13 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   # Location for installing script dependencies
   _deps_dir="${_script_path}/deps"
   mkdir -p "$_deps_dir"
-  PATH="$PATH:${_deps_dir}"
+  PATH="${_deps_dir}:$PATH"
   export PATH
 
   _arch="$(uname -m)"
+
+  # Symlink original macOS utils to avoid problems on system where the user has installed GNU utils
+  ln -fs "/usr/bin/tar" "${_deps_dir}/tar"
 
   if ! has jq; then
     echo "Download jq build..."
@@ -298,12 +301,15 @@ elif [ "$SYSNAME" = "Darwin" ]; then
           } 2>/dev/null; then
             printf 'yes'
             exit
+          else
+            echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
             # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
             # https://github.com/actions/upload-artifact/issues/51
             # Use it when running in evironments that are not authenticated with github
-          elif curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | tar -xJf- -C "$_frameworks_dir"; then
-            printf 'yes'
-            exit
+            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | tar -xJf- -C "$_frameworks_dir"; then
+              printf 'yes'
+              exit
+            fi
           fi
 
           echo "Failed to ffmpeg artifiact release, trying again in 1sec..." >&3
@@ -359,6 +365,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
       gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/${_artifact_id}/zip" \
         | tar -xf- -C "${_frameworks_dir}/bin"
     } 2>/dev/null; then
+      echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
       # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
       # https://github.com/actions/upload-artifact/issues/51
       # Use it when running in evironments that are not authenticated with github

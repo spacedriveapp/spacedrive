@@ -12,9 +12,9 @@ interface CategoryButtonProps {
 export default ({ category, icon, items, selected, onClick, disabled }: CategoryButtonProps) => {
 	return (
 		<div
-			onClick={() => !disabled && onClick?.()}
+			onClick={onClick}
 			className={clsx(
-				'flex shrink-0 items-center rounded-md px-1.5 py-1 text-sm outline-none focus:bg-app-selectedItem/50',
+				'flex shrink-0 items-center rounded-lg px-1.5 py-1 text-sm outline-none focus:bg-app-selectedItem/50',
 				selected && 'bg-app-selectedItem',
 				disabled && 'cursor-not-allowed opacity-30'
 			)}
