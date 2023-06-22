@@ -1,4 +1,4 @@
-import { Copy, Fingerprint, Folder, Image, Trash } from 'phosphor-react';
+import { Copy, Fingerprint, Folder, Image, Scissors, Trash } from 'phosphor-react';
 import { JobProgressEvent, JobReport } from '@sd/client';
 import { TextItems } from './JobContainer';
 
@@ -96,18 +96,24 @@ export default function useJobInfo(
 			]
 		},
 		file_copier: {
-			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} files`,
+			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
+				isRunning ? job.completed_task_count + 1 : job.completed_task_count
+			} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
 			icon: Copy,
 			textItems: [[{ text: job.status }]]
 		},
 		file_deleter: {
-			name: `${isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'} files`,
+			name: `${isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'} ${
+				job.completed_task_count
+			} ${plural(job.completed_task_count, 'file')}`,
 			icon: Trash,
 			textItems: [[{ text: job.status }]]
 		},
 		file_cutter: {
-			name: `${isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'} files`,
-			icon: Trash,
+			name: `${isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'} ${
+				job.completed_task_count
+			} ${plural(job.completed_task_count, 'file')}`,
+			icon: Scissors,
 			textItems: [[{ text: job.status }]]
 		}
 	};
