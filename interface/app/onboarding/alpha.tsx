@@ -26,12 +26,11 @@ export default function OnboardingAlpha() {
 					</div>
 					<h1 className="text-[40px] font-bold">Alpha Release</h1>
 					<p className="mx-auto w-full max-w-[450px] text-sm text-ink-faint">
-						We are delighted to announce the release of Spacedrive's alpha version,
-						showcasing exciting new features. As with any initial release, this version
-						may contain some bugs. We cannot guarantee that your data will stay intact.
-						We kindly request your assistance in reporting any issues you encounter on
-						our Discord channel. Your valuable feedback will greatly contribute to
-						enhancing the user experience.
+						We are delighted for you to try Spacedrive, now in Alpha release, showcasing
+						exciting new features. As with any initial release, this version may contain
+						some bugs. We kindly request your assistance in reporting any issues you
+						encounter on our Discord channel. Your valuable feedback will greatly
+						contribute to enhancing the user experience.
 					</p>
 					<div className="mt-0 flex w-full items-center justify-center gap-2">
 						<Button
