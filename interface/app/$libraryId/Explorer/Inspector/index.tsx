@@ -10,6 +10,8 @@ import {
 	ObjectKind,
 	Tag,
 	formatBytes,
+	getItemFilePath,
+	getItemObject,
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
@@ -17,7 +19,6 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useExplorerStore, useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import FileThumb from '../File/Thumb';
-import { getItemFilePath, getItemObject } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -108,8 +109,9 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 							<MetaContainer>
 								<MetaTitle>URI</MetaTitle>
 								<MetaValue>
-									{`${context.path}/${data.item.materialized_path}${data.item.name
-										}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
+									{`${context.path}/${data.item.materialized_path}${
+										data.item.name
+									}${data.item.is_dir ? `.${data.item.extension}` : '/'}`}
 								</MetaValue>
 							</MetaContainer>
 						)}
@@ -150,8 +152,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						</MetaContainer>
 						<Divider />
 						<MetaContainer className="!flex-row space-x-2">
-							{
-								filePathData?.size_in_bytes_bytes &&
+							{filePathData?.size_in_bytes_bytes && (
 								<MetaTextLine>
 									<InspectorIcon component={Cube} />
 									<span className="mr-1.5">Size</span>
@@ -159,7 +160,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 										{formatBytes(filePathData.size_in_bytes_bytes)}
 									</MetaValue>
 								</MetaTextLine>
-							}
+							)}
 							{fullObjectData.data?.media_data?.duration_seconds && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />

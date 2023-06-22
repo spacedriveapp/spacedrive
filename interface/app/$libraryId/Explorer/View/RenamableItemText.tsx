@@ -1,12 +1,15 @@
 /* eslint-disable no-case-declarations */
-import { ExplorerItem } from "@sd/client";
-import { RenameLocationTextBox, RenamePathTextBox } from "../File/RenameTextBox";
-import { getItemFilePath, getItemLocation } from "../util";
-import { useExplorerStore } from "~/hooks";
-import clsx from "clsx";
+import clsx from 'clsx';
+import { ExplorerItem, getItemFilePath, getItemLocation } from '@sd/client';
+import { useExplorerStore } from '~/hooks';
+import { RenameLocationTextBox, RenamePathTextBox } from '../File/RenameTextBox';
 
-
-export default function RenamableItemText(props: { item: ExplorerItem, selected: boolean, disabled?: boolean, allowHighlight?: boolean }) {
+export default function RenamableItemText(props: {
+	item: ExplorerItem;
+	selected: boolean;
+	disabled?: boolean;
+	allowHighlight?: boolean;
+}) {
 	const { item, selected, disabled, allowHighlight } = props;
 	const explorerStore = useExplorerStore();
 
@@ -17,11 +20,12 @@ export default function RenamableItemText(props: { item: ExplorerItem, selected:
 		),
 		style: { maxHeight: explorerStore.gridItemSize / 3 },
 		activeClassName: '!text-ink',
-		disabled: !selected || disabled,
-	}
+		disabled: !selected || disabled
+	};
 
 	switch (item.type) {
-		case 'Path': case "Object":
+		case 'Path':
+		case 'Object':
 			const filePathData = getItemFilePath(item);
 			if (!filePathData) break;
 			return (
@@ -33,7 +37,7 @@ export default function RenamableItemText(props: { item: ExplorerItem, selected:
 					locationId={filePathData.location_id}
 					{...sharedProps}
 				/>
-			)
+			);
 		case 'Location':
 			const locationData = getItemLocation(item);
 			if (!locationData) break;
@@ -44,9 +48,7 @@ export default function RenamableItemText(props: { item: ExplorerItem, selected:
 					text={locationData.name}
 					{...sharedProps}
 				/>
-			)
+			);
 	}
-	return (
-		<div />
-	)
+	return <div />;
 }

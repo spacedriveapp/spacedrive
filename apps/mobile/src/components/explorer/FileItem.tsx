@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import { ExplorerItem, isObject } from '@sd/client';
+import { ExplorerItem, getItemFilePath } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -12,7 +12,7 @@ type FileItemProps = {
 const FileItem = ({ data }: FileItemProps) => {
 	const gridItemSize = Layout.window.width / getExplorerStore().gridNumColumns;
 
-	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const filePath = getItemFilePath(data);
 
 	return (
 		<View

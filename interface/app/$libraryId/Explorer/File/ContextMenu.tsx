@@ -10,14 +10,20 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { ExplorerItem, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerItem,
+	getItemFilePath,
+	getItemObject,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath, getItemObject, useExplorerSearchParams } from '../util';
+import { useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';

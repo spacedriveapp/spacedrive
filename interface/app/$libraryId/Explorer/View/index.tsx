@@ -10,14 +10,17 @@ import {
 } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKey } from 'rooks';
-import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
 import {
-	ExplorerLayoutMode,
-	getExplorerStore,
-	useExplorerConfigStore,
-	useExplorerStore
-} from '~/hooks';
+	ExplorerItem,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	isPath,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
+import { ContextMenu } from '@sd/ui';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerConfigStore } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import {
 	ExplorerViewContext,
@@ -26,7 +29,6 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath, getItemLocation } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -55,8 +57,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 					path: `/`
 				}).toString()
 			});
-		}
-		else if (isPath(data) && data.item.is_dir) {
+		} else if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({
@@ -176,7 +177,7 @@ export default memo(
 				}
 			>
 				{contextProps.items === null ||
-					(contextProps.items && contextProps.items.length > 0) ? (
+				(contextProps.items && contextProps.items.length > 0) ? (
 					<ViewContext.Provider
 						value={
 							{

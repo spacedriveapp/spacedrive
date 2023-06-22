@@ -1,12 +1,11 @@
-import { ExplorerItem, formatBytes } from '@sd/client';
 import clsx from 'clsx';
 import { memo } from 'react';
+import { ExplorerItem, formatBytes, getItemFilePath, getItemLocation } from '@sd/client';
 import GridList from '~/components/GridList';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { ViewItem } from '.';
 import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath, getItemLocation } from '../util';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
@@ -22,11 +21,10 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	const explorerView = useExplorerViewContext();
 
 	const showSize =
-		(!filePathData?.is_dir &&
-			!location &&
-			explorerStore.showBytesInGridView &&
-			(!explorerView.isRenaming ||
-				(explorerView.isRenaming && !selected)));
+		!filePathData?.is_dir &&
+		!location &&
+		explorerStore.showBytesInGridView &&
+		(!explorerView.isRenaming || (explorerView.isRenaming && !selected));
 
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>

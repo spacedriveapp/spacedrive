@@ -15,7 +15,17 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { ExplorerItem, FilePath, ObjectKind, bytesToNumber, formatBytes, isPath } from '@sd/client';
+import {
+	ExplorerItem,
+	FilePath,
+	ObjectKind,
+	bytesToNumber,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	getItemObject,
+	isPath
+} from '@sd/client';
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
@@ -23,11 +33,9 @@ import {
 } from '~/hooks/useExplorerStore';
 import { useScrolled } from '~/hooks/useScrolled';
 import { ViewItem } from '.';
-import { RenamePathTextBox } from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath, getItemLocation, getItemObject } from '../util';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
@@ -118,7 +126,9 @@ export default () => {
 				accessorFn: (file) => {
 					const locationData = getItemLocation(file);
 					const filePathData = getItemFilePath(file);
-					return locationData ? locationData.name : filePathData && getFileName(filePathData);
+					return locationData
+						? locationData.name
+						: filePathData && getFileName(filePathData);
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
@@ -134,11 +144,16 @@ export default () => {
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
 								<FileThumb data={file} size={35} />
 							</div>
-							<RenamableItemText allowHighlight={false} item={file} selected={selected} disabled={
-								!selected ||
-								(Array.isArray(explorerView.selected) &&
-									explorerView.selected.length > 1)
-							} />
+							<RenamableItemText
+								allowHighlight={false}
+								item={file}
+								selected={selected}
+								disabled={
+									!selected ||
+									(Array.isArray(explorerView.selected) &&
+										explorerView.selected.length > 1)
+								}
+							/>
 						</div>
 					);
 				}
@@ -171,8 +186,8 @@ export default () => {
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
 
-					return byteSize(bytesToNumber(file_path.size_in_bytes_bytes))
-				},
+					return byteSize(bytesToNumber(file_path.size_in_bytes_bytes));
+				}
 			},
 			{
 				id: 'dateCreated',
@@ -182,17 +197,20 @@ export default () => {
 			{
 				id: 'dateModified',
 				header: 'Date Modified',
-				accessorFn: (file) => dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
+				accessorFn: (file) =>
+					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
 			},
 			{
 				id: 'dateIndexed',
 				header: 'Date Indexed',
-				accessorFn: (file) => dayjs(getItemFilePath(file)?.date_indexed).format('MMM Do YYYY')
+				accessorFn: (file) =>
+					dayjs(getItemFilePath(file)?.date_indexed).format('MMM Do YYYY')
 			},
 			{
 				id: 'dateAccessed',
 				header: 'Date Accessed',
-				accessorFn: (file) => dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
+				accessorFn: (file) =>
+					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
 				header: 'Content ID',
@@ -255,11 +273,11 @@ export default () => {
 					...sizing,
 					...(nameSize !== undefined && nameColumnMinSize !== undefined
 						? {
-							name:
-								newNameSize >= nameColumnMinSize
-									? newNameSize
-									: nameColumnMinSize
-						}
+								name:
+									newNameSize >= nameColumnMinSize
+										? newNameSize
+										: nameColumnMinSize
+						  }
 						: {})
 				};
 			});
@@ -302,18 +320,18 @@ export default () => {
 
 			const indexes = isCurrentHigher
 				? Array.from(
-					{
-						length:
-							currentRowIndex -
-							rangeEndItem.index +
-							(rangeEndItem.index === 0 ? 1 : 0)
-					},
-					(_, i) => rangeStartRow.index + i + 1
-				)
+						{
+							length:
+								currentRowIndex -
+								rangeEndItem.index +
+								(rangeEndItem.index === 0 ? 1 : 0)
+						},
+						(_, i) => rangeStartRow.index + i + 1
+				  )
 				: Array.from(
-					{ length: rangeEndItem.index - currentRowIndex },
-					(_, i) => rangeStartRow.index - (i + 1)
-				);
+						{ length: rangeEndItem.index - currentRowIndex },
+						(_, i) => rangeStartRow.index - (i + 1)
+				  );
 
 			const updated = new Set(explorerView.selected);
 			if (isCurrentHigher) {
@@ -418,7 +436,7 @@ export default () => {
 
 				const loadMoreOnIndex =
 					rowsBeforeLoadMore > rows.length ||
-						lastRow.index > rows.length - rowsBeforeLoadMore
+					lastRow.index > rows.length - rowsBeforeLoadMore
 						? rows.length - 1
 						: rows.length - rowsBeforeLoadMore;
 
@@ -445,9 +463,9 @@ export default () => {
 					if (lastSelectedRow) {
 						const nextRow =
 							rows[
-							e.key === 'ArrowUp'
-								? lastSelectedRow.index - 1
-								: lastSelectedRow.index + 1
+								e.key === 'ArrowUp'
+									? lastSelectedRow.index - 1
+									: lastSelectedRow.index + 1
 							];
 
 						if (nextRow) {
@@ -569,16 +587,16 @@ export default () => {
 																i === 0
 																	? size + paddingX
 																	: i ===
-																		headerGroup.headers.length - 1
-																		? size - paddingX
-																		: size
+																	  headerGroup.headers.length - 1
+																	? size - paddingX
+																	: size
 														}}
 														onClick={() => {
 															if (header.column.getCanSort()) {
 																if (isSorted) {
 																	getExplorerStore().orderByDirection =
 																		explorerStore.orderByDirection ===
-																			'Asc'
+																		'Asc'
 																			? 'Desc'
 																			: 'Asc';
 																} else {
@@ -603,7 +621,7 @@ export default () => {
 
 																{isSorted ? (
 																	explorerStore.orderByDirection ===
-																		'Asc' ? (
+																	'Asc' ? (
 																		<CaretUp className="shrink-0 text-ink-faint" />
 																	) : (
 																		<CaretDown className="shrink-0 text-ink-faint" />
@@ -612,25 +630,25 @@ export default () => {
 
 																{(i !==
 																	headerGroup.headers.length -
-																	1 ||
+																		1 ||
 																	(i ===
 																		headerGroup.headers.length -
-																		1 &&
+																			1 &&
 																		!locked)) && (
-																		<div
-																			onClick={(e) =>
-																				e.stopPropagation()
-																			}
-																			onMouseDown={(e) => {
-																				setLocked(false);
-																				header.getResizeHandler()(
-																					e
-																				);
-																			}}
-																			onTouchStart={header.getResizeHandler()}
-																			className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
-																		/>
-																	)}
+																	<div
+																		onClick={(e) =>
+																			e.stopPropagation()
+																		}
+																		onMouseDown={(e) => {
+																			setLocked(false);
+																			header.getResizeHandler()(
+																				e
+																			);
+																		}}
+																		onTouchStart={header.getResizeHandler()}
+																		className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+																	/>
+																)}
 															</div>
 														)}
 													</div>
@@ -660,9 +678,10 @@ export default () => {
 													className="absolute left-0 top-0 flex w-full py-px"
 													style={{
 														height: `${virtualRow.size}px`,
-														transform: `translateY(${virtualRow.start -
+														transform: `translateY(${
+															virtualRow.start -
 															rowVirtualizer.options.scrollMargin
-															}px)`,
+														}px)`,
 														paddingLeft: `${paddingX}px`,
 														paddingRight: `${paddingX}px`
 													}}
@@ -694,9 +713,10 @@ export default () => {
 												)}
 												style={{
 													height: `${virtualRow.size}px`,
-													transform: `translateY(${virtualRow.start -
+													transform: `translateY(${
+														virtualRow.start -
 														rowVirtualizer.options.scrollMargin
-														}px)`,
+													}px)`,
 													paddingLeft: `${paddingX}px`,
 													paddingRight: `${paddingX}px`
 												}}
@@ -710,16 +730,16 @@ export default () => {
 													className={clsx(
 														'relative flex h-full w-full rounded-md border',
 														virtualRow.index % 2 === 0 &&
-														'bg-app-darkBox',
+															'bg-app-darkBox',
 														selected
 															? 'border-accent !bg-accent/10'
 															: 'border-transparent',
 														selected &&
-														selectedPrior &&
-														'rounded-t-none border-t-0 border-t-transparent',
+															selectedPrior &&
+															'rounded-t-none border-t-0 border-t-transparent',
 														selected &&
-														selectedNext &&
-														'rounded-b-none border-b-0 border-b-transparent'
+															selectedNext &&
+															'rounded-b-none border-b-0 border-b-transparent'
 													)}
 												>
 													{selectedPrior && (
