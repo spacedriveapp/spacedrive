@@ -1,4 +1,4 @@
-import { Node } from '@sd/assets/icons';
+import { Laptop, Node } from '@sd/assets/icons';
 import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
@@ -51,7 +51,7 @@ export const Component = () => {
 
 					<hr className="mb-4 mt-2 flex  w-full border-app-line" />
 					<div className="flex w-full items-center gap-5">
-						<img src={Node} className="mt-2 h-14 w-14" />
+						<img src={Laptop} className="mt-2 h-14 w-14" />
 
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>

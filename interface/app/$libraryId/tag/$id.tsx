@@ -1,3 +1,4 @@
+import { Tag } from 'phosphor-react';
 import { z } from 'zod';
 import { useLibraryQuery } from '@sd/client';
 import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
@@ -35,6 +36,7 @@ export const Component = () => {
 			<Explorer
 				items={explorerData.data?.items || null}
 				emptyNotice={{
+					icon: Tag,
 					message: 'No items assigned to this tag'
 				}}
 			/>

@@ -1,4 +1,4 @@
-import { Node } from '@sd/assets/icons';
+import { Laptop, Node } from '@sd/assets/icons';
 import { z } from 'zod';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
@@ -27,7 +27,10 @@ export const Component = () => {
 				left={
 					<div className="group flex flex-row items-center space-x-2">
 						<span className="flex flex-row items-center">
-							<img src={Node} className="ml-3 mr-2 mt-[-1px] inline-block h-7 w-7" />
+							<img
+								src={Laptop}
+								className="ml-3 mr-2 mt-[-1px] inline-block h-6 w-6"
+							/>
 							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
 								{nodeState.data?.name || 'Node'}
 							</span>
