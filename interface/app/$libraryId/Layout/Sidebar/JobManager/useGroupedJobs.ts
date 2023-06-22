@@ -5,7 +5,7 @@ export interface IJobGroup {
 	queued?: boolean;
 	paused?: boolean;
 	id: string;
-	action: string;
+	action: string | null;
 	completed?: boolean;
 	jobs: JobReport[];
 }

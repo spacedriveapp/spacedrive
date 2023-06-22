@@ -96,7 +96,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
 						iconImg={Folder}
-						name={niceActionName(data.action, !!data.completed, jobs[0])}
+						name={niceActionName(data.action ?? '', !!data.completed, jobs[0])}
 						textItems={[
 							[
 								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },

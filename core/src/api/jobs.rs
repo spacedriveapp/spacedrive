@@ -1,8 +1,3 @@
-use std::{
-	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
-};
-
 use crate::{
 	invalidate_query,
 	job::{job_without_data, JobManager, JobReport, JobStatus},
@@ -15,15 +10,20 @@ use crate::{
 	prisma::{job, location, SortOrder},
 };
 
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	path::PathBuf,
+};
+
 use chrono::{DateTime, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
+use tokio::time::{interval, Duration};
+use tracing::{debug, trace};
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
-use tokio::time::{interval, Duration};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -104,8 +104,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_meta();
 
-						println!(
-							"job {:?}, action_name {}, group_key {:?}",
+						trace!(
+							"job {:#?}, action_name {}, group_key {:?}",
 							job, action_name, group_key
 						);
 

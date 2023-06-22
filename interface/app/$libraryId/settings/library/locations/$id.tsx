@@ -33,7 +33,7 @@ export const Component = () => {
 };
 
 const EditLocationForm = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useZodRouteParams();
 	// const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
