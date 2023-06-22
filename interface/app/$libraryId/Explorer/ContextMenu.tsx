@@ -1,22 +1,29 @@
 import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
+import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import { useZodSearchParams } from '~/hooks';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useOperatingSystem,
+	useZodSearchParams
+} from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+import { keybindForOs } from '~/util/keybinds';
 
 export const OpenInNativeExplorer = () => {
-	const platform = usePlatform();
 	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
+	const platform = usePlatform();
 
 	const osFileBrowserName = useMemo(() => {
 		if (os === 'macOS') {
 			return 'Finder';
-		} else {
+		} else if (os === 'windows') {
 			return 'Explorer';
+		} else {
+			return 'File manager';
 		}
 	}, [os]);
 
@@ -25,7 +32,7 @@ export const OpenInNativeExplorer = () => {
 			{platform.openPath && (
 				<CM.Item
 					label={`Open in ${osFileBrowserName}`}
-					keybind="⌘Y"
+					keybind={keybind([ModifierKeys.Control], ['Y'])}
 					onClick={() => {
 						alert('TODO: Open in FS');
 						// console.log('TODO', store.contextMenuActiveItem);
@@ -39,8 +46,10 @@ export const OpenInNativeExplorer = () => {
 };
 
 export default (props: PropsWithChildren) => {
-	const { locationId, cutCopyState } = useExplorerStore();
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
 	const [{ path: currentPath }] = useZodSearchParams();
+	const { locationId, cutCopyState } = useExplorerStore();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
@@ -90,7 +99,7 @@ export default (props: PropsWithChildren) => {
 
 					<CM.Item
 						label="Paste"
-						keybind="⌘V"
+						keybind={keybind([ModifierKeys.Control], ['V'])}
 						hidden={!cutCopyState.active}
 						onClick={async () => {
 							const path = currentPath ?? '/';

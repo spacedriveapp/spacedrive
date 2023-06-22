@@ -19,7 +19,7 @@ import {
 	useLibraryContext,
 	useLibraryMutation
 } from '@sd/client';
-import { ContextMenu, dialogManager } from '@sd/ui';
+import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import {
 	getExplorerStore,
@@ -28,6 +28,7 @@ import {
 	useZodSearchParams
 } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+import { keybindForOs } from '~/util/keybinds';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
@@ -42,12 +43,14 @@ interface Props {
 }
 
 export default ({ data }: Props) => {
-	const { cutCopyState, showInspector, ...store } = useExplorerStore();
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
 	const location = useLocation();
 	const objectData = data ? getItemObject(data) : null;
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
 	const [{ path: currentPath }] = useZodSearchParams();
+	const { cutCopyState, showInspector, ...store } = useExplorerStore();
 
 	const isOverview = location.pathname.endsWith('/overview');
 
@@ -77,7 +80,7 @@ export default ({ data }: Props) => {
 				<>
 					<ContextMenu.Item
 						label="Details"
-						keybind="⌘I"
+						keybind={keybind([ModifierKeys.Control], ['I'])}
 						// icon={Sidebar}
 						onClick={() => (getExplorerStore().showInspector = true)}
 					/>
@@ -90,7 +93,7 @@ export default ({ data }: Props) => {
 			<ContextMenu.Item
 				hidden={explorerStore.layoutMode === 'media'}
 				label="Rename"
-				keybind="Enter"
+				keybind={keybind([], ['Enter'])}
 				onClick={() => explorerView.setIsRenaming(true)}
 			/>
 
@@ -115,7 +118,7 @@ export default ({ data }: Props) => {
 					<ContextMenu.Item
 						hidden={isOverview || explorerStore.layoutMode === 'media'}
 						label="Cut"
-						keybind="⌘X"
+						keybind={keybind([ModifierKeys.Control], ['X'])}
 						onClick={() => {
 							getExplorerStore().cutCopyState = {
 								sourceParentPath: currentPath ?? '/',
@@ -131,7 +134,7 @@ export default ({ data }: Props) => {
 					<ContextMenu.Item
 						hidden={isOverview || explorerStore.layoutMode === 'media'}
 						label="Copy"
-						keybind="⌘C"
+						keybind={keybind([ModifierKeys.Control], ['C'])}
 						onClick={() => {
 							getExplorerStore().cutCopyState = {
 								sourceParentPath: currentPath ?? '/',
@@ -147,7 +150,7 @@ export default ({ data }: Props) => {
 					<ContextMenu.Item
 						hidden={isOverview || explorerStore.layoutMode === 'media'}
 						label="Duplicate"
-						keybind="⌘D"
+						keybind={keybind([ModifierKeys.Control], ['D'])}
 						onClick={async () => {
 							try {
 								await copyFiles.mutateAsync({
@@ -254,7 +257,12 @@ export default ({ data }: Props) => {
 						}
 					}}
 				/> */}
-				<ContextMenu.Item label="Compress" icon={Package} keybind="⌘B" disabled />
+				<ContextMenu.Item
+					label="Compress"
+					icon={Package}
+					keybind={keybind([ModifierKeys.Control], ['B'])}
+					disabled
+				/>
 				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 					<ContextMenu.Item label="PNG" disabled />
 					<ContextMenu.Item label="WebP" disabled />
@@ -320,7 +328,7 @@ export default ({ data }: Props) => {
 					icon={Trash}
 					label="Delete"
 					variant="danger"
-					keybind="⌘DEL"
+					keybind={keybind([ModifierKeys.Control], ['Delete'])}
 					onClick={() =>
 						dialogManager.create((dp) => (
 							<DeleteDialog {...dp} location_id={locationId} path_id={data.item.id} />
@@ -334,6 +342,7 @@ export default ({ data }: Props) => {
 
 const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(props.data);
@@ -349,15 +358,15 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 						{openFilePath && (
 							<ContextMenu.Item
 								label="Open"
-								keybind="⌘O"
-								onClick={() => {
+								keybind={keybind([ModifierKeys.Control], ['O'])}
+								onClick={async () => {
 									if (props.data.type === 'Path' && props.data.item.object_id)
 										updateAccessTime
 											.mutateAsync(props.data.item.object_id)
 											.catch(console.error);
 
 									try {
-										openFilePath(library.uuid, [filePath.id]);
+										await openFilePath(library.uuid, [filePath.id]);
 									} catch (error) {
 										showAlertDialog({
 											title: 'Error',
@@ -372,7 +381,7 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 				)}
 				<ContextMenu.Item
 					label="Quick view"
-					keybind="␣"
+					keybind={keybind([], [' '])}
 					onClick={() => (getExplorerStore().quickViewObject = props.data)}
 				/>
 			</>
