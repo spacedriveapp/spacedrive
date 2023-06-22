@@ -149,7 +149,7 @@ export default function NavBar() {
 					</Link>
 				</div>
 			</div>
-			<div className="absolute flex bottom-0 w-full h-1 flex-row items-center justify-center opacity-100 pt-4">
+			<div className="absolute flex bottom-0 w-full h-0.5 flex-row items-center justify-center opacity-40 pt-4">
 				<div className="bg-gradient-to-r from-transparent to-white/30 h-0.5 w-1/2"></div>
 				<div className="bg-gradient-to-l from-transparent to-white/30 h-0.5 w-1/2"></div>
 			</div>
