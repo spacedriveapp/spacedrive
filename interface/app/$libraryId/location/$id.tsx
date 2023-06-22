@@ -12,32 +12,29 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams
+	useZodRouteParams,
+	useZodSearchParams
 } from '~/hooks';
 import Explorer from '../Explorer';
-import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
+import { useExplorerOrder } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
-
 export const Component = () => {
-	const [{ path }] = useExplorerSearchParams();
-	const { id: location_id } = useZodRouteParams(PARAMS);
+	const [{ path }] = useZodSearchParams();
+	const { id: locationId } = useZodRouteParams();
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const location = useLibraryQuery(['locations.get', location_id]);
+	const { data: location } = useLibraryQuery(['locations.get', locationId]);
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				location_id,
-				sub_path: path ?? ''
+				sub_path: location?.path ?? '',
+				location_id: locationId
 			}
 		],
 		{ onData() {} }
@@ -46,8 +43,8 @@ export const Component = () => {
 	const explorerStore = getExplorerStore();
 
 	useEffect(() => {
-		explorerStore.locationId = location_id;
-	}, [explorerStore, location_id, path]);
+		explorerStore.locationId = locationId;
+	}, [explorerStore, locationId]);
 
 	const { items, loadMore } = useItems();
 
@@ -59,12 +56,10 @@ export const Component = () => {
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{path ? getLastSectionOfPath(path) : location.data?.name}
+								{path ? getLastSectionOfPath(path) : location?.name}
 							</span>
 						</span>
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
+						{location && <LocationOptions location={location} path={path || ''} />}
 					</div>
 				}
 				right={
@@ -80,8 +75,8 @@ export const Component = () => {
 };
 
 const useItems = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
-	const [{ path, take }] = useExplorerSearchParams();
+	const { id: locationId } = useZodRouteParams();
+	const [{ path, take }] = useZodSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();

@@ -5,15 +5,13 @@ import { createSearchParams } from 'react-router-dom';
 import { useKey, useKeys } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, Shortcut } from '@sd/ui';
-import { useZodSearchParams } from '~/hooks';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { getSearchStore } from '~/hooks/useSearchStore';
-import { SEARCH_PARAMS } from '../search';
+import { getSearchStore, useOperatingSystem, useZodSearchParams } from '~/hooks';
+import { SearchArgsSchema } from '../search';
 
 export default () => {
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const [searchParams, setSearchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams, setSearchParams] = useZodSearchParams(SearchArgsSchema);
 	const navigate = useNavigate();
 	const location = useLocation();
 

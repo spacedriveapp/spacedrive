@@ -68,7 +68,7 @@ export default ({ filePathData, className, activeClassName, disabled, ...props }
 		} catch (e) {
 			showAlertDialog({
 				title: 'Error',
-				value: String(e)
+				value: `Could not rename ${oldName} to ${newName}, due to an error: ${e}`
 			});
 		}
 	}

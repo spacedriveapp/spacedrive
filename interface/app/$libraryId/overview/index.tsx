@@ -6,15 +6,12 @@ import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
 import ContextMenu from '../Explorer/File/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import View from '../Explorer/View';
-import { SEARCH_PARAMS } from '../Explorer/util';
 import { usePageLayout } from '../PageLayout';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
 import { useItems } from './data';
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();

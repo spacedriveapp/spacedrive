@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { z } from 'zod';
 import {
 	ExplorerItem,
 	FilePathSearchOrdering,
@@ -8,7 +7,7 @@ import {
 	isObject,
 	isPath
 } from '@sd/client';
-import { useExplorerStore, useZodSearchParams } from '~/hooks';
+import { useExplorerStore } from '~/hooks';
 
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 	const explorerStore = useExplorerStore();
@@ -52,13 +51,4 @@ export function getExplorerItemData(data: ExplorerItem) {
 		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
 		thumbnailKey: data.thumbnail_key
 	};
-}
-
-export const SEARCH_PARAMS = z.object({
-	path: z.string().optional(),
-	take: z.coerce.number().default(100)
-});
-
-export function useExplorerSearchParams() {
-	return useZodSearchParams(SEARCH_PARAMS);
 }

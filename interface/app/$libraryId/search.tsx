@@ -14,14 +14,6 @@ import { getExplorerItemData } from './Explorer/util';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarOptions from './TopBar/TopBarOptions';
 
-export const SEARCH_PARAMS = z.object({
-	search: z.string().optional(),
-	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
-});
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
 const SearchExplorer = memo((props: { args: SearchArgs }) => {
 	const explorerStore = useExplorerStore();
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
@@ -92,8 +84,16 @@ const SearchExplorer = memo((props: { args: SearchArgs }) => {
 	);
 });
 
+export const SearchArgsSchema = z.object({
+	search: z.string().optional(),
+	take: z.coerce.number().optional(),
+	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
+});
+
+export type SearchArgs = z.infer<typeof SearchArgsSchema>;
+
 export const Component = () => {
-	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams] = useZodSearchParams(SearchArgsSchema);
 
 	const search = useDeferredValue(searchParams);
 

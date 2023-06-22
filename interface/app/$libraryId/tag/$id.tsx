@@ -5,12 +5,8 @@ import Explorer from '../Explorer';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
-
 export const Component = () => {
-	const { id } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useZodRouteParams();
 
 	const topBarOptions = useExplorerTopBarOptions();
 
@@ -18,7 +14,7 @@ export const Component = () => {
 		'search.objects',
 		{
 			filter: {
-				tags: [id]
+				tags: [locationId]
 			}
 		}
 	]);

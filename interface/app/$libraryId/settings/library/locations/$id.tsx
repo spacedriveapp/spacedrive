@@ -24,10 +24,6 @@ const schema = z.object({
 	generatePreviewMedia: z.boolean().nullable()
 });
 
-const PARAMS = z.object({
-	id: z.coerce.number().default(0)
-});
-
 export const Component = () => {
 	const form = useZodForm({
 		schema,
@@ -37,7 +33,7 @@ export const Component = () => {
 		}
 	});
 
-	const { id: locationId } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useZodRouteParams();
 
 	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');

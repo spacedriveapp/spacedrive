@@ -8,14 +8,14 @@ import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
-const PARAMS = z.object({
+const RouteParamsSchema = z.object({
 	id: z.coerce.number().default(-1)
 });
 
 export const Component = () => {
 	const tags = useLibraryQuery(['tags.list']);
-	const id = useZodRouteParams(PARAMS).id;
-	const tagSelectedParam = tags.data?.find((tag) => tag.id === id);
+	const { id: locationId } = useZodRouteParams(RouteParamsSchema);
+	const tagSelectedParam = tags.data?.find((tag) => tag.id === locationId);
 	const [selectedTag, setSelectedTag] = useState<null | Tag>(
 		tagSelectedParam ?? tags.data?.[0] ?? null
 	);
