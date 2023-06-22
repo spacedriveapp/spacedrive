@@ -1,7 +1,8 @@
-import { Laptop, Node } from '@sd/assets/icons';
-import { Database } from 'phosphor-react';
-import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
-import { Button, Card, Input, Label, Switch, tw } from '@sd/ui';
+import { Node } from '@sd/assets/icons';
+import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
+import { Card, Input, Switch, tw } from '@sd/ui';
+import { useZodForm, z } from '@sd/ui/src/forms';
+import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -13,6 +14,24 @@ export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
 	const debugState = useDebugState();
+	const editNode = useBridgeMutation('nodes.edit');
+
+	const form = useZodForm({
+		schema: z.object({
+			name: z.string().min(1)
+		}),
+		defaultValues: {
+			name: node.data?.name || ''
+		}
+	});
+
+	useDebouncedFormWatch(form, async (value) => {
+		await editNode.mutateAsync({
+			name: value.name || null
+		});
+
+		node.refetch();
+	});
 
 	return (
 		<>
@@ -37,22 +56,20 @@ export const Component = () => {
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input
-								value={node.data?.name}
-								onChange={() => {
-									/* TODO */
-								}}
+								{...form.register('name', { required: true })}
+								defaultValue={node.data?.name}
 							/>
 						</div>
-						<div className="flex flex-col">
+						{/* <div className="flex flex-col">
 							<NodeSettingLabel>Node Port</NodeSettingLabel>
 							<Input
 								contentEditable={false}
 								value={node.data?.p2p_port || 5795}
 								onChange={() => {
-									/* TODO */
+									alert('TODO');
 								}}
 							/>
-						</div>
+						</div> */}
 					</div>
 
 					<div className="mt-6 gap-2">
@@ -80,9 +97,9 @@ export const Component = () => {
 										/* TODO */
 									}}
 								/>
-								<Button size="sm" variant="outline">
+								{/* <Button size="sm" variant="outline">
 									Change
-								</Button>
+								</Button> */}
 							</div>
 						</div>
 						{/* <div className='mb-1'>
@@ -92,12 +109,12 @@ export const Component = () => {
 							<Input value={node.data?.data_path + '/logs'} />
 						</div> */}
 					</div>
-					<div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
+					{/* <div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
 						<Switch size="sm" />
 						<span className="text-sm font-medium text-ink-dull">
 							Run Spacedrive in the background when app closed
 						</span>
-					</div>
+					</div> */}
 				</div>
 			</Card>
 			{isDev && (
