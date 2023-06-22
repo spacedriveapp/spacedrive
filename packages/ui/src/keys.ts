@@ -16,7 +16,10 @@ export enum ModifierKeys {
 
 export type OSforKeys = 'macOS' | 'Windows' | 'Other';
 
-export const modifierSymbols: Record<ModifierKeys, { macOS?: string; Windows?: string; Other: string }> = {
+export const modifierSymbols: Record<
+	ModifierKeys,
+	{ macOS?: string; Windows?: string; Other: string }
+> = {
 	Alt: { macOS: '⌥', Other: '⎇' },
 	AltGraph: { macOS: '⌥', Other: '⎇' },
 	CapsLock: { Other: '⇪' },

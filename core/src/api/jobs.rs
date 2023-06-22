@@ -1,8 +1,3 @@
-use std::{
-	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
-};
-
 use crate::{
 	invalidate_query,
 	job::{job_without_data, JobManager, JobReport, JobStatus},
@@ -15,15 +10,20 @@ use crate::{
 	prisma::{job, location, SortOrder},
 };
 
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	path::PathBuf,
+};
+
 use chrono::{DateTime, Utc};
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
+use tokio::time::{interval, Duration};
+use tracing::trace;
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
-use tokio::time::{interval, Duration};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -71,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroup {
 				id: String,
-				action: String,
+				action: Option<String>,
 				status: JobStatus,
 				created_at: DateTime<Utc>,
 				jobs: Vec<JobReport>,
@@ -104,6 +104,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_meta();
 
+						trace!(
+							"job {:#?}, action_name {}, group_key {:?}",
+							job,
+							action_name,
+							group_key
+						);
+
 						// if the job is running, use the in-memory report
 						let memory_job = active_reports.values().find(|j| j.id == job.id);
 						let report = match memory_job {
@@ -118,7 +125,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									let id = job.parent_id.unwrap_or(job.id);
 									let group = JobGroup {
 										id: id.to_string(),
-										action: action_name.clone(),
+										action: Some(action_name.clone()),
 										status: job.status,
 										jobs: vec![report.clone()],
 										created_at: job.created_at.unwrap_or(Utc::now()),
@@ -131,6 +138,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									group.jobs.insert(0, report.clone()); // inserts at the beginning
 								}
 							}
+						} else {
+							// insert individual job as group
+							groups.insert(
+								job.id.to_string(),
+								JobGroup {
+									id: job.id.to_string(),
+									action: None,
+									status: job.status,
+									jobs: vec![report.clone()],
+									created_at: job.created_at.unwrap_or(Utc::now()),
+								},
+							);
 						}
 					}
 

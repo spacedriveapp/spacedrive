@@ -1,4 +1,5 @@
 import { Navigate, Outlet, RouteObject } from 'react-router-dom';
+import { z } from 'zod';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
@@ -38,6 +39,9 @@ const Wrapper = () => {
 // the `usePlausiblePageViewMonitor` hook, as early as possible (ideally within the layout itself).
 // the hook should only be included if there's a valid `ClientContext` (so not onboarding)
 
+export const LibraryIdParamsSchema = z.object({ libraryId: z.string().optional() });
+export type LibraryIdParams = z.infer<typeof LibraryIdParamsSchema>;
+
 export const routes = [
 	{
 		element: <Wrapper />,
@@ -50,11 +54,15 @@ export const routes = [
 			{
 				path: 'onboarding',
 				lazy: () => import('./onboarding/Layout'),
+				loader(): LibraryIdParams {
+					return { libraryId: undefined };
+				},
 				children: onboardingRoutes
 			},
 			{
 				path: ':libraryId',
 				lazy: () => import('./$libraryId/Layout'),
+				loader: ({ params }) => LibraryIdParamsSchema.parse(params),
 				children: libraryRoutes
 			}
 		]

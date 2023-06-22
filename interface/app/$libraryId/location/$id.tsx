@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
+import { useLoaderData } from 'react-router';
 import {
 	useLibraryContext,
 	useLibraryQuery,
@@ -12,32 +12,29 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams
+	useZodSearchParams
 } from '~/hooks';
+import type { LocationIdParams } from '..';
 import Explorer from '../Explorer';
-import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
+import { useExplorerOrder } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
-
 export const Component = () => {
-	const [{ path }] = useExplorerSearchParams();
-	const { id: location_id } = useZodRouteParams(PARAMS);
+	const [{ path }] = useZodSearchParams();
+	const { id: locationId } = useLoaderData() as LocationIdParams;
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const location = useLibraryQuery(['locations.get', location_id]);
+	const { data: location } = useLibraryQuery(['locations.get', locationId]);
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				location_id,
-				sub_path: path ?? ''
+				sub_path: location?.path ?? '',
+				location_id: locationId
 			}
 		],
 		{ onData() {} }
@@ -46,10 +43,10 @@ export const Component = () => {
 	const explorerStore = getExplorerStore();
 
 	useEffect(() => {
-		explorerStore.locationId = location_id;
-	}, [explorerStore, location_id, path]);
+		explorerStore.locationId = locationId;
+	}, [explorerStore, locationId]);
 
-	const { items, loadMore } = useItems();
+	const { items, loadMore } = useItems({ locationId });
 
 	return (
 		<>
@@ -61,12 +58,10 @@ export const Component = () => {
 							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
 								{path && path?.length > 1
 									? getLastSectionOfPath(path)
-									: location.data?.name}
+									: location?.name}
 							</span>
 						</span>
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
+						{location && <LocationOptions location={location} path={path || ''} />}
 					</div>
 				}
 				right={
@@ -81,9 +76,8 @@ export const Component = () => {
 	);
 };
 
-const useItems = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
-	const [{ path, take }] = useExplorerSearchParams();
+const useItems = ({ locationId }: { locationId: number }) => {
+	const [{ path, take }] = useZodSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();

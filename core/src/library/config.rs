@@ -1,20 +1,22 @@
-use std::{path::PathBuf, sync::Arc};
-
-use prisma_client_rust::not;
-use sd_p2p::{spacetunnel::Identity, PeerId};
-use sd_prisma::prisma::node;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use specta::Type;
-use uuid::Uuid;
-
 use crate::{
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
-		db::uuid_to_bytes,
+		db::{maybe_missing, uuid_to_bytes},
 		migrator::{Migrate, MigratorError},
 	},
 };
+
+use sd_p2p::{spacetunnel::Identity, PeerId};
+use sd_prisma::prisma::node;
+
+use std::{path::PathBuf, sync::Arc};
+
+use prisma_client_rust::not;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use specta::Type;
+use tracing::error;
+use uuid::Uuid;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
 #[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
@@ -149,22 +151,40 @@ impl Migrate for LibraryConfig {
 					break;
 				}
 
-				db._batch(paths.into_iter().map(|path| {
-					db.file_path().update(
-						file_path::id::equals(path.id),
-						vec![
-							file_path::size_in_bytes_bytes::set(Some(
-								path.size_in_bytes
-									.unwrap()
-									.parse::<u64>()
-									.unwrap()
-									.to_be_bytes()
-									.to_vec(),
-							)),
-							file_path::size_in_bytes::set(None),
-						],
-					)
-				}))
+				db._batch(
+					paths
+						.into_iter()
+						.filter_map(|path| {
+							maybe_missing(path.size_in_bytes, "file_path.size_in_bytes")
+								.map_or_else(
+									|e| {
+										error!("{e:#?}");
+										None
+									},
+									Some,
+								)
+								.map(|size_in_bytes| {
+									let size = if let Ok(size) = size_in_bytes.parse::<u64>() {
+										Some(size.to_be_bytes().to_vec())
+									} else {
+										error!(
+											"File path <id='{}'> had invalid size: '{}'",
+											path.id, size_in_bytes
+										);
+										None
+									};
+
+									db.file_path().update(
+										file_path::id::equals(path.id),
+										vec![
+											file_path::size_in_bytes_bytes::set(size),
+											file_path::size_in_bytes::set(None),
+										],
+									)
+								})
+						})
+						.collect::<Vec<_>>(),
+				)
 				.await?;
 			},
 			v => unreachable!("Missing migration for library version {}", v),

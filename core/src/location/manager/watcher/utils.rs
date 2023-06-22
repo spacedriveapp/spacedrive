@@ -4,7 +4,7 @@ use crate::{
 	location::{
 		delete_directory,
 		file_path_helper::{
-			check_existing_file_path, create_file_path, file_path_with_object,
+			check_file_path_exists, create_file_path, file_path_with_object,
 			filter_existing_file_path_params,
 			isolated_file_path_data::extract_normalized_materialized_path_str,
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
@@ -100,7 +100,7 @@ pub(super) async fn create_dir(
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
-		&& !check_existing_file_path(&parent_iso_file_path, &library.db).await?
+		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, &library.db).await?
 	{
 		warn!(
 			"Watcher found a directory without parent: {}",
@@ -109,7 +109,11 @@ pub(super) async fn create_dir(
 		return Ok(());
 	};
 
-	let materialized_path = iso_file_path.materialized_path().to_string();
+	let children_materialized_path = iso_file_path
+		.materialized_path_for_children()
+		.expect("We're in the create dir function lol");
+
+	info!("Creating path: {}", iso_file_path);
 
 	create_file_path(
 		library,
@@ -125,10 +129,8 @@ pub(super) async fn create_dir(
 	)
 	.await?;
 
-	info!("Created path: {}", &materialized_path);
-
 	// scan the new directory
-	scan_location_sub_path(library, location, &materialized_path).await?;
+	scan_location_sub_path(library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
 
@@ -153,8 +155,7 @@ pub(super) async fn create_file(
 	let db = &library.db;
 
 	let iso_file_path = IsolatedFilePathData::new(location_id, &location_path, path, false)?;
-	let materialized_path = iso_file_path.materialized_path().to_string();
-	let extension = iso_file_path.extension().to_string();
+	let extension = iso_file_path.extension.to_string();
 
 	let (inode, device) = {
 		#[cfg(target_family = "unix")]
@@ -172,7 +173,7 @@ pub(super) async fn create_file(
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
-		&& !check_existing_file_path(&parent_iso_file_path, &library.db).await?
+		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, &library.db).await?
 	{
 		warn!("Watcher found a file without parent: {}", &iso_file_path);
 		return Ok(());
@@ -184,6 +185,8 @@ pub(super) async fn create_file(
 		kind,
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &iso_file_path).await?;
+
+	info!("Creating path: {}", iso_file_path);
 
 	let created_file = create_file_path(
 		library,
@@ -198,8 +201,6 @@ pub(super) async fn create_file(
 		},
 	)
 	.await?;
-
-	info!("Created path: {}", &materialized_path);
 
 	object::select!(object_just_id { id });
 
@@ -270,39 +271,6 @@ pub(super) async fn create_dir_or_file(
 		create_file(location_id, path, &metadata, library).await
 	}
 	.map(|_| metadata)
-}
-
-pub(super) async fn file_creation_or_update(
-	location_id: location::id::Type,
-	full_path: impl AsRef<Path>,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	let full_path = full_path.as_ref();
-	let location_path = extract_location_path(location_id, library).await?;
-
-	if let Some(ref file_path) = library
-		.db
-		.file_path()
-		.find_first(filter_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, full_path, false)?,
-		))
-		// include object for orphan check
-		.include(file_path_with_object::include())
-		.exec()
-		.await?
-	{
-		inner_update_file(location_id, file_path, full_path, library).await
-	} else {
-		create_file(
-			location_id,
-			full_path,
-			&fs::metadata(full_path)
-				.await
-				.map_err(|e| FileIOError::from((full_path, e)))?,
-			library,
-		)
-		.await
-	}
 }
 
 pub(super) async fn update_file(
@@ -498,7 +466,7 @@ pub(super) async fn rename(
 
 	// Renaming a file could potentially be a move to another directory, so we check if our parent changed
 	if old_path_materialized_str != new_path_materialized_str
-		&& !check_existing_file_path(
+		&& !check_file_path_exists::<FilePathError>(
 			&IsolatedFilePathData::new(location_id, &location_path, new_path, true)?.parent(),
 			db,
 		)
@@ -533,8 +501,8 @@ pub(super) async fn rename(
 					"UPDATE file_path \
 						SET materialized_path = REPLACE(materialized_path, {}, {}) \
 						WHERE location_id = {}",
-					PrismaValue::String(format!("{}/{}/", old.materialized_path(), old.name())),
-					PrismaValue::String(format!("{}/{}/", new.materialized_path(), new.name())),
+					PrismaValue::String(format!("{}/{}/", old.materialized_path, old.name)),
+					PrismaValue::String(format!("{}/{}/", new.materialized_path, new.name)),
 					PrismaValue::Int(location_id as i64)
 				))
 				.exec()
@@ -549,8 +517,8 @@ pub(super) async fn rename(
 				file_path::pub_id::equals(file_path.pub_id),
 				vec![
 					file_path::materialized_path::set(Some(new_path_materialized_str)),
-					file_path::name::set(Some(new.name().to_string())),
-					file_path::extension::set(Some(new.extension().to_string())),
+					file_path::name::set(Some(new.name.to_string())),
+					file_path::extension::set(Some(new.extension.to_string())),
 				],
 			)
 			.exec()

@@ -1,17 +1,14 @@
 import { Tag } from 'phosphor-react';
-import { z } from 'zod';
+import { useLoaderData } from 'react-router';
 import { useLibraryQuery } from '@sd/client';
-import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
-import Explorer from '../Explorer';
-import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
-
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
+import type { LocationIdParams } from '~/app/$libraryId';
+import Explorer from '~/app/$libraryId/Explorer';
+import { TopBarPortal } from '~/app/$libraryId/TopBar/Portal';
+import TopBarOptions from '~/app/$libraryId/TopBar/TopBarOptions';
+import { useExplorerTopBarOptions } from '~/hooks';
 
 export const Component = () => {
-	const { id } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useLoaderData() as LocationIdParams;
 
 	const topBarOptions = useExplorerTopBarOptions();
 
@@ -19,7 +16,7 @@ export const Component = () => {
 		'search.objects',
 		{
 			filter: {
-				tags: [id]
+				tags: [locationId]
 			}
 		}
 	]);
