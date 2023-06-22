@@ -52,7 +52,8 @@ export default ({ data }: Props) => {
 	const [{ path: currentPath }] = useZodSearchParams();
 	const { cutCopyState, showInspector, ...store } = useExplorerStore();
 
-	const isOverview = location.pathname.endsWith('/overview');
+	const isLocation =
+		location.pathname.includes('/location/') && explorerStore.layoutMode !== 'media';
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
@@ -116,7 +117,7 @@ export default ({ data }: Props) => {
 			{locationId && (
 				<>
 					<ContextMenu.Item
-						hidden={isOverview || explorerStore.layoutMode === 'media'}
+						hidden={!isLocation}
 						label="Cut"
 						keybind={keybind([ModifierKeys.Control], ['X'])}
 						onClick={() => {
@@ -132,7 +133,7 @@ export default ({ data }: Props) => {
 					/>
 
 					<ContextMenu.Item
-						hidden={isOverview || explorerStore.layoutMode === 'media'}
+						hidden={!isLocation}
 						label="Copy"
 						keybind={keybind([ModifierKeys.Control], ['C'])}
 						onClick={() => {
@@ -148,7 +149,7 @@ export default ({ data }: Props) => {
 					/>
 
 					<ContextMenu.Item
-						hidden={isOverview || explorerStore.layoutMode === 'media'}
+						hidden={!isLocation}
 						label="Duplicate"
 						keybind={keybind([ModifierKeys.Control], ['D'])}
 						onClick={async () => {
@@ -173,7 +174,7 @@ export default ({ data }: Props) => {
 
 			<ContextMenu.Item
 				label="Deselect"
-				hidden={!cutCopyState.active || isOverview || explorerStore.layoutMode === 'media'}
+				hidden={!(cutCopyState.active && isLocation)}
 				onClick={() => {
 					getExplorerStore().cutCopyState = {
 						...cutCopyState,
@@ -271,7 +272,7 @@ export default ({ data }: Props) => {
 				{locationId != null && (
 					<>
 						<ContextMenu.Item
-							hidden={isOverview}
+							hidden={!isLocation}
 							onClick={async () => {
 								try {
 									await fullRescan.mutateAsync(locationId);

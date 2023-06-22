@@ -73,7 +73,13 @@ export const Component = () => {
 						<div>
 							<NodeSettingLabel>Data Folder</NodeSettingLabel>
 							<div className="mt-2 flex w-full flex-row gap-2">
-								<Input className="grow" value={node.data?.data_path} />
+								<Input
+									className="grow"
+									value={node.data?.data_path}
+									onChange={() => {
+										/* TODO */
+									}}
+								/>
 								<Button size="sm" variant="outline">
 									Change
 								</Button>
