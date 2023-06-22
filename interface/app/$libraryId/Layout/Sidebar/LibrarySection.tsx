@@ -1,10 +1,13 @@
-import { Laptop } from '@sd/assets/icons';
+import { Laptop, Mobile, Server } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
+	LibraryContextProvider,
 	arraysEqual,
 	useBridgeQuery,
+	useClientContext,
+	useDebugState,
 	useFeatureFlag,
 	useLibraryQuery,
 	useOnlineLocations
@@ -31,6 +34,7 @@ type TriggeredContextItem =
 const SEE_MORE_LOCATIONS_COUNT = 5;
 
 export const LibrarySection = () => {
+	const debugState = useDebugState();
 	const node = useBridgeQuery(['nodeState']);
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
@@ -74,14 +78,36 @@ export const LibrarySection = () => {
 				}
 			>
 				{node.data && (
-					<SidebarLink
-						className="group relative w-full"
-						to={`node/${node.data.id}`}
-						key={node.data.id}
-					>
-						<img src={Laptop} className="mr-1 h-5 w-5" />
-						<span className="truncate">{node.data.name}</span>
-					</SidebarLink>
+					<>
+						<SidebarLink
+							className="group relative w-full"
+							to={`node/${node.data.id}`}
+							key={node.data.id}
+						>
+							<img src={Laptop} className="mr-1 h-5 w-5" />
+							<span className="truncate">{node.data.name}</span>
+						</SidebarLink>
+						{debugState.enabled && (
+							<>
+								<SidebarLink
+									className="group relative w-full"
+									to={`node/23`}
+									key={23}
+								>
+									<img src={Mobile} className="mr-1 h-5 w-5" />
+									<span className="truncate">Spacephone</span>
+								</SidebarLink>
+								<SidebarLink
+									className="group relative w-full"
+									to={`node/24`}
+									key={24}
+								>
+									<img src={Server} className="mr-1 h-5 w-5" />
+									<span className="truncate">titan</span>
+								</SidebarLink>
+							</>
+						)}
+					</>
 				)}
 				<Tooltip
 					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
@@ -102,7 +128,10 @@ export const LibrarySection = () => {
 				}
 			>
 				{locations?.map((location) => {
-					const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
+					const online =
+						onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
+
+					// const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink

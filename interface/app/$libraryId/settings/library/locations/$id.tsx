@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider, Label, RadioGroup, Tooltip, tw } from '@sd/ui';
-import { Form, InfoText, Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import { Button, Divider, Label, Tooltip, tw } from '@sd/ui';
+import { Form, InfoText, Input, RadioGroup, Switch, useZodForm, z } from '@sd/ui/src/forms';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { showAlertDialog } from '~/components';
 import { useZodRouteParams } from '~/hooks';
@@ -29,20 +29,56 @@ const PARAMS = z.object({
 });
 
 export const Component = () => {
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			indexerRulesIds: [],
-			locationType: 'normal'
-		}
-	});
+	return (
+		<Suspense fallback={<div>Loading</div>}>
+			<EditLocationForm />
+		</Suspense>
+	);
+};
 
+const EditLocationForm = () => {
 	const { id: locationId } = useZodRouteParams(PARAMS);
 
 	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
-	const [isFirstLoad, setIsFirstLoad] = useState(true);
+	// const [isFirstLoad, setIsFirstLoad] = useState(true);
+
+	const locationData = useLibraryQuery(['locations.getWithRules', locationId], {
+		suspense: true
+		// onSettled: (data, error) => {
+		// 	if (isFirstLoad) {
+		// 		// @ts-expect-error // TODO: Fix the types
+		// 		if (!data && error == null) error = new Error('Failed to load location settings');
+
+		// 		// Return to previous page when no data is available at first load
+		// 		if (error) navigate(-1);
+		// 		else setIsFirstLoad(false);
+		// 	}
+
+		// 	if (error) {
+		// 		showAlertDialog({
+		// 			title: 'Error',
+		// 			value: 'Failed to load location settings'
+		// 		});
+		// 	}
+		// }
+	});
+
+	const form = useZodForm({
+		schema,
+		defaultValues: {
+			indexerRulesIds:
+				locationData.data?.indexer_rules.map((rule) => rule.indexer_rule.id) ?? [],
+			locationType: 'normal',
+			name: locationData.data?.name ?? '',
+			path: locationData.data?.path ?? '',
+			hidden: locationData.data?.hidden ?? false,
+			syncPreviewMedia: locationData.data?.sync_preview_media ?? false,
+			generatePreviewMedia: locationData.data?.generate_preview_media ?? false
+		}
+	});
+
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: () => {
 			showAlertDialog({
@@ -58,36 +94,6 @@ export const Component = () => {
 
 	const { isDirty } = form.formState;
 
-	useLibraryQuery(['locations.getWithRules', locationId], {
-		onSettled: (data, error) => {
-			if (isFirstLoad) {
-				// @ts-expect-error // TODO: Fix the types
-				if (!data && error == null) error = new Error('Failed to load location settings');
-
-				// Return to previous page when no data is available at first load
-				if (error) navigate(-1);
-				else setIsFirstLoad(false);
-			}
-
-			if (error) {
-				showAlertDialog({
-					title: 'Error',
-					value: 'Failed to load location settings'
-				});
-			} else if (data && (isFirstLoad || !isDirty)) {
-				form.reset({
-					path: data.path,
-					name: data.name,
-					hidden: data.hidden,
-					locationType: 'normal', // temp
-					indexerRulesIds: data.indexer_rules.map((i) => i.indexer_rule.id),
-					syncPreviewMedia: data.sync_preview_media,
-					generatePreviewMedia: data.generate_preview_media
-				});
-			}
-		}
-	});
-
 	const onSubmit = form.handleSubmit(
 		({ name, hidden, indexerRulesIds, syncPreviewMedia, generatePreviewMedia }) =>
 			updateLocation.mutateAsync({
@@ -101,7 +107,7 @@ export const Component = () => {
 	);
 
 	return (
-		<Form form={form} disabled={isFirstLoad} onSubmit={onSubmit} className="h-full w-full">
+		<Form form={form} onSubmit={onSubmit} className="h-full w-full">
 			<ModalLayout
 				title="Edit Location"
 				topRight={
@@ -157,24 +163,22 @@ export const Component = () => {
 								sorted.
 							</p>
 						</RadioGroup.Item>
-						<span className="opacity-30">
-							<RadioGroup.Item disabled key="managed" value="managed">
-								<h1 className="font-bold">Managed</h1>
-								<p className="text-sm text-ink-faint">
-									Spacedrive will sort files for you. If Location isn't empty a
-									"spacedrive" folder will be created.
-								</p>
-							</RadioGroup.Item>
-						</span>
-						<span className="opacity-30">
-							<RadioGroup.Item disabled key="replica" value="replica">
-								<h1 className="font-bold">Replica</h1>
-								<p className="text-sm text-ink-faint ">
-									This Location is a replica of another, its contents will be
-									automatically synchronized.
-								</p>
-							</RadioGroup.Item>
-						</span>
+
+						<RadioGroup.Item disabled key="managed" value="managed">
+							<h1 className="font-bold">Managed</h1>
+							<p className="text-sm text-ink-faint">
+								Spacedrive will sort files for you. If Location isn't empty a
+								"spacedrive" folder will be created.
+							</p>
+						</RadioGroup.Item>
+
+						<RadioGroup.Item disabled key="replica" value="replica">
+							<h1 className="font-bold">Replica</h1>
+							<p className="text-sm text-ink-faint ">
+								This Location is a replica of another, its contents will be
+								automatically synchronized.
+							</p>
+						</RadioGroup.Item>
 					</RadioGroup.Root>
 				</div>
 				<Divider />

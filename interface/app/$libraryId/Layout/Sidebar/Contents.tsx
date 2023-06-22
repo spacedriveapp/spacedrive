@@ -8,7 +8,7 @@ import {
 	FilmStrip,
 	Planet
 } from 'phosphor-react';
-import { useClientContext } from '@sd/client';
+import { LibraryContextProvider, useClientContext } from '@sd/client';
 import { SubtleButton } from '~/components/SubtleButton';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
@@ -34,7 +34,11 @@ export default () => {
 					Imports
 				</SidebarLink> */}
 			</div>
-			{library && <LibrarySection />}
+			{library && (
+				<LibraryContextProvider library={library}>
+					<LibrarySection />
+				</LibraryContextProvider>
+			)}
 			<Section name="Tools" actionArea={<SubtleButton />}>
 				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
