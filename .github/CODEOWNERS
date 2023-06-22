@@ -3,10 +3,6 @@
 # * @spacedriveapp
 
 
-# # documentation
-# /apps/landing/src/pages/docs/ @jamiepine
-# /docs/ @jamiepine
-
 # frontend apps (Rust bridges and tech functionality -- no real visual implications)
 /apps/desktop/ @spacedriveapp/backend
 /apps/web/ @spacedriveapp/backend
@@ -19,25 +15,15 @@
 /crates/ @spacedriveapp/backend
 
 # server app
-/apps/server/ @spacedriveapp/@backend
+/apps/server/ @spacedriveapp/backend
 
 # landing site
 /apps/landing/ @spacedriveapp/frontend
 
+# interface
+/interface/ @spacedriveapp/frontend
+
 # UI
 /packages/ @spacedriveapp/frontend
 
-# # base config files
-# /* @jamiepine
 
-# # workspace settings
-# /.vscode/settings.json @jamiepine
-# /.github/* @jamiepine @Brendonovich @oscartbeaumont
-
-# # CI
-# /.github/actions/ @Brendonovich @oscartbeaumont
-# /.github/workflows/ @Brendonovich @oscartbeaumont
-
-# # development workflow
-# /.github/scripts/ @oscartbeaumont
-# /.github/ISSUES_TEMPLATE/ @jamiepine @Brendonovich @oscartbeaumont
