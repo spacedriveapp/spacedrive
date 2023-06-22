@@ -80,7 +80,7 @@ impl FilePathSearchOrdering {
 		use file_path::*;
 		match self {
 			Self::Name(_) => name::order(dir),
-			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes_bytes::order(dir),
 			Self::DateCreated(_) => date_created::order(dir),
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { ExplorerItem } from '@sd/client';
-import { getExplorerItemData } from '~/app/$libraryId/Explorer/util';
+import { ExplorerItem, getExplorerItemData } from '@sd/client';
 import { flattenThumbnailKey, useExplorerStore } from './useExplorerStore';
 
 export function useExplorerItemData(explorerItem: ExplorerItem) {

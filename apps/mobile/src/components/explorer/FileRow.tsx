@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { ExplorerItem, isObject } from '@sd/client';
+import { ExplorerItem, getItemFilePath } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
 import FileThumb from './FileThumb';
@@ -10,7 +10,7 @@ type FileRowProps = {
 };
 
 const FileRow = ({ data }: FileRowProps) => {
-	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const filePath = getItemFilePath(data);
 
 	return (
 		<View

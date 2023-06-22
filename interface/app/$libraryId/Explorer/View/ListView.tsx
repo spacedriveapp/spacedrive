@@ -15,19 +15,28 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { ExplorerItem, FilePath, ObjectKind, isObject, isPath } from '@sd/client';
+import {
+	ExplorerItem,
+	FilePath,
+	ObjectKind,
+	bytesToNumber,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	getItemObject,
+	isPath
+} from '@sd/client';
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
-	useExplorerStore
-} from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
+	useExplorerStore,
+	useScrolled
+} from '~/hooks';
 import { ViewItem } from '.';
-import RenameTextBox from '../File/RenameTextBox';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
+import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
@@ -105,7 +114,6 @@ export default () => {
 	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
 	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
-	const getObjectData = (data: ExplorerItem) => (isObject(data) ? data.item : data.item.object);
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
@@ -116,12 +124,14 @@ export default () => {
 				minSize: 200,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
+					const locationData = getItemLocation(file);
 					const filePathData = getItemFilePath(file);
-					return filePathData && getFileName(filePathData);
+					return locationData
+						? locationData.name
+						: filePathData && getFileName(filePathData);
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
-					const filePathData = getItemFilePath(file);
 
 					const selectedId = Array.isArray(explorerView.selected)
 						? explorerView.selected[0]
@@ -134,17 +144,16 @@ export default () => {
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
 								<FileThumb data={file} size={35} />
 							</div>
-							{filePathData && (
-								<RenameTextBox
-									filePathData={filePathData}
-									disabled={
-										!selected ||
-										(Array.isArray(explorerView.selected) &&
-											explorerView.selected.length > 1)
-									}
-									activeClassName="absolute z-50 top-0.5 left-[58px] max-w-[calc(100%-60px)]"
-								/>
-							)}
+							<RenamableItemText
+								allowHighlight={false}
+								item={file}
+								selected={selected}
+								disabled={
+									!selected ||
+									(Array.isArray(explorerView.selected) &&
+										explorerView.selected.length > 1)
+								}
+							/>
 						</div>
 					);
 				}
@@ -156,7 +165,7 @@ export default () => {
 				accessorFn: (file) => {
 					return isPath(file) && file.item.is_dir
 						? 'Folder'
-						: ObjectKind[getObjectData(file)?.kind || 0];
+						: ObjectKind[getItemObject(file)?.kind || 0];
 				},
 				cell: (cell) => {
 					const file = cell.row.original;
@@ -164,7 +173,7 @@ export default () => {
 						<InfoPill className="bg-app-button/50">
 							{isPath(file) && file.item.is_dir
 								? 'Folder'
-								: ObjectKind[getObjectData(file)?.kind || 0]}
+								: ObjectKind[getItemObject(file)?.kind || 0]}
 						</InfoPill>
 					);
 				}
@@ -173,7 +182,12 @@ export default () => {
 				id: 'sizeInBytes',
 				header: 'Size',
 				size: 100,
-				accessorFn: (file) => byteSize(Number(getItemFilePath(file)?.size_in_bytes || 0))
+				accessorFn: (file) => {
+					const file_path = getItemFilePath(file);
+					if (!file_path || !file_path.size_in_bytes_bytes) return;
+
+					return byteSize(bytesToNumber(file_path.size_in_bytes_bytes));
+				}
 			},
 			{
 				id: 'dateCreated',
@@ -181,10 +195,34 @@ export default () => {
 				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
 			},
 			{
+				id: 'dateModified',
+				header: 'Date Modified',
+				accessorFn: (file) =>
+					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
+			},
+			{
+				id: 'dateIndexed',
+				header: 'Date Indexed',
+				accessorFn: (file) =>
+					dayjs(getItemFilePath(file)?.date_indexed).format('MMM Do YYYY')
+			},
+			{
+				id: 'dateAccessed',
+				header: 'Date Accessed',
+				accessorFn: (file) =>
+					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
+			},
+			{
 				header: 'Content ID',
 				enableSorting: false,
 				size: 180,
 				accessorFn: (file) => getExplorerItemData(file).casId
+			},
+			{
+				header: 'Object ID',
+				enableSorting: false,
+				size: 180,
+				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
 		[explorerView.selected]
@@ -202,7 +240,7 @@ export default () => {
 	});
 
 	const tableLength = table.getTotalSize();
-	const { rows } = table.getRowModel();
+	const rows = useMemo(() => table.getRowModel().rows, [explorerView.items]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: explorerView.items ? rows.length : 100,

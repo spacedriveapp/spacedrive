@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
-	location::{indexer::rules, LocationManagerError},
+	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::orphan_remover::OrphanRemoverActor,
+	object::{orphan_remover::OrphanRemoverActor, tag},
 	prisma::{location, node},
 	sync::{SyncManager, SyncMessage},
 	util::{
@@ -77,7 +77,7 @@ pub enum LibraryManagerError {
 	#[error("failed to parse uuid: {0}")]
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
-	IndexerRulesSeeder(#[from] rules::SeederError),
+	IndexerRulesSeeder(#[from] indexer::rules::seed::SeederError),
 	// #[error("failed to initialise the key manager: {0}")]
 	// KeyManager(#[from] sd_crypto::Error),
 	#[error("failed to run library migrations: {0}")]
@@ -251,7 +251,8 @@ impl LibraryManager {
 		debug!("Loaded library '{id:?}'");
 
 		// Run seeders
-		rules::seeder(&library.db).await?;
+		tag::seed::new_library(&library).await?;
+		indexer::rules::seed::new_or_existing_library(&library).await?;
 
 		debug!("Seeded library '{id:?}'");
 
@@ -338,7 +339,7 @@ impl LibraryManager {
 	}
 
 	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
-		let mut libraries = self.libraries.write().await;
+		let libraries = self.libraries.read().await;
 
 		let library = libraries
 			.iter()
@@ -363,7 +364,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		libraries.retain(|l| l.id != id);
+		self.libraries.write().await.retain(|l| l.id != id);
 
 		Ok(())
 	}
@@ -458,8 +459,6 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		rules::seeder(&db).await?;
-
 		let (sync_manager, sync_rx) = SyncManager::new(&db, id);
 
 		Self::emit(
@@ -480,6 +479,8 @@ impl LibraryManager {
 			node_context,
 			identity,
 		};
+
+		indexer::rules::seed::new_or_existing_library(&library).await?;
 
 		for location in library
 			.db

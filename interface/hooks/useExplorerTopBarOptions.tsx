@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import {
 	ArrowClockwise,
-	Columns,
 	Key,
 	MonitorPlay,
 	Rows,
@@ -13,8 +12,8 @@ import {
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
+import { KeyManager } from '~/app/$libraryId/KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
-// import { KeyManager } from '../app/$libraryId/KeyManager';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
 export const useExplorerTopBarOptions = () => {
@@ -35,13 +34,13 @@ export const useExplorerTopBarOptions = () => {
 			onClick: () => (getExplorerStore().layoutMode = 'rows'),
 			showAtResolution: 'sm:flex'
 		},
-		{
-			toolTipLabel: 'Columns view',
-			icon: <Columns className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'columns',
-			onClick: () => (getExplorerStore().layoutMode = 'columns'),
-			showAtResolution: 'sm:flex'
-		},
+		// {
+		// 	toolTipLabel: 'Columns view',
+		// 	icon: <Columns className={TOP_BAR_ICON_STYLE} />,
+		// 	topBarActive: explorerStore.layoutMode === 'columns',
+		// 	// onClick: () => (getExplorerStore().layoutMode = 'columns'),
+		// 	showAtResolution: 'sm:flex'
+		// },
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
@@ -83,13 +82,13 @@ export const useExplorerTopBarOptions = () => {
 	const { client } = useRspcLibraryContext();
 
 	const explorerToolOptions: ToolOption[] = [
-		// {
-		// 	toolTipLabel: 'Key Manager',
-		// 	icon: <Key className={TOP_BAR_ICON_STYLE} />,
-		// 	popOverComponent: <KeyManager />,
-		// 	individual: true,
-		// 	showAtResolution: 'xl:flex'
-		// },
+		{
+			toolTipLabel: 'Key Manager',
+			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			popOverComponent: <KeyManager />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
 		{
 			toolTipLabel: 'Tag Assign Mode',
 			icon: (

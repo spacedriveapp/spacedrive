@@ -6,19 +6,31 @@ import {
 	ReactNode,
 	isValidElement,
 	memo,
+	useCallback,
+	useEffect,
+	useMemo,
 	useState
 } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
-import { useKey } from 'rooks';
-import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
+import {
+	ExplorerItem,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	isPath,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
+import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import {
 	ExplorerLayoutMode,
 	getExplorerStore,
 	useExplorerConfigStore,
-	useExplorerStore
+	useOperatingSystem
 } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+import CreateDialog from '../../settings/library/tags/CreateDialog';
 import {
 	ExplorerViewContext,
 	ExplorerViewSelection,
@@ -26,7 +38,6 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -43,11 +54,19 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(data);
+	const location = getItemLocation(data);
 
 	const explorerConfig = useExplorerConfigStore();
 
 	const onDoubleClick = () => {
-		if (isPath(data) && data.item.is_dir) {
+		if (location) {
+			navigate({
+				pathname: `/${library.uuid}/location/${location.id}`,
+				search: createSearchParams({
+					path: `/`
+				}).toString()
+			});
+		} else if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({
@@ -107,30 +126,113 @@ export default memo(
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
+		const os = useOperatingSystem();
+		const { library } = useLibraryContext();
+		const { openFilePath } = usePlatform();
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
-
-		useKey('Space', (e) => {
-			if (isRenaming) return;
-
-			e.preventDefault();
-
-			if (!getExplorerStore().quickViewObject) {
-				const selectedItem = contextProps.items?.find(
+		const selectedItem = useMemo(
+			() =>
+				contextProps.items?.find(
 					(item) =>
 						item.item.id ===
 						(Array.isArray(contextProps.selected)
 							? contextProps.selected[0]
 							: contextProps.selected)
-				);
+				),
+			[contextProps.items, contextProps.selected]
+		);
+		const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
 
-				if (selectedItem) {
-					getExplorerStore().quickViewObject = selectedItem;
+		const handleNewTag = useCallback(
+			async (event: KeyboardEvent) => {
+				if (
+					itemPath == null ||
+					event.key.toUpperCase() !== 'N' ||
+					!event.getModifierState(
+						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+					)
+				)
+					return;
+
+				dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={itemPath.id} />);
+			},
+			[os, itemPath]
+		);
+
+		const handleOpenShortcut = useCallback(
+			async (event: KeyboardEvent) => {
+				if (
+					itemPath == null ||
+					openFilePath == null ||
+					event.key.toUpperCase() !== 'O' ||
+					!event.getModifierState(
+						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+					)
+				)
+					return;
+
+				try {
+					await openFilePath(library.uuid, [itemPath.id]);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: `Couldn't open file, due to an error: ${error}`
+					});
 				}
-			} else {
-				getExplorerStore().quickViewObject = null;
-			}
-		});
+			},
+			[os, itemPath, library.uuid, openFilePath]
+		);
+
+		const handleOpenQuickPreview = useCallback(
+			async (event: KeyboardEvent) => {
+				if (event.key !== ' ') return;
+				if (!getExplorerStore().quickViewObject) {
+					if (selectedItem) {
+						getExplorerStore().quickViewObject = selectedItem;
+					}
+				} else {
+					getExplorerStore().quickViewObject = null;
+				}
+			},
+			[selectedItem]
+		);
+
+		const handleExplorerShortcut = useCallback(
+			(event: KeyboardEvent) => {
+				if (
+					event.key.toUpperCase() !== 'I' ||
+					!event.getModifierState(
+						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+					)
+				)
+					return;
+
+				getExplorerStore().showInspector = !getExplorerStore().showInspector;
+			},
+			[os]
+		);
+
+		useEffect(() => {
+			const handlers = [
+				handleNewTag,
+				handleOpenShortcut,
+				handleOpenQuickPreview,
+				handleExplorerShortcut
+			];
+			const handler = (event: KeyboardEvent) => {
+				if (isRenaming) return;
+				for (const handler of handlers) handler(event);
+			};
+			document.body.addEventListener('keydown', handler);
+			return () => document.body.removeEventListener('keydown', handler);
+		}, [
+			isRenaming,
+			handleNewTag,
+			handleOpenShortcut,
+			handleOpenQuickPreview,
+			handleExplorerShortcut
+		]);
 
 		const emptyNoticeIcon = (icon?: Icon) => {
 			let Icon = icon;

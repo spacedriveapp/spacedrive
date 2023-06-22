@@ -3,11 +3,22 @@ import clsx from 'clsx';
 import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
 import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
-import { ContextMenu, DropdownMenu, dialogManager, useContextMenu, useDropdownMenu } from '@sd/ui';
+import {
+	ContextMenu,
+	DropdownMenu,
+	ModifierKeys,
+	dialogManager,
+	useContextMenu,
+	useDropdownMenu
+} from '@sd/ui';
 import { useScrolled } from '~/hooks/useScrolled';
 import CreateDialog from '../settings/library/tags/CreateDialog';
+import { keybindForOs } from '~/util/keybinds';
+import { useOperatingSystem } from '~/hooks';
 
 export default (props: { objectId: number }) => {
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -42,7 +53,7 @@ export default (props: { objectId: number }) => {
 				label="New tag"
 				icon={Plus}
 				iconProps={{ size: 15 }}
-				keybind="⌘N"
+				keybind={keybind([ModifierKeys.Control], ['N'])}
 				onClick={() => {
 					dialogManager.create((dp) => (
 						<CreateDialog {...dp} assignToObject={props.objectId} />

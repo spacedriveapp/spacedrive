@@ -30,15 +30,17 @@ func getOpenWithApplications(urlString: SRString) -> SRObjectArray {
             .compactMap { url in
                 Bundle(url: url)?.infoDictionary.map { ($0, url) }
             }
-            .compactMap { (dict, url) in
-                let name = SRString((dict["CFBundleDisplayName"] ?? dict["CFBundleName"]) as! String);
+            .compactMap { (dict, url) -> NSObject? in
+                guard let name = (dict["CFBundleDisplayName"] ?? dict["CFBundleName"]) as? String else {
+                    return nil
+                };
                 
                 if !url.path.contains("/Applications/") {
                     return nil
                 }
                 
                 return OpenWithApplication(
-                    name: name,
+                    name: SRString(name),
                     id: SRString(dict["CFBundleIdentifier"] as! String),
                     url: SRString(url.path)
                 )

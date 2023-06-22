@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use prisma_client_rust::not;
 use sd_p2p::{spacetunnel::Identity, PeerId};
 use sd_prisma::prisma::node;
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,7 @@ use specta::Type;
 use uuid::Uuid;
 
 use crate::{
-	prisma::{indexer_rule, PrismaClient},
+	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
 		db::uuid_to_bytes,
 		migrator::{Migrate, MigratorError},
@@ -61,7 +62,7 @@ impl LibraryConfig {
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 4;
+	const CURRENT_VERSION: u32 = 5;
 
 	type Ctx = (Uuid, PeerId, Arc<PrismaClient>);
 
@@ -135,6 +136,37 @@ impl Migrate for LibraryConfig {
 				config.insert("node_id".into(), Value::String(node_id.to_string()));
 			}
 			4 => {} // -_-
+			5 => loop {
+				let paths = db
+					.file_path()
+					.find_many(vec![not![file_path::size_in_bytes::equals(None)]])
+					.take(500)
+					.select(file_path::select!({ id size_in_bytes }))
+					.exec()
+					.await?;
+
+				if paths.is_empty() {
+					break;
+				}
+
+				db._batch(paths.into_iter().map(|path| {
+					db.file_path().update(
+						file_path::id::equals(path.id),
+						vec![
+							file_path::size_in_bytes_bytes::set(Some(
+								path.size_in_bytes
+									.unwrap()
+									.parse::<u64>()
+									.unwrap()
+									.to_be_bytes()
+									.to_vec(),
+							)),
+							file_path::size_in_bytes::set(None),
+						],
+					)
+				}))
+				.await?;
+			},
 			v => unreachable!("Missing migration for library version {}", v),
 		}
 
