@@ -129,7 +129,8 @@ model FilePath {
     name      String?
     extension String?
 
-    size_in_bytes String?
+    size_in_bytes       String? // deprecated
+    size_in_bytes_bytes Bytes?
 
     inode  Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
     device Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite

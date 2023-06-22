@@ -12,7 +12,15 @@ import {
 	useState
 } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
-import { ExplorerItem, isPath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerItem,
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	isPath,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import {
@@ -30,7 +38,6 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
-import { getExplorerItemData, getItemFilePath } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -47,11 +54,19 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePath } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(data);
+	const location = getItemLocation(data);
 
 	const explorerConfig = useExplorerConfigStore();
 
 	const onDoubleClick = () => {
-		if (isPath(data) && data.item.is_dir) {
+		if (location) {
+			navigate({
+				pathname: `/${library.uuid}/location/${location.id}`,
+				search: createSearchParams({
+					path: `/`
+				}).toString()
+			});
+		} else if (isPath(data) && data.item.is_dir) {
 			navigate({
 				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({

@@ -9,6 +9,7 @@ import {
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
+import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder } from '~/components/Folder';
 import { SubtleButton } from '~/components/SubtleButton';
@@ -27,14 +28,23 @@ type TriggeredContextItem =
 			tagId: number;
 	  };
 
+const SEE_MORE_LOCATIONS_COUNT = 5;
+
 export const LibrarySection = () => {
 	const node = useBridgeQuery(['nodeState']);
-	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
 		null
+	);
+
+	const [seeMoreLocations, setSeeMoreLocations] = useState(false);
+
+	const locations = locationsQuery.data?.slice(
+		0,
+		seeMoreLocations ? undefined : SEE_MORE_LOCATIONS_COUNT
 	);
 
 	useEffect(() => {
@@ -63,27 +73,25 @@ export const LibrarySection = () => {
 					)
 				}
 			>
-				{/* <SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Laptop} className="w-5 h-5 mr-1" />
-					<span className="truncate">Jamie's MBP</span>
-				</SidebarLink>
-				<SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Mobile} className="w-5 h-5 mr-1" />
-					<span className="truncate">spacephone</span>
-				</SidebarLink>
-				<SidebarLink className="relative w-full group" to={`/`}>
-					<img src={Server} className="w-5 h-5 mr-1" />
-					<span className="truncate">titan</span>
-				</SidebarLink>
-				{(locations.data?.length || 0) < 4 && (
-					<Button variant="dotted" className="w-full mt-1">
+				{node.data && (
+					<SidebarLink
+						className="group relative w-full"
+						to={`node/${node.data.id}`}
+						key={node.data.id}
+					>
+						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<span className="truncate">{node.data.name}</span>
+					</SidebarLink>
+				)}
+				<Tooltip
+					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
+					tooltipClassName="bg-black"
+					position="right"
+				>
+					<Button disabled variant="dotted" className="mt-1 w-full">
 						Connect Node
 					</Button>
-				)} */}
-				<SidebarLink disabled className="group relative w-full" to={`/`} key={'jeff'}>
-					<img src={Laptop} className="mr-1 h-5 w-5" />
-					<span className="truncate">{node.data?.name}</span>
-				</SidebarLink>
+				</Tooltip>
 			</Section>
 			<Section
 				name="Locations"
@@ -93,7 +101,7 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{locations.data?.map((location) => {
+				{locations?.map((location) => {
 					const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
@@ -128,7 +136,15 @@ export const LibrarySection = () => {
 						</LocationsContextMenu>
 					);
 				})}
-				{(locations.data?.length || 0) < 4 && <AddLocationButton className="mt-1" />}
+				{locationsQuery.data?.[SEE_MORE_LOCATIONS_COUNT - 1] && (
+					<div
+						onClick={() => setSeeMoreLocations(!seeMoreLocations)}
+						className="mb-1 ml-2 mt-0.5 cursor-pointer text-center text-tiny font-semibold text-ink-faint/50 transition hover:text-accent"
+					>
+						See {seeMoreLocations ? 'less' : 'more'}
+					</div>
+				)}
+				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
 				<Section

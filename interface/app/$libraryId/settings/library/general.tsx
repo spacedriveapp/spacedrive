@@ -1,5 +1,5 @@
 import { MaybeUndefined, useBridgeMutation, useLibraryContext } from '@sd/client';
-import { Button, Input, dialogManager } from '@sd/ui';
+import { Button, Input, Switch, Tooltip, dialogManager } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
@@ -61,23 +61,27 @@ export const Component = () => {
 				</div>
 			</div>
 
-			{/* <Setting
+			<Setting
 				mini
 				title="Encrypt Library"
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
 				<div className="ml-3 flex items-center">
-					<Switch checked={false} />
+					<Tooltip label="Library encryption coming soon">
+						<Switch disabled size="md" checked={false} />
+					</Tooltip>
 				</div>
-			</Setting> */}
+			</Setting>
 
-			{/* <Setting mini title="Export Library" description="Export this library to a file.">
+			<Setting mini title="Export Library" description="Export this library to a file.">
 				<div className="mt-2">
-					<Button size="sm" variant="gray">
-						Export
-					</Button>
+					<Tooltip label="Export Library coming soon">
+						<Button disabled size="sm" variant="gray">
+							Export
+						</Button>
+					</Tooltip>
 				</div>
-			</Setting> */}
+			</Setting>
 
 			<Setting
 				mini

@@ -1,3 +1,4 @@
+import byteSize from 'byte-size';
 import dayjs from 'dayjs';
 import {
 	Barcode,
@@ -10,7 +11,13 @@ import {
 } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { ExplorerItem, formatBytes, isObject, useLibraryQuery } from '@sd/client';
+import {
+	ExplorerItem,
+	bytesToNumber,
+	getItemFilePath,
+	getItemObject,
+	useLibraryQuery
+} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
@@ -52,8 +59,8 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 
 	const item = data?.item;
 
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-	const filePathData = data ? (isObject(data) ? data.item.file_paths[0] : data.item) : null;
+	const objectData = data && getItemObject(data);
+	const filePathData = data && getItemFilePath(data);
 
 	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
 		enabled: objectData?.id !== undefined
@@ -90,7 +97,13 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={formatBytes(Number(filePathData?.size_in_bytes || 0))}
+							value={
+								filePathData?.size_in_bytes_bytes
+									? byteSize(
+											bytesToNumber(filePathData.size_in_bytes_bytes)
+									  ).toString()
+									: 0
+							}
 						/>
 						{/* Duration */}
 						{fullObjectData.data?.media_data?.duration_seconds && (
