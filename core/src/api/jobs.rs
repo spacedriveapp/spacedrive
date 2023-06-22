@@ -20,7 +20,7 @@ use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::{interval, Duration};
-use tracing::{debug, trace};
+use tracing::trace;
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
@@ -106,7 +106,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 						trace!(
 							"job {:#?}, action_name {}, group_key {:?}",
-							job, action_name, group_key
+							job,
+							action_name,
+							group_key
 						);
 
 						// if the job is running, use the in-memory report
