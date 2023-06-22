@@ -341,7 +341,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						items.push(ExplorerItem::Path {
 							has_local_thumbnail: thumbnail_exists_locally,
 							thumbnail_key: file_path.cas_id.as_ref().map(|i| get_thumb_key(i)),
-							item: file_path.into(),
+							item: file_path,
 						})
 					}
 

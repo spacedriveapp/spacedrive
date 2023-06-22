@@ -13,8 +13,8 @@ import {
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
 import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { KeyManager } from '~/app/$libraryId/KeyManager';
+import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
 export const useExplorerTopBarOptions = () => {
@@ -116,7 +116,7 @@ export const useExplorerTopBarOptions = () => {
 								sub_path: ''
 							}
 						],
-						{ onData() { } }
+						{ onData() {} }
 					);
 				}
 			},

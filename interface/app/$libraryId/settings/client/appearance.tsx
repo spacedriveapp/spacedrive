@@ -132,8 +132,9 @@ export const Component = () => {
 				/>
 				<div
 					style={{
-						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
-							}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
+						maskImage: `linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${
+							themeScroll > 0 ? '2%' : '200' //Only show fade if scrolled
+						}) 0%, rgba(0, 0, 0, 1) 85%, transparent 100%)`
 					}}
 					ref={themesRef}
 					className="explorer-scroll relative mb-5 mt-8 flex h-[150px] gap-5 overflow-x-scroll pr-[20px] md:w-[300px] lg:w-full"
@@ -184,8 +185,7 @@ export const Component = () => {
 					</Setting>
 				)} */}
 
-				<div className='flex flex-col gap-4'>
-
+				<div className="flex flex-col gap-4">
 					<Setting
 						mini
 						title="UI Animations"

@@ -141,7 +141,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
-	}, [props.loadOriginal, itemData]);
+	}, [props.loadOriginal, locationData, itemData]);
 
 	useEffect(() => {
 		const {
