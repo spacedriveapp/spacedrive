@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import {
 	ArrowClockwise,
-	Columns,
 	Key,
 	MonitorPlay,
 	Rows,
@@ -35,13 +34,13 @@ export const useExplorerTopBarOptions = () => {
 			onClick: () => (getExplorerStore().layoutMode = 'rows'),
 			showAtResolution: 'sm:flex'
 		},
-		{
-			toolTipLabel: 'Columns view',
-			icon: <Columns className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'columns',
-			onClick: () => (getExplorerStore().layoutMode = 'columns'),
-			showAtResolution: 'sm:flex'
-		},
+		// {
+		// 	toolTipLabel: 'Columns view',
+		// 	icon: <Columns className={TOP_BAR_ICON_STYLE} />,
+		// 	topBarActive: explorerStore.layoutMode === 'columns',
+		// 	// onClick: () => (getExplorerStore().layoutMode = 'columns'),
+		// 	showAtResolution: 'sm:flex'
+		// },
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
