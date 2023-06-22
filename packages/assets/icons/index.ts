@@ -9,6 +9,7 @@ import Archive from './Archive.png';
 import Archive_Light from './Archive_Light.png';
 import Audio from './Audio.png';
 import Audio_Light from './Audio_Light.png';
+import Ball from './Ball.png';
 import Book from './Book.png';
 import Collection from './Collection.png';
 import Collection_Light from './Collection_Light.png';
@@ -76,6 +77,7 @@ export {
 	Archive_Light,
 	Audio,
 	Audio_Light,
+	Ball,
 	Book,
 	Collection,
 	Collection_Light,
