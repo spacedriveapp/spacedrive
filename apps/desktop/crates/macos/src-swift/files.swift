@@ -32,7 +32,7 @@ func getOpenWithApplications(urlString: SRString) -> SRObjectArray {
             }
             .compactMap { (dict, url) in
                 guard let name = dict["CFBundleDisplayName"] ?? dict["CFBundleName"] as? String else {
-                    return nil
+                    return
                 };
                 
                 let name = SRString(name)
