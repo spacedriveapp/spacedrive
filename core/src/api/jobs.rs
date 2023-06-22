@@ -173,7 +173,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("clearAll", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
-					library.db.job().delete_many(vec![]).exec().await?;
+					library
+						.db
+						.job()
+						.delete_many(vec![
+							job::status::equals(Some(JobStatus::Completed as i32)),
+							job::status::equals(Some(JobStatus::CompletedWithErrors as i32)),
+						])
+						.exec()
+						.await?;
 
 					invalidate_query!(library, "jobs.reports");
 					Ok(())
