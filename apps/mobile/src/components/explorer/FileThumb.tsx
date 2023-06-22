@@ -2,7 +2,7 @@ import * as icons from '@sd/assets/icons';
 import { PropsWithChildren } from 'react';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
-import { ExplorerItem, ObjectKind, isObject, isPath } from '@sd/client';
+import { ExplorerItem, ObjectKind, getItemFilePath, getItemObject, isPath } from '@sd/client';
 import { tw } from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 
@@ -23,9 +23,8 @@ export const getThumbnailUrlById = (keyParts: string[]) =>
 type KindType = keyof typeof icons | 'Unknown';
 
 function getExplorerItemData(data: ExplorerItem) {
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
-
-	const filePath = isObject(data) ? data.item.file_paths[0] : data.item;
+	const objectData = getItemObject(data);
+	const filePath = getItemFilePath(data);
 
 	return {
 		casId: filePath?.cas_id || null,

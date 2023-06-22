@@ -1,13 +1,12 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import {
 	useLibraryContext,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Folder } from '~/components/Folder';
+import { Folder } from '~/components';
 import {
 	getExplorerStore,
 	useExplorerStore,
@@ -56,7 +55,9 @@ export const Component = () => {
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{path ? getLastSectionOfPath(path) : location?.name}
+								{path && path?.length > 1
+									? getLastSectionOfPath(path)
+									: location?.name}
 							</span>
 						</span>
 						{location && <LocationOptions location={location} path={path || ''} />}

@@ -377,8 +377,11 @@ async fn inner_update_file(
 						cas_id::set(Some(old_cas_id.clone())),
 					),
 					(
-						(size_in_bytes::NAME, json!(fs_metadata.len().to_string())),
-						size_in_bytes::set(Some(fs_metadata.len().to_string())),
+						(
+							size_in_bytes_bytes::NAME,
+							json!(fs_metadata.len().to_be_bytes().to_vec()),
+						),
+						size_in_bytes_bytes::set(Some(fs_metadata.len().to_be_bytes().to_vec())),
 					),
 					{
 						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();

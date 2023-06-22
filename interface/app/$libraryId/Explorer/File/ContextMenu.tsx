@@ -12,7 +12,13 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { useLocation } from 'react-router-dom';
-import { ExplorerItem, isObject, useLibraryContext, useLibraryMutation } from '@sd/client';
+import {
+	ExplorerItem,
+	getItemFilePath,
+	getItemObject,
+	useLibraryContext,
+	useLibraryMutation
+} from '@sd/client';
 import { ContextMenu, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import {
@@ -25,7 +31,6 @@ import { usePlatform } from '~/util/Platform';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
-import { getItemFilePath } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -39,7 +44,7 @@ interface Props {
 export default ({ data }: Props) => {
 	const { cutCopyState, showInspector, ...store } = useExplorerStore();
 	const location = useLocation();
-	const objectData = data ? (isObject(data) ? data.item : data.item.object) : null;
+	const objectData = data ? getItemObject(data) : null;
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
 	const [{ path: currentPath }] = useZodSearchParams();

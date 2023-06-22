@@ -67,8 +67,10 @@ const Layout = () => {
 	);
 };
 
+const LayoutParamsSchema = z.object({ libraryId: z.string() });
+
 export const Component = () => {
-	const { libraryId } = useZodRouteParams();
+	const { libraryId } = useZodRouteParams(LayoutParamsSchema);
 
 	return (
 		<ClientContextProvider currentLibraryId={libraryId ?? null}>
