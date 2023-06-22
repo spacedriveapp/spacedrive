@@ -23,7 +23,7 @@ struct SystemIndexerRule {
 }
 
 /// Seeds system indexer rules into a new or existing library,
-pub async fn new_or_existing_library(client: &Library) -> Result<(), SeederError> {
+pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederError> {
 	// DO NOT REORDER THIS ARRAY!
 	for (i, rule) in [
 		no_os_protected(),
@@ -47,7 +47,8 @@ pub async fn new_or_existing_library(client: &Library) -> Result<(), SeederError
 			date_modified::set(Some(Utc::now().into())),
 		];
 
-		client
+		library
+			.db
 			.indexer_rule()
 			.upsert(
 				indexer_rule::pub_id::equals(pub_id.clone()),
