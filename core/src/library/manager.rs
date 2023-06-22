@@ -339,7 +339,7 @@ impl LibraryManager {
 	}
 
 	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
-		let mut libraries = self.libraries.write().await;
+		let libraries = self.libraries.read().await;
 
 		let library = libraries
 			.iter()
@@ -364,7 +364,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		libraries.retain(|l| l.id != id);
+		self.libraries.write().await.retain(|l| l.id != id);
 
 		Ok(())
 	}
