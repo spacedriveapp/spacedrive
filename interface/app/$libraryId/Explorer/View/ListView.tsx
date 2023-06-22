@@ -240,7 +240,7 @@ export default () => {
 	});
 
 	const tableLength = table.getTotalSize();
-	const { rows } = table.getRowModel();
+	const rows = useMemo(() => table.getRowModel().rows, [explorerView.items]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: explorerView.items ? rows.length : 100,
