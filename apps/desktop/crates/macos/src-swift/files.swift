@@ -31,7 +31,11 @@ func getOpenWithApplications(urlString: SRString) -> SRObjectArray {
                 Bundle(url: url)?.infoDictionary.map { ($0, url) }
             }
             .compactMap { (dict, url) in
-                let name = SRString((dict["CFBundleDisplayName"] ?? dict["CFBundleName"]) as! String);
+                guard let name = dict["CFBundleDisplayName"] ?? dict["CFBundleName"] as? String else {
+                    return nil
+                };
+                
+                let name = SRString(name)
                 
                 if !url.path.contains("/Applications/") {
                     return nil
