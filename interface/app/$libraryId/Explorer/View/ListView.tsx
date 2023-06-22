@@ -29,9 +29,9 @@ import {
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
-	useExplorerStore
-} from '~/hooks/useExplorerStore';
-import { useScrolled } from '~/hooks/useScrolled';
+	useExplorerStore,
+	useScrolled
+} from '~/hooks';
 import { ViewItem } from '.';
 import FileThumb from '../File/Thumb';
 import { InfoPill } from '../Inspector';

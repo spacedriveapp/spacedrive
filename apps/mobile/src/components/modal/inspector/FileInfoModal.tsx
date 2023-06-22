@@ -1,3 +1,4 @@
+import byteSize from 'byte-size';
 import dayjs from 'dayjs';
 import {
 	Barcode,
@@ -12,7 +13,7 @@ import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
 	ExplorerItem,
-	formatBytes,
+	bytesToNumber,
 	getItemFilePath,
 	getItemObject,
 	useLibraryQuery
@@ -98,7 +99,9 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							icon={Cube}
 							value={
 								filePathData?.size_in_bytes_bytes
-									? formatBytes(filePathData.size_in_bytes_bytes)
+									? byteSize(
+											bytesToNumber(filePathData.size_in_bytes_bytes)
+									  ).toString()
 									: 0
 							}
 						/>

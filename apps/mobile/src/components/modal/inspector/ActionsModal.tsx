@@ -1,3 +1,4 @@
+import byteSize from 'byte-size';
 import dayjs from 'dayjs';
 import {
 	Copy,
@@ -12,7 +13,7 @@ import {
 } from 'phosphor-react-native';
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-import { formatBytes, getItemFilePath, getItemObject } from '@sd/client';
+import { bytesToNumber, getItemFilePath, getItemObject } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
@@ -85,7 +86,9 @@ export const ActionsModal = () => {
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-xs text-ink-faint`}>
 										{filePath?.size_in_bytes_bytes
-											? formatBytes(filePath.size_in_bytes_bytes)
+											? byteSize(
+													bytesToNumber(filePath.size_in_bytes_bytes)
+											  ).toString()
 											: 0}
 										,
 									</Text>
