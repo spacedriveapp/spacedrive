@@ -41,7 +41,7 @@ export const Component = () => {
 				right={
 					<TopBarOptions
 						options={[
-							explorerViewOptions.filter((f) => f.toolTipLabel === 'List view'),
+							explorerViewOptions.filter((f) => f.toolTipLabel !== 'List view'),
 							explorerToolOptions,
 							explorerControlOptions
 						]}
