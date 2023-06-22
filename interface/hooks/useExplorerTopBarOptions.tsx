@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import {
 	ArrowClockwise,
-	Columns,
 	Key,
 	MonitorPlay,
 	Rows,
@@ -17,7 +16,7 @@ import { KeyManager } from '~/app/$libraryId/KeyManager';
 import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from './useExplorerStore';
 
-export const useExplorerTopBarOptions = (options?: { disableViewOptions: string[] }) => {
+export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 
 	const explorerViewOptions: ToolOption[] = [
@@ -49,9 +48,7 @@ export const useExplorerTopBarOptions = (options?: { disableViewOptions: string[
 			onClick: () => (getExplorerStore().layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
 		}
-	].filter(
-		(option) => !options?.disableViewOptions.includes(option.toolTipLabel)
-	) as ToolOption[];
+	];
 
 	const explorerControlOptions: ToolOption[] = [
 		{
