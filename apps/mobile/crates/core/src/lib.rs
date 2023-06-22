@@ -122,7 +122,7 @@ pub fn spawn_core_event_listener(callback: impl Fn(String) + Send + 'static) {
 			let data = match to_string(&event) {
 				Ok(json) => json,
 				Err(err) => {
-					println!("Failed to serialize event: {err}");
+					error!("Failed to serialize event: {err}");
 					continue;
 				}
 			};

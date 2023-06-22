@@ -5,7 +5,7 @@ use crate::{
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
 		LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object},
 	util::AbortOnDrop,
 };
 
@@ -16,14 +16,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{utils::library, Ctx, R};
-
-#[derive(Serialize, Type, Debug)]
-#[serde(tag = "type")]
-pub enum ExplorerContext {
-	Location(location::Data),
-	Tag(tag::Data),
-	// Space(object_in_space::Data),
-}
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -46,13 +38,6 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: location::Data,
 	},
-}
-
-#[derive(Serialize, Type, Debug)]
-pub struct ExplorerData {
-	pub context: ExplorerContext,
-	pub items: Vec<ExplorerItem>,
-	pub cursor: Option<Vec<u8>>,
 }
 
 file_path::include!(file_path_with_object { object });

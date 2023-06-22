@@ -13,7 +13,9 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		file_path_helper::{check_existing_file_path, get_inode_and_device, IsolatedFilePathData},
+		file_path_helper::{
+			check_file_path_exists, get_inode_and_device, FilePathError, IsolatedFilePathData,
+		},
 		manager::LocationManagerError,
 	},
 	prisma::location,
@@ -215,7 +217,7 @@ impl MacOsEventHandler<'_> {
 				let inode_and_device = get_inode_and_device(&meta)?;
 				let location_path = extract_location_path(self.location_id, self.library).await?;
 
-				if !check_existing_file_path(
+				if !check_file_path_exists::<FilePathError>(
 					&IsolatedFilePathData::new(
 						self.location_id,
 						&location_path,

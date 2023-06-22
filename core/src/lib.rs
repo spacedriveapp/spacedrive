@@ -173,7 +173,7 @@ impl Node {
 
 		tracing::collect::set_global_default(collector)
 			.map_err(|err| {
-				println!("Error initializing global logger: {:?}", err);
+				eprintln!("Error initializing global logger: {:?}", err);
 			})
 			.ok();
 

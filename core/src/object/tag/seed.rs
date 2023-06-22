@@ -25,7 +25,7 @@ pub async fn new_library(library: &Library) -> prisma_client_rust::Result<()> {
 	];
 
 	for tag in tags {
-		tag.exec(&library).await?;
+		tag.exec(library).await?;
 	}
 
 	Ok(())

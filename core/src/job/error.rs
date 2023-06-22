@@ -42,8 +42,6 @@ pub enum JobError {
 	MissingData { value: String },
 	#[error("error converting/handling OS strings")]
 	OsStr,
-	#[error("error converting/handling paths")]
-	Path,
 	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]

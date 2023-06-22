@@ -18,15 +18,15 @@ use std::{
 
 use async_trait::async_trait;
 use notify::{
-	event::{AccessKind, AccessMode, CreateKind, ModifyKind, RenameMode},
+	event::{CreateKind, DataChange, ModifyKind, RenameMode},
 	Event, EventKind,
 };
 use tokio::{fs, time::Instant};
 use tracing::{error, trace};
 
 use super::{
-	utils::{create_dir, file_creation_or_update, remove, rename},
-	EventHandler, HUNDRED_MILLIS,
+	utils::{create_dir, create_file, remove, rename, update_file},
+	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
 #[derive(Debug)]
@@ -37,6 +37,7 @@ pub(super) struct LinuxEventHandler<'lib> {
 	rename_from: HashMap<PathBuf, Instant>,
 	rename_from_buffer: Vec<(PathBuf, Instant)>,
 	recently_renamed_from: BTreeMap<PathBuf, Instant>,
+	recently_created_files: BTreeMap<PathBuf, Instant>,
 }
 
 #[async_trait]
@@ -49,6 +50,7 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			rename_from: HashMap::new(),
 			rename_from_buffer: Vec::new(),
 			recently_renamed_from: BTreeMap::new(),
+			recently_created_files: BTreeMap::new(),
 		}
 	}
 
@@ -60,9 +62,26 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 		} = event;
 
 		match kind {
-			EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+			EventKind::Create(CreateKind::File) => {
+				let path = &paths[0];
+				create_file(
+					self.location_id,
+					path,
+					&fs::metadata(path)
+						.await
+						.map_err(|e| FileIOError::from((path, e)))?,
+					self.library,
+				)
+				.await?;
+
+				self.recently_created_files
+					.insert(paths.remove(0), Instant::now());
+			}
+			EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
 				// If a file was closed with write mode, then it was updated or created
-				file_creation_or_update(self.location_id, &paths[0], self.library).await?;
+				if !self.recently_created_files.contains_key(&paths[0]) {
+					update_file(self.location_id, &paths[0], self.library).await?;
+				}
 			}
 			EventKind::Create(CreateKind::Folder) => {
 				let path = &paths[0];
@@ -110,6 +129,8 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 
 			self.recently_renamed_from
 				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
+			self.recently_created_files
+				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
 		}
 	}
 }

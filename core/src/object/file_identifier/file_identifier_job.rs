@@ -84,7 +84,7 @@ impl StatefulJob for FileIdentifierJob {
 			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
 
 		let maybe_sub_iso_file_path = match &state.init.sub_path {
-			Some(sub_path) if sub_path != Path::new("") && sub_path != Path::new("/") => {
+			Some(sub_path) if sub_path != Path::new("") => {
 				let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 					.await
 					.map_err(FileIdentifierJobError::from)?;
