@@ -1,21 +1,25 @@
 import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
+import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { useExplorerSearchParams } from './util';
+import { keybindForOs } from '~/util/keybinds';
 
 export const OpenInNativeExplorer = () => {
-	const platform = usePlatform();
 	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
+	const platform = usePlatform();
 
 	const osFileBrowserName = useMemo(() => {
 		if (os === 'macOS') {
 			return 'Finder';
-		} else {
+		} else if (os === 'windows') {
 			return 'Explorer';
+		} else {
+			return 'File manager';
 		}
 	}, [os]);
 
@@ -24,7 +28,7 @@ export const OpenInNativeExplorer = () => {
 			{platform.openPath && (
 				<CM.Item
 					label={`Open in ${osFileBrowserName}`}
-					keybind="⌘Y"
+					keybind={keybind([ModifierKeys.Control], ['Y'])}
 					onClick={() => {
 						alert('TODO: Open in FS');
 						// console.log('TODO', store.contextMenuActiveItem);
@@ -38,7 +42,9 @@ export const OpenInNativeExplorer = () => {
 };
 
 export default (props: PropsWithChildren) => {
+	const os = useOperatingSystem();
 	const store = useExplorerStore();
+	const keybind = keybindForOs(os);
 	const [params] = useExplorerSearchParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
@@ -86,7 +92,7 @@ export default (props: PropsWithChildren) => {
 			{isPastable && (
 				<CM.Item
 					label="Paste"
-					keybind="⌘V"
+					keybind={keybind([ModifierKeys.Control], ['V'])}
 					hidden={!store.cutCopyState.active}
 					onClick={() => {
 						if (store.cutCopyState.actionType == 'Copy') {
