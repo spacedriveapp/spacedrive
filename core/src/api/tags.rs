@@ -3,11 +3,11 @@ use serde::Deserialize;
 use specta::Type;
 
 use serde_json::json;
-use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
 	library::Library,
+	object::tag::TagCreateArgs,
 	prisma::{tag, tag_on_object},
 	sync,
 };
@@ -46,39 +46,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("create", {
-			#[derive(Type, Deserialize)]
-			pub struct TagCreateArgs {
-				pub name: String,
-				pub color: String,
-			}
-
 			R.with2(library())
 				.mutation(|(_, library), args: TagCreateArgs| async move {
-					let Library { db, sync, .. } = &library;
-
-					let pub_id = Uuid::new_v4().as_bytes().to_vec();
-
-					let created_tag = sync
-						.write_op(
-							db,
-							sync.unique_shared_create(
-								sync::tag::SyncId {
-									pub_id: pub_id.clone(),
-								},
-								[
-									(tag::name::NAME, json!(args.name)),
-									(tag::color::NAME, json!(args.color)),
-								],
-							),
-							db.tag().create(
-								pub_id,
-								vec![
-									tag::name::set(Some(args.name)),
-									tag::color::set(Some(args.color)),
-								],
-							),
-						)
-						.await?;
+					let created_tag = args.exec(&library).await?;
 
 					invalidate_query!(library, "tags.list");
 
