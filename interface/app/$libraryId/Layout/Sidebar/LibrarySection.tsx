@@ -103,7 +103,7 @@ export const LibrarySection = () => {
 									key={24}
 								>
 									<img src={Server} className="mr-1 h-5 w-5" />
-									<span className="truncate">titan</span>
+									<span className="truncate">Titan</span>
 								</SidebarLink>
 							</>
 						)}

@@ -30,7 +30,7 @@ const PARAMS = z.object({
 
 export const Component = () => {
 	return (
-		<Suspense fallback={<div>Loading</div>}>
+		<Suspense fallback={<div></div>}>
 			<EditLocationForm />
 		</Suspense>
 	);
@@ -38,11 +38,9 @@ export const Component = () => {
 
 const EditLocationForm = () => {
 	const { id: locationId } = useZodRouteParams(PARAMS);
-
-	const navigate = useNavigate();
+	// const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
-	// const [isFirstLoad, setIsFirstLoad] = useState(true);
 
 	const locationData = useLibraryQuery(['locations.getWithRules', locationId], {
 		suspense: true

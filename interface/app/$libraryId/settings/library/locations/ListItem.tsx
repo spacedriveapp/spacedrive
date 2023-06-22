@@ -25,8 +25,6 @@ export default ({ location }: Props) => {
 
 	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
 
-	// console.log({ onlineLocations });
-
 	return (
 		<Card
 			className="hover:bg-app-box/70"
