@@ -178,24 +178,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(AbortOnDrop(handle))
 				})
 		})
-		.procedure(
-			"online",
-			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.location_manager.clone();
-
-				let mut rx = location_manager.online_rx();
-
-				async_stream::stream! {
-					let online = location_manager.get_online().await;
-
-					yield online;
-
-					while let Ok(locations) = rx.recv().await {
-						yield locations;
+		.procedure("online", {
+			R.with2(library())
+				.subscription(|(_, library), _: ()| async move {
+					let location_manager = library.location_manager().clone();
+					let mut rx = location_manager.online_rx();
+					async_stream::stream! {
+						let online = location_manager.get_online().await;
+						yield online;
+						while let Ok(locations) = rx.recv().await {
+							yield locations;
+						}
 					}
-				}
-			}),
-		)
+				})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 

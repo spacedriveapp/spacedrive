@@ -68,7 +68,7 @@ export type Procedures = {
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<string>, result: JobProgressEvent } | 
-        { key: "locations.online", input: never, result: number[][] } | 
+        { key: "locations.online", input: LibraryArgs<null>, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
