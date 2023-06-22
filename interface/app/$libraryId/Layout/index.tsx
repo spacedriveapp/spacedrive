@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { z } from 'zod';
+import { Navigate, Outlet, useLoaderData, useLocation } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
@@ -9,7 +8,8 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
-import { useOperatingSystem, useZodRouteParams } from '~/hooks';
+import type { LibraryIdParams } from '~/app';
+import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { QuickPreview } from '../Explorer/QuickPreview';
 import Sidebar from './Sidebar';
@@ -67,10 +67,8 @@ const Layout = () => {
 	);
 };
 
-const LayoutParamsSchema = z.object({ libraryId: z.string() });
-
 export const Component = () => {
-	const { libraryId } = useZodRouteParams(LayoutParamsSchema);
+	const { libraryId } = useLoaderData() as LibraryIdParams;
 
 	return (
 		<ClientContextProvider currentLibraryId={libraryId ?? null}>

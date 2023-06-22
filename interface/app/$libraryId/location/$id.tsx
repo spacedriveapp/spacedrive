@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
+import { useLoaderData } from 'react-router';
 import {
 	useLibraryContext,
 	useLibraryQuery,
@@ -11,9 +12,9 @@ import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams,
 	useZodSearchParams
 } from '~/hooks';
+import type { LocationIdParams } from '..';
 import Explorer from '../Explorer';
 import { useExplorerOrder } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -22,7 +23,7 @@ import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const [{ path }] = useZodSearchParams();
-	const { id: locationId } = useZodRouteParams();
+	const { id: locationId } = useLoaderData() as LocationIdParams;
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
@@ -45,7 +46,7 @@ export const Component = () => {
 		explorerStore.locationId = locationId;
 	}, [explorerStore, locationId]);
 
-	const { items, loadMore } = useItems();
+	const { items, loadMore } = useItems({ locationId });
 
 	return (
 		<>
@@ -75,8 +76,7 @@ export const Component = () => {
 	);
 };
 
-const useItems = () => {
-	const { id: locationId } = useZodRouteParams();
+const useItems = ({ locationId }: { locationId: number }) => {
 	const [{ path, take }] = useZodSearchParams();
 
 	const ctx = useRspcLibraryContext();
