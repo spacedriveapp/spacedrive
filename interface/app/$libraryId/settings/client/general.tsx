@@ -1,6 +1,9 @@
 import { Database } from 'phosphor-react';
-import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
+import { useState } from 'react';
+import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
+import { useZodForm, z } from '@sd/ui/src/forms';
+import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -12,6 +15,24 @@ export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
 	const debugState = useDebugState();
+	const editNode = useBridgeMutation('nodes.edit');
+
+	const form = useZodForm({
+		schema: z.object({
+			name: z.string().min(1)
+		}),
+		defaultValues: {
+			name: node.data?.name || ''
+		}
+	});
+
+	useDebouncedFormWatch(form, async (value) => {
+		await editNode.mutateAsync({
+			name: value.name || null
+		});
+
+		node.refetch();
+	});
 
 	return (
 		<>
@@ -34,31 +55,28 @@ export const Component = () => {
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input
-								value={node.data?.name}
-								onChange={() => {
-									/* TODO */
-								}}
-								disabled
+								{...form.register('name', { required: true })}
+								defaultValue={node.data?.name}
 							/>
 						</div>
-						<div className="flex flex-col">
+						{/* <div className="flex flex-col">
 							<NodeSettingLabel>Node Port</NodeSettingLabel>
 							<Input
 								contentEditable={false}
 								value={node.data?.p2p_port || 5795}
 								onChange={() => {
-									/* TODO */
+									alert('TODO');
 								}}
 								disabled
 							/>
-						</div>
+						</div> */}
 					</div>
-					<div className="mt-5 flex items-center space-x-3">
+					{/* <div className="mt-5 flex items-center space-x-3">
 						<Switch size="sm" checked />
 						<span className="text-sm font-medium text-ink-dull">
 							Run daemon when app closed
 						</span>
-					</div>
+					</div> */}
 					<div className="mt-3">
 						<div
 							onClick={() => {
@@ -73,9 +91,6 @@ export const Component = () => {
 							</b>
 							<span className="select-text">{node.data?.data_path}</span>
 						</div>
-
-						<Input value={node.data?.data_path + '/logs'} />
-
 					</div>
 				</div>
 			</Card>

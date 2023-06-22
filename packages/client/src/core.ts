@@ -55,7 +55,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
-        { key: "nodes.changeNodeName", input: ChangeNodeNameArgs, result: null } | 
+        { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.pair", input: LibraryArgs<PeerId>, result: number } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
@@ -85,7 +85,7 @@ export type CRDTOperationType = SharedOperation | RelationOperation
  */
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
 
-export type ChangeNodeNameArgs = { name: string }
+export type ChangeNodeNameArgs = { name: string | null }
 
 export type CreateLibraryArgs = { name: string }
 
