@@ -273,39 +273,6 @@ pub(super) async fn create_dir_or_file(
 	.map(|_| metadata)
 }
 
-pub(super) async fn file_creation_or_update(
-	location_id: location::id::Type,
-	full_path: impl AsRef<Path>,
-	library: &Library,
-) -> Result<(), LocationManagerError> {
-	let full_path = full_path.as_ref();
-	let location_path = extract_location_path(location_id, library).await?;
-
-	if let Some(ref file_path) = library
-		.db
-		.file_path()
-		.find_first(filter_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, full_path, false)?,
-		))
-		// include object for orphan check
-		.include(file_path_with_object::include())
-		.exec()
-		.await?
-	{
-		inner_update_file(location_id, file_path, full_path, library).await
-	} else {
-		create_file(
-			location_id,
-			full_path,
-			&fs::metadata(full_path)
-				.await
-				.map_err(|e| FileIOError::from((full_path, e)))?,
-			library,
-		)
-		.await
-	}
-}
-
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
