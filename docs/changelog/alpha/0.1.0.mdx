@@ -1,0 +1,83 @@
+# 0.1.0 (Alpha)
+
+![Spacedrive Explorer](/images/explorer.png)
+
+After 15 months of development we are extremely excited to be releasing the first version of Spacedrive as an early public alpha.
+
+This is an MVP, and by no means feature complete. Please test out the features listed below and give us feedback via Discord, email or GitHub Issues.
+
+<Notice
+	type="info"
+	title="Missing features"
+	text="This release is missing the ability to connect multiple nodes together, this will be included in a following release. Along with multi-select, cloud support, and more explorer tools."
+/>
+## Features:
+
+- Support for Windows, Linux and macOS.
+
+- Basic onboarding flow.
+
+- Create [Libraries](../../developers/architecture/libraries) and switch between them.
+
+{/* - Connect multiple [Nodes](../../developers/architecture/nodes) to a Library via LAN. */}
+
+- Add [Locations](../../developers/architecture/locations) to import files into Spacedrive.
+
+  - Indexer watch for changes and performs light re-scans.
+
+  - Identifier generates checksum and categorizes files into [Objects]()
+
+  - Define indexer rules to ignore certain files or folders.
+
+    _Eventually Clouds will be supported and added as Cloud Locations_
+
+  - Generate [Preview Media](../../developers/architecture/preview-media) for image, video and text.
+
+- Browse Locations via the [Explorer](../../developers/architecture/explorer) and view previews and metadata.
+
+  - Viewer options: row/grid item size, show/hide size.
+  - Context menu: rename, cut, copy, paste, duplicate, delete, favorite and tag assign.
+    {/* - Multi-select with dedicated context menu options. */}
+  - Double click to open, or open with from context menu
+  - Quick View: an in-app viewer (images/text only for now)
+
+- Browse unique files by category on Overview screen
+  {/* - Automatically identify unique files to discover duplicates, shown in the inspector. */}
+
+- Create [Tags](../../developers/architecture/tags) and assign them to files, browse tagged files from sidebar.
+
+{/* - Create [Spaces](../../developers/architecture/spaces) to organize and present files. */}
+
+{/* - Automated Spaces can include files that match criteria. */}
+
+{/* _Eventually Spaces will be sharable, publically or privately_ */}
+
+{/* - Create photo [Albums](../../developers/architecture/albums) and add images. */}
+
+- Library statistics: total capacity, database size, preview media size, free space.
+
+- [Search](../../developers/architecture/search) Library via search bar or CTRL+F.
+
+  - Searches online and offline Locations.
+
+    _Better search options coming soon, with filters for tags, location, kind etc._
+
+{/* - Drag and drop file transfer on a keybind. */}
+
+{/* - Defaults to CTRL+Space, also possible from Explorer context menu. */}
+
+{/* - Customize sidebar freely with section headings and flexible slots, include default layout. */}
+
+- Pause and resume [Jobs](../../developers/architecture/jobs) with recovery on crash via Job Manager widget.
+
+{/* - Multi-window support. */}
+
+- Light and dark theme with optional system sync
+
+- 48 custom icons for file types.
+
+- 250+ supported file types with "[magic byte](https://en.wikipedia.org/wiki/List_of_file_signatures)" detection.
+
+- Automatic update installer.
+
+- Opt-in Telemetry and local logs.

@@ -40,6 +40,7 @@ export const LibrarySection = () => {
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const [showDummyNodesEasterEgg, setShowDummyNodesEasterEgg] = useState(false);
 	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
 		null
 	);
@@ -67,6 +68,7 @@ export const LibrarySection = () => {
 		<>
 			<Section
 				name="Nodes"
+				onDoubleClick={() => setShowDummyNodesEasterEgg(!showDummyNodesEasterEgg)}
 				actionArea={
 					isPairingEnabled ? (
 						<Link to="settings/library/nodes">
@@ -87,7 +89,7 @@ export const LibrarySection = () => {
 							<img src={Laptop} className="mr-1 h-5 w-5" />
 							<span className="truncate">{node.data.name}</span>
 						</SidebarLink>
-						{debugState.enabled && (
+						{showDummyNodesEasterEgg && (
 							<>
 								<SidebarLink
 									className="group relative w-full"
