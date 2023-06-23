@@ -196,10 +196,12 @@ function totalTasks(jobs: JobReport[]) {
 }
 
 function niceActionName(action: string, completed: boolean, job?: JobReport) {
+	const name = job?.metadata?.init?.location?.name || 'Unknown';
 	switch (action) {
 		case 'scan_location':
-			const name = job?.metadata?.init?.location?.name || 'Unknown';
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
+		case 'scan_location_sub_path':
+			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
 	}
 	return action;
 }
