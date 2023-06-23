@@ -183,10 +183,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.subscription(|(_, library), _: ()| async move {
 					let location_manager = library.location_manager().clone();
 					let mut rx = location_manager.online_rx();
+
+					let lib_locations: Vec<Vec<u8>> = library
+						.db
+						.location()
+						.find_many(vec![])
+						.select(location::select!({ pub_id }))
+						.exec()
+						.await
+						.expect("")
+						.into_iter()
+						.map(|x| x.pub_id)
+						.collect();
+
 					async_stream::stream! {
-						let online = location_manager.get_online().await;
+						let mut online = location_manager.get_online().await;
+						lib_locations.iter().for_each(|x| online.retain(|y| x == y));
 						yield online;
-						while let Ok(locations) = rx.recv().await {
+
+						while let Ok(mut locations) = rx.recv().await {
+							lib_locations.iter().for_each(|x| locations.retain(|y| x == y));
 							yield locations;
 						}
 					}
