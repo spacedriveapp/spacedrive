@@ -71,6 +71,7 @@ impl WorkerContext {
 // once the job is complete the worker will exit
 pub struct Worker {
 	commands_tx: mpsc::Sender<WorkerCommand>,
+	report_watch_tx: Arc<watch::Sender<JobReport>>,
 	report_watch_rx: watch::Receiver<JobReport>,
 	paused: AtomicBool,
 }
@@ -107,6 +108,7 @@ impl Worker {
 		invalidate_queries(&library);
 
 		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
+		let report_watch_tx = Arc::new(report_watch_tx);
 
 		// spawn task to handle running the job
 		tokio::spawn(Self::do_work(
@@ -117,7 +119,7 @@ impl Worker {
 				hash: job_hash,
 				report,
 			},
-			report_watch_tx,
+			Arc::clone(&report_watch_tx),
 			start_time,
 			commands_rx,
 			library,
@@ -125,6 +127,7 @@ impl Worker {
 
 		Ok(Self {
 			commands_tx,
+			report_watch_tx,
 			report_watch_rx,
 			paused: AtomicBool::new(false),
 		})
@@ -133,11 +136,14 @@ impl Worker {
 	pub async fn pause(&self) {
 		self.paused.store(true, Ordering::Relaxed);
 		self.commands_tx.send(WorkerCommand::Pause).await.ok();
+		self.report_watch_tx.send_modify(|report| report.status = JobStatus::Paused);
 	}
 
 	pub async fn resume(&self) {
 		self.paused.store(false, Ordering::Relaxed);
 		self.commands_tx.send(WorkerCommand::Resume).await.ok();
+		self.report_watch_tx.send_modify(|report| report.status = JobStatus::Running);
+
 	}
 
 	pub async fn cancel(&self) {
@@ -236,7 +242,7 @@ impl Worker {
 			hash,
 			mut report,
 		}: JobWorkTable,
-		report_watch_tx: watch::Sender<JobReport>,
+		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
 		library: Library,
