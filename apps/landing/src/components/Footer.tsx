@@ -16,7 +16,7 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 		<Link
 			href={props.link}
 			target={props.blank ? '_blank' : ''}
-			className="text-gray-300 hover:text-white hover:opacity-50 duration-300"
+			className="text-gray-300 duration-300 hover:text-white hover:opacity-50"
 			rel="noreferrer"
 		>
 			{props.children}
@@ -26,7 +26,7 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 
 export function Footer() {
 	return (
-		<footer id="footer" className="z-50 w-screen border-t border-gray-550 backdrop-blur pt-3">
+		<footer id="footer" className="z-50 w-screen border-t border-gray-550 pt-3 backdrop-blur">
 			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<Image alt="Spacedrive logo" src={AppLogo} className="mb-5 h-10 w-10" />

@@ -1,5 +1,4 @@
 import { RouteObject } from 'react-router-dom';
-import { z } from 'zod';
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
@@ -19,30 +18,12 @@ const pageRoutes: RouteObject = {
 	]
 };
 
-export const LocationIdParamsSchema = z.object({ id: z.coerce.number() });
-export type LocationIdParams = z.infer<typeof LocationIdParamsSchema>;
-
-export const NodeIdParamsSchema = z.object({ id: z.string() });
-export type NodeIdParams = z.infer<typeof NodeIdParamsSchema>;
-
 // Routes that render the explorer and don't need padding and stuff
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
-	{
-		path: 'location/:id',
-		lazy: () => import('./location/$id'),
-		loader: ({ params }) => LocationIdParamsSchema.parse(params)
-	},
-	{
-		path: 'node/:id',
-		lazy: () => import('./node/$id'),
-		loader: ({ params }) => NodeIdParamsSchema.parse(params)
-	},
-	{
-		path: 'tag/:id',
-		lazy: () => import('./tag/$id'),
-		loader: ({ params }) => LocationIdParamsSchema.parse(params)
-	},
+	{ path: 'location/:id', lazy: () => import('./location/$id') },
+	{ path: 'node/:id', lazy: () => import('./node/$id') },
+	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'search', lazy: () => import('./search') }
 ];
 

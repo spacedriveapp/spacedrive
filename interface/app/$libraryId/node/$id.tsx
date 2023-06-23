@@ -1,14 +1,13 @@
 import { Laptop, Node } from '@sd/assets/icons';
-import { useLoaderData } from 'react-router';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import type { NodeIdParams } from '~/app/$libraryId';
 import Explorer from '~/app/$libraryId/Explorer';
 import { TopBarPortal } from '~/app/$libraryId/TopBar/Portal';
 import TopBarOptions from '~/app/$libraryId/TopBar/TopBarOptions';
-import { useExplorerTopBarOptions } from '~/hooks';
+import { NodeIdParamsSchema } from '~/app/route-schemas';
+import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
 
 export const Component = () => {
-	const { id: nodeId } = useLoaderData() as NodeIdParams;
+	const { id: nodeId } = useZodRouteParams(NodeIdParamsSchema);
 
 	const locations = useLibraryQuery(['nodes.listLocations', nodeId]);
 

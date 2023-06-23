@@ -1,16 +1,16 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { useLoaderData } from 'react-router';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
 import { Heading } from '~/app/$libraryId/settings/Layout';
-import type { LocationIdParams } from '~/app/$libraryId/settings/library';
+import { TagsSettingsParamsSchema } from '~/app/route-schemas';
+import { useZodRouteParams } from '~/hooks';
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
 export const Component = () => {
 	const tags = useLibraryQuery(['tags.list']);
-	const { id: locationId } = useLoaderData() as LocationIdParams;
+	const { id: locationId } = useZodRouteParams(TagsSettingsParamsSchema);
 	const tagSelectedParam = tags.data?.find((tag) => tag.id === locationId);
 	const [selectedTag, setSelectedTag] = useState<null | Tag>(
 		tagSelectedParam ?? tags.data?.[0] ?? null

@@ -3,14 +3,10 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useOperatingSystem,
-	useZodSearchParams
-} from '~/hooks';
+import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { keybindForOs } from '~/util/keybinds';
+import { useExplorerSearchParams } from './util';
 
 export const OpenInNativeExplorer = () => {
 	const os = useOperatingSystem();
@@ -48,7 +44,7 @@ export const OpenInNativeExplorer = () => {
 export default (props: PropsWithChildren) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
-	const [{ path: currentPath }] = useZodSearchParams();
+	const [{ path: currentPath }] = useExplorerSearchParams();
 	const { locationId, cutCopyState } = useExplorerStore();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
