@@ -19,10 +19,16 @@ interface JobGroupProps {
 function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const pauseJob = useLibraryMutation(['jobs.pause']);
-	const resumeJob = useLibraryMutation(['jobs.resume']);
+	const pauseJob = useLibraryMutation(['jobs.pause'], {
+		onError: alert
+	});
+	const resumeJob = useLibraryMutation(['jobs.resume'], {
+		onError: alert
+	});
 
 	const isJobsRunning = jobs.some((job) => job.status === 'Running');
+
+	const runningJobId = jobs.find((job) => job.status === 'Running')?.id;
 
 	const tasks = totalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -53,7 +59,12 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						<Button
 							className="cursor-pointer"
 							onClick={() => {
-								pauseJob.mutate(data.id);
+								console.log({ runningJobId });
+								if (runningJobId) {
+									pauseJob.mutate(runningJobId);
+								} else {
+									alert('No running job found');
+								}
 							}}
 							size="icon"
 							variant="outline"

@@ -23,7 +23,6 @@ export const LibraryContextProvider = ({ children, library }: LibraryContextProv
 	// TODO: This should probs be a library subscription - https://linear.app/spacedriveapp/issue/ENG-724/locationsonline-should-be-a-library-not-a-bridge-subscription
 	useBridgeSubscription(['locations.online'], {
 		onData: (d) => {
-			console.log('locations.online', d);
 			setOnlineLocations(d);
 		}
 	});
