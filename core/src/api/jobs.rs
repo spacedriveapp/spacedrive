@@ -132,6 +132,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Occupied(mut entry) => {
 									let group = entry.get_mut();
 									group.status = report.status;
+
+									// protect paused status from being overwritten
+									if report.status != JobStatus::Paused {
+										group.status = report.status;
+									}
+
 									// if group.status.is_finished() && !report.status.is_finished() {
 									// }
 									group.jobs.push_front(report.clone());

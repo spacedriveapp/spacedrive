@@ -59,7 +59,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 			)}
 			{iconImg && <img src={iconImg} className={IMG_ICON_CLASS} />}
 			<MetaContainer>
-				<Tooltip tooltipClassName='bg-black max-w-[400px]' position='top' label={name}>
+				<Tooltip tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
 					<span className="truncate pl-1.5 font-semibold">{name}</span>
 				</Tooltip>
 				{textItems?.map((textItems, lineIndex) => {
@@ -69,7 +69,11 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
 
 					return (
-						<Tooltip label={popoverText} key={lineIndex} tooltipClassName='bg-black max-w-[400px]' >
+						<Tooltip
+							label={popoverText}
+							key={lineIndex}
+							tooltipClassName="bg-black max-w-[400px]"
+						>
 							<TextLine>
 								{filteredItems.map((textItem, index) => {
 									const Icon = textItem?.icon;
@@ -78,7 +82,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 											<TextItem
 												onClick={textItem?.onClick}
 												className={clsx(
-													lineIndex > 0 && 'px-1.5 py-0.5 italic',
+													// lineIndex > 0 && 'px-1.5 py-0.5 italic',
 													textItem?.onClick &&
 														'-ml-1.5 rounded-md hover:bg-app-button/50'
 												)}
@@ -86,7 +90,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 												{Icon && (
 													<Icon
 														weight="fill"
-														className="-mt-0.5 ml-[-2px] mr-1 inline"
+														className="-mt-0.5 ml-[5px] mr-1 inline"
 													/>
 												)}
 												{textItem?.text}

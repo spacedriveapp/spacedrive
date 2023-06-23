@@ -3,8 +3,14 @@ import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
-import { Fragment, useState } from 'react';
-import { JobGroup as IJobGroup, JobReport, useLibraryMutation } from '@sd/client';
+import { Fragment, useEffect, useState } from 'react';
+import {
+	JobGroup as IJobGroup,
+	JobProgressEvent,
+	JobReport,
+	useLibraryMutation,
+	useLibrarySubscription
+} from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
@@ -17,6 +23,7 @@ interface JobGroupProps {
 
 function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
+	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
 	const pauseJob = useLibraryMutation(['jobs.pause'], {
 		onError: alert
@@ -26,8 +33,18 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	});
 
 	const isJobsRunning = jobs.some((job) => job.status === 'Running');
+	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
 
-	const runningJobId = jobs.find((job) => job.status === 'Running')?.id;
+	useLibrarySubscription(['jobs.progress', activeJobId as string], {
+		onData: setRealtimeUpdate,
+		enabled: !!activeJobId || !showChildJobs
+	});
+
+	useEffect(() => {
+		if (data.status !== 'Running') {
+			setRealtimeUpdate(null);
+		}
+	}, [data.status]);
 
 	const tasks = totalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -58,12 +75,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						<Button
 							className="cursor-pointer"
 							onClick={() => {
-								console.log({ runningJobId });
-								if (runningJobId) {
-									pauseJob.mutate(runningJobId);
-								} else {
-									alert('No running job found');
-								}
+								pauseJob.mutate(data.id);
 							}}
 							size="icon"
 							variant="outline"
@@ -72,16 +84,16 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 								<Pause className="h-4 w-4 cursor-pointer" />
 							</Tooltip>
 						</Button>
-						{/* <Button
-						className="cursor-pointer"
-						onClick={() => resumeJob.mutate(data.id)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Stop">
-							<Stop className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button> */}
+						<Button
+							className="cursor-pointer"
+							onClick={() => resumeJob.mutate(data.id)}
+							size="icon"
+							variant="outline"
+						>
+							<Tooltip label="Stop">
+								<Stop className="h-4 w-4 cursor-pointer" />
+							</Tooltip>
+						</Button>
 					</Fragment>
 				)}
 				{!isJobsRunning && (
@@ -116,6 +128,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
 								{ text: date_started },
 								{ text: totalGroupTime || undefined },
+
 								{
 									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
 										data.status
@@ -123,12 +136,25 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 										? data.status
 										: undefined
 								}
+							],
+							[
+								{
+									text:
+										(!showChildJobs &&
+											isJobsRunning &&
+											realtimeUpdate?.message) ||
+										undefined
+								}
 							]
 						]}
 					>
 						{!showChildJobs && isJobsRunning && (
 							<div className="my-1 ml-1.5 w-full">
-								<ProgressBar value={tasks.completed} total={tasks.total} />
+								<ProgressBar
+									pending={tasks.completed === 0}
+									value={tasks.completed}
+									total={tasks.total}
+								/>
 							</div>
 						)}
 					</JobContainer>
