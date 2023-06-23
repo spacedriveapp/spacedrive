@@ -111,6 +111,13 @@ export default function useJobInfo(
 			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
 			icon: Scissors,
 			textItems: [[{ text: job.status }]]
+		},
+		object_validator: {
+			name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
+				!isQueued ? completedTaskCount : ''
+			} ${plural(completedTaskCount, 'object')}`,
+			icon: Fingerprint,
+			textItems: [[{ text: job.status }]]
 		}
 	};
 }
