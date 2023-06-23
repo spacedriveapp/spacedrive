@@ -31,6 +31,9 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	const resumeJob = useLibraryMutation(['jobs.resume'], {
 		onError: alert
 	});
+	const cancelJob = useLibraryMutation(['jobs.cancel'], {
+		onError: alert
+	});
 
 	const isJobsRunning = jobs.some((job) => job.status === 'Running');
 	const isJobPaused = jobs.some((job) => job.status === 'Paused');
@@ -74,6 +77,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 				{isJobsRunning && (
 					<Fragment>
 						<Button
+							disabled
 							className="cursor-pointer"
 							onClick={() => {
 								pauseJob.mutate(data.id);
@@ -87,7 +91,9 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						</Button>
 						<Button
 							className="cursor-pointer"
-							onClick={() => resumeJob.mutate(data.id)}
+							onClick={() => {
+								cancelJob.mutate(data.id);
+							}}
 							size="icon"
 							variant="outline"
 						>
