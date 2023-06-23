@@ -22,9 +22,7 @@ export const LibraryContextProvider = ({ children, library }: LibraryContextProv
 	// We put this into context because each hook creates a new subscription which means we get duplicate events from the backend if we don't do this
 	// TODO: This should probs be a library subscription - https://linear.app/spacedriveapp/issue/ENG-724/locationsonline-should-be-a-library-not-a-bridge-subscription
 	useBridgeSubscription(['locations.online'], {
-		onData: (d) => {
-			setOnlineLocations(d);
-		}
+		onData: (d) => setOnlineLocations(d)
 	});
 
 	return (

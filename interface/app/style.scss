@@ -77,7 +77,19 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply my-[10px] rounded-[6px]  bg-transparent;
+		@apply rounded-[6px]  bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-app-box;
+	}
+}
+.topbar-page-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply mt-[46px] rounded-[6px]  bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-box;
