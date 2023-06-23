@@ -282,6 +282,12 @@ pub enum JobStatus {
 	CompletedWithErrors = 6,
 }
 
+impl JobStatus {
+	pub fn is_finished(self) -> bool {
+		matches!(self, Self::Completed | Self::Canceled | Self::Failed | Self::CompletedWithErrors)
+	}
+}
+
 impl TryFrom<i32> for JobStatus {
 	type Error = JobError;
 

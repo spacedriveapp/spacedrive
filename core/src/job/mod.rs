@@ -4,12 +4,11 @@ use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	hash::{Hash, Hasher},
 	mem,
-	sync::Arc,
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{select, sync::mpsc};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 mod error;
@@ -25,6 +24,11 @@ pub use worker::*;
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
 pub type JobRunErrors = Vec<String>;
+pub struct JobRunOutput {
+	pub metadata: JobMetadata,
+	pub errors: JobRunErrors,
+	pub next_job: Option<Box<dyn DynJob>>,
+}
 
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
@@ -79,10 +83,9 @@ pub trait DynJob: Send + Sync {
 	fn name(&self) -> &'static str;
 	async fn run(
 		&mut self,
-		job_manager: Arc<JobManager>,
 		mut ctx: WorkerContext,
 		mut commands_rx: mpsc::Receiver<WorkerCommand>,
-	) -> Result<(JobMetadata, JobRunErrors), JobError>;
+	) -> Result<JobRunOutput, JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
@@ -263,10 +266,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 	async fn run(
 		&mut self,
-		job_manager: Arc<JobManager>,
 		mut ctx: WorkerContext,
 		mut commands_rx: mpsc::Receiver<WorkerCommand>,
-	) -> Result<(JobMetadata, JobRunErrors), JobError> {
+	) -> Result<JobRunOutput, JobError> {
 		let mut job_should_run = true;
 		let mut errors = vec![];
 		info!(
@@ -376,20 +378,20 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 
-		if let Some(mut next_job) = next_jobs.pop_front() {
-			debug!(
-				"Job '{}' requested to spawn '{}' now that it's complete!",
-				self.name(),
-				next_job.name()
-			);
-			next_job.set_next_jobs(next_jobs);
+		Ok(JobRunOutput {
+			metadata,
+			errors,
+			next_job: next_jobs.pop_front().map(|mut next_job| {
+				debug!(
+					"Job '{}' requesting to spawn '{}' now that it's complete!",
+					self.name(),
+					next_job.name()
+				);
+				next_job.set_next_jobs(next_jobs);
 
-			if let Err(e) = job_manager.clone().ingest(&ctx.library, next_job).await {
-				error!("Failed to ingest next job: {e}");
-			}
-		}
-
-		Ok((metadata, errors))
+				next_job
+			}),
+		})
 	}
 
 	fn hash(&self) -> u64 {

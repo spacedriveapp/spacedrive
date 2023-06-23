@@ -10,7 +10,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use serde_json::Value;
 use specta::Type;
 use tokio::{
 	select,
@@ -20,7 +19,7 @@ use tokio::{
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
-use super::{DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobStatus};
+use super::{DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunOutput, JobStatus};
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct JobProgressEvent {
@@ -78,6 +77,7 @@ pub struct Worker {
 
 impl Worker {
 	pub async fn new(
+		id: Uuid,
 		mut job: Box<dyn DynJob>,
 		mut report: JobReport,
 		library: Library,
@@ -110,6 +110,7 @@ impl Worker {
 
 		// spawn task to handle running the job
 		tokio::spawn(Self::do_work(
+			id,
 			JobWorkTable {
 				job,
 				manager: job_manager,
@@ -228,6 +229,7 @@ impl Worker {
 	}
 
 	async fn do_work(
+		worker_id: Uuid,
 		JobWorkTable {
 			mut job,
 			manager,
@@ -242,7 +244,6 @@ impl Worker {
 		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
 
 		let mut job_future = job.run(
-			Arc::clone(&manager),
 			WorkerContext {
 				library: library.clone(),
 				events_tx,
@@ -301,7 +302,7 @@ impl Worker {
 		// Need this drop here to sinalize to borrowchecker that we're done with our `&mut job` borrow for `run` method
 		drop(job_future);
 
-		Self::process_job_output(job, job_result, &mut report, &library).await;
+		let next_job = Self::process_job_output(job, job_result, &mut report, &library).await;
 
 		report_watch_tx.send(report.clone()).ok();
 
@@ -310,19 +311,23 @@ impl Worker {
 			report.id, report.name
 		);
 
-		manager.complete(&library, report.id, hash).await;
+		manager.complete(&library, worker_id, hash, next_job).await;
 	}
 
 	async fn process_job_output(
 		mut job: Box<dyn DynJob>,
-		job_result: Result<(Option<Value>, Vec<String>), JobError>,
+		job_result: Result<JobRunOutput, JobError>,
 		report: &mut JobReport,
 		library: &Library,
-	) {
+	) -> Option<Box<dyn DynJob>> {
 		// Run the job and handle the result
 		match job_result {
 			// -> Job completed successfully
-			Ok((metadata, errors)) if errors.is_empty() => {
+			Ok(JobRunOutput {
+				metadata,
+				errors,
+				next_job,
+			}) if errors.is_empty() => {
 				report.status = JobStatus::Completed;
 				report.data = None;
 				report.metadata = metadata;
@@ -334,9 +339,15 @@ impl Worker {
 				debug!("{report}");
 
 				invalidate_queries(library);
+
+				return next_job;
 			}
 			// -> Job completed with errors
-			Ok((metadata, errors)) => {
+			Ok(JobRunOutput {
+				metadata,
+				errors,
+				next_job,
+			}) => {
 				warn!(
 					"Job<id='{}', name='{}'> completed with errors",
 					report.id, report.name
@@ -353,6 +364,8 @@ impl Worker {
 				debug!("{report}");
 
 				invalidate_queries(library);
+
+				return next_job;
 			}
 			// -> Job paused
 			Err(JobError::Paused(state, signal_tx)) => {
@@ -425,6 +438,8 @@ impl Worker {
 				invalidate_queries(library);
 			}
 		}
+
+		None
 	}
 }
 

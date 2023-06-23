@@ -68,9 +68,8 @@ impl JobManager {
 					// active workers and preserve their state
 					JobManagerEvent::Shutdown(signal_tx) => {
 						info!("Shutting down job manager");
-						let mut running_workers = this2.running_workers.write().await;
-						join_all(running_workers.values_mut().map(|worker| worker.shutdown()))
-							.await;
+						let running_workers = this2.running_workers.read().await;
+						join_all(running_workers.values().map(|worker| worker.shutdown())).await;
 
 						signal_tx.send(()).ok();
 					}
@@ -120,16 +119,16 @@ impl JobManager {
 				.take()
 				.expect("critical error: missing job on worker");
 
-			let job_id = job_report.id;
+			let worker_id = job_report.parent_id.unwrap_or(job_report.id);
 
-			Worker::new(job, job_report, library.clone(), self.clone())
+			Worker::new(worker_id, job, job_report, library.clone(), self.clone())
 				.await
 				.map_or_else(
 					|e| {
 						error!("Error spawning worker: {:#?}", e);
 					},
 					|worker| {
-						running_workers.insert(job_id, worker);
+						running_workers.insert(worker_id, worker);
 					},
 				);
 		} else {
@@ -142,12 +141,23 @@ impl JobManager {
 		}
 	}
 
-	pub async fn complete(self: Arc<Self>, library: &Library, job_id: Uuid, job_hash: u64) {
+	pub async fn complete(
+		self: Arc<Self>,
+		library: &Library,
+		worker_id: Uuid,
+		job_hash: u64,
+		next_job: Option<Box<dyn DynJob>>,
+	) {
 		// remove worker from running workers and from current jobs hashes
 		self.current_jobs_hashes.write().await.remove(&job_hash);
-		self.running_workers.write().await.remove(&job_id);
+		self.running_workers.write().await.remove(&worker_id);
 		// continue queue
-		let job = self.job_queue.write().await.pop_front();
+		let job = if next_job.is_some() {
+			next_job
+		} else {
+			self.job_queue.write().await.pop_front()
+		};
+
 		if let Some(job) = job {
 			// We can't directly execute `self.ingest` here because it would cause an async cycle.
 			self.internal_sender

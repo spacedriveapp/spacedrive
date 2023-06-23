@@ -69,7 +69,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - TODO: refactor grouping system to a many-to-many table
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroup {
-				id: String,
+				id: Uuid,
 				action: String,
 				status: JobStatus,
 				created_at: DateTime<Utc>,
@@ -78,7 +78,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroups {
 				groups: Vec<JobGroup>,
-				index: HashMap<String, i32>, // maps job ids to their group index
+				index: HashMap<Uuid, i32>, // maps job ids to their group index
 			}
 			R.with2(library())
 				.query(|(ctx, library), _: ()| async move {
@@ -112,7 +112,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								// Create new job group with metadata
 								Entry::Vacant(entry) => {
 									entry.insert(JobGroup {
-										id: job.parent_id.unwrap_or(job.id).to_string(),
+										id: job.parent_id.unwrap_or(job.id),
 										action: action_name.clone(),
 										status: job.status,
 										jobs: [report.clone()].into_iter().collect(),
@@ -121,7 +121,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								}
 								// Add to existing job group
 								Entry::Occupied(mut entry) => {
-									entry.get_mut().jobs.push_front(report.clone());
+									let group = entry.get_mut();
+									if group.status.is_finished() && !report.status.is_finished() {
+										group.status = report.status;
+									}
+									group.jobs.push_front(report.clone());
 								}
 							}
 						}
@@ -131,10 +135,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
 					// Update the index after sorting the groups
-					let mut index: HashMap<String, i32> = HashMap::new();
+					let mut index: HashMap<Uuid, i32> = HashMap::new();
 					for (i, group) in groups_vec.iter().enumerate() {
 						for job in &group.jobs {
-							index.insert(job.id.to_string(), i as i32);
+							index.insert(job.id, i as i32);
 						}
 					}
 
