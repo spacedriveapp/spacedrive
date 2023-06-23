@@ -46,6 +46,6 @@ sd-desktop-windows = { path = "../crates/windows" }
 tauri-build = { version = "1.3.0", features = [] }
 
 [features]
-default = ["custom-protocol"]
+default = ["custom-protocol", "updater"]
 updater = ["tauri/updater"]
 custom-protocol = ["tauri/custom-protocol"]
