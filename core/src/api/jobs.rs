@@ -20,6 +20,7 @@ use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::{interval, Duration};
+use tracing::trace;
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
@@ -70,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroup {
 				id: Uuid,
-				action: String,
+				action: Option<String>,
 				status: JobStatus,
 				created_at: DateTime<Utc>,
 				jobs: VecDeque<JobReport>,
@@ -103,6 +104,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_meta();
 
+						trace!(
+							"job {:#?}, action_name {}, group_key {:?}",
+							job,
+							action_name,
+							group_key
+						);
+
 						// if the job is running, use the in-memory report
 						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
 
@@ -113,7 +121,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Vacant(entry) => {
 									entry.insert(JobGroup {
 										id: job.parent_id.unwrap_or(job.id),
-										action: action_name.clone(),
+										action: Some(action_name.clone()),
 										status: job.status,
 										jobs: [report.clone()].into_iter().collect(),
 										created_at: job.created_at.unwrap_or(Utc::now()),
@@ -128,6 +136,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									group.jobs.push_front(report.clone());
 								}
 							}
+						} else {
+							// insert individual job as group
+							groups.insert(
+								job.id.to_string(),
+								JobGroup {
+									id: job.id.to_string(),
+									action: None,
+									status: job.status,
+									jobs: vec![report.clone()],
+									created_at: job.created_at.unwrap_or(Utc::now()),
+								},
+							);
 						}
 					}
 

@@ -139,7 +139,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
-export type JobGroup = { id: string; action: string; status: JobStatus; created_at: string; jobs: JobReport[] }
+export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
 export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
 

@@ -10,6 +10,8 @@ use serde_json::{Map, Value};
 use specta::Type;
 use thiserror::Error;
 
+use super::db::MissingFieldError;
+
 /// is used to decode the configuration and work out what migrations need to be applied before the config can be properly loaded.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -132,6 +134,8 @@ pub enum MigratorError {
 	HasSuperLegacyConfig,
 	#[error("file '{}' was not found by the migrator!", .0.display())]
 	ConfigFileMissing(PathBuf),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 	#[error("custom migration error: {0}")]
 	Custom(String),
 }

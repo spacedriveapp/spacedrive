@@ -2,6 +2,7 @@ import {
 	ArrowBendUpRight,
 	Copy,
 	FileX,
+	Image,
 	Package,
 	Plus,
 	Scissors,
@@ -10,6 +11,7 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
+import { useLocation } from 'react-router-dom';
 import {
 	ExplorerItem,
 	getItemFilePath,
@@ -19,13 +21,17 @@ import {
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useOperatingSystem,
+	useZodSearchParams
+} from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { keybindForOs } from '~/util/keybinds';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
-import { useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -38,31 +44,40 @@ interface Props {
 
 export default ({ data }: Props) => {
 	const os = useOperatingSystem();
-	const store = useExplorerStore();
 	const keybind = keybindForOs(os);
+	const location = useLocation();
+	const objectData = data ? getItemObject(data) : null;
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
-	const [params] = useExplorerSearchParams();
-	const objectData = data ? getItemObject(data) : null;
+	const [{ path: currentPath }] = useZodSearchParams();
+	const { cutCopyState, showInspector, ...store } = useExplorerStore();
+
+	const isLocation =
+		location.pathname.includes('/location/') && explorerStore.layoutMode !== 'media';
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
 	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
-
+	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
 	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
-	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	if (!data) return null;
+
+	const objectId = data.type == 'Path' ? data.item.object_id : null;
+	const locationId = store.locationId ?? getItemFilePath(data)?.location_id;
+	const objectDateAccessed =
+		data.type == 'Path' ? data.item.object && data.item.object.date_accessed : null;
+
 	return (
 		<>
 			<OpenOrDownloadOptions data={data} />
 
 			<ContextMenu.Separator />
 
-			{!store.showInspector && (
+			{!showInspector && (
 				<>
 					<ContextMenu.Item
 						label="Details"
@@ -76,82 +91,93 @@ export default ({ data }: Props) => {
 
 			<OpenInNativeExplorer />
 
-			{explorerStore.layoutMode === 'media' || (
-				<ContextMenu.Item
-					label="Rename"
-					keybind={keybind([], ['Enter'])}
-					onClick={() => explorerView.setIsRenaming(true)}
-				/>
-			)}
+			<ContextMenu.Item
+				hidden={explorerStore.layoutMode === 'media'}
+				label="Rename"
+				keybind={keybind([], ['Enter'])}
+				onClick={() => explorerView.setIsRenaming(true)}
+			/>
 
-			{data.type == 'Path' && data.item.object && data.item.object.date_accessed && (
+			{objectId && objectDateAccessed && (
 				<ContextMenu.Item
 					label="Remove from recents"
-					onClick={() =>
-						data.item.object_id && removeFromRecents.mutate([data.item.object_id])
-					}
+					onClick={async () => {
+						try {
+							await removeFromRecents.mutateAsync([objectId]);
+						} catch (error) {
+							showAlertDialog({
+								title: 'Error',
+								value: `Failed to remove file from recents, due to an error: ${error}`
+							});
+						}
+					}}
 				/>
 			)}
 
-			<ContextMenu.Item
-				label="Cut"
-				keybind={keybind([ModifierKeys.Control], ['X'])}
-				onClick={() => {
-					if (params.path === undefined) return;
+			{locationId && (
+				<>
+					<ContextMenu.Item
+						hidden={!isLocation}
+						label="Cut"
+						keybind={keybind([ModifierKeys.Control], ['X'])}
+						onClick={() => {
+							getExplorerStore().cutCopyState = {
+								sourceParentPath: currentPath ?? '/',
+								sourceLocationId: locationId,
+								sourcePathId: data.item.id,
+								actionType: 'Cut',
+								active: true
+							};
+						}}
+						icon={Scissors}
+					/>
 
-					getExplorerStore().cutCopyState = {
-						sourcePath: params.path,
-						sourceLocationId: store.locationId!,
-						sourcePathId: data.item.id,
-						actionType: 'Cut',
-						active: true
-					};
-				}}
-				icon={Scissors}
-				disabled
-			/>
+					<ContextMenu.Item
+						hidden={!isLocation}
+						label="Copy"
+						keybind={keybind([ModifierKeys.Control], ['C'])}
+						onClick={() => {
+							getExplorerStore().cutCopyState = {
+								sourceParentPath: currentPath ?? '/',
+								sourceLocationId: locationId,
+								sourcePathId: data.item.id,
+								actionType: 'Copy',
+								active: true
+							};
+						}}
+						icon={Copy}
+					/>
 
-			<ContextMenu.Item
-				label="Copy"
-				keybind={keybind([ModifierKeys.Control], ['C'])}
-				onClick={() => {
-					if (params.path === undefined) return;
-
-					getExplorerStore().cutCopyState = {
-						sourcePath: params.path,
-						sourceLocationId: store.locationId!,
-						sourcePathId: data.item.id,
-						actionType: 'Copy',
-						active: true
-					};
-				}}
-				icon={Copy}
-				disabled
-			/>
-
-			<ContextMenu.Item
-				label="Duplicate"
-				keybind={keybind([ModifierKeys.Control], ['D'])}
-				onClick={() => {
-					if (params.path === undefined) return;
-
-					copyFiles.mutate({
-						source_location_id: store.locationId!,
-						sources_file_path_ids: [data.item.id],
-						target_location_id: store.locationId!,
-						target_location_relative_directory_path: params.path,
-						target_file_name_suffix: ' copy'
-					});
-				}}
-				disabled
-			/>
+					<ContextMenu.Item
+						hidden={!isLocation}
+						label="Duplicate"
+						keybind={keybind([ModifierKeys.Control], ['D'])}
+						onClick={async () => {
+							try {
+								await copyFiles.mutateAsync({
+									source_location_id: locationId,
+									sources_file_path_ids: [data.item.id],
+									target_location_id: locationId,
+									target_location_relative_directory_path: currentPath ?? '/',
+									target_file_name_suffix: ' copy'
+								});
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to duplcate file, due to an error: ${error}`
+								});
+							}
+						}}
+					/>
+				</>
+			)}
 
 			<ContextMenu.Item
 				label="Deselect"
-				hidden={!store.cutCopyState.active}
+				hidden={!(cutCopyState.active && isLocation)}
 				onClick={() => {
 					getExplorerStore().cutCopyState = {
-						...store.cutCopyState,
+						...cutCopyState,
 						active: false
 					};
 				}}
@@ -242,58 +268,75 @@ export default ({ data }: Props) => {
 					<ContextMenu.Item label="PNG" disabled />
 					<ContextMenu.Item label="WebP" disabled />
 				</ContextMenu.SubMenu>
-				<ContextMenu.Item
-					onClick={() => {
-						fullRescan.mutate(getExplorerStore().locationId!);
-					}}
-					label="Rescan Directory"
-					icon={Package}
-				/>
-				<ContextMenu.Item
-					onClick={() => {
-						generateThumbnails.mutate({
-							id: getExplorerStore().locationId!,
-							path: params.path ?? ''
-						});
-					}}
-					label="Regen Thumbnails"
-					icon={Package}
-					disabled
-				/>
-				<ContextMenu.Item
-					variant="danger"
-					label="Secure delete"
-					icon={TrashSimple}
-					onClick={() => {
-						dialogManager.create((dp) => (
-							<EraseDialog
-								{...dp}
-								location_id={getExplorerStore().locationId!}
-								path_id={data.item.id}
-							/>
-						));
-					}}
-					disabled
-				/>
+
+				{locationId != null && (
+					<>
+						<ContextMenu.Item
+							hidden={!isLocation}
+							onClick={async () => {
+								try {
+									await fullRescan.mutateAsync(locationId);
+								} catch (error) {
+									showAlertDialog({
+										title: 'Error',
+										value: `Failed to rescan location, due to an error: ${error}`
+									});
+								}
+							}}
+							label="Rescan Directory"
+							icon={Package}
+						/>
+						<ContextMenu.Item
+							onClick={async () => {
+								try {
+									await generateThumbnails.mutateAsync({
+										id: locationId,
+										path: currentPath ?? '/'
+									});
+								} catch (error) {
+									showAlertDialog({
+										title: 'Error',
+										value: `Failed to generate thumbanails, due to an error: ${error}`
+									});
+								}
+							}}
+							label="Regen Thumbnails"
+							icon={Image}
+						/>
+						<ContextMenu.Item
+							variant="danger"
+							label="Secure delete"
+							icon={TrashSimple}
+							onClick={() =>
+								dialogManager.create((dp) => (
+									<EraseDialog
+										{...dp}
+										location_id={locationId}
+										path_id={data.item.id}
+									/>
+								))
+							}
+							disabled
+						/>
+					</>
+				)}
 			</ContextMenu.SubMenu>
 
 			<ContextMenu.Separator />
 
-			<ContextMenu.Item
-				icon={Trash}
-				label="Delete"
-				variant="danger"
-				keybind={keybind([ModifierKeys.Control], ['Delete'])}
-				onClick={() => {
-					dialogManager.create((dp) => (
-						<DeleteDialog
-							{...dp}
-							location_id={getExplorerStore().locationId!}
-							path_id={data.item.id}
-						/>
-					));
-				}}
-			/>
+			{locationId != null && (
+				<ContextMenu.Item
+					icon={Trash}
+					label="Delete"
+					variant="danger"
+					keybind={keybind([ModifierKeys.Control], ['Delete'])}
+					onClick={() =>
+						dialogManager.create((dp) => (
+							<DeleteDialog {...dp} location_id={locationId} path_id={data.item.id} />
+						))
+					}
+				/>
+			)}
 		</>
 	);
 };
@@ -318,16 +361,17 @@ const OpenOrDownloadOptions = (props: { data: ExplorerItem }) => {
 								label="Open"
 								keybind={keybind([ModifierKeys.Control], ['O'])}
 								onClick={async () => {
-									props.data.type === 'Path' &&
-										props.data.item.object_id &&
-										updateAccessTime.mutate(props.data.item.object_id);
+									if (props.data.type === 'Path' && props.data.item.object_id)
+										updateAccessTime
+											.mutateAsync(props.data.item.object_id)
+											.catch(console.error);
 
 									try {
 										await openFilePath(library.uuid, [filePath.id]);
 									} catch (error) {
 										showAlertDialog({
 											title: 'Error',
-											value: `Couldn't open file, due to an error: ${error}`
+											value: `Failed to open file, due to an error: ${error}`
 										});
 									}
 								}}

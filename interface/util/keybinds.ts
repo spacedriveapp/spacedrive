@@ -32,6 +32,8 @@ export function keybind<T extends string>(
 	return [...modifierSymbol, ...keySymbol].join(os === 'macOS' ? '' : '+');
 }
 
-export function keybindForOs(os: OperatingSystem): (modifers: ModifierKeys[], keys: string[]) => string {
+export function keybindForOs(
+	os: OperatingSystem
+): (modifers: ModifierKeys[], keys: string[]) => string {
 	return (modifers: ModifierKeys[], keys: string[]) => keybind(modifers, keys, os);
 }

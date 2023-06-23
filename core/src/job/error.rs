@@ -39,8 +39,6 @@ pub enum JobError {
 	MissingReport { id: Uuid, name: String },
 	#[error("missing some job data: '{value}'")]
 	MissingData { value: String },
-	#[error("error converting/handling paths")]
-	Path,
 	#[error("invalid job status integer: {0}")]
 	InvalidJobStatusInt(i32),
 	#[error(transparent)]

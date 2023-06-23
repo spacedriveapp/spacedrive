@@ -92,52 +92,51 @@ impl StatefulJob for FileCutterJob {
 		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let data = extract_job_data!(state);
+		let file_data = &state.steps[0];
 
-		let step = &state.steps[0];
-
-		let full_output = data
+		let full_output = extract_job_data!(state)
 			.full_target_directory_path
-			.join(construct_target_filename(step, &None)?);
+			.join(construct_target_filename(file_data, &None)?);
 
-		if step.full_path.parent().ok_or(JobError::Path)?
-			== full_output.parent().ok_or(JobError::Path)?
-		{
-			return Err(FileSystemJobsError::MatchingSrcDest(
-				step.full_path.clone().into_boxed_path(),
-			)
-			.into());
-		}
+		let res = if file_data.full_path == full_output {
+			// File is already here, do nothing
+			Ok(())
+		} else {
+			match fs::metadata(&full_output).await {
+				Ok(_) => {
+					warn!(
+						"Skipping {} as it would be overwritten",
+						full_output.display()
+					);
 
-		match fs::metadata(&full_output).await {
-			Ok(_) => {
-				warn!(
-					"Skipping {} as it would be overwritten",
-					full_output.display()
-				);
+					return Err(JobError::StepCompletedWithErrors(vec![
+						FileSystemJobsError::WouldOverwrite(full_output.into_boxed_path())
+							.to_string(),
+					]));
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					trace!(
+						"Cutting {} to {}",
+						file_data.full_path.display(),
+						full_output.display()
+					);
 
-				Err(FileSystemJobsError::WouldOverwrite(full_output.into_boxed_path()).into())
+					fs::rename(&file_data.full_path, &full_output)
+						.await
+						.map_err(|e| FileIOError::from((&file_data.full_path, e)))?;
+
+					Ok(())
+				}
+
+				Err(e) => return Err(FileIOError::from((&full_output, e)).into()),
 			}
-			Err(e) if e.kind() == io::ErrorKind::NotFound => {
-				trace!(
-					"Cutting {} to {}",
-					step.full_path.display(),
-					full_output.display()
-				);
+		};
 
-				fs::rename(&step.full_path, &full_output)
-					.await
-					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+			state.step_number + 1,
+		)]);
 
-				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-					state.step_number + 1,
-				)]);
-
-				Ok(())
-			}
-
-			Err(e) => Err(FileIOError::from((&full_output, e)).into()),
-		}
+		res
 	}
 
 	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {

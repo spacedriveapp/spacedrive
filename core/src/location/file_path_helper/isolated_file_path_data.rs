@@ -82,18 +82,6 @@ impl<'a> IsolatedFilePathData<'a> {
 		self.location_id
 	}
 
-	pub fn name(&'a self) -> &'a str {
-		&self.name
-	}
-
-	pub fn extension(&'a self) -> &'a str {
-		&self.extension
-	}
-
-	pub fn materialized_path(&'a self) -> &'a str {
-		&self.materialized_path
-	}
-
 	pub fn is_root(&self) -> bool {
 		self.is_dir
 			&& self.materialized_path == "/"

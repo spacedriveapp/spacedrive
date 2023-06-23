@@ -2,10 +2,14 @@ import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosp
 import { PropsWithChildren, useMemo } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
-import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { showAlertDialog } from '~/components';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useOperatingSystem,
+	useZodSearchParams
+} from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { useExplorerSearchParams } from './util';
 import { keybindForOs } from '~/util/keybinds';
 
 export const OpenInNativeExplorer = () => {
@@ -43,22 +47,15 @@ export const OpenInNativeExplorer = () => {
 
 export default (props: PropsWithChildren) => {
 	const os = useOperatingSystem();
-	const store = useExplorerStore();
 	const keybind = keybindForOs(os);
-	const [params] = useExplorerSearchParams();
+	const [{ path: currentPath }] = useZodSearchParams();
+	const { locationId, cutCopyState } = useExplorerStore();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.fullRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
-
-	const isPastable =
-		store.cutCopyState.sourceLocationId !== store.locationId
-			? true
-			: store.cutCopyState.sourcePath !== params.path
-			? true
-			: false;
 
 	return (
 		<CM.Root trigger={props.children}>
@@ -83,76 +80,118 @@ export default (props: PropsWithChildren) => {
 
 			<CM.Separator />
 
-			<CM.Item
-				onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
-				label="Re-index"
-				icon={Repeat}
-			/>
+			{locationId && (
+				<>
+					<CM.Item
+						onClick={async () => {
+							try {
+								await rescanLocation.mutateAsync(locationId);
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to re-index location, due to an error: ${error}`
+								});
+							}
+						}}
+						label="Re-index"
+						icon={Repeat}
+					/>
 
-			{isPastable && (
-				<CM.Item
-					label="Paste"
-					keybind={keybind([ModifierKeys.Control], ['V'])}
-					hidden={!store.cutCopyState.active}
-					onClick={() => {
-						if (store.cutCopyState.actionType == 'Copy') {
-							store.locationId &&
-								params.path &&
-								copyFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									sources_file_path_ids: [store.cutCopyState.sourcePathId],
-									target_location_id: store.locationId,
-									target_location_relative_directory_path: params.path,
-									target_file_name_suffix: null
+					<CM.Item
+						label="Paste"
+						keybind={keybind([ModifierKeys.Control], ['V'])}
+						hidden={!cutCopyState.active}
+						onClick={async () => {
+							const path = currentPath ?? '/';
+							const { actionType, sourcePathId, sourceParentPath, sourceLocationId } =
+								cutCopyState;
+							const sameLocation =
+								sourceLocationId === locationId && sourceParentPath === path;
+							try {
+								if (actionType == 'Copy') {
+									await copyFiles.mutateAsync({
+										source_location_id: sourceLocationId,
+										sources_file_path_ids: [sourcePathId],
+										target_location_id: locationId,
+										target_location_relative_directory_path: path,
+										target_file_name_suffix: sameLocation ? ' copy' : null
+									});
+								} else if (sameLocation) {
+									showAlertDialog({
+										title: 'Error',
+										value: `File already exists in this location`
+									});
+								} else {
+									await cutFiles.mutateAsync({
+										source_location_id: sourceLocationId,
+										sources_file_path_ids: [sourcePathId],
+										target_location_id: locationId,
+										target_location_relative_directory_path: path
+									});
+								}
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to ${actionType.toLowerCase()} file, due to an error: ${error}`
 								});
-						} else {
-							store.locationId &&
-								params.path &&
-								cutFiles.mutate({
-									source_location_id: store.cutCopyState.sourceLocationId,
-									sources_file_path_ids: [store.cutCopyState.sourcePathId],
-									target_location_id: store.locationId,
-									target_location_relative_directory_path: params.path
-								});
-						}
-					}}
-					icon={Clipboard}
-				/>
+							}
+						}}
+						icon={Clipboard}
+					/>
+				</>
 			)}
 
 			<CM.Item
 				label="Deselect"
-				hidden={!store.cutCopyState.active}
+				hidden={!cutCopyState.active}
 				onClick={() => {
 					getExplorerStore().cutCopyState = {
-						...store.cutCopyState,
+						...cutCopyState,
 						active: false
 					};
 				}}
 				icon={FileX}
 			/>
 
-			<CM.SubMenu label="More actions..." icon={Plus}>
-				<CM.Item
-					onClick={() =>
-						store.locationId &&
-						generateThumbsForLocation.mutate({
-							id: store.locationId,
-							path: params.path ?? ''
-						})
-					}
-					label="Regen Thumbnails"
-					icon={Image}
-				/>
-				<CM.Item
-					onClick={() =>
-						store.locationId &&
-						objectValidator.mutate({ id: store.locationId, path: params.path ?? '' })
-					}
-					label="Generate Checksums"
-					icon={ShieldCheck}
-				/>
-			</CM.SubMenu>
+			{locationId && (
+				<CM.SubMenu label="More actions..." icon={Plus}>
+					<CM.Item
+						onClick={async () => {
+							try {
+								await generateThumbsForLocation.mutateAsync({
+									id: locationId,
+									path: currentPath ?? '/'
+								});
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to generate thumbanails, due to an error: ${error}`
+								});
+							}
+						}}
+						label="Regen Thumbnails"
+						icon={Image}
+					/>
+
+					<CM.Item
+						onClick={async () => {
+							try {
+								objectValidator.mutateAsync({
+									id: locationId,
+									path: currentPath ?? '/'
+								});
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to generate checksum, due to an error: ${error}`
+								});
+							}
+						}}
+						label="Generate Checksums"
+						icon={ShieldCheck}
+					/>
+				</CM.SubMenu>
+			)}
 		</CM.Root>
 	);
 };

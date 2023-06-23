@@ -124,89 +124,95 @@ impl StatefulJob for FileCopierJob {
 
 		let data = extract_job_data!(state);
 
-		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
-			fs::create_dir_all(target_full_path)
-				.await
-				.map_err(|e| FileIOError::from((target_full_path, e)))?;
+		let res =
+			if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+				fs::create_dir_all(target_full_path)
+					.await
+					.map_err(|e| FileIOError::from((target_full_path, e)))?;
 
-			let mut read_dir = fs::read_dir(&source_file_data.full_path)
-				.await
-				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
+				let mut read_dir = fs::read_dir(&source_file_data.full_path)
+					.await
+					.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
 
-			// Can't use the `steps` borrow from here ownwards, or you feel the wrath of the borrow checker
-			while let Some(children_entry) = read_dir
-				.next_entry()
-				.await
-				.map_err(|e| FileIOError::from((&state.steps[0].source_file_data.full_path, e)))?
-			{
-				let children_path = children_entry.path();
-				let target_children_full_path = state.steps[0].target_full_path.join(
+				// Can't use the `steps` borrow from here ownwards, or you feel the wrath of the borrow checker
+				while let Some(children_entry) = read_dir.next_entry().await.map_err(|e| {
+					FileIOError::from((&state.steps[0].source_file_data.full_path, e))
+				})? {
+					let children_path = children_entry.path();
+					let target_children_full_path = state.steps[0].target_full_path.join(
 					children_path
 						.strip_prefix(&state.steps[0].source_file_data.full_path)
-						.map_err(|_| JobError::Path)?,
+						.expect("We got the children path from the read_dir, so it should be a child of the source path"),
 				);
 
-				// Currently not supporting file_name suffixes children files in a directory being copied
-				state.steps.push_back(FileCopierJobStep {
-					target_full_path: target_children_full_path,
-					source_file_data: get_file_data_from_isolated_file_path(
-						&ctx.library.db,
-						&data.sources_location_path,
-						&IsolatedFilePathData::new(
-							state.init.source_location_id,
+					// Currently not supporting file_name suffixes children files in a directory being copied
+					state.steps.push_back(FileCopierJobStep {
+						target_full_path: target_children_full_path,
+						source_file_data: get_file_data_from_isolated_file_path(
+							&ctx.library.db,
 							&data.sources_location_path,
-							&children_path,
-							children_entry
-								.metadata()
-								.await
-								.map_err(|e| FileIOError::from((&children_path, e)))?
-								.is_dir(),
+							&IsolatedFilePathData::new(
+								state.init.source_location_id,
+								&data.sources_location_path,
+								&children_path,
+								children_entry
+									.metadata()
+									.await
+									.map_err(|e| FileIOError::from((&children_path, e)))?
+									.is_dir(),
+							)
+							.map_err(FileSystemJobsError::from)?,
 						)
-						.map_err(FileSystemJobsError::from)?,
-					)
-					.await?,
-				});
+						.await?,
+					});
 
-				ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
-			}
-		} else {
-			if source_file_data.full_path.parent().ok_or(JobError::Path)?
-				== target_full_path.parent().ok_or(JobError::Path)?
-			{
-				return Err(FileSystemJobsError::MatchingSrcDest(
-					source_file_data.full_path.clone().into_boxed_path(),
-				)
-				.into());
-			}
-
-			match fs::metadata(target_full_path).await {
-				Ok(_) => {
-					// only skip as it could be half way through a huge directory copy and run into an issue
-					warn!(
-						"Skipping {} as it would be overwritten",
-						target_full_path.display()
-					);
+					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
-				Err(e) if e.kind() == io::ErrorKind::NotFound => {
-					trace!(
-						"Copying from {} to {}",
-						source_file_data.full_path.display(),
-						target_full_path.display()
-					);
 
-					fs::copy(&source_file_data.full_path, &target_full_path)
-						.await
-						.map_err(|e| FileIOError::from((target_full_path, e)))?;
+				Ok(())
+			} else if &source_file_data.full_path == target_full_path {
+				// File is already here, do nothing
+				Ok(())
+			} else {
+				match fs::metadata(target_full_path).await {
+					Ok(_) => {
+						// only skip as it could be half way through a huge directory copy and run into an issue
+						warn!(
+							"Skipping {} as it would be overwritten",
+							target_full_path.display()
+						);
+
+						Err(JobError::StepCompletedWithErrors(vec![
+							FileSystemJobsError::WouldOverwrite(
+								target_full_path.clone().into_boxed_path(),
+							)
+							.to_string(),
+						]))
+					}
+					Err(e) if e.kind() == io::ErrorKind::NotFound => {
+						trace!(
+							"Copying from {} to {}",
+							source_file_data.full_path.display(),
+							target_full_path.display()
+						);
+
+						fs::copy(&source_file_data.full_path, &target_full_path)
+							.await
+							// Using the ? here because we don't want to increase the completed task
+							// count in case of file system errors
+							.map_err(|e| FileIOError::from((target_full_path, e)))?;
+
+						Ok(())
+					}
+					Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 				}
-				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
-			}
-		}
+			};
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
 		)]);
 
-		Ok(())
+		res
 	}
 
 	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
