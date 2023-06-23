@@ -1,0 +1,22 @@
+---
+author: Jamie Pine
+title: June '23 Alpha Release
+tags: [News, Updates, Release]
+date: 2023-05-23
+image: images/june-23-alpha-release.png
+imageAlt: Spacedrive UI snapshot alongside logo
+---
+
+Last year we introduced Spacedrive to the world by open-sourcing the codebase on GitHub, the response was amazing and we raised [$2m in venture funding](#). Today, we are a remote team of 10 and the repository has over 17,000 stars. As we approach our first beta release, we're eager to share our progress with you.
+
+Reinventing the file explorer is no simple task, from OS compatibility to synchronizing a highly scalable distributed database running on-device, we've tackled the most challenging engineering problems and developed entirely new technologies to realize the Spacedrive vision. Our tech stack has never been done before, yet is working beyond expectation—from developer experience to runtime performance.
+
+## The Explorer
+
+The Explorer, designed as a familiar interface, is the heart of the app. From here you can explore storage locations and devices in your network. It features 4 views, Icons, List, Columns and Media.
+
+{/* ![](/explorer-ui.webp) */}
+
+## Underlying technology
+
+[Prisma Client Rust](), [RSPC]() and [Specta]() are all libraries developed by members of our team initially for Spacedrive, but are now growing into their own communities, with Prisma officially sponsoring PCR and Tauri adopting Specta for its own type introspection from Rust to TypeScript.

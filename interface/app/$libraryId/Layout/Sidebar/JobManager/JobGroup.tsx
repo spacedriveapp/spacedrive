@@ -24,6 +24,8 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 
 	const isJobsRunning = jobs.some((job) => job.status === 'Running');
 
+	const runningJobId = jobs.find((job) => job.status === 'Running')?.id;
+
 	const tasks = totalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
@@ -53,7 +55,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						<Button
 							className="cursor-pointer"
 							onClick={() => {
-								pauseJob.mutate(data.id);
+								runningJobId && pauseJob.mutate(runningJobId);
 							}}
 							size="icon"
 							variant="outline"
