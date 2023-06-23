@@ -141,10 +141,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							groups.insert(
 								job.id.to_string(),
 								JobGroup {
-									id: job.id.to_string(),
+									id: job.id,
 									action: None,
 									status: job.status,
-									jobs: vec![report.clone()],
+									jobs: [report.clone()].into_iter().collect(),
 									created_at: job.created_at.unwrap_or(Utc::now()),
 								},
 							);
