@@ -53,7 +53,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						<Button
 							className="cursor-pointer"
 							onClick={() => {
-								runningJobId && pauseJob.mutate(runningJobId);
+								pauseJob.mutate(data.id);
 							}}
 							size="icon"
 							variant="outline"
