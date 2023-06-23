@@ -17,7 +17,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{debug, error};
+use tracing::error;
 
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
@@ -136,15 +136,12 @@ impl LocationManager {
 	pub fn new() -> Arc<Self> {
 		let online_tx = broadcast::channel(16).0;
 
-		debug!("LocationManager initialized");
-
 		#[cfg(feature = "location-watcher")]
 		{
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
 			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
 			let (stop_tx, stop_rx) = oneshot::channel();
 
-			#[cfg(feature = "location-watcher")]
 			tokio::spawn(Self::run_locations_checker(
 				location_management_rx,
 				watcher_management_rx,
@@ -350,6 +347,7 @@ impl LocationManager {
 									Ok(is_online) => is_online,
 									Err(e) => {
 										error!("Error while checking online status of location {location_id}: {e}");
+										response_tx.send(Ok(())).ok();
 										continue;
 									}
 								};
