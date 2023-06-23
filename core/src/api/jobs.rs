@@ -16,6 +16,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use prisma_client_rust::or;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -194,12 +195,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					library
 						.db
 						.job()
-						.delete_many(vec![
+						.delete_many(vec![or![
 							job::status::equals(Some(JobStatus::Canceled as i32)),
 							job::status::equals(Some(JobStatus::Failed as i32)),
 							job::status::equals(Some(JobStatus::Completed as i32)),
 							job::status::equals(Some(JobStatus::CompletedWithErrors as i32)),
-						])
+						]])
 						.exec()
 						.await?;
 
