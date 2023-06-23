@@ -80,3 +80,11 @@ export function useExplorerStore() {
 export function getExplorerStore() {
 	return explorerStore;
 }
+
+export function isCut(id: number) {
+	return (
+		explorerStore.cutCopyState.active &&
+		explorerStore.cutCopyState.actionType === 'Cut' &&
+		explorerStore.cutCopyState.sourcePathId === id
+	);
+}

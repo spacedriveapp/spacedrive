@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
 import GridList from '~/components/GridList';
-import { useExplorerStore } from '~/hooks';
+import { isCut, useExplorerStore } from '~/hooks';
 import { ViewItem } from '.';
 import FileThumb from '../File/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
@@ -13,9 +13,10 @@ interface GridViewItemProps {
 	data: ExplorerItem;
 	selected: boolean;
 	index: number;
+	cut: boolean;
 }
 
-const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProps) => {
+const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewItemProps) => {
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
@@ -30,7 +31,11 @@ const GridViewItem = memo(({ data, selected, index, ...props }: GridViewItemProp
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>
 			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
-				<FileThumb data={data} size={explorerStore.gridItemSize} className="mx-auto" />
+				<FileThumb
+					data={data}
+					size={explorerStore.gridItemSize}
+					className={clsx('mx-auto', cut && 'opacity-60')}
+				/>
 			</div>
 
 			<div className="flex flex-col justify-center">
@@ -81,9 +86,11 @@ export default () => {
 					? explorerView.selected.includes(item.item.id)
 					: explorerView.selected === item.item.id;
 
+				const cut = isCut(item.item.id);
+
 				return (
 					<Item selected={isSelected} id={item.item.id}>
-						<GridViewItem data={item} selected={isSelected} index={index} />
+						<GridViewItem data={item} selected={isSelected} index={index} cut={cut} />
 					</Item>
 				);
 			}}

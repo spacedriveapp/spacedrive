@@ -29,6 +29,7 @@ import {
 import {
 	FilePathSearchOrderingKeys,
 	getExplorerStore,
+	isCut,
 	useExplorerStore,
 	useScrolled
 } from '~/hooks';
@@ -43,6 +44,7 @@ interface ListViewItemProps {
 	columnSizing: ColumnSizingState;
 	paddingX: number;
 	selected: boolean;
+	cut: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
@@ -139,10 +141,16 @@ export default () => {
 
 					const selected = selectedId === cell.row.original.item.id;
 
+					const cut = isCut(file.item.id);
+
 					return (
 						<div className="relative flex items-center">
 							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
-								<FileThumb data={file} size={35} />
+								<FileThumb
+									data={file}
+									size={35}
+									className={clsx(cut && 'opacity-60')}
+								/>
 							</div>
 							<RenamableItemText
 								allowHighlight={false}
@@ -225,7 +233,7 @@ export default () => {
 				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
-		[explorerView.selected]
+		[explorerView.selected, explorerStore.cutCopyState.sourcePathId]
 	);
 
 	const table = useReactTable({
@@ -704,6 +712,8 @@ export default () => {
 										const selectedNext =
 											nextRow && isSelected(nextRow.original.item.id);
 
+										const cut = isCut(row.original.item.id);
+
 										return (
 											<div
 												key={row.id}
@@ -751,6 +761,7 @@ export default () => {
 														paddingX={paddingX}
 														columnSizing={columnSizing}
 														selected={selected}
+														cut={cut}
 													/>
 												</div>
 											</div>
