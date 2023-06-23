@@ -1,13 +1,14 @@
 import { FolderNotchOpen } from 'phosphor-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { useExplorerStore, useKeyDeleteFile, useZodSearchParams } from '~/hooks';
+import { useExplorerStore, useKeyDeleteFile } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import ExplorerContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import ContextMenu from './File/ContextMenu';
 import { Inspector } from './Inspector';
 import View, { ExplorerViewProps } from './View';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
 	items: ExplorerItem[] | null;
@@ -20,7 +21,7 @@ export default function Explorer(props: Props) {
 
 	const explorerStore = useExplorerStore();
 
-	const [{ path }] = useZodSearchParams();
+	const [{ path }] = useExplorerSearchParams();
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
