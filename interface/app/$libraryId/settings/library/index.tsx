@@ -1,7 +1,4 @@
 import { RouteObject } from 'react-router';
-import { LocationIdParams, LocationIdParamsSchema } from '~/app/$libraryId';
-
-export type { LocationIdParams } from '~/app/$libraryId';
 
 export default [
 	{
@@ -13,25 +10,12 @@ export default [
 			{ path: 'sharing', lazy: () => import('./sharing') },
 			{ path: 'sync', lazy: () => import('./sync') },
 			{ path: 'general', lazy: () => import('./general') },
-			{
-				path: 'tags',
-				lazy: () => import('./tags'),
-				loader(): LocationIdParams {
-					return { id: -1 };
-				}
-			},
-			{
-				path: 'tags/:id', //this is for edit in tags context menu
-				lazy: () => import('./tags'),
-				loader: ({ params }) => LocationIdParamsSchema.parse(params)
-			},
+			{ path: 'tags', lazy: () => import('./tags') },
+			//this is for edit in tags context menu
+			{ path: 'tags/:id', lazy: () => import('./tags') },
 			{ path: 'nodes', lazy: () => import('./nodes') },
 			{ path: 'locations', lazy: () => import('./locations') }
 		]
 	},
-	{
-		path: 'locations/:id',
-		lazy: () => import('./locations/$id'),
-		loader: ({ params }) => LocationIdParamsSchema.parse(params)
-	}
+	{ path: 'locations/:id', lazy: () => import('./locations/$id') }
 ] satisfies RouteObject[];
