@@ -30,8 +30,6 @@ const items = [
 			'Tasks to be performed via a queue system with multi-threaded workers, such as indexing, identifying, generating preview media and moving files. With a Job Manager interface for tracking progress, pausing and restarting jobs.'
 	},
 	{
-		when: 'Alpha',
-		subtext: 'Q2 2022',
 		completed: true,
 		title: 'Explorer',
 		description:
@@ -51,38 +49,40 @@ const items = [
 	},
 	{
 		completed: true,
+		title: 'Search',
+		description: 'Deep search into your filesystem with a keybind, including offline locations.'
+	},
+	{
+		completed: true,
+		title: 'Media View',
+		description: 'Turn any directory into a camera roll including media from subdirectories'
+	},
+	{
+		when: '0.1.0 Alpha',
+		subtext: 'June 2023',
 		title: 'Key manager',
 		description:
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 	},
 	{
-		when: 'Present Day',
+		when: '0.2.0',
 		title: 'Spacedrop',
 		description: 'Drop files between devices and contacts on a keybind like AirDrop.'
 	},
 	{
-		title: 'Search',
-		description: 'Deep search into your filesystem with a keybind, including offline locations.'
-	},
-	{
-		title: 'Photos',
-		description: 'Photos and video albums similar to Apple/Google photos.'
-	},
-	{
-		when: '0.1.0 Beta',
-		subtext: 'Q2 2023',
 		title: 'Realtime library synchronization',
 		description: 'Automatically synchronized libraries across devices via P2P connections.'
+	},
+	{
+		when: '0.3.0',
+		title: 'Cloud integration',
+		description:
+			'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 	},
 	{
 		title: 'Media encoder',
 		description:
 			'Encode video and audio into various formats, use Tags to automate. Built with FFmpeg.'
-	},
-	{
-		title: 'Cloud integration',
-		description:
-			'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 	},
 	{
 		title: 'Hosted Spaces',
