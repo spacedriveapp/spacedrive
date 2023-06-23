@@ -11,7 +11,7 @@ export const Component = () => {
 	return (
 		<div
 			ref={ref}
-			className="custom-scroll page-scroll app-background flex h-screen w-full flex-col"
+			className="custom-scroll topbar-page-scroll app-background flex h-screen w-full flex-col"
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 		>
 			<PageContext.Provider value={{ ref }}>
