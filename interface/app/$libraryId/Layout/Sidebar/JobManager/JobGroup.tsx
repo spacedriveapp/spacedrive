@@ -108,7 +108,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						iconImg={Folder}
 						name={niceActionName(
 							data.action ?? '',
-							data.status !== 'Completed',
+							data.status === 'Completed',
 							jobs[0]
 						)}
 						textItems={[

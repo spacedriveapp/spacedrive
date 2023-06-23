@@ -20,7 +20,7 @@ use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::{interval, Duration};
-use tracing::trace;
+use tracing::{info, trace};
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
@@ -190,10 +190,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("clearAll", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
+					info!("Clearing all jobs");
 					library
 						.db
 						.job()
 						.delete_many(vec![
+							job::status::equals(Some(JobStatus::Canceled as i32)),
+							job::status::equals(Some(JobStatus::Failed as i32)),
 							job::status::equals(Some(JobStatus::Completed as i32)),
 							job::status::equals(Some(JobStatus::CompletedWithErrors as i32)),
 						])
