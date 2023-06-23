@@ -1,8 +1,7 @@
-import { z } from 'zod';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
+import { type SortOrder, SortOrderSchema } from '~/app/route-schemas';
 import {
 	FilePathSearchOrderingKeys,
-	SortOrder,
 	getExplorerConfigStore,
 	getExplorerStore,
 	useExplorerConfigStore,
@@ -78,12 +77,10 @@ export default () => {
 						size="sm"
 						className="w-full"
 						onChange={(value) =>
-							(getExplorerStore().orderByDirection = value as z.infer<
-								typeof SortOrder
-							>)
+							(getExplorerStore().orderByDirection = value as SortOrder)
 						}
 					>
-						{SortOrder.options.map((o) => (
+						{SortOrderSchema.options.map((o) => (
 							<SelectOption key={o.value} value={o.value}>
 								{o.value}
 							</SelectOption>
