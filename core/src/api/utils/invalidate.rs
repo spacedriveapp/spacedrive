@@ -224,13 +224,10 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
 	// TODO: Scope the invalidate queries to a specific library (filtered server side)
-	let mut r = R.router();
-
-	#[cfg(debug_assertions)]
-	{
+	let r = if cfg!(debug_assertions) {
 		let count = Arc::new(std::sync::atomic::AtomicU16::new(0));
 
-		r = r
+		R.router()
 			.procedure(
 				"test-invalidate",
 				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
@@ -241,8 +238,10 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "invalidation.test-invalidate");
 					Ok(())
 				}),
-			);
-	}
+			)
+	} else {
+		R.router()
+	};
 
 	r.procedure("listen", {
 		R.subscription(move |ctx, _: ()| {

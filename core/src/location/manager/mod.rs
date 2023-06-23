@@ -17,7 +17,7 @@ use tokio::sync::{
 	broadcast::{self, Receiver},
 	oneshot, RwLock,
 };
-use tracing::{debug, error};
+use tracing::error;
 
 #[cfg(feature = "location-watcher")]
 use tokio::sync::mpsc;
@@ -136,15 +136,12 @@ impl LocationManager {
 	pub fn new() -> Arc<Self> {
 		let online_tx = broadcast::channel(16).0;
 
-		debug!("LocationManager initialized");
-
 		#[cfg(feature = "location-watcher")]
 		{
 			let (location_management_tx, location_management_rx) = mpsc::channel(128);
 			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
 			let (stop_tx, stop_rx) = oneshot::channel();
 
-			#[cfg(feature = "location-watcher")]
 			tokio::spawn(Self::run_locations_checker(
 				location_management_rx,
 				watcher_management_rx,
@@ -192,7 +189,7 @@ impl LocationManager {
 				})
 				.await?;
 
-			rx.await?
+			return rx.await?;
 		}
 
 		#[cfg(not(feature = "location-watcher"))]
@@ -345,16 +342,12 @@ impl LocationManager {
 
 						// To add a new location
 						ManagementMessageAction::Add => {
+							response_tx.send(
 							if let Some(location) = get_location(location_id, &library).await {
-								let is_online = match check_online(&location, &library).await {
-									Ok(is_online) => is_online,
-									Err(e) => {
-										error!("Error while checking online status of location {location_id}: {e}");
-										continue;
-									}
-								};
-								let _ = response_tx.send(
-									LocationWatcher::new(location, library.clone())
+								match check_online(&location, &library).await {
+									Ok(is_online) => {
+
+										LocationWatcher::new(location, library.clone())
 										.await
 										.map(|mut watcher| {
 											if is_online {
@@ -375,13 +368,19 @@ impl LocationManager {
 											);
 										}
 									)
-								); // ignore errors, we handle errors on receiver
+									},
+									Err(e) => {
+										error!("Error while checking online status of location {location_id}: {e}");
+										Ok(()) // TODO: Probs should be error but that will break startup when location is offline
+									}
+								}
 							} else {
 								warn!(
 									"Location not found in database to be watched: {}",
 									location_id
 								);
-							}
+								Ok(()) // TODO: Probs should be error but that will break startup when location is offline
+							}).ok(); // ignore errors, we handle errors on receiver
 						},
 
 						// To remove an location
@@ -527,16 +526,20 @@ impl LocationManager {
 	}
 
 	pub async fn add_online(&self, id: Uuid) {
-		self.online_locations
-			.write()
-			.await
-			.insert(id.as_bytes().to_vec());
+		{
+			self.online_locations
+				.write()
+				.await
+				.insert(id.as_bytes().to_vec());
+		}
 		self.broadcast_online().await;
 	}
 
 	pub async fn remove_online(&self, id: &Uuid) {
-		let mut online_locations = self.online_locations.write().await;
-		online_locations.retain(|v| v != id.as_bytes());
+		{
+			let mut online_locations = self.online_locations.write().await;
+			online_locations.retain(|v| v != id.as_bytes());
+		}
 		self.broadcast_online().await;
 	}
 

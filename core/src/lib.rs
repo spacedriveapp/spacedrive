@@ -17,7 +17,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
@@ -59,6 +59,8 @@ impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
+		info!("Starting core with data directory '{}'", data_dir.display());
+
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
 
@@ -69,9 +71,13 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
+		debug!("Initialised 'NodeConfigManager'...");
 
 		let jobs = JobManager::new();
+		debug!("Initialised 'JobManager'...");
+
 		let location_manager = LocationManager::new();
+		debug!("Initialised 'LocationManager'...");
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -83,7 +89,9 @@ impl Node {
 			},
 		)
 		.await?;
+		debug!("Initialised 'LibraryManager'...");
 		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
+		debug!("Initialised 'P2PManager'...");
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
