@@ -33,6 +33,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	});
 
 	const isJobsRunning = jobs.some((job) => job.status === 'Running');
+	const isJobPaused = jobs.some((job) => job.status === 'Paused');
 	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
 
 	useLibrarySubscription(['jobs.progress', activeJobId as string], {
@@ -57,7 +58,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	return (
 		<ul className="relative overflow-hidden">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
-				{data.status === 'Paused' && (
+				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
 					<Button
 						className="cursor-pointer"
 						onClick={() => resumeJob.mutate(data.id)}
@@ -96,6 +97,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						</Button>
 					</Fragment>
 				)}
+
 				{!isJobsRunning && (
 					<Button
 						className="cursor-pointer"
@@ -161,7 +163,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 					{showChildJobs && (
 						<div className="">
 							{jobs.map((job) => (
-								<Job key={job.id} job={job} />
+								<Job isChild={jobs.length > 1} key={job.id} job={job} />
 							))}
 						</div>
 					)}

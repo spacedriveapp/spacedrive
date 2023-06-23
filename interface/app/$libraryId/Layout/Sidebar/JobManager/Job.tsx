@@ -108,7 +108,7 @@ function Job({ job, className, isChild }: JobProps) {
 					: niceData.textItems
 			}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
-			isChild={job.action !== null}
+			isChild={isChild}
 		>
 			{isRunning && (
 				<div className="my-1 ml-1.5 w-[335px]">

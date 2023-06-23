@@ -110,14 +110,13 @@ impl JobManager {
 	/// Dispatches a job to a worker if under MAX_WORKERS limit, queues it otherwise.
 	async fn dispatch(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
 		let mut running_workers = self.running_workers.write().await;
+		let mut job_report = job
+			.report_mut()
+			.take()
+			.expect("critical error: missing job on worker");
 
 		if running_workers.len() < MAX_WORKERS {
 			info!("Running job: {:?}", job.name());
-
-			let job_report = job
-				.report_mut()
-				.take()
-				.expect("critical error: missing job on worker");
 
 			let worker_id = job_report.parent_id.unwrap_or(job_report.id);
 
@@ -138,6 +137,7 @@ impl JobManager {
 				job.hash()
 			);
 			self.job_queue.write().await.push_back(job);
+			job_report.create(library).await;
 		}
 	}
 
