@@ -1,4 +1,5 @@
 import { allPosts } from '@contentlayer/generated';
+import dayjs from 'dayjs';
 import { InferGetStaticPropsType } from 'next';
 import Head from 'next/head';
 import Image from 'next/image';
@@ -47,7 +48,7 @@ export default function BlogPage({ posts }: InferGetStaticPropsType<typeof getSt
 								{/* <p className="line-clamp-3 my-2">{post.excerpt}</p> */}
 								<p className="m-0 text-white">
 									by {post.author} &middot;{' '}
-									{new Date(post.date).toLocaleDateString()}
+									{dayjs(post.date).format('MM/DD/YYYY')}
 								</p>
 								<div className="mt-4 flex flex-wrap gap-2">
 									{post.tags.map((tag) => (

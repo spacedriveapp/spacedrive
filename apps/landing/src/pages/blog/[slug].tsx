@@ -1,4 +1,5 @@
 import { allPosts } from '@contentlayer/generated';
+import dayjs from 'dayjs';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Head from 'next/head';
@@ -66,7 +67,7 @@ export default function PostPage({ post }: InferGetStaticPropsType<typeof getSta
 							</h1>
 							<p className="m-0 mt-2">
 								by <b>{post.author}</b> &middot;{' '}
-								{new Date(post.date).toLocaleDateString()}
+								{dayjs(post.date).format('MM/DD/YYYY')}
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">

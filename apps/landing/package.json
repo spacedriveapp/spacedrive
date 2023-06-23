@@ -22,6 +22,7 @@
 		"autoprefixer": "^10.4.14",
 		"clsx": "^1.2.1",
 		"contentlayer": "^0.3.2",
+		"dayjs": "^1.11.8",
 		"drizzle-orm": "^0.26.0",
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
