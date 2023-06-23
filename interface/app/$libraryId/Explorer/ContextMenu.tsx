@@ -1,6 +1,6 @@
 import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-import { useLibraryMutation } from '@sd/client';
+import { useBridgeQuery, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
@@ -11,7 +11,6 @@ import { useExplorerSearchParams } from './util';
 export const OpenInNativeExplorer = () => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
-	const platform = usePlatform();
 
 	const osFileBrowserName = useMemo(() => {
 		if (os === 'macOS') {
@@ -19,24 +18,34 @@ export const OpenInNativeExplorer = () => {
 		} else if (os === 'windows') {
 			return 'Explorer';
 		} else {
-			return 'File manager';
+			return 'file manager';
 		}
 	}, [os]);
 
+	const { openPath } = usePlatform();
+
+	let { locationId } = useExplorerStore();
+	if (locationId == null) locationId = -1;
+
+	const { library } = useLibraryContext();
+	const { data: node } = useBridgeQuery(['nodeState']);
+	const { data: location } = useLibraryQuery(['locations.get', locationId]);
+	const [{ path: subPath }] = useExplorerSearchParams();
+
+	// Disable for remote nodes, as opening directories in a remote node is a more complex task
+	if (!(openPath && location?.path && node?.id && library.config.node_id === node.id))
+		return null;
+	const path = location.path + (subPath ? subPath : '');
+
 	return (
 		<>
-			{platform.openPath && (
-				<CM.Item
-					label={`Open in ${osFileBrowserName}`}
-					keybind={keybind([ModifierKeys.Control], ['Y'])}
-					onClick={() => {
-						alert('TODO: Open in FS');
-						// console.log('TODO', store.contextMenuActiveItem);
-						// platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
-					}}
-					disabled
-				/>
-			)}
+			<CM.Item
+				label={`Open in ${osFileBrowserName}`}
+				keybind={keybind([ModifierKeys.Control], ['Y'])}
+				onClick={() => openPath(path)}
+			/>
+
+			<CM.Separator />
 		</>
 	);
 };
@@ -56,8 +65,6 @@ export default (props: PropsWithChildren) => {
 	return (
 		<CM.Root trigger={props.children}>
 			<OpenInNativeExplorer />
-
-			<CM.Separator />
 
 			<CM.Item
 				label="Share"
