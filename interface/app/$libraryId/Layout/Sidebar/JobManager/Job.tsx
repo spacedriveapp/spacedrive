@@ -1,12 +1,14 @@
-import { JobProgressEvent, JobReport, useLibraryMutation, useLibrarySubscription } from '@sd/client';
-import { ProgressBar } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import {
-	Info,
-	Question
-} from 'phosphor-react';
+import { Info, Question } from 'phosphor-react';
 import { memo, useCallback, useEffect, useState } from 'react';
+import {
+	JobProgressEvent,
+	JobReport,
+	useLibraryMutation,
+	useLibrarySubscription
+} from '@sd/client';
+import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 import useJobInfo from './useJobInfo';
@@ -23,7 +25,7 @@ function Job({ job, className, isChild }: JobProps) {
 	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
 	useLibrarySubscription(['jobs.progress', job.id], {
-		onData: setRealtimeUpdate,
+		onData: setRealtimeUpdate
 	});
 
 	const niceData = useJobInfo(job, realtimeUpdate)[job.name] || {
@@ -65,28 +67,33 @@ function Job({ job, className, isChild }: JobProps) {
 	// );
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
-	if (job.status === "CompletedWithErrors") {
+	if (job.status === 'CompletedWithErrors') {
 		const JobError = (
-			<pre className='custom-scroll inspector-scroll max-h-[300px] rounded border border-app-darkBox bg-app-darkBox/80 p-3'>
-				{job.errors_text.map((error, i) =>
+			<pre className="custom-scroll inspector-scroll max-h-[300px] rounded border border-app-darkBox bg-app-darkBox/80 p-3">
+				{job.errors_text.map((error, i) => (
 					<p
-						className='mb-1 w-full overflow-auto whitespace-normal break-words text-sm'
-						key={i}>
+						className="mb-1 w-full overflow-auto whitespace-normal break-words text-sm"
+						key={i}
+					>
 						{error.trim()}
 					</p>
-				)}
+				))}
 			</pre>
 		);
-		niceData.textItems?.push([{
-			text: "Completed with errors", icon: Info, onClick: () => {
-				showAlertDialog({
-					title: 'Error',
-					description: 'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
-					children: JobError
-
-				});
+		niceData.textItems?.push([
+			{
+				text: 'Completed with errors',
+				icon: Info,
+				onClick: () => {
+					showAlertDialog({
+						title: 'Error',
+						description:
+							'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
+						children: JobError
+					});
+				}
 			}
-		}])
+		]);
 	}
 
 	return (
@@ -94,7 +101,9 @@ function Job({ job, className, isChild }: JobProps) {
 			className={className}
 			name={niceData.name}
 			circleIcon={niceData.icon}
-			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems}
+			textItems={
+				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
+			}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={job.action !== null}
 		>
@@ -104,9 +113,8 @@ function Job({ job, className, isChild }: JobProps) {
 				</div>
 			)}
 		</JobContainer>
-	)
+	);
 }
-
 
 export default memo(Job);
 

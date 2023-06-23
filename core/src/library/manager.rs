@@ -174,16 +174,12 @@ impl LibraryManager {
 			}
 		}
 
-		let this = Arc::new(Self {
+		Ok(Arc::new(Self {
 			libraries: RwLock::new(libraries),
 			libraries_dir,
 			node_context,
 			subscribers,
-		});
-
-		debug!("LibraryManager initialized");
-
-		Ok(this)
+		}))
 	}
 
 	/// subscribe to library events
@@ -453,6 +449,8 @@ impl LibraryManager {
 				.exec()
 				.await?;
 		}
+
+		drop(node_config); // Let's be sure not to cause a future deadlock
 
 		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 

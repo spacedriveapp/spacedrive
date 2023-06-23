@@ -8,8 +8,8 @@ import AppEmbed from '~/components/AppEmbed';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
+import Space from '~/components/Space';
 import { getWindow } from '~/utils/util';
-import Space from "~/components/Space";
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -152,7 +152,7 @@ export default function HomePage() {
 						</>
 					}
 				/>
-				<Space/>
+				<Space />
 			</div>
 		</PageWrapper>
 	);

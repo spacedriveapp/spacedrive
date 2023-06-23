@@ -21,17 +21,13 @@ import {
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useOperatingSystem,
-	useZodSearchParams
-} from '~/hooks';
+import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { keybindForOs } from '~/util/keybinds';
 import AssignTagMenuItems from '../AssignTagMenuItems';
 import { OpenInNativeExplorer } from '../ContextMenu';
 import { useExplorerViewContext } from '../ViewContext';
+import { useExplorerSearchParams } from '../util';
 import OpenWith from './ContextMenu/OpenWith';
 // import DecryptDialog from './DecryptDialog';
 import DeleteDialog from './DeleteDialog';
@@ -49,7 +45,7 @@ export default ({ data }: Props) => {
 	const objectData = data ? getItemObject(data) : null;
 	const explorerView = useExplorerViewContext();
 	const explorerStore = useExplorerStore();
-	const [{ path: currentPath }] = useZodSearchParams();
+	const [{ path: currentPath }] = useExplorerSearchParams();
 	const { cutCopyState, showInspector, ...store } = useExplorerStore();
 
 	const isLocation =

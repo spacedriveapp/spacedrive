@@ -3,7 +3,6 @@ import { Info, Trash } from 'phosphor-react';
 import { ChangeEvent, useCallback, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
-import { z } from 'zod';
 import {
 	IndexerRuleCreateArgs,
 	RuleKind,
@@ -12,7 +11,7 @@ import {
 	useLibraryMutation
 } from '@sd/client';
 import { Button, Card, Divider, Input, Select, SelectOption, Tooltip } from '@sd/ui';
-import { ErrorMessage, Form, useZodForm } from '@sd/ui/src/forms';
+import { ErrorMessage, Form, useZodForm, z } from '@sd/ui/src/forms';
 import { InputKinds, RuleInput, validateInput } from './RuleInput';
 
 const ruleKinds: UnionToTuple<RuleKind> = [

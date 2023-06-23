@@ -2,13 +2,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLoaderData } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, Label, Tooltip, tw } from '@sd/ui';
 import { Form, InfoText, Input, RadioGroup, Switch, useZodForm, z } from '@sd/ui/src/forms';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
-import type { LocationIdParams } from '~/app/$libraryId/settings/library';
+import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { showAlertDialog } from '~/components';
+import { useZodRouteParams } from '~/hooks';
 import IndexerRuleEditor from './IndexerRuleEditor';
 
 const FlexCol = tw.label`flex flex-col flex-1`;
@@ -33,7 +33,7 @@ export const Component = () => {
 };
 
 const EditLocationForm = () => {
-	const { id: locationId } = useLoaderData() as LocationIdParams;
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	// const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();

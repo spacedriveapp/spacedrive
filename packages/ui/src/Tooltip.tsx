@@ -26,7 +26,7 @@ export const Tooltip = ({
 					<TooltipPrimitive.Content
 						side={position}
 						className={clsx(
-							'z-50 mb-[2px] max-w-[200px] rounded bg-app-darkBox px-2 py-1 text-center text-xs text-ink',
+							'z-50 mb-[2px] max-w-[200px] break-words rounded bg-app-darkBox px-2 py-1 text-center text-xs text-ink',
 							tooltipClassName
 						)}
 					>
