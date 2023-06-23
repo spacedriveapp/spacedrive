@@ -15,9 +15,8 @@ export default function useJobInfo(
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
 		indexedPath = job.metadata?.data?.indexed_path,
-		taskCount = realtimeUpdate?.task_count
-			? comma(realtimeUpdate?.task_count || 0)
-			: comma(job.task_count),
+		taskCount = realtimeUpdate?.task_count || job.task_count,
+		completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count,
 		meta = job.metadata;
 
 	return {
@@ -50,13 +49,10 @@ export default function useJobInfo(
 							meta?.thumbnails_created === 0
 								? 'None generated'
 								: `${
-										realtimeUpdate?.completed_task_count
-											? comma(realtimeUpdate?.completed_task_count || 0)
+										completedTaskCount
+											? comma(completedTaskCount || 0)
 											: comma(meta?.thumbnails_created)
-								  } of ${taskCount} ${plural(
-										job.task_count,
-										'thumbnail'
-								  )} generated`
+								  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
 					},
 					{
 						text:
@@ -97,22 +93,22 @@ export default function useJobInfo(
 		},
 		file_copier: {
 			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
-				isRunning ? job.completed_task_count + 1 : job.completed_task_count
+				isRunning ? completedTaskCount + 1 : completedTaskCount
 			} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
 			icon: Copy,
 			textItems: [[{ text: job.status }]]
 		},
 		file_deleter: {
-			name: `${isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'} ${
-				job.completed_task_count
-			} ${plural(job.completed_task_count, 'file')}`,
+			name: `${
+				isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
+			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
 			icon: Trash,
 			textItems: [[{ text: job.status }]]
 		},
 		file_cutter: {
-			name: `${isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'} ${
-				job.completed_task_count
-			} ${plural(job.completed_task_count, 'file')}`,
+			name: `${
+				isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
+			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
 			icon: Scissors,
 			textItems: [[{ text: job.status }]]
 		}

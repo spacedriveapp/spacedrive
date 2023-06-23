@@ -36,6 +36,7 @@ function Job({ job, className, isChild }: JobProps) {
 	const isRunning = job.status === 'Running';
 
 	const task_count = realtimeUpdate?.task_count || job.task_count;
+	const completed_task_count = realtimeUpdate?.completed_task_count || job.completed_task_count;
 
 	// clear stale realtime state when job is done
 	useEffect(() => {
@@ -102,14 +103,20 @@ function Job({ job, className, isChild }: JobProps) {
 			name={niceData.name}
 			circleIcon={niceData.icon}
 			textItems={
-				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
+				['Queued', 'Paused'].includes(job.status)
+					? [[{ text: job.status }]]
+					: niceData.textItems
 			}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={job.action !== null}
 		>
 			{isRunning && (
 				<div className="my-1 ml-1.5 w-[335px]">
-					<ProgressBar pending={task_count == 0} value={realtimeUpdate?.completed_task_count || 0} total={realtimeUpdate?.task_count || 0} />
+					<ProgressBar
+						pending={task_count == 0}
+						value={completed_task_count}
+						total={task_count}
+					/>
 				</div>
 			)}
 		</JobContainer>

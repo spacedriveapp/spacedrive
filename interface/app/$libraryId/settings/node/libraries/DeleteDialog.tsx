@@ -10,7 +10,6 @@ interface Props extends UseDialogProps {
 
 export default function DeleteLibraryDialog(props: Props) {
 	const submitPlausibleEvent = usePlausibleEvent();
-
 	const queryClient = useQueryClient();
 	const deleteLib = useBridgeMutation('library.delete', {
 		onSuccess: () => {
@@ -21,6 +20,9 @@ export default function DeleteLibraryDialog(props: Props) {
 					type: 'libraryDelete'
 				}
 			});
+		},
+		onError: (e) => {
+			alert(`Failed to delete library: ${e}`);
 		}
 	});
 

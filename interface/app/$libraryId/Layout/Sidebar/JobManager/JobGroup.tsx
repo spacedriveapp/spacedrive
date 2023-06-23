@@ -4,12 +4,11 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
 import { Fragment, useState } from 'react';
-import { JobReport, useLibraryMutation } from '@sd/client';
+import { JobGroup as IJobGroup, JobReport, useLibraryMutation } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
-import { IJobGroup } from './useGroupedJobs';
 
 interface JobGroupProps {
 	data: IJobGroup;
@@ -41,7 +40,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	return (
 		<ul className="relative overflow-hidden">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
-				{data.paused && (
+				{data.status === 'Paused' && (
 					<Button
 						className="cursor-pointer"
 						onClick={() => resumeJob.mutate(data.id)}
@@ -107,19 +106,22 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
 						iconImg={Folder}
-						name={niceActionName(data.action ?? '', !!data.completed, jobs[0])}
+						name={niceActionName(
+							data.action ?? '',
+							data.status !== 'Completed',
+							jobs[0]
+						)}
 						textItems={[
 							[
 								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
 								{ text: date_started },
+								{ text: totalGroupTime || undefined },
 								{
-									text: data.paused
-										? 'Paused'
-										: data.completed
-										? totalGroupTime || undefined
-										: data.queued
-										? 'Queued'
-										: ''
+									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
+										data.status
+									)
+										? data.status
+										: undefined
 								}
 							]
 						]}

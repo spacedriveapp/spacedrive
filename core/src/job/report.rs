@@ -284,7 +284,12 @@ pub enum JobStatus {
 
 impl JobStatus {
 	pub fn is_finished(self) -> bool {
-		matches!(self, Self::Completed | Self::Canceled | Self::Failed | Self::CompletedWithErrors)
+		matches!(
+			self,
+			Self::Completed
+				| Self::Canceled | Self::Paused
+				| Self::Failed | Self::CompletedWithErrors
+		)
 	}
 }
 

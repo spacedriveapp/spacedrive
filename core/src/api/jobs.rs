@@ -130,9 +130,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								// Add to existing job group
 								Entry::Occupied(mut entry) => {
 									let group = entry.get_mut();
-									if group.status.is_finished() && !report.status.is_finished() {
-										group.status = report.status;
-									}
+									group.status = report.status;
+									// if group.status.is_finished() && !report.status.is_finished() {
+									// }
 									group.jobs.push_front(report.clone());
 								}
 							}
@@ -207,26 +207,32 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::pause(&ctx.job_manager, id)
+				.mutation(|(ctx, library), id: Uuid| async move {
+					let ret = JobManager::pause(&ctx.job_manager, id)
 						.await
-						.map_err(Into::into)
+						.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
-				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::resume(&ctx.job_manager, id)
+				.mutation(|(ctx, library), id: Uuid| async move {
+					let ret = JobManager::resume(&ctx.job_manager, id)
 						.await
-						.map_err(Into::into)
+						.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
 				})
 		})
 		.procedure("cancel", {
 			R.with2(library())
-				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::cancel(&ctx.job_manager, id)
+				.mutation(|(ctx, library), id: Uuid| async move {
+					let ret = JobManager::cancel(&ctx.job_manager, id)
 						.await
-						.map_err(Into::into)
+						.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
 				})
 		})
 		.procedure("generateThumbsForLocation", {
