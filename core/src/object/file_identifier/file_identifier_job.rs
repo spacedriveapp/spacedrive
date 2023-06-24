@@ -1,7 +1,7 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -157,9 +157,6 @@ impl StatefulJob for FileIdentifierJob {
 			orphan_count, task_count
 		);
 
-		// update job with total task count based on orphan file_paths count
-		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
-
 		let first_path = db
 			.file_path()
 			.find_first(orphan_path_filters(
@@ -231,14 +228,11 @@ impl StatefulJob for FileIdentifierJob {
 		new_metadata.report.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
 
-		ctx.progress(vec![
-			JobReportUpdate::CompletedTaskCount(step_number + 1),
-			JobReportUpdate::Message(format!(
-				"Processed {} of {} orphan Paths",
-				step_number * CHUNK_SIZE,
-				run_metadata.report.total_orphan_paths
-			)),
-		]);
+		ctx.progress_msg(format!(
+			"Processed {} of {} orphan Paths",
+			step_number * CHUNK_SIZE,
+			run_metadata.report.total_orphan_paths
+		));
 
 		Ok(new_metadata.into())
 	}

@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunErrors, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::push_location_relative_path,
@@ -80,19 +80,15 @@ impl StatefulJob for FileCutterJob {
 		let steps =
 			get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids).await?;
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(steps.len())]);
-
 		Ok(steps.into())
 	}
 
 	async fn execute_step(
 		&self,
-		ctx: &WorkerContext,
+		_: &WorkerContext,
 		_: &Self::Init,
 		CurrentStep {
-			step: file_data,
-			step_number,
-			..
+			step: file_data, ..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
@@ -135,8 +131,6 @@ impl StatefulJob for FileCutterJob {
 				Err(e) => return Err(FileIOError::from((&full_output, e)).into()),
 			}
 		};
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		res
 	}
