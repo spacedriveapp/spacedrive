@@ -54,6 +54,13 @@ impl Hash for ObjectValidatorJobInit {
 	}
 }
 
+// TODO: Remove this in future
+impl AsRef<ObjectValidatorJobInit> for ObjectValidatorJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJobInit {
 	type Data = ObjectValidatorJobData;

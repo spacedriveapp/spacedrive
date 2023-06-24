@@ -35,6 +35,13 @@ pub struct FileCutterJobData {
 	full_target_directory_path: PathBuf,
 }
 
+// TODO: Remove this in future
+impl AsRef<FileCutterJobInit> for FileCutterJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for FileCutterJobInit {
 	type Data = FileCutterJobData;

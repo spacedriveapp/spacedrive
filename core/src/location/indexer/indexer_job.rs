@@ -119,6 +119,13 @@ pub enum IndexerJobStepInput {
 	Walk(ToWalkEntry),
 }
 
+// TODO: Remove this in future
+impl AsRef<IndexerJobInit> for IndexerJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for IndexerJobInit {
 	type Data = IndexerJobData;

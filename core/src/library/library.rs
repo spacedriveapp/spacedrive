@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
+	job::{Job, JobManagerError, StatefulJob},
 	location::{
 		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 		LocationManager,
@@ -64,18 +64,14 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job<SJob, Init>(
+	pub(crate) async fn spawn_job(
 		&self,
-		jobable: impl IntoJob<SJob>,
-	) -> Result<(), JobManagerError>
-	where
-		SJob: StatefulJob<Init = Init> + 'static,
-		Init: JobInitData + 'static,
-	{
+		job: Box<Job<impl StatefulJob>>,
+	) -> Result<(), JobManagerError> {
 		self.node_context
 			.job_manager
 			.clone()
-			.ingest(self, jobable.into_job())
+			.ingest(self, job)
 			.await
 	}
 

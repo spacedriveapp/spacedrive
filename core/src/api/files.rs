@@ -1,6 +1,7 @@
 use crate::{
 	api::utils::library,
 	invalidate_query,
+	job::Job,
 	library::Library,
 	location::{
 		file_path_helper::{
@@ -133,43 +134,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// .procedure("encryptFiles", {
 		// 	R.with2(library())
 		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 			library.spawn_job(Job::new(args)).await.map_err(Into::into)
 		// 		})
 		// })
 		// .procedure("decryptFiles", {
 		// 	R.with2(library())
 		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 			library.spawn_job(Job::new(args)).await.map_err(Into::into)
 		// 		})
 		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileDeleterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					library.spawn_job(Job::new(args)).await.map_err(Into::into)
 				})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileEraserJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					library.spawn_job(Job::new(args)).await.map_err(Into::into)
 				})
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					library.spawn_job(Job::new(args)).await.map_err(Into::into)
 				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					library.spawn_job(Job::new(args)).await.map_err(Into::into)
 				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCutterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					library.spawn_job(Job::new(args)).await.map_err(Into::into)
 				})
 		})
 		.procedure("renameFile", {

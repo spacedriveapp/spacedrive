@@ -1,14 +1,15 @@
 use crate::{
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::Library,
-	location::indexer::indexer_job::IndexerJob,
+	location::indexer::indexer_job::IndexerJobInit,
 	object::{
-		file_identifier::file_identifier_job::FileIdentifierJob,
+		file_identifier::file_identifier_job::FileIdentifierJobInit,
 		fs::{
-			copy::FileCopierJob, cut::FileCutterJob, delete::FileDeleterJob, erase::FileEraserJob,
+			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+			erase::FileEraserJobInit,
 		},
-		preview::thumbnailer_job::ThumbnailerJob,
-		validation::validator_job::ObjectValidatorJob,
+		preview::thumbnailer_job::ThumbnailerJobInit,
+		validation::validator_job::ObjectValidatorJobInit,
 	},
 	prisma::job,
 };
@@ -24,7 +25,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{JobManagerError, JobReport, JobStatus};
+use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 
 // db is single threaded, nerd
 const MAX_WORKERS: usize = 1;
@@ -85,7 +86,7 @@ impl JobManager {
 	pub async fn ingest(
 		self: Arc<Self>,
 		library: &Library,
-		job: Box<dyn DynJob>,
+		job: Box<Job<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
@@ -342,25 +343,26 @@ fn initialize_resumable_job(
 	job_report: JobReport,
 	next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 ) -> Result<Box<dyn DynJob>, JobError> {
-	dispatch_call_to_job_by_name!(
-		job_report.name.as_str(),
-		T -> Job::new_from_report(job_report, T {}, next_jobs),
-		default = {
-			error!(
-				"Unknown job type: {}, id: {}",
-				job_report.name, job_report.id
-			);
-			Err(JobError::UnknownJobName(job_report.id, job_report.name))
-		},
-		jobs = [
-			ThumbnailerJob,
-			IndexerJob,
-			FileIdentifierJob,
-			ObjectValidatorJob,
-			FileCutterJob,
-			FileCopierJob,
-			FileDeleterJob,
-			FileEraserJob,
-		]
-	)
+	// dispatch_call_to_job_by_name!(
+	// 	job_report.name.as_str(),
+	// 	T -> Job::new_from_report(job_report, T {}, next_jobs),
+	// 	default = {
+	// 		error!(
+	// 			"Unknown job type: {}, id: {}",
+	// 			job_report.name, job_report.id
+	// 		);
+	// 		Err(JobError::UnknownJobName(job_report.id, job_report.name))
+	// 	},
+	// 	jobs = [
+	// 		ThumbnailerJobInit,
+	// 		IndexerJobInit,
+	// 		FileIdentifierJobInit,
+	// 		ObjectValidatorJobInit,
+	// 		FileCutterJobInit,
+	// 		FileCopierJobInit,
+	// 		FileDeleterJobInit,
+	// 		FileEraserJobInit,
+	// 	]
+	// )
+	todo!(); // TODO: Refactor this
 }

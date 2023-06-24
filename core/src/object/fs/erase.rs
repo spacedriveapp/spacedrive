@@ -56,6 +56,13 @@ impl JobRunMetadata for FileEraserJobRunMetadata {
 	}
 }
 
+// TODO: Remove this in future
+impl AsRef<FileEraserJobInit> for FileEraserJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJobInit {
 	type Data = FileEraserJobData;

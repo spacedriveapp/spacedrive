@@ -25,6 +25,13 @@ pub struct FileDeleterJobInit {
 	pub file_path_ids: Vec<file_path::id::Type>,
 }
 
+// TODO: Remove this in future
+impl AsRef<FileDeleterJobInit> for FileDeleterJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for FileDeleterJobInit {
 	type Data = ();

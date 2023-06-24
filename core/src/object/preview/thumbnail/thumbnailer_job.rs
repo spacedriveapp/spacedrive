@@ -70,6 +70,13 @@ impl JobRunMetadata for ThumbnailerJobRunMetadata {
 	}
 }
 
+// TODO: Remove this in future
+impl AsRef<ThumbnailerJobInit> for ThumbnailerJobInit {
+	fn as_ref(&self) -> &Self {
+		self
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailerJobInit {
 	type Data = ThumbnailerJobData;
