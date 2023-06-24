@@ -20,6 +20,7 @@ use std::{
 	path::{Component, Path, PathBuf},
 };
 
+use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
@@ -575,6 +576,8 @@ async fn create_location(
 		name = "Unknown".to_string()
 	}
 
+	let date_created = Utc::now();
+
 	let location = sync
 		.write_op(
 			db,
@@ -585,6 +588,7 @@ async fn create_location(
 				[
 					(location::name::NAME, json!(&name)),
 					(location::path::NAME, json!(&location_path)),
+					(location::date_created::NAME, json!(date_created)),
 					(
 						location::node::NAME,
 						json!(sync::node::SyncId {
@@ -599,6 +603,7 @@ async fn create_location(
 					vec![
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
+						location::date_created::set(Some(date_created.into())),
 						location::node::connect(node::id::equals(library.node_local_id)),
 					],
 				)

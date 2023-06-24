@@ -1,27 +1,37 @@
 use crate::{
-	extract_job_data_mut, file_paths_db_fetcher_fn,
-	job::{JobError, JobInitData, JobResult, JobState, StatefulJob, WorkerContext},
-	location::file_path_helper::{
-		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		IsolatedFilePathData,
+	file_paths_db_fetcher_fn, invalidate_query,
+	job::{
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
+		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
+	},
+	location::{
+		file_path_helper::{
+			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			IsolatedFilePathData,
+		},
+		location_with_indexer_rules,
 	},
 	to_remove_db_fetcher_fn,
 	util::db::maybe_missing,
 };
 
-use std::{path::Path, sync::Arc};
+use std::{
+	hash::{Hash, Hasher},
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::Duration,
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
+use tracing::info;
 
 use super::{
-	execute_indexer_save_step, finalize_indexer, iso_file_path_factory,
-	remove_non_existing_file_paths,
+	execute_indexer_save_step, iso_file_path_factory, remove_non_existing_file_paths,
 	rules::IndexerRule,
-	update_notifier_fn,
 	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
-	IndexerError, IndexerJobData, IndexerJobInit, IndexerJobSaveStep, ScanProgress,
+	IndexerError, IndexerJobSaveStep,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
@@ -31,6 +41,75 @@ const BATCH_SIZE: usize = 1000;
 /// First it walks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct IndexerJob;
+
+/// `IndexerJobInit` receives a `location::Data` object to be indexed
+/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
+/// we want do index just a part of a location.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IndexerJobInit {
+	pub location: location_with_indexer_rules::Data,
+	pub sub_path: Option<PathBuf>,
+}
+
+impl Hash for IndexerJobInit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+		if let Some(ref sub_path) = self.sub_path {
+			sub_path.hash(state);
+		}
+	}
+}
+/// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
+/// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
+/// contains some metadata for logging purposes.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IndexerJobData {
+	indexed_path: PathBuf,
+	indexer_rules: Vec<IndexerRule>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct IndexerJobRunMetadata {
+	db_write_time: Duration,
+	scan_read_time: Duration,
+	total_paths: u64,
+	total_save_steps: u64,
+	indexed_count: u64,
+	removed_count: u64,
+}
+
+impl JobRunMetadata for IndexerJobRunMetadata {
+	fn update(&mut self, new_data: Self) {
+		self.db_write_time += new_data.db_write_time;
+		self.scan_read_time += new_data.scan_read_time;
+		self.total_paths += new_data.total_paths;
+		self.total_save_steps += new_data.total_save_steps;
+		self.indexed_count += new_data.indexed_count;
+		self.removed_count += new_data.removed_count;
+	}
+}
+
+#[derive(Clone)]
+pub enum ScanProgress {
+	ChunkCount(usize),
+	SavedChunks(usize),
+	Message(String),
+}
+
+impl IndexerJobData {
+	fn on_scan_progress(ctx: &WorkerContext, progress: Vec<ScanProgress>) {
+		ctx.progress(
+			progress
+				.into_iter()
+				.map(|p| match p {
+					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
+					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
+					ScanProgress::Message(m) => JobReportUpdate::Message(m),
+				})
+				.collect(),
+		)
+	}
+}
 
 impl JobInitData for IndexerJobInit {
 	type Job = IndexerJob;
@@ -49,6 +128,7 @@ impl StatefulJob for IndexerJob {
 	type Init = IndexerJobInit;
 	type Data = IndexerJobData;
 	type Step = IndexerJobStepInput;
+	type RunMetadata = IndexerJobRunMetadata;
 
 	const NAME: &'static str = "indexer";
 
@@ -59,17 +139,16 @@ impl StatefulJob for IndexerJob {
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let location_id = state.init.location.id;
-		let location_path =
-			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let location_id = init.location.id;
+		let location_path = maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 		let db = Arc::clone(&ctx.library.db);
 
-		let indexer_rules = state
-			.init
+		let indexer_rules = init
 			.location
 			.indexer_rules
 			.iter()
@@ -77,7 +156,7 @@ impl StatefulJob for IndexerJob {
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(IndexerError::from)?;
 
-		let to_walk_path = match &state.init.sub_path {
+		let to_walk_path = match &init.sub_path {
 			Some(sub_path) if sub_path != Path::new("") => {
 				let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 					.await
@@ -110,7 +189,7 @@ impl StatefulJob for IndexerJob {
 			walk(
 				&to_walk_path,
 				&indexer_rules,
-				update_notifier_fn(BATCH_SIZE, ctx),
+				update_notifier_fn(ctx),
 				file_paths_db_fetcher_fn!(&db),
 				to_remove_db_fetcher_fn!(location_id, location_path, &db),
 				iso_file_path_factory(location_id, location_path),
@@ -128,86 +207,95 @@ impl StatefulJob for IndexerJob {
 		let total_paths = &mut 0;
 		let to_walk_count = to_walk.len();
 
-		state.steps.extend(
-			walked
-				.chunks(BATCH_SIZE)
-				.into_iter()
-				.enumerate()
-				.map(|(i, chunk)| {
-					let chunk_steps = chunk.collect::<Vec<_>>();
+		let steps = walked
+			.chunks(BATCH_SIZE)
+			.into_iter()
+			.enumerate()
+			.map(|(i, chunk)| {
+				let chunk_steps = chunk.collect::<Vec<_>>();
 
-					*total_paths += chunk_steps.len() as u64;
+				*total_paths += chunk_steps.len() as u64;
 
-					IndexerJobStepInput::Save(IndexerJobSaveStep {
-						chunk_idx: i,
-						walked: chunk_steps,
-					})
+				IndexerJobStepInput::Save(IndexerJobSaveStep {
+					chunk_idx: i,
+					walked: chunk_steps,
 				})
-				.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
-		);
+			})
+			.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
+			.collect::<Vec<_>>();
 
 		IndexerJobData::on_scan_progress(
 			ctx,
-			vec![ScanProgress::Message(format!(
-				"Starting saving {total_paths} files or directories, \
+			vec![
+				ScanProgress::ChunkCount(steps.len() - to_walk_count),
+				ScanProgress::Message(format!(
+					"Starting saving {total_paths} files or directories, \
 					there still {to_walk_count} directories to index",
-			))],
+				)),
+			],
 		);
 
-		state.data = Some(IndexerJobData {
+		*data = Some(IndexerJobData {
 			indexed_path: to_walk_path,
 			indexer_rules,
-			db_write_time: db_delete_time,
-			scan_read_time,
-			total_paths: *total_paths,
-			indexed_count: 0,
-			removed_count,
-			total_save_steps: state.steps.len() as u64 - to_walk_count as u64,
 		});
 
-		if !errors.is_empty() {
-			Err(JobError::StepCompletedWithErrors(
-				errors.into_iter().map(|e| format!("{e}")).collect(),
-			))
-		} else {
-			Ok(())
-		}
+		Ok((
+			IndexerJobRunMetadata {
+				db_write_time: db_delete_time,
+				scan_read_time,
+				total_paths: *total_paths,
+				indexed_count: 0,
+				removed_count,
+				total_save_steps: steps.len() as u64 - to_walk_count as u64,
+			},
+			steps,
+			errors
+				.into_iter()
+				.map(|e| format!("{e}"))
+				.collect::<Vec<_>>()
+				.into(),
+		)
+			.into())
 	}
 
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let data = extract_job_data_mut!(state);
-
-		match &state.steps[0] {
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
+		data: &Self::Data,
+		run_metadata: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let mut new_metadata = Self::RunMetadata::default();
+		match step {
 			IndexerJobStepInput::Save(step) => {
 				let start_time = Instant::now();
 
 				IndexerJobData::on_scan_progress(
 					ctx,
 					vec![
-						ScanProgress::SavedChunks(step.chunk_idx),
+						ScanProgress::SavedChunks(step.chunk_idx + 1),
 						ScanProgress::Message(format!(
 							"Writing chunk {} of {} to database",
-							step.chunk_idx, data.total_save_steps
+							step.chunk_idx, run_metadata.total_save_steps
 						)),
 					],
 				);
 
 				let count =
-					execute_indexer_save_step(&state.init.location, step, &ctx.library.clone())
-						.await?;
+					execute_indexer_save_step(&init.location, step, &ctx.library.clone()).await?;
 
-				data.indexed_count += count as u64;
-				data.db_write_time += start_time.elapsed();
+				new_metadata.indexed_count = count as u64;
+				new_metadata.db_write_time = start_time.elapsed();
+
+				Ok(new_metadata.into())
 			}
 			IndexerJobStepInput::Walk(to_walk_entry) => {
-				let location_id = state.init.location.id;
+				let location_id = init.location.id;
 				let location_path =
-					maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+					maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
 				let db = Arc::clone(&ctx.library.db);
 
@@ -222,7 +310,7 @@ impl StatefulJob for IndexerJob {
 					keep_walking(
 						to_walk_entry,
 						&data.indexer_rules,
-						update_notifier_fn(BATCH_SIZE, ctx),
+						update_notifier_fn(ctx),
 						file_paths_db_fetcher_fn!(&db),
 						to_remove_db_fetcher_fn!(location_id, location_path, &db),
 						iso_file_path_factory(location_id, location_path),
@@ -230,57 +318,83 @@ impl StatefulJob for IndexerJob {
 					.await?
 				};
 
-				data.scan_read_time += scan_start.elapsed();
+				new_metadata.scan_read_time = scan_start.elapsed();
 
 				let db_delete_time = Instant::now();
 				// TODO pass these uuids to sync system
-				data.removed_count += remove_non_existing_file_paths(to_remove, &db).await?;
-				data.db_write_time += db_delete_time.elapsed();
+				new_metadata.removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
+				new_metadata.db_write_time = db_delete_time.elapsed();
 
-				let _old_total = data.total_paths;
-				let _old_steps_count = state.steps.len() as u64;
+				let to_walk_count = to_walk.len();
 
-				state.steps.extend(
-					walked
-						.chunks(BATCH_SIZE)
-						.into_iter()
-						.enumerate()
-						.map(|(i, chunk)| {
-							let chunk_steps = chunk.collect::<Vec<_>>();
-							data.total_paths += chunk_steps.len() as u64;
+				let more_steps = walked
+					.chunks(BATCH_SIZE)
+					.into_iter()
+					.enumerate()
+					.map(|(i, chunk)| {
+						let chunk_steps = chunk.collect::<Vec<_>>();
+						new_metadata.total_paths += chunk_steps.len() as u64;
 
-							IndexerJobStepInput::Save(IndexerJobSaveStep {
-								chunk_idx: i,
-								walked: chunk_steps,
-							})
+						IndexerJobStepInput::Save(IndexerJobSaveStep {
+							chunk_idx: i,
+							walked: chunk_steps,
 						})
-						.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk)),
+					})
+					.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
+					.collect::<Vec<_>>();
+
+				IndexerJobData::on_scan_progress(
+					ctx,
+					vec![
+						ScanProgress::ChunkCount(more_steps.len() - to_walk_count),
+						ScanProgress::Message(format!(
+							"Scanned more {} files or directories; {} more directories to scan",
+							new_metadata.total_paths, to_walk_count
+						)),
+					],
 				);
 
-				// IndexerJobData::on_scan_progress(
-				// 	&mut ctx,
-				// 	vec![ScanProgress::Message(format!(
-				// 		"Scanned more {} files or directories; {} more directories to scan",
-				// 		data.total_paths - old_total,
-				// 		state.steps.len() as u64 - old_steps_count - data.total_paths
-				// 	))],
-				// );
-
-				if !errors.is_empty() {
-					return Err(JobError::StepCompletedWithErrors(
-						errors.into_iter().map(|e| format!("{e}")).collect(),
-					));
-				}
+				Ok((
+					more_steps,
+					new_metadata,
+					errors
+						.into_iter()
+						.map(|e| format!("{e}"))
+						.collect::<Vec<_>>()
+						.into(),
+				)
+					.into())
 			}
 		}
-
-		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let location_path =
-			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+		info!(
+			"scan of {} completed in {:?}. {} new files found, \
+			indexed {} files in db. db write completed in {:?}",
+			maybe_missing(&state.init.location.path, "location.path")?,
+			state.run_metadata.scan_read_time,
+			state.run_metadata.total_paths,
+			state.run_metadata.indexed_count,
+			state.run_metadata.db_write_time,
+		);
 
-		finalize_indexer(location_path, state, ctx)
+		if state.run_metadata.indexed_count > 0 || state.run_metadata.removed_count > 0 {
+			invalidate_query!(ctx.library, "search.paths");
+		}
+
+		Ok(Some(serde_json::to_value(state)?))
+	}
+}
+
+fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
+	move |path, total_entries| {
+		IndexerJobData::on_scan_progress(
+			ctx,
+			vec![ScanProgress::Message(format!(
+				"Scanning: {:?}; Found: {total_entries} entries",
+				path.file_name().unwrap_or(path.as_os_str())
+			))],
+		);
 	}
 }

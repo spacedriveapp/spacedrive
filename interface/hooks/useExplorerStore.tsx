@@ -29,7 +29,7 @@ export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 const state = {
 	locationId: null as number | null,
 	layoutMode: 'grid' as ExplorerLayoutMode,
-	gridItemSize: 100,
+	gridItemSize: 110,
 	listItemSize: 40,
 	selectedRowIndex: 1 as number | null,
 	showBytesInGridView: true,
@@ -47,7 +47,7 @@ const state = {
 	},
 	quickViewObject: null as ExplorerItem | null,
 	mediaColumns: 8,
-	mediaAspectSquare: true,
+	mediaAspectSquare: false,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none'
