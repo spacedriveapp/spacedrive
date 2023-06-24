@@ -7,7 +7,6 @@ const schema = z.object({
 	name: z.string(),
 	color: z.string(),
 	date_created: z.string()
-	// date_created: z.string()
 });
 
 export default (props: UseDialogProps & { assignToObject?: number }) => {
