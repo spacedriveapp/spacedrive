@@ -1,5 +1,6 @@
 pub mod seed;
 
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -12,6 +13,7 @@ use crate::{library::Library, prisma::tag, sync};
 pub struct TagCreateArgs {
 	pub name: String,
 	pub color: String,
+	pub date_created: DateTime<Utc>,
 }
 
 impl TagCreateArgs {
@@ -30,6 +32,10 @@ impl TagCreateArgs {
 				[
 					(tag::name::NAME, json!(&self.name)),
 					(tag::color::NAME, json!(&self.color)),
+					(
+						tag::date_created::NAME,
+						json!(&self.date_created.to_rfc3339()),
+					),
 				],
 			),
 			db.tag().create(
@@ -37,6 +43,7 @@ impl TagCreateArgs {
 				vec![
 					tag::name::set(Some(self.name)),
 					tag::color::set(Some(self.color)),
+					tag::date_created::set(Some(self.date_created.into())),
 				],
 			),
 		)

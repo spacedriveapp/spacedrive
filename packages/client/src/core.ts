@@ -257,7 +257,7 @@ export type Tag = { id: number; pub_id: number[]; name: string | null; color: st
 
 export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
 
-export type TagCreateArgs = { name: string; color: string }
+export type TagCreateArgs = { name: string; color: string; date_created: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
