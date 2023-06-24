@@ -14,8 +14,6 @@ use thiserror::Error;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use super::JobRunErrors;
-
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
@@ -67,8 +65,6 @@ pub enum JobError {
 	ThumbnailSkipped,
 
 	// Not errors
-	#[error("step completed with errors: {0:?}")]
-	StepCompletedWithErrors(JobRunErrors),
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
 	#[error("data needed for job execution not found: job <name='{0}'>")]

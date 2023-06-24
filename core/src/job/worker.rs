@@ -1,6 +1,7 @@
 use crate::{api::CoreEvent, invalidate_query, library::Library};
 
 use std::{
+	fmt,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -19,7 +20,9 @@ use tokio::{
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
-use super::{DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunOutput, JobStatus};
+use super::{
+	DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus,
+};
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct JobProgressEvent {
@@ -40,15 +43,21 @@ pub enum WorkerEvent {
 // used to send commands to the worker thread from the manager
 #[derive(Debug)]
 pub enum WorkerCommand {
-	Pause,
-	Resume,
-	Cancel(oneshot::Sender<()>),
-	Shutdown(oneshot::Sender<()>),
+	Pause(Instant),
+	Resume(Instant),
+	Cancel(Instant, oneshot::Sender<()>),
+	Shutdown(Instant, oneshot::Sender<()>),
 }
 
 pub struct WorkerContext {
 	pub library: Library,
 	events_tx: mpsc::UnboundedSender<WorkerEvent>,
+}
+
+impl fmt::Debug for WorkerContext {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("WorkerContext").finish()
+	}
 }
 
 impl Drop for WorkerContext {
@@ -134,31 +143,61 @@ impl Worker {
 	}
 
 	pub async fn pause(&self) {
-		self.paused.store(true, Ordering::Relaxed);
-		self.commands_tx.send(WorkerCommand::Pause).await.ok();
-		self.report_watch_tx.send_modify(|report| report.status = JobStatus::Paused);
+		if self.report_watch_rx.borrow().status == JobStatus::Running {
+			self.paused.store(true, Ordering::Relaxed);
+			if self
+				.commands_tx
+				.send(WorkerCommand::Pause(Instant::now()))
+				.await
+				.is_ok()
+			{
+				self.report_watch_tx
+					.send_modify(|report| report.status = JobStatus::Paused);
+			}
+		}
 	}
 
 	pub async fn resume(&self) {
-		self.paused.store(false, Ordering::Relaxed);
-		self.commands_tx.send(WorkerCommand::Resume).await.ok();
-		self.report_watch_tx.send_modify(|report| report.status = JobStatus::Running);
-
+		if self.report_watch_rx.borrow().status == JobStatus::Paused {
+			self.paused.store(false, Ordering::Relaxed);
+			if self
+				.commands_tx
+				.send(WorkerCommand::Resume(Instant::now()))
+				.await
+				.is_ok()
+			{
+				self.report_watch_tx
+					.send_modify(|report| report.status = JobStatus::Running);
+			}
+		}
 	}
 
 	pub async fn cancel(&self) {
-		let (tx, rx) = oneshot::channel();
-		self.commands_tx.send(WorkerCommand::Cancel(tx)).await.ok();
-		rx.await.ok();
+		if self.report_watch_rx.borrow().status != JobStatus::Canceled {
+			let (tx, rx) = oneshot::channel();
+			if self
+				.commands_tx
+				.send(WorkerCommand::Cancel(Instant::now(), tx))
+				.await
+				.is_ok()
+			{
+				self.report_watch_tx
+					.send_modify(|report| report.status = JobStatus::Canceled);
+				rx.await.ok();
+			}
+		}
 	}
 
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
-		self.commands_tx
-			.send(WorkerCommand::Shutdown(tx))
+		if self
+			.commands_tx
+			.send(WorkerCommand::Shutdown(Instant::now(), tx))
 			.await
-			.ok();
-		rx.await.ok();
+			.is_ok()
+		{
+			rx.await.ok();
+		}
 	}
 
 	pub fn report(&self) -> JobReport {
@@ -331,7 +370,7 @@ impl Worker {
 			// -> Job completed successfully
 			Ok(JobRunOutput {
 				metadata,
-				errors,
+				errors: JobRunErrors(errors),
 				next_job,
 			}) if errors.is_empty() => {
 				report.status = JobStatus::Completed;
@@ -351,7 +390,7 @@ impl Worker {
 			// -> Job completed with errors
 			Ok(JobRunOutput {
 				metadata,
-				errors,
+				errors: JobRunErrors(errors),
 				next_job,
 			}) => {
 				warn!(

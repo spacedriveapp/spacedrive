@@ -136,8 +136,15 @@ impl JobManager {
 				job.name(),
 				job.hash()
 			);
+			if let Err(e) = job_report.create(library).await {
+				// It's alright to just log here, as will try to create the report on run if it wasn't created before
+				error!("Error creating job report: {:#?}", e);
+			}
+
+			// Put the report back, or it will be lost forever
+			*job.report_mut() = Some(job_report);
+
 			self.job_queue.write().await.push_back(job);
-			job_report.create(library).await;
 		}
 	}
 

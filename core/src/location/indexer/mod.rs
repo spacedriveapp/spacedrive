@@ -1,22 +1,16 @@
 use crate::{
-	extract_job_data, invalidate_query,
-	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
-use std::{
-	hash::{Hash, Hasher},
-	path::{Path, PathBuf},
-	time::Duration,
-};
+use std::path::Path;
 
 use chrono::Utc;
 use rspc::ErrorCode;
 use sd_prisma::prisma_sync;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tracing::info;
@@ -34,66 +28,13 @@ mod walk;
 use rules::IndexerRuleError;
 use walk::WalkedEntry;
 
+pub use indexer_job::IndexerJobInit;
 pub use shallow::*;
-
-/// `IndexerJobInit` receives a `location::Data` object to be indexed
-/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
-/// we want do index just a part of a location.
-#[derive(Serialize, Deserialize)]
-pub struct IndexerJobInit {
-	pub location: location_with_indexer_rules::Data,
-	pub sub_path: Option<PathBuf>,
-}
-
-impl Hash for IndexerJobInit {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.location.id.hash(state);
-		if let Some(ref sub_path) = self.sub_path {
-			sub_path.hash(state);
-		}
-	}
-}
-/// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
-/// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
-/// contains some metadata for logging purposes.
-#[derive(Serialize, Deserialize)]
-pub struct IndexerJobData {
-	indexed_path: PathBuf,
-	indexer_rules: Vec<rules::IndexerRule>,
-	db_write_time: Duration,
-	scan_read_time: Duration,
-	total_paths: u64,
-	total_save_steps: u64,
-	indexed_count: u64,
-	removed_count: u64,
-}
-
-impl IndexerJobData {
-	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress(
-			progress
-				.into_iter()
-				.map(|p| match p {
-					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
-					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => JobReportUpdate::Message(m),
-				})
-				.collect(),
-		)
-	}
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IndexerJobSaveStep {
 	chunk_idx: usize,
 	walked: Vec<WalkedEntry>,
-}
-
-#[derive(Clone)]
-pub enum ScanProgress {
-	ChunkCount(usize),
-	SavedChunks(usize),
-	Message(String),
 }
 
 /// Error type for the indexer module
@@ -233,47 +174,6 @@ async fn execute_indexer_save_step(
 	info!("Inserted {count} records");
 
 	Ok(count)
-}
-
-fn finalize_indexer<SJob, Init, Step>(
-	location_path: impl AsRef<Path>,
-	state: &JobState<SJob>,
-	ctx: &mut WorkerContext,
-) -> JobResult
-where
-	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = Step>,
-	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
-	Step: Serialize + DeserializeOwned + Send + Sync,
-{
-	let data = extract_job_data!(state);
-
-	info!(
-		"scan of {} completed in {:?}. {} new files found, \
-			indexed {} files in db. db write completed in {:?}",
-		location_path.as_ref().display(),
-		data.scan_read_time,
-		data.total_paths,
-		data.indexed_count,
-		data.db_write_time,
-	);
-
-	if data.indexed_count > 0 || data.removed_count > 0 {
-		invalidate_query!(ctx.library, "search.paths");
-	}
-
-	Ok(Some(serde_json::to_value(state)?))
-}
-
-fn update_notifier_fn(ctx: &mut WorkerContext) -> impl FnMut(&Path, usize) + '_ {
-	move |path, total_entries| {
-		IndexerJobData::on_scan_progress(
-			ctx,
-			vec![ScanProgress::Message(format!(
-				"Scanning: {:?}; Found: {total_entries} entries",
-				path.file_name().unwrap_or(path.as_os_str())
-			))],
-		);
-	}
 }
 
 fn iso_file_path_factory(

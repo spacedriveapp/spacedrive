@@ -1,7 +1,7 @@
 use crate::{
-	extract_job_data, extract_job_data_mut,
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
+		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -20,9 +20,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::{
-	process_identifier_file_paths, FileIdentifierJobError, FileIdentifierReport, CHUNK_SIZE,
-};
+use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
 pub struct FileIdentifierJob {}
 
@@ -31,7 +29,7 @@ pub struct FileIdentifierJob {}
 /// and uniquely identifies them:
 /// - first: generating the cas_id and extracting metadata
 /// - finally: creating unique object records, and linking them to their file_paths
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,
 	pub sub_path: Option<PathBuf>, // subpath to start from
@@ -46,11 +44,34 @@ impl Hash for FileIdentifierJobInit {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct FileIdentifierJobState {
-	cursor: file_path::id::Type,
-	report: FileIdentifierReport,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FileIdentifierJobData {
+	location_path: PathBuf,
 	maybe_sub_iso_file_path: Option<IsolatedFilePathData<'static>>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct FileIdentifierJobRunMetadata {
+	report: FileIdentifierReport,
+	cursor: file_path::id::Type,
+}
+
+impl JobRunMetadata for FileIdentifierJobRunMetadata {
+	fn update(&mut self, new_data: Self) {
+		self.report.total_orphan_paths += new_data.report.total_orphan_paths;
+		self.report.total_objects_created += new_data.report.total_objects_created;
+		self.report.total_objects_linked += new_data.report.total_objects_linked;
+		self.report.total_objects_ignored += new_data.report.total_objects_ignored;
+		self.cursor = new_data.cursor;
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct FileIdentifierReport {
+	total_orphan_paths: usize,
+	total_objects_created: usize,
+	total_objects_linked: usize,
+	total_objects_ignored: usize,
 }
 
 impl JobInitData for FileIdentifierJobInit {
@@ -60,8 +81,9 @@ impl JobInitData for FileIdentifierJobInit {
 #[async_trait::async_trait]
 impl StatefulJob for FileIdentifierJob {
 	type Init = FileIdentifierJobInit;
-	type Data = FileIdentifierJobState;
+	type Data = FileIdentifierJobData;
 	type Step = ();
+	type RunMetadata = FileIdentifierJobRunMetadata;
 
 	const NAME: &'static str = "file_identifier";
 
@@ -71,19 +93,19 @@ impl StatefulJob for FileIdentifierJob {
 
 	async fn init(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
 
-		let location_id = state.init.location.id;
+		let location_id = init.location.id;
 
-		let location_path =
-			maybe_missing(&state.init.location.path, "location.path").map(Path::new)?;
+		let location_path = maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
-		let maybe_sub_iso_file_path = match &state.init.sub_path {
+		let maybe_sub_iso_file_path = match &init.sub_path {
 			Some(sub_path) if sub_path != Path::new("") => {
 				let full_path = ensure_sub_path_is_in_location(location_path, sub_path)
 					.await
@@ -113,17 +135,12 @@ impl StatefulJob for FileIdentifierJob {
 			count_orphan_file_paths(db, location_id, &maybe_sub_iso_file_path).await?;
 
 		// Initializing `state.data` here because we need a complete state in case of early finish
-		state.data = Some(FileIdentifierJobState {
-			report: FileIdentifierReport {
-				location_path: location_path.to_path_buf(),
-				total_orphan_paths: orphan_count,
-				..Default::default()
-			},
-			cursor: 0,
+		*data = Some(FileIdentifierJobData {
+			location_path: location_path.to_path_buf(),
 			maybe_sub_iso_file_path,
 		});
 
-		let data = extract_job_data_mut!(state);
+		let data = data.as_ref().expect("we just set it");
 
 		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
@@ -155,33 +172,37 @@ impl StatefulJob for FileIdentifierJob {
 			.await?
 			.expect("We already validated before that there are orphans `file_path`s"); // SAFETY: We already validated before that there are orphans `file_path`s
 
-		data.cursor = first_path.id;
-
-		state.steps.extend((0..task_count).map(|_| ()));
-
-		Ok(())
+		Ok((
+			FileIdentifierJobRunMetadata {
+				report: FileIdentifierReport {
+					total_orphan_paths: orphan_count,
+					..Default::default()
+				},
+				cursor: first_path.id,
+			},
+			vec![(); task_count],
+		)
+			.into())
 	}
 
 	async fn execute_step(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let FileIdentifierJobState {
-			ref mut cursor,
-			ref mut report,
-			ref maybe_sub_iso_file_path,
-		} = extract_job_data_mut!(state);
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		CurrentStep { step_number, .. }: CurrentStep<'_, Self::Step>,
+		data: &Self::Data,
+		run_metadata: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let location = &init.location;
 
-		let step_number = state.step_number;
-		let location = &state.init.location;
+		let mut new_metadata = Self::RunMetadata::default();
 
 		// get chunk of orphans to process
 		let file_paths = get_orphan_file_paths(
 			&ctx.library.db,
 			location.id,
-			*cursor,
-			maybe_sub_iso_file_path,
+			run_metadata.cursor,
+			&data.maybe_sub_iso_file_path,
 		)
 		.await?;
 
@@ -195,37 +216,40 @@ impl StatefulJob for FileIdentifierJob {
 			});
 		}
 
-		let (total_objects_created, total_objects_linked) = process_identifier_file_paths(
-			location,
-			&file_paths,
-			step_number,
-			cursor,
-			&ctx.library,
-			report.total_orphan_paths,
-		)
-		.await?;
+		let (total_objects_created, total_objects_linked, new_cursor) =
+			process_identifier_file_paths(
+				location,
+				&file_paths,
+				step_number,
+				run_metadata.cursor,
+				&ctx.library,
+				run_metadata.report.total_orphan_paths,
+			)
+			.await?;
 
-		report.total_objects_created += total_objects_created;
-		report.total_objects_linked += total_objects_linked;
+		new_metadata.report.total_objects_created = total_objects_created;
+		new_metadata.report.total_objects_linked = total_objects_linked;
+		new_metadata.cursor = new_cursor;
 
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(step_number + 1),
 			JobReportUpdate::Message(format!(
 				"Processed {} of {} orphan Paths",
 				step_number * CHUNK_SIZE,
-				report.total_orphan_paths
+				run_metadata.report.total_orphan_paths
 			)),
 		]);
 
-		Ok(())
+		Ok(new_metadata.into())
 	}
 
-	async fn finalize(&mut self, _: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		let report = &extract_job_data!(state).report;
+	async fn finalize(&self, _: &WorkerContext, state: &JobState<Self>) -> JobResult {
+		info!(
+			"Finalizing identifier job: {:?}",
+			&state.run_metadata.report
+		);
 
-		info!("Finalizing identifier job: {report:?}");
-
-		Ok(Some(serde_json::to_value(report)?))
+		Ok(Some(serde_json::to_value(state)?))
 	}
 }
 

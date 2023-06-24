@@ -216,8 +216,6 @@ impl JobReport {
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
 		let now = Utc::now();
 
-		self.created_at = Some(now);
-
 		library
 			.db
 			.job()
@@ -242,6 +240,10 @@ impl JobReport {
 			)
 			.exec()
 			.await?;
+
+		// Only setting created_at after we successfully created the job in DB
+		self.created_at = Some(now);
+
 		Ok(())
 	}
 

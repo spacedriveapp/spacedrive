@@ -19,11 +19,10 @@ use sd_sync::CRDTOperation;
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::{Path, PathBuf},
+	path::Path,
 };
 
 use futures::future::join_all;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::fs;
@@ -92,15 +91,6 @@ impl FileMetadata {
 			fs_metadata,
 		})
 	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FileIdentifierReport {
-	location_path: PathBuf,
-	total_orphan_paths: usize,
-	total_objects_created: usize,
-	total_objects_linked: usize,
-	total_objects_ignored: usize,
 }
 
 async fn identifier_job_step(
@@ -346,10 +336,10 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut file_path::id::Type,
+	cursor: file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
-) -> Result<(usize, usize), JobError> {
+) -> Result<(usize, usize, file_path::id::Type), JobError> {
 	info!(
 		"Processing {:?} orphan Paths. ({} completed of {})",
 		file_paths.len(),
@@ -357,12 +347,16 @@ async fn process_identifier_file_paths(
 		orphan_count
 	);
 
-	let counts = identifier_job_step(library, location, file_paths).await?;
+	let (total_objects_created, total_objects_linked) =
+		identifier_job_step(library, location, file_paths).await?;
 
-	// set the step data cursor to the last row of this chunk
-	if let Some(last_row) = file_paths.last() {
-		*cursor = last_row.id;
-	}
-
-	Ok(counts)
+	Ok((
+		total_objects_created,
+		total_objects_linked,
+		// returns a new cursor to the last row of this chunk or the current one
+		file_paths
+			.last()
+			.map(|last_row| last_row.id)
+			.unwrap_or(cursor),
+	))
 }
