@@ -326,6 +326,8 @@ impl JobManager {
 
 #[macro_use]
 mod macros {
+	// TODO: Come up with a way to maintain only a single list of all jobs???
+
 	macro_rules! dispatch_call_to_job_by_name {
         ($job_name:expr, T -> $call:expr, default = $default:block, jobs = [ $($job:ty),+ $(,)?]) => {{
             match $job_name {
@@ -337,6 +339,17 @@ mod macros {
             }
         }};
     }
+
+	macro_rules! do_the_thing {
+		(T -> $call:expr, jobs = [ $($job:ty),+ $(,)?]) => {
+			vec![
+				$({
+					type T = $job;
+					$call
+				},)+
+			]
+		};
+	}
 }
 /// This function is used to initialize a  DynJob from a job report.
 fn initialize_resumable_job(
@@ -364,4 +377,43 @@ fn initialize_resumable_job(
 			FileEraserJobInit,
 		]
 	)
+}
+
+// This relies of Specta internals so don't copy it unless you know what your doing!
+pub fn job_metadata_ty(
+	opts: specta::DefOpts,
+	generics: &[specta::DataType],
+) -> Result<specta::DataType, specta::ExportError> {
+	use specta::{DefOpts, EnumVariant, TupleType, Type};
+
+	Ok(specta::DataType::Enum(specta::EnumType::Tagged {
+		variants: do_the_thing! (
+			T -> (
+				T::NAME,
+				// TODO: The need for this match is something that I think needs fixed in Specta v2 unless i'm missing something
+				EnumVariant::Unnamed(TupleType {
+					fields: vec![<T as StatefulJob>::Metadata::inline(DefOpts {
+						parent_inline: true,
+						type_map: opts.type_map,
+					}, generics)?],
+					generics: vec![],
+				})
+			),
+			jobs = [
+				ThumbnailerJobInit,
+				IndexerJobInit,
+				FileIdentifierJobInit,
+				ObjectValidatorJobInit,
+				FileCutterJobInit,
+				FileCopierJobInit,
+				FileDeleterJobInit,
+				FileEraserJobInit,
+			]
+		),
+		generics: vec![],
+		repr: specta::EnumRepr::Adjacent {
+			tag: "type",
+			content: "data",
+		},
+	}))
 }

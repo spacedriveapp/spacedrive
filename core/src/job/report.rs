@@ -12,7 +12,7 @@ use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
-use super::JobError;
+use super::{job_metadata_ty, JobError};
 
 #[derive(Debug)]
 pub enum JobReportUpdate {
@@ -43,7 +43,7 @@ pub struct JobReport {
 	pub name: String,
 	pub action: Option<String>,
 	pub data: Option<Vec<u8>>,
-	pub metadata: Option<serde_json::Value>,
+	pub metadata: Option<JobMetadata>,
 	pub is_background: bool,
 	pub errors_text: Vec<String>,
 
@@ -59,6 +59,24 @@ pub struct JobReport {
 
 	pub message: String,
 	pub estimated_completion: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)] // TODO: Custom `Serialize` and no `Deserialize`???
+pub struct JobMetadata(serde_json::Value);
+
+impl From<serde_json::Value> for JobMetadata {
+	fn from(v: serde_json::Value) -> Self {
+		Self(v)
+	}
+}
+
+impl Type for JobMetadata {
+	fn inline(
+		opts: specta::DefOpts,
+		generics: &[specta::DataType],
+	) -> Result<specta::DataType, specta::ExportError> {
+		job_metadata_ty(opts, generics)
+	}
 }
 
 impl Display for JobReport {
@@ -83,7 +101,7 @@ impl TryFrom<job::Data> for JobReport {
 			action: data.action,
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
-				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
+				serde_json::from_slice(&m).unwrap_or_else(|e| {
 					error!("Failed to deserialize job metadata: {}", e);
 					None
 				})
@@ -124,7 +142,7 @@ impl TryFrom<job_without_data::Data> for JobReport {
 			action: data.action,
 			data: None,
 			metadata: data.metadata.and_then(|m| {
-				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
+				serde_json::from_slice(&m).unwrap_or_else(|e| {
 					error!("Failed to deserialize job metadata: {}", e);
 					None
 				})

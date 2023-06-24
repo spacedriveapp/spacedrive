@@ -384,7 +384,7 @@ impl Worker {
 			}) if errors.is_empty() => {
 				report.status = JobStatus::Completed;
 				report.data = None;
-				report.metadata = metadata;
+				report.metadata = metadata.map(Into::into);
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
 					error!("failed to update job report: {:#?}", e);
@@ -409,7 +409,7 @@ impl Worker {
 				report.status = JobStatus::CompletedWithErrors;
 				report.errors_text = errors;
 				report.data = None;
-				report.metadata = metadata;
+				report.metadata = metadata.map(Into::into);
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
 					error!("failed to update job report: {:#?}", e);

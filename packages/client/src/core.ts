@@ -145,7 +145,7 @@ export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
 
 export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { type: "thumbnailer"; data: null } | { type: "indexer"; data: null } | { type: "file_identifier"; data: null } | { type: "object_validator"; data: null } | { type: "file_cutter"; data: null } | { type: "file_copier"; data: null } | { type: "file_deleter"; data: null } | { type: "file_eraser"; data: null } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
