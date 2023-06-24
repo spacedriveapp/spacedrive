@@ -63,7 +63,6 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
 				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
 					<Button
-						disabled
 						className="cursor-pointer"
 						onClick={() => resumeJob.mutate(data.id)}
 						size="icon"
@@ -79,7 +78,6 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 					<Fragment>
 						<Tooltip label="Pause (coming soon)">
 							<Button
-								disabled
 								className="cursor-pointer"
 								onClick={() => {
 									pauseJob.mutate(data.id);
