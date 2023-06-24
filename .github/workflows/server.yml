@@ -40,7 +40,7 @@ jobs:
       - name: Build Docker image
         shell: bash
         run: |
-          docker build ./apps/server/docker --tag $IMAGE_NAME:$IMAGE_TAG --build-arg="REPO_REF=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          docker build ./apps/server/docker --tag $IMAGE_NAME:$IMAGE_TAG --build-arg="REPO=${GITHUB_REPOSITORY}" --build-arg="REPO_REF=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
 
       - name: Push Docker image
         shell: bash
