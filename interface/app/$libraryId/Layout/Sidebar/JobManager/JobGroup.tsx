@@ -63,6 +63,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
 				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
 					<Button
+						disabled
 						className="cursor-pointer"
 						onClick={() => resumeJob.mutate(data.id)}
 						size="icon"
@@ -76,31 +77,31 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 
 				{isJobsRunning && (
 					<Fragment>
-						<Button
-							disabled
-							className="cursor-pointer"
-							onClick={() => {
-								pauseJob.mutate(data.id);
-							}}
-							size="icon"
-							variant="outline"
-						>
-							<Tooltip label="Pause">
+						<Tooltip label="Pause (coming soon)">
+							<Button
+								disabled
+								className="cursor-pointer"
+								onClick={() => {
+									pauseJob.mutate(data.id);
+								}}
+								size="icon"
+								variant="outline"
+							>
 								<Pause className="h-4 w-4 cursor-pointer" />
-							</Tooltip>
-						</Button>
-						<Button
-							className="cursor-pointer"
-							onClick={() => {
-								cancelJob.mutate(data.id);
-							}}
-							size="icon"
-							variant="outline"
-						>
-							<Tooltip label="Stop">
+							</Button>
+						</Tooltip>
+						<Tooltip label="Stop">
+							<Button
+								className="cursor-pointer"
+								onClick={() => {
+									cancelJob.mutate(data.id);
+								}}
+								size="icon"
+								variant="outline"
+							>
 								<Stop className="h-4 w-4 cursor-pointer" />
-							</Tooltip>
-						</Button>
+							</Button>
+						</Tooltip>
 					</Fragment>
 				)}
 
