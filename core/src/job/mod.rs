@@ -814,19 +814,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			None
 		};
 
-		// let state = JobState::<SJob, SJob> {
-		// 	init: Arc::try_unwrap(stateful_job).expect("job already ran, no more refs"),
-		// 	data,
-		// 	steps,
-		// 	step_number,
-		// 	run_metadata,
-		// };
-
-		// let metadata = stateful_job
-		// 	.finalize(&ctx, &stateful_job.data, &stateful_job.run_metadata)
-		// 	.await?;
-
-		let metadata = todo!();
+		let metadata = stateful_job.finalize(&ctx, &data, &run_metadata).await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 

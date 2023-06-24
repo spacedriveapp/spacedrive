@@ -17,8 +17,6 @@ use tracing::warn;
 
 use super::{get_location_path_from_location_id, get_many_files_datas, FileData};
 
-pub struct FileDeleterJob {}
-
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileDeleterJobInit {
 	pub location_id: location::id::Type,
