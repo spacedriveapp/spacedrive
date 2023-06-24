@@ -34,38 +34,19 @@ function Job({ job, className, isChild }: JobProps) {
 		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
 	};
 	const isRunning = job.status === 'Running';
+	const isPaused = job.status === 'Paused';
 
 	const task_count = realtimeUpdate?.task_count || job.task_count;
 	const completed_task_count = realtimeUpdate?.completed_task_count || job.completed_task_count;
 
 	// clear stale realtime state when job is done
 	useEffect(() => {
-		if (job.status !== 'Running') {
-			setRealtimeUpdate(null);
-		}
-	}, [job.status]);
+		if (isRunning) setRealtimeUpdate(null);
+	}, [isRunning]);
 
 	// dayjs from seconds to time
 	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
 
-	const clearJob = useLibraryMutation(['jobs.clear'], {
-		onError: () => {
-			showAlertDialog({
-				title: 'Error',
-				value: 'There was an error clearing the job. Please try again.'
-			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.reports']);
-		}
-	});
-
-	// const clearJobHandler = useCallback(
-	// 	(id: string) => {
-	// 		clearJob.mutate(id);
-	// 	},
-	// 	[clearJob]
-	// );
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -103,14 +84,14 @@ function Job({ job, className, isChild }: JobProps) {
 			name={niceData.name}
 			circleIcon={niceData.icon}
 			textItems={
-				['Queued', 'Paused'].includes(job.status)
+				['Queued'].includes(job.status)
 					? [[{ text: job.status }]]
 					: niceData.textItems
 			}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>
-			{isRunning && (
+			{isRunning || isPaused && (
 				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar
 						pending={task_count == 0}

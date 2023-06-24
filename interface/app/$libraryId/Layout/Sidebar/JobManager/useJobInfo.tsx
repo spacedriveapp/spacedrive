@@ -14,6 +14,7 @@ export default function useJobInfo(
 ): Record<string, JobNiceData> {
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
+		isPaused = job.status === 'Paused',
 		indexedPath = job.metadata?.data?.indexed_path,
 		taskCount = realtimeUpdate?.task_count || job.task_count,
 		completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count,
@@ -21,20 +22,19 @@ export default function useJobInfo(
 
 	return {
 		indexer: {
-			name: `${isQueued ? 'Index' : isRunning ? 'Indexing' : 'Indexed'} files  ${
-				indexedPath ? `at ${indexedPath}` : ``
-			}`,
+			name: `${isQueued ? 'Index' : isRunning ? 'Indexing' : 'Indexed'} files  ${indexedPath ? `at ${indexedPath}` : ``
+				}`,
 			icon: Folder,
 			textItems: [
 				[
 					{
 						text:
-							isRunning && realtimeUpdate?.message
+							isPaused ? job.message : isRunning && realtimeUpdate?.message
 								? realtimeUpdate.message
 								: `${comma(meta?.data?.total_paths)} ${plural(
-										meta?.data?.total_paths,
-										'path'
-								  )}`
+									meta?.data?.total_paths,
+									'path'
+								)}`
 					}
 				]
 			]
@@ -48,11 +48,10 @@ export default function useJobInfo(
 						text:
 							meta?.thumbnails_created === 0
 								? 'None generated'
-								: `${
-										completedTaskCount
-											? comma(completedTaskCount || 0)
-											: comma(meta?.thumbnails_created)
-								  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
+								: `${completedTaskCount
+									? comma(completedTaskCount || 0)
+									: comma(meta?.thumbnails_created)
+								} of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
 					},
 					{
 						text:
@@ -69,53 +68,49 @@ export default function useJobInfo(
 					? meta?.total_orphan_paths === 0
 						? [{ text: 'No files changed' }]
 						: [
-								{
-									text: `${comma(meta?.total_orphan_paths)} ${plural(
-										meta?.total_orphan_paths,
-										'file'
-									)}`
-								},
-								{
-									text: `${comma(meta?.total_objects_created)} ${plural(
-										meta?.total_objects_created,
-										'Object'
-									)} created`
-								},
-								{
-									text: `${comma(meta?.total_objects_linked)} ${plural(
-										meta?.total_objects_linked,
-										'Object'
-									)} linked`
-								}
-						  ]
+							{
+								text: `${comma(meta?.total_orphan_paths)} ${plural(
+									meta?.total_orphan_paths,
+									'file'
+								)}`
+							},
+							{
+								text: `${comma(meta?.total_objects_created)} ${plural(
+									meta?.total_objects_created,
+									'Object'
+								)} created`
+							},
+							{
+								text: `${comma(meta?.total_objects_linked)} ${plural(
+									meta?.total_objects_linked,
+									'Object'
+								)} linked`
+							}
+						]
 					: [{ text: realtimeUpdate?.message }]
 			]
 		},
 		file_copier: {
-			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
-				isRunning ? completedTaskCount + 1 : completedTaskCount
-			} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
+			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${isRunning ? completedTaskCount + 1 : completedTaskCount
+				} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
 			icon: Copy,
 			textItems: [[{ text: job.status }]]
 		},
 		file_deleter: {
-			name: `${
-				isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
-			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+			name: `${isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
 			icon: Trash,
 			textItems: [[{ text: job.status }]]
 		},
 		file_cutter: {
-			name: `${
-				isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
-			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+			name: `${isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
 			icon: Scissors,
 			textItems: [[{ text: job.status }]]
 		},
 		object_validator: {
-			name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
-				!isQueued ? completedTaskCount : ''
-			} ${plural(completedTaskCount, 'object')}`,
+			name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${!isQueued ? completedTaskCount : ''
+				} ${plural(completedTaskCount, 'object')}`,
 			icon: Fingerprint,
 			textItems: [[{ text: job.status }]]
 		}
