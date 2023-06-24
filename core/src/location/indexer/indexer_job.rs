@@ -37,11 +37,6 @@ use super::{
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
 
-/// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
-/// First it walks the directory and generates a list of files to index, chunked into
-/// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
-pub struct IndexerJob;
-
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 /// and possibly a `sub_path` to be indexed. The `sub_path` is used when
 /// we want do index just a part of a location.
@@ -126,6 +121,9 @@ impl AsRef<IndexerJobInit> for IndexerJobInit {
 	}
 }
 
+/// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
+/// First it walks the directory and generates a list of files to index, chunked into
+/// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 #[async_trait::async_trait]
 impl StatefulJob for IndexerJobInit {
 	type Data = IndexerJobData;

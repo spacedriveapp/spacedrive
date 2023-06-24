@@ -25,8 +25,6 @@ use super::{
 	get_file_data_from_isolated_file_path, get_many_files_datas, FileData,
 };
 
-pub struct FileCopierJob {}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobData {
 	sources_location_path: PathBuf,

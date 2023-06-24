@@ -20,8 +20,6 @@ use tracing::{trace, warn};
 
 use super::{fetch_source_and_target_location_paths, get_many_files_datas, FileData};
 
-pub struct FileCutterJob {}
-
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileCutterJobInit {
 	pub source_location_id: location::id::Type,

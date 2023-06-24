@@ -27,8 +27,6 @@ use super::{
 	get_location_path_from_location_id, get_many_files_datas, FileData,
 };
 
-pub struct FileEraserJob {}
-
 #[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileEraserJobInit {

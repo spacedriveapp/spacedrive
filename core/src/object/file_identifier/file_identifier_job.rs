@@ -22,8 +22,6 @@ use tracing::info;
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
-pub struct FileIdentifierJob {}
-
 /// `FileIdentifierJobInit` takes file_paths without an object_id from a location
 /// or starting from a `sub_path` (getting every descendent from this `sub_path`
 /// and uniquely identifies them:

@@ -26,12 +26,6 @@ use tracing::info;
 
 use super::{hash::file_checksum, ValidatorError};
 
-// The Validator is able to:
-// - generate a full byte checksum for Objects in a Location
-// - generate checksums for all Objects missing without one
-// - compare two objects and return true if they are the same
-pub struct ObjectValidatorJob {}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ObjectValidatorJobData {
 	pub location_path: PathBuf,
@@ -61,6 +55,10 @@ impl AsRef<ObjectValidatorJobInit> for ObjectValidatorJobInit {
 	}
 }
 
+// The Validator is able to:
+// - generate a full byte checksum for Objects in a Location
+// - generate checksums for all Objects missing without one
+// - compare two objects and return true if they are the same
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJobInit {
 	type Data = ObjectValidatorJobData;

@@ -33,8 +33,6 @@ use super::{
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
 
-pub struct ThumbnailerJob {}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ThumbnailerJobInit {
 	pub location: location::Data,
