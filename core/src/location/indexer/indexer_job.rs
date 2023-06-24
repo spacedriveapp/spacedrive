@@ -114,13 +114,6 @@ pub enum IndexerJobStepInput {
 	Walk(ToWalkEntry),
 }
 
-// TODO: Remove this in future
-impl AsRef<IndexerJobInit> for IndexerJobInit {
-	fn as_ref(&self) -> &Self {
-		self
-	}
-}
-
 /// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
 /// First it walks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.

@@ -48,13 +48,6 @@ impl Hash for ObjectValidatorJobInit {
 	}
 }
 
-// TODO: Remove this in future
-impl AsRef<ObjectValidatorJobInit> for ObjectValidatorJobInit {
-	fn as_ref(&self) -> &Self {
-		self
-	}
-}
-
 // The Validator is able to:
 // - generate a full byte checksum for Objects in a Location
 // - generate checksums for all Objects missing without one

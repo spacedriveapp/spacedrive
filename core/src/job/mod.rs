@@ -54,16 +54,7 @@ impl JobRunMetadata for () {
 
 #[async_trait::async_trait]
 pub trait StatefulJob:
-	Serialize
-	+ DeserializeOwned
-	+ Hash
-	+ fmt::Debug
-	+ Send
-	+ Sync
-	+ Sized
-	+ 'static
-	// TODO: Remove `AsRef`
-	+ AsRef<Self>
+	Serialize + DeserializeOwned + Hash + fmt::Debug + Send + Sync + Sized + 'static
 {
 	type Data: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type Step: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
@@ -125,19 +116,16 @@ pub trait DynJob: Send + Sync {
 	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
 }
 
-pub struct Job<SJob: StatefulJob + AsRef<SJob>> {
+pub struct Job<SJob: StatefulJob> {
 	id: Uuid,
 	hash: u64,
 	report: Option<JobReport>,
-	state: Option<JobState<SJob, SJob>>,
+	state: Option<JobState<SJob>>,
 	// stateful_job: Option<SJob>,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
-impl<SJob> Job<SJob>
-where
-	SJob: StatefulJob,
-{
+impl<SJob: StatefulJob> Job<SJob> {
 	pub(super) fn new(init: SJob) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
@@ -201,7 +189,7 @@ where
 		mut report: JobReport,
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
-		let state = rmp_serde::from_slice::<JobState<SJob, SJob>>(
+		let state = rmp_serde::from_slice::<JobState<SJob>>(
 			&report
 				.data
 				.take()
@@ -249,14 +237,41 @@ where
 	}
 }
 
-// Both these generics should point to the same type, due to:
-// https://github.com/serde-rs/serde/issues/2418
-// https://github.com/rust-lang/rust/issues/34979
+#[derive(Serialize)]
+pub struct JobState<Job: StatefulJob> {
+	pub init: Job,
+	pub data: Option<Job::Data>,
+	pub steps: VecDeque<Job::Step>,
+	pub step_number: usize,
+	pub run_metadata: Job::RunMetadata,
+}
+
+impl<'de, Job: StatefulJob> Deserialize<'de> for JobState<Job> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		<JobStateRaw<Job, Job> as Deserialize<'de>>::deserialize::<D>(deserializer).map(|raw| {
+			JobState {
+				init: raw.init,
+				data: raw.data,
+				steps: raw.steps,
+				step_number: raw.step_number,
+				run_metadata: raw.run_metadata,
+			}
+		})
+	}
+}
+
+/// This is a workaround for a serde bug.
+/// Both these generics on this type should point to the same type.
+///
+/// https://github.com/serde-rs/serde/issues/2418
+/// https://github.com/rust-lang/rust/issues/34979
 #[derive(Serialize, Deserialize)]
-pub struct JobState<Job, JobInit>
+struct JobStateRaw<Job, JobInit>
 where
-	Job: StatefulJob + From<JobInit> + AsRef<JobInit>,
-	JobInit: From<Job> + AsRef<Job>,
+	Job: StatefulJob,
 {
 	pub init: JobInit,
 	pub data: Option<Job::Data>,
@@ -660,7 +675,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 												return Err(
 													JobError::Paused(
 														rmp_serde::to_vec_named(
-															&JobState::<SJob, SJob> {
+															&JobState::<SJob> {
 																init: Arc::try_unwrap(stateful_job)
 																	.expect("handle abort already ran, no more refs"),
 																data: Some(
@@ -720,7 +735,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 									return Err(
 										JobError::Paused(
 											rmp_serde::to_vec_named(
-												&JobState::<SJob, SJob> {
+												&JobState::<SJob> {
 													init: Arc::try_unwrap(stateful_job)
 														.expect("handle abort already ran, no more refs"),
 													data: Some(

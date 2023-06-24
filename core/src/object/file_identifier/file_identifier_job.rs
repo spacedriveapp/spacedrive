@@ -72,13 +72,6 @@ pub struct FileIdentifierReport {
 	total_objects_ignored: usize,
 }
 
-// TODO: Remove this in future
-impl AsRef<FileIdentifierJobInit> for FileIdentifierJobInit {
-	fn as_ref(&self) -> &Self {
-		self
-	}
-}
-
 #[async_trait::async_trait]
 impl StatefulJob for FileIdentifierJobInit {
 	type Data = FileIdentifierJobData;

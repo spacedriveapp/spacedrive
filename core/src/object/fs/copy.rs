@@ -45,13 +45,6 @@ pub struct FileCopierJobStep {
 	pub target_full_path: PathBuf,
 }
 
-// TODO: Remove this in future
-impl AsRef<FileCopierJobInit> for FileCopierJobInit {
-	fn as_ref(&self) -> &Self {
-		self
-	}
-}
-
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJobInit {
 	type Data = FileCopierJobData;
