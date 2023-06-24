@@ -7,9 +7,7 @@ use crate::library::Library;
 /// Shouldn't be called more than once!
 pub async fn new_library(library: &Library) -> prisma_client_rust::Result<()> {
 	// remove type after tags are added
-	let now = Utc::now();
-
-	// let time_stamp = UNIX_EPOCH + Duration::from_secs(timestamp.into());
+	let now = Utc::now().into();
 
 	let tags = [
 		TagCreateArgs {
