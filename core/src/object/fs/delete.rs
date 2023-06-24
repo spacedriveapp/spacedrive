@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobStepOutput, StatefulJob,
+		WorkerContext,
 	},
 	library::Library,
 	prisma::{file_path, location},
@@ -101,9 +101,15 @@ impl StatefulJob for FileDeleterJob {
 		Ok(().into())
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(&init)?))
 	}
 }

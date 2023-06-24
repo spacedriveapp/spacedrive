@@ -2,7 +2,7 @@ use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::{
 		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		JobRunMetadata, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	location::{
 		file_path_helper::{
@@ -368,22 +368,29 @@ impl StatefulJob for IndexerJob {
 		}
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
 		info!(
 			"scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",
-			maybe_missing(&state.init.location.path, "location.path")?,
-			state.run_metadata.scan_read_time,
-			state.run_metadata.total_paths,
-			state.run_metadata.indexed_count,
-			state.run_metadata.db_write_time,
+			maybe_missing(&init.location.path, "location.path")?,
+			run_metadata.scan_read_time,
+			run_metadata.total_paths,
+			run_metadata.indexed_count,
+			run_metadata.db_write_time,
 		);
 
-		if state.run_metadata.indexed_count > 0 || state.run_metadata.removed_count > 0 {
+		if run_metadata.indexed_count > 0 || run_metadata.removed_count > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(state)?))
+		// Ok(Some(serde_json::to_value(state)?))
+		todo!();
 	}
 }
 

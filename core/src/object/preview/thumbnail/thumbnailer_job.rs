@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
@@ -219,23 +219,27 @@ impl StatefulJob for ThumbnailerJob {
 		Ok(new_metadata.into())
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
 		info!(
 			"Finished thumbnail generation for location {} at {}",
-			state.init.location.id,
-			state
-				.data
-				.as_ref()
+			init.location.id,
+			data.as_ref()
 				.expect("critical error: missing data on job state")
 				.path
 				.display()
 		);
 
-		if state.run_metadata.thumbnails_created > 0 {
+		if run_metadata.thumbnails_created > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(&state.run_metadata)?))
+		Ok(Some(serde_json::to_value(&run_metadata)?))
 	}
 }
 

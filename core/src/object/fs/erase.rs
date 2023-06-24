@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
@@ -178,10 +178,15 @@ impl StatefulJob for FileEraserJob {
 		res
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
 		try_join_all(
-			state
-				.run_metadata
+			run_metadata
 				.diretories_to_remove
 				.iter()
 				.cloned()
@@ -195,6 +200,6 @@ impl StatefulJob for FileEraserJob {
 
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(&init)?))
 	}
 }

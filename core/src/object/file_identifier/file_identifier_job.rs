@@ -1,6 +1,6 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
@@ -237,13 +237,17 @@ impl StatefulJob for FileIdentifierJob {
 		Ok(new_metadata.into())
 	}
 
-	async fn finalize(&self, _: &WorkerContext, state: &JobState<Self>) -> JobResult {
-		info!(
-			"Finalizing identifier job: {:?}",
-			&state.run_metadata.report
-		);
+	async fn finalize(
+		&self,
+		_: &WorkerContext,
+		_data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+		_init: &Self::Init,
+	) -> JobResult {
+		info!("Finalizing identifier job: {:?}", &run_metadata.report);
 
-		Ok(Some(serde_json::to_value(state)?))
+		todo!();
+		// Ok(Some(serde_json::to_value(state)?))
 	}
 }
 

@@ -1,7 +1,7 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobStepOutput, StatefulJob,
+		WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -182,24 +182,27 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(().into())
 	}
 
-	async fn finalize(&self, _: &WorkerContext, state: &JobState<Self>) -> JobResult {
-		let data = state
-			.data
+	async fn finalize(
+		&self,
+		_: &WorkerContext,
+		data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
+		let data = data
 			.as_ref()
 			.expect("critical error: missing data on job state");
 
 		info!(
 			"finalizing validator job at {}{}: {} tasks",
 			data.location_path.display(),
-			state
-				.init
-				.sub_path
+			init.sub_path
 				.as_ref()
 				.map(|p| format!("{}", p.display()))
 				.unwrap_or_default(),
 			data.task_count
 		);
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(&init)?))
 	}
 }

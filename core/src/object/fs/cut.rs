@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::push_location_relative_path,
@@ -135,9 +135,15 @@ impl StatefulJob for FileCutterJob {
 		res
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult {
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(&init)?))
 	}
 }

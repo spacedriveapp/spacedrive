@@ -98,7 +98,13 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError>;
 
 	/// is called after all steps have been executed
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult;
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+		init: &Self::Init,
+	) -> JobResult;
 }
 
 #[async_trait::async_trait]
@@ -846,7 +852,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			run_metadata,
 		};
 
-		let metadata = stateful_job.finalize(&ctx, &state).await?;
+		let metadata = stateful_job
+			.finalize(&ctx, &state.data, &state.run_metadata, &state.init)
+			.await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 
