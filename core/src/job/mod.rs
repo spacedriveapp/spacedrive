@@ -130,7 +130,7 @@ pub struct Job<SJob: StatefulJob + AsRef<SJob>> {
 	hash: u64,
 	report: Option<JobReport>,
 	state: Option<JobState<SJob, SJob>>,
-	stateful_job: Option<SJob>,
+	// stateful_job: Option<SJob>,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
@@ -139,45 +139,41 @@ where
 	SJob: StatefulJob,
 {
 	pub(super) fn new(init: SJob) -> Box<Self> {
-		// let id = Uuid::new_v4();
-		// Box::new(Self {
-		// 	id,
-		// 	hash: <SJob as StatefulJob>::hash(&init),
-		// 	report: Some(JobReport::new(id, SJob::NAME.to_string())),
-		// 	state: Some(JobState {
-		// 		init: init.into(),
-		// 		data: None,
-		// 		steps: VecDeque::new(),
-		// 		step_number: 0,
-		// 		run_metadata: Default::default(),
-		// 	}),
-		// 	stateful_job: Some(init),
-		// 	next_jobs: VecDeque::new(),
-		// })
-		todo!();
+		let id = Uuid::new_v4();
+		Box::new(Self {
+			id,
+			hash: <SJob as StatefulJob>::hash(&init),
+			report: Some(JobReport::new(id, SJob::NAME.to_string())),
+			state: Some(JobState {
+				init: init.into(),
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
 	}
 
 	pub fn new_with_action(init: SJob, action: impl AsRef<str>) -> Box<Self> {
-		// let id = Uuid::new_v4();
-		// Box::new(Self {
-		// 	id,
-		// 	hash: <SJob as StatefulJob>::hash(&init),
-		// 	report: Some(JobReport::new_with_action(
-		// 		id,
-		// 		SJob::NAME.to_string(),
-		// 		action,
-		// 	)),
-		// 	state: Some(JobState {
-		// 		init: init.into(),
-		// 		data: None,
-		// 		steps: VecDeque::new(),
-		// 		step_number: 0,
-		// 		run_metadata: Default::default(),
-		// 	}),
-		// 	stateful_job: Some(init),
-		// 	next_jobs: VecDeque::new(),
-		// })
-		todo!();
+		let id = Uuid::new_v4();
+		Box::new(Self {
+			id,
+			hash: <SJob as StatefulJob>::hash(&init),
+			report: Some(JobReport::new_with_action(
+				id,
+				SJob::NAME.to_string(),
+				action,
+			)),
+			state: Some(JobState {
+				init: init.into(),
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
 	}
 
 	pub fn queue_next<NextSJob>(mut self: Box<Self>, init: NextSJob) -> Box<Self>
@@ -218,33 +214,30 @@ where
 			hash: <SJob as StatefulJob>::hash(&state.init),
 			state: Some(state),
 			report: Some(report),
-			stateful_job: Some(stateful_job),
 			next_jobs: next_jobs.unwrap_or_default(),
 		}))
 	}
 
 	fn new_dependent(init: SJob, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
-		// let id = Uuid::new_v4();
-		// Box::new(Self {
-		// 	id,
-		// 	hash: <SJob as StatefulJob>::hash(&init),
-		// 	report: Some(JobReport::new_with_parent(
-		// 		id,
-		// 		SJob::NAME.to_string(),
-		// 		parent_id,
-		// 		parent_action,
-		// 	)),
-		// 	state: Some(JobState {
-		// 		init: init.into(),
-		// 		data: None,
-		// 		steps: VecDeque::new(),
-		// 		step_number: 0,
-		// 		run_metadata: Default::default(),
-		// 	}),
-		// 	stateful_job: Some(init),
-		// 	next_jobs: VecDeque::new(),
-		// })
-		todo!();
+		let id = Uuid::new_v4();
+		Box::new(Self {
+			id,
+			hash: <SJob as StatefulJob>::hash(&init),
+			report: Some(JobReport::new_with_parent(
+				id,
+				SJob::NAME.to_string(),
+				parent_id,
+				parent_action,
+			)),
+			state: Some(JobState {
+				init: init.into(),
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
 	}
 }
 
@@ -425,9 +418,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.expect("critical error: missing job state");
 
 		let stateful_job = Arc::new(
-			self.stateful_job
+			self.state
 				.take()
-				.expect("critical error: missing stateful job"),
+				.expect("critical error: missing stateful job")
+				.init,
 		);
 
 		let ctx = Arc::new(ctx);
