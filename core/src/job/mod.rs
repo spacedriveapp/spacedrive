@@ -453,9 +453,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		let working_data = if let Some(data) = data {
 			Some(data)
 		} else {
-			/***************************************************************************************
-			 * 										Job init phase								   *
-			 **************************************************************************************/
+			// Job init phase
 			let inner_ctx = Arc::clone(&ctx);
 			let inner_init = Arc::clone(&init_arc);
 			let inner_stateful_job = Arc::clone(&stateful_job);
@@ -597,9 +595,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		let data = if let Some(working_data) = working_data {
 			let working_data_arc = Arc::new(working_data);
 
-			/***************************************************************************************
-			 *									Job run phase									   *
-			 **************************************************************************************/
+			// Job run phase
 			while job_should_run && !steps.is_empty() {
 				let steps_len = steps.len();
 
