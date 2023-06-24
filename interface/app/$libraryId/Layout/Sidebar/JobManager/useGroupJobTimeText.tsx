@@ -36,7 +36,7 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 
 			const lastJob = group[group.length - 1];
 			if (lastJob?.status === 'Failed' || lastJob?.status === 'Canceled') {
-				text = 'Job failed or canceled';
+				text = null;
 			} else {
 				text = lastJob?.completed_at
 					? `Took ${dayjs.duration(groupTotal, 'minutes').humanize()}`

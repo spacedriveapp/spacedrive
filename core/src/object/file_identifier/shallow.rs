@@ -98,15 +98,16 @@ pub async fn shallow(
 		let file_paths =
 			get_orphan_file_paths(&library.db, location.id, *cursor, sub_iso_file_path).await?;
 
-		process_identifier_file_paths(
+		let (_, _, new_cursor) = process_identifier_file_paths(
 			location,
 			&file_paths,
 			step_number,
-			cursor,
+			*cursor,
 			library,
 			orphan_count,
 		)
 		.await?;
+		*cursor = new_cursor;
 	}
 
 	invalidate_query!(library, "search.paths");

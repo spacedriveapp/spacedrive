@@ -14,6 +14,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import {
 	ExplorerItem,
+	ObjectKind,
 	getItemFilePath,
 	getItemObject,
 	useLibraryContext,
@@ -260,10 +261,30 @@ export default ({ data }: Props) => {
 					keybind={keybind([ModifierKeys.Control], ['B'])}
 					disabled
 				/>
-				<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-					<ContextMenu.Item label="PNG" disabled />
-					<ContextMenu.Item label="WebP" disabled />
-				</ContextMenu.SubMenu>
+				{[ObjectKind.Image, ObjectKind.Video].includes(objectData?.kind as ObjectKind) && (
+					<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+						{(() => {
+							switch (objectData?.kind) {
+								case ObjectKind.Image:
+									return (
+										<>
+											<ContextMenu.Item label="PNG" disabled />
+											<ContextMenu.Item label="WebP" disabled />
+											<ContextMenu.Item label="Gif" disabled />
+										</>
+									);
+								case ObjectKind.Video:
+									return (
+										<>
+											<ContextMenu.Item label="MP4" disabled />
+											<ContextMenu.Item label="MOV" disabled />
+											<ContextMenu.Item label="AVI" disabled />
+										</>
+									);
+							}
+						})()}
+					</ContextMenu.SubMenu>
+				)}
 
 				{locationId != null && (
 					<>
@@ -292,7 +313,7 @@ export default ({ data }: Props) => {
 								} catch (error) {
 									showAlertDialog({
 										title: 'Error',
-										value: `Failed to generate thumbanails, due to an error: ${error}`
+										value: `Failed to generate thumbnails, due to an error: ${error}`
 									});
 								}
 							}}

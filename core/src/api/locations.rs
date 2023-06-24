@@ -5,7 +5,7 @@ use crate::{
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
 		LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
 };
 
@@ -51,6 +51,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.db
 					.location()
 					.find_many(vec![])
+					.order_by(location::date_created::order(SortOrder::Desc))
 					.include(location::include!({ node }))
 					.exec()
 					.await?)

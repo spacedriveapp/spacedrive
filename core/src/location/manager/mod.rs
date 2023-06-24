@@ -189,7 +189,7 @@ impl LocationManager {
 				})
 				.await?;
 
-			return rx.await?;
+			rx.await?
 		}
 
 		#[cfg(not(feature = "location-watcher"))]
