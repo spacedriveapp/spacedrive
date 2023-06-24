@@ -48,6 +48,7 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 				<Input
 					{...form.register('name', { required: true })}
 					placeholder="Name"
+					maxLength={24}
 					icon={<ColorPicker control={form.control} name="color" />}
 				/>
 			</div>

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { Tooltip } from '~/../packages/ui/src';
 import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
@@ -18,6 +19,7 @@ type Props = ComponentProps<'div'> & {
 	itemId: number;
 	locationId: number | null;
 	text: string | null;
+	extension?: string | null;
 	activeClassName?: string;
 	disabled?: boolean;
 	renameHandler: (name: string) => Promise<void>;
@@ -25,7 +27,17 @@ type Props = ComponentProps<'div'> & {
 
 export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 	(
-		{ className, activeClassName, disabled, itemId, locationId, text, renameHandler, ...props },
+		{
+			className,
+			extension,
+			activeClassName,
+			disabled,
+			itemId,
+			locationId,
+			text,
+			renameHandler,
+			...props
+		},
 		_ref
 	) => {
 		const explorerView = useExplorerViewContext();
@@ -180,7 +192,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 				onKeyDown={handleKeyDown}
 				{...props}
 			>
-				{text}
+				{extension ? <Tooltip label={extension}>{text}</Tooltip> : text}
 			</div>
 		);
 	}

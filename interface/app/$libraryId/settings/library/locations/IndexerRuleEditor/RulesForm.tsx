@@ -141,6 +141,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 					form={formId}
 					size="md"
 					placeholder="Name"
+					maxLength={18}
 					{...form.register('name')}
 				/>
 				{errors.name && <p className="mt-2 text-sm text-red-500">{errors.name?.message}</p>}
