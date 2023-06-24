@@ -51,6 +51,9 @@ impl StatefulJob for FileCopierJobInit {
 	type Step = FileCopierJobStep;
 	type RunMetadata = ();
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "file_copier";
 
 	async fn init(

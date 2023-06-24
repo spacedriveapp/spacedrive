@@ -74,6 +74,9 @@ impl StatefulJob for ThumbnailerJobInit {
 	type Step = ThumbnailerJobStep;
 	type RunMetadata = ThumbnailerJobRunMetadata;
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "thumbnailer";
 
 	async fn init(

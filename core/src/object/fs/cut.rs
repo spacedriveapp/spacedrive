@@ -39,6 +39,9 @@ impl StatefulJob for FileCutterJobInit {
 	type Step = FileData;
 	type RunMetadata = ();
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "file_cutter";
 
 	async fn init(

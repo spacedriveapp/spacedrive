@@ -10,6 +10,7 @@ use std::{
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use specta::Type;
 use tokio::{select, sync::mpsc};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -59,6 +60,12 @@ pub trait StatefulJob:
 	type Data: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type Step: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type RunMetadata: JobRunMetadata;
+
+	/// Custom error type for the job
+	type Error: std::error::Error + fmt::Debug + Send + Sync + 'static; // TODO: `specta::Type`
+
+	/// Metadata about the job that is sent to the frontend for it to display
+	type Metadata: Serialize + Type + Send + Sync + 'static;
 
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;

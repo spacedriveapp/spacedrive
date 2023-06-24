@@ -78,6 +78,9 @@ impl StatefulJob for FileIdentifierJobInit {
 	type Step = ();
 	type RunMetadata = FileIdentifierJobRunMetadata;
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "file_identifier";
 
 	async fn init(

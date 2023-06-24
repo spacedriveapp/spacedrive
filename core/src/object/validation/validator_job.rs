@@ -58,6 +58,9 @@ impl StatefulJob for ObjectValidatorJobInit {
 	type Step = file_path_for_object_validator::Data;
 	type RunMetadata = ();
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "object_validator";
 
 	async fn init(

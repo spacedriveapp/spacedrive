@@ -29,6 +29,9 @@ impl StatefulJob for FileDeleterJobInit {
 	type Step = FileData;
 	type RunMetadata = ();
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "file_deleter";
 
 	async fn init(

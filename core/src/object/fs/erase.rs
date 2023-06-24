@@ -60,6 +60,9 @@ impl StatefulJob for FileEraserJobInit {
 	type Step = FileData;
 	type RunMetadata = FileEraserJobRunMetadata;
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "file_eraser";
 
 	async fn init(

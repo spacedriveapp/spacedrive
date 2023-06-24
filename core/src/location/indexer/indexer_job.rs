@@ -123,6 +123,9 @@ impl StatefulJob for IndexerJobInit {
 	type Step = IndexerJobStepInput;
 	type RunMetadata = IndexerJobRunMetadata;
 
+	type Metadata = ();
+	type Error = JobError;
+
 	const NAME: &'static str = "indexer";
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
