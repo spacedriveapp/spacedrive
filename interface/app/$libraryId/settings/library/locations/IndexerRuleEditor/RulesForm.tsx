@@ -23,7 +23,7 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 const ruleKindEnum = z.enum(ruleKinds);
 
 const schema = z.object({
-	name: z.string().min(3),
+	name: z.string().trim().min(3).max(18),
 	rules: z.array(
 		z.object({
 			type: z.string(),

@@ -4,14 +4,17 @@ import { Input, useZodForm, z } from '@sd/ui/src/forms';
 import { ColorPicker } from '~/components';
 
 const schema = z.object({
-	name: z.string(),
+	name: z.string().trim().min(1).max(24),
 	color: z.string()
 });
 
 export default (props: UseDialogProps & { assignToObject?: number }) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const form = useZodForm({ schema: schema, defaultValues: { color: '#A717D9' } });
+	const form = useZodForm({
+		schema: schema,
+		defaultValues: { color: '#A717D9' }
+	});
 
 	const createTag = useLibraryMutation('tags.create', {
 		onSuccess: (tag) => {
