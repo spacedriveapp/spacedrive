@@ -88,7 +88,6 @@ impl StatefulJob for FileCutterJobInit {
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
-		let init = self;
 		let full_output = data
 			.full_target_directory_path
 			.join(construct_target_filename(file_data, &None)?);

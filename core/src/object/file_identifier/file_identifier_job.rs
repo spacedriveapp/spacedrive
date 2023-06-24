@@ -242,8 +242,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata.report);
 
-		todo!();
-		// Ok(Some(serde_json::to_value(state)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }
 

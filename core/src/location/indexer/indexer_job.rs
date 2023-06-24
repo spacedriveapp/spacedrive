@@ -1,7 +1,7 @@
 use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
+		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata, JobState,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	location::{
@@ -367,7 +367,7 @@ impl StatefulJob for IndexerJobInit {
 	async fn finalize(
 		&self,
 		ctx: &WorkerContext,
-		_data: &Option<Self::Data>,
+		data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
@@ -385,8 +385,7 @@ impl StatefulJob for IndexerJobInit {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		// Ok(Some(serde_json::to_value(state)?))
-		todo!();
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }
 

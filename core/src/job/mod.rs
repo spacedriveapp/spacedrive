@@ -417,12 +417,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.take()
 			.expect("critical error: missing job state");
 
-		let stateful_job = Arc::new(
-			self.state
-				.take()
-				.expect("critical error: missing stateful job")
-				.init,
-		);
+		let stateful_job = Arc::new(init);
 
 		let ctx = Arc::new(ctx);
 
