@@ -1,5 +1,6 @@
 use super::TagCreateArgs;
 use crate::library::Library;
+use crate::prisma::tag;
 
 /// Seeds tags in a new library.
 /// Shouldn't be called more than once!
@@ -25,9 +26,23 @@ pub async fn new_library(library: &Library) -> prisma_client_rust::Result<()> {
 		},
 	];
 
-	for tag in tags {
+	for tag in tags.clone() {
 		tag.exec(library).await?;
 	}
+
+	// SAFETY: THIS IS SAFE AS IT IS ONLY DONE ONCE DURING LIBRARY CREATION, SO THE COLOURS SHOULD NEVER CLASH
+
+	library
+		.db
+		.tag()
+		.update_many(
+			tags.iter()
+				.map(|x| tag::color::equals(Some(x.color.clone())))
+				.collect(),
+			vec![tag::date_created::set(Some(Utc::now().into()))],
+		)
+		.exec()
+		.await?;
 
 	Ok(())
 }

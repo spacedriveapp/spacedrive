@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{library::Library, prisma::tag, sync};
 
-#[derive(Type, Deserialize)]
+#[derive(Type, Deserialize, Clone)]
 pub struct TagCreateArgs {
 	pub name: String,
 	pub color: String,
@@ -22,6 +22,7 @@ impl TagCreateArgs {
 	) -> prisma_client_rust::Result<tag::Data> {
 		let pub_id = Uuid::new_v4().as_bytes().to_vec();
 
+
 		sync.write_op(
 			db,
 			sync.unique_shared_create(
@@ -31,6 +32,10 @@ impl TagCreateArgs {
 				[
 					(tag::name::NAME, json!(&self.name)),
 					(tag::color::NAME, json!(&self.color)),
+					(
+						tag::date_created::NAME,
+						json!(&self.date_created.to_rfc3339()),
+					),
 				],
 			),
 			db.tag().create(
