@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 
 #--
 
-FROM base as build
+FROM base as build-base
 
 ARG DEBIAN_FRONTEND
 
@@ -32,10 +32,6 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 
 RUN pnpm env use --global latest
 
-RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
-
-ENV PATH="/root/.cargo/bin:$PATH"
-
 WORKDIR /srv
 
 RUN git init spacedrive
@@ -46,13 +42,33 @@ RUN git -C spacedrive checkout FETCH_HEAD
 
 WORKDIR /srv/spacedrive
 
+#--
+
+FROM build-base as web
+
+# Run pnpm install with docker cache
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+	pnpm install --frozen-lockfile
+
+RUN pnpm web build
+
+#--
+
+FROM build-base as server
+
+RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
+
+ENV PATH="/root/.cargo/bin:$PATH"
+
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true .github/scripts/setup-system.sh
 
 RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 	pnpm prep
 
-RUN cargo build --release -p server
+COPY --from=web /srv/spacedrive/apps/web/dist /srv/spacedrive/apps/web/dist
+
+RUN cargo build --features assets --release -p server
 
 #--
 
@@ -68,7 +84,7 @@ ENV TZ=UTC \
 	DATA_DIR=/data
 
 # Note: This needs to happen before the apt call to avoid locking issues with the previous step
-COPY --from=build /srv/spacedrive/target/release/server /usr/bin/
+COPY --from=server /srv/spacedrive/target/release/server /usr/bin/
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get install \
