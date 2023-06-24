@@ -381,25 +381,24 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: None,
-				},
-				"scan_location",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: None,
-			}),
-		)
-		.await
+	Job::new_with_action(
+		IndexerJobInit {
+			location,
+			sub_path: None,
+		},
+		"scan_location",
+	)
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: None,
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: None,
+	})
+	.spawn(&library)
+	.await
+	.map_err(Into::into)
 }
 
 #[cfg(feature = "location-watcher")]
@@ -415,25 +414,24 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: Some(sub_path.clone()),
-				},
-				"scan_location_sub_path",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: Some(sub_path.clone()),
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: Some(sub_path),
-			}),
-		)
-		.await
+	Job::new_with_action(
+		IndexerJobInit {
+			location,
+			sub_path: Some(sub_path.clone()),
+		},
+		"scan_location_sub_path",
+	)
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: Some(sub_path.clone()),
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: Some(sub_path),
+	})
+	.spawn(&library)
+	.await
+	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(

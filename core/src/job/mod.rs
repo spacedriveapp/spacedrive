@@ -238,6 +238,15 @@ where
 			next_jobs: VecDeque::new(),
 		})
 	}
+
+	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
+		library
+			.node_context
+			.job_manager
+			.clone()
+			.ingest(library, Box::new(self))
+			.await
+	}
 }
 
 // Both these generics should point to the same type, due to:
