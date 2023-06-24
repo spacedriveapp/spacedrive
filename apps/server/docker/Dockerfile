@@ -49,7 +49,7 @@ WORKDIR /srv/spacedrive
 FROM build-base as web
 
 # Run pnpm install with docker cache
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store --mount=type=cache,target=/root/.cache/pnpm/metadata \
 	pnpm install --frozen-lockfile
 
 RUN pnpm web build
