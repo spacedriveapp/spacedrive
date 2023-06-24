@@ -199,7 +199,6 @@ where
 	// this function returns an ingestible job instance from a job report
 	pub fn new_from_report(
 		mut report: JobReport,
-		stateful_job: SJob, // whichever type of job this should be is passed here
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
 		let state = rmp_serde::from_slice::<JobState<SJob, SJob>>(

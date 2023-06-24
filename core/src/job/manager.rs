@@ -343,26 +343,25 @@ fn initialize_resumable_job(
 	job_report: JobReport,
 	next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 ) -> Result<Box<dyn DynJob>, JobError> {
-	// dispatch_call_to_job_by_name!(
-	// 	job_report.name.as_str(),
-	// 	T -> Job::new_from_report(job_report, T {}, next_jobs),
-	// 	default = {
-	// 		error!(
-	// 			"Unknown job type: {}, id: {}",
-	// 			job_report.name, job_report.id
-	// 		);
-	// 		Err(JobError::UnknownJobName(job_report.id, job_report.name))
-	// 	},
-	// 	jobs = [
-	// 		ThumbnailerJobInit,
-	// 		IndexerJobInit,
-	// 		FileIdentifierJobInit,
-	// 		ObjectValidatorJobInit,
-	// 		FileCutterJobInit,
-	// 		FileCopierJobInit,
-	// 		FileDeleterJobInit,
-	// 		FileEraserJobInit,
-	// 	]
-	// )
-	todo!(); // TODO: Refactor this
+	dispatch_call_to_job_by_name!(
+		job_report.name.as_str(),
+		T -> Job::<T>::new_from_report(job_report, next_jobs),
+		default = {
+			error!(
+				"Unknown job type: {}, id: {}",
+				job_report.name, job_report.id
+			);
+			Err(JobError::UnknownJobName(job_report.id, job_report.name))
+		},
+		jobs = [
+			ThumbnailerJobInit,
+			IndexerJobInit,
+			FileIdentifierJobInit,
+			ObjectValidatorJobInit,
+			FileCutterJobInit,
+			FileCopierJobInit,
+			FileDeleterJobInit,
+			FileEraserJobInit,
+		]
+	)
 }

@@ -1,7 +1,7 @@
 use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata, JobState,
+		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	location::{
@@ -367,7 +367,7 @@ impl StatefulJob for IndexerJobInit {
 	async fn finalize(
 		&self,
 		ctx: &WorkerContext,
-		data: &Option<Self::Data>,
+		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
