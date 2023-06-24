@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -50,10 +50,6 @@ impl Hash for ThumbnailerJobInit {
 	}
 }
 
-impl JobInitData for ThumbnailerJobInit {
-	type Job = ThumbnailerJob;
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailerJobData {
 	thumbnail_dir: PathBuf,
@@ -75,24 +71,19 @@ impl JobRunMetadata for ThumbnailerJobRunMetadata {
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for ThumbnailerJob {
-	type Init = ThumbnailerJobInit;
+impl StatefulJob for ThumbnailerJobInit {
 	type Data = ThumbnailerJobData;
 	type Step = ThumbnailerJobStep;
 	type RunMetadata = ThumbnailerJobRunMetadata;
 
 	const NAME: &'static str = "thumbnailer";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
@@ -184,11 +175,11 @@ impl StatefulJob for ThumbnailerJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		ctx.progress_msg(format!(
 			"Processing {}",
 			maybe_missing(
@@ -224,8 +215,8 @@ impl StatefulJob for ThumbnailerJob {
 		ctx: &WorkerContext,
 		data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		info!(
 			"Finished thumbnail generation for location {} at {}",
 			init.location.id,

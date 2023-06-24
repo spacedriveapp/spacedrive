@@ -1,7 +1,7 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -74,29 +74,20 @@ pub struct FileIdentifierReport {
 	total_objects_ignored: usize,
 }
 
-impl JobInitData for FileIdentifierJobInit {
-	type Job = FileIdentifierJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for FileIdentifierJob {
-	type Init = FileIdentifierJobInit;
+impl StatefulJob for FileIdentifierJobInit {
 	type Data = FileIdentifierJobData;
 	type Step = ();
 	type RunMetadata = FileIdentifierJobRunMetadata;
 
 	const NAME: &'static str = "file_identifier";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		info!("Identifying orphan File Paths...");
@@ -185,11 +176,11 @@ impl StatefulJob for FileIdentifierJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step_number, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		run_metadata: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		let location = &init.location;
 
 		let mut new_metadata = Self::RunMetadata::default();
@@ -242,8 +233,8 @@ impl StatefulJob for FileIdentifierJob {
 		_: &WorkerContext,
 		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
-		_init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata.report);
 
 		todo!();

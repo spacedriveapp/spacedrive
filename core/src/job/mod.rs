@@ -43,6 +43,7 @@ pub struct JobRunOutput {
 }
 
 /// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
+#[deprecated]
 pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash + fmt::Debug {
 	type Job: StatefulJob;
 
@@ -65,8 +66,9 @@ impl JobRunMetadata for () {
 }
 
 #[async_trait::async_trait]
-pub trait StatefulJob: Send + Sync + Sized + 'static {
-	type Init: JobInitData<Job = Self>;
+pub trait StatefulJob:
+	Serialize + DeserializeOwned + Hash + fmt::Debug + Send + Sync + Sized + 'static
+{
 	type Data: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type Step: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type RunMetadata: JobRunMetadata;
@@ -77,13 +79,15 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 
 	/// Construct a new instance of the job. This is used so the user can pass `Self::Init` into the `spawn_job` function and we can still run the job.
 	/// This does remove the flexibility of being able to pass arguments into the job's struct but with resumable jobs I view that as an anti-pattern anyway.
-	fn new() -> Self;
+	fn new() -> Self {
+		todo!();
+	}
 
 	/// initialize the steps for the job
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
+		// init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError>;
 
@@ -91,7 +95,6 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		step: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		run_metadata: &Self::RunMetadata,
@@ -103,7 +106,6 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 		ctx: &WorkerContext,
 		data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult;
 }
 
@@ -136,6 +138,7 @@ pub struct Job<SJob: StatefulJob> {
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
+#[deprecated]
 pub trait IntoJob<SJob: StatefulJob + 'static> {
 	fn into_job(self) -> Box<dyn DynJob>;
 }

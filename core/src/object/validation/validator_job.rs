@@ -1,7 +1,6 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobStepOutput, StatefulJob,
-		WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -55,29 +54,20 @@ impl Hash for ObjectValidatorJobInit {
 	}
 }
 
-impl JobInitData for ObjectValidatorJobInit {
-	type Job = ObjectValidatorJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for ObjectValidatorJob {
-	type Init = ObjectValidatorJobInit;
+impl StatefulJob for ObjectValidatorJobInit {
 	type Data = ObjectValidatorJobData;
 	type Step = file_path_for_object_validator::Data;
 	type RunMetadata = ();
 
 	const NAME: &'static str = "object_validator";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let location_id = init.location.id;
@@ -140,13 +130,13 @@ impl StatefulJob for ObjectValidatorJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep {
 			step: file_path, ..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		let Library { db, sync, .. } = &ctx.library;
 
 		// this is to skip files that already have checksums
@@ -187,8 +177,8 @@ impl StatefulJob for ObjectValidatorJob {
 		_: &WorkerContext,
 		data: &Option<Self::Data>,
 		_run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		let data = data
 			.as_ref()
 			.expect("critical error: missing data on job state");

@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
@@ -39,10 +39,6 @@ pub struct FileEraserJobInit {
 	pub passes: usize,
 }
 
-impl JobInitData for FileEraserJobInit {
-	type Job = FileEraserJob;
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEraserJobData {
 	location_path: PathBuf,
@@ -61,24 +57,19 @@ impl JobRunMetadata for FileEraserJobRunMetadata {
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for FileEraserJob {
-	type Init = FileEraserJobInit;
+impl StatefulJob for FileEraserJobInit {
 	type Data = FileEraserJobData;
 	type Step = FileData;
 	type RunMetadata = FileEraserJobRunMetadata;
 
 	const NAME: &'static str = "file_eraser";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
@@ -93,11 +84,12 @@ impl StatefulJob for FileEraserJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
+
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be erased (and where?)
 
@@ -183,8 +175,8 @@ impl StatefulJob for FileEraserJob {
 		ctx: &WorkerContext,
 		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		try_join_all(
 			run_metadata
 				.diretories_to_remove

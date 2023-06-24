@@ -1,8 +1,8 @@
 use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunMetadata, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	location::{
 		file_path_helper::{
@@ -111,10 +111,6 @@ impl IndexerJobData {
 	}
 }
 
-impl JobInitData for IndexerJobInit {
-	type Job = IndexerJob;
-}
-
 /// `IndexerJobStepInput` defines the action that should be executed in the current step
 #[derive(Serialize, Deserialize, Debug)]
 pub enum IndexerJobStepInput {
@@ -124,25 +120,20 @@ pub enum IndexerJobStepInput {
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for IndexerJob {
-	type Init = IndexerJobInit;
+impl StatefulJob for IndexerJobInit {
 	type Data = IndexerJobData;
 	type Step = IndexerJobStepInput;
 	type RunMetadata = IndexerJobRunMetadata;
 
 	const NAME: &'static str = "indexer";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let location_id = init.location.id;
 		let location_path = maybe_missing(&init.location.path, "location.path").map(Path::new)?;
 
@@ -263,11 +254,11 @@ impl StatefulJob for IndexerJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		run_metadata: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		let mut new_metadata = Self::RunMetadata::default();
 		match step {
 			IndexerJobStepInput::Save(step) => {
@@ -373,8 +364,8 @@ impl StatefulJob for IndexerJob {
 		ctx: &WorkerContext,
 		_data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		info!(
 			"scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",

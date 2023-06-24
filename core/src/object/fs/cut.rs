@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunErrors, JobStepOutput, StatefulJob,
+		WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::push_location_relative_path,
@@ -35,29 +35,20 @@ pub struct FileCutterJobData {
 	full_target_directory_path: PathBuf,
 }
 
-impl JobInitData for FileCutterJobInit {
-	type Job = FileCutterJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for FileCutterJob {
-	type Init = FileCutterJobInit;
+impl StatefulJob for FileCutterJobInit {
 	type Data = FileCutterJobData;
 	type Step = FileData;
 	type RunMetadata = ();
 
 	const NAME: &'static str = "file_cutter";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let (sources_location_path, targets_location_path) =
@@ -86,13 +77,13 @@ impl StatefulJob for FileCutterJob {
 	async fn execute_step(
 		&self,
 		_: &WorkerContext,
-		_: &Self::Init,
 		CurrentStep {
 			step: file_data, ..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		let full_output = data
 			.full_target_directory_path
 			.join(construct_target_filename(file_data, &None)?);
@@ -140,8 +131,8 @@ impl StatefulJob for FileCutterJob {
 		ctx: &WorkerContext,
 		_data: &Option<Self::Data>,
 		_run_metadata: &Self::RunMetadata,
-		init: &Self::Init,
 	) -> JobResult {
+		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
 		Ok(Some(serde_json::to_value(&init)?))
