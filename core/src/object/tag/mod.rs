@@ -1,6 +1,6 @@
 pub mod seed;
 
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -21,7 +21,7 @@ impl TagCreateArgs {
 		Library { db, sync, .. }: &Library,
 	) -> prisma_client_rust::Result<tag::Data> {
 		let pub_id = Uuid::new_v4().as_bytes().to_vec();
-
+		let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 		sync.write_op(
 			db,
@@ -32,10 +32,7 @@ impl TagCreateArgs {
 				[
 					(tag::name::NAME, json!(&self.name)),
 					(tag::color::NAME, json!(&self.color)),
-					(
-						tag::date_created::NAME,
-						json!(&self.date_created.to_rfc3339()),
-					),
+					(tag::date_created::NAME, json!(&date_created.to_rfc3339())),
 				],
 			),
 			db.tag().create(
@@ -43,7 +40,7 @@ impl TagCreateArgs {
 				vec![
 					tag::name::set(Some(self.name)),
 					tag::color::set(Some(self.color)),
-					tag::date_created::set(Some(Utc::now().into())),
+					tag::date_created::set(Some(date_created)),
 				],
 			),
 		)
