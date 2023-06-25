@@ -5,6 +5,7 @@ use crate::library::Library;
 /// Shouldn't be called more than once!
 pub async fn new_library(library: &Library) -> prisma_client_rust::Result<()> {
 	// remove type after tags are added
+
 	let tags = [
 		TagCreateArgs {
 			name: "Keepsafe".to_string(),
