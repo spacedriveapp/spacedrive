@@ -22,3 +22,4 @@ export * from './useTheme';
 export * from './useToasts';
 export * from './useZodRouteParams';
 export * from './useZodSearchParams';
+export * from './useIsTextTruncated';

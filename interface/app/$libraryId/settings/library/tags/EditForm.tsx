@@ -8,8 +8,14 @@ import Setting from '../../Setting';
 import DeleteDialog from './DeleteDialog';
 
 const schema = z.object({
-	name: z.string().nullable(),
-	color: z.string().nullable()
+	name: z.string().trim().min(1).max(24).nullable(),
+	color: z
+		.string()
+		.trim()
+		.min(2)
+		.max(7)
+		.regex(/^#([0-9A-F]{1}){1,6}$/i, 'Invalid hex color')
+		.nullable()
 });
 
 interface Props {
@@ -19,33 +25,34 @@ interface Props {
 
 export default ({ tag, onDelete }: Props) => {
 	const updateTag = useLibraryMutation('tags.update');
-
 	const form = useZodForm({
 		schema,
-		defaultValues: tag
+		mode: 'onChange',
+		defaultValues: tag,
+		reValidateMode: 'onChange'
 	});
-
-	useDebouncedFormWatch(form, (data) =>
+	useDebouncedFormWatch(form, (data) => {
 		updateTag.mutate({
 			name: data.name ?? null,
 			color: data.color ?? null,
 			id: tag.id
-		})
-	);
+		});
+	});
 
 	return (
 		<Form form={form}>
-			<div className="mb-10 flex flex-row space-x-3">
-				<Input
-					label="Color"
-					className="w-28"
-					icon={<ColorPicker control={form.control} name="color" />}
-					{...form.register('color')}
-				/>
+			<div className="flex justify-between">
+				<div className="mb-10 flex flex-row space-x-3">
+					<Input
+						label="Color"
+						maxLength={7}
+						value={form.watch('color')?.trim() ?? '#ffffff'}
+						icon={<ColorPicker control={form.control} name="color" />}
+						{...form.register('color')}
+					/>
 
-				<Input label="Name" {...form.register('name')} />
-
-				<div className="flex grow" />
+					<Input maxLength={24} label="Name" {...form.register('name')} />
+				</div>
 				<Button
 					variant="gray"
 					className="mt-[22px] h-[38px]"
