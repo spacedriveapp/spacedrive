@@ -12,7 +12,7 @@ import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Tooltip } from '~/../packages/ui/src';
 import { showAlertDialog } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useIsTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
 type Props = ComponentProps<'div'> & {
@@ -42,7 +42,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 	) => {
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
-
+		const textRef = useRef<HTMLParagraphElement>(null);
 		const [allowRename, setAllowRename] = useState(false);
 		const [renamable, setRenamable] = useState(false);
 
@@ -118,6 +118,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			}
 		}
 
+		//this is to determine if file name is truncated
+		const isTruncated = useIsTruncated(textRef, text);
+
 		// Focus and highlight when renaming is allowed
 		useEffect(() => {
 			if (allowRename) {
@@ -192,7 +195,17 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 				onKeyDown={handleKeyDown}
 				{...props}
 			>
-				{extension ? <Tooltip label={extension}>{text}</Tooltip> : text}
+				{text && (
+					<div ref={textRef}>
+						{isTruncated ? (
+							<Tooltip label={text}>
+								<p className="truncate">{text}</p>
+							</Tooltip>
+						) : (
+							text
+						)}
+					</div>
+				)}
 			</div>
 		);
 	}
