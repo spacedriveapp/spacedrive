@@ -19,7 +19,6 @@ type Props = ComponentProps<'div'> & {
 	itemId: number;
 	locationId: number | null;
 	text: string | null;
-	extension?: string | null;
 	activeClassName?: string;
 	disabled?: boolean;
 	renameHandler: (name: string) => Promise<void>;
@@ -27,17 +26,7 @@ type Props = ComponentProps<'div'> & {
 
 export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 	(
-		{
-			className,
-			extension,
-			activeClassName,
-			disabled,
-			itemId,
-			locationId,
-			text,
-			renameHandler,
-			...props
-		},
+		{ className, activeClassName, disabled, itemId, locationId, text, renameHandler, ...props },
 		_ref
 	) => {
 		const explorerView = useExplorerViewContext();
@@ -202,7 +191,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 								<p className="truncate">{text}</p>
 							</Tooltip>
 						) : (
-							text
+							<p>{text}</p>
 						)}
 					</div>
 				)}
