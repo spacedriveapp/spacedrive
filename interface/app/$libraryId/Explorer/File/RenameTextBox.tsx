@@ -12,7 +12,7 @@ import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Tooltip } from '~/../packages/ui/src';
 import { showAlertDialog } from '~/components';
-import { useIsTruncated, useOperatingSystem } from '~/hooks';
+import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
 type Props = ComponentProps<'div'> & {

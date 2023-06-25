@@ -1,6 +1,6 @@
 import { useState, RefObject, useCallback, useEffect } from 'react';
 
-export const useIsTruncated = (element: RefObject<HTMLElement>, text: string | null): boolean => {
+export const useIsTextTruncated = (element: RefObject<HTMLElement>, text: string | null): boolean => {
   const determineIsTruncated = useCallback((): boolean => {
     if (!element.current) return false;
     return element.current.scrollWidth > element.current.clientWidth;
