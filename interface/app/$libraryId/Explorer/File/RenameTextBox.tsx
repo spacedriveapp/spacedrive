@@ -119,7 +119,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		}
 
 		//this is to determine if file name is truncated
-		const isTruncated = useIsTruncated(textRef, text);
+		const isTruncated = useIsTextTruncated(textRef, text);
 
 		// Focus and highlight when renaming is allowed
 		useEffect(() => {
