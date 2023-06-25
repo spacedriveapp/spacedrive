@@ -1,3 +1,4 @@
+use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
@@ -118,6 +119,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							ErrorCode::NotFound,
 							"Error finding tag in db".into(),
 						))?;
+
+					db.tag()
+						.update(
+							tag::id::equals(args.id),
+							vec![tag::date_modified::set(Some(Utc::now().into()))],
+						)
+						.exec()
+						.await?;
 
 					sync.write_ops(
 						db,

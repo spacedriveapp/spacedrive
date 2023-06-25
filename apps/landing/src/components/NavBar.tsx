@@ -148,8 +148,8 @@ export default function NavBar() {
 				</div>
 			</div>
 			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
-				<div className="h-0.5 w-1/2 bg-gradient-to-r from-transparent to-white/30"></div>
-				<div className="h-0.5 w-1/2 bg-gradient-to-l from-transparent to-white/30"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/30"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/30"></div>
 			</div>
 		</div>
 	);

@@ -1,3 +1,4 @@
+ARG REPO=spacedriveapp/spacedrive
 ARG REPO_REF=main
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -18,7 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 
 #--
 
-FROM base as build
+FROM base as build-base
 
 ARG DEBIAN_FRONTEND
 
@@ -32,19 +33,34 @@ ENV PNPM_HOME="/usr/share/pnpm" \
 
 RUN pnpm env use --global latest
 
-RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
-
-ENV PATH="/root/.cargo/bin:$PATH"
-
 WORKDIR /srv
 
+ARG REPO REPO_REF
 RUN git init spacedrive
-RUN git -C spacedrive remote add origin https://github.com/spacedriveapp/spacedrive.git
+RUN git -C spacedrive remote add origin "https://github.com/${REPO}.git"
 RUN git -C spacedrive fetch --depth=1 origin "$REPO_REF"
 RUN git -C spacedrive config advice.detachedHead false
 RUN git -C spacedrive checkout FETCH_HEAD
 
 WORKDIR /srv/spacedrive
+
+#--
+
+FROM build-base as web
+
+# Run pnpm install with docker cache
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store --mount=type=cache,target=/root/.cache/pnpm/metadata \
+	pnpm install --frozen-lockfile
+
+RUN pnpm web build
+
+#--
+
+FROM build-base as server
+
+RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
+
+ENV PATH="/root/.cargo/bin:$PATH"
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true .github/scripts/setup-system.sh
@@ -52,7 +68,9 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 	pnpm prep
 
-RUN cargo build --release -p server
+COPY --from=web /srv/spacedrive/apps/web/dist /srv/spacedrive/apps/web/dist
+
+RUN cargo build --features assets --release -p server
 
 #--
 
@@ -67,11 +85,15 @@ ENV TZ=UTC \
 	LANGUAGE=en \
 	DATA_DIR=/data
 
+# Note: This needs to happen before the apt call to avoid locking issues with the previous step
+COPY --from=server /srv/spacedrive/target/release/server /usr/bin/
+
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install ffmpeg
+	apt-get install \
+		libavdevice59 libpostproc56 libswscale6 libswresample4 libavformat59 libavutil57 libavfilter8 \
+		libavcodec59 libheif1
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
-COPY --from=build /srv/spacedrive/target/release/server /usr/bin/
 
 # Expose webserver
 EXPOSE 8080
