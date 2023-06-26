@@ -10,57 +10,56 @@ import { getExplorerStore, useExplorerStore } from './Explorer/store';
 import { TopBarPortal } from './TopBar/Portal';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {
-    const explorerStore = useExplorerStore();
+	const explorerStore = useExplorerStore();
 
-    const { search, ...args } = props.args;
+	const { search, ...args } = props.args;
 
-    const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
-        suspense: true,
-        enabled: !!search,
-        onSuccess: () => getExplorerStore().resetNewThumbnails()
-    });
+	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
+		suspense: true,
+		enabled: !!search,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
 
-    const items = useMemo(() => {
-        const items = query.data?.items;
+	const items = useMemo(() => {
+		const items = query.data?.items;
 
-        if (explorerStore.layoutMode !== 'media') return items;
+		if (explorerStore.layoutMode !== 'media') return items;
 
-        return items?.filter((item) => {
-            const { kind } = getExplorerItemData(item);
-            return kind === 'Video' || kind === 'Image';
-        });
-    }, [query.data, explorerStore.layoutMode]);
+		return items?.filter((item) => {
+			const { kind } = getExplorerItemData(item);
+			return kind === 'Video' || kind === 'Image';
+		});
+	}, [query.data, explorerStore.layoutMode]);
 
-
-    return (
-        <>
-            {items && items.length > 0 ? (
-                <ExplorerContext.Provider value={{}}>
-                    <TopBarPortal right={<DefaultTopBarOptions />} />
-                    <Explorer items={items} />
-                </ExplorerContext.Provider>
-            ) : (
-                <div className="flex flex-1 flex-col items-center justify-center">
-                    {!search && (
-                        <MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
-                    )}
-                    <p className="text-xs text-ink-faint">
-                        {search ? `No results found for "${search}"` : 'Search for files...'}
-                    </p>
-                </div>
-            )}
-        </>
-    );
+	return (
+		<>
+			{items && items.length > 0 ? (
+				<ExplorerContext.Provider value={{}}>
+					<TopBarPortal right={<DefaultTopBarOptions />} />
+					<Explorer items={items} />
+				</ExplorerContext.Provider>
+			) : (
+				<div className="flex flex-1 flex-col items-center justify-center">
+					{!search && (
+						<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
+					)}
+					<p className="text-xs text-ink-faint">
+						{search ? `No results found for "${search}"` : 'Search for files...'}
+					</p>
+				</div>
+			)}
+		</>
+	);
 });
 
 export const Component = () => {
-    const [searchParams] = useZodSearchParams(SearchParamsSchema);
+	const [searchParams] = useZodSearchParams(SearchParamsSchema);
 
-    const search = useDeferredValue(searchParams);
+	const search = useDeferredValue(searchParams);
 
-    return (
-        <Suspense fallback="LOADING FIRST RENDER">
-            <SearchExplorer args={search} />
-        </Suspense>
-    );
+	return (
+		<Suspense fallback="LOADING FIRST RENDER">
+			<SearchExplorer args={search} />
+		</Suspense>
+	);
 };
