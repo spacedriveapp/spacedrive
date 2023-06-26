@@ -14,6 +14,9 @@ use crate::{
 };
 
 use std::collections::BTreeSet;
+use std::fs::{self, DirEntry};
+use std::io;
+use std::path::Path;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or};
@@ -27,6 +30,21 @@ use super::{Ctx, R};
 struct SearchData<T> {
 	cursor: Option<Vec<u8>>,
 	items: Vec<T>,
+}
+
+#[derive(Debug)]
+pub struct File {
+    pub name: String,
+    pub extension: String,
+    pub path: String,
+    pub size: u64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub enum ApiError {
+    IOError(io::Error),
+    OtherError(String),
 }
 
 #[derive(Deserialize, Default, Type, Debug)]
@@ -120,6 +138,10 @@ struct FilePathFilterArgs {
 	path: Option<String>,
 	#[specta(optional)]
 	object: Option<ObjectFilterArgs>,
+	#[spectra(optional)]
+	size_range: Option<(u64, u64)>,
+	#[spectra(optional)]
+	creation_date_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
 }
 
 #[derive(Deserialize, Type, Debug)]
@@ -230,6 +252,63 @@ struct ObjectSearchArgs {
 	cursor: Option<Vec<u8>>,
 	#[serde(default)]
 	filter: ObjectFilterArgs,
+}
+
+impl From<io::Error> for ApiError {
+    fn from(error: io::Error) -> Self {
+        ApiError::IOError(error)
+    }
+}
+
+fn get_all_files() -> Result<Vec<File>, ApiError> {
+    let root_dir = "/path/to/your/root/directory"; // Replace this later cause i don't know the path to nodes, 
+    let mut files = Vec::new();
+    visit_dirs(Path::new(root_dir), &mut files)?;
+    Ok(files)
+}
+
+fn visit_dirs(dir: &Path, files: &mut Vec<File>) -> io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, files)?;
+            } else {
+                files.push(entry_to_file(&entry)?);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn entry_to_file(entry: &DirEntry) -> Result<File, ApiError> {
+    let metadata = entry.metadata()?;
+    let created_at = DateTime::<Utc>::from(metadata.created()?);
+
+    let name = entry
+        .file_name()
+        .to_string_lossy()
+        .into_owned();
+    let extension = entry
+        .path()
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_string();
+    let path = entry
+        .path()
+        .to_string_lossy()
+        .into_owned();
+    let size = metadata.len();
+
+    Ok(File {
+        name,
+        extension,
+        path,
+        size,
+        created_at,
+    })
 }
 
 pub fn mount() -> AlphaRouter<Ctx> {
