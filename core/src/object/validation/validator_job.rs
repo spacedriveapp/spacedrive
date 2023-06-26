@@ -1,7 +1,7 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -134,8 +134,6 @@ impl StatefulJob for ObjectValidatorJob {
 			task_count: steps.len(),
 		});
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(steps.len())]);
-
 		Ok(steps.into())
 	}
 
@@ -144,9 +142,7 @@ impl StatefulJob for ObjectValidatorJob {
 		ctx: &WorkerContext,
 		init: &Self::Init,
 		CurrentStep {
-			step: file_path,
-			step_number,
-			..
+			step: file_path, ..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
@@ -182,8 +178,6 @@ impl StatefulJob for ObjectValidatorJob {
 			)
 			.await?;
 		}
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		Ok(().into())
 	}

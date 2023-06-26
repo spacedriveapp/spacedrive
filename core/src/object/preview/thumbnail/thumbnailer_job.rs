@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -163,10 +163,7 @@ impl StatefulJob for ThumbnailerJob {
 		#[cfg(not(feature = "ffmpeg"))]
 		let all_files = { image_files.into_iter().collect::<Vec<_>>() };
 
-		ctx.progress(vec![
-			JobReportUpdate::TaskCount(all_files.len()),
-			JobReportUpdate::Message(format!("Preparing to process {} files", all_files.len())),
-		]);
+		ctx.progress_msg(format!("Preparing to process {} files", all_files.len()));
 
 		*data = Some(ThumbnailerJobData {
 			thumbnail_dir,
@@ -188,19 +185,17 @@ impl StatefulJob for ThumbnailerJob {
 		&self,
 		ctx: &WorkerContext,
 		init: &Self::Init,
-		CurrentStep {
-			step, step_number, ..
-		}: CurrentStep<'_, Self::Step>,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
-		ctx.progress(vec![JobReportUpdate::Message(format!(
+		ctx.progress_msg(format!(
 			"Processing {}",
 			maybe_missing(
 				&step.file_path.materialized_path,
 				"file_path.materialized_path"
 			)?
-		))]);
+		));
 
 		let mut new_metadata = Self::RunMetadata::default();
 
@@ -212,8 +207,6 @@ impl StatefulJob for ThumbnailerJob {
 			&ctx.library,
 		)
 		.await;
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		step_result.map(|thumbnail_was_created| {
 			if thumbnail_was_created {

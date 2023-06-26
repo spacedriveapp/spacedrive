@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunMetadata, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
@@ -87,8 +87,6 @@ impl StatefulJob for FileEraserJob {
 
 		*data = Some(FileEraserJobData { location_path });
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(steps.len())]);
-
 		Ok((Default::default(), steps).into())
 	}
 
@@ -96,11 +94,7 @@ impl StatefulJob for FileEraserJob {
 		&self,
 		ctx: &WorkerContext,
 		init: &Self::Init,
-		CurrentStep {
-			step,
-			step_number,
-			total_steps,
-		}: CurrentStep<'_, Self::Step>,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
@@ -143,10 +137,6 @@ impl StatefulJob for FileEraserJob {
 					)
 					.await?,
 				);
-
-				ctx.progress(vec![JobReportUpdate::TaskCount(
-					total_steps + more_steps.len(),
-				)]);
 			}
 			new_metadata
 				.diretories_to_remove
@@ -184,8 +174,6 @@ impl StatefulJob for FileEraserJob {
 
 			Ok(None.into())
 		};
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		res
 	}

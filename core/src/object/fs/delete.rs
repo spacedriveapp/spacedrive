@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	prisma::{file_path, location},
@@ -58,8 +58,6 @@ impl StatefulJob for FileDeleterJob {
 		)
 		.await?;
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(steps.len())]);
-
 		// Must fill in the data, otherwise the job will not run
 		*data = Some(());
 
@@ -70,9 +68,7 @@ impl StatefulJob for FileDeleterJob {
 		&self,
 		ctx: &WorkerContext,
 		_: &Self::Init,
-		CurrentStep {
-			step, step_number, ..
-		}: CurrentStep<'_, Self::Step>,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		_: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
@@ -101,8 +97,6 @@ impl StatefulJob for FileDeleterJob {
 				return Err(JobError::from(FileIOError::from((&step.full_path, e))));
 			}
 		}
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		Ok(().into())
 	}
