@@ -1,5 +1,5 @@
 import { MagnifyingGlass } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
+import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
