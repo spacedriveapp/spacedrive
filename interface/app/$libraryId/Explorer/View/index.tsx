@@ -48,7 +48,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
     const { library } = useLibraryContext();
     const navigate = useNavigate();
 
-    const { openFilePaths: openFilePath } = usePlatform();
+    const { openFilePaths } = usePlatform();
     const updateAccessTime = useLibraryMutation('files.updateAccessTime');
     const filePath = getItemFilePath(data);
     const location = getItemLocation(data);
@@ -71,7 +71,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
                 }).toString()
             });
         } else if (
-            openFilePath &&
+            openFilePaths &&
             filePath &&
             explorerConfig.openOnDoubleClick &&
             !explorerView.isRenaming
@@ -80,7 +80,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
                 updateAccessTime.mutate(data.item.object_id);
             }
 
-            openFilePath(library.uuid, [filePath.id]);
+            openFilePaths(library.uuid, [filePath.id]);
         } else {
             const { kind } = getExplorerItemData(data);
 
