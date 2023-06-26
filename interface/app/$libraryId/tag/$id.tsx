@@ -1,39 +1,38 @@
 import { Tag } from 'phosphor-react';
-import { useLoaderData } from 'react-router';
 import { useLibraryQuery } from '@sd/client';
-import Explorer from '~/app/$libraryId/Explorer';
-import { TopBarPortal } from '~/app/$libraryId/TopBar/Portal';
-import TopBarOptions from '~/app/$libraryId/TopBar/TopBarOptions';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
+import { useZodRouteParams } from '~/hooks';
+import Explorer from '../Explorer';
+import { ExplorerContext } from '../Explorer/Context';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
-	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-
-	const topBarOptions = useExplorerTopBarOptions();
+	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 
 	const explorerData = useLibraryQuery([
 		'search.objects',
 		{
 			filter: {
-				tags: [locationId]
+				tags: [tagId]
 			}
 		}
 	]);
 
+	const tag = useLibraryQuery(['tags.get', tagId], { suspense: true });
+
 	return (
-		<>
-			<TopBarPortal
-				right={
-					<TopBarOptions
-						options={[
-							topBarOptions.explorerViewOptions,
-							topBarOptions.explorerToolOptions,
-							topBarOptions.explorerControlOptions
-						]}
-					/>
-				}
-			/>
+		<ExplorerContext.Provider
+			value={{
+				parent: tag.data
+					? {
+							type: 'Tag',
+							tag: tag.data
+					  }
+					: undefined
+			}}
+		>
+			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
 				items={explorerData.data?.items || null}
 				emptyNotice={{
@@ -41,6 +40,6 @@ export const Component = () => {
 					message: 'No items assigned to this tag'
 				}}
 			/>
-		</>
+		</ExplorerContext.Provider>
 	);
 };

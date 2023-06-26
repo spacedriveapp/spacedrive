@@ -1,13 +1,17 @@
 import { FolderNotchOpen } from 'phosphor-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { useExplorerStore, useKeyDeleteFile } from '~/hooks';
+import { createPortal } from 'react-dom';
+import { ExplorerItem, useLibraryContext, useLibrarySubscription } from '@sd/client';
+import { useKeyDeleteFile } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
-import ExplorerContextMenu from './ContextMenu';
+import { useExplorerContext } from './Context';
 import DismissibleNotice from './DismissibleNotice';
-import ContextMenu from './File/ContextMenu';
+import ContextMenu from './FilePath/ContextMenu';
 import { Inspector } from './Inspector';
+import ExplorerContextMenu from './ParentContextMenu';
+import { QuickPreview } from './QuickPreview';
 import View, { ExplorerViewProps } from './View';
+import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
 interface Props {
@@ -47,9 +51,16 @@ export default function Explorer(props: Props) {
 		}
 	});
 
-	useKeyDeleteFile(selectedItem || null, explorerStore.locationId);
+	const ctx = useExplorerContext();
+
+	useKeyDeleteFile(
+		selectedItem || null,
+		ctx.parent?.type === 'Location' ? ctx.parent.location.id : null
+	);
 
 	useEffect(() => setSelectedItemId(undefined), [path]);
+
+	const { quickPreviewRef } = useLibraryContext();
 
 	return (
 		<>
@@ -72,7 +83,7 @@ export default function Explorer(props: Props) {
 							rowsBeforeLoadMore={5}
 							selected={selectedItemId}
 							onSelectedChange={setSelectedItemId}
-							contextMenu={<ContextMenu data={selectedItem} />}
+							contextMenu={<ContextMenu data={selectedItem as any} />}
 							emptyNotice={
 								props.emptyNotice || {
 									icon: FolderNotchOpen,
@@ -83,6 +94,8 @@ export default function Explorer(props: Props) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
+
+			{quickPreviewRef.current && createPortal(<QuickPreview />, quickPreviewRef.current)}
 
 			{explorerStore.showInspector && (
 				<Inspector

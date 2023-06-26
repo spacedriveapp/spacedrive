@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { PropsWithChildren, RefObject, createContext, useContext, useState } from 'react';
 import { LibraryConfigWrapped } from '../core';
 import { useBridgeSubscription } from '../rspc';
 import { ClientContext, useClientContext } from './useClientContext';
@@ -7,15 +7,22 @@ export interface LibraryContext {
 	library: LibraryConfigWrapped;
 	libraries: ClientContext['libraries'];
 	onlineLocations: number[][] | null;
+	// doing this in LibraryContext is kinda improper but LC just so happens to be in a useful spot
+	quickPreviewRef: RefObject<HTMLDivElement>;
 }
 
 const LibraryContext = createContext<LibraryContext>(null!);
 
 interface LibraryContextProviderProps extends PropsWithChildren {
 	library: LibraryConfigWrapped;
+	quickPreviewRef: RefObject<HTMLDivElement>;
 }
 
-export const LibraryContextProvider = ({ children, library }: LibraryContextProviderProps) => {
+export const LibraryContextProvider = ({
+	children,
+	library,
+	quickPreviewRef
+}: LibraryContextProviderProps) => {
 	const { libraries } = useClientContext();
 	const [onlineLocations, setOnlineLocations] = useState<number[][] | null>(null);
 
@@ -26,7 +33,7 @@ export const LibraryContextProvider = ({ children, library }: LibraryContextProv
 	});
 
 	return (
-		<LibraryContext.Provider value={{ library, libraries, onlineLocations }}>
+		<LibraryContext.Provider value={{ library, libraries, onlineLocations, quickPreviewRef }}>
 			{children}
 		</LibraryContext.Provider>
 	);

@@ -22,8 +22,8 @@ export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
 
-export function openFilePath(library: string, ids: number[]) {
-    return invoke()<OpenFilePathResult[]>("open_file_path", { library,ids })
+export function openFilePaths(library: string, ids: number[]) {
+    return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
 }
 
 export function getFilePathOpenWithApps(library: string, ids: number[]) {

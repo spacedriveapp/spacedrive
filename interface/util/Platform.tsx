@@ -1,5 +1,4 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
-import { useTheme } from '../hooks';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -24,7 +23,11 @@ export type Platform = {
 	openPath?(path: string): void;
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
-	openFilePath?(library: string, ids: number[]): any;
+	openFilePaths?(library: string, ids: number[]): any;
+	openInNativeExplorer?(
+		library: string,
+		items: ({ locationId: number } | { filePathId: number })[]
+	): Promise<void>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;

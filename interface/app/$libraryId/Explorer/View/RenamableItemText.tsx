@@ -1,8 +1,8 @@
 /* eslint-disable no-case-declarations */
 import clsx from 'clsx';
 import { ExplorerItem, getItemFilePath, getItemLocation } from '@sd/client';
-import { useExplorerStore } from '~/hooks';
-import { RenameLocationTextBox, RenamePathTextBox } from '../File/RenameTextBox';
+import { RenameLocationTextBox, RenamePathTextBox } from '../FilePath/RenameTextBox';
+import { useExplorerStore } from '../store';
 
 export default function RenamableItemText(props: {
 	item: ExplorerItem;

@@ -17,7 +17,7 @@ pub enum OpenFilePathResult {
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn open_file_path(
+pub async fn open_file_paths(
 	library: uuid::Uuid,
 	ids: Vec<i32>,
 	node: tauri::State<'_, Arc<Node>>,

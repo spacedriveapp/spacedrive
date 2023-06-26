@@ -1,60 +1,22 @@
 import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
-import { PropsWithChildren, useMemo } from 'react';
-import { useBridgeQuery, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { PropsWithChildren } from 'react';
+import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import { getExplorerStore, useExplorerStore, useOperatingSystem } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
+import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
+import { useExplorerContext } from './Context';
+import { SharedItems } from './ContextMenu';
+import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
-
-export const OpenInNativeExplorer = () => {
-	const os = useOperatingSystem();
-	const keybind = keybindForOs(os);
-
-	const osFileBrowserName = useMemo(() => {
-		if (os === 'macOS') {
-			return 'Finder';
-		} else if (os === 'windows') {
-			return 'Explorer';
-		} else {
-			return 'file manager';
-		}
-	}, [os]);
-
-	const { openPath } = usePlatform();
-
-	let { locationId } = useExplorerStore();
-	if (locationId == null) locationId = -1;
-
-	const { library } = useLibraryContext();
-	const { data: node } = useBridgeQuery(['nodeState']);
-	const { data: location } = useLibraryQuery(['locations.get', locationId]);
-	const [{ path: subPath }] = useExplorerSearchParams();
-
-	// Disable for remote nodes, as opening directories in a remote node is a more complex task
-	if (!(openPath && location?.path && node?.id && library.config.node_id === node.id))
-		return null;
-	const path = location.path + (subPath ? subPath : '');
-
-	return (
-		<>
-			<CM.Item
-				label={`Open in ${osFileBrowserName}`}
-				keybind={keybind([ModifierKeys.Control], ['Y'])}
-				onClick={() => openPath(path)}
-			/>
-
-			<CM.Separator />
-		</>
-	);
-};
 
 export default (props: PropsWithChildren) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const [{ path: currentPath }] = useExplorerSearchParams();
-	const { locationId, cutCopyState } = useExplorerStore();
+	const { cutCopyState } = useExplorerStore();
+
+	const { parent } = useExplorerContext();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
@@ -64,7 +26,9 @@ export default (props: PropsWithChildren) => {
 
 	return (
 		<CM.Root trigger={props.children}>
-			<OpenInNativeExplorer />
+			{parent?.type === 'Location' && (
+				<SharedItems.OpenInNativeExplorer locationId={parent.location.id} />
+			)}
 
 			<CM.Item
 				label="Share"
@@ -83,12 +47,12 @@ export default (props: PropsWithChildren) => {
 
 			<CM.Separator />
 
-			{locationId && (
+			{parent?.type === 'Location' && (
 				<>
 					<CM.Item
 						onClick={async () => {
 							try {
-								await rescanLocation.mutateAsync(locationId);
+								await rescanLocation.mutateAsync(parent.location.id);
 							} catch (error) {
 								showAlertDialog({
 									title: 'Error',
@@ -109,13 +73,14 @@ export default (props: PropsWithChildren) => {
 							const { actionType, sourcePathId, sourceParentPath, sourceLocationId } =
 								cutCopyState;
 							const sameLocation =
-								sourceLocationId === locationId && sourceParentPath === path;
+								sourceLocationId === parent.location.id &&
+								sourceParentPath === path;
 							try {
 								if (actionType == 'Copy') {
 									await copyFiles.mutateAsync({
 										source_location_id: sourceLocationId,
 										sources_file_path_ids: [sourcePathId],
-										target_location_id: locationId,
+										target_location_id: parent.location.id,
 										target_location_relative_directory_path: path,
 										target_file_name_suffix: sameLocation ? ' copy' : null
 									});
@@ -128,7 +93,7 @@ export default (props: PropsWithChildren) => {
 									await cutFiles.mutateAsync({
 										source_location_id: sourceLocationId,
 										sources_file_path_ids: [sourcePathId],
-										target_location_id: locationId,
+										target_location_id: parent.location.id,
 										target_location_relative_directory_path: path
 									});
 								}
@@ -156,13 +121,13 @@ export default (props: PropsWithChildren) => {
 				icon={FileX}
 			/>
 
-			{locationId && (
+			{parent?.type === 'Location' && (
 				<CM.SubMenu label="More actions..." icon={Plus}>
 					<CM.Item
 						onClick={async () => {
 							try {
 								await generateThumbsForLocation.mutateAsync({
-									id: locationId,
+									id: parent.location.id,
 									path: currentPath ?? '/'
 								});
 							} catch (error) {
@@ -180,7 +145,7 @@ export default (props: PropsWithChildren) => {
 						onClick={async () => {
 							try {
 								objectValidator.mutateAsync({
-									id: locationId,
+									id: parent.location.id,
 									path: currentPath ?? '/'
 								});
 							} catch (error) {

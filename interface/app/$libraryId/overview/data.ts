@@ -2,7 +2,7 @@ import { iconNames } from '@sd/assets/util';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Category, useLibraryContext, useRspcLibraryContext } from '@sd/client';
-import { getExplorerStore, useExplorerStore } from '~/hooks';
+import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,

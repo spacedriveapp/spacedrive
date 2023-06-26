@@ -2,20 +2,15 @@ import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodSearchParams
-} from '~/hooks';
+import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
+import { ExplorerContext } from './Explorer/Context';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
+import { getExplorerStore, useExplorerStore } from './Explorer/store';
 import { TopBarPortal } from './TopBar/Portal';
-import TopBarOptions from './TopBar/TopBarOptions';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
 
 	const { search, ...args } = props.args;
 
@@ -26,14 +21,14 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 	});
 
 	const items = useMemo(() => {
-		const items = query.data?.items;
+		const items = query.data?.items!;
 
 		if (explorerStore.layoutMode !== 'media') return items;
 
-		return items?.filter((item) => {
+		return items.filter((item) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
-		});
+		})!;
 	}, [query.data, explorerStore.layoutMode]);
 
 	useEffect(() => {
@@ -42,21 +37,11 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 
 	return (
 		<>
-			{items && items.length > 0 ? (
-				<>
-					<TopBarPortal
-						right={
-							<TopBarOptions
-								options={[
-									explorerViewOptions,
-									explorerToolOptions,
-									explorerControlOptions
-								]}
-							/>
-						}
-					/>
+			{items.length > 0 ? (
+				<ExplorerContext.Provider value={{}}>
+					{<TopBarPortal right={<DefaultTopBarOptions />} />}
 					<Explorer items={items} />
-				</>
+				</ExplorerContext.Provider>
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center">
 					{!search && (

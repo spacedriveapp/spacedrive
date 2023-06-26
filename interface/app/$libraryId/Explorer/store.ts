@@ -27,7 +27,6 @@ export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'no
 export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
 const state = {
-	locationId: null as number | null,
 	layoutMode: 'grid' as ExplorerLayoutMode,
 	gridItemSize: 110,
 	listItemSize: 40,

@@ -21,8 +21,8 @@ import {
 	appReady,
 	getFilePathOpenWithApps,
 	lockAppTheme,
-	openFilePath,
 	openFilePathWith,
+	openFilePaths,
 	openLogsDir
 } from './commands';
 
@@ -81,9 +81,9 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path),
+	// openPath: (path) => shell.open(path),
 	openLogsDir,
-	openFilePath,
+	openFilePaths,
 	getFilePathOpenWithApps,
 	openFilePathWith,
 	lockAppTheme
