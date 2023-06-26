@@ -101,6 +101,12 @@ impl MovieDecoder {
 			}
 		}
 
+		unsafe {
+			if (*decoder.format_context).probe_score == 1 {
+				return Err(ThumbnailerError::CorruptVideo);
+			}
+		}
+
 		decoder.initialize_video(prefer_embedded_metadata)?;
 
 		decoder.frame = unsafe { av_frame_alloc() };
