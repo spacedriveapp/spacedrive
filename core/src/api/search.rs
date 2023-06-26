@@ -138,9 +138,9 @@ struct FilePathFilterArgs {
 	path: Option<String>,
 	#[specta(optional)]
 	object: Option<ObjectFilterArgs>,
-	#[spectra(optional)]
+	#[specta(optional)]
 	size_range: Option<(u64, u64)>,
-	#[spectra(optional)]
+	#[specta(optional)]
 	creation_date_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
 }
 
