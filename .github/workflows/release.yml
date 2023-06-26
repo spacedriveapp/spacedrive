@@ -24,7 +24,7 @@ jobs:
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: deb,appimage
+            bundles: appimage
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
