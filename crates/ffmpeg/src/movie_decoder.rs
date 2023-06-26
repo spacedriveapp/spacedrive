@@ -102,7 +102,7 @@ impl MovieDecoder {
 		}
 
 		unsafe {
-			if (*decoder.format_context).probe_score == 1 {
+			if (*decoder.format_context).probe_score == 100 {
 				return Err(ThumbnailerError::CorruptVideo);
 			}
 		}
