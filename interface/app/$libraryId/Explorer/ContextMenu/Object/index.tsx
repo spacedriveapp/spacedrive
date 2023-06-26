@@ -1,7 +1,7 @@
 import { Plus } from 'phosphor-react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
+import { FilePathItems, ObjectItems, SharedItems } from '..';
 
 interface Props {
     data: Extract<ExplorerItem, { type: 'Object' }>;

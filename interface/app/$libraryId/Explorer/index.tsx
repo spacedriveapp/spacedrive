@@ -13,9 +13,7 @@ import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 import { useQuickPreviewContext } from './QuickPreview/Context';
 import { QuickPreview } from './QuickPreview';
-
-import FilePathCM from "./FilePath/ContextMenu"
-import ObjectCM from "./Object/ContextMenu"
+import ContextMenu from './ContextMenu';
 
 interface Props {
     items: ExplorerItem[] | null;
@@ -65,19 +63,6 @@ export default function Explorer(props: Props) {
 
     const quickPreviewCtx = useQuickPreviewContext();
 
-    const renderContextMenu = () => {
-        if (!selectedItem) return null;
-
-        switch (selectedItem.type) {
-            case "Path":
-                return <FilePathCM data={selectedItem} />
-            case "Object":
-                return <ObjectCM data={selectedItem} />
-            case "Location":
-                return null
-        }
-    }
-
     return (
         <>
             <ExplorerContextMenu>
@@ -99,7 +84,7 @@ export default function Explorer(props: Props) {
                             rowsBeforeLoadMore={5}
                             selected={selectedItemId}
                             onSelectedChange={setSelectedItemId}
-                            contextMenu={renderContextMenu()}
+                            contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
                             emptyNotice={
                                 props.emptyNotice || {
                                     icon: FolderNotchOpen,

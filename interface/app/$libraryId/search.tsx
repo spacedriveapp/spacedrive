@@ -28,7 +28,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
         return items?.filter((item) => {
             const { kind } = getExplorerItemData(item);
             return kind === 'Video' || kind === 'Image';
-        })!;
+        });
     }, [query.data, explorerStore.layoutMode]);
 
 
