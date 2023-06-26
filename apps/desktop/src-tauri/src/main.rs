@@ -124,18 +124,18 @@ async fn main() -> tauri::Result<()> {
 			app.windows().iter().for_each(|(_, window)| {
 				// window.hide().unwrap();
 
-				tokio::spawn({
-					let window = window.clone();
-					async move {
-						sleep(Duration::from_secs(3)).await;
-						if !window.is_visible().unwrap_or(true) {
-							println!(
-							"Window did not emit `app_ready` event fast enough. Showing window..."
-						);
-							let _ = window.show();
-						}
-					}
-				});
+				// tokio::spawn({
+				// 	let window = window.clone();
+				// 	async move {
+				// 		sleep(Duration::from_secs(3)).await;
+				// 		if !window.is_visible().unwrap_or(true) {
+				// 			println!(
+				// 			"Window did not emit `app_ready` event fast enough. Showing window..."
+				// 		);
+				// 			let _ = window.show();
+				// 		}
+				// 	}
+				// });
 
 				#[cfg(target_os = "windows")]
 				window.set_decorations(true).unwrap();
@@ -170,6 +170,7 @@ async fn main() -> tauri::Result<()> {
 			file::open_file_paths,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with,
+			file::reveal_items,
 			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;

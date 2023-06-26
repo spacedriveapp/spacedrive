@@ -24,10 +24,10 @@ export type Platform = {
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
-	openInNativeExplorer?(
+	revealItems?(
 		library: string,
-		items: ({ locationId: number } | { filePathId: number })[]
-	): Promise<void>;
+		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;

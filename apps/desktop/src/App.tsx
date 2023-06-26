@@ -17,14 +17,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import {
-	appReady,
-	getFilePathOpenWithApps,
-	lockAppTheme,
-	openFilePathWith,
-	openFilePaths,
-	openLogsDir
-} from './commands';
+import * as commands from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -81,12 +74,7 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	// openPath: (path) => shell.open(path),
-	openLogsDir,
-	openFilePaths,
-	getFilePathOpenWithApps,
-	openFilePathWith,
-	lockAppTheme
+	...commands
 };
 
 const queryClient = new QueryClient();
@@ -96,7 +84,7 @@ const router = createBrowserRouter(routes);
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		appReady();
+		commands.appReady();
 	}, []);
 
 	useEffect(() => {

@@ -5,76 +5,73 @@ import { useExplorerContext } from '../../Context';
 import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
 
 interface Props {
-	data: Extract<ExplorerItem, { type: 'Path' }>;
+    data: Extract<ExplorerItem, { type: 'Path' }>;
 }
 
 export default ({ data }: Props) => {
-	const filePath = data.item;
-	const { object } = filePath;
+    const filePath = data.item;
+    const { object } = filePath;
 
-	const { parent } = useExplorerContext();
+    const { parent } = useExplorerContext();
 
-	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
-	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
-	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
+    // const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
+    // const mountedKeys = useLibraryQuery(['keys.listMounted']);
+    // const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
 
-	return (
-		<>
-			<FilePathItems.OpenOrDownload filePath={filePath} />
+    return (
+        <>
+            <FilePathItems.OpenOrDownload filePath={filePath} />
 
-			<SharedItems.OpenQuickView item={data} />
+            <SharedItems.OpenQuickView item={data} />
 
-			<ContextMenu.Separator />
+            <ContextMenu.Separator />
 
-			<SharedItems.Details />
+            <SharedItems.Details />
 
-			<ContextMenu.Separator />
+            <ContextMenu.Separator />
 
-			{filePath.location_id !== null && (
-				<SharedItems.OpenInNativeExplorer
-					locationId={filePath.location_id}
-					filePath={filePath}
-				/>
-			)}
+            <SharedItems.RevealInNativeExplorer
+                filePath={filePath}
+            />
 
-			<SharedItems.Rename />
+            <SharedItems.Rename />
 
-			{object && <ObjectItems.RemoveFromRecents object={object} />}
+            {object && <ObjectItems.RemoveFromRecents object={object} />}
 
-			{parent?.type === 'Location' && (
-				<FilePathItems.CutCopyItems locationId={parent.location.id} filePath={filePath} />
-			)}
+            {parent?.type === 'Location' && (
+                <FilePathItems.CutCopyItems locationId={parent.location.id} filePath={filePath} />
+            )}
 
-			<SharedItems.Deselect />
+            <SharedItems.Deselect />
 
-			<ContextMenu.Separator />
+            <ContextMenu.Separator />
 
-			<SharedItems.Share />
+            <SharedItems.Share />
 
-			<ContextMenu.Separator />
+            <ContextMenu.Separator />
 
-			{object && <ObjectItems.AssignTag object={object} />}
+            {object && <ObjectItems.AssignTag object={object} />}
 
-			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-				<FilePathItems.Crypto filePath={filePath} />
+            <ContextMenu.SubMenu label="More actions..." icon={Plus}>
+                <FilePathItems.Crypto filePath={filePath} />
 
-				<FilePathItems.Compress filePath={filePath} />
+                <FilePathItems.Compress filePath={filePath} />
 
-				{object && <ObjectItems.ConvertObject filePath={filePath} object={object} />}
+                {object && <ObjectItems.ConvertObject filePath={filePath} object={object} />}
 
-				{parent?.type === 'Location' && (
-					<FilePathItems.ParentFolderActions
-						filePath={filePath}
-						locationId={parent.location.id}
-					/>
-				)}
+                {parent?.type === 'Location' && (
+                    <FilePathItems.ParentFolderActions
+                        filePath={filePath}
+                        locationId={parent.location.id}
+                    />
+                )}
 
-				<FilePathItems.SecureDelete filePath={filePath} />
-			</ContextMenu.SubMenu>
+                <FilePathItems.SecureDelete filePath={filePath} />
+            </ContextMenu.SubMenu>
 
-			<ContextMenu.Separator />
+            <ContextMenu.Separator />
 
-			<FilePathItems.Delete filePath={filePath} />
-		</>
-	);
+            <FilePathItems.Delete filePath={filePath} />
+        </>
+    );
 };

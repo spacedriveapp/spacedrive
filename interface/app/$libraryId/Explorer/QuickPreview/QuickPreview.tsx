@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import FileThumb from './FilePath/Thumb';
-import { getExplorerStore } from './store';
+import FileThumb from '../FilePath/Thumb';
+import { getExplorerStore } from '../store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);

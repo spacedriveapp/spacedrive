@@ -9,123 +9,122 @@ import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
 
 export const OpenQuickView = ({ item }: { item: ExplorerItem }) => {
-	const keybind = useKeybindFactory();
+    const keybind = useKeybindFactory();
 
-	return (
-		<ContextMenu.Item
-			label="Quick view"
-			keybind={keybind([], [' '])}
-			onClick={() => (getExplorerStore().quickViewObject = item)}
-		/>
-	);
+    return (
+        <ContextMenu.Item
+            label="Quick view"
+            keybind={keybind([], [' '])}
+            onClick={() => (getExplorerStore().quickViewObject = item)}
+        />
+    );
 };
 
 export const Details = () => {
-	const { showInspector } = useExplorerStore();
-	const keybind = useKeybindFactory();
+    const { showInspector } = useExplorerStore();
+    const keybind = useKeybindFactory();
 
-	return (
-		<>
-			{!showInspector && (
-				<ContextMenu.Item
-					label="Details"
-					keybind={keybind([ModifierKeys.Control], ['I'])}
-					// icon={Sidebar}
-					onClick={() => (getExplorerStore().showInspector = true)}
-				/>
-			)}
-		</>
-	);
+    return (
+        <>
+            {!showInspector && (
+                <ContextMenu.Item
+                    label="Details"
+                    keybind={keybind([ModifierKeys.Control], ['I'])}
+                    // icon={Sidebar}
+                    onClick={() => (getExplorerStore().showInspector = true)}
+                />
+            )}
+        </>
+    );
 };
 
 export const Rename = () => {
-	const explorerStore = useExplorerStore();
-	const keybind = useKeybindFactory();
-	const explorerView = useExplorerViewContext();
+    const explorerStore = useExplorerStore();
+    const keybind = useKeybindFactory();
+    const explorerView = useExplorerViewContext();
 
-	return (
-		<>
-			{explorerStore.layoutMode !== 'media' && (
-				<ContextMenu.Item
-					label="Rename"
-					keybind={keybind([], ['Enter'])}
-					onClick={() => explorerView.setIsRenaming(true)}
-				/>
-			)}
-		</>
-	);
+    return (
+        <>
+            {explorerStore.layoutMode !== 'media' && (
+                <ContextMenu.Item
+                    label="Rename"
+                    keybind={keybind([], ['Enter'])}
+                    onClick={() => explorerView.setIsRenaming(true)}
+                />
+            )}
+        </>
+    );
 };
 
-export const OpenInNativeExplorer = (props: { locationId: number } | { filePath: FilePath }) => {
-	const os = useOperatingSystem();
-	const keybind = useKeybindFactory();
-	const platform = usePlatform();
-	const { library } = useLibraryContext();
+export const RevealInNativeExplorer = (props: { locationId: number } | { filePath: FilePath }) => {
+    const os = useOperatingSystem();
+    const keybind = useKeybindFactory();
+    const { revealItems } = usePlatform();
+    const { library } = useLibraryContext();
 
-	const osFileBrowserName = useMemo(() => {
-		const lookup: Record<string, string> = {
-			macOS: 'Finder',
-			windows: 'Explorer'
-		};
+    const osFileBrowserName = useMemo(() => {
+        const lookup: Record<string, string> = {
+            macOS: 'Finder',
+            windows: 'Explorer'
+        };
 
-		return lookup[os] ?? 'file manager';
-	}, [os]);
+        return lookup[os] ?? 'file manager';
+    }, [os]);
 
-	return (
-		<>
-			{/* {'filePath' in props && platform.openFilePaths && ( */}
-			{/* 	<ContextMenu.Item */}
-			{/* 		label={`Open in ${osFileBrowserName}`} */}
-			{/* 		keybind={keybind([ModifierKeys.Control], ['Y'])} */}
-			{/* 		onClick={() => platform.openFilePaths(library.uuid, [])} */}
-			{/* 	/> */}
-			{/* )} */}
-			{/* {'locationId' in props && platform.openLocations && ( */}
-			{/* 	<ContextMenu.Item */}
-			{/* 		label={`Open in ${osFileBrowserName}`} */}
-			{/* 		keybind={keybind([ModifierKeys.Control], ['Y'])} */}
-			{/* 		onClick={() => platform.openLocations(library.uuid, [])} */}
-			{/* 	/> */}
-			{/* )} */}
-		</>
-	);
+    return (
+        <>
+            {revealItems && <ContextMenu.Item
+                label={`Reveal in ${osFileBrowserName}`}
+                keybind={keybind([ModifierKeys.Control], ['Y'])}
+                onClick={() => (console.log(props), revealItems(library.uuid, ['filePath' in props ? {
+                    FilePath: {
+                        id: props.filePath.id,
+                    }
+                } : {
+                    Location: {
+                        id: props.locationId
+                    }
+                }]))}
+            />}
+        </>
+    );
 };
 
 export const Deselect = () => {
-	const { cutCopyState } = useExplorerStore();
+    const { cutCopyState } = useExplorerStore();
 
-	return (
-		<ContextMenu.Item
-			label="Deselect"
-			hidden={!cutCopyState.active}
-			onClick={() => {
-				getExplorerStore().cutCopyState = {
-					...cutCopyState,
-					active: false
-				};
-			}}
-			icon={FileX}
-		/>
-	);
+    return (
+        <ContextMenu.Item
+            label="Deselect"
+            hidden={!cutCopyState.active}
+            onClick={() => {
+                getExplorerStore().cutCopyState = {
+                    ...cutCopyState,
+                    active: false
+                };
+            }}
+            icon={FileX}
+        />
+    );
 };
 
 export const Share = () => {
-	return (
-		<>
-			<ContextMenu.Item
-				label="Share"
-				icon={ShareIcon}
-				onClick={(e) => {
-					e.preventDefault();
+    return (
+        <>
+            <ContextMenu.Item
+                label="Share"
+                icon={ShareIcon}
+                onClick={(e) => {
+                    e.preventDefault();
 
-					navigator.share?.({
-						title: 'Spacedrive',
-						text: 'Check out this cool app',
-						url: 'https://spacedrive.com'
-					});
-				}}
-				disabled
-			/>
-		</>
-	);
+                    navigator.share?.({
+                        title: 'Spacedrive',
+                        text: 'Check out this cool app',
+                        url: 'https://spacedrive.com'
+                    });
+                }}
+                disabled
+            />
+        </>
+    );
 };
