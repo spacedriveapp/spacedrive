@@ -51,7 +51,7 @@ pub enum WorkerCommand {
 
 pub struct WorkerContext {
 	pub library: Library,
-	events_tx: mpsc::UnboundedSender<WorkerEvent>,
+	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
 
 impl fmt::Debug for WorkerContext {
@@ -64,15 +64,24 @@ impl Drop for WorkerContext {
 	fn drop(&mut self) {
 		self.events_tx
 			.send(WorkerEvent::Stop)
-			.expect("critical error: failed to send worker stop event");
+			.map_err(|err| {
+				tracing::error!("Error sending worker context stop event: {}", err);
+			})
+			.ok();
 	}
 }
-
 impl WorkerContext {
+	pub fn progress_msg(&self, msg: String) {
+		self.progress(vec![JobReportUpdate::Message(msg)]);
+	}
+
 	pub fn progress(&self, updates: Vec<JobReportUpdate>) {
 		self.events_tx
 			.send(WorkerEvent::Progressed(updates))
-			.expect("critical error: failed to send worker worker progress event updates");
+			.map_err(|err| {
+				tracing::error!("Error sending worker context progress event: {}", err);
+			})
+			.ok();
 	}
 }
 

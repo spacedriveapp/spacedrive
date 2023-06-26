@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobReportUpdate, JobResult,
-		JobRunErrors, JobState, JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{join_location_relative_path, IsolatedFilePathData},
@@ -106,8 +106,6 @@ impl StatefulJob for FileCopierJob {
 			sources_location_path,
 		});
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(steps.len())]);
-
 		Ok(steps.into())
 	}
 
@@ -120,8 +118,7 @@ impl StatefulJob for FileCopierJob {
 				source_file_data,
 				target_full_path,
 			},
-			step_number,
-			total_steps,
+			..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
@@ -170,10 +167,6 @@ impl StatefulJob for FileCopierJob {
 					)
 					.await?,
 				});
-
-				ctx.progress(vec![JobReportUpdate::TaskCount(
-					total_steps + more_steps.len(),
-				)]);
 			}
 
 			Ok(more_steps.into())
@@ -213,8 +206,6 @@ impl StatefulJob for FileCopierJob {
 				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 			}
 		};
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(step_number + 1)]);
 
 		res
 	}
