@@ -126,14 +126,14 @@ pub struct Job<SJob: StatefulJob> {
 }
 
 impl<SJob: StatefulJob> Job<SJob> {
-	pub(super) fn new(init: SJob) -> Box<Self> {
+	pub fn new(init: SJob) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
 			id,
 			hash: <SJob as StatefulJob>::hash(&init),
 			report: Some(JobReport::new(id, SJob::NAME.to_string())),
 			state: Some(JobState {
-				init: init.into(),
+				init,
 				data: None,
 				steps: VecDeque::new(),
 				step_number: 0,
@@ -154,7 +154,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 				action,
 			)),
 			state: Some(JobState {
-				init: init.into(),
+				init,
 				data: None,
 				steps: VecDeque::new(),
 				step_number: 0,
@@ -217,7 +217,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 				parent_action,
 			)),
 			state: Some(JobState {
-				init: init.into(),
+				init,
 				data: None,
 				steps: VecDeque::new(),
 				step_number: 0,

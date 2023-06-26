@@ -85,7 +85,7 @@ impl StatefulJob for FileCutterJobInit {
 			.full_target_directory_path
 			.join(construct_target_filename(file_data, &None)?);
 
-		let res = if file_data.full_path == full_output {
+		if file_data.full_path == full_output {
 			// File is already here, do nothing
 			Ok(().into())
 		} else {
@@ -118,9 +118,7 @@ impl StatefulJob for FileCutterJobInit {
 
 				Err(e) => return Err(FileIOError::from((&full_output, e)).into()),
 			}
-		};
-
-		res
+		}
 	}
 
 	async fn finalize(
@@ -132,6 +130,6 @@ impl StatefulJob for FileCutterJobInit {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

@@ -112,7 +112,8 @@ impl StatefulJob for FileCopierJobInit {
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		let init = self;
-		let res = if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
 			let mut more_steps = Vec::new();
 
 			fs::create_dir_all(target_full_path)
@@ -123,7 +124,6 @@ impl StatefulJob for FileCopierJobInit {
 				.await
 				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
 
-			// Can't use the `steps` borrow from here ownwards, or you feel the wrath of the borrow checker
 			while let Some(children_entry) = read_dir
 				.next_entry()
 				.await
@@ -194,9 +194,7 @@ impl StatefulJob for FileCopierJobInit {
 				}
 				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 			}
-		};
-
-		res
+		}
 	}
 
 	async fn finalize(
@@ -209,6 +207,6 @@ impl StatefulJob for FileCopierJobInit {
 
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

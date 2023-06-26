@@ -191,6 +191,6 @@ impl StatefulJob for ObjectValidatorJobInit {
 			data.task_count
 		);
 
-		Ok(Some(serde_json::to_value(&init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

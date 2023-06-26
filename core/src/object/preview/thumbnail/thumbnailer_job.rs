@@ -228,7 +228,7 @@ impl StatefulJob for ThumbnailerJobInit {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(&run_metadata)?))
+		Ok(Some(serde_json::to_value(run_metadata)?))
 	}
 }
 

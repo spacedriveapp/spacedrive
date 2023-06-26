@@ -97,6 +97,6 @@ impl StatefulJob for FileDeleterJobInit {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }
