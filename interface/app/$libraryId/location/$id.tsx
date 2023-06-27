@@ -55,7 +55,7 @@ export const Component = () => {
 					<div className="group flex flex-row items-center space-x-2">
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
+							<span className="max-w-[100px] truncate text-sm font-medium">
 								{path && path?.length > 1
 									? getLastSectionOfPath(path)
 									: location?.name}

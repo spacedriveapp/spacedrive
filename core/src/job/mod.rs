@@ -465,6 +465,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
 				}
 
+				if let Ok(res) = res.as_ref() {
+					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+				}
+
 				(new_data, res)
 			});
 

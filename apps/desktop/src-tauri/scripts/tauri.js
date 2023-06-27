@@ -111,6 +111,11 @@ switch (args[0]) {
 				process.env.BACKGROUND_FILE_NAME = path.basename(process.env.BACKGROUND_FILE);
 				process.env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${process.env.BACKGROUND_FILE_NAME}"`;
 
+				if (!fs.existsSync(process.env.BACKGROUND_FILE))
+					console.warn(
+						`WARNING: DMG background file not found at ${process.env.BACKGROUND_FILE}`
+					);
+
 				break;
 			}
 			case 'win32':

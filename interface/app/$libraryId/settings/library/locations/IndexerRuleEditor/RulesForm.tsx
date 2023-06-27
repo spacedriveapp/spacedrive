@@ -23,7 +23,7 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 const ruleKindEnum = z.enum(ruleKinds);
 
 const schema = z.object({
-	name: z.string().min(3),
+	name: z.string().trim().min(3).max(18),
 	rules: z.array(
 		z.object({
 			type: z.string(),
@@ -141,6 +141,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 					form={formId}
 					size="md"
 					placeholder="Name"
+					maxLength={18}
 					{...form.register('name')}
 				/>
 				{errors.name && <p className="mt-2 text-sm text-red-500">{errors.name?.message}</p>}
