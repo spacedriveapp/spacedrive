@@ -313,7 +313,7 @@ pub async fn reveal_items(
 
 	let mut paths_to_open = BTreeSet::new();
 
-	if paths.len() > 0 {
+	if !paths.is_empty() {
 		paths_to_open.extend(
 			library
 				.get_file_paths(paths)
@@ -324,7 +324,7 @@ pub async fn reveal_items(
 		);
 	}
 
-	if locations.len() > 0 {
+	if !locations.is_empty() {
 		paths_to_open.extend(
 			library
 				.db
@@ -341,8 +341,6 @@ pub async fn reveal_items(
 				.flat_map(|location| location.path.map(Into::into)),
 		);
 	}
-
-	dbg!(&paths_to_open);
 
 	for path in paths_to_open {
 		opener::reveal(path).ok();
