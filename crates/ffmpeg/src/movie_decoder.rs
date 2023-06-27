@@ -101,6 +101,17 @@ impl MovieDecoder {
 			}
 		}
 
+		unsafe {
+			if (*decoder.format_context).probe_score == 100 {
+				return Err(ThumbnailerError::CorruptVideo);
+			}
+
+			// TODO(brxken128): idk if this is needed but i think so
+			if (*decoder.format_context).subtitle_codec_id == AVCodecID::AV_CODEC_ID_NONE {
+				return Err(ThumbnailerError::Subtitles);
+			}
+		}
+
 		decoder.initialize_video(prefer_embedded_metadata)?;
 
 		decoder.frame = unsafe { av_frame_alloc() };
