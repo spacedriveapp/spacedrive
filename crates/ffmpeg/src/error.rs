@@ -38,8 +38,6 @@ pub enum ThumbnailerError {
 	BackgroundTaskFailed(#[from] JoinError),
 	#[error("The video is most likely corrupt and will be skipped")]
 	CorruptVideo,
-	#[error("The video file contains subtitles and will be skipped")]
-	Subtitles,
 }
 
 /// Enum to represent possible errors from FFmpeg library
