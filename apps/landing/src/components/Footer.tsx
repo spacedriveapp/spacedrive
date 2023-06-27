@@ -35,7 +35,10 @@ export function Footer() {
 					<p className="text-sm text-gray-350 opacity-50">
 						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
-					<div className="mb-10 mt-12 flex flex-row space-x-3">
+					<div className="mt-4">
+					<iframe src="https://ghbtns.com/github-btn.html?user=spacedriveapp&repo=spacedrive&type=star&count=true&size=large" width="170" height="30" title="GitHub"></iframe>
+					</div>
+					<div className="mb-10 mt-4 flex flex-row space-x-3">
 						<FooterLink link="https://twitter.com/spacedriveapp">
 							<Twitter className="h-6 w-6" />
 						</FooterLink>
