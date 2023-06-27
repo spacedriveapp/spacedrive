@@ -83,7 +83,8 @@ impl FileMetadata {
 			.await
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
-		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
+		#[cfg(debug_assertions)]
+		tracing::debug!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
@@ -311,7 +312,8 @@ fn file_path_object_connect_ops<'db>(
 	sync: &SyncManager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
-	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
+	#[cfg(debug_assertions)]
+	tracing::debug!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	let vec_id = object_id.as_bytes().to_vec();
 

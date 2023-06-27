@@ -1,8 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	prisma::{file_path, location},
@@ -18,37 +17,26 @@ use tracing::warn;
 
 use super::{get_location_path_from_location_id, get_many_files_datas, FileData};
 
-pub struct FileDeleterJob {}
-
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileDeleterJobInit {
 	pub location_id: location::id::Type,
 	pub file_path_ids: Vec<file_path::id::Type>,
 }
 
-impl JobInitData for FileDeleterJobInit {
-	type Job = FileDeleterJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for FileDeleterJob {
-	type Init = FileDeleterJobInit;
+impl StatefulJob for FileDeleterJobInit {
 	type Data = ();
 	type Step = FileData;
 	type RunMetadata = ();
 
 	const NAME: &'static str = "file_deleter";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let steps = get_many_files_datas(
@@ -67,7 +55,6 @@ impl StatefulJob for FileDeleterJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		_: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		_: &Self::Data,
 		_: &Self::RunMetadata,
@@ -101,9 +88,15 @@ impl StatefulJob for FileDeleterJob {
 		Ok(().into())
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

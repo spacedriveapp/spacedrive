@@ -23,7 +23,6 @@ pub use isolated_file_path_data::{
 };
 
 // File Path selectables!
-file_path::select!(file_path_just_pub_id { pub_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
 	materialized_path
@@ -34,6 +33,12 @@ file_path::select!(file_path_for_file_identifier {
 	materialized_path
 	date_created
 	is_dir
+	name
+	extension
+});
+file_path::select!(file_path_for_indexer {
+	pub_id
+	materialized_path
 	name
 	extension
 });

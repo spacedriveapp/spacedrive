@@ -76,7 +76,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 
 				{isJobsRunning && (
 					<Fragment>
-						<Tooltip label="Pause (coming soon)">
+						<Tooltip label="Pause">
 							<Button
 								className="cursor-pointer"
 								onClick={() => {
