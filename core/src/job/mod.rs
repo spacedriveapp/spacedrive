@@ -110,8 +110,8 @@ pub trait DynJob: Send + Sync {
 	fn name(&self) -> &'static str;
 	async fn run(
 		&mut self,
-		mut ctx: WorkerContext,
-		mut commands_rx: mpsc::Receiver<WorkerCommand>,
+		ctx: WorkerContext,
+		commands_rx: mpsc::Receiver<WorkerCommand>,
 	) -> Result<JobRunOutput, JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -317,7 +317,6 @@ impl<RunMetadata, Step> From<(RunMetadata, Vec<Step>, JobRunErrors)>
 pub struct CurrentStep<'step, Step> {
 	pub step: &'step Step,
 	pub step_number: usize,
-	pub total_steps: usize,
 }
 
 pub struct JobStepOutput<Step, RunMetadata> {
@@ -465,6 +464,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let res = inner_stateful_job
 					.init(&inner_ctx, &inner_init, &mut new_data)
 					.await;
+
+				if let Ok(res) = res.as_ref() {
+					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+				}
 
 				(new_data, res)
 			});
@@ -621,7 +624,6 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 							CurrentStep {
 								step: &inner_step,
 								step_number,
-								total_steps: steps_len,
 							},
 							&inner_working_data,
 							&inner_run_metadata,
@@ -785,13 +787,25 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 									maybe_more_metadata,
 									errors: JobRunErrors(new_errors)
 								}) => {
+									let mut events = vec![
+										JobReportUpdate::CompletedTaskCount(
+											step_number + 1,
+										)
+									];
+
 									if let Some(more_steps) = maybe_more_steps {
+										events.push(JobReportUpdate::TaskCount(
+											steps_len + more_steps.len(),
+										));
+
 										steps.extend(more_steps);
 									}
 
 									if let Some(more_metadata) = maybe_more_metadata {
 										run_metadata.update(more_metadata);
 									}
+
+									ctx.progress(events);
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
