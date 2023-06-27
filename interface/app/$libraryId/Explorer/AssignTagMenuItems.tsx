@@ -11,10 +11,10 @@ import {
 	useContextMenu,
 	useDropdownMenu
 } from '@sd/ui';
-import { useScrolled } from '~/hooks/useScrolled';
-import CreateDialog from '../settings/library/tags/CreateDialog';
-import { keybindForOs } from '~/util/keybinds';
+import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { useOperatingSystem } from '~/hooks';
+import { useScrolled } from '~/hooks/useScrolled';
+import { keybindForOs } from '~/util/keybinds';
 
 export default (props: { objectId: number }) => {
 	const os = useOperatingSystem();

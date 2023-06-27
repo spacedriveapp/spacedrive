@@ -1,6 +1,6 @@
 import { Laptop, Node } from '@sd/assets/icons';
 import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
-import { Card, Input, Switch, tw } from '@sd/ui';
+import { Button, Card, Input, Switch, tw } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -90,7 +90,25 @@ export const Component = () => {
 						<div>
 							<NodeSettingLabel>Data Folder</NodeSettingLabel>
 							<div className="mt-2 flex w-full flex-row gap-2">
-								<Input className="grow" value={node.data?.data_path} />
+								<Input
+									className="grow"
+									value={node.data?.data_path}
+									onChange={() => {
+										/* TODO */
+									}}
+									disabled
+								/>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => {
+										if (node.data && platform?.openLink) {
+											platform.openLink(node.data.data_path);
+										}
+									}}
+								>
+									Open
+								</Button>
 								{/* <Button size="sm" variant="outline">
 									Change
 								</Button> */}
@@ -111,7 +129,7 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-			{isDev && (
+			{(isDev || debugState.enabled) && (
 				<Setting
 					mini
 					title="Debug mode"

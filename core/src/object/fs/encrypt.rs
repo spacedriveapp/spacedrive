@@ -252,7 +252,7 @@
 // 		Ok(())
 // 	}
 
-// 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+// 	async fn finalize(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 // 		invalidate_query!(ctx.library, "search.paths");
 
 // 		// mark job as successful

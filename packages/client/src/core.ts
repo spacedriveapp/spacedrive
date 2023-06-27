@@ -38,6 +38,7 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
+        { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
@@ -138,7 +139,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
-export type JobGroup = { id: string; action: string; status: JobStatus; created_at: string; jobs: JobReport[] }
+export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
 export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
 

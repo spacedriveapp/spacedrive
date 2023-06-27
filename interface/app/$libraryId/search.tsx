@@ -1,9 +1,8 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
 import {
-	SortOrder,
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
@@ -13,37 +12,18 @@ import Explorer from './Explorer';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarOptions from './TopBar/TopBarOptions';
 
-export const SEARCH_PARAMS = z.object({
-	search: z.string().optional(),
-	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
-});
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
-const SearchExplorer = memo((props: { args: SearchArgs }) => {
+const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const explorerStore = useExplorerStore();
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
 	const { search, ...args } = props.args;
 
-	const query = useLibraryQuery(
-		[
-			'search.paths',
-			{
-				...args,
-				filter: {
-					search
-				}
-			}
-		],
-		{
-			suspense: true,
-			enabled: !!search,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
-		}
-	);
+	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
+		suspense: true,
+		enabled: !!search,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
 
 	const items = useMemo(() => {
 		const items = query.data?.items;
@@ -92,7 +72,7 @@ const SearchExplorer = memo((props: { args: SearchArgs }) => {
 });
 
 export const Component = () => {
-	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams] = useZodSearchParams(SearchParamsSchema);
 
 	const search = useDeferredValue(searchParams);
 

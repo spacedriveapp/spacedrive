@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { z } from 'zod';
 import { FilePathSearchOrdering } from '@sd/client';
+import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useExplorerStore, useZodSearchParams } from '~/hooks';
 
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
@@ -24,11 +24,6 @@ export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 	return ordering;
 }
 
-export const SEARCH_PARAMS = z.object({
-	path: z.string().optional(),
-	take: z.coerce.number().default(100)
-});
-
 export function useExplorerSearchParams() {
-	return useZodSearchParams(SEARCH_PARAMS);
+	return useZodSearchParams(ExplorerParamsSchema);
 }

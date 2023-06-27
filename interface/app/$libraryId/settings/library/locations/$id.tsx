@@ -1,12 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { Suspense, useState } from 'react';
+import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
-import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, Label, Tooltip, tw } from '@sd/ui';
 import { Form, InfoText, Input, RadioGroup, Switch, useZodForm, z } from '@sd/ui/src/forms';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
+import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { showAlertDialog } from '~/components';
 import { useZodRouteParams } from '~/hooks';
 import IndexerRuleEditor from './IndexerRuleEditor';
@@ -24,10 +24,6 @@ const schema = z.object({
 	generatePreviewMedia: z.boolean().nullable()
 });
 
-const PARAMS = z.object({
-	id: z.coerce.number().default(0)
-});
-
 export const Component = () => {
 	return (
 		<Suspense fallback={<div></div>}>
@@ -37,7 +33,7 @@ export const Component = () => {
 };
 
 const EditLocationForm = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	// const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();

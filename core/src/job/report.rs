@@ -1,18 +1,14 @@
 use crate::{
 	library::Library,
 	prisma::{job, node},
-	util::{
-		self,
-		db::{maybe_missing, MissingFieldError},
-	},
+	util::db::{chain_optional_iter, maybe_missing, MissingFieldError},
 };
+
+use std::fmt::{Display, Formatter};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{
-	fmt::Debug,
-	fmt::{Display, Formatter},
-};
 use tracing::error;
 use uuid::Uuid;
 
@@ -25,7 +21,21 @@ pub enum JobReportUpdate {
 	Message(String),
 }
 
-job::select!(job_without_data { id name action status parent_id errors_text metadata date_created date_started date_completed task_count completed_task_count date_estimated_completion });
+job::select!(job_without_data {
+	id
+	name
+	action
+	status
+	parent_id
+	errors_text
+	metadata
+	date_created
+	date_started
+	date_completed
+	task_count
+	completed_task_count
+	date_estimated_completion
+});
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct JobReport {
@@ -90,11 +100,8 @@ impl TryFrom<job::Data> for JobReport {
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
 			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: maybe_missing(data.task_count, "job.task_count")?,
-			completed_task_count: maybe_missing(
-				data.completed_task_count,
-				"job.completed_task_count",
-			)?,
+			task_count: data.task_count.unwrap_or(0),
+			completed_task_count: data.completed_task_count.unwrap_or(0),
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
@@ -134,11 +141,9 @@ impl TryFrom<job_without_data::Data> for JobReport {
 				.map(|id| Uuid::from_slice(&id).expect("corrupted database")),
 			status: JobStatus::try_from(maybe_missing(data.status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: maybe_missing(data.task_count, "job.task_count")?,
-			completed_task_count: maybe_missing(
-				data.completed_task_count,
-				"job.completed_task_count",
-			)?,
+			task_count: data.task_count.unwrap_or(0),
+			completed_task_count: data.completed_task_count.unwrap_or(0),
+
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
@@ -189,16 +194,21 @@ impl JobReport {
 
 	pub fn get_meta(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
-		let action_name = match self.action {
-			Some(ref action) => action.split('-').next().unwrap_or("").to_string(),
-			None => return (self.id.to_string(), None),
+		let Some(action_name) = self.action
+			.as_ref()
+			.map(
+				|action| action.split('-')
+					.next()
+					.map(str::to_string)
+					.unwrap_or_default()
+			) else {
+			 return (self.id.to_string(), None);
 		};
 		// create a unique group_key, EG: "added_location-<location_id>"
-		let group_key = if let Some(parent_id) = &self.parent_id {
-			format!("{}-{}", action_name, parent_id)
-		} else {
-			format!("{}-{}", action_name, &self.id)
-		};
+		let group_key = self.parent_id.map_or_else(
+			|| format!("{}-{}", action_name, &self.id),
+			|parent_id| format!("{}-{}", action_name, parent_id),
+		);
 
 		(action_name, Some(group_key))
 	}
@@ -206,14 +216,12 @@ impl JobReport {
 	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
 		let now = Utc::now();
 
-		self.created_at = Some(now);
-
 		library
 			.db
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
-				util::db::chain_optional_iter(
+				chain_optional_iter(
 					[
 						job::node::connect(node::id::equals(library.node_local_id)),
 						job::name::set(Some(self.name.clone())),
@@ -232,6 +240,10 @@ impl JobReport {
 			)
 			.exec()
 			.await?;
+
+		// Only setting created_at after we successfully created the job in DB
+		self.created_at = Some(now);
+
 		Ok(())
 	}
 
@@ -270,6 +282,17 @@ pub enum JobStatus {
 	Failed = 4,
 	Paused = 5,
 	CompletedWithErrors = 6,
+}
+
+impl JobStatus {
+	pub fn is_finished(self) -> bool {
+		matches!(
+			self,
+			Self::Completed
+				| Self::Canceled | Self::Paused
+				| Self::Failed | Self::CompletedWithErrors
+		)
+	}
 }
 
 impl TryFrom<i32> for JobStatus {

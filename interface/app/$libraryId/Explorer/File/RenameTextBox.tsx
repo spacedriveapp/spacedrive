@@ -1,10 +1,18 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
-import { ComponentProps, forwardRef, useEffect, useRef, useState } from 'react';
+import {
+	ComponentProps,
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState
+} from 'react';
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { Tooltip } from '~/../packages/ui/src';
 import { showAlertDialog } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
 type Props = ComponentProps<'div'> & {
@@ -16,33 +24,38 @@ type Props = ComponentProps<'div'> & {
 	renameHandler: (name: string) => Promise<void>;
 };
 
-export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
-	({ className, activeClassName, disabled, ...props }, _ref) => {
+export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
+	(
+		{ className, activeClassName, disabled, itemId, locationId, text, renameHandler, ...props },
+		_ref
+	) => {
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
-
+		const textRef = useRef<HTMLParagraphElement>(null);
 		const [allowRename, setAllowRename] = useState(false);
 		const [renamable, setRenamable] = useState(false);
 
-		const funnyRef = useRef<HTMLDivElement>(null);
-		const ref = typeof _ref === 'function' ? { current: funnyRef.current } : _ref;
+		const ref = useRef<HTMLDivElement>(null);
+		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory or has no extension
-		function highlightText() {
+		const highlightText = useCallback(() => {
 			if (ref?.current) {
 				const range = document.createRange();
 				const node = ref.current.firstChild;
 				if (!node) return;
 
+				const endRange = text?.lastIndexOf('.');
+
 				range.setStart(node, 0);
-				range.setEnd(node, props?.text?.length || 0);
+				range.setEnd(node, endRange && endRange !== -1 ? endRange : text?.length || 0);
 
 				const sel = window.getSelection();
 				sel?.removeAllRanges();
 				sel?.addRange(range);
 			}
-		}
+		}, [text]);
 
 		// Blur field
 		function blur() {
@@ -55,7 +68,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 		// Reset to original file name
 		function reset() {
 			if (ref?.current) {
-				ref.current.innerText = props.text || '';
+				ref.current.innerText = text || '';
 			}
 		}
 
@@ -65,13 +78,13 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 			const newName = ref?.current.innerText.trim();
 			if (!newName) return reset();
 
-			if (!props.locationId) return;
+			if (!locationId) return;
 
-			const oldName = props.text;
+			const oldName = text;
 
-			if (!oldName || !props.locationId || newName === oldName) return;
+			if (!oldName || !locationId || newName === oldName) return;
 
-			await props.renameHandler(newName);
+			await renameHandler(newName);
 		}
 
 		// Handle keydown events
@@ -94,6 +107,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 			}
 		}
 
+		//this is to determine if file name is truncated
+		const isTruncated = useIsTextTruncated(textRef, text);
+
 		// Focus and highlight when renaming is allowed
 		useEffect(() => {
 			if (allowRename) {
@@ -105,7 +121,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 					}
 				});
 			}
-		}, [allowRename]);
+		}, [allowRename, explorerView, highlightText]);
 
 		// Handle renaming when triggered from outside
 		useEffect(() => {
@@ -113,7 +129,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 				if (explorerView.isRenaming && !allowRename) setAllowRename(true);
 				else if (!explorerView.isRenaming && allowRename) setAllowRename(false);
 			}
-		}, [explorerView.isRenaming]);
+		}, [explorerView.isRenaming, disabled, allowRename]);
 
 		useEffect(() => {
 			function handleClickOutside(event: MouseEvent) {
@@ -168,15 +184,26 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement, Props>(
 				onKeyDown={handleKeyDown}
 				{...props}
 			>
-				{props.text}
+				{text && (
+					<div ref={textRef}>
+						{isTruncated ? (
+							<Tooltip label={text}>
+								<p className="truncate">{text}</p>
+							</Tooltip>
+						) : (
+							<p>{text}</p>
+						)}
+					</div>
+				)}
 			</div>
 		);
 	}
 );
 
-export const RenamePathTextBox = (
-	props: Omit<Props, 'renameHandler'> & { isDir: boolean; extension?: string | null }
-) => {
+export const RenamePathTextBox = ({
+	isDir,
+	...props
+}: Omit<Props, 'renameHandler'> & { isDir: boolean; extension?: string | null }) => {
 	const rspc = useRspcLibraryContext();
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -192,8 +219,7 @@ export const RenamePathTextBox = (
 		}
 	}
 
-	const fileName =
-		props.isDir || !props.extension ? props.text : props.text + '.' + props.extension;
+	const fileName = isDir || !props.extension ? props.text : props.text + '.' + props.extension;
 
 	// Handle renaming
 	async function rename(newName: string) {
@@ -211,7 +237,7 @@ export const RenamePathTextBox = (
 		} catch (e) {
 			showAlertDialog({
 				title: 'Error',
-				value: String(e)
+				value: `Could not rename ${fileName} to ${newName}, due to an error: ${e}`
 			});
 		}
 	}

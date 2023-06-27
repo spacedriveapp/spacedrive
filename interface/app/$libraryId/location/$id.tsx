@@ -1,18 +1,19 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
 import {
 	useLibraryContext,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
+import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import {
 	getExplorerStore,
 	useExplorerStore,
 	useExplorerTopBarOptions,
-	useZodRouteParams
+	useZodRouteParams,
+	useZodSearchParams
 } from '~/hooks';
 import Explorer from '../Explorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
@@ -20,24 +21,20 @@ import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
-
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
-	const { id: location_id } = useZodRouteParams(PARAMS);
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
 		useExplorerTopBarOptions();
 
-	const location = useLibraryQuery(['locations.get', location_id]);
+	const { data: location } = useLibraryQuery(['locations.get', locationId]);
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				location_id,
-				sub_path: path ?? ''
+				sub_path: location?.path ?? '',
+				location_id: locationId
 			}
 		],
 		{ onData() {} }
@@ -46,10 +43,10 @@ export const Component = () => {
 	const explorerStore = getExplorerStore();
 
 	useEffect(() => {
-		explorerStore.locationId = location_id;
-	}, [explorerStore, location_id, path]);
+		explorerStore.locationId = locationId;
+	}, [explorerStore, locationId]);
 
-	const { items, loadMore } = useItems();
+	const { items, loadMore } = useItems({ locationId });
 
 	return (
 		<>
@@ -58,15 +55,13 @@ export const Component = () => {
 					<div className="group flex flex-row items-center space-x-2">
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
+							<span className="max-w-[100px] truncate text-sm font-medium">
 								{path && path?.length > 1
 									? getLastSectionOfPath(path)
-									: location.data?.name}
+									: location?.name}
 							</span>
 						</span>
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
+						{location && <LocationOptions location={location} path={path || ''} />}
 					</div>
 				}
 				right={
@@ -81,8 +76,7 @@ export const Component = () => {
 	);
 };
 
-const useItems = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
+const useItems = ({ locationId }: { locationId: number }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();

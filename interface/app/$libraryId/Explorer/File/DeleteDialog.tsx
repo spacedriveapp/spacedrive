@@ -2,12 +2,12 @@ import { useLibraryMutation } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm } from '@sd/ui/src/forms';
 
-interface Propps extends UseDialogProps {
+interface Props extends UseDialogProps {
 	location_id: number;
 	path_id: number;
 }
 
-export default (props: Propps) => {
+export default (props: Props) => {
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 
 	const form = useZodForm();
@@ -23,14 +23,16 @@ export default (props: Propps) => {
 			)}
 			dialog={useDialog(props)}
 			title="Delete a file"
-			description="Configure your deletion settings."
+			description="Warning: This will delete your file forever, we don't have a trash can yet..."
 			loading={deleteFile.isLoading}
 			ctaLabel="Delete"
+			ctaDanger
+			className="w-[200px]"
 		>
 			<Tooltip label="Coming soon">
-				<div className="flex items-center opacity-50">
+				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
-					<p className="text-sm text-ink-faint">Delete all matching files</p>
+					<p className="text-sm text-ink-dull">Delete all matching files</p>
 				</div>
 			</Tooltip>
 		</Dialog>

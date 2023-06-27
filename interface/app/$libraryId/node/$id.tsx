@@ -1,21 +1,15 @@
 import { Laptop, Node } from '@sd/assets/icons';
-import { z } from 'zod';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import Explorer from '~/app/$libraryId/Explorer';
+import { TopBarPortal } from '~/app/$libraryId/TopBar/Portal';
+import TopBarOptions from '~/app/$libraryId/TopBar/TopBarOptions';
+import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
-import Explorer from '../Explorer';
-import { useExplorerSearchParams } from '../Explorer/util';
-import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
-
-const PARAMS = z.object({
-	id: z.string()
-});
 
 export const Component = () => {
-	// const [{ path }] = useExplorerSearchParams();
-	const { id: node_id } = useZodRouteParams(PARAMS);
+	const { id: nodeId } = useZodRouteParams(NodeIdParamsSchema);
 
-	const locations = useLibraryQuery(['nodes.listLocations', node_id]);
+	const locations = useLibraryQuery(['nodes.listLocations', nodeId]);
 
 	const nodeState = useBridgeQuery(['nodeState']);
 

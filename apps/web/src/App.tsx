@@ -5,8 +5,6 @@ import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
 import demoData from './demoData.json';
 
-const serverOrigin = import.meta.env.VITE_SDSERVER_ORIGIN || 'localhost:8080';
-
 // TODO: Restore this once TS is back up to functionality in rspc.
 // const wsClient = createWSClient({
 // 	url: `ws://${serverOrigin}/rspc/ws`
@@ -23,17 +21,23 @@ const serverOrigin = import.meta.env.VITE_SDSERVER_ORIGIN || 'localhost:8080';
 // 	]
 // });
 
-const http = import.meta.env.DEV ? 'http' : 'https';
-const spacedriveProtocol = `${http}://${serverOrigin}/spacedrive`;
+const spacedriveURL = (() => {
+	const currentURL = new URL(window.location.href);
+	if (import.meta.env.VITE_SDSERVER_ORIGIN) {
+		currentURL.host = import.meta.env.VITE_SDSERVER_ORIGIN;
+	} else if (import.meta.env.DEV) {
+		currentURL.host = 'localhost:8080';
+	}
+	currentURL.pathname = 'spacedrive';
+	return currentURL.href;
+})();
 
 const platform: Platform = {
 	platform: 'web',
 	getThumbnailUrlByThumbKey: (keyParts) =>
-		`${spacedriveProtocol}/thumbnail/${keyParts
-			.map((i) => encodeURIComponent(i))
-			.join('/')}.webp`,
+		`${spacedriveURL}/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
-		`${spacedriveProtocol}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
+		`${spacedriveURL}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),

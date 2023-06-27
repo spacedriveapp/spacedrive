@@ -272,9 +272,9 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 	return (
 		<div
 			ref={ref}
-			className='relative w-full overflow-x-hidden'
+			className="relative w-full overflow-x-hidden"
 			style={{
-				height: `${rowVirtualizer.getTotalSize()}px`,
+				height: `${rowVirtualizer.getTotalSize()}px`
 			}}
 		>
 			{multiSelect && (

@@ -33,7 +33,7 @@ pub enum ObjectType {
 	Directory,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FileData {
 	pub file_path: file_path_with_object::Data,
 	pub full_path: PathBuf,
@@ -150,7 +150,10 @@ fn construct_target_filename(
 	// if a suffix is provided and it's a file, use the (file name + suffix).extension
 
 	Ok(if let Some(ref suffix) = target_file_name_suffix {
-		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")?
+			|| source_file_data.file_path.extension.is_none()
+			|| source_file_data.file_path.extension == Some(String::new())
+		{
 			format!(
 				"{}{suffix}",
 				maybe_missing(&source_file_data.file_path.name, "file_path.name")?
@@ -162,7 +165,10 @@ fn construct_target_filename(
 				maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?,
 			)
 		}
-	} else if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")? {
+	} else if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")?
+		|| source_file_data.file_path.extension.is_none()
+		|| source_file_data.file_path.extension == Some(String::new())
+	{
 		maybe_missing(&source_file_data.file_path.name, "file_path.name")?.clone()
 	} else {
 		format!(

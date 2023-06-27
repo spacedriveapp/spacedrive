@@ -35,7 +35,7 @@ pub async fn shallow(
 	let location_id = location.id;
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
-	let sub_iso_file_path = if sub_path != Path::new("") && sub_path != Path::new("/") {
+	let sub_iso_file_path = if sub_path != Path::new("") {
 		let full_path = ensure_sub_path_is_in_location(location_path, &sub_path)
 			.await
 			.map_err(FileIdentifierJobError::from)?;
@@ -98,15 +98,16 @@ pub async fn shallow(
 		let file_paths =
 			get_orphan_file_paths(&library.db, location.id, *cursor, sub_iso_file_path).await?;
 
-		process_identifier_file_paths(
+		let (_, _, new_cursor) = process_identifier_file_paths(
 			location,
 			&file_paths,
 			step_number,
-			cursor,
+			*cursor,
 			library,
 			orphan_count,
 		)
 		.await?;
+		*cursor = new_cursor;
 	}
 
 	invalidate_query!(library, "search.paths");

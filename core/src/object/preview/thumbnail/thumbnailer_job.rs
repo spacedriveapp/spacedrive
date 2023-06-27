@@ -1,7 +1,8 @@
 use crate::{
-	extract_job_data,
+	invalidate_query,
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -10,10 +11,10 @@ use crate::{
 	},
 	object::preview::thumbnail::directory::init_thumbnail_dir,
 	prisma::{file_path, location, PrismaClient},
+	util::db::maybe_missing,
 };
 
 use std::{
-	collections::VecDeque,
 	hash::Hash,
 	path::{Path, PathBuf},
 };
@@ -25,8 +26,8 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::{
-	finalize_thumbnailer, process_step, ThumbnailerError, ThumbnailerJobReport,
-	ThumbnailerJobState, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
+	inner_process_step, ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind,
+	FILTERED_IMAGE_EXTENSIONS,
 };
 
 #[cfg(feature = "ffmpeg")]
@@ -34,7 +35,7 @@ use super::FILTERED_VIDEO_EXTENSIONS;
 
 pub struct ThumbnailerJob {}
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ThumbnailerJobInit {
 	pub location: location::Data,
 	pub sub_path: Option<PathBuf>,
@@ -53,11 +54,32 @@ impl JobInitData for ThumbnailerJobInit {
 	type Job = ThumbnailerJob;
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ThumbnailerJobData {
+	thumbnail_dir: PathBuf,
+	location_path: PathBuf,
+	path: PathBuf,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct ThumbnailerJobRunMetadata {
+	thumbnails_created: u32,
+	thumbnails_skipped: u32,
+}
+
+impl JobRunMetadata for ThumbnailerJobRunMetadata {
+	fn update(&mut self, new_data: Self) {
+		self.thumbnails_created += new_data.thumbnails_created;
+		self.thumbnails_skipped += new_data.thumbnails_skipped;
+	}
+}
+
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailerJob {
 	type Init = ThumbnailerJobInit;
-	type Data = ThumbnailerJobState;
+	type Data = ThumbnailerJobData;
 	type Step = ThumbnailerJobStep;
+	type RunMetadata = ThumbnailerJobRunMetadata;
 
 	const NAME: &'static str = "thumbnailer";
 
@@ -67,22 +89,20 @@ impl StatefulJob for ThumbnailerJob {
 
 	async fn init(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
-		// .join(THUMBNAIL_CACHE_DIR_NAME);
 
-		let location_id = state.init.location.id;
-		let location_path = match &state.init.location.path {
-			Some(v) => PathBuf::from(v),
-			None => return Ok(()),
-		};
+		let location_id = init.location.id;
+		let location_path =
+			maybe_missing(&init.location.path, "location.path").map(PathBuf::from)?;
 
-		let (path, iso_file_path) = match &state.init.sub_path {
-			Some(sub_path) if sub_path != Path::new("") && sub_path != Path::new("/") => {
+		let (path, iso_file_path) = match &init.sub_path {
+			Some(sub_path) if sub_path != Path::new("") => {
 				let full_path = ensure_sub_path_is_in_location(&location_path, sub_path)
 					.await
 					.map_err(ThumbnailerError::from)?;
@@ -138,41 +158,84 @@ impl StatefulJob for ThumbnailerJob {
 			image_files
 				.into_iter()
 				.chain(video_files.into_iter())
-				.collect::<VecDeque<_>>()
+				.collect::<Vec<_>>()
 		};
 		#[cfg(not(feature = "ffmpeg"))]
-		let all_files = { image_files.into_iter().collect::<VecDeque<_>>() };
+		let all_files = { image_files.into_iter().collect::<Vec<_>>() };
 
-		ctx.progress(vec![
-			JobReportUpdate::TaskCount(all_files.len()),
-			JobReportUpdate::Message(format!("Preparing to process {} files", all_files.len())),
-		]);
+		ctx.progress_msg(format!("Preparing to process {} files", all_files.len()));
 
-		state.data = Some(ThumbnailerJobState {
+		*data = Some(ThumbnailerJobData {
 			thumbnail_dir,
 			location_path,
-			report: ThumbnailerJobReport {
-				location_id,
-				path,
+			path,
+		});
+
+		Ok((
+			ThumbnailerJobRunMetadata {
 				thumbnails_created: 0,
 				thumbnails_skipped: 0,
 			},
-		});
-		state.steps.extend(all_files);
-
-		Ok(())
+			all_files,
+		)
+			.into())
 	}
 
 	async fn execute_step(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		process_step(state, ctx).await
+		ctx: &WorkerContext,
+		init: &Self::Init,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
+		data: &Self::Data,
+		_: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		ctx.progress_msg(format!(
+			"Processing {}",
+			maybe_missing(
+				&step.file_path.materialized_path,
+				"file_path.materialized_path"
+			)?
+		));
+
+		let mut new_metadata = Self::RunMetadata::default();
+
+		let step_result = inner_process_step(
+			step,
+			&data.location_path,
+			&data.thumbnail_dir,
+			&init.location,
+			&ctx.library,
+		)
+		.await;
+
+		step_result.map(|thumbnail_was_created| {
+			if thumbnail_was_created {
+				new_metadata.thumbnails_created += 1;
+			} else {
+				new_metadata.thumbnails_skipped += 1;
+			}
+		})?;
+
+		Ok(new_metadata.into())
 	}
 
-	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
-		finalize_thumbnailer(extract_job_data!(state), ctx)
+	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+		info!(
+			"Finished thumbnail generation for location {} at {}",
+			state.init.location.id,
+			state
+				.data
+				.as_ref()
+				.expect("critical error: missing data on job state")
+				.path
+				.display()
+		);
+
+		if state.run_metadata.thumbnails_created > 0 {
+			invalidate_query!(ctx.library, "search.paths");
+		}
+
+		Ok(Some(serde_json::to_value(&state.run_metadata)?))
 	}
 }
 

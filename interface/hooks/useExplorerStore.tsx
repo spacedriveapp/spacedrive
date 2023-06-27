@@ -1,12 +1,12 @@
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { z } from 'zod';
 import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
+import { SortOrder } from '~/app/route-schemas';
 
 type Join<K, P> = K extends string | number
 	? P extends string | number
-	? `${K}${'' extends P ? '' : '.'}${P}`
-	: never
+		? `${K}${'' extends P ? '' : '.'}${P}`
+		: never
 	: never;
 
 type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[keyof T] : '';
@@ -26,12 +26,10 @@ export type CutCopyType = 'Cut' | 'Copy';
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
-export const SortOrder = z.union([z.literal('Asc'), z.literal('Desc')]);
-
 const state = {
 	locationId: null as number | null,
 	layoutMode: 'grid' as ExplorerLayoutMode,
-	gridItemSize: 100,
+	gridItemSize: 110,
 	listItemSize: 40,
 	selectedRowIndex: 1 as number | null,
 	showBytesInGridView: true,
@@ -41,7 +39,7 @@ const state = {
 	multiSelectIndexes: [] as number[],
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: {
-		sourcePath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
+		sourceParentPath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
 		sourceLocationId: 0,
 		sourcePathId: 0,
 		actionType: 'Cut',
@@ -49,9 +47,9 @@ const state = {
 	},
 	quickViewObject: null as ExplorerItem | null,
 	mediaColumns: 8,
-	mediaAspectSquare: true,
+	mediaAspectSquare: false,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
-	orderByDirection: 'Desc' as z.infer<typeof SortOrder>,
+	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none'
 };
 
@@ -79,4 +77,12 @@ export function useExplorerStore() {
 
 export function getExplorerStore() {
 	return explorerStore;
+}
+
+export function isCut(id: number) {
+	return (
+		explorerStore.cutCopyState.active &&
+		explorerStore.cutCopyState.actionType === 'Cut' &&
+		explorerStore.cutCopyState.sourcePathId === id
+	);
 }
