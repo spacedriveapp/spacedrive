@@ -1,21 +1,16 @@
 import { MagnifyingGlass } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
+import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodSearchParams
-} from '~/hooks';
+import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
+import { ExplorerContext } from './Explorer/Context';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
+import { getExplorerStore, useExplorerStore } from './Explorer/store';
 import { TopBarPortal } from './TopBar/Portal';
-import TopBarOptions from './TopBar/TopBarOptions';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
 
 	const { search, ...args } = props.args;
 
@@ -36,27 +31,13 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 		});
 	}, [query.data, explorerStore.layoutMode]);
 
-	useEffect(() => {
-		getExplorerStore().selectedRowIndex = null;
-	}, [search]);
-
 	return (
 		<>
 			{items && items.length > 0 ? (
-				<>
-					<TopBarPortal
-						right={
-							<TopBarOptions
-								options={[
-									explorerViewOptions,
-									explorerToolOptions,
-									explorerControlOptions
-								]}
-							/>
-						}
-					/>
+				<ExplorerContext.Provider value={{}}>
+					<TopBarPortal right={<DefaultTopBarOptions />} />
 					<Explorer items={items} />
-				</>
+				</ExplorerContext.Provider>
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center">
 					{!search && (

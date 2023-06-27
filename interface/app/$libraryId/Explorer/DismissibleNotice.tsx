@@ -10,7 +10,7 @@ import { ReactNode } from 'react';
 import DismissibleNotice from '~/components/DismissibleNotice';
 import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerLayoutMode, useExplorerStore } from './store';
 
 const MediaViewIcon = () => {
 	const isDark = useIsDark();

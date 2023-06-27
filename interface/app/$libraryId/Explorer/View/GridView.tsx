@@ -3,10 +3,10 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
 import GridList from '~/components/GridList';
-import { isCut, useExplorerStore } from '~/hooks';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
+import { isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
