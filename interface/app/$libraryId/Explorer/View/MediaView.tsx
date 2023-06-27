@@ -4,10 +4,10 @@ import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import GridList from '~/components/GridList';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
+import { getExplorerStore, useExplorerStore } from '../store';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;

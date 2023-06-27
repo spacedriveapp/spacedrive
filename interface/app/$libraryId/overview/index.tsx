@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
-import ContextMenu from '../Explorer/File/ContextMenu';
+import { ExplorerContext } from '../Explorer/Context';
+// import ContextMenu from '../Explorer/FilePath/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
+import { useExplorerStore } from '../Explorer/store';
 import { usePageLayout } from '../PageLayout';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
 import { useItems } from './data';
@@ -16,9 +17,6 @@ export const Component = () => {
 	const explorerStore = useExplorerStore();
 
 	const page = usePageLayout();
-
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
@@ -32,14 +30,8 @@ export const Component = () => {
 	);
 
 	return (
-		<>
-			<TopBarPortal
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
-			/>
+		<ExplorerContext.Provider value={{}}>
+			<TopBarPortal right={<DefaultTopBarOptions />} />
 
 			<div>
 				<Statistics />
@@ -58,7 +50,7 @@ export const Component = () => {
 						onSelectedChange={setSelectedItemId}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={<ContextMenu data={selectedItem} />}
+						// contextMenu={<ContextMenu data={selectedItem as any} />}
 						emptyNotice={null}
 					/>
 
@@ -71,6 +63,6 @@ export const Component = () => {
 					)}
 				</div>
 			</div>
-		</>
+		</ExplorerContext.Provider>
 	);
 };

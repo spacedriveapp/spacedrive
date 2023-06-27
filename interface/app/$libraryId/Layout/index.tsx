@@ -11,7 +11,7 @@ import {
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { QuickPreview } from '../Explorer/QuickPreview';
+import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -50,12 +50,13 @@ const Layout = () => {
 			<Sidebar />
 			<div className="relative flex w-full overflow-hidden bg-app">
 				{library ? (
-					<LibraryContextProvider library={library}>
-						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-							<Outlet />
-						</Suspense>
-						<QuickPreview />
-					</LibraryContextProvider>
+					<QuickPreviewContextProvider>
+						<LibraryContextProvider library={library}>
+							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+								<Outlet />
+							</Suspense>
+						</LibraryContextProvider>
+					</QuickPreviewContextProvider>
 				) : (
 					<h1 className="p-4 text-white">
 						Please select or create a library in the sidebar.

@@ -104,7 +104,7 @@ impl MovieDecoder {
 		unsafe {
 			// This needs to remain at 100 or the app will force crash if it comes
 			// across a video with subtitles or any type of corruption.
-			if (*decoder.format_context).probe_score == AVPROBE_SCORE_MAX {
+			if (*decoder.format_context).probe_score != AVPROBE_SCORE_MAX {
 				return Err(ThumbnailerError::CorruptVideo);
 			}
 		}

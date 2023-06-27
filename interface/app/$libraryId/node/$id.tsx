@@ -1,23 +1,30 @@
-import { Laptop, Node } from '@sd/assets/icons';
+import { Laptop } from '@sd/assets/icons';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import Explorer from '~/app/$libraryId/Explorer';
-import { TopBarPortal } from '~/app/$libraryId/TopBar/Portal';
-import TopBarOptions from '~/app/$libraryId/TopBar/TopBarOptions';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
-import { useExplorerTopBarOptions, useZodRouteParams } from '~/hooks';
+import { useZodRouteParams } from '~/hooks';
+import Explorer from '../Explorer';
+import { ExplorerContext } from '../Explorer/Context';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
 	const { id: nodeId } = useZodRouteParams(NodeIdParamsSchema);
 
-	const locations = useLibraryQuery(['nodes.listLocations', nodeId]);
+	const query = useLibraryQuery(['nodes.listLocations', nodeId]);
 
 	const nodeState = useBridgeQuery(['nodeState']);
 
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
-
 	return (
-		<>
+		<ExplorerContext.Provider
+			value={{
+				parent: nodeState.data
+					? {
+							type: 'Node',
+							node: nodeState.data
+					  }
+					: undefined
+			}}
+		>
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
@@ -32,14 +39,10 @@ export const Component = () => {
 						</span>
 					</div>
 				}
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
+				right={<DefaultTopBarOptions />}
 			/>
 
-			{locations.data && <Explorer items={locations.data} />}
-		</>
+			<Explorer items={query.data || []} />
+		</ExplorerContext.Provider>
 	);
 };

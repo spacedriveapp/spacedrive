@@ -11,15 +11,16 @@ import {
 } from 'phosphor-react';
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
-import OptionsPanel from '~/app/$libraryId/Explorer/OptionsPanel';
-import { KeyManager } from '~/app/$libraryId/KeyManager';
-import { TOP_BAR_ICON_STYLE, ToolOption } from '~/app/$libraryId/TopBar/TopBarOptions';
-import { getExplorerStore, useExplorerStore } from './useExplorerStore';
+import { KeyManager } from '../KeyManager';
+import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
+import { useExplorerContext } from './Context';
+import OptionsPanel from './OptionsPanel';
+import { getExplorerStore, useExplorerStore } from './store';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 
-	const explorerViewOptions: ToolOption[] = [
+	const viewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
@@ -50,7 +51,7 @@ export const useExplorerTopBarOptions = () => {
 		}
 	];
 
-	const explorerControlOptions: ToolOption[] = [
+	const controlOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Explorer display',
 			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
@@ -81,7 +82,9 @@ export const useExplorerTopBarOptions = () => {
 
 	const { client } = useRspcLibraryContext();
 
-	const explorerToolOptions: ToolOption[] = [
+	const { parent } = useExplorerContext();
+
+	const toolOptions = [
 		{
 			toolTipLabel: 'Key Manager',
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
@@ -102,28 +105,40 @@ export const useExplorerTopBarOptions = () => {
 			individual: true,
 			showAtResolution: 'xl:flex'
 		},
-		{
+		parent?.type === 'Location' && {
 			toolTipLabel: 'Reload',
 			onClick: () => {
-				if (explorerStore.locationId) {
-					quickRescanSubscription.current?.();
-					quickRescanSubscription.current = client.addSubscription(
-						[
-							'locations.quickRescan',
-							{
-								location_id: explorerStore.locationId,
-								sub_path: ''
-							}
-						],
-						{ onData() {} }
-					);
-				}
+				quickRescanSubscription.current?.();
+				quickRescanSubscription.current = client.addSubscription(
+					[
+						'locations.quickRescan',
+						{
+							location_id: parent.location.id,
+							sub_path: ''
+						}
+					],
+					{ onData() {} }
+				);
 			},
 			icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
 			individual: true,
 			showAtResolution: 'xl:flex'
 		}
-	];
+	].filter(Boolean) as ToolOption[];
 
-	return { explorerViewOptions, explorerControlOptions, explorerToolOptions };
+	return {
+		viewOptions,
+		controlOptions,
+		toolOptions
+	};
+};
+
+export const DefaultTopBarOptions = () => {
+	const options = useExplorerTopBarOptions();
+
+	return (
+		<TopBarOptions
+			options={[options.viewOptions, options.toolOptions, options.controlOptions]}
+		/>
+	);
 };
