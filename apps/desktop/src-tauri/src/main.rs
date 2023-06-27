@@ -167,9 +167,10 @@ async fn main() -> tauri::Result<()> {
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
-			file::open_file_path,
+			file::open_file_paths,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with,
+			file::reveal_items,
 			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;

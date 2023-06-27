@@ -17,9 +17,9 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
-import { useExplorerStore, useIsDark } from '~/hooks';
+import { useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../AssignTagMenuItems';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -47,7 +47,6 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
-	const explorerStore = useExplorerStore();
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
