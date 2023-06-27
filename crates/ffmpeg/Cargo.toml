@@ -12,9 +12,9 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ffmpeg-sys-next = "6.0.1"
+ffmpeg-sys-next = "6.0.0"
 
-thiserror = "1.0.40"
+thiserror = "1.0.37"
 webp = "0.2.2"
 tokio = { workspace = true, features = ["fs", "rt"] }
 

@@ -36,10 +36,6 @@ pub enum ThumbnailerError {
 	InvalidQuality(f32),
 	#[error("Background task failed: {0}")]
 	BackgroundTaskFailed(#[from] JoinError),
-	#[error("The video is most likely corrupt and will be skipped")]
-	CorruptVideo,
-	#[error("The video file contains subtitles and will be skipped")]
-	Subtitles,
 }
 
 /// Enum to represent possible errors from FFmpeg library
