@@ -123,7 +123,7 @@ impl StatefulJob for FileCopierJob {
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
-		let res = if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
 			let mut more_steps = Vec::new();
 
 			fs::create_dir_all(target_full_path)
@@ -205,9 +205,7 @@ impl StatefulJob for FileCopierJob {
 				}
 				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 			}
-		};
-
-		res
+		}
 	}
 
 	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {

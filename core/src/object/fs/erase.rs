@@ -103,8 +103,7 @@ impl StatefulJob for FileEraserJob {
 
 		let mut new_metadata = Self::RunMetadata::default();
 
-		// Had to use `state.steps[0]` all over the place to appease the borrow checker
-		let res = if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			let mut more_steps = Vec::new();
 
 			let mut dir = tokio::fs::read_dir(&step.full_path)
@@ -173,9 +172,7 @@ impl StatefulJob for FileEraserJob {
 				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 
 			Ok(None.into())
-		};
-
-		res
+		}
 	}
 
 	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {

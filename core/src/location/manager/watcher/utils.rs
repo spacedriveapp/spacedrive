@@ -143,8 +143,25 @@ pub(super) async fn create_file(
 	metadata: &Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
+	inner_create_file(
+		location_id,
+		extract_location_path(location_id, library).await?,
+		path,
+		metadata,
+		library,
+	)
+	.await
+}
+
+async fn inner_create_file(
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	path: impl AsRef<Path>,
+	metadata: &Metadata,
+	library: &Library,
+) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
-	let location_path = extract_location_path(location_id, library).await?;
+	let location_path = location_path.as_ref();
 
 	trace!(
 		"Location: <root_path ='{}'> creating file: {}",
@@ -154,7 +171,7 @@ pub(super) async fn create_file(
 
 	let db = &library.db;
 
-	let iso_file_path = IsolatedFilePathData::new(location_id, &location_path, path, false)?;
+	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
 	let extension = iso_file_path.extension.to_string();
 
 	let (inode, device) = {
@@ -170,6 +187,21 @@ pub(super) async fn create_file(
 			get_inode_and_device_from_path(path).await?
 		}
 	};
+
+	if let Some(file_path) = db
+		.file_path()
+		.find_unique(file_path::location_id_inode_device(
+			location_id,
+			inode.to_le_bytes().to_vec(),
+			device.to_le_bytes().to_vec(),
+		))
+		.include(file_path_with_object::include())
+		.exec()
+		.await?
+	{
+		trace!("File already exists: {}", iso_file_path);
+		return inner_update_file(location_path, &file_path, path, library).await;
+	}
 
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
@@ -292,32 +324,30 @@ pub(super) async fn update_file(
 		.exec()
 		.await?
 	{
-		let ret = inner_update_file(location_id, file_path, full_path, library).await;
-		invalidate_query!(library, "search.paths");
-		ret
+		inner_update_file(location_path, file_path, full_path, library).await
 	} else {
-		// FIXME(fogodev): Have to handle files excluded by indexer rules
-		Err(LocationManagerError::UpdateNonExistingFile(
-			full_path.to_path_buf(),
-		))
+		inner_create_file(
+			location_id,
+			location_path,
+			full_path,
+			&fs::metadata(full_path)
+				.await
+				.map_err(|e| FileIOError::from((full_path, e)))?,
+			library,
+		)
+		.await
 	}
+	.map(|_| invalidate_query!(library, "search.paths"))
 }
 
 async fn inner_update_file(
-	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
 	library @ Library { db, sync, .. }: &Library,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
-	let location = db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await?
-		.ok_or_else(|| LocationManagerError::MissingLocation(location_id))?;
-
-	let location_path = maybe_missing(location.path.map(PathBuf::from), "location.path")?;
+	let location_path = location_path.as_ref();
 
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",

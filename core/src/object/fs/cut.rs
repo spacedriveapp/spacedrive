@@ -97,7 +97,7 @@ impl StatefulJob for FileCutterJob {
 			.full_target_directory_path
 			.join(construct_target_filename(file_data, &None)?);
 
-		let res = if file_data.full_path == full_output {
+		if file_data.full_path == full_output {
 			// File is already here, do nothing
 			Ok(().into())
 		} else {
@@ -130,9 +130,7 @@ impl StatefulJob for FileCutterJob {
 
 				Err(e) => return Err(FileIOError::from((&full_output, e)).into()),
 			}
-		};
-
-		res
+		}
 	}
 
 	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
