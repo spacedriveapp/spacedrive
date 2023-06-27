@@ -502,9 +502,11 @@ where
 					for e in v {
 						to_remove.insert(
 							(
-								e.materialized_path.clone().unwrap(),
-								e.name.clone().unwrap(),
-								e.extension.clone().unwrap(),
+								e.materialized_path
+									.clone()
+									.expect("materialized_path should be set"),
+								e.name.clone().expect("name should be set"),
+								e.extension.clone().expect("extension should be set"),
 							),
 							e,
 						);
@@ -617,7 +619,7 @@ where
 	// multiple rehashes during function execution
 	indexed_paths.extend(paths_buffer.drain(..));
 
-	to_remove.into_iter().map(|(_, v)| v).collect()
+	to_remove.into_values().collect()
 }
 
 #[cfg(test)]

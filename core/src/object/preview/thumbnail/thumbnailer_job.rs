@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -33,8 +33,6 @@ use super::{
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
 
-pub struct ThumbnailerJob {}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ThumbnailerJobInit {
 	pub location: location::Data,
@@ -48,10 +46,6 @@ impl Hash for ThumbnailerJobInit {
 			sub_path.hash(state);
 		}
 	}
-}
-
-impl JobInitData for ThumbnailerJobInit {
-	type Job = ThumbnailerJob;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,24 +69,19 @@ impl JobRunMetadata for ThumbnailerJobRunMetadata {
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for ThumbnailerJob {
-	type Init = ThumbnailerJobInit;
+impl StatefulJob for ThumbnailerJobInit {
 	type Data = ThumbnailerJobData;
 	type Step = ThumbnailerJobStep;
 	type RunMetadata = ThumbnailerJobRunMetadata;
 
 	const NAME: &'static str = "thumbnailer";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
@@ -184,11 +173,11 @@ impl StatefulJob for ThumbnailerJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		ctx.progress_msg(format!(
 			"Processing {}",
 			maybe_missing(
@@ -219,23 +208,27 @@ impl StatefulJob for ThumbnailerJob {
 		Ok(new_metadata.into())
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
 		info!(
 			"Finished thumbnail generation for location {} at {}",
-			state.init.location.id,
-			state
-				.data
-				.as_ref()
+			init.location.id,
+			data.as_ref()
 				.expect("critical error: missing data on job state")
 				.path
 				.display()
 		);
 
-		if state.run_metadata.thumbnails_created > 0 {
+		if run_metadata.thumbnails_created > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(&state.run_metadata)?))
+		Ok(Some(serde_json::to_value(run_metadata)?))
 	}
 }
 

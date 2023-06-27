@@ -1,7 +1,6 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobState, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -27,12 +26,6 @@ use tracing::info;
 
 use super::{hash::file_checksum, ValidatorError};
 
-// The Validator is able to:
-// - generate a full byte checksum for Objects in a Location
-// - generate checksums for all Objects missing without one
-// - compare two objects and return true if they are the same
-pub struct ObjectValidatorJob {}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ObjectValidatorJobData {
 	pub location_path: PathBuf,
@@ -55,29 +48,24 @@ impl Hash for ObjectValidatorJobInit {
 	}
 }
 
-impl JobInitData for ObjectValidatorJobInit {
-	type Job = ObjectValidatorJob;
-}
-
+// The Validator is able to:
+// - generate a full byte checksum for Objects in a Location
+// - generate checksums for all Objects missing without one
+// - compare two objects and return true if they are the same
 #[async_trait::async_trait]
-impl StatefulJob for ObjectValidatorJob {
-	type Init = ObjectValidatorJobInit;
+impl StatefulJob for ObjectValidatorJobInit {
 	type Data = ObjectValidatorJobData;
 	type Step = file_path_for_object_validator::Data;
 	type RunMetadata = ();
 
 	const NAME: &'static str = "object_validator";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let location_id = init.location.id;
@@ -140,13 +128,13 @@ impl StatefulJob for ObjectValidatorJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep {
 			step: file_path, ..
 		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
 		let Library { db, sync, .. } = &ctx.library;
 
 		// this is to skip files that already have checksums
@@ -182,24 +170,27 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(().into())
 	}
 
-	async fn finalize(&self, _: &WorkerContext, state: &JobState<Self>) -> JobResult {
-		let data = state
-			.data
+	async fn finalize(
+		&self,
+		_: &WorkerContext,
+		data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
+		let data = data
 			.as_ref()
 			.expect("critical error: missing data on job state");
 
 		info!(
 			"finalizing validator job at {}{}: {} tasks",
 			data.location_path.display(),
-			state
-				.init
-				.sub_path
+			init.sub_path
 				.as_ref()
 				.map(|p| format!("{}", p.display()))
 				.unwrap_or_default(),
 			data.task_count
 		);
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

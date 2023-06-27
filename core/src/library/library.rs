@@ -1,6 +1,5 @@
 use crate::{
 	api::CoreEvent,
-	job::{IntoJob, JobInitData, JobManagerError, StatefulJob},
 	location::{
 		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 		LocationManager,
@@ -44,7 +43,7 @@ pub struct Library {
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
-	pub(super) node_context: NodeContext,
+	pub node_context: NodeContext,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -64,21 +63,6 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub(crate) async fn spawn_job<SJob, Init>(
-		&self,
-		jobable: impl IntoJob<SJob>,
-	) -> Result<(), JobManagerError>
-	where
-		SJob: StatefulJob<Init = Init> + 'static,
-		Init: JobInitData + 'static,
-	{
-		self.node_context
-			.job_manager
-			.clone()
-			.ingest(self, jobable.into_job())
-			.await
-	}
-
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.node_context.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
