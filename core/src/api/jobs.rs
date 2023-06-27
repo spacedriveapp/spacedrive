@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{job_without_data, JobManager, JobReport, JobStatus},
+	job::{job_without_data, Job, JobManager, JobReport, JobStatus},
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -77,11 +77,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				created_at: DateTime<Utc>,
 				jobs: VecDeque<JobReport>,
 			}
-			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-			pub struct JobGroups {
-				groups: Vec<JobGroup>,
-				index: HashMap<Uuid, i32>, // maps job ids to their group index
-			}
+
 			R.with2(library())
 				.query(|(ctx, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
@@ -160,18 +156,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-					// Update the index after sorting the groups
-					let mut index: HashMap<Uuid, i32> = HashMap::new();
-					for (i, group) in groups_vec.iter().enumerate() {
-						for job in &group.jobs {
-							index.insert(job.id, i as i32);
-						}
-					}
-
-					Ok(JobGroups {
-						groups: groups_vec,
-						index,
-					})
+					Ok(groups_vec)
 				})
 		})
 		.procedure("isActive", {
@@ -257,13 +242,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(ThumbnailerJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ThumbnailerJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				},
 			)
 		})
@@ -283,13 +268,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(ObjectValidatorJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ObjectValidatorJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				})
 		})
 		.procedure("identifyUniqueFiles", {
@@ -305,13 +290,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(FileIdentifierJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(FileIdentifierJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				})
 		})
 		.procedure("newThumbnail", {

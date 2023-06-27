@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunErrors, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunErrors, JobStepOutput, StatefulJob,
+		WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{join_location_relative_path, IsolatedFilePathData},
@@ -25,8 +25,6 @@ use super::{
 	get_file_data_from_isolated_file_path, get_many_files_datas, FileData,
 };
 
-pub struct FileCopierJob {}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileCopierJobData {
 	sources_location_path: PathBuf,
@@ -47,29 +45,20 @@ pub struct FileCopierJobStep {
 	pub target_full_path: PathBuf,
 }
 
-impl JobInitData for FileCopierJobInit {
-	type Job = FileCopierJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for FileCopierJob {
-	type Init = FileCopierJobInit;
+impl StatefulJob for FileCopierJobInit {
 	type Data = FileCopierJobData;
 	type Step = FileCopierJobStep;
 	type RunMetadata = ();
 
 	const NAME: &'static str = "file_copier";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let (sources_location_path, targets_location_path) =
@@ -112,7 +101,6 @@ impl StatefulJob for FileCopierJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep {
 			step: FileCopierJobStep {
 				source_file_data,
@@ -123,7 +111,9 @@ impl StatefulJob for FileCopierJob {
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
-		let res = if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+		let init = self;
+
+		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
 			let mut more_steps = Vec::new();
 
 			fs::create_dir_all(target_full_path)
@@ -134,7 +124,6 @@ impl StatefulJob for FileCopierJob {
 				.await
 				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
 
-			// Can't use the `steps` borrow from here ownwards, or you feel the wrath of the borrow checker
 			while let Some(children_entry) = read_dir
 				.next_entry()
 				.await
@@ -205,14 +194,19 @@ impl StatefulJob for FileCopierJob {
 				}
 				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
 			}
-		};
-
-		res
+		}
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
+
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

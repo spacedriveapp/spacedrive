@@ -21,14 +21,14 @@ use super::{
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	pub(in crate::location) location_id: location::id::Type,
-	pub(in crate::location) materialized_path: Cow<'a, str>,
+	pub materialized_path: Cow<'a, str>,
 	pub(in crate::location) is_dir: bool,
-	pub(in crate::location) name: Cow<'a, str>,
-	pub(in crate::location) extension: Cow<'a, str>,
+	pub name: Cow<'a, str>,
+	pub extension: Cow<'a, str>,
 	relative_path: Cow<'a, str>,
 }
 

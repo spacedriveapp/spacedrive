@@ -42,18 +42,6 @@ pub struct JobRunOutput {
 	pub next_job: Option<Box<dyn DynJob>>,
 }
 
-/// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
-pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash + fmt::Debug {
-	type Job: StatefulJob;
-
-	fn hash(&self) -> u64 {
-		let mut s = DefaultHasher::new();
-		<Self::Job as StatefulJob>::NAME.hash(&mut s);
-		<Self as Hash>::hash(self, &mut s);
-		s.finish()
-	}
-}
-
 pub trait JobRunMetadata:
 	Default + Serialize + DeserializeOwned + Send + Sync + fmt::Debug
 {
@@ -65,8 +53,9 @@ impl JobRunMetadata for () {
 }
 
 #[async_trait::async_trait]
-pub trait StatefulJob: Send + Sync + Sized + 'static {
-	type Init: JobInitData<Job = Self>;
+pub trait StatefulJob:
+	Serialize + DeserializeOwned + Hash + fmt::Debug + Send + Sync + Sized + 'static
+{
 	type Data: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type Step: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
 	type RunMetadata: JobRunMetadata;
@@ -75,15 +64,10 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 	const NAME: &'static str;
 	const IS_BACKGROUND: bool = false;
 
-	/// Construct a new instance of the job. This is used so the user can pass `Self::Init` into the `spawn_job` function and we can still run the job.
-	/// This does remove the flexibility of being able to pass arguments into the job's struct but with resumable jobs I view that as an anti-pattern anyway.
-	fn new() -> Self;
-
 	/// initialize the steps for the job
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError>;
 
@@ -91,14 +75,25 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		step: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		run_metadata: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError>;
 
 	/// is called after all steps have been executed
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult;
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+	) -> JobResult;
+
+	fn hash(&self) -> u64 {
+		let mut s = DefaultHasher::new();
+		Self::NAME.hash(&mut s);
+		<Self as Hash>::hash(self, &mut s);
+		s.finish()
+	}
 }
 
 #[async_trait::async_trait]
@@ -126,44 +121,16 @@ pub struct Job<SJob: StatefulJob> {
 	hash: u64,
 	report: Option<JobReport>,
 	state: Option<JobState<SJob>>,
-	stateful_job: Option<SJob>,
+	// stateful_job: Option<SJob>,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
-pub trait IntoJob<SJob: StatefulJob + 'static> {
-	fn into_job(self) -> Box<dyn DynJob>;
-}
-
-impl<SJob, Init> IntoJob<SJob> for Init
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn into_job(self) -> Box<dyn DynJob> {
-		Job::new(self)
-	}
-}
-
-impl<SJob, Init> IntoJob<SJob> for Box<Job<SJob>>
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn into_job(self) -> Box<dyn DynJob> {
-		self
-	}
-}
-
-impl<SJob, Init> Job<SJob>
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn new(init: Init) -> Box<Self> {
+impl<SJob: StatefulJob> Job<SJob> {
+	pub fn new(init: SJob) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
 			id,
-			hash: <SJob::Init as JobInitData>::hash(&init),
+			hash: <SJob as StatefulJob>::hash(&init),
 			report: Some(JobReport::new(id, SJob::NAME.to_string())),
 			state: Some(JobState {
 				init,
@@ -172,16 +139,15 @@ where
 				step_number: 0,
 				run_metadata: Default::default(),
 			}),
-			stateful_job: Some(SJob::new()),
 			next_jobs: VecDeque::new(),
 		})
 	}
 
-	pub fn new_with_action(init: Init, action: impl AsRef<str>) -> Box<Self> {
+	pub fn new_with_action(init: SJob, action: impl AsRef<str>) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
 			id,
-			hash: <SJob::Init as JobInitData>::hash(&init),
+			hash: <SJob as StatefulJob>::hash(&init),
 			report: Some(JobReport::new_with_action(
 				id,
 				SJob::NAME.to_string(),
@@ -194,15 +160,13 @@ where
 				step_number: 0,
 				run_metadata: Default::default(),
 			}),
-			stateful_job: Some(SJob::new()),
 			next_jobs: VecDeque::new(),
 		})
 	}
 
-	pub fn queue_next<NextSJob, NextInit>(mut self: Box<Self>, init: NextInit) -> Box<Self>
+	pub fn queue_next<NextSJob>(mut self: Box<Self>, init: NextSJob) -> Box<Self>
 	where
-		NextSJob: StatefulJob<Init = NextInit> + 'static,
-		NextInit: JobInitData<Job = NextSJob>,
+		NextSJob: StatefulJob + 'static,
 	{
 		let next_job_order = self.next_jobs.len() + 1;
 		self.next_jobs.push_back(Job::new_dependent(
@@ -223,10 +187,9 @@ where
 	// this function returns an ingestible job instance from a job report
 	pub fn new_from_report(
 		mut report: JobReport,
-		stateful_job: SJob, // whichever type of job this should be is passed here
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
-		let state = rmp_serde::from_slice::<JobState<_>>(
+		let state = rmp_serde::from_slice::<JobState<SJob>>(
 			&report
 				.data
 				.take()
@@ -235,19 +198,18 @@ where
 
 		Ok(Box::new(Self {
 			id: report.id,
-			hash: <SJob::Init as JobInitData>::hash(&state.init),
+			hash: <SJob as StatefulJob>::hash(&state.init),
 			state: Some(state),
 			report: Some(report),
-			stateful_job: Some(stateful_job),
 			next_jobs: next_jobs.unwrap_or_default(),
 		}))
 	}
 
-	fn new_dependent(init: Init, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
+	fn new_dependent(init: SJob, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
 		let id = Uuid::new_v4();
 		Box::new(Self {
 			id,
-			hash: <SJob::Init as JobInitData>::hash(&init),
+			hash: <SJob as StatefulJob>::hash(&init),
 			report: Some(JobReport::new_with_parent(
 				id,
 				SJob::NAME.to_string(),
@@ -261,15 +223,57 @@ where
 				step_number: 0,
 				run_metadata: Default::default(),
 			}),
-			stateful_job: Some(SJob::new()),
 			next_jobs: VecDeque::new(),
+		})
+	}
+
+	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
+		library
+			.node_context
+			.job_manager
+			.clone()
+			.ingest(library, Box::new(self))
+			.await
+	}
+}
+
+#[derive(Serialize)]
+pub struct JobState<Job: StatefulJob> {
+	pub init: Job,
+	pub data: Option<Job::Data>,
+	pub steps: VecDeque<Job::Step>,
+	pub step_number: usize,
+	pub run_metadata: Job::RunMetadata,
+}
+
+impl<'de, Job: StatefulJob> Deserialize<'de> for JobState<Job> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		<JobStateRaw<Job, Job> as Deserialize<'de>>::deserialize::<D>(deserializer).map(|raw| {
+			JobState {
+				init: raw.init,
+				data: raw.data,
+				steps: raw.steps,
+				step_number: raw.step_number,
+				run_metadata: raw.run_metadata,
+			}
 		})
 	}
 }
 
+/// This is a workaround for a serde bug.
+/// Both these generics on this type should point to the same type.
+///
+/// https://github.com/serde-rs/serde/issues/2418
+/// https://github.com/rust-lang/rust/issues/34979
 #[derive(Serialize, Deserialize)]
-pub struct JobState<Job: StatefulJob> {
-	pub init: Job::Init,
+struct JobStateRaw<Job, JobInit>
+where
+	Job: StatefulJob,
+{
+	pub init: JobInit,
 	pub data: Option<Job::Data>,
 	pub steps: VecDeque<Job::Step>,
 	pub step_number: usize,
@@ -436,14 +440,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.take()
 			.expect("critical error: missing job state");
 
-		let stateful_job = Arc::new(
-			self.stateful_job
-				.take()
-				.expect("critical error: missing stateful job"),
-		);
+		let stateful_job = Arc::new(init);
 
 		let ctx = Arc::new(ctx);
-		let init_arc = Arc::new(init);
 
 		let mut job_should_run = true;
 		let job_time = Instant::now();
@@ -454,16 +453,17 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		} else {
 			// Job init phase
 			let inner_ctx = Arc::clone(&ctx);
-			let inner_init = Arc::clone(&init_arc);
-			let inner_stateful_job = Arc::clone(&stateful_job);
+			let stateful_job = Arc::clone(&stateful_job);
 
 			let init_time = Instant::now();
 
 			let mut init_handle = tokio::spawn(async move {
 				let mut new_data = None;
-				let res = inner_stateful_job
-					.init(&inner_ctx, &inner_init, &mut new_data)
-					.await;
+				let res = stateful_job.init(&inner_ctx, &mut new_data).await;
+
+				if let Ok(res) = res.as_ref() {
+					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+				}
 
 				if let Ok(res) = res.as_ref() {
 					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
@@ -608,19 +608,17 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 				// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
 				let inner_ctx = Arc::clone(&ctx);
-				let inner_init = Arc::clone(&init_arc);
 				let inner_run_metadata = Arc::clone(&run_metadata_arc);
 				let inner_working_data = Arc::clone(&working_data_arc);
 				let inner_step = Arc::clone(&step_arc);
 				let inner_stateful_job = Arc::clone(&stateful_job);
 
-				let step_time = Instant::now();
+				let _step_time = Instant::now();
 
 				let mut job_step_handle = tokio::spawn(async move {
 					inner_stateful_job
 						.execute_step(
 							&inner_ctx,
-							&inner_init,
 							CurrentStep {
 								step: &inner_step,
 								step_number,
@@ -682,7 +680,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 													JobError::Paused(
 														rmp_serde::to_vec_named(
 															&JobState::<SJob> {
-																init: Arc::try_unwrap(init_arc)
+																init: Arc::try_unwrap(stateful_job)
 																	.expect("handle abort already ran, no more refs"),
 																data: Some(
 																	Arc::try_unwrap(working_data_arc)
@@ -742,7 +740,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 										JobError::Paused(
 											rmp_serde::to_vec_named(
 												&JobState::<SJob> {
-													init: Arc::try_unwrap(init_arc)
+													init: Arc::try_unwrap(stateful_job)
 														.expect("handle abort already ran, no more refs"),
 													data: Some(
 														Arc::try_unwrap(working_data_arc)
@@ -773,10 +771,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 						// Here we actually run the job, step by step
 						step_result = &mut job_step_handle => {
-							debug!(
-								"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
-								step_time.elapsed(),
-							);
+							// debug!(
+							// 	"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
+							// 	_step_time.elapsed(),
+							// );
 
 							run_metadata = Arc::try_unwrap(run_metadata_arc)
 								.expect("step already ran, no more refs");
@@ -809,6 +807,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
+										for err in &new_errors {
+											warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
+										}
 										errors.extend(new_errors);
 									}
 								}
@@ -838,15 +839,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			None
 		};
 
-		let state = JobState::<SJob> {
-			init: Arc::try_unwrap(init_arc).expect("job already ran, no more refs"),
-			data,
-			steps,
-			step_number,
-			run_metadata,
-		};
-
-		let metadata = stateful_job.finalize(&ctx, &state).await?;
+		let metadata = stateful_job.finalize(&ctx, &data, &run_metadata).await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 

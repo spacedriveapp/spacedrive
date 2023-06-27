@@ -16,7 +16,7 @@ use thiserror::Error;
 use tracing::info;
 
 use super::{
-	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
+	file_path_helper::{file_path_for_indexer, FilePathError, IsolatedFilePathData},
 	location_with_indexer_rules,
 };
 
@@ -186,7 +186,7 @@ fn iso_file_path_factory(
 }
 
 async fn remove_non_existing_file_paths(
-	to_remove: impl IntoIterator<Item = file_path_just_pub_id::Data>,
+	to_remove: impl IntoIterator<Item = file_path_for_indexer::Data>,
 	db: &PrismaClient,
 ) -> Result<u64, IndexerError> {
 	db.file_path()
@@ -223,25 +223,39 @@ macro_rules! file_paths_db_fetcher_fn {
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $location_path:expr, $db:expr) => {{
-		|iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
+		|iso_file_path| async {
 			let iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<'static> =
 				iso_file_path;
-			$db.file_path()
-				.find_many(vec![
-					$crate::prisma::file_path::location_id::equals(Some($location_id)),
-					$crate::prisma::file_path::materialized_path::equals(Some(
-						iso_file_path
-							.materialized_path_for_children()
-							.expect("the received isolated file path must be from a directory"),
-					)),
-					::prisma_client_rust::operator::not(
-						unique_location_id_materialized_path_name_extension_params,
-					),
-				])
-				.select($crate::location::file_path_helper::file_path_just_pub_id::select())
-				.exec()
-				.await
-				.map_err(Into::into)
+
+			let mut data = Vec::new(); // one stupid large vec
+			loop {
+				let r = $db
+					.file_path()
+					.find_many(vec![
+						$crate::prisma::file_path::location_id::equals(Some($location_id)),
+						$crate::prisma::file_path::materialized_path::equals(Some(
+							iso_file_path
+								.materialized_path_for_children()
+								.expect("the received isolated file path must be from a directory"),
+						)),
+					])
+					.take(100)
+					.select($crate::location::file_path_helper::file_path_for_indexer::select())
+					.exec()
+					.await;
+
+				match r {
+					Ok(mut v) => {
+						data.append(&mut v);
+						if v.len() != 100 {
+							break Ok(data);
+						}
+					}
+					Err(err) => {
+						break Err(err.into());
+					}
+				}
+			}
 		}
 	}};
 }

@@ -381,25 +381,24 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: None,
-				},
-				"scan_location",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: None,
-			}),
-		)
-		.await
+	Job::new_with_action(
+		IndexerJobInit {
+			location,
+			sub_path: None,
+		},
+		"scan_location",
+	)
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: None,
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: None,
+	})
+	.spawn(library)
+	.await
+	.map_err(Into::into)
 }
 
 #[cfg(feature = "location-watcher")]
@@ -415,25 +414,24 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: Some(sub_path.clone()),
-				},
-				"scan_location_sub_path",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: Some(sub_path.clone()),
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: Some(sub_path),
-			}),
-		)
-		.await
+	Job::new_with_action(
+		IndexerJobInit {
+			location,
+			sub_path: Some(sub_path.clone()),
+		},
+		"scan_location_sub_path",
+	)
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: Some(sub_path.clone()),
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: Some(sub_path),
+	})
+	.spawn(library)
+	.await
+	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(
@@ -756,7 +754,7 @@ async fn check_nested_location(
 ) -> Result<bool, QueryError> {
 	let location_path = location_path.as_ref();
 
-	let (parents_count, children_count) = db
+	let (parents_count, potential_children) = db
 		._batch((
 			db.location().count(vec![location::path::in_vec(
 				location_path
@@ -769,7 +767,7 @@ async fn check_nested_location(
 					})
 					.collect(),
 			)]),
-			db.location().count(vec![location::path::starts_with(
+			db.location().find_many(vec![location::path::starts_with(
 				location_path
 					.to_str()
 					.map(str::to_string)
@@ -778,5 +776,23 @@ async fn check_nested_location(
 		))
 		.await?;
 
-	Ok(parents_count > 0 || children_count > 0)
+	let comps = location_path.components().collect::<Vec<_>>();
+	let is_a_child_location = potential_children.into_iter().any(|v| {
+		let comps2 = PathBuf::from(v.path.unwrap());
+		let comps2 = comps2.components().collect::<Vec<_>>();
+
+		if comps.len() > comps2.len() {
+			return false;
+		}
+
+		for (a, b) in comps.iter().zip(comps2.iter()) {
+			if a != b {
+				return false;
+			}
+		}
+
+		true
+	});
+
+	Ok(parents_count > 0 || is_a_child_location)
 }

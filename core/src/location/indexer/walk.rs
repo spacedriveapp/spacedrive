@@ -1,6 +1,6 @@
 use crate::{
 	location::file_path_helper::{
-		file_path_just_pub_id, file_path_to_isolate, FilePathMetadata, IsolatedFilePathData,
+		file_path_for_indexer, file_path_to_isolate, FilePathMetadata, IsolatedFilePathData,
 		MetadataExt,
 	},
 	prisma::file_path,
@@ -14,13 +14,12 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::operator;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::trace;
@@ -72,7 +71,7 @@ impl Hash for WalkingEntry {
 pub struct WalkResult<Walked, ToRemove>
 where
 	Walked: Iterator<Item = WalkedEntry>,
-	ToRemove: Iterator<Item = file_path_just_pub_id::Data>,
+	ToRemove: Iterator<Item = file_path_for_indexer::Data>,
 {
 	pub walked: Walked,
 	pub to_walk: VecDeque<ToWalkEntry>,
@@ -88,22 +87,19 @@ pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
-	to_remove_db_fetcher: impl Fn(
-		IsolatedFilePathData<'static>,
-		Vec<file_path::WhereParam>,
-	) -> ToRemoveDbFetcherFut,
+	to_remove_db_fetcher: impl Fn(IsolatedFilePathData<'static>) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 	limit: u64,
 ) -> Result<
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
-		impl Iterator<Item = file_path_just_pub_id::Data>,
+		impl Iterator<Item = file_path_for_indexer::Data>,
 	>,
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_for_indexer::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
 
@@ -153,21 +149,18 @@ pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
-	to_remove_db_fetcher: impl Fn(
-		IsolatedFilePathData<'static>,
-		Vec<file_path::WhereParam>,
-	) -> ToRemoveDbFetcherFut,
+	to_remove_db_fetcher: impl Fn(IsolatedFilePathData<'static>) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 ) -> Result<
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
-		impl Iterator<Item = file_path_just_pub_id::Data>,
+		impl Iterator<Item = file_path_for_indexer::Data>,
 	>,
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_for_indexer::Data>, IndexerError>>,
 {
 	let mut to_keep_walking = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
@@ -203,23 +196,20 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize) + '_,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
-	to_remove_db_fetcher: impl Fn(
-		IsolatedFilePathData<'static>,
-		Vec<file_path::WhereParam>,
-	) -> ToRemoveDbFetcherFut,
+	to_remove_db_fetcher: impl Fn(IsolatedFilePathData<'static>) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 	add_root: bool,
 ) -> Result<
 	(
 		impl Iterator<Item = WalkedEntry>,
-		Vec<file_path_just_pub_id::Data>,
+		Vec<file_path_for_indexer::Data>,
 		Vec<IndexerError>,
 	),
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_for_indexer::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
 
@@ -291,6 +281,8 @@ where
 	F: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
 {
 	if !indexed_paths.is_empty() {
+		// TODO: Converting paths like this into PCR params will break if we pass in too many paths.
+		// TODO: I am not hitting errors here on my system so gonna leave this for now.
 		file_paths_db_fetcher(
 			indexed_paths
 				.iter()
@@ -335,10 +327,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 	}: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
 	update_notifier: &mut impl FnMut(&Path, usize),
-	to_remove_db_fetcher: &impl Fn(
-		IsolatedFilePathData<'static>,
-		Vec<file_path::WhereParam>,
-	) -> ToRemoveDbFetcherFut,
+	to_remove_db_fetcher: &impl Fn(IsolatedFilePathData<'static>) -> ToRemoveDbFetcherFut,
 	iso_file_path_factory: &impl Fn(&Path, bool) -> Result<IsolatedFilePathData<'static>, IndexerError>,
 	WorkingTable {
 		indexed_paths,
@@ -346,9 +335,9 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		mut maybe_to_walk,
 		errors,
 	}: WorkingTable<'_>,
-) -> Vec<file_path_just_pub_id::Data>
+) -> Vec<file_path_for_indexer::Data>
 where
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_for_indexer::Data>, IndexerError>>,
 {
 	let Ok(iso_file_path_to_walk) = iso_file_path_factory(path, true).map_err(|e| errors.push(e))
 	else {
@@ -367,8 +356,9 @@ where
 	paths_buffer.clear();
 
 	let mut found_paths_counts = 0;
+	let mut to_remove = HashMap::new();
 
-	// Marking with a loop label here in case of rejection or erros, to continue with next entry
+	// Marking with a loop label here in case of rejection or errors, to continue with next entry
 	'entries: loop {
 		let entry = match read_dir.next_entry().await {
 			Ok(Some(entry)) => entry,
@@ -477,9 +467,9 @@ where
 				// If it wasn't accepted then we mark as rejected
 				if accept_by_children_dir.is_none() {
 					trace!(
-							"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
-							current_path.display()
-						);
+						"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
+						current_path.display()
+					);
 					accept_by_children_dir = Some(false);
 				}
 			}
@@ -505,22 +495,52 @@ where
 			continue 'entries;
 		}
 
-		if accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked") {
+		if accept_by_children_dir.unwrap_or(true) {
+			// Fetch all files then as we index we remove them and anything left over must have been deleted from FS and can be removed from DB
+			match to_remove_db_fetcher(iso_file_path_to_walk.clone()).await {
+				Ok(v) => {
+					for e in v {
+						to_remove.insert(
+							(
+								e.materialized_path
+									.clone()
+									.expect("materialized_path should be set"),
+								e.name.clone().expect("name should be set"),
+								e.extension.clone().expect("extension should be set"),
+							),
+							e,
+						);
+					}
+				}
+				Err(e) => {
+					errors.push(e);
+				}
+			};
+
 			let Ok(iso_file_path) = iso_file_path_factory(&current_path, is_dir)
 				.map_err(|e| errors.push(e))
 				else {
 					continue 'entries;
 			};
-			paths_buffer.push(WalkingEntry {
-				iso_file_path,
-				maybe_metadata: Some(FilePathMetadata {
-					inode,
-					device,
-					size_in_bytes: metadata.len(),
-					created_at: metadata.created_or_now().into(),
-					modified_at: metadata.modified_or_now().into(),
-				}),
-			});
+
+			{
+				// Remove file path as we don't want it to be removed from the DB
+				to_remove.remove(&(
+					iso_file_path.materialized_path.to_string(),
+					iso_file_path.name.to_string(),
+					iso_file_path.extension.to_string(),
+				));
+				paths_buffer.push(WalkingEntry {
+					iso_file_path,
+					maybe_metadata: Some(FilePathMetadata {
+						inode,
+						device,
+						size_in_bytes: metadata.len(),
+						created_at: metadata.created_or_now().into(),
+						modified_at: metadata.modified_or_now().into(),
+					}),
+				});
+			}
 
 			// If the ancestors directories wasn't indexed before, now we do
 			for ancestor in current_path
@@ -571,7 +591,21 @@ where
 						modified_at: metadata.modified_or_now().into(),
 					});
 
-					paths_buffer.push(ancestor_iso_walking_entry);
+					{
+						// Remove file path as we don't want it to be removed from the DB
+						to_remove.remove(&(
+							ancestor_iso_walking_entry
+								.iso_file_path
+								.materialized_path
+								.to_string(),
+							ancestor_iso_walking_entry.iso_file_path.name.to_string(),
+							ancestor_iso_walking_entry
+								.iso_file_path
+								.extension
+								.to_string(),
+						));
+						paths_buffer.push(ancestor_iso_walking_entry);
+					}
 				} else {
 					// If indexed_paths contains the current ancestors, then it will contain
 					// also all if its ancestors too, so we can stop here
@@ -581,30 +615,11 @@ where
 		}
 	}
 
-	// We continue the function even if we fail to fetch `file_path`s to remove,
-	// the DB will have old `file_path`s but at least this is better than
-	// don't adding the newly indexed paths
-	let to_remove = to_remove_db_fetcher(
-		iso_file_path_to_walk,
-		vec![operator::or(
-			paths_buffer
-				.iter()
-				.map(|entry| &entry.iso_file_path)
-				.map(Into::into)
-				.collect(),
-		)],
-	)
-	.await
-	.unwrap_or_else(|e| {
-		errors.push(e);
-		vec![]
-	});
-
 	// Just merging the `found_paths` with `indexed_paths` here in the end to avoid possibly
 	// multiple rehashes during function execution
 	indexed_paths.extend(paths_buffer.drain(..));
 
-	to_remove
+	to_remove.into_values().collect()
 }
 
 #[cfg(test)]
@@ -738,7 +753,7 @@ mod tests {
 			&[],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| async { Ok(vec![]) },
+			|_| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -802,7 +817,7 @@ mod tests {
 			only_photos_rule,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| async { Ok(vec![]) },
+			|_| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -875,7 +890,7 @@ mod tests {
 			git_repos,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| async { Ok(vec![]) },
+			|_| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
@@ -966,7 +981,7 @@ mod tests {
 			git_repos_no_deps_no_build_dirs,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
-			|_, _| async { Ok(vec![]) },
+			|_| async { Ok(vec![]) },
 			|path, is_dir| {
 				IsolatedFilePathData::new(0, root_path, path, is_dir).map_err(Into::into)
 			},
