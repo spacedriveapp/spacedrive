@@ -185,18 +185,16 @@ impl StatefulJob for IndexerJob {
 			to_walk,
 			to_remove,
 			errors,
-		} = {
-			walk(
-				&to_walk_path,
-				&indexer_rules,
-				update_notifier_fn(ctx),
-				file_paths_db_fetcher_fn!(&db),
-				to_remove_db_fetcher_fn!(location_id, location_path, &db),
-				iso_file_path_factory(location_id, location_path),
-				50_000,
-			)
-			.await?
-		};
+		} = walk(
+			&to_walk_path,
+			&indexer_rules,
+			update_notifier_fn(ctx),
+			file_paths_db_fetcher_fn!(&db),
+			to_remove_db_fetcher_fn!(location_id, location_path, &db),
+			iso_file_path_factory(location_id, location_path),
+			50_000,
+		)
+		.await?;
 		let scan_read_time = scan_start.elapsed();
 
 		let db_delete_start = Instant::now();
@@ -306,17 +304,15 @@ impl StatefulJob for IndexerJob {
 					to_walk,
 					to_remove,
 					errors,
-				} = {
-					keep_walking(
-						to_walk_entry,
-						&data.indexer_rules,
-						update_notifier_fn(ctx),
-						file_paths_db_fetcher_fn!(&db),
-						to_remove_db_fetcher_fn!(location_id, location_path, &db),
-						iso_file_path_factory(location_id, location_path),
-					)
-					.await?
-				};
+				} = keep_walking(
+					to_walk_entry,
+					&data.indexer_rules,
+					update_notifier_fn(ctx),
+					file_paths_db_fetcher_fn!(&db),
+					to_remove_db_fetcher_fn!(location_id, location_path, &db),
+					iso_file_path_factory(location_id, location_path),
+				)
+				.await?;
 
 				new_metadata.scan_read_time = scan_start.elapsed();
 

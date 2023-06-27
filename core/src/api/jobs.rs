@@ -77,11 +77,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				created_at: DateTime<Utc>,
 				jobs: VecDeque<JobReport>,
 			}
-			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-			pub struct JobGroups {
-				groups: Vec<JobGroup>,
-				index: HashMap<Uuid, i32>, // maps job ids to their group index
-			}
+
 			R.with2(library())
 				.query(|(ctx, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
@@ -160,18 +156,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-					// Update the index after sorting the groups
-					let mut index: HashMap<Uuid, i32> = HashMap::new();
-					for (i, group) in groups_vec.iter().enumerate() {
-						for job in &group.jobs {
-							index.insert(job.id, i as i32);
-						}
-					}
-
-					Ok(JobGroups {
-						groups: groups_vec,
-						index,
-					})
+					Ok(groups_vec)
 				})
 		})
 		.procedure("isActive", {

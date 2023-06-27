@@ -614,7 +614,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let inner_step = Arc::clone(&step_arc);
 				let inner_stateful_job = Arc::clone(&stateful_job);
 
-				let step_time = Instant::now();
+				let _step_time = Instant::now();
 
 				let mut job_step_handle = tokio::spawn(async move {
 					inner_stateful_job
@@ -773,10 +773,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 						// Here we actually run the job, step by step
 						step_result = &mut job_step_handle => {
-							debug!(
-								"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
-								step_time.elapsed(),
-							);
+							// debug!(
+							// 	"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
+							// 	_step_time.elapsed(),
+							// );
 
 							run_metadata = Arc::try_unwrap(run_metadata_arc)
 								.expect("step already ran, no more refs");
@@ -809,6 +809,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
+										for err in &new_errors {
+											warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
+										}
 										errors.extend(new_errors);
 									}
 								}

@@ -756,7 +756,7 @@ async fn check_nested_location(
 ) -> Result<bool, QueryError> {
 	let location_path = location_path.as_ref();
 
-	let (parents_count, children_count) = db
+	let (parents_count, potential_children) = db
 		._batch((
 			db.location().count(vec![location::path::in_vec(
 				location_path
@@ -769,7 +769,7 @@ async fn check_nested_location(
 					})
 					.collect(),
 			)]),
-			db.location().count(vec![location::path::starts_with(
+			db.location().find_many(vec![location::path::starts_with(
 				location_path
 					.to_str()
 					.map(str::to_string)
@@ -778,5 +778,23 @@ async fn check_nested_location(
 		))
 		.await?;
 
-	Ok(parents_count > 0 || children_count > 0)
+	let comps = location_path.components().collect::<Vec<_>>();
+	let is_a_child_location = potential_children.into_iter().any(|v| {
+		let comps2 = PathBuf::from(v.path.unwrap());
+		let comps2 = comps2.components().collect::<Vec<_>>();
+
+		if comps.len() > comps2.len() {
+			return false;
+		}
+
+		for (a, b) in comps.iter().zip(comps2.iter()) {
+			if a != b {
+				return false;
+			}
+		}
+
+		true
+	});
+
+	Ok(parents_count > 0 || is_a_child_location)
 }
