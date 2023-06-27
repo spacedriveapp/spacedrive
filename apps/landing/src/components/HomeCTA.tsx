@@ -61,7 +61,15 @@ export function HomeCTA() {
 						>
 							Join Waitlist
 						</Button>
-						<iframe src="https://ghbtns.com/github-btn.html?user=spacedriveapp&repo=spacedrive&type=star&count=true&size=large" width="170" height="30" title="GitHub"></iframe>
+						<Button
+							href="https://github.com/spacedriveapp/spacedrive"
+							target="_blank"
+							className="z-30 cursor-pointer"
+							variant="accent"
+						>
+							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
+							Star on GitHub
+						</Button>
 					</>
 				) : (
 					<form onSubmit={handleSubmit(handleWaitlistSubmit)}>
