@@ -1,17 +1,52 @@
 import { MagnifyingGlass } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
+import { getExplorerStore } from '~/stores/explorerStore';
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const { top } = useSafeAreaInsets();
 
 	const [loading, setLoading] = useState(false);
 
+	const [search, setSearch] = useState('');
+	const deferredSearch = useDeferredValue(search);
+
 	// TODO: Animations!
+
+	const query = useLibraryQuery(
+		[
+			'search.paths',
+			{
+				// ...args,
+				filter: {
+					search: deferredSearch
+				}
+			}
+		],
+		{
+			// suspense: true,
+			enabled: !!deferredSearch,
+			onSuccess: () => getExplorerStore().resetNewThumbnails()
+		}
+	);
+
+	const items = useMemo(() => {
+		const items = query.data?.items;
+
+		// if (explorerStore.layoutMode !== 'media') return items;
+
+		return items?.filter((item) => {
+			const { kind } = getExplorerItemData(item);
+			return kind === 'Video' || kind === 'Image';
+		});
+	}, [query.data]);
+
+	console.log('items', items);
 
 	return (
 		<View style={twStyle('flex-1', { marginTop: top + 10 })}>
@@ -32,12 +67,14 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							)}
 						</View>
 						<TextInput
-							placeholder={'Search'}
+							value={search}
+							onChangeText={(t) => setSearch(t)}
+							style={tw`flex-1 text-sm font-medium text-ink`}
+							placeholder="Search"
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('ink-dull')}
-							style={tw`flex-1 text-sm font-medium text-ink`}
-							textContentType={'none'}
+							textContentType="none"
 							autoFocus
 							autoCapitalize="none"
 							autoCorrect={false}
@@ -51,6 +88,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			</View>
 			{/* Content */}
 			<View style={tw`mt-8 flex-1 items-center`}>
+				<Text style={tw`text-white`}>{deferredSearch}</Text>
 				<Button variant="accent" onPress={() => setLoading((v) => !v)}>
 					<Text>Toggle loading</Text>
 				</Button>
