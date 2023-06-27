@@ -11,7 +11,7 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{select, sync::mpsc};
-use tracing::{debug, info, warn, trace};
+use tracing::{debug, info, trace, warn};
 use uuid::Uuid;
 
 mod error;
