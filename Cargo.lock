@@ -5848,7 +5848,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2#1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5881,7 +5881,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2#1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
 dependencies = [
  "directories",
  "flate2",
@@ -5901,7 +5901,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2#1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5913,7 +5913,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2#1c1a7fb7b436a01ee7763e7f75cfa8f25a5c10e2"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -7816,6 +7816,7 @@ name = "specta"
 version = "1.0.4"
 source = "git+https://github.com/oscartbeaumont/specta?rev=2fc97ec8178ba27da1c80c0faaf43cb0db95955f#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
 dependencies = [
+ "bigdecimal",
  "chrono",
  "document-features",
  "indexmap",

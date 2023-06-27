@@ -8,7 +8,7 @@ export type Procedures = {
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroups } | 
+        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -140,8 +140,6 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
-
-export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
 
 export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 

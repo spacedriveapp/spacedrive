@@ -1,13 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
-import { useCallback, useEffect, useState } from 'react';
-import {
-	JobGroups,
-	JobReport,
-	useLibraryMutation,
-	useLibraryQuery,
-	useLibrarySubscription
-} from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
@@ -64,7 +57,7 @@ export function JobsManager() {
 			</PopoverClose>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className="h-full border-r border-app-line/50">
-					{jobs?.groups?.map((group) => (
+					{jobs?.map((group) => (
 						<JobGroup
 							key={group.id}
 							data={group}
@@ -73,7 +66,7 @@ export function JobsManager() {
 							}}
 						/>
 					))}
-					{jobs?.groups?.length === 0 && (
+					{jobs?.length === 0 && (
 						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 							No jobs.
 						</div>
