@@ -129,15 +129,15 @@ impl LibraryManager {
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
 		{
 			let config_path = entry.path();
-			let metadata = entry
-				.metadata()
-				.await
-				.map_err(|e| FileIOError::from((&config_path, e)))?;
-			if metadata.is_file()
-				&& config_path
-					.extension()
-					.map(|ext| ext == "sdlibrary")
-					.unwrap_or(false)
+			if config_path
+				.extension()
+				.map(|ext| ext == "sdlibrary")
+				.unwrap_or(false)
+				&& entry
+					.metadata()
+					.await
+					.map_err(|e| FileIOError::from((&config_path, e)))?
+					.is_file()
 			{
 				let Some(Ok(library_id)) = config_path
 				.file_stem()

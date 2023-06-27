@@ -118,7 +118,7 @@ impl JobManager {
 		if running_workers.len() < MAX_WORKERS {
 			info!("Running job: {:?}", job.name());
 
-			let worker_id = job_report.parent_id.unwrap_or(job_report.id);
+			let worker_id = job_report.id;
 
 			Worker::new(worker_id, job, job_report, library.clone(), self.clone())
 				.await
