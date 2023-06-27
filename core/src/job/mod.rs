@@ -11,7 +11,7 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{select, sync::mpsc};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, trace};
 use uuid::Uuid;
 
 mod error;
@@ -613,7 +613,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let inner_step = Arc::clone(&step_arc);
 				let inner_stateful_job = Arc::clone(&stateful_job);
 
-				let _step_time = Instant::now();
+				let step_time = Instant::now();
 
 				let mut job_step_handle = tokio::spawn(async move {
 					inner_stateful_job
@@ -771,10 +771,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 						// Here we actually run the job, step by step
 						step_result = &mut job_step_handle => {
-							// debug!(
-							// 	"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
-							// 	_step_time.elapsed(),
-							// );
+							trace!(
+								"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
+								step_time.elapsed(),
+							);
 
 							run_metadata = Arc::try_unwrap(run_metadata_arc)
 								.expect("step already ran, no more refs");

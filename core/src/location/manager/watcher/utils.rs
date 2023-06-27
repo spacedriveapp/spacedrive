@@ -188,6 +188,8 @@ async fn inner_create_file(
 		}
 	};
 
+	// First we check if already exist a file with these same inode and device numbers
+	// if it does, we just update it
 	if let Some(file_path) = db
 		.file_path()
 		.find_unique(file_path::location_id_inode_device(
@@ -199,8 +201,37 @@ async fn inner_create_file(
 		.exec()
 		.await?
 	{
-		trace!("File already exists: {}", iso_file_path);
-		return inner_update_file(location_path, &file_path, path, library).await;
+		trace!(
+			"File already exists with that inode and device: {}",
+			iso_file_path
+		);
+		return inner_update_file(location_path, &file_path, path, library, None).await;
+
+	// If we can't find an existing file with the same inode and device, we check if there is a file with the same path
+	} else if let Some(file_path) = db
+		.file_path()
+		.find_unique(file_path::location_id_materialized_path_name_extension(
+			location_id,
+			iso_file_path.materialized_path.to_string(),
+			iso_file_path.name.to_string(),
+			iso_file_path.extension.to_string(),
+		))
+		.include(file_path_with_object::include())
+		.exec()
+		.await?
+	{
+		trace!(
+			"File already exists with that iso_file_path: {}",
+			iso_file_path
+		);
+		return inner_update_file(
+			location_path,
+			&file_path,
+			path,
+			library,
+			Some((inode, device)),
+		)
+		.await;
 	}
 
 	let parent_iso_file_path = iso_file_path.parent();
@@ -324,7 +355,7 @@ pub(super) async fn update_file(
 		.exec()
 		.await?
 	{
-		inner_update_file(location_path, file_path, full_path, library).await
+		inner_update_file(location_path, file_path, full_path, library, None).await
 	} else {
 		inner_create_file(
 			location_id,
@@ -345,9 +376,23 @@ async fn inner_update_file(
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
 	library @ Library { db, sync, .. }: &Library,
+	maybe_new_inode_and_device: Option<INodeAndDevice>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = location_path.as_ref();
+
+	let (current_inode, current_device) = (
+		u64::from_le_bytes(
+			maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]
+				.try_into()
+				.map_err(|_| LocationManagerError::InvalidInode)?,
+		),
+		u64::from_le_bytes(
+			maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]
+				.try_into()
+				.map_err(|_| LocationManagerError::InvalidDevice)?,
+		),
+	);
 
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
@@ -363,6 +408,30 @@ async fn inner_update_file(
 		kind,
 	} = FileMetadata::new(&location_path, &iso_file_path).await?;
 
+	let (inode, device) = if let Some((inode, device)) = maybe_new_inode_and_device {
+		(inode, device)
+	} else {
+		#[cfg(target_family = "unix")]
+		{
+			get_inode_and_device(&fs_metadata)?
+		}
+
+		#[cfg(target_family = "windows")]
+		{
+			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
+			let _ = metadata; // To avoid unused variable warning
+			get_inode_and_device_from_path(path).await?
+		}
+	};
+
+	let (maybe_new_inode, maybe_new_device) =
+		match (current_inode == inode, current_device == device) {
+			(true, true) => (None, None),
+			(true, false) => (None, Some(device)),
+			(false, true) => (Some(inode), None),
+			(false, false) => (Some(inode), Some(device)),
+		};
+
 	if let Some(old_cas_id) = &file_path.cas_id {
 		if old_cas_id != &cas_id {
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = {
@@ -371,21 +440,23 @@ async fn inner_update_file(
 				[
 					(
 						(cas_id::NAME, json!(old_cas_id)),
-						cas_id::set(Some(old_cas_id.clone())),
+						Some(cas_id::set(Some(old_cas_id.clone()))),
 					),
 					(
 						(
 							size_in_bytes_bytes::NAME,
 							json!(fs_metadata.len().to_be_bytes().to_vec()),
 						),
-						size_in_bytes_bytes::set(Some(fs_metadata.len().to_be_bytes().to_vec())),
+						Some(size_in_bytes_bytes::set(Some(
+							fs_metadata.len().to_be_bytes().to_vec(),
+						))),
 					),
 					{
 						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
 
 						(
 							(date_modified::NAME, json!(date)),
-							date_modified::set(Some(date)),
+							Some(date_modified::set(Some(date))),
 						)
 					},
 					{
@@ -403,11 +474,34 @@ async fn inner_update_file(
 
 						(
 							(integrity_checksum::NAME, json!(checksum)),
-							integrity_checksum::set(checksum),
+							Some(integrity_checksum::set(checksum)),
 						)
+					},
+					{
+						if let Some(new_inode) = maybe_new_inode {
+							(
+								(inode::NAME, json!(new_inode)),
+								Some(inode::set(Some(new_inode.to_le_bytes().to_vec()))),
+							)
+						} else {
+							((inode::NAME, serde_json::Value::Null), None)
+						}
+					},
+					{
+						if let Some(new_device) = maybe_new_device {
+							(
+								(device::NAME, json!(new_device)),
+								Some(device::set(Some(new_device.to_le_bytes().to_vec()))),
+							)
+						} else {
+							((device::NAME, serde_json::Value::Null), None)
+						}
 					},
 				]
 				.into_iter()
+				.filter_map(|(sync_param, maybe_db_param)| {
+					maybe_db_param.map(|db_param| (sync_param, db_param))
+				})
 				.unzip()
 			};
 
