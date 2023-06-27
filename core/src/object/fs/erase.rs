@@ -1,8 +1,8 @@
 use crate::{
 	invalidate_query,
 	job::{
-		CurrentStep, JobError, JobInitData, JobInitOutput, JobResult, JobRunMetadata, JobState,
-		JobStepOutput, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
+		StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
@@ -27,8 +27,6 @@ use super::{
 	get_location_path_from_location_id, get_many_files_datas, FileData,
 };
 
-pub struct FileEraserJob {}
-
 #[serde_as]
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileEraserJobInit {
@@ -37,10 +35,6 @@ pub struct FileEraserJobInit {
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub passes: usize,
-}
-
-impl JobInitData for FileEraserJobInit {
-	type Job = FileEraserJob;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -61,24 +55,19 @@ impl JobRunMetadata for FileEraserJobRunMetadata {
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for FileEraserJob {
-	type Init = FileEraserJobInit;
+impl StatefulJob for FileEraserJobInit {
 	type Data = FileEraserJobData;
 	type Step = FileData;
 	type RunMetadata = FileEraserJobRunMetadata;
 
 	const NAME: &'static str = "file_eraser";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
 		let Library { db, .. } = &ctx.library;
 
 		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
@@ -93,25 +82,24 @@ impl StatefulJob for FileEraserJob {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		init: &Self::Init,
 		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let init = self;
+
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be erased (and where?)
 
 		let mut new_metadata = Self::RunMetadata::default();
 
-		// Had to use `state.steps[0]` all over the place to appease the borrow checker
-		let res = if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
+		if maybe_missing(step.file_path.is_dir, "file_path.is_dir")? {
 			let mut more_steps = Vec::new();
 
 			let mut dir = tokio::fs::read_dir(&step.full_path)
 				.await
 				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 
-			// Can't use the `step` borrow from here ownwards, or you feel the wrath of the borrow checker
 			while let Some(children_entry) = dir
 				.next_entry()
 				.await
@@ -173,15 +161,18 @@ impl StatefulJob for FileEraserJob {
 				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
 
 			Ok(None.into())
-		};
-
-		res
+		}
 	}
 
-	async fn finalize(&self, ctx: &WorkerContext, state: &JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
 		try_join_all(
-			state
-				.run_metadata
+			run_metadata
 				.diretories_to_remove
 				.iter()
 				.cloned()
@@ -195,6 +186,6 @@ impl StatefulJob for FileEraserJob {
 
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(init)?))
 	}
 }

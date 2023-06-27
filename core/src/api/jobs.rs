@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{job_without_data, JobManager, JobReport, JobStatus},
+	job::{job_without_data, Job, JobManager, JobReport, JobStatus},
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -242,13 +242,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(ThumbnailerJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ThumbnailerJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				},
 			)
 		})
@@ -268,13 +268,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(ObjectValidatorJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ObjectValidatorJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				})
 		})
 		.procedure("identifyUniqueFiles", {
@@ -290,13 +290,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(FileIdentifierJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(FileIdentifierJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&library)
+					.await
+					.map_err(Into::into)
 				})
 		})
 		.procedure("newThumbnail", {
