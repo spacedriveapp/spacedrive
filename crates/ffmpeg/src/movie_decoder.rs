@@ -14,8 +14,8 @@ use ffmpeg_sys_next::{
 	avfilter_graph_create_filter, avfilter_graph_free, avfilter_link, avformat_close_input,
 	avformat_find_stream_info, avformat_open_input, AVCodec, AVCodecContext, AVCodecID,
 	AVFilterContext, AVFilterGraph, AVFormatContext, AVFrame, AVMediaType, AVPacket,
-	AVPacketSideDataType, AVRational, AVStream, AVERROR, AVERROR_EOF, AV_DICT_IGNORE_SUFFIX,
-	AV_TIME_BASE, EAGAIN,
+	AVPacketSideDataType, AVRational, AVStream, AVERROR, AVERROR_EOF, AVPROBE_SCORE_MAX,
+	AV_DICT_IGNORE_SUFFIX, AV_TIME_BASE, EAGAIN,
 };
 use std::{
 	ffi::{c_int, CString},
@@ -102,13 +102,10 @@ impl MovieDecoder {
 		}
 
 		unsafe {
-			if (*decoder.format_context).probe_score == 100 {
+			// This needs to remain at 100 or the app will force crash if it comes
+			// across a video with subtitles or any type of corruption.
+			if (*decoder.format_context).probe_score != AVPROBE_SCORE_MAX {
 				return Err(ThumbnailerError::CorruptVideo);
-			}
-
-			// TODO(brxken128): idk if this is needed but i think so
-			if (*decoder.format_context).subtitle_codec_id == AVCodecID::AV_CODEC_ID_NONE {
-				return Err(ThumbnailerError::Subtitles);
 			}
 		}
 
