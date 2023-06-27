@@ -170,28 +170,32 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let location_manager = library.location_manager().clone();
 					let mut rx = location_manager.online_rx();
 
+					// TODO: This isn't gonna be reactive, locations change the subscription will need to be recreated.
 					let lib_locations: Vec<Vec<u8>> = library
 						.db
 						.location()
 						.find_many(vec![])
 						.select(location::select!({ pub_id }))
 						.exec()
-						.await
-						.expect("")
+						.await?
 						.into_iter()
 						.map(|x| x.pub_id)
 						.collect();
 
-					async_stream::stream! {
+					Ok(async_stream::stream! {
 						let mut online = location_manager.get_online().await;
 						lib_locations.iter().for_each(|x| online.retain(|y| x == y));
-						yield online;
+						if online.len() != 0 {
+							yield online;
+						}
 
 						while let Ok(mut locations) = rx.recv().await {
 							lib_locations.iter().for_each(|x| locations.retain(|y| x == y));
-							yield locations;
+							if locations.len() != 0 {
+								yield locations;
+							}
 						}
-					}
+					})
 				})
 		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
