@@ -1,9 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{BTreeSet, HashMap},
+	sync::Arc,
+};
 
-use sd_core::Node;
+use sd_core::{
+	prisma::{file_path, location},
+	Node,
+};
 use serde::Serialize;
 use specta::Type;
 use tracing::error;
+
+type NodeState<'a> = tauri::State<'a, Arc<Node>>;
 
 #[derive(Serialize, Type)]
 #[serde(tag = "t", content = "c")]
@@ -17,7 +25,7 @@ pub enum OpenFilePathResult {
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn open_file_path(
+pub async fn open_file_paths(
 	library: uuid::Uuid,
 	ids: Vec<i32>,
 	node: tauri::State<'_, Arc<Node>>,
@@ -64,7 +72,7 @@ pub struct OpenWithApplication {
 pub async fn get_file_path_open_with_apps(
 	library: uuid::Uuid,
 	ids: Vec<i32>,
-	node: tauri::State<'_, Arc<Node>>,
+	node: NodeState<'_>,
 ) -> Result<Vec<OpenWithApplication>, ()> {
 	let Some(library) = node.library_manager.get_library(library).await
 		else {
@@ -210,7 +218,7 @@ type FileIdAndUrl = (i32, String);
 pub async fn open_file_path_with(
 	library: uuid::Uuid,
 	file_ids_and_urls: Vec<FileIdAndUrl>,
-	node: tauri::State<'_, Arc<Node>>,
+	node: NodeState<'_>,
 ) -> Result<(), ()> {
 	let Some(library) = node.library_manager.get_library(library).await
 		else {
@@ -271,4 +279,72 @@ pub async fn open_file_path_with(
 				.collect::<Result<Vec<_>, _>>()
 				.map(|_| ())
 		})
+}
+
+#[derive(specta::Type, serde::Deserialize)]
+pub enum RevealItem {
+	Location { id: location::id::Type },
+	FilePath { id: file_path::id::Type },
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn reveal_items(
+	library: uuid::Uuid,
+	items: Vec<RevealItem>,
+	node: NodeState<'_>,
+) -> Result<(), ()> {
+	let Some(library) = node.library_manager.get_library(library).await
+		else {
+			return Err(())
+		};
+
+	let (paths, locations): (Vec<_>, Vec<_>) =
+		items
+			.into_iter()
+			.fold((vec![], vec![]), |(mut paths, mut locations), item| {
+				match item {
+					RevealItem::FilePath { id } => paths.push(id),
+					RevealItem::Location { id } => locations.push(id),
+				}
+
+				(paths, locations)
+			});
+
+	let mut paths_to_open = BTreeSet::new();
+
+	if !paths.is_empty() {
+		paths_to_open.extend(
+			library
+				.get_file_paths(paths)
+				.await
+				.unwrap_or_default()
+				.into_values()
+				.flatten(),
+		);
+	}
+
+	if !locations.is_empty() {
+		paths_to_open.extend(
+			library
+				.db
+				.location()
+				.find_many(vec![
+					location::node_id::equals(Some(library.node_local_id)),
+					location::id::in_vec(locations),
+				])
+				.select(location::select!({ path }))
+				.exec()
+				.await
+				.unwrap_or_default()
+				.into_iter()
+				.flat_map(|location| location.path.map(Into::into)),
+		);
+	}
+
+	for path in paths_to_open {
+		opener::reveal(path).ok();
+	}
+
+	Ok(())
 }

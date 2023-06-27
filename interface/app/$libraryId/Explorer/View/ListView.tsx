@@ -26,17 +26,12 @@ import {
 	getItemObject,
 	isPath
 } from '@sd/client';
-import {
-	FilePathSearchOrderingKeys,
-	getExplorerStore,
-	isCut,
-	useExplorerStore,
-	useScrolled
-} from '~/hooks';
+import { useScrolled } from '~/hooks';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
+import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {

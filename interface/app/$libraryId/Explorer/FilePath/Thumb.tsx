@@ -3,15 +3,12 @@ import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, getItemLocation, useLibraryContext } from '@sd/client';
 import { PDFViewer } from '~/components';
-import {
-	getExplorerStore,
-	useCallbackToWatchResize,
-	useExplorerItemData,
-	useExplorerStore,
-	useIsDark
-} from '~/hooks';
+import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
+import { useExplorerContext } from '../Context';
+import { getExplorerStore } from '../store';
+import { useExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
 
 interface ThumbnailProps {
@@ -123,7 +120,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	const { locationId: explorerLocationId } = useExplorerStore();
+	const { parent } = useExplorerContext();
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -152,7 +149,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			locationId: itemLocationId,
 			thumbnailKey
 		} = itemData;
-		const locationId = itemLocationId ?? explorerLocationId;
+		const locationId =
+			itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
+
 		switch (thumbType) {
 			case ThumbType.Original:
 				if (locationId) {
@@ -183,15 +182,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
-	}, [
-		props.data.item.id,
-		isDark,
-		library.uuid,
-		itemData,
-		platform,
-		thumbType,
-		explorerLocationId
-	]);
+	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, parent]);
 
 	const onLoad = () => setLoaded(true);
 

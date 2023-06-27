@@ -6,7 +6,7 @@ datasource db {
 generator client {
     provider    = "cargo prisma"
     output      = "../../crates/prisma/src/prisma.rs"
-    module_path = "crate::prisma"
+    module_path = "sd_prisma::prisma"
 }
 
 generator sync {
