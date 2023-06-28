@@ -2,7 +2,7 @@ import { ArrowBendUpRight, TagSimple } from 'phosphor-react';
 import { FilePath, ObjectKind, Object as ObjectType, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import AssignTagMenuItems from '../../AssignTagMenuItems';
+import AssignTagMenuItems from './AssignTagMenuItems';
 
 export const RemoveFromRecents = ({ object }: { object: ObjectType }) => {
 	const removeFromRecents = useLibraryMutation('files.removeAccessTime');
