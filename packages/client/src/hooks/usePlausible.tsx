@@ -191,7 +191,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		},
 		options: {
 			deviceWidth: props.screenWidth ?? window.screen.width,
-			// referrer: '', // TODO(brxken128): see if we could have this blank to prevent accidental IP logging
+			referrer: '',
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
 		},
 		callback: debugState.telemetryLogging
@@ -294,7 +294,7 @@ const PageViewRegexRules: [RegExp, string][] = [
 	/**
 	 * This is for removing the library UUID from the current path
 	 */
-	[RegExp('/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'), ''],
+	[RegExp('/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}', 'g'), ''],
 	/**
 	 * This is for removing location IDs from the current path
 	 */
@@ -348,7 +348,7 @@ export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProp
 	const plausibleEvent = usePlausibleEvent();
 
 	let path = currentPath;
-	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
+	PageViewRegexRules.forEach((e) => (path = path.replaceAll(e[0], e[1])));
 
 	useEffect(() => {
 		plausibleEvent({
