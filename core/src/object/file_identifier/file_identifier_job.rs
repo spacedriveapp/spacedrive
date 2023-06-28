@@ -51,26 +51,21 @@ pub struct FileIdentifierJobData {
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct FileIdentifierJobRunMetadata {
-	report: FileIdentifierReport,
 	cursor: file_path::id::Type,
-}
-
-impl JobRunMetadata for FileIdentifierJobRunMetadata {
-	fn update(&mut self, new_data: Self) {
-		self.report.total_orphan_paths += new_data.report.total_orphan_paths;
-		self.report.total_objects_created += new_data.report.total_objects_created;
-		self.report.total_objects_linked += new_data.report.total_objects_linked;
-		self.report.total_objects_ignored += new_data.report.total_objects_ignored;
-		self.cursor = new_data.cursor;
-	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FileIdentifierReport {
 	total_orphan_paths: usize,
 	total_objects_created: usize,
 	total_objects_linked: usize,
 	total_objects_ignored: usize,
+}
+
+impl JobRunMetadata for FileIdentifierJobRunMetadata {
+	fn update(&mut self, new_data: Self) {
+		self.total_orphan_paths += new_data.total_orphan_paths;
+		self.total_objects_created += new_data.total_objects_created;
+		self.total_objects_linked += new_data.total_objects_linked;
+		self.total_objects_ignored += new_data.total_objects_ignored;
+		self.cursor = new_data.cursor;
+	}
 }
 
 #[async_trait::async_trait]
@@ -161,11 +156,9 @@ impl StatefulJob for FileIdentifierJobInit {
 
 		Ok((
 			FileIdentifierJobRunMetadata {
-				report: FileIdentifierReport {
-					total_orphan_paths: orphan_count,
-					..Default::default()
-				},
+				total_orphan_paths: orphan_count,
 				cursor: first_path.id,
+				..Default::default()
 			},
 			vec![(); task_count],
 		)
@@ -210,18 +203,18 @@ impl StatefulJob for FileIdentifierJobInit {
 				step_number,
 				run_metadata.cursor,
 				&ctx.library,
-				run_metadata.report.total_orphan_paths,
+				run_metadata.total_orphan_paths,
 			)
 			.await?;
 
-		new_metadata.report.total_objects_created = total_objects_created;
-		new_metadata.report.total_objects_linked = total_objects_linked;
+		new_metadata.total_objects_created = total_objects_created;
+		new_metadata.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
 
 		ctx.progress_msg(format!(
 			"Processed {} of {} orphan Paths",
 			step_number * CHUNK_SIZE,
-			run_metadata.report.total_orphan_paths
+			run_metadata.total_orphan_paths
 		));
 
 		Ok(new_metadata.into())
@@ -234,11 +227,9 @@ impl StatefulJob for FileIdentifierJobInit {
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
-		info!("Finalizing identifier job: {:?}", &run_metadata.report);
+		info!("Finalizing identifier job: {:?}", &run_metadata);
 
-		Ok(Some(
-			json!({"init: ": init, "run_metadata": run_metadata.report}),
-		))
+		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
 
