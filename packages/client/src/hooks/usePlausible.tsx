@@ -348,7 +348,7 @@ export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProp
 	const plausibleEvent = usePlausibleEvent();
 
 	let path = currentPath;
-	PageViewRegexRules.forEach((e) => (path = path.replaceAll(e[0], e[1])));
+	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
 
 	useEffect(() => {
 		plausibleEvent({
