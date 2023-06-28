@@ -13,29 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
-      name: Check which actions should run
-      runs-on: ubuntu-latest
-      # Required permissions
-      permissions:
-        pull-requests: read
-      # Set job outputs to values from filter step
-      outputs:
-        clippy: ${{ steps.filter.outputs.clippy }}
-        rustfmt: ${{ steps.filter.outputs.rustfmt }}
-      steps:
-      # For pull requests it's not necessary to checkout the code
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            clippy:
-              - 'core/**'
-              - 'crates/*/**'
-            rustfmt:
-              - 'core/**'
-              - 'crates/*/**'
-
   typescript:
     name: TypeScript
     runs-on: ubuntu-20.04
@@ -68,11 +45,19 @@ jobs:
 
   rustfmt:
     name: Rust Formatting
-    if: steps.filter.outputs.changes == 'true'
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'core/**'
+            crates:
+              - 'crates/*/**'
 
       - name: Setup Rust and Prisma
         if: steps.filter.outputs.changes == 'true'
@@ -84,7 +69,6 @@ jobs:
 
   clippy:
     name: Clippy (${{ matrix.platform }})
-    if: steps.filter.outputs.changes == 'true'
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
@@ -93,6 +77,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'core/**'
+            crates:
+              - 'crates/*/**'
 
       - name: Setup System and Rust
         if: steps.filter.outputs.changes == 'true'
