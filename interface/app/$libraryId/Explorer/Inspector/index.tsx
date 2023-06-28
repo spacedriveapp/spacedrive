@@ -184,15 +184,21 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
-							<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Barcode} />
-									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>
-										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
+							{filePathData && (
+								<Tooltip
+									label={dayjs(filePathData.date_indexed).format('h:mm:ss a')}
+								>
+									<MetaTextLine>
+										<InspectorIcon component={Barcode} />
+										<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
+										<MetaValue>
+											{dayjs(filePathData?.date_indexed).format(
+												'MMM Do YYYY'
+											)}
+										</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
 						</MetaContainer>
 
 						{!isDir && objectData && (

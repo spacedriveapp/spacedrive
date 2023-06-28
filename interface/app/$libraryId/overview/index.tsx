@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { ExplorerContext } from '../Explorer/Context';
+import ContextMenu from '../Explorer/ContextMenu';
 // import ContextMenu from '../Explorer/FilePath/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
@@ -50,7 +51,7 @@ export const Component = () => {
 						onSelectedChange={setSelectedItemId}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						// contextMenu={<ContextMenu data={selectedItem as any} />}
+						contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
 						emptyNotice={null}
 					/>
 

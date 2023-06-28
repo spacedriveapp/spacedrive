@@ -11,50 +11,50 @@ import OpenWith from './OpenWith';
 export * from './CutCopyItems';
 
 interface FilePathProps {
-    filePath: FilePath;
+	filePath: FilePath;
 }
 
 export const Delete = ({ filePath }: FilePathProps) => {
-    const keybind = useKeybindFactory();
+	const keybind = useKeybindFactory();
 
-    const locationId = filePath.location_id;
+	const locationId = filePath.location_id;
 
-    return (
-        <>
-            {locationId != null && (
-                <ContextMenu.Item
-                    icon={Trash}
-                    label="Delete"
-                    variant="danger"
-                    keybind={keybind([ModifierKeys.Control], ['Delete'])}
-                    onClick={() =>
-                        dialogManager.create((dp) => (
-                            <DeleteDialog {...dp} location_id={locationId} path_id={filePath.id} />
-                        ))
-                    }
-                />
-            )}
-        </>
-    );
+	return (
+		<>
+			{locationId != null && (
+				<ContextMenu.Item
+					icon={Trash}
+					label="Delete"
+					variant="danger"
+					keybind={keybind([ModifierKeys.Control], ['Delete'])}
+					onClick={() =>
+						dialogManager.create((dp) => (
+							<DeleteDialog {...dp} location_id={locationId} path_id={filePath.id} />
+						))
+					}
+				/>
+			)}
+		</>
+	);
 };
 
 export const Compress = (_: FilePathProps) => {
-    const keybind = useKeybindFactory();
+	const keybind = useKeybindFactory();
 
-    return (
-        <ContextMenu.Item
-            label="Compress"
-            icon={Package}
-            keybind={keybind([ModifierKeys.Control], ['B'])}
-            disabled
-        />
-    );
+	return (
+		<ContextMenu.Item
+			label="Compress"
+			icon={Package}
+			keybind={keybind([ModifierKeys.Control], ['B'])}
+			disabled
+		/>
+	);
 };
 
 export const Crypto = (_: FilePathProps) => {
-    return (
-        <>
-            {/* <ContextMenu.Item
+	return (
+		<>
+			{/* <ContextMenu.Item
 					label="Encrypt"
 					icon={LockSimple}
 					keybind="⌘E"
@@ -80,8 +80,8 @@ export const Crypto = (_: FilePathProps) => {
 						}
 					}}
 				/> */}
-            {/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-            {/* <ContextMenu.Item
+			{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
+			{/* <ContextMenu.Item
 					label="Decrypt"
 					icon={LockSimpleOpen}
 					keybind="⌘D"
@@ -102,109 +102,109 @@ export const Crypto = (_: FilePathProps) => {
 						}
 					}}
 				/> */}
-        </>
-    );
+		</>
+	);
 };
 
 export const SecureDelete = ({ filePath }: FilePathProps) => {
-    const locationId = filePath.location_id;
+	const locationId = filePath.location_id;
 
-    return (
-        <>
-            {locationId && (
-                <ContextMenu.Item
-                    variant="danger"
-                    label="Secure delete"
-                    icon={TrashSimple}
-                    onClick={() =>
-                        dialogManager.create((dp) => (
-                            <EraseDialog {...dp} location_id={locationId} path_id={filePath.id} />
-                        ))
-                    }
-                    disabled
-                />
-            )}
-        </>
-    );
+	return (
+		<>
+			{locationId && (
+				<ContextMenu.Item
+					variant="danger"
+					label="Secure delete"
+					icon={TrashSimple}
+					onClick={() =>
+						dialogManager.create((dp) => (
+							<EraseDialog {...dp} location_id={locationId} path_id={filePath.id} />
+						))
+					}
+					disabled
+				/>
+			)}
+		</>
+	);
 };
 
 export const ParentFolderActions = ({
-    filePath,
-    locationId
+	filePath,
+	locationId
 }: FilePathProps & { locationId: number }) => {
-    const fullRescan = useLibraryMutation('locations.fullRescan');
-    const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+	const fullRescan = useLibraryMutation('locations.fullRescan');
+	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
 
-    return (
-        <>
-            <ContextMenu.Item
-                onClick={async () => {
-                    try {
-                        await fullRescan.mutateAsync(locationId);
-                    } catch (error) {
-                        showAlertDialog({
-                            title: 'Error',
-                            value: `Failed to rescan location, due to an error: ${error}`
-                        });
-                    }
-                }}
-                label="Rescan Directory"
-                icon={Package}
-            />
-            <ContextMenu.Item
-                onClick={async () => {
-                    try {
-                        await generateThumbnails.mutateAsync({
-                            id: locationId,
-                            path: filePath.materialized_path ?? '/'
-                        });
-                    } catch (error) {
-                        showAlertDialog({
-                            title: 'Error',
-                            value: `Failed to generate thumbnails, due to an error: ${error}`
-                        });
-                    }
-                }}
-                label="Regen Thumbnails"
-                icon={Image}
-            />
-        </>
-    );
+	return (
+		<>
+			<ContextMenu.Item
+				onClick={async () => {
+					try {
+						await fullRescan.mutateAsync(locationId);
+					} catch (error) {
+						showAlertDialog({
+							title: 'Error',
+							value: `Failed to rescan location, due to an error: ${error}`
+						});
+					}
+				}}
+				label="Rescan Directory"
+				icon={Package}
+			/>
+			<ContextMenu.Item
+				onClick={async () => {
+					try {
+						await generateThumbnails.mutateAsync({
+							id: locationId,
+							path: filePath.materialized_path ?? '/'
+						});
+					} catch (error) {
+						showAlertDialog({
+							title: 'Error',
+							value: `Failed to generate thumbnails, due to an error: ${error}`
+						});
+					}
+				}}
+				label="Regen Thumbnails"
+				icon={Image}
+			/>
+		</>
+	);
 };
 
 export const OpenOrDownload = ({ filePath }: { filePath: FilePath }) => {
-    const keybind = useKeybindFactory();
-    const { platform, openFilePaths: openFilePath } = usePlatform();
-    const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const keybind = useKeybindFactory();
+	const { platform, openFilePaths: openFilePath } = usePlatform();
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
-    const { library } = useLibraryContext();
+	const { library } = useLibraryContext();
 
-    if (platform === 'web') return <ContextMenu.Item label="Download" />;
-    else
-        return (
-            <>
-                {openFilePath && (
-                    <ContextMenu.Item
-                        label="Open"
-                        keybind={keybind([ModifierKeys.Control], ['O'])}
-                        onClick={async () => {
-                            if (filePath.object_id)
-                                updateAccessTime
-                                    .mutateAsync(filePath.object_id)
-                                    .catch(console.error);
+	if (platform === 'web') return <ContextMenu.Item label="Download" />;
+	else
+		return (
+			<>
+				{openFilePath && (
+					<ContextMenu.Item
+						label="Open"
+						keybind={keybind([ModifierKeys.Control], ['O'])}
+						onClick={async () => {
+							if (filePath.object_id)
+								updateAccessTime
+									.mutateAsync(filePath.object_id)
+									.catch(console.error);
 
-                            try {
-                                await openFilePath(library.uuid, [filePath.id]);
-                            } catch (error) {
-                                showAlertDialog({
-                                    title: 'Error',
-                                    value: `Failed to open file, due to an error: ${error}`
-                                });
-                            }
-                        }}
-                    />
-                )}
-                <OpenWith filePath={filePath} />
-            </>
-        );
+							try {
+								await openFilePath(library.uuid, [filePath.id]);
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to open file, due to an error: ${error}`
+								});
+							}
+						}}
+					/>
+				)}
+				<OpenWith filePath={filePath} />
+			</>
+		);
 };
