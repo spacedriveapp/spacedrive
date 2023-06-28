@@ -50,15 +50,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            core:
-              - 'core/**'
-            crates:
-              - 'crates/*/**'
-
       - name: Setup Rust and Prisma
         uses: ./.github/actions/setup-rust
 
@@ -98,14 +89,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            core:
-              - 'core/**'
-            crates:
-              - 'crates/*/**'
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
