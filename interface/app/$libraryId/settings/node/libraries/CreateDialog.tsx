@@ -6,7 +6,13 @@ import { Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
 const { Input, z, useZodForm } = forms;
 
 const schema = z.object({
-	name: z.string().min(1)
+	name: z
+		.string()
+		.min(1)
+		.refine((v) => !v.startsWith(' ') && !v.endsWith(' '), {
+			message: "Name can't start or end with a space",
+			path: ['name']
+		})
 });
 
 export default (props: UseDialogProps) => {
@@ -14,30 +20,29 @@ export default (props: UseDialogProps) => {
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const createLibrary = useBridgeMutation('library.create', {
-		onSuccess: (library) => {
-			queryClient.setQueryData(
-				['library.list'],
-				(libraries: LibraryConfigWrapped[] | undefined) => [...(libraries || []), library]
-			);
+	const createLibrary = useBridgeMutation('library.create');
 
-			submitPlausibleEvent({
-				event: {
-					type: 'libraryCreate'
-				}
-			});
+	const form = useZodForm({ schema });
 
-			navigate(`/${library.uuid}/overview`);
-		},
-		onError: (err) => console.log(err)
+	const onSubmit = form.handleSubmit(async (data) => {
+		const library = await createLibrary.mutateAsync({ name: data.name });
+
+		queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
+			...(libraries || []),
+			library
+		]);
+
+		submitPlausibleEvent({
+			event: { type: 'libraryCreate' }
+		});
+
+		navigate(`/${library.uuid}/overview`);
 	});
-
-	const form = useZodForm({ schema: schema });
 
 	return (
 		<Dialog
 			form={form}
-			onSubmit={form.handleSubmit((data) => createLibrary.mutateAsync({ name: data.name }))}
+			onSubmit={onSubmit}
 			dialog={useDialog(props)}
 			submitDisabled={!form.formState.isValid}
 			title="Create New Library"
