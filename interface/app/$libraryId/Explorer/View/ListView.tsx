@@ -213,6 +213,7 @@ export default () => {
 				id: 'dateAccessed',
 				header: 'Date Accessed',
 				accessorFn: (file) =>
+					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
