@@ -1,6 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { useKeyDeleteFile } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
@@ -9,8 +8,6 @@ import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import { QuickPreview } from './QuickPreview';
-import { useQuickPreviewContext } from './QuickPreview/Context';
 import View, { ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
@@ -61,8 +58,6 @@ export default function Explorer(props: Props) {
 
 	useEffect(() => setSelectedItemId(undefined), [path]);
 
-	const quickPreviewCtx = useQuickPreviewContext();
-
 	return (
 		<>
 			<ExplorerContextMenu>
@@ -95,9 +90,6 @@ export default function Explorer(props: Props) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-
-			{quickPreviewCtx.ref.current &&
-				createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
 
 			{explorerStore.showInspector && (
 				<Inspector
