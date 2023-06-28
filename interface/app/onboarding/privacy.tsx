@@ -1,11 +1,10 @@
 import { useNavigate } from 'react-router';
 import { getOnboardingStore } from '@sd/client';
-import { Button } from '@sd/ui';
-import { Form, RadioGroup, useZodForm, z } from '@sd/ui/src/forms';
+import { Button, Form, RadioGroupField, useZodForm, z } from '@sd/ui';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { useUnlockOnboardingScreen } from './Progress';
 
-export const shareTelemetry = RadioGroup.options([
+export const shareTelemetry = RadioGroupField.options([
 	z.literal('share-telemetry'),
 	z.literal('no-telemetry')
 ]).details({
@@ -36,7 +35,7 @@ export default function OnboardingPrivacy() {
 		}
 	});
 
-	const onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit((data) => {
 		getOnboardingStore().shareTelemetry = data.shareTelemetry === 'share-telemetry';
 
 		navigate('/onboarding/creating-library', { replace: true });
@@ -51,14 +50,14 @@ export default function OnboardingPrivacy() {
 					So we'll make it very clear what data is shared with us.
 				</OnboardingDescription>
 				<div className="m-4">
-					<RadioGroup.Root {...form.register('shareTelemetry')}>
+					<RadioGroupField.Root {...form.register('shareTelemetry')}>
 						{shareTelemetry.options.map(({ value, heading, description }) => (
-							<RadioGroup.Item key={value} value={value}>
+							<RadioGroupField.Item key={value} value={value}>
 								<h1 className="font-bold">{heading}</h1>
 								<p className="text-sm text-ink-faint">{description}</p>
-							</RadioGroup.Item>
+							</RadioGroupField.Item>
 						))}
-					</RadioGroup.Root>
+					</RadioGroupField.Root>
 				</div>
 				<Button className="text-center" type="submit" variant="accent" size="sm">
 					Continue

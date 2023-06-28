@@ -1,20 +1,20 @@
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { useController } from 'react-hook-form';
-import * as Root from '../Switch';
+import { Switch, SwitchProps } from '../Switch';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
-export interface SwitchProps extends UseFormFieldProps, Root.SwitchProps {
+export interface SwitchFieldProps extends UseFormFieldProps, SwitchProps {
 	name: string;
 }
 
-export const Switch = forwardRef<HTMLButtonElement, SwitchProps>((props, ref) => {
+export const SwitchField = forwardRef<HTMLButtonElement, SwitchFieldProps>((props, ref) => {
 	const { field } = useController(props);
 	const { formFieldProps, childProps } = useFormField(props);
 
 	return (
 		<FormField {...formFieldProps}>
-			<Root.Switch
+			<Switch
 				{...childProps}
 				checked={field.value}
 				onCheckedChange={field.onChange}
