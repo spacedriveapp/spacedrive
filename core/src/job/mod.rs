@@ -658,6 +658,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 											// The job can also be shutdown or canceled while paused
 											WorkerCommand::Shutdown(when, signal_tx) => {
 												job_step_handle.abort();
+												let _ = job_step_handle.await;
 
 												debug!(
 													"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
@@ -698,6 +699,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 											}
 											WorkerCommand::Cancel(when, signal_tx) => {
 												job_step_handle.abort();
+												let _ = job_step_handle.await;
 												debug!(
 													"Canceling Job <id='{job_id}', name='{job_name}'> \
 													 took {:?} after running for {:?}",
@@ -722,6 +724,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 								WorkerCommand::Shutdown(when, signal_tx) => {
 									job_step_handle.abort();
+									let _ = job_step_handle.await;
 
 									debug!(
 										"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
@@ -758,6 +761,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 								}
 								WorkerCommand::Cancel(when, signal_tx) => {
 									job_step_handle.abort();
+									let _ = job_step_handle.await;
 									debug!(
 										"Canceling Job <id='{job_id}', name='{job_name}'> took {:?} \
 										 after running for {:?}",
@@ -807,9 +811,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
-										for err in &new_errors {
+										new_errors.iter().for_each(|err| {
 											warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
-										}
+										});
+
 										errors.extend(new_errors);
 									}
 								}

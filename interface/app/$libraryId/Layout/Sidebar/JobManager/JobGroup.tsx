@@ -197,7 +197,7 @@ function totalTasks(jobs: JobReport[]) {
 }
 
 function niceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = job?.metadata?.init?.location?.name || 'Unknown';
+	const name = job?.metadata?.location?.name || 'Unknown';
 	switch (action) {
 		case 'scan_location':
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;

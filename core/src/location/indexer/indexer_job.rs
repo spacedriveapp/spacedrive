@@ -179,7 +179,7 @@ impl StatefulJob for IndexerJobInit {
 			&indexer_rules,
 			update_notifier_fn(ctx),
 			file_paths_db_fetcher_fn!(&db),
-			to_remove_db_fetcher_fn!(location_id, location_path, &db),
+			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, location_path),
 			50_000,
 		)
@@ -298,7 +298,7 @@ impl StatefulJob for IndexerJobInit {
 					&data.indexer_rules,
 					update_notifier_fn(ctx),
 					file_paths_db_fetcher_fn!(&db),
-					to_remove_db_fetcher_fn!(location_id, location_path, &db),
+					to_remove_db_fetcher_fn!(location_id, &db),
 					iso_file_path_factory(location_id, location_path),
 				)
 				.await?;

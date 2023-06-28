@@ -419,7 +419,6 @@ async fn inner_update_file(
 		#[cfg(target_family = "windows")]
 		{
 			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = metadata; // To avoid unused variable warning
 			get_inode_and_device_from_path(full_path).await?
 		}
 	};
