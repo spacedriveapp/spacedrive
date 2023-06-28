@@ -75,7 +75,8 @@ export default function Explorer(props: Props) {
 							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
 						}}
 					>
-						<DismissibleNotice />
+						{props.items && props.items.length > 0 && <DismissibleNotice />}
+
 						<View
 							layout={explorerStore.layoutMode}
 							items={props.items}
