@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobError, JobManagerError},
+	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
@@ -381,13 +381,13 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	Job::new_with_action(
-		IndexerJobInit {
-			location,
-			sub_path: None,
-		},
-		"scan_location",
-	)
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: None,
+	})
+	.with_action("scan_location")
+	.with_metadata(json!({"location": location_base_data.clone()}))
+	.build()
 	.queue_next(FileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: None,
@@ -414,13 +414,16 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	Job::new_with_action(
-		IndexerJobInit {
-			location,
-			sub_path: Some(sub_path.clone()),
-		},
-		"scan_location_sub_path",
-	)
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: Some(sub_path.clone()),
+	})
+	.with_action("scan_location_sub_path")
+	.with_metadata(json!({
+		"location": location_base_data.clone(),
+		"sub_path": sub_path.clone(),
+	}))
+	.build()
 	.queue_next(FileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),

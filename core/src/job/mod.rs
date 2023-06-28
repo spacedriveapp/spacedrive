@@ -116,6 +116,54 @@ pub trait DynJob: Send + Sync {
 	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
 }
 
+pub struct JobBuilder<SJob: StatefulJob> {
+	id: Uuid,
+	init: SJob,
+	report_builder: JobReportBuilder,
+}
+
+impl<SJob: StatefulJob> JobBuilder<SJob> {
+	pub fn build(self) -> Box<Job<SJob>> {
+		Box::new(Job::<SJob> {
+			id: self.id,
+			hash: <SJob as StatefulJob>::hash(&self.init),
+			report: Some(self.report_builder.build()),
+			state: Some(JobState {
+				init: self.init,
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
+	}
+
+	pub fn new(init: SJob) -> Self {
+		let id = Uuid::new_v4();
+		Self {
+			id,
+			init,
+			report_builder: JobReportBuilder::new(id, SJob::NAME.to_string()),
+		}
+	}
+
+	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
+		self.report_builder = self.report_builder.with_action(action);
+		self
+	}
+
+	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
+		self.report_builder = self.report_builder.with_parent_id(parent_id);
+		self
+	}
+
+	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+		self.report_builder = self.report_builder.with_metadata(metadata);
+		self
+	}
+}
+
 pub struct Job<SJob: StatefulJob> {
 	id: Uuid,
 	hash: u64,
@@ -127,41 +175,7 @@ pub struct Job<SJob: StatefulJob> {
 
 impl<SJob: StatefulJob> Job<SJob> {
 	pub fn new(init: SJob) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			hash: <SJob as StatefulJob>::hash(&init),
-			report: Some(JobReport::new(id, SJob::NAME.to_string())),
-			state: Some(JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-				run_metadata: Default::default(),
-			}),
-			next_jobs: VecDeque::new(),
-		})
-	}
-
-	pub fn new_with_action(init: SJob, action: impl AsRef<str>) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			hash: <SJob as StatefulJob>::hash(&init),
-			report: Some(JobReport::new_with_action(
-				id,
-				SJob::NAME.to_string(),
-				action,
-			)),
-			state: Some(JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-				run_metadata: Default::default(),
-			}),
-			next_jobs: VecDeque::new(),
-		})
+		JobBuilder::new(init).build()
 	}
 
 	pub fn queue_next<NextSJob>(mut self: Box<Self>, init: NextSJob) -> Box<Self>
@@ -169,17 +183,17 @@ impl<SJob: StatefulJob> Job<SJob> {
 		NextSJob: StatefulJob + 'static,
 	{
 		let next_job_order = self.next_jobs.len() + 1;
-		self.next_jobs.push_back(Job::new_dependent(
-			init,
-			self.id,
-			// SAFETY: If we're queueing a next job then we should still have a report
-			self.report().as_ref().and_then(|parent_report| {
-				parent_report
-					.action
-					.as_ref()
-					.map(|parent_action| format!("{parent_action}-{next_job_order}"))
-			}),
-		));
+
+		let mut child_job_builder = JobBuilder::new(init).with_parent_id(self.id);
+
+		if let Some(parent_report) = self.report() {
+			if let Some(parent_action) = &parent_report.action {
+				child_job_builder =
+					child_job_builder.with_action(format!("{parent_action}-{next_job_order}"));
+			}
+		}
+
+		self.next_jobs.push_back(child_job_builder.build());
 
 		self
 	}
@@ -203,28 +217,6 @@ impl<SJob: StatefulJob> Job<SJob> {
 			report: Some(report),
 			next_jobs: next_jobs.unwrap_or_default(),
 		}))
-	}
-
-	fn new_dependent(init: SJob, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			hash: <SJob as StatefulJob>::hash(&init),
-			report: Some(JobReport::new_with_parent(
-				id,
-				SJob::NAME.to_string(),
-				parent_id,
-				parent_action,
-			)),
-			state: Some(JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-				run_metadata: Default::default(),
-			}),
-			next_jobs: VecDeque::new(),
-		})
 	}
 
 	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
