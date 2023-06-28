@@ -8,7 +8,7 @@ import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import View, { ExplorerViewProps } from './View';
+import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
@@ -82,10 +82,12 @@ export default function Explorer(props: Props) {
 							onSelectedChange={setSelectedItemId}
 							contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
 							emptyNotice={
-								props.emptyNotice || {
-									icon: FolderNotchOpen,
-									message: 'This folder is empty'
-								}
+								props.emptyNotice || (
+									<EmptyNotice
+										icon={FolderNotchOpen}
+										message="This folder is empty"
+									/>
+								)
 							}
 						/>
 					</div>

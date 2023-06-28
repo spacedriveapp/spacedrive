@@ -18,7 +18,7 @@ import {
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
-import AssignTagMenuItems from '../AssignTagMenuItems';
+import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
