@@ -1,29 +1,29 @@
-import { ExplorerItem } from "@sd/client";
+import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { SharedItems } from "..";
+import { SharedItems } from '..';
 
 interface Props {
-    data: Extract<ExplorerItem, { type: 'Location' }>;
+	data: Extract<ExplorerItem, { type: 'Location' }>;
 }
 
 export default ({ data }: Props) => {
-    const location = data.item;
+	const location = data.item;
 
-    return <>
-        <SharedItems.OpenQuickView item={data} />
+	return (
+		<>
+			<SharedItems.OpenQuickView item={data} />
 
-        <ContextMenu.Separator />
+			<ContextMenu.Separator />
 
-        <SharedItems.Details />
+			<SharedItems.Details />
 
-        <ContextMenu.Separator />
+			<ContextMenu.Separator />
 
-        <SharedItems.RevealInNativeExplorer
-            locationId={location.id}
-        />
+			<SharedItems.RevealInNativeExplorer locationId={location.id} />
 
-        <ContextMenu.Separator />
+			<ContextMenu.Separator />
 
-        <SharedItems.Share />
-    </>
-}
+			<SharedItems.Share />
+		</>
+	);
+};
