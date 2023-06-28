@@ -13,6 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+      name: Check which actions should run
+      runs-on: ubuntu-latest
+      # Required permissions
+      permissions:
+        pull-requests: read
+      # Set job outputs to values from filter step
+      outputs:
+        clippy: ${{ steps.filter.outputs.clippy }}
+        rustfmt: ${{ steps.filter.outputs.rustfmt }}
+      steps:
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            clippy:
+              - 'core/**'
+              - 'crates/*/**'
+            rustfmt:
+              - 'core/**'
+              - 'crates/*/**'
+
   typescript:
     name: TypeScript
     runs-on: ubuntu-20.04
@@ -55,29 +78,6 @@ jobs:
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
-
-  changes:
-      name: Check which actions should run
-      runs-on: ubuntu-latest
-      # Required permissions
-      permissions:
-        pull-requests: read
-      # Set job outputs to values from filter step
-      outputs:
-        clippy: ${{ steps.filter.outputs.clippy }}
-        rustfmt: ${{ steps.filter.outputs.rustfmt }}
-      steps:
-      # For pull requests it's not necessary to checkout the code
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            clippy:
-              - 'core/**'
-              - 'crates/*/**'
-            rustfmt:
-              - 'core/**'
-              - 'crates/*/**'
 
   clippy:
     name: Clippy (${{ matrix.platform }})
