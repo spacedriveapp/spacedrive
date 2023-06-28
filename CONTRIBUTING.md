@@ -115,6 +115,21 @@ To resolve this issue:
 - Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
   This command will use Xcode's developer tools instead of macOS's default tools.
 
+#### `unable to lookup item 'PlatformPath'`
+
+If you run into this issue, or similar:
+
+```
+error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output :
+xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
+```
+
+Ensure that MacOS is fully updated, and that you have XCode installed (via the app store).
+
+Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update MacOS to the latest version available.
+
+Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
+
 ### Credits
 
 This CONTRIBUTING.md file was inspired by the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we extend our gratitude to the original author.
