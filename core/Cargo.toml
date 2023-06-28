@@ -87,6 +87,7 @@ serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
+kamadak-exif = "0.5.5"
 
 
 [target.'cfg(windows)'.dependencies.winapi-util]
