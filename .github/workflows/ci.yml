@@ -68,6 +68,7 @@ jobs:
 
   rustfmt:
     name: Rust Formatting
+    if: steps.filter.outputs.changes == 'true'
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
@@ -81,6 +82,7 @@ jobs:
 
   clippy:
     name: Clippy (${{ matrix.platform }})
+    if: steps.filter.outputs.changes == 'true'
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
