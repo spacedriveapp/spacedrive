@@ -24,11 +24,15 @@ static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
+	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
+	// and are not public. They have some specific logic on them and should not be writen to directly.
+	// If you wanna access one of them outside from location module, write yourself an accessor method
+	// to have read only access to them.
 	pub(in crate::location) location_id: location::id::Type,
-	pub materialized_path: Cow<'a, str>,
+	pub(in crate::location) materialized_path: Cow<'a, str>,
 	pub(in crate::location) is_dir: bool,
-	pub name: Cow<'a, str>,
-	pub extension: Cow<'a, str>,
+	pub(in crate::location) name: Cow<'a, str>,
+	pub(in crate::location) extension: Cow<'a, str>,
 	relative_path: Cow<'a, str>,
 }
 

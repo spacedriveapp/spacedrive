@@ -72,7 +72,7 @@ pub async fn shallow(
 			&indexer_rules,
 			|_, _| {},
 			file_paths_db_fetcher_fn!(&db),
-			to_remove_db_fetcher_fn!(location_id, location_path, &db),
+			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, &location_path),
 			add_root,
 		)
