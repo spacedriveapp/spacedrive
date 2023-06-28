@@ -85,7 +85,7 @@ impl Migrate for LibraryConfig {
 				let rules = vec![
 					format!("No OS protected"),
 					format!("No Hidden"),
-					format!("Only Git Repositories"),
+					format!("No Git"),
 					format!("Only Images"),
 				];
 
