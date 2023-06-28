@@ -65,6 +65,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'core/**'
+              - 'crates/*/**'
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
