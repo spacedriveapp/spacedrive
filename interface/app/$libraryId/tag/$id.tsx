@@ -5,6 +5,7 @@ import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContext } from '../Explorer/Context';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
@@ -35,10 +36,7 @@ export const Component = () => {
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
 				items={explorerData.data?.items || null}
-				emptyNotice={{
-					icon: Tag,
-					message: 'No items assigned to this tag'
-				}}
+				emptyNotice={<EmptyNotice icon={Tag} message="No items assigned to this tag" />}
 			/>
 		</ExplorerContext.Provider>
 	);

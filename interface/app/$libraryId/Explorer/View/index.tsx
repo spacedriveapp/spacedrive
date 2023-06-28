@@ -37,7 +37,7 @@ import {
 	useExplorerViewContext
 } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
-import { ExplorerLayoutMode, getExplorerStore } from '../store';
+import { getExplorerStore, useExplorerStore } from '../store';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -114,33 +114,20 @@ export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerVie
 		ExplorerViewContext<T>,
 		'multiSelect' | 'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen'
 	> {
-	layout: ExplorerLayoutMode;
 	className?: string;
-	emptyNotice?: JSX.Element | { icon?: Icon | ReactNode; message?: ReactNode } | null;
+	emptyNotice?: JSX.Element;
 }
 
 export default memo(
 	<T extends ExplorerViewSelection>({
-		layout,
 		className,
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
+		const { layoutMode } = useExplorerStore();
+
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
-
-		const emptyNoticeIcon = (icon?: Icon) => {
-			const Icon =
-				icon ??
-				{
-					grid: GridFour,
-					media: MonitorPlay,
-					columns: Columns,
-					rows: Rows
-				}[layout];
-
-			return <Icon size={100} opacity={0.3} />;
-		};
 
 		useKeyDownHandlers({
 			items: contextProps.items,
@@ -176,26 +163,12 @@ export default memo(
 								} as ExplorerViewContext
 							}
 						>
-							{layout === 'grid' && <GridView />}
-							{layout === 'rows' && <ListView />}
-							{layout === 'media' && <MediaView />}
+							{layoutMode === 'grid' && <GridView />}
+							{layoutMode === 'rows' && <ListView />}
+							{layoutMode === 'media' && <MediaView />}
 						</ViewContext.Provider>
-					) : emptyNotice === null ? null : isValidElement(emptyNotice) ? (
-						emptyNotice
 					) : (
-						<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-							{emptyNotice && 'icon' in emptyNotice
-								? isValidElement(emptyNotice.icon)
-									? emptyNotice.icon
-									: emptyNoticeIcon(emptyNotice.icon as Icon)
-								: emptyNoticeIcon()}
-
-							<p className="mt-5 text-xs">
-								{emptyNotice && 'message' in emptyNotice
-									? emptyNotice.message
-									: 'This list is empty'}
-							</p>
-						</div>
+						emptyNotice
 					)}
 				</div>
 
@@ -205,6 +178,41 @@ export default memo(
 		);
 	}
 ) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;
+
+export const EmptyNotice = ({
+	icon,
+	message
+}: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+}) => {
+	const { layoutMode } = useExplorerStore();
+
+	const emptyNoticeIcon = (icon?: Icon) => {
+		const Icon =
+			icon ??
+			{
+				grid: GridFour,
+				media: MonitorPlay,
+				columns: Columns,
+				rows: Rows
+			}[layoutMode];
+
+		return <Icon size={100} opacity={0.3} />;
+	};
+
+	return (
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+			{icon
+				? isValidElement(icon)
+					? icon
+					: emptyNoticeIcon(icon as Icon)
+				: emptyNoticeIcon()}
+
+			<p className="mt-5 text-xs">{message !== undefined ? message : 'This list is empty'}</p>
+		</div>
+	);
+};
 
 const useKeyDownHandlers = ({
 	items,
