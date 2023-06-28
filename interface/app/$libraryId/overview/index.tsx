@@ -16,7 +16,6 @@ import { useItems } from './data';
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();
-
 	const page = usePageLayout();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
@@ -41,7 +40,6 @@ export const Component = () => {
 
 				<div className="flex">
 					<View
-						layout={explorerStore.layoutMode}
 						items={query.isLoading ? null : items || []}
 						// TODO: Fix this type here.
 						scrollRef={page?.ref as any}
@@ -52,7 +50,6 @@ export const Component = () => {
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
 						contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
-						emptyNotice={null}
 					/>
 
 					{explorerStore.showInspector && (
