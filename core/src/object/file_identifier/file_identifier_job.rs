@@ -236,7 +236,9 @@ impl StatefulJob for FileIdentifierJobInit {
 		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata.report);
 
-		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
+		Ok(Some(
+			json!({"init: ": init, "run_metadata": run_metadata.report}),
+		))
 	}
 }
 

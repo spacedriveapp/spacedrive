@@ -103,12 +103,10 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 					</Fragment>
 				)}
 
-				{/* TODO: FIX THIS, why is this not working? */}
-
 				{!isJobsRunning && (
 					<Button
-						className="hidden cursor-pointer"
-						onClick={() => clearJob?.(data.id as string)}
+						className="cursor-pointer"
+						// onClick={() => clearJob?.(data.id as string)}
 						size="icon"
 						variant="outline"
 					>
