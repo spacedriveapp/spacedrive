@@ -54,9 +54,8 @@ jobs:
         id: filter
         with:
           filters: |
-            core:
+            changes:
               - 'core/**'
-            crates:
               - 'crates/*/**'
 
       - name: Setup Rust and Prisma
@@ -81,9 +80,8 @@ jobs:
         id: filter
         with:
           filters: |
-            core:
+            changes:
               - 'core/**'
-            crates:
               - 'crates/*/**'
 
       - name: Setup System and Rust

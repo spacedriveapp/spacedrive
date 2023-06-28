@@ -68,7 +68,7 @@ impl IsolatedFilePathData<'static> {
 			)?),
 			name: Cow::Owned(
 				(location_path != full_path)
-					.then(|| Self::prepare_name(full_path).to_string())
+					.then(|| Self::prepare_name(full_path, is_dir).to_string())
 					.unwrap_or_default(),
 			),
 			extension: Cow::Owned(extension),
@@ -249,12 +249,16 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	fn prepare_name(path: &Path) -> &str {
+	fn prepare_name(path: &Path, is_dir: bool) -> &str {
 		// Not using `impl AsRef<Path>` here because it's an private method
-		path.file_stem()
-			.unwrap_or_default()
-			.to_str()
-			.unwrap_or_default()
+		if is_dir {
+			path.file_name()
+		} else {
+			path.file_stem()
+		}
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
 	}
 
 	pub fn from_db_data(
