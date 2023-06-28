@@ -31,7 +31,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{Library, LibraryConfig, LibraryConfigWrapped};
+use super::{Library, LibraryConfig, LibraryConfigWrapped, LibraryName};
 
 pub enum SubscriberEvent {
 	Load(Uuid, Arc<Identity>, broadcast::Receiver<SyncMessage>),
@@ -279,7 +279,7 @@ impl LibraryManager {
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
-		name: Option<String>,
+		name: Option<LibraryName>,
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid

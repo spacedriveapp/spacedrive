@@ -4,30 +4,35 @@ import { LibraryConfigWrapped, useBridgeMutation, usePlausibleEvent } from '@sd/
 import { Dialog, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 
 const schema = z.object({
-	name: z.string().min(1)
+	name: z
+		.string()
+		.min(1)
+		.refine((v) => !v.startsWith(' ') && !v.endsWith(' '), {
+			message: "Name can't start or end with a space",
+			path: ['name']
+		})
 });
 
 export default (props: UseDialogProps) => {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
-	const form = useZodForm({ schema });
 
 	const createLibrary = useBridgeMutation('library.create');
+
+	const form = useZodForm({ schema });
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
 			const library = await createLibrary.mutateAsync({ name: data.name });
 
-			queryClient.setQueryData(
-				['library.list'],
-				(libraries: LibraryConfigWrapped[] | undefined) => [...(libraries || []), library]
-			);
+			queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
+				...(libraries || []),
+				library
+			]);
 
 			submitPlausibleEvent({
-				event: {
-					type: 'libraryCreate'
-				}
+				event: { type: 'libraryCreate' }
 			});
 
 			navigate(`/${library.uuid}/overview`);
