@@ -79,6 +79,7 @@ jobs:
         uses: ./.github/actions/setup-rust
 
       - name: Run rustfmt
+        if: steps.filter.outputs.changes == 'true'
         run: cargo fmt --all -- --check
 
   clippy:
@@ -100,6 +101,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
+        if: steps.filter.outputs.changes == 'true'
         uses: actions-rs/clippy-check@v1
         with:
           args: --workspace --all-features
