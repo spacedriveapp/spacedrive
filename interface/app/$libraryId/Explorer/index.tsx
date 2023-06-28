@@ -73,7 +73,6 @@ export default function Explorer(props: Props) {
 						{props.items && props.items.length > 0 && <DismissibleNotice />}
 
 						<View
-							layout={explorerStore.layoutMode}
 							items={props.items}
 							scrollRef={scrollRef}
 							onLoadMore={props.onLoadMore}
