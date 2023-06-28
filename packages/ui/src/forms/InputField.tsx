@@ -8,11 +8,11 @@ import { useDebouncedCallback } from 'use-debounce';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
-export interface InputProps extends UseFormFieldProps, Root.InputProps {
+export interface InputFieldProps extends UseFormFieldProps, Root.InputProps {
 	name: string;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
+export const InputField = forwardRef<HTMLInputElement, InputFieldProps>((props, ref) => {
 	const { formFieldProps, childProps } = useFormField(props);
 
 	return (
@@ -91,7 +91,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 	);
 };
 
-export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+export const PasswordInputField = forwardRef<HTMLInputElement, PasswordInputProps>(
 	({ showStrength, ...props }, ref) => {
 		const { formFieldProps, childProps } = useFormField(props);
 		const { watch } = useFormContext();
