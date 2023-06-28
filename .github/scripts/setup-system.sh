@@ -6,6 +6,9 @@ if [ "${CI:-}" = "true" ]; then
   set -x
 fi
 
+# Force xz to use multhreaded extraction
+export XZ_OPT='-T0'
+
 SYSNAME="$(uname)"
 FFMPEG_VERSION='6.0'
 
@@ -144,7 +147,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf"
 
     # FFmpeg dependencies
-    DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
+    DEBIAN_FFMPEG_DEPS="libheif-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
 
     # Webkit2gtk requires gstreamer plugins for video playback to work
     DEBIAN_VIDEO_DEPS="gstreamer1.0-libav gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly"
@@ -168,7 +171,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     ARCH_VIDEO_DEPS="gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
 
     # FFmpeg dependencies
-    ARCH_FFMPEG_DEPS="ffmpeg"
+    ARCH_FFMPEG_DEPS="libheif ffmpeg"
 
     # Bindgen dependencies - it's used by a dependency of Spacedrive
     ARCH_BINDGEN_DEPS="clang"
@@ -196,7 +199,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     FEDORA_OPENSSL_SYS_DEPS="perl-FindBin perl-File-Compare perl-IPC-Cmd perl-File-Copy"
 
     # FFmpeg dependencies
-    FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
+    FEDORA_FFMPEG_DEPS="libheif-devel ffmpeg ffmpeg-devel"
 
     # Webkit2gtk requires gstreamer plugins for video playback to work
     FEDORA_VIDEO_DEPS="gstreamer1-plugin-libav gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-good-extras gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-extras gstreamer1-plugins-ugly-free"
@@ -230,10 +233,13 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   # Location for installing script dependencies
   _deps_dir="${_script_path}/deps"
   mkdir -p "$_deps_dir"
-  PATH="$PATH:${_deps_dir}"
+  PATH="${_deps_dir}:$PATH"
   export PATH
 
   _arch="$(uname -m)"
+
+  # Symlink original macOS utils to avoid problems on system where the user has installed GNU utils
+  ln -fs "/usr/bin/tar" "${_deps_dir}/tar"
 
   if ! has jq; then
     echo "Download jq build..."
@@ -275,7 +281,7 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   _page=1
   while [ $_page -gt 0 ]; do
     # TODO: Filter only actions triggered by the main branch
-    _success=$(gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg.yml/runs?page=${_page}&per_page=100&status=success" \
+    _success=$(gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg-macos.yml/runs?page=${_page}&per_page=100&status=success" \
       | jq -r '. as $raw | .workflow_runs | if length == 0 then error("Error: \($raw)") else .[] | .artifacts_url end' \
       | while IFS= read -r _artifacts_url; do
         if _artifact_path="$(
@@ -289,12 +295,21 @@ elif [ "$SYSNAME" = "Darwin" ]; then
             )" -r \
               '. as $raw | .artifacts | if length == 0 then error("Error: \($raw)") else .[] | select(.name == "ffmpeg-\($version)-\($arch)") | "suites/\(.workflow_run.id)/artifacts/\(.id)" end'
         )"; then
-          # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
-          # https://github.com/actions/upload-artifact/issues/51
-          # TODO: Use Github's private API when running on CI
-          if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | XZ_OPT='-T0' tar -xJf- -C "$_frameworks_dir"; then
+          if {
+            gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/$(echo "$_artifact_path" | awk -F/ '{print $4}')/zip" \
+              | tar -xOf- | tar -xJf- -C "$_frameworks_dir"
+          } 2>/dev/null; then
             printf 'yes'
             exit
+          else
+            echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
+            # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+            # https://github.com/actions/upload-artifact/issues/51
+            # Use it when running in evironments that are not authenticated with github
+            if curl -LSs "https://nightly.link/${_sd_gh_path}/${_artifact_path}" | tar -xOf- | tar -xJf- -C "$_frameworks_dir"; then
+              printf 'yes'
+              exit
+            fi
           fi
 
           echo "Failed to ffmpeg artifiact release, trying again in 1sec..." >&3
@@ -333,18 +348,31 @@ elif [ "$SYSNAME" = "Darwin" ]; then
 
   # Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
   echo "Download patched tauri cli.js build..."
-  case "$_arch" in
-    x86_64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683038.zip"
-      ;;
-    arm64)
-      _artifact_url="https://nightly.link/${_sd_gh_path}/actions/artifacts/702683035.zip"
-      ;;
-    *)
-      err "Unsupported architecture: $_arch"
-      ;;
-  esac
-  curl -LSs "$_artifact_url" | tar -xf- -C "${_frameworks_dir}/bin"
+  (
+    case "$_arch" in
+      x86_64)
+        _artifact_id="702683038"
+        ;;
+      arm64)
+        _artifact_id="702683035"
+        ;;
+      *)
+        err "Unsupported architecture: $_arch"
+        ;;
+    esac
+
+    if ! {
+      gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/${_artifact_id}/zip" \
+        | tar -xf- -C "${_frameworks_dir}/bin"
+    } 2>/dev/null; then
+      echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
+      # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
+      # https://github.com/actions/upload-artifact/issues/51
+      # Use it when running in evironments that are not authenticated with github
+      curl -LSs "https://nightly.link/${_sd_gh_path}/actions/artifacts/${_artifact_id}.zip" \
+        | tar -xf- -C "${_frameworks_dir}/bin"
+    fi
+  )
 
   echo "Download protobuf build"
   _page=1
@@ -387,10 +415,10 @@ PROTOC = "${_frameworks_dir}/bin/protoc"
 FFMPEG_DIR = "${_frameworks_dir}"
 
 [target.aarch64-apple-darwin]
-rustflags = ["-L ${_frameworks_dir}/lib"]
+rustflags = ["-L", "${_frameworks_dir}/lib"]
 
 [target.x86_64-apple-darwin]
-rustflags = ["-L ${_frameworks_dir}/lib"]
+rustflags = ["-L", "${_frameworks_dir}/lib"]
 
 $(cat "${_cargo_config}/config.toml")
 EOF

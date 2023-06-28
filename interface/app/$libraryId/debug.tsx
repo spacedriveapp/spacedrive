@@ -1,14 +1,12 @@
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { CodeBlock } from '~/components/Codeblock';
-import { usePlatform } from '~/util/Platform';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export const Component = () => {
-	const platform = usePlatform();
 	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
-	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
-	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
+	// const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
+	// const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');
@@ -32,10 +30,10 @@ export const Component = () => {
 						Open data folder
 					</Button>
 				</div> */}
-			<h1 className="text-sm font-bold ">Running Jobs</h1>
+			{/* <h1 className="text-sm font-bold ">Running Jobs</h1>
 			<CodeBlock src={{ ...jobs }} />
 			<h1 className="text-sm font-bold ">Job History</h1>
-			<CodeBlock src={{ ...jobHistory }} />
+			<CodeBlock src={{ ...jobHistory }} /> */}
 			<h1 className="text-sm font-bold ">Node State</h1>
 			<CodeBlock src={{ ...nodeState }} />
 			<h1 className="text-sm font-bold ">Libraries</h1>

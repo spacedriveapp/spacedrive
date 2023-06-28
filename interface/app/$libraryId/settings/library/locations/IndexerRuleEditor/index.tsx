@@ -20,11 +20,15 @@ export interface IndexerRuleEditorProps<T extends IndexerRuleIdFieldType> {
 	infoText?: string;
 	editable?: boolean;
 	className?: string;
+	ruleButtonClass?: string;
+	rulesContainerClass?: string;
 }
 
 export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	infoText,
 	editable,
+	ruleButtonClass,
+	rulesContainerClass,
 	...props
 }: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
@@ -34,7 +38,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 
-	const deleteRule: MouseEventHandler<HTMLButtonElement> = (e) => {
+	const deleteRule: MouseEventHandler<HTMLButtonElement> = () => {
 		if (!selectedRule) return;
 
 		showAlertDialog({
@@ -43,7 +47,6 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 			label: 'Confirm',
 			onSubmit: async () => {
 				setIsDeleting(true);
-
 				try {
 					await deleteIndexerRule.mutateAsync(selectedRule.id);
 				} catch (error) {
@@ -65,8 +68,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	return (
 		<div className={props.className} onClick={() => setSelectedRule(undefined)}>
 			<div className={'flex items-start justify-between'}>
-				<div className="grow">
-					<Label className="mb-2">{props.label || 'Indexer rules'}</Label>
+				<div className="mb-1 grow">
+					<Label>{props.label || 'Indexer rules'}</Label>
 					{infoText && <InfoText className="mb-4">{infoText}</InfoText>}
 				</div>
 				{editable && (
@@ -96,7 +99,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 				)}
 			</div>
 
-			<div className="flex flex-wrap justify-center gap-1">
+			<div className={clsx(rulesContainerClass, 'flex flex-wrap gap-1')}>
 				{indexRules ? (
 					indexRules.map((rule) => (
 						<RuleButton
@@ -117,7 +120,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 							className={clsx(
 								!(editable && rule.default) && 'cursor-pointer',
 								editable || 'select-none',
-								selectedRule?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input'
+								selectedRule?.id === rule.id ? 'bg-app-darkBox' : 'bg-app-input',
+								ruleButtonClass
 							)}
 						/>
 					))

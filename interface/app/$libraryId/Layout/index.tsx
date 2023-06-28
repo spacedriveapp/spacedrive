@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { z } from 'zod';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
@@ -9,9 +8,10 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
+import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { QuickPreview } from '../Explorer/QuickPreview';
+import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -50,12 +50,13 @@ const Layout = () => {
 			<Sidebar />
 			<div className="relative flex w-full overflow-hidden bg-app">
 				{library ? (
-					<LibraryContextProvider library={library}>
-						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-							<Outlet />
-						</Suspense>
-						<QuickPreview />
-					</LibraryContextProvider>
+					<QuickPreviewContextProvider>
+						<LibraryContextProvider library={library}>
+							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+								<Outlet />
+							</Suspense>
+						</LibraryContextProvider>
+					</QuickPreviewContextProvider>
 				) : (
 					<h1 className="p-4 text-white">
 						Please select or create a library in the sidebar.
@@ -67,15 +68,11 @@ const Layout = () => {
 	);
 };
 
-const PARAMS = z.object({
-	libraryId: z.string()
-});
-
 export const Component = () => {
-	const params = useZodRouteParams(PARAMS);
+	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	return (
-		<ClientContextProvider currentLibraryId={params.libraryId ?? null}>
+		<ClientContextProvider currentLibraryId={libraryId ?? null}>
 			<Layout />
 		</ClientContextProvider>
 	);

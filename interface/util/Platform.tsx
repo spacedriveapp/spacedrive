@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { PropsWithChildren, createContext, useContext } from 'react';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -6,7 +6,7 @@ export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unkno
 // This could be Tauri or web.
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
-	getThumbnailUrlById: (casId: string) => string;
+	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
 	getFileUrl: (
 		libraryId: string,
 		locationLocalId: number,
@@ -21,10 +21,16 @@ export type Platform = {
 	saveFilePickerDialog?(): Promise<string | null>;
 	showDevtools?(): void;
 	openPath?(path: string): void;
+	openLogsDir?(): void;
 	// Opens a file path with a given ID
-	openFilePath?(library: string, id: number): any;
-	getFilePathOpenWithApps?(library: string, id: number): any;
-	openFilePathWith?(library: string, id: number, appUrl: string): any;
+	openFilePaths?(library: string, ids: number[]): any;
+	revealItems?(
+		library: string,
+		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+	): Promise<unknown>;
+	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
+	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 };
 
 // Keep this private and use through helpers below

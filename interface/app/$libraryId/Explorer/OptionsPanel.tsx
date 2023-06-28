@@ -1,18 +1,12 @@
-import { z } from 'zod';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
-import {
-	FilePathSearchOrderingKeys,
-	SortOrder,
-	getExplorerConfigStore,
-	getExplorerStore,
-	useExplorerConfigStore,
-	useExplorerStore
-} from '~/hooks';
+import { type SortOrder, SortOrderSchema } from '~/app/route-schemas';
+import { getExplorerConfigStore, useExplorerConfigStore } from './config';
+import { FilePathSearchOrderingKeys, getExplorerStore, useExplorerStore } from './store';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
+export const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
 	'none': 'None',
 	'name': 'Name',
 	'sizeInBytes': 'Size',
@@ -78,12 +72,10 @@ export default () => {
 						size="sm"
 						className="w-full"
 						onChange={(value) =>
-							(getExplorerStore().orderByDirection = value as z.infer<
-								typeof SortOrder
-							>)
+							(getExplorerStore().orderByDirection = value as SortOrder)
 						}
 					>
-						{SortOrder.options.map((o) => (
+						{SortOrderSchema.options.map((o) => (
 							<SelectOption key={o.value} value={o.value}>
 								{o.value}
 							</SelectOption>
@@ -91,6 +83,7 @@ export default () => {
 					</Select>
 				</div>
 			</div>
+
 			<div className="flex w-full flex-col space-y-3 pt-2">
 				{explorerStore.layoutMode === 'media' ? (
 					<RadixCheckbox

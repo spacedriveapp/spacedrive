@@ -1,8 +1,10 @@
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import { Info } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -10,6 +12,7 @@ interface StatItemProps {
 	title: string;
 	bytes: bigint;
 	isLoading: boolean;
+	info?: string;
 }
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
@@ -17,6 +20,13 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
+};
+const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+	total_bytes_capacity:
+		'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
+	preview_media_bytes: 'The total size of all preview media files, such as thumbnails.',
+	library_db_size: 'The size of the library database.',
+	total_bytes_free: 'Free space available on all nodes connected to the library.'
 };
 
 const EMPTY_STATISTICS = {
@@ -49,11 +59,22 @@ const StatItem = (props: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
+				'group flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
-			<span className="text-sm text-gray-400">{title}</span>
+			<span className="whitespace-nowrap text-sm text-gray-400 ">
+				{title}
+				{props.info && (
+					<Tooltip tooltipClassName="bg-black" label={props.info}>
+						<Info
+							weight="fill"
+							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover:opacity-70"
+						/>
+					</Tooltip>
+				)}
+			</span>
+
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
@@ -81,7 +102,7 @@ export default () => {
 	const platform = usePlatform();
 	const { library } = useLibraryContext();
 
-	const stats = useLibraryQuery(['library.getStatistics'], {
+	const stats = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
 	mounted = true;
@@ -97,6 +118,7 @@ export default () => {
 							title={StatItemNames[key as keyof Statistics]!}
 							bytes={BigInt(value)}
 							isLoading={platform.demoMode ? false : stats.isLoading}
+							info={StatDescriptions[key as keyof Statistics]}
 						/>
 					);
 				})}

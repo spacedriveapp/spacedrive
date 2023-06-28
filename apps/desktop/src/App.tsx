@@ -17,7 +17,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import { appReady, getFilePathOpenWithApps, openFilePath, openFilePathWith } from './commands';
+import * as commands from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -52,7 +52,11 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlById: (casId) => convertFileSrc(`thumbnail/${casId}`, 'spacedrive'),
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		convertFileSrc(
+			`thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}`,
+			'spacedrive'
+		),
 	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
 		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
 		if (_linux_workaround && customUriServerUrl) {
@@ -70,10 +74,7 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path),
-	openFilePath,
-	getFilePathOpenWithApps,
-	openFilePathWith
+	...commands
 };
 
 const queryClient = new QueryClient();
@@ -83,7 +84,7 @@ const router = createBrowserRouter(routes);
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		appReady();
+		commands.appReady();
 	}, []);
 
 	useEffect(() => {
@@ -103,17 +104,27 @@ export default function App() {
 		};
 	}, []);
 
-	if (startupError) {
-		return <ErrorPage message={startupError} />;
-	}
-
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
-					<SpacedriveInterface router={router} />
+					<AppInner />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>
 	);
+}
+
+// This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
+function AppInner() {
+	if (startupError) {
+		return (
+			<ErrorPage
+				message={startupError}
+				submessage="Error occurred starting up the Spacedrive core"
+			/>
+		);
+	}
+
+	return <SpacedriveInterface router={router} />;
 }

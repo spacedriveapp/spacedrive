@@ -1,22 +1,25 @@
-use crate::location::file_path_helper::{check_file_path_exists, IsolatedFilePathData};
-use std::collections::BTreeSet;
-
-use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::operator::or;
-use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::{Deserialize, Serialize};
-use specta::Type;
-
 use crate::{
 	api::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
 		utils::library,
 	},
-	library::Library,
-	location::{find_location, LocationError},
-	prisma::{self, file_path, object, tag, tag_on_object},
+	library::{Category, Library},
+	location::{
+		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+		find_location, LocationError,
+	},
+	object::preview::get_thumb_key,
+	prisma::{self, file_path, location, object, tag, tag_on_object},
 	util::db::chain_optional_iter,
 };
+
+use std::collections::BTreeSet;
+
+use chrono::{DateTime, FixedOffset, Utc};
+use prisma_client_rust::{operator, or};
+use rspc::{alpha::AlphaRouter, ErrorCode};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::{Ctx, R};
 
@@ -77,7 +80,7 @@ impl FilePathSearchOrdering {
 		use file_path::*;
 		match self {
 			Self::Name(_) => name::order(dir),
-			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes_bytes::order(dir),
 			Self::DateCreated(_) => date_created::order(dir),
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
@@ -106,9 +109,9 @@ impl<T> MaybeNot<T> {
 #[serde(rename_all = "camelCase")]
 struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<i32>,
-	#[serde(default)]
-	search: String,
+	location_id: Option<location::id::Type>,
+	#[specta(optional)]
+	search: Option<String>,
 	#[specta(optional)]
 	extension: Option<String>,
 	#[serde(default)]
@@ -155,38 +158,62 @@ impl ObjectSearchOrdering {
 	}
 }
 
+#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+enum ObjectHiddenFilter {
+	#[default]
+	Exclude,
+	Include,
+}
+
+impl ObjectHiddenFilter {
+	fn to_param(self) -> Option<object::WhereParam> {
+		match self {
+			ObjectHiddenFilter::Exclude => Some(or![
+				object::hidden::equals(None),
+				object::hidden::not(Some(true))
+			]),
+			ObjectHiddenFilter::Include => None,
+		}
+	}
+}
+
 #[derive(Deserialize, Type, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 struct ObjectFilterArgs {
 	#[specta(optional)]
 	favorite: Option<bool>,
-	#[specta(optional)]
-	hidden: Option<bool>,
+	#[serde(default)]
+	hidden: ObjectHiddenFilter,
 	#[specta(optional)]
 	date_accessed: Option<MaybeNot<Option<chrono::DateTime<FixedOffset>>>>,
 	#[serde(default)]
 	kind: BTreeSet<i32>,
 	#[serde(default)]
 	tags: Vec<i32>,
+	#[specta(optional)]
+	category: Option<Category>,
 }
 
 impl ObjectFilterArgs {
 	fn into_params(self) -> Vec<object::WhereParam> {
+		use object::*;
+
 		chain_optional_iter(
 			[],
 			[
-				self.favorite.map(object::favorite::equals),
-				self.hidden.map(object::hidden::equals),
+				self.hidden.to_param(),
+				self.favorite.map(Some).map(favorite::equals),
 				self.date_accessed
-					.map(|date| date.into_prisma(object::date_accessed::equals)),
-				(!self.kind.is_empty())
-					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
+					.map(|date| date.into_prisma(date_accessed::equals)),
+				(!self.kind.is_empty()).then(|| kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
 					let tags = self.tags.into_iter().map(tag::id::equals).collect();
-					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
+					let tags_on_object = tag_on_object::tag::is(vec![operator::or(tags)]);
 
-					object::tags::some(vec![tags_on_object])
+					tags::some(vec![tags_on_object])
 				}),
+				self.category.map(Category::to_where_param),
 			],
 		)
 	}
@@ -248,29 +275,27 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						_ => None,
 					};
 
+					use file_path::*;
+
 					let params = chain_optional_iter(
 						filter
 							.search
+							.unwrap_or_default()
 							.split(' ')
 							.map(str::to_string)
-							.map(file_path::name::contains),
+							.map(name::contains),
 						[
-							filter.location_id.map(file_path::location_id::equals),
-							filter.extension.map(file_path::extension::equals),
-							filter
-								.created_at
-								.from
-								.map(|v| file_path::date_created::gte(v.into())),
-							filter
-								.created_at
-								.to
-								.map(|v| file_path::date_created::lte(v.into())),
+							filter.location_id.map(Some).map(location_id::equals),
+							filter.extension.map(Some).map(extension::equals),
+							filter.created_at.from.map(|v| date_created::gte(v.into())),
+							filter.created_at.to.map(|v| date_created::lte(v.into())),
 							directory_materialized_path_str
-								.map(file_path::materialized_path::equals),
+								.map(Some)
+								.map(materialized_path::equals),
 							filter.object.and_then(|obj| {
 								let params = obj.into_params();
 
-								(!params.is_empty()).then(|| file_path::object::is(params))
+								(!params.is_empty()).then(|| object::is(params))
 							}),
 						],
 					);
@@ -304,7 +329,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut items = Vec::with_capacity(file_paths.len());
 
 					for file_path in file_paths {
-						let has_thumbnail = if let Some(cas_id) = &file_path.cas_id {
+						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
 							library
 								.thumbnail_exists(cas_id)
 								.await
@@ -314,7 +339,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Path {
-							has_thumbnail,
+							has_local_thumbnail: thumbnail_exists_locally,
+							thumbnail_key: file_path.cas_id.as_ref().map(|i| get_thumb_key(i)),
 							item: file_path,
 						})
 					}
@@ -372,7 +398,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.map(|fp| fp.cas_id.as_ref())
 							.find_map(|c| c);
 
-						let has_thumbnail = if let Some(cas_id) = cas_id {
+						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
 							library.thumbnail_exists(cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
@@ -385,7 +411,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						items.push(ExplorerItem::Object {
-							has_thumbnail,
+							has_local_thumbnail: thumbnail_exists_locally,
+							thumbnail_key: cas_id.map(|i| get_thumb_key(i)),
 							item: object,
 						});
 					}

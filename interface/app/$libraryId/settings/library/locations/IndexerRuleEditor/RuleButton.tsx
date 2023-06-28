@@ -4,6 +4,11 @@ import { IndexerRule } from '@sd/client';
 import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
 import { IndexerRuleIdFieldType } from '.';
 
+function ruleIsSystem(rule: IndexerRule) {
+	const num = rule.pub_id?.[15 - 3];
+	return num !== undefined ? num === 0 : false;
+}
+
 interface RuleButtonProps<T extends IndexerRuleIdFieldType> {
 	rule: IndexerRule;
 	field?: T;
@@ -35,7 +40,7 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 			)}
 		>
 			<div className="w-full">
-				<p className="mb-2 text-center text-sm">{rule.name}</p>
+				<p className="mb-2 truncate px-2 text-center text-sm">{rule.name}</p>
 				<div className="flex flex-wrap justify-center gap-2">
 					<InfoPill
 						ref={toggleRef}
@@ -51,13 +56,15 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 							})
 						}
 						className={clsx(
-							'hover:brightness-125',
-							ruleEnabled ? '!text-green-500' : 'text-red-500'
+							'px-2 hover:brightness-110',
+							ruleEnabled ? '!bg-accent !text-white' : 'text-ink'
 						)}
 					>
 						{ruleEnabled ? 'Enabled' : 'Disabled'}
 					</InfoPill>
-					{rule.default && <InfoPill className="text-ink-faint">System</InfoPill>}
+					{ruleIsSystem(rule) && (
+						<InfoPill className="px-2 text-ink-faint">System</InfoPill>
+					)}
 				</div>
 			</div>
 		</div>

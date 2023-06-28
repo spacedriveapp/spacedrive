@@ -119,7 +119,7 @@ async fn main() {
 				sleep(Duration::from_secs(3)).await;
 				manager
 					.broadcast(
-						format!("Hello World From {}", keypair.public().to_peer_id())
+						format!("Hello World From {}", keypair.peer_id())
 							.as_bytes()
 							.to_vec(),
 					)

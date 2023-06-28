@@ -12,11 +12,11 @@ export default () => {
 				<Dropdown.Button
 					variant="gray"
 					className={clsx(
-						`w-full text-ink`,
+						`w-full text-sidebar-ink`,
 						// these classname overrides are messy
 						// but they work
 						`!border-sidebar-line/50 !bg-sidebar-box ring-offset-sidebar active:!border-sidebar-line active:!bg-sidebar-button ui-open:!border-sidebar-line ui-open:!bg-sidebar-button`,
-						(library === null || libraries.isLoading) && '!text-ink-faint'
+						(library === null || libraries.isLoading) && '!text-sidebar-inkFaint'
 					)}
 				>
 					<span className="truncate">
@@ -35,7 +35,7 @@ export default () => {
 					key={lib.uuid}
 					selected={lib.uuid === currentLibraryId}
 				>
-					{lib.config.name}
+					<p className="truncate">{lib.config.name}</p>
 				</DropdownMenu.Item>
 			))}
 			<DropdownMenu.Separator className="mx-0" />

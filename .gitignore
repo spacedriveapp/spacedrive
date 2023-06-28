@@ -2,6 +2,7 @@ node_modules
 .next
 dist
 !apps/desktop/dist
+!apps/web/dist
 *.tsbuildinfo
 package-lock.json
 .eslintcache
@@ -68,6 +69,7 @@ prisma*.rs
 playwright-report
 
 /sdserver_data
+/sdserver_data2
 .spacedrive
 dev.db-journal
 .build/

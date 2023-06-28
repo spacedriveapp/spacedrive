@@ -1,20 +1,31 @@
 use crate::{
 	api::utils::library,
 	invalidate_query,
-	location::{file_path_helper::IsolatedFilePathData, find_location, LocationError},
-	object::fs::{
-		copy::FileCopierJobInit, cut::FileCutterJobInit, decrypt::FileDecryptorJobInit,
-		delete::FileDeleterJobInit, encrypt::FileEncryptorJobInit, erase::FileEraserJobInit,
+	job::Job,
+	library::Library,
+	location::{
+		file_path_helper::{
+			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+		},
+		find_location, LocationError,
 	},
-	prisma::{location, object},
+	object::fs::{
+		copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+		erase::FileEraserJobInit,
+	},
+	prisma::{file_path, location, object},
 };
 
-use chrono::{FixedOffset, Utc};
+use std::path::Path;
+
+use chrono::Utc;
+use futures::future::join_all;
+use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use std::path::Path;
 use tokio::fs;
+use tracing::error;
 
 use super::{Ctx, R};
 
@@ -75,7 +86,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(args.id),
-							vec![object::favorite::set(args.favorite)],
+							vec![object::favorite::set(Some(args.favorite))],
 						)
 						.exec()
 						.await?;
@@ -83,20 +94,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
 
-					Ok(())
-				})
-		})
-		.procedure("delete", {
-			R.with2(library())
-				.mutation(|(_, library), id: i32| async move {
-					library
-						.db
-						.object()
-						.delete(object::id::equals(id))
-						.exec()
-						.await?;
-
-					invalidate_query!(library, "search.paths");
 					Ok(())
 				})
 		})
@@ -108,9 +105,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.object()
 						.update(
 							object::id::equals(id),
-							vec![object::date_accessed::set(Some(
-								Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
-							))],
+							vec![object::date_accessed::set(Some(Utc::now().into()))],
 						)
 						.exec()
 						.await?;
@@ -121,12 +116,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("removeAccessTime", {
 			R.with2(library())
-				.mutation(|(_, library), id: i32| async move {
+				.mutation(|(_, library), object_ids: Vec<i32>| async move {
 					library
 						.db
 						.object()
-						.update(
-							object::id::equals(id),
+						.update_many(
+							vec![object::id::in_vec(object_ids)],
 							vec![object::date_accessed::set(None)],
 						)
 						.exec()
@@ -136,93 +131,257 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("encryptFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
-				})
-		})
-		.procedure("decryptFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
-				})
-		})
+		// .procedure("encryptFiles", {
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
+		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		})
+		// })
+		// .procedure("decryptFiles", {
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
+		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		})
+		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileDeleterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					Job::new(args).spawn(&library).await.map_err(Into::into)
 				})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileEraserJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					Job::new(args).spawn(&library).await.map_err(Into::into)
 				})
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					Job::new(args).spawn(&library).await.map_err(Into::into)
 				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					Job::new(args).spawn(&library).await.map_err(Into::into)
 				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: FileCutterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+					Job::new(args).spawn(&library).await.map_err(Into::into)
 				})
 		})
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
-			pub struct RenameFileArgs {
-				pub location_id: i32,
-				pub file_name: String,
-				pub new_file_name: String,
+			pub struct FromPattern {
+				pub pattern: String,
+				pub replace_all: bool,
 			}
 
-			R.with2(library()).mutation(
-				|(_, library),
-				 RenameFileArgs {
-				     location_id,
-				     file_name,
-				     new_file_name,
-				 }: RenameFileArgs| async move {
-					let location = find_location(&library, location_id)
+			#[derive(Type, Deserialize)]
+			pub struct RenameOne {
+				pub from_file_path_id: file_path::id::Type,
+				pub to: String,
+			}
+
+			#[derive(Type, Deserialize)]
+			pub struct RenameMany {
+				pub from_pattern: FromPattern,
+				pub to_pattern: String,
+				pub from_file_path_ids: Vec<file_path::id::Type>,
+			}
+
+			#[derive(Type, Deserialize)]
+			pub enum RenameKind {
+				One(RenameOne),
+				Many(RenameMany),
+			}
+
+			#[derive(Type, Deserialize)]
+			pub struct RenameFileArgs {
+				pub location_id: location::id::Type,
+				pub kind: RenameKind,
+			}
+
+			impl RenameFileArgs {
+				pub async fn rename_one(
+					RenameOne {
+						from_file_path_id,
+						to,
+					}: RenameOne,
+					location_path: impl AsRef<Path>,
+					library: &Library,
+				) -> Result<(), rspc::Error> {
+					let location_path = location_path.as_ref();
+					let iso_file_path = IsolatedFilePathData::try_from(
+						library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(from_file_path_id))
+							.select(file_path_to_isolate::select())
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
+								from_file_path_id,
+							)))?,
+					)
+					.map_err(LocationError::MissingField)?;
+
+					if iso_file_path.full_name() == to {
+						return Ok(());
+					}
+
+					let (new_file_name, new_extension) =
+						IsolatedFilePathData::separate_name_and_extension_from_str(&to)
+							.map_err(LocationError::FilePath)?;
+
+					let mut new_file_full_path = location_path.join(iso_file_path.parent());
+					if !new_extension.is_empty() {
+						new_file_full_path.push(format!("{}.{}", new_file_name, new_extension));
+					} else {
+						new_file_full_path.push(new_file_name);
+					}
+
+					match fs::metadata(&new_file_full_path).await {
+						Ok(_) => {
+							return Err(rspc::Error::new(
+								ErrorCode::Conflict,
+								"File already exists".to_string(),
+							))
+						}
+						Err(e) => {
+							if e.kind() != std::io::ErrorKind::NotFound {
+								return Err(rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									"Failed to check if file exists".to_string(),
+									e,
+								));
+							}
+						}
+					}
+
+					fs::rename(location_path.join(&iso_file_path), new_file_full_path)
+						.await
+						.map_err(|e| {
+							rspc::Error::with_cause(
+								ErrorCode::Conflict,
+								"Failed to rename file".to_string(),
+								e,
+							)
+						})?;
+
+					Ok(())
+				}
+
+				pub async fn rename_many(
+					RenameMany {
+						from_pattern,
+						to_pattern,
+						from_file_path_ids,
+					}: RenameMany,
+					location_path: impl AsRef<Path>,
+					library: &Library,
+				) -> Result<(), rspc::Error> {
+					let location_path = location_path.as_ref();
+
+					let Ok(from_regex) = Regex::new(&from_pattern.pattern) else {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::BadRequest,
+							"Invalid `from` regex pattern".into(),
+						));
+					};
+
+					let errors = join_all(
+						library
+							.db
+							.file_path()
+							.find_many(vec![file_path::id::in_vec(from_file_path_ids)])
+							.select(file_path_to_isolate_with_id::select())
+							.exec()
+							.await?
+							.into_iter()
+							.flat_map(IsolatedFilePathData::try_from)
+							.map(|iso_file_path| {
+								let from = location_path.join(&iso_file_path);
+								let mut to = location_path.join(iso_file_path.parent());
+								let full_name = iso_file_path.full_name();
+								let replaced_full_name = if from_pattern.replace_all {
+									from_regex.replace_all(&full_name, &to_pattern)
+								} else {
+									from_regex.replace(&full_name, &to_pattern)
+								}
+								.to_string();
+
+								to.push(&replaced_full_name);
+
+								async move {
+									if !IsolatedFilePathData::accept_file_name(&replaced_full_name)
+									{
+										Err(rspc::Error::new(
+											ErrorCode::BadRequest,
+											"Invalid file name".to_string(),
+										))
+									} else {
+										fs::rename(&from, &to).await.map_err(|e| {
+											error!(
+													"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
+													from.display(),
+													to.display()
+												);
+											rspc::Error::with_cause(
+												ErrorCode::Conflict,
+												"Failed to rename file".to_string(),
+												e,
+											)
+										})
+									}
+								}
+							}),
+					)
+					.await
+					.into_iter()
+					.filter_map(Result::err)
+					.collect::<Vec<_>>();
+
+					if !errors.is_empty() {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::Conflict,
+							errors
+								.into_iter()
+								.map(|e| e.to_string())
+								.collect::<Vec<_>>()
+								.join("\n"),
+						));
+					}
+
+					Ok(())
+				}
+			}
+
+			R.with2(library())
+				.mutation(|(_, library), args: RenameFileArgs| async move {
+					let location_path = find_location(&library, args.location_id)
 						.select(location::select!({ path }))
 						.exec()
 						.await?
-						.ok_or(LocationError::IdNotFound(location_id))?;
+						.ok_or(LocationError::IdNotFound(args.location_id))?
+						.path
+						.ok_or(LocationError::MissingPath(args.location_id))?;
 
-					let location_path = Path::new(&location.path);
-					fs::rename(
-						location_path.join(IsolatedFilePathData::from_relative_str(
-							location_id,
-							&file_name,
-						)),
-						location_path.join(IsolatedFilePathData::from_relative_str(
-							location_id,
-							&new_file_name,
-						)),
-					)
-					.await
-					.map_err(|e| {
-						rspc::Error::with_cause(
-							ErrorCode::Conflict,
-							"Failed to rename file".to_string(),
-							e,
-						)
-					})?;
+					let res = match args.kind {
+						RenameKind::One(one) => {
+							RenameFileArgs::rename_one(one, location_path, &library).await
+						}
+						RenameKind::Many(many) => {
+							RenameFileArgs::rename_many(many, location_path, &library).await
+						}
+					};
 
 					invalidate_query!(library, "search.objects");
 
-					Ok(())
-				},
-			)
+					res
+				})
 		})
 }

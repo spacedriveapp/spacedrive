@@ -3,6 +3,7 @@
  * To regenerate this file, run: pnpm assets gen
  */
 import AlphaBg from './AlphaBg.png';
+import AlphaBg_Light from './AlphaBg_Light.png';
 import AppLogo from './AppLogo.png';
 import Ball from './Ball.png';
 import BloomOne from './BloomOne.png';
@@ -12,4 +13,15 @@ import GoogleDrive from './GoogleDrive.png';
 import Mega from './Mega.png';
 import iCloud from './iCloud.png';
 
-export { AlphaBg, AppLogo, Ball, BloomOne, BloomThree, BloomTwo, GoogleDrive, Mega, iCloud };
+export {
+	AlphaBg,
+	AlphaBg_Light,
+	AppLogo,
+	Ball,
+	BloomOne,
+	BloomThree,
+	BloomTwo,
+	GoogleDrive,
+	Mega,
+	iCloud
+};

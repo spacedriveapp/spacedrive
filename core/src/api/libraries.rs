@@ -1,7 +1,7 @@
 use crate::{
-	invalidate_query,
-	library::LibraryConfig,
+	library::{LibraryConfig, LibraryName},
 	prisma::statistics,
+	util::MaybeUndefined,
 	volume::{get_volumes, save_volume},
 };
 
@@ -24,7 +24,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await },
 			)
 		})
-		.procedure("getStatistics", {
+		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				let _statistics = library
 					.db
@@ -39,6 +39,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut available_capacity: u64 = 0;
 				let mut total_capacity: u64 = 0;
+
 				if let Ok(volumes) = volumes {
 					for volume in volumes {
 						total_capacity += volume.total_capacity;
@@ -89,7 +90,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
-				name: String,
+				name: LibraryName,
 			}
 
 			R.mutation(|ctx, args: CreateLibraryArgs| async move {
@@ -97,20 +98,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let new_library = ctx
 					.library_manager
-					.create(LibraryConfig {
-						name: args.name.to_string(),
-						..Default::default()
-					})
+					.create(
+						LibraryConfig::new(args.name, ctx.config.get().await.id),
+						ctx.config.get().await,
+					)
 					.await?;
-
-				invalidate_query!(
-					// SAFETY: This unwrap is alright as we just created the library
-					ctx.library_manager
-						.get_library(new_library.uuid)
-						.await
-						.unwrap(),
-					"library.getStatistics"
-				);
 
 				Ok(new_library)
 			})
@@ -119,8 +111,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct EditLibraryArgs {
 				pub id: Uuid,
-				pub name: Option<String>,
-				pub description: Option<String>,
+				pub name: Option<LibraryName>,
+				pub description: MaybeUndefined<String>,
 			}
 
 			R.mutation(|ctx, args: EditLibraryArgs| async move {

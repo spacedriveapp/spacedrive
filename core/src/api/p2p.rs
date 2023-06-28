@@ -1,4 +1,4 @@
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::p2p::P2PEvent;
 
-use super::{Ctx, R};
+use super::{utils::library, Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -45,20 +45,37 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|ctx, args: SpacedropArgs| async move {
 				// TODO: Handle multiple files path and error if zero paths
 				ctx.p2p
-					.big_bad_spacedrop(args.peer_id, PathBuf::from(args.file_path.first().unwrap()))
-					.await;
+					.big_bad_spacedrop(
+						args.peer_id,
+						PathBuf::from(
+							args.file_path
+								.first()
+								.expect("https://linear.app/spacedriveapp/issue/ENG-625/spacedrop-multiple-files"),
+						),
+					)
+					.await
+					.map_err(|_| {
+						rspc::Error::new(ErrorCode::InternalServerError, "todo".to_string())
+					})
 			})
 		})
 		.procedure("acceptSpacedrop", {
 			R.mutation(|ctx, (id, path): (Uuid, Option<String>)| async move {
 				match path {
-					Some(path) => {
-						ctx.p2p.accept_spacedrop(id, path).await;
-					}
-					None => {
-						ctx.p2p.reject_spacedrop(id).await;
-					}
+					Some(path) => ctx.p2p.accept_spacedrop(id, path).await,
+					None => ctx.p2p.reject_spacedrop(id).await,
 				}
 			})
+		})
+		.procedure("spacedropProgress", {
+			R.subscription(|ctx, id: Uuid| async move {
+				ctx.p2p.spacedrop_progress(id).await.ok_or_else(|| {
+					rspc::Error::new(ErrorCode::BadRequest, "Spacedrop not found!".into())
+				})
+			})
+		})
+		.procedure("pair", {
+			R.with2(library())
+				.mutation(|(ctx, lib), id: PeerId| async move { ctx.p2p.pair(id, lib) })
 		})
 }

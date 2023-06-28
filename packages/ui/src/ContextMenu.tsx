@@ -6,6 +6,8 @@ import { PropsWithChildren, Suspense, createContext, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
+	onOpenChange?: (open: boolean) => void;
+	disabled?: boolean;
 }
 
 export const contextMenuClassNames = clsx(
@@ -20,10 +22,19 @@ export const contextMenuClassNames = clsx(
 const context = createContext<boolean>(false);
 export const useContextMenu = () => useContext(context);
 
-const Root = ({ trigger, children, className, ...props }: ContextMenuProps) => {
+const Root = ({
+	trigger,
+	children,
+	className,
+	onOpenChange,
+	disabled,
+	...props
+}: ContextMenuProps) => {
 	return (
-		<RadixCM.Root>
-			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
+		<RadixCM.Root onOpenChange={onOpenChange}>
+			<RadixCM.Trigger asChild onContextMenu={(e) => disabled && e.preventDefault()}>
+				{trigger}
+			</RadixCM.Trigger>
 			<RadixCM.Portal>
 				<RadixCM.Content className={clsx(contextMenuClassNames, className)} {...props}>
 					<context.Provider value={true}>{children}</context.Provider>
@@ -65,10 +76,10 @@ const SubMenu = ({
 const contextMenuItemStyles = cva(
 	[
 		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
-		'text-sm text-ink',
-		'group-radix-highlighted:text-white dark:group-radix-highlighted:text-ink',
-		'group-radix-disabled:pointer-events-none group-radix-disabled:text-ink/50',
-		'group-radix-state-open:bg-accent group-radix-state-open:text-white dark:group-radix-state-open:text-ink'
+		'text-sm text-menu-ink',
+		'group-radix-highlighted:text-white',
+		'group-radix-disabled:pointer-events-none group-radix-disabled:text-menu-ink/50',
+		'group-radix-state-open:bg-accent group-radix-state-open:text-white'
 	],
 	{
 		variants: {
@@ -105,10 +116,15 @@ const Item = ({
 	keybind,
 	variant,
 	iconProps,
+	onClick,
 	...props
 }: ContextMenuItemProps & RadixCM.MenuItemProps) => {
 	return (
-		<RadixCM.Item className={contextMenuItemClassNames} {...props}>
+		<RadixCM.Item
+			className={contextMenuItemClassNames}
+			onClick={(e) => !props.disabled && onClick?.(e)}
+			{...props}
+		>
 			<ContextMenuDivItem
 				{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
 			/>
@@ -136,7 +152,7 @@ const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextM
 			{label && <span className="flex-1 truncate">{label}</span>}
 
 			{keybind && (
-				<span className="text-xs font-medium text-menu-faint group-radix-highlighted:text-white">
+				<span className="text-xs font-medium group-radix-highlighted:text-white">
 					{keybind}
 				</span>
 			)}

@@ -13,7 +13,7 @@ module.exports = function (app, options) {
 			'../../packages/*/src/**/*.{ts,tsx,html,stories.tsx}',
 			'../../interface/**/*.{ts,tsx,html,stories.tsx}'
 		],
-		darkMode: app == 'landing' ? 'class' : 'media',
+		darkMode: 'class',
 		theme: {
 			screens: {
 				xs: '475px',
@@ -53,6 +53,9 @@ module.exports = function (app, options) {
 						DEFAULT: alpha('--color-sidebar'),
 						box: alpha('--color-sidebar-box'),
 						line: alpha('--color-sidebar-line'),
+						ink: alpha('--color-sidebar-ink'),
+						inkFaint: alpha('--color-sidebar-ink-faint'),
+						inkDull: alpha('--color-sidebar-ink-dull'),
 						divider: alpha('--color-sidebar-divider'),
 						button: alpha('--color-sidebar-button'),
 						selected: alpha('--color-sidebar-selected'),

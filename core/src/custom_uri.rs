@@ -1,7 +1,7 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
-	prisma::file_path,
-	util::error::FileIOError,
+	prisma::{file_path, location},
+	util::{db::*, error::FileIOError},
 	Node,
 };
 
@@ -13,7 +13,7 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 use std::cmp::min;
 
 use http_range::HttpRange;
@@ -34,7 +34,7 @@ use uuid::Uuid;
 
 // This LRU cache allows us to avoid doing a DB lookup on every request.
 // The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
-type MetadataCacheKey = (Uuid, i32);
+type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
 static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
@@ -100,16 +100,18 @@ async fn handle_thumbnail(
 		return Ok(response?);
 	}
 
-	let file_cas_id = path
-		.get(1)
-		.ok_or_else(|| HandleCustomUriError::BadRequest("Invalid number of parameters!"))?;
+	if path.len() < 3 {
+		return Err(HandleCustomUriError::BadRequest(
+			"Invalid number of parameters!",
+		));
+	}
 
-	let filename = node
-		.config
-		.data_directory()
-		.join("thumbnails")
-		.join(file_cas_id)
-		.with_extension("webp");
+	let mut thumbnail_path = node.config.data_directory().join("thumbnails");
+	// if we ever wish to support multiple levels of sharding, we need only supply more params here
+	for path_part in &path[1..] {
+		thumbnail_path = thumbnail_path.join(path_part);
+	}
+	let filename = thumbnail_path.with_extension("webp");
 
 	let file = File::open(&filename).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
@@ -119,7 +121,7 @@ async fn handle_thumbnail(
 		}
 	})?;
 
-	let content_lenght = file
+	let content_length = file
 		.metadata()
 		.await
 		.map_err(|e| FileIOError::from((&filename, e)))?
@@ -127,12 +129,12 @@ async fn handle_thumbnail(
 
 	Ok(builder
 		.header("Content-Type", "image/webp")
-		.header("Content-Length", content_lenght)
+		.header("Content-Length", content_length)
 		.status(StatusCode::OK)
 		.body(if method == Method::HEAD {
 			vec![]
 		} else {
-			read_file(file, content_lenght, None)
+			read_file(file, content_length, None)
 				.await
 				.map_err(|e| FileIOError::from((&filename, e)))?
 		})?)
@@ -158,14 +160,14 @@ async fn handle_file(
 
 	let location_id = path
 		.get(2)
-		.and_then(|id| id.parse::<i32>().ok())
+		.and_then(|id| id.parse::<location::id::Type>().ok())
 		.ok_or_else(|| {
 			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing location_id!")
 		})?;
 
 	let file_path_id = path
 		.get(3)
-		.and_then(|id| id.parse::<i32>().ok())
+		.and_then(|id| id.parse::<file_path::id::Type>().ok())
 		.ok_or_else(|| {
 			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing file_path_id!")
 		})?;
@@ -191,11 +193,14 @@ async fn handle_file(
 				.await?
 				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
+			let location = maybe_missing(&file_path.location, "file_path.location")?;
+			let path = maybe_missing(&location.path, "file_path.location.path")?;
+
 			let lru_entry = (
-				Path::new(&file_path.location.path)
-					.join(IsolatedFilePathData::from((location_id, &file_path))),
-				file_path.extension,
+				Path::new(path).join(IsolatedFilePathData::try_from((location_id, &file_path))?),
+				maybe_missing(file_path.extension, "extension")?,
 			);
+
 			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
 
 			lru_entry
@@ -232,12 +237,16 @@ async fn handle_file(
 		"avi" => "video/x-msvideo",
 		// MP4 video
 		"mp4" | "m4v" => "video/mp4",
+		#[cfg(not(target_os = "macos"))]
+		// FIX-ME: This media types break macOS video rendering
+		// MPEG transport stream
+		"ts" => "video/mp2t",
+		#[cfg(not(target_os = "macos"))]
+		// FIX-ME: This media types break macOS video rendering
 		// MPEG Video
 		"mpeg" => "video/mpeg",
 		// OGG video
 		"ogv" => "video/ogg",
-		// MPEG transport stream
-		"ts" => "video/mp2t",
 		// WEBM video
 		"webm" => "video/webm",
 		// 3GPP audio/video container (TODO: audio/3gpp if it doesn't contain video)
@@ -264,7 +273,6 @@ async fn handle_file(
 		"webp" => "image/webp",
 		// PDF document
 		"pdf" => "application/pdf",
-
 		// HEIF/HEIC images
 		"heif" | "heifs" => "image/heif,image/heif-sequence",
 		"heic" | "heics" => "image/heic,image/heic-sequence",
@@ -319,7 +327,8 @@ async fn handle_file(
 
 			// TODO: For some reason webkit2gtk doesn't like this at all.
 			// It causes it to only stream random pieces of any given audio file.
-			#[cfg(not(target_os = "linux"))]
+			// TODO: This causes macOS to freeze streaming mp4
+			#[cfg(windows)]
 			// prevent max_length;
 			// specially on webview2
 			if mime_type != "application/pdf" && range.length > file_size / 3 {
@@ -379,18 +388,20 @@ pub fn create_custom_uri_endpoint(node: Arc<Node>) -> Endpoint<impl HttpEndpoint
 
 #[derive(Error, Debug)]
 pub enum HandleCustomUriError {
-	#[error("error creating http request/response: {0}")]
+	#[error("HandleCustomUriError::Http - {0}")]
 	Http(#[from] httpz::http::Error),
-	#[error("io error: {0}")]
+	#[error("HandleCustomUriError::FileIO - {0}")]
 	FileIO(#[from] FileIOError),
-	#[error("query error: {0}")]
+	#[error("HandleCustomUriError::QueryError - {0}")]
 	QueryError(#[from] QueryError),
-	#[error("{0}")]
+	#[error("HandleCustomUriError::BadRequest - {0}")]
 	BadRequest(&'static str),
-	#[error("Range is not valid: {0}")]
+	#[error("HandleCustomUriError::RangeNotSatisfiable - invalid range {0}")]
 	RangeNotSatisfiable(&'static str),
-	#[error("resource '{0}' not found")]
+	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
 	NotFound(&'static str),
+	#[error("HandleCustomUriError::MissingField - '{0}'")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<HandleCustomUriError> for Response<Vec<u8>> {
@@ -433,6 +444,12 @@ impl From<HandleCustomUriError> for Response<Vec<u8>> {
 					.as_bytes()
 					.to_vec(),
 			),
+			HandleCustomUriError::MissingField(id) => {
+				error!("Location <id = {id}> has no path");
+				builder
+					.status(StatusCode::INTERNAL_SERVER_ERROR)
+					.body(b"Internal Server Error".to_vec())
+			}
 		})
 		// SAFETY: This unwrap is ok as we have an hardcoded the response builders.
 		.expect("internal error building hardcoded HTTP error response")

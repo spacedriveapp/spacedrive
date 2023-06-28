@@ -8,14 +8,14 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
-import { useDebugState } from '@sd/client';
+import { P2PContextProvider, useDebugState } from '@sd/client';
 import ErrorFallback from './ErrorFallback';
 import { SpacedropUI } from './app/Spacedrop';
 
-export * from './util/keybind';
-export * from './util/Platform';
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
+export * from './util/Platform';
+export * from './util/keybind';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
@@ -48,9 +48,11 @@ const Devtools = () => {
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<Devtools />
-			<SpacedropUI />
-			<RouterProvider router={props.router} />
+			<P2PContextProvider>
+				<Devtools />
+				<SpacedropUI />
+				<RouterProvider router={props.router} />
+			</P2PContextProvider>
 		</ErrorBoundary>
 	);
 };

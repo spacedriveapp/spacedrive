@@ -1,4 +1,7 @@
-use crate::util::error::FileIOError;
+use crate::{
+	prisma::location,
+	util::{db::MissingFieldError, error::FileIOError},
+};
 
 use std::path::PathBuf;
 
@@ -19,7 +22,7 @@ pub enum LocationError {
 	#[error("location not found <uuid='{0}'>")]
 	UuidNotFound(Uuid),
 	#[error("location not found <id='{0}'>")]
-	IdNotFound(i32),
+	IdNotFound(location::id::Type),
 
 	// User errors
 	#[error("location not a directory <path='{}'>", .0.display())]
@@ -49,23 +52,27 @@ pub enum LocationError {
 
 	// Internal Errors
 	#[error(transparent)]
-	LocationMetadataError(#[from] LocationMetadataError),
-	#[error("failed to read location path metadata info")]
+	LocationMetadata(#[from] LocationMetadataError),
+	#[error("failed to read location path metadata info: {0}")]
 	LocationPathFilesystemMetadataAccess(FileIOError),
 	#[error("missing metadata file for location <path='{}'>", .0.display())]
 	MissingMetadataFile(PathBuf),
-	#[error("failed to open file from local OS")]
-	FileReadError(FileIOError),
-	#[error("failed to read mounted volumes from local OS")]
+	#[error("failed to open file from local OS: {0}")]
+	FileRead(FileIOError),
+	#[error("failed to read mounted volumes from local OS: {0}")]
 	VolumeReadError(String),
-	#[error("database error")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("database error: {0}")]
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error(transparent)]
-	LocationManagerError(#[from] LocationManagerError),
+	LocationManager(#[from] LocationManagerError),
 	#[error(transparent)]
-	FilePathError(#[from] FilePathError),
+	FilePath(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error("location missing path <id='{0}'>")]
+	MissingPath(location::id::Type),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 }
 
 impl From<LocationError> for rspc::Error {

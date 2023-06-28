@@ -3,7 +3,7 @@
 	windows_subsystem = "windows"
 )]
 
-use std::{path::PathBuf, time::Duration};
+use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
@@ -17,6 +17,8 @@ use tracing::{debug, error};
 #[cfg(target_os = "linux")]
 mod app_linux;
 
+mod theme;
+
 mod file;
 mod menu;
 
@@ -28,9 +30,37 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	window.show().unwrap();
 }
 
+#[tauri::command(async)]
+#[specta::specta]
+async fn reset_spacedrive(app_handle: tauri::AppHandle) {
+	let data_dir = path::data_dir()
+		.unwrap_or_else(|| PathBuf::from("./"))
+		.join("spacedrive");
+
+	#[cfg(debug_assertions)]
+	let data_dir = data_dir.join("dev");
+
+	fs::remove_dir_all(data_dir).unwrap();
+
+	// TODO: Restarting the app doesn't work in dev (cause Tauri's devserver shutdown) and in prod makes the app go unresponsive until you click in/out on macOS
+	// app_handle.restart();
+
+	app_handle.exit(0);
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
+	opener::open(node.data_dir.join("logs")).ok();
+	Ok(())
+}
+
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
-		.js_init_script(format!(r#"window.__SD_ERROR__ = "{err}";"#))
+		.js_init_script(format!(
+			r#"window.__SD_ERROR__ = `{}`;"#,
+			err.to_string().replace('`', "\"")
+		))
 		.build()
 }
 
@@ -55,6 +85,8 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
+	let _guard = Node::init_logger(&data_dir);
+
 	let result = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default();
@@ -76,7 +108,10 @@ async fn main() -> tauri::Result<()> {
 
 			(Some(node), app)
 		}
-		Err(err) => (None, app.plugin(tauri_error_plugin(err))),
+		Err(err) => {
+			tracing::error!("Error starting up the node: {err}");
+			(None, app.plugin(tauri_error_plugin(err)))
+		}
 	};
 
 	let app = app
@@ -130,9 +165,13 @@ async fn main() -> tauri::Result<()> {
 		.menu(menu::get_menu())
 		.invoke_handler(tauri_handlers![
 			app_ready,
-			file::open_file_path,
+			reset_spacedrive,
+			open_logs_dir,
+			file::open_file_paths,
 			file::get_file_path_open_with_apps,
-			file::open_file_path_with
+			file::open_file_path_with,
+			file::reveal_items,
+			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;
 

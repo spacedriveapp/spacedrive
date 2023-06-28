@@ -27,7 +27,12 @@ const nextConfig = {
 				use: [
 					{
 						loader: '@svgr/webpack',
-						options: { icon: true, exportType: 'named', typescript: true }
+						options: {
+							icon: true,
+							exportType: 'named',
+							typescript: true,
+							svgProps: { fill: 'currentColor' }
+						}
 					}
 				]
 			}

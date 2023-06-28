@@ -1,5 +1,6 @@
 import {
 	Books,
+	Cloud,
 	FlyingSaucer,
 	GearSix,
 	HardDrive,
@@ -12,6 +13,7 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react';
+import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import Icon from '../Layout/Sidebar/Icon';
@@ -23,6 +25,7 @@ const Section = tw.div`space-y-0.5`;
 
 export default () => {
 	const os = useOperatingSystem();
+	const isPairingEnabled = useFeatureFlag('p2pPairing');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
@@ -49,7 +52,7 @@ export default () => {
 						<Icon component={ShieldCheck} />
 						Privacy
 					</SidebarLink>
-					<SidebarLink to="client/appearance" disabled>
+					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
 						Appearance
 					</SidebarLink>
@@ -68,10 +71,10 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="library/nodes" disabled>
+					{/* <SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
 						<Icon component={ShareNetwork} />
 						Nodes
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						Locations
@@ -80,7 +83,11 @@ export default () => {
 						<Icon component={TagSimple} />
 						Tags
 					</SidebarLink>
-					<SidebarLink to="library/keys">
+					<SidebarLink disabled to="library/clouds">
+						<Icon component={Cloud} />
+						Clouds
+					</SidebarLink>
+					<SidebarLink to="library/keys" disabled>
 						<Icon component={Key} />
 						Keys
 					</SidebarLink>

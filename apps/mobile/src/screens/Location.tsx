@@ -24,7 +24,10 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 		if (path && path !== '') {
 			// Nested location.
 			navigation.setOptions({
-				title: path.split('/')[0]
+				title: path
+					.split('/')
+					.filter((x) => x !== '')
+					.pop()
 			});
 		} else {
 			navigation.setOptions({

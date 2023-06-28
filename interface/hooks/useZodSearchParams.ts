@@ -1,12 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import { NavigateOptions, useSearchParams } from 'react-router-dom';
 import { getParams } from 'remix-params-helper';
-import { z } from 'zod';
+import type { z } from 'zod';
 
-export function useZodSearchParams<Z extends z.ZodType<Record<string, any>>>(schema: Z) {
+export function useZodSearchParams<Z extends z.AnyZodObject>(schema: Z) {
 	// eslint-disable-next-line no-restricted-syntax
 	const [searchParams, setSearchParams] = useSearchParams();
-
 	const typedSearchParams = useMemo(
 		() => getParams(searchParams, schema),
 		[searchParams, schema]
@@ -15,7 +14,7 @@ export function useZodSearchParams<Z extends z.ZodType<Record<string, any>>>(sch
 	if (!typedSearchParams.success) throw typedSearchParams.errors;
 
 	return [
-		typedSearchParams.data,
+		typedSearchParams.data as z.infer<Z>,
 		useCallback(
 			(
 				data: z.input<Z> | ((data: z.input<Z>) => z.infer<Z>),

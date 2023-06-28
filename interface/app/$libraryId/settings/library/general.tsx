@@ -1,5 +1,5 @@
-import { useBridgeMutation, useLibraryContext } from '@sd/client';
-import { Button, Input, dialogManager } from '@sd/ui';
+import { MaybeUndefined, useBridgeMutation, useLibraryContext } from '@sd/client';
+import { Button, Input, Switch, Tooltip, dialogManager } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
@@ -9,8 +9,13 @@ import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
 const schema = z.object({
 	id: z.string(),
 	name: z.string().min(1),
-	description: z.string()
+	description: z.string().nullable()
 });
+
+// TODO: With some extra upstream Specta work this should be able to be removed
+function toMaybeUndefined<T>(v: T | null | undefined): MaybeUndefined<T> {
+	return v as any;
+}
 
 export const Component = () => {
 	const { library } = useLibraryContext();
@@ -18,14 +23,17 @@ export const Component = () => {
 
 	const form = useZodForm({
 		schema,
-		defaultValues: { id: library!.uuid, ...library?.config }
+		defaultValues: {
+			id: library!.uuid,
+			...library?.config
+		}
 	});
 
 	useDebouncedFormWatch(form, (value) =>
 		editLibrary.mutate({
 			id: library.uuid,
 			name: value.name ?? null,
-			description: value.description ?? null
+			description: toMaybeUndefined(value.description)
 		})
 	);
 
@@ -53,23 +61,27 @@ export const Component = () => {
 				</div>
 			</div>
 
-			{/* <Setting
+			<Setting
 				mini
 				title="Encrypt Library"
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
 				<div className="ml-3 flex items-center">
-					<Switch checked={false} />
+					<Tooltip label="Library encryption coming soon">
+						<Switch disabled size="md" checked={false} />
+					</Tooltip>
 				</div>
-			</Setting> */}
+			</Setting>
 
-			{/* <Setting mini title="Export Library" description="Export this library to a file.">
+			<Setting mini title="Export Library" description="Export this library to a file.">
 				<div className="mt-2">
-					<Button size="sm" variant="gray">
-						Export
-					</Button>
+					<Tooltip label="Export Library coming soon">
+						<Button disabled size="sm" variant="gray">
+							Export
+						</Button>
+					</Tooltip>
 				</div>
-			</Setting> */}
+			</Setting>
 
 			<Setting
 				mini

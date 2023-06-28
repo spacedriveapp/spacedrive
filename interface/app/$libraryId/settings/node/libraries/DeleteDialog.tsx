@@ -1,8 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
-import { Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
-
-const { useZodForm, z } = forms;
+import { Dialog, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	libraryUuid: string;
@@ -10,10 +8,16 @@ interface Props extends UseDialogProps {
 
 export default function DeleteLibraryDialog(props: Props) {
 	const submitPlausibleEvent = usePlausibleEvent();
-
 	const queryClient = useQueryClient();
-	const deleteLib = useBridgeMutation('library.delete', {
-		onSuccess: () => {
+
+	const deleteLib = useBridgeMutation('library.delete');
+
+	const form = useZodForm();
+
+	const onSubmit = form.handleSubmit(async () => {
+		try {
+			await deleteLib.mutateAsync(props.libraryUuid);
+
 			queryClient.invalidateQueries(['library.list']);
 
 			submitPlausibleEvent({
@@ -21,15 +25,15 @@ export default function DeleteLibraryDialog(props: Props) {
 					type: 'libraryDelete'
 				}
 			});
+		} catch (e) {
+			alert(`Failed to delete library: ${e}`);
 		}
 	});
-
-	const form = useZodForm({ schema: z.object({}) });
 
 	return (
 		<Dialog
 			form={form}
-			onSubmit={form.handleSubmit(() => deleteLib.mutateAsync(props.libraryUuid))}
+			onSubmit={onSubmit}
 			dialog={useDialog(props)}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."

@@ -1,121 +1,182 @@
+/* eslint-disable no-case-declarations */
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { X } from 'phosphor-react';
-import { useState } from 'react';
-import { JobReport } from '@sd/client';
+import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
+import { Fragment, useEffect, useState } from 'react';
+import {
+	JobGroup as IJobGroup,
+	JobProgressEvent,
+	JobReport,
+	useLibraryMutation,
+	useLibrarySubscription
+} from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
+import JobContainer from './JobContainer';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
-import { IJobGroup } from './useGroupedJobs';
 
 interface JobGroupProps {
 	data: IJobGroup;
 	clearJob: (arg: string) => void;
 }
 
-function JobGroup({ data, clearJob }: JobGroupProps) {
+function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
+	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
-	// running jobs should be last in the array
-	const allJobs = [...data.childJobs, ...data.runningJobs];
+	const pauseJob = useLibraryMutation(['jobs.pause'], {
+		onError: alert
+	});
+	const resumeJob = useLibraryMutation(['jobs.resume'], {
+		onError: alert
+	});
+	const cancelJob = useLibraryMutation(['jobs.cancel'], {
+		onError: alert
+	});
 
-	const isJobsRunning = allJobs.some((job) => job.status === 'Running');
+	const isJobsRunning = jobs.some((job) => job.status === 'Running');
+	const isJobPaused = jobs.some((job) => job.status === 'Paused');
+	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
 
-	const allJobsCompleted = allJobs?.every((job) => job.status === 'Completed');
+	useLibrarySubscription(['jobs.progress', activeJobId as string], {
+		onData: setRealtimeUpdate,
+		enabled: !!activeJobId || !showChildJobs
+	});
 
-	const tasks = totalTasks(allJobs);
-
-	const totalGroupTime = useTotalElapsedTimeText(allJobs);
-
-	// If one job is remaining, we just delete the parent
-	const clearJobHandler = (arg: string) => {
-		if (data.childJobs.length === 1) {
-			clearJob(data.id as string);
-		} else {
-			clearJob(arg);
+	useEffect(() => {
+		if (data.status !== 'Running') {
+			setRealtimeUpdate(null);
 		}
-	};
+	}, [data.status]);
 
-	if (data.childJobs.length === 0) return <></>;
+	const tasks = totalTasks(jobs);
+	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
-	let date_started = dayjs(data.created_at).fromNow();
+	if (!jobs.length) return <></>;
+
+	let date_started = dayjs(jobs[0]?.created_at).fromNow();
 	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
 
 	return (
-		<ul className={clsx(`relative overflow-hidden`)}>
-			{allJobsCompleted && !isJobsRunning && (
-				<Button
-					className="absolute right-[10px] top-[19px] cursor-pointer"
-					onClick={() => clearJob?.(data.id as string)}
-					size="icon"
-				>
-					<Tooltip label="Remove">
-						<X className="h-4 w-4 cursor-pointer" />
-					</Tooltip>
-				</Button>
-			)}
-			<div
-				onClick={() => setShowChildJobs((v) => !v)}
-				className={clsx(
-					'h-auto cursor-pointer p-3 pl-4',
-					showChildJobs ? 'bg-app-darkBox pb-0' : ' border-b border-app-line/50'
+		<ul className="relative overflow-hidden">
+			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
+				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
+					<Button
+						className="cursor-pointer"
+						onClick={() => resumeJob.mutate(data.id)}
+						size="icon"
+						variant="outline"
+					>
+						<Tooltip label="Resume">
+							<Play className="h-4 w-4 cursor-pointer" />
+						</Tooltip>
+					</Button>
 				)}
-			>
-				<div className="flex">
-					<img
-						src={Folder}
-						className={clsx('relative left-[-2px] top-2 z-10 mr-3 h-6 w-6')}
-					/>
-					<div className="flex w-full flex-col">
-						<div className="flex items-center">
-							<div className="truncate">
-								<p className="truncate font-semibold">
-									{allJobsCompleted
-										? `Added location "${
-												data.metadata.init.location.name || ''
-										  }"`
-										: `Indexing "${data.metadata.init.location.name || ''}"`}
-								</p>
-								<p className="my-[2px] text-ink-faint">
-									<b>{tasks.total} </b>
-									{tasks.total <= 1 ? 'task' : 'tasks'}
-									{' • '}
-									{date_started}
-									{!allJobsCompleted && totalGroupTime && ' • '}
-									{!allJobsCompleted && totalGroupTime}
-								</p>
-							</div>
-							<div className="grow" />
-						</div>
-						{!showChildJobs && !allJobsCompleted && (
-							<div className="mt-[6px] w-full">
-								<ProgressBar value={tasks.completed} total={tasks.total} />
+
+				{isJobsRunning && (
+					<Fragment>
+						<Tooltip label="Pause">
+							<Button
+								className="cursor-pointer"
+								onClick={() => {
+									pauseJob.mutate(data.id);
+								}}
+								size="icon"
+								variant="outline"
+							>
+								<Pause className="h-4 w-4 cursor-pointer" />
+							</Button>
+						</Tooltip>
+						<Tooltip label="Stop">
+							<Button
+								className="cursor-pointer"
+								onClick={() => {
+									cancelJob.mutate(data.id);
+								}}
+								size="icon"
+								variant="outline"
+							>
+								<Stop className="h-4 w-4 cursor-pointer" />
+							</Button>
+						</Tooltip>
+					</Fragment>
+				)}
+
+				{/* TODO: FIX THIS, why is this not working? */}
+
+				{!isJobsRunning && (
+					<Button
+						className="hidden cursor-pointer"
+						onClick={() => clearJob?.(data.id as string)}
+						size="icon"
+						variant="outline"
+					>
+						<Tooltip label="Remove">
+							<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+						</Tooltip>
+					</Button>
+				)}
+			</div>
+			{jobs?.length > 1 ? (
+				<>
+					<JobContainer
+						onClick={() => setShowChildJobs((v) => !v)}
+						className={clsx(
+							'pb-2 hover:bg-app-selected/10',
+							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
+						)}
+						iconImg={Folder}
+						name={niceActionName(
+							data.action ?? '',
+							data.status === 'Completed',
+							jobs[0]
+						)}
+						textItems={[
+							[
+								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
+								{ text: date_started },
+								{ text: totalGroupTime || undefined },
+
+								{
+									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
+										data.status
+									)
+										? data.status
+										: undefined
+								}
+							],
+							[
+								{
+									text:
+										(!showChildJobs &&
+											isJobsRunning &&
+											realtimeUpdate?.message) ||
+										undefined
+								}
+							]
+						]}
+					>
+						{!showChildJobs && isJobsRunning && (
+							<div className="my-1 ml-1.5 w-full">
+								<ProgressBar
+									pending={tasks.completed === 0}
+									value={tasks.completed}
+									total={tasks.total}
+								/>
 							</div>
 						)}
-					</div>
-				</div>
-			</div>
-			{showChildJobs && (
-				<>
-					{data.runningJobs.map((job) => (
-						<Job
-							className={clsx(`border-none pl-10`, showChildJobs && 'bg-app-darkBox')}
-							isGroup
-							key={job.id}
-							job={job}
-						/>
-					))}
-					{data.childJobs.map((job) => (
-						<Job
-							isGroup
-							className={clsx(`border-none pl-10`, showChildJobs && 'bg-app-darkBox')}
-							clearJob={clearJobHandler}
-							key={job.id}
-							job={job}
-						/>
-					))}
+					</JobContainer>
+					{showChildJobs && (
+						<div className="">
+							{jobs.map((job) => (
+								<Job isChild={jobs.length > 1} key={job.id} job={job} />
+							))}
+						</div>
+					)}
 				</>
+			) : (
+				<>{jobs[0] && <Job job={jobs[0]} />}</>
 			)}
 		</ul>
 	);
@@ -133,6 +194,17 @@ function totalTasks(jobs: JobReport[]) {
 	});
 
 	return tasks;
+}
+
+function niceActionName(action: string, completed: boolean, job?: JobReport) {
+	const name = job?.metadata?.init?.location?.name || 'Unknown';
+	switch (action) {
+		case 'scan_location':
+			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
+		case 'scan_location_sub_path':
+			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
+	}
+	return action;
 }
 
 export default JobGroup;

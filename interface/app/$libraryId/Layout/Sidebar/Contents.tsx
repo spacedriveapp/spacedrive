@@ -1,5 +1,6 @@
 import {
 	ArchiveBox,
+	ArrowsClockwise,
 	Broadcast,
 	CopySimple,
 	Crosshair,
@@ -7,7 +8,7 @@ import {
 	FilmStrip,
 	Planet
 } from 'phosphor-react';
-import { useClientContext } from '@sd/client';
+import { LibraryContextProvider, useClientContext } from '@sd/client';
 import { SubtleButton } from '~/components/SubtleButton';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
@@ -24,24 +25,20 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				{/* <SidebarLink disabled to="spaces">
-					<Icon component={CirclesFour} />
-					Spaces
-				</SidebarLink> */}
-				<SidebarLink to="spacedrop">
+				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
-				{/* <SidebarLink disabled to="media">
-					<Icon component={MonitorPlay} />
-					Media
-				</SidebarLink> */}
 				<SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
-				</SidebarLink>
+				</SidebarLink> */}
 			</div>
-			{library && <LibrarySection />}
+			{library && (
+				<LibraryContextProvider library={library}>
+					<LibrarySection />
+				</LibraryContextProvider>
+			)}
 			<Section name="Tools" actionArea={<SubtleButton />}>
 				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />

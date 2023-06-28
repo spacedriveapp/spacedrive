@@ -77,10 +77,34 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply my-[10px] rounded-[6px]  bg-transparent;
+		@apply rounded-[6px]  bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-box;
+	}
+}
+.topbar-page-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply mt-[46px] rounded-[6px]  bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-app-box;
+	}
+}
+.job-manager-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply my-[2px] rounded-[6px]  bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-app-shade/20;
 	}
 }
 .inspector-scroll {
@@ -216,4 +240,47 @@ body {
 	height: 18px !important;
 	width: 8px !important;
 	border-radius: 3px !important;
+}
+
+.selecto-selection {
+	@apply rounded;
+	border-color: hsla(var(--color-accent));
+	background-color: hsla(var(--color-accent), 0.2) !important;
+	z-index: 10 !important;
+}
+
+.indeterminate-progress-bar {
+	/* Rounded border */
+	border-radius: 9999px;
+
+	/* Size */
+	height: 4px;
+
+	position: relative;
+	overflow: hidden;
+}
+
+.indeterminate-progress-bar__progress {
+	/* Rounded border */
+	border-radius: 9999px;
+
+	/* Absolute position */
+	position: absolute;
+	bottom: 0;
+	top: 0;
+	width: 50%;
+
+	/* Move the bar infinitely */
+	animation-duration: 2s;
+	animation-iteration-count: infinite;
+	animation-name: indeterminate-progress-bar;
+}
+
+@keyframes indeterminate-progress-bar {
+	from {
+		left: -50%;
+	}
+	to {
+		left: 100%;
+	}
 }

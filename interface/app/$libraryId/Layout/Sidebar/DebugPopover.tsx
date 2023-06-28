@@ -1,5 +1,15 @@
-import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
-import { Button, Popover, Select, SelectOption, Switch } from '@sd/ui';
+import { SiCheckmarx } from '@icons-pack/react-simple-icons';
+import {
+	features,
+	getDebugState,
+	isEnabled,
+	toggleFeatureFlag,
+	useBridgeQuery,
+	useDebugState,
+	useFeatureFlags,
+	useLibraryMutation
+} from '@sd/client';
+import { Button, Dropdown, DropdownMenu, Popover, Select, SelectOption, Switch } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import Setting from '../../settings/Setting';
 
@@ -14,12 +24,12 @@ export default () => {
 		<Popover
 			className="p-4 focus:outline-none"
 			trigger={
-				<h1 className="ml-1 w-full text-[7pt] text-ink-faint/50">
+				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}
 		>
-			<div className="block h-96 w-[430px]">
+			<div className="no-scrollbar block h-96 w-[430px] overflow-y-scroll pb-4">
 				<Setting
 					mini
 					title="rspc Logger"
@@ -97,6 +107,8 @@ export default () => {
 						<SelectOption value="enabled">Enabled</SelectOption>
 					</Select>
 				</Setting>
+				<FeatureFlagSelector />
+				<InvalidateDebugPanel />
 
 				{/* {platform.showDevtools && (
 					<SettingContainer
@@ -115,3 +127,51 @@ export default () => {
 		</Popover>
 	);
 };
+
+function InvalidateDebugPanel() {
+	const { data: count } = useBridgeQuery(['invalidation.test-invalidate']);
+	const { mutate } = useLibraryMutation(['invalidation.test-invalidate-mutation']);
+
+	return (
+		<Setting
+			mini
+			title="Invalidate Debug Panel"
+			description={`Pressing the button issues an invalidate to the query rendering this number: ${count}`}
+		>
+			<div className="mt-2">
+				<Button size="sm" variant="gray" onClick={() => mutate(null)}>
+					Invalidate
+				</Button>
+			</div>
+		</Setting>
+	);
+}
+
+function FeatureFlagSelector() {
+	useFeatureFlags(); // Subscribe to changes
+
+	return (
+		<DropdownMenu.Root
+			trigger={
+				<Dropdown.Button variant="gray">
+					<span className="truncate">Feature Flags</span>
+				</Dropdown.Button>
+			}
+			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
+			alignToTrigger
+		>
+			{features.map((feat) => (
+				<div key={feat} className="flex text-white">
+					{isEnabled(feat) && <SiCheckmarx />}
+
+					<DropdownMenu.Item
+						label={feat}
+						iconProps={{ weight: 'bold', size: 16 }}
+						onClick={() => toggleFeatureFlag(feat)}
+						className="font-medium"
+					/>
+				</div>
+			))}
+		</DropdownMenu.Root>
+	);
+}

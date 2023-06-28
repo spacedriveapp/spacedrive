@@ -5,6 +5,21 @@
 @tailwind utilities;
 @tailwind variants;
 
+@layer utilities {
+	@variants responsive {
+		/* Hide scrollbar for Chrome, Safari and Opera */
+		.no-scrollbar::-webkit-scrollbar {
+			display: none;
+		}
+
+		/* Hide scrollbar for IE, Edge and Firefox */
+		.no-scrollbar {
+			-ms-overflow-style: none; /* IE and Edge */
+			scrollbar-width: none; /* Firefox */
+		}
+	}
+}
+
 .html {
 	background: #404040;
 }
@@ -22,6 +37,13 @@
 .inset-center {
 	position: absolute;
 	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.inset-center-blur {
+	position: absolute;
+	top: 40%;
 	left: 50%;
 	transform: translate(-50%, -50%);
 }

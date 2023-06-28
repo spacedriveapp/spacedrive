@@ -5,7 +5,8 @@ use crate::{
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
 		LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
+	util::AbortOnDrop,
 };
 
 use std::path::PathBuf;
@@ -16,33 +17,27 @@ use specta::Type;
 
 use super::{utils::library, Ctx, R};
 
-#[derive(Serialize, Deserialize, Type, Debug)]
-#[serde(tag = "type")]
-pub enum ExplorerContext {
-	Location(location::Data),
-	Tag(tag::Data),
-	// Space(object_in_space::Data),
-}
-
-#[derive(Serialize, Deserialize, Type, Debug)]
+#[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
-		// has_thumbnail is determined by the local existence of a thumbnail
-		has_thumbnail: bool,
+		// has_local_thumbnail is true only if there is local existence of a thumbnail
+		has_local_thumbnail: bool,
+		// thumbnail_key is present if there is a cas_id
+		// it includes the shard hex formatted as (["f0", "cab34a76fbf3469f"])
+		thumbnail_key: Option<Vec<String>>,
 		item: file_path_with_object::Data,
 	},
 	Object {
-		has_thumbnail: bool,
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
-}
-
-#[derive(Serialize, Deserialize, Type, Debug)]
-pub struct ExplorerData {
-	pub context: ExplorerContext,
-	pub items: Vec<ExplorerItem>,
-	pub cursor: Option<Vec<u8>>,
+	Location {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: location::Data,
+	},
 }
 
 file_path::include!(file_path_with_object { object });
@@ -56,6 +51,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.db
 					.location()
 					.find_many(vec![])
+					.order_by(location::date_created::order(SortOrder::Desc))
 					.include(location::include!({ node }))
 					.exec()
 					.await?)
@@ -63,7 +59,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("get", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -74,7 +70,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("getWithRules", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
 						.location()
@@ -98,16 +94,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("update", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationUpdateArgs| async move {
-					args.update(&library).await.map_err(Into::into)
+					let ret = args.update(&library).await.map_err(Into::into);
+					invalidate_query!(library, "locations.list");
+					ret
 				})
 		})
 		.procedure("delete", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					delete_location(&library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
-				})
+				},
+			)
 		})
 		.procedure("relink", {
 			R.with2(library())
@@ -128,8 +127,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("fullRescan", {
-			R.with2(library())
-				.mutation(|(_, library), location_id: i32| async move {
+			R.with2(library()).mutation(
+				|(_, library), location_id: location::id::Type| async move {
 					// rescan location
 					scan_location(
 						&library,
@@ -141,29 +140,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					)
 					.await
 					.map_err(Into::into)
-				})
+				},
+			)
 		})
 		.procedure("quickRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LightScanArgs {
-				pub location_id: i32,
+				pub location_id: location::id::Type,
 				pub sub_path: String,
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: LightScanArgs| async move {
-					// light rescan location
-					light_scan_location(
-						&library,
-						find_location(&library, args.location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(args.location_id))?,
-						&args.sub_path,
-					)
-					.await
-					.map_err(Into::into)
+				.subscription(|(_, library), args: LightScanArgs| async move {
+					let location = find_location(&library, args.location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+					let handle =
+						tokio::spawn(light_scan_location(library, location, args.sub_path));
+
+					Ok(AbortOnDrop(handle))
 				})
 		})
 		.procedure(
@@ -210,7 +208,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 					{
-						if indexer_rule.default {
+						if indexer_rule.default.unwrap_or_default() {
 							return Err(rspc::Error::new(
 								ErrorCode::Forbidden,
 								format!("Indexer rule <id={indexer_rule_id}> can't be deleted"),
@@ -273,7 +271,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
-				.query(|(_, library), location_id: i32| async move {
+				.query(|(_, library), location_id: location::id::Type| async move {
 					library
 						.db
 						.indexer_rule()

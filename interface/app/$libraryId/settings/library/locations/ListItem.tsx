@@ -5,10 +5,11 @@ import { useNavigate } from 'react-router';
 import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
 import { Folder } from '~/components/Folder';
+import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
-	location: Location & { node: Node };
+	location: Location & { node: Node | null };
 }
 
 export default ({ location }: Props) => {
@@ -17,6 +18,8 @@ export default ({ location }: Props) => {
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const onlineLocations = useOnlineLocations();
+
+	const isDark = useIsDark();
 
 	if (hide) return <></>;
 
@@ -29,13 +32,15 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder size={30} className="mr-3" />
+			<Folder white={!isDark} className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
-				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
-					<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
-						{location.node.name}
-					</span>
+				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
+				<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
+					{location.node && (
+						<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
+							{location.node.name}
+						</span>
+					)}
 					{location.path}
 				</p>
 			</div>

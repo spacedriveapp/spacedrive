@@ -5,7 +5,6 @@ import {
 	HardDrive,
 	Heart,
 	Icon,
-	Key,
 	PaintBrush,
 	PuzzlePiece,
 	ShareNetwork,
@@ -80,12 +79,12 @@ const sections: SectionType[] = [
 				icon: TagSimple,
 				navigateTo: 'TagsSettings',
 				title: 'Tags'
-			},
-			{
-				icon: Key,
-				navigateTo: 'KeysSettings',
-				title: 'Keys'
 			}
+			// {
+			// 	icon: Key,
+			// 	navigateTo: 'KeysSettings',
+			// 	title: 'Keys'
+			// }
 		]
 	},
 	{

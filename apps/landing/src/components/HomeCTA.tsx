@@ -1,7 +1,7 @@
 import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
+import { Github } from '@sd/assets/svgs/brands';
 import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
-import { SiGithub } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -18,65 +18,39 @@ export function HomeCTA() {
 	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
 	const [waitlistError, setWaitlistError] = useState('');
 	const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
-	const [fire, setFire] = useState<boolean | number>(false);
 
-	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
+	async function handleWaitlistSubmit({ email }: WaitlistInputs) {
 		if (!email.trim().length) return;
 
 		setLoading(true);
 
-		const req = await fetch(`/api/waitlist`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				email
-			})
-		});
-
-		if (req.status === 200) {
-			setWaitlistError('');
-			setFire(Math.random());
+		try {
+			const req = await fetch(`/api/waitlist`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					email
+				})
+			});
+			if (!req.ok) {
+				return setWaitlistError('An error occurred. Please try again.');
+			}
 			setWaitlistSubmitted(true);
+		} catch (e: any) {
+			throw new Error(e.message);
+		} finally {
 			setLoading(false);
-		} else if (req.status >= 400 && req.status < 500) {
-			const res = await req.json();
-			setWaitlistError(res.message);
-
-			// Remove error after a few seconds
-			setTimeout(() => {
-				setWaitlistError('');
-			}, 5000);
 		}
-
-		setLoading(false);
+		// Remove error after a few seconds
+		setTimeout(() => {
+			setWaitlistError('');
+		}, 5000);
 	}
 
 	return (
 		<>
-			{/* <ReactCanvasConfetti
-				fire={fire}
-				angle={44}
-				className="absolute top-48"
-				colors={['#26ccff', '#a25afd']}
-				decay={0.8}
-				drift={1}
-				gravity={1}
-				origin={{
-					x: 0.5,
-					y: 0.5
-				}}
-				particleCount={55}
-				resize
-				scalar={1}
-				shapes={['circle', 'square']}
-				spread={360}
-				startVelocity={45}
-				ticks={600}
-				useWorker
-				zIndex={-1}
-			/> */}
 			<div className="animation-delay-2 z-30 flex h-10 flex-row items-center space-x-4 fade-in">
 				{!showWaitlistInput ? (
 					<>
@@ -93,10 +67,7 @@ export function HomeCTA() {
 							className="z-30 cursor-pointer"
 							variant="accent"
 						>
-							<SiGithub
-								className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5"
-								fill="white"
-							/>
+							<Github className="-ml-1 mr-2 mt-[-4px] inline h-5 w-5" fill="white" />
 							Star on GitHub
 						</Button>
 					</>
@@ -170,7 +141,7 @@ export function HomeCTA() {
 			</div>
 			<p
 				className={clsx(
-					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-450 fade-in',
+					'animation-delay-3 z-30 px-6 text-center text-sm text-gray-400 fade-in',
 					{
 						'mt-10': waitlistError,
 						'mt-3': !waitlistError

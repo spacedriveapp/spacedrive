@@ -1,5 +1,5 @@
+/* eslint-disable tailwindcss/migration-from-tailwind-2 */
 import * as RadioGroup from '@radix-ui/react-radio-group';
-import { cx } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
@@ -21,13 +21,18 @@ export const Root = forwardRef<HTMLDivElement, RootProps>(
 export interface ItemProps extends RadioGroup.RadioGroupItemProps {}
 export const Item = ({ children, ...props }: ItemProps) => {
 	return (
-		<div className="flex max-w-sm space-x-2 rounded-md border border-app-line bg-app-box/50 px-4 py-3">
+		<div
+			className={clsx(
+				'flex max-w-sm space-x-2 rounded-md border border-app-line bg-app-box/50 px-4 py-3',
+				props.disabled && 'opacity-30'
+			)}
+		>
 			<RadioGroup.Item
 				id={'radio' + props.value}
-				className={cx(
-					'peer relative mr-1 mt-1 h-4 w-4 flex-shrink-0 rounded-full border border-transparent',
+				className={clsx(
+					'peer relative mr-1 mt-1 h-4 w-4 flex-shrink-0 rounded-full border border-app-line',
 					'radix-state-checked:bg-accent',
-					'radix-state-unchecked:bg-gray-100 dark:radix-state-unchecked:bg-gray-900',
+					'radix-state-unchecked:bg-app-input',
 					'focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800'
 				)}
 				{...props}

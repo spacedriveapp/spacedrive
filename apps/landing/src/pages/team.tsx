@@ -94,11 +94,6 @@ export const teamMembers: Array<TeamMemberProps> = [
 			github: 'https://github.com/niikeec',
 			twitter: 'https://twitter.com/nikec_'
 		}
-	},
-	{
-		name: 'Kryssa Lynn',
-		role: 'Personal Assistant',
-		imageUrl: '/images/team/kryssa.jpg'
 	}
 ];
 
