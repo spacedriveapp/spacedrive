@@ -251,9 +251,10 @@ impl P2PManager {
 										.await
 										.unwrap();
 
+										// TODO(@oscar): check if this should be library stuff
 										let info = NodeInformation {
 											pub_id: library.config.node_id,
-											name: library.config.name,
+											name: library.config.name.to_string(),
 											public_key: library.identity.to_remote_identity(),
 											platform: Platform::current(),
 										};
@@ -429,7 +430,7 @@ impl P2PManager {
 
 			let info = NodeInformation {
 				pub_id: lib.config.node_id,
-				name: lib.config.name,
+				name: lib.config.name.to_string(),
 				public_key: lib.identity.to_remote_identity(),
 				platform: Platform::current(),
 			};

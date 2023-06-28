@@ -89,11 +89,11 @@ export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" 
 
 export type ChangeNodeNameArgs = { name: string | null }
 
-export type CreateLibraryArgs = { name: string }
+export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
-export type EditLibraryArgs = { id: string; name: string | null; description: MaybeUndefined<string> }
+export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
 
@@ -153,6 +153,8 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
+
+export type LibraryName = string
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -232,7 +234,7 @@ export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedLibraryConfig = { name: string; description: string | null; node_id: string }
+export type SanitisedLibraryConfig = { name: LibraryName; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 

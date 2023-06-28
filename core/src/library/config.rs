@@ -18,11 +18,13 @@ use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
+use super::name::LibraryName;
+
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
 #[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct LibraryConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
-	pub name: String,
+	pub name: LibraryName,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: Option<String>,
 	/// P2P identity of this library.
@@ -36,7 +38,7 @@ pub struct LibraryConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitisedLibraryConfig {
-	pub name: String,
+	pub name: LibraryName,
 	pub description: Option<String>,
 	pub node_id: Uuid,
 }
@@ -52,7 +54,7 @@ impl From<LibraryConfig> for SanitisedLibraryConfig {
 }
 
 impl LibraryConfig {
-	pub fn new(name: String, node_id: Uuid) -> Self {
+	pub fn new(name: LibraryName, node_id: Uuid) -> Self {
 		Self {
 			name,
 			description: None,
