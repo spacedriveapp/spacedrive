@@ -7,6 +7,7 @@ pub struct MediaDataImage {
 	device_make: String,
 	device_model: String,
 	device_software: String,
+	codec: String, // enum this
 }
 
 pub struct MediaDataVideo {
