@@ -18,7 +18,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use serde_json::json;
+use tracing::{debug, info, trace};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -88,7 +89,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		let init = self;
 		let Library { db, .. } = &ctx.library;
 
-		info!("Identifying orphan File Paths...");
+		debug!("Identifying orphan File Paths...");
 
 		let location_id = init.location.id;
 
@@ -138,10 +139,10 @@ impl StatefulJob for FileIdentifierJobInit {
 			});
 		}
 
-		info!("Found {} orphan file paths", orphan_count);
+		debug!("Found {} orphan file paths", orphan_count);
 
 		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
-		info!(
+		debug!(
 			"Found {} orphan Paths. Will execute {} tasks...",
 			orphan_count, task_count
 		);
@@ -235,7 +236,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		let init = self;
 		info!("Finalizing identifier job: {:?}", &run_metadata.report);
 
-		Ok(Some(serde_json::to_value(init)?))
+		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
 
@@ -286,9 +287,10 @@ async fn get_orphan_file_paths(
 	file_path_id: file_path::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
-	info!(
+	trace!(
 		"Querying {} orphan Paths at cursor: {:?}",
-		CHUNK_SIZE, file_path_id
+		CHUNK_SIZE,
+		file_path_id
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(

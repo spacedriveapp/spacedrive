@@ -44,7 +44,7 @@ use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
 use super::INodeAndDevice;
@@ -113,7 +113,7 @@ pub(super) async fn create_dir(
 		.materialized_path_for_children()
 		.expect("We're in the create dir function lol");
 
-	info!("Creating path: {}", iso_file_path);
+	debug!("Creating path: {}", iso_file_path);
 
 	create_file_path(
 		library,
@@ -249,7 +249,7 @@ async fn inner_create_file(
 		fs_metadata,
 	} = FileMetadata::new(&location_path, &iso_file_path).await?;
 
-	info!("Creating path: {}", iso_file_path);
+	debug!("Creating path: {}", iso_file_path);
 
 	let created_file = create_file_path(
 		library,

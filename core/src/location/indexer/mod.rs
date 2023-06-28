@@ -13,7 +13,7 @@ use sd_prisma::prisma_sync;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tracing::info;
+use tracing::trace;
 
 use super::{
 	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
@@ -171,7 +171,7 @@ async fn execute_indexer_save_step(
 		)
 		.await?;
 
-	info!("Inserted {count} records");
+	trace!("Inserted {count} records");
 
 	Ok(count)
 }
