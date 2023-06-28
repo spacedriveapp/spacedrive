@@ -3,7 +3,7 @@ import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { CheckCircle } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { Themes, getThemeStore, useThemeStore } from '@sd/client';
-import { Button, Slider, forms } from '@sd/ui';
+import { Button, Form, SwitchField, useZodForm, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -18,8 +18,6 @@ type Theme = {
 };
 
 type ThemeProps = Theme & { isSelected?: boolean; className?: string };
-
-const { Form, Switch, useZodForm, z } = forms;
 
 const schema = z.object({
 	uiAnimations: z.boolean(),
@@ -192,7 +190,11 @@ export const Component = () => {
 						className="opacity-30"
 						description="Dialogs and other UI elements will animate when opening and closing."
 					>
-						<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
+						<SwitchField
+							disabled
+							{...form.register('uiAnimations')}
+							className="m-2 ml-4"
+						/>
 					</Setting>
 
 					<Setting
@@ -201,7 +203,11 @@ export const Component = () => {
 						className="opacity-30"
 						description="Some components will have a blur effect applied to them."
 					>
-						<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
+						<SwitchField
+							disabled
+							{...form.register('blurEffects')}
+							className="m-2 ml-4"
+						/>
 					</Setting>
 				</div>
 			</Form>

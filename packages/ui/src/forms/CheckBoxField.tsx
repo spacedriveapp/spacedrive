@@ -2,9 +2,9 @@ import { forwardRef } from 'react';
 import { CheckBox as Root } from '../CheckBox';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
-export interface CheckBoxProps extends UseFormFieldProps {}
+export interface CheckBoxFieldProps extends UseFormFieldProps {}
 
-export const CheckBox = forwardRef<HTMLInputElement, CheckBoxProps>((props, ref) => {
+export const CheckBoxField = forwardRef<HTMLInputElement, CheckBoxFieldProps>((props, ref) => {
 	const { formFieldProps, childProps } = useFormField(props);
 
 	return (

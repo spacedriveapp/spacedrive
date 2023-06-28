@@ -1,9 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { LibraryConfigWrapped, useBridgeMutation, usePlausibleEvent } from '@sd/client';
-import { Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';
-
-const { Input, z, useZodForm } = forms;
+import { Dialog, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 
 const schema = z.object({
 	name: z
@@ -25,18 +23,22 @@ export default (props: UseDialogProps) => {
 	const form = useZodForm({ schema });
 
 	const onSubmit = form.handleSubmit(async (data) => {
-		const library = await createLibrary.mutateAsync({ name: data.name });
+		try {
+			const library = await createLibrary.mutateAsync({ name: data.name });
 
-		queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
-			...(libraries || []),
-			library
-		]);
+			queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
+				...(libraries || []),
+				library
+			]);
 
-		submitPlausibleEvent({
-			event: { type: 'libraryCreate' }
-		});
+			submitPlausibleEvent({
+				event: { type: 'libraryCreate' }
+			});
 
-		navigate(`/${library.uuid}/overview`);
+			navigate(`/${library.uuid}/overview`);
+		} catch (e) {
+			console.error(e);
+		}
 	});
 
 	return (
@@ -50,7 +52,7 @@ export default (props: UseDialogProps) => {
 			ctaLabel={form.formState.isSubmitting ? 'Creating library...' : 'Create library'}
 		>
 			<div className="mt-5 space-y-4">
-				<Input
+				<InputField
 					{...form.register('name')}
 					label="Library name"
 					placeholder={'e.g. "James\' Library"'}

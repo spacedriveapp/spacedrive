@@ -9,8 +9,7 @@ import {
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
-import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { ErrorMessage, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
@@ -210,7 +209,7 @@ export const AddLocationDialog = ({
 		>
 			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
-			<Input
+			<InputField
 				size="md"
 				label="Path:"
 				onClick={() =>
