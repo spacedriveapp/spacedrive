@@ -3,8 +3,20 @@ import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider, Label, Tooltip, tw } from '@sd/ui';
-import { Form, InfoText, Input, RadioGroup, Switch, useZodForm, z } from '@sd/ui/src/forms';
+import {
+	Button,
+	Divider,
+	Form,
+	InfoText,
+	InputField,
+	Label,
+	RadioGroupField,
+	SwitchField,
+	Tooltip,
+	tw,
+	useZodForm,
+	z
+} from '@sd/ui';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { showAlertDialog } from '~/components';
@@ -124,14 +136,14 @@ const EditLocationForm = () => {
 			>
 				<div className="flex space-x-4">
 					<FlexCol>
-						<Input label="Display Name" {...form.register('name')} />
+						<InputField label="Display Name" {...form.register('name')} />
 						<InfoText className="mt-2">
 							The name of this Location, this is what will be displayed in the
 							sidebar. Will not rename the actual folder on disk.
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<Input
+						<InputField
 							label="Local Path"
 							readOnly={true}
 							className="text-ink-dull"
@@ -146,46 +158,46 @@ const EditLocationForm = () => {
 				<Divider />
 				<div className="space-y-2">
 					<Label className="grow">Location Type</Label>
-					<RadioGroup.Root
+					<RadioGroupField.Root
 						className="flex flex-row !space-y-0 space-x-2"
 						{...form.register('locationType')}
 					>
-						<RadioGroup.Item key="normal" value="normal">
+						<RadioGroupField.Item key="normal" value="normal">
 							<h1 className="font-bold">Normal</h1>
 							<p className="text-sm text-ink-faint">
 								Contents will be indexed as-is, new files will not be automatically
 								sorted.
 							</p>
-						</RadioGroup.Item>
+						</RadioGroupField.Item>
 
-						<RadioGroup.Item disabled key="managed" value="managed">
+						<RadioGroupField.Item disabled key="managed" value="managed">
 							<h1 className="font-bold">Managed</h1>
 							<p className="text-sm text-ink-faint">
 								Spacedrive will sort files for you. If Location isn't empty a
 								"spacedrive" folder will be created.
 							</p>
-						</RadioGroup.Item>
+						</RadioGroupField.Item>
 
-						<RadioGroup.Item disabled key="replica" value="replica">
+						<RadioGroupField.Item disabled key="replica" value="replica">
 							<h1 className="font-bold">Replica</h1>
 							<p className="text-sm text-ink-faint ">
 								This Location is a replica of another, its contents will be
 								automatically synchronized.
 							</p>
-						</RadioGroup.Item>
-					</RadioGroup.Root>
+						</RadioGroupField.Item>
+					</RadioGroupField.Root>
 				</div>
 				<Divider />
 				<div className="space-y-2">
 					<ToggleSection>
 						<Label className="grow">Generate preview media for this Location</Label>
-						<Switch {...form.register('generatePreviewMedia')} size="sm" />
+						<SwitchField {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="grow">
 							Sync preview media for this Location with your devices
 						</Label>
-						<Switch {...form.register('syncPreviewMedia')} size="sm" />
+						<SwitchField {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
 						<Label className="grow">
@@ -194,7 +206,7 @@ const EditLocationForm = () => {
 								<Info className="inline" />
 							</Tooltip>
 						</Label>
-						<Switch {...form.register('hidden')} size="sm" />
+						<SwitchField {...form.register('hidden')} size="sm" />
 					</ToggleSection>
 				</div>
 				<Divider />
