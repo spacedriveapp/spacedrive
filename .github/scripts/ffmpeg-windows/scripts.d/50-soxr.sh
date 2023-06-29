@@ -1,10 +1,9 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://git.code.sf.net/p/soxr/code"
-SCRIPT_TAG="0.1.3"
+ARTIFACT_URL='https://sourceforge.net/projects/soxr/files/soxr-0.1.3-Source.tar.xz'
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" soxr
+  retry-tool sh -c "rm -rf soxr && mkdir -p soxr && curl -LSs '${ARTIFACT_URL}' | tar -xJf- --strip-components=1 -C soxr"
   cd soxr
 
   mkdir build && cd build

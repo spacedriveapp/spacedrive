@@ -19,12 +19,8 @@ ffbuild_dockerbuild() {
     -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
     -DBUILD_TESTING=OFF \
     -DBUILD_SHARED_LIBS=ON \
-    -DWITH_X265=ON \
-    -DWITH_X265_PLUGIN=OFF \
     -DWITH_DAV1D=ON \
     -DWITH_DAV1D_PLUGIN=OFF \
-    -DWITH_RAV1E=ON \
-    -DWITH_RAV1E_PLUGIN=OFF \
     -DWITH_LIBDE265=ON \
     -DWITH_LIBDE265_PLUGIN=OFF \
     -DWITH_LIBSHARPYUV=ON \
@@ -45,4 +41,6 @@ ffbuild_dockerbuild() {
   "${FFBUILD_CROSS_PREFIX}gendef" libheif.dll
 
   "${FFBUILD_CROSS_PREFIX}dlltool" -m i386:x86-64 -d libheif.def -l heif.lib -D libheif.dll
+
+  mv libheif.def heif.lib ../lib/
 }
