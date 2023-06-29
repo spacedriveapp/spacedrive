@@ -1,6 +1,7 @@
 mod kv;
 
 pub use kv::*;
+use specta::Type;
 
 use crate::prisma::PrismaClient;
 use std::collections::HashMap;
@@ -8,9 +9,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LibraryPreferences {
 	#[serde(default)]
+	#[specta(optional)]
 	location: HashMap<Uuid, LocationPreferences>,
 }
 
@@ -24,14 +26,21 @@ impl LibraryPreferences {
 	}
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LocationPreferences {
 	view: Option<LocationViewSettings>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LocationViewSettings {
 	layout: Option<ExplorerLayout>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type)]
+pub enum ExplorerLayout {
+	Grid,
+	List,
+	Media,
 }
 
 impl<V> Preferences for HashMap<Uuid, V>
@@ -70,13 +79,6 @@ impl Preferences for LocationPreferences {
 			PreferenceValue::new(view),
 		)])
 	}
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub enum ExplorerLayout {
-	Grid,
-	List,
-	Media,
 }
 
 pub trait Preferences {

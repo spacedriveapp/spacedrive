@@ -28,6 +28,7 @@ mod libraries;
 mod locations;
 mod nodes;
 mod p2p;
+mod preferences;
 mod search;
 mod sync;
 mod tags;
@@ -82,6 +83,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("p2p.", p2p::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
+		.merge("preferences.", preferences::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
 			#[allow(clippy::let_and_return)]
@@ -98,6 +100,7 @@ pub(crate) fn mount() -> Arc<Router> {
 			},
 		)
 		.arced();
+
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
 	r
