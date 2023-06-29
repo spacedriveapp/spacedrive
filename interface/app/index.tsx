@@ -75,7 +75,7 @@ const useRawRoutePath = () => {
 	// we grab the last one as it contains all previous route segments.
 	const lastMatchId = useMatches().slice(-1)[0]?.id;
 
-	const [rawPath] = useMemo(
+	const rawPath = useMemo(
 		() => {
 			const [rawPath] = lastMatchId
 				// Gets a list of the index of each route segment
