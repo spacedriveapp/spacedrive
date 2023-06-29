@@ -7,7 +7,9 @@ export * as SharedItems from './SharedItems';
 export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
 
-export default ({ item }: { item: ExplorerItem }) => {
+export default ({ item }: { item?: ExplorerItem }) => {
+	if (!item) return null;
+
 	switch (item.type) {
 		case 'Path':
 			return <FilePathCM data={item} />;
