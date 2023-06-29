@@ -65,28 +65,43 @@ export const routes = [
 	}
 ] satisfies RouteObject[];
 
+/**
+ * Combines the `path` segments of the current route into a single string.
+ * This is useful for things like analytics, where we want the route path
+ * but not the values used in the route params.
+ */
 const useRawRoutePath = () => {
-	const lastMatchId = useMatches().slice(-1)[0]!.id;
+	// `useMatches` returns a list of each matched RouteObject,
+	// we grab the last one as it contains all previous route segments.
+	const lastMatchId = useMatches().slice(-1)[0]?.id;
 
 	const [rawPath] = useMemo(
-		() =>
-		lastMatchId
-			.split('-')
-			.map((s) => parseInt(s))
-			.reduce(
-				([rawPath, { children }], path) => {
-					if (!children) return [rawPath, { children }] as any;
+		() => {
+			const [rawPath] = lastMatchId
+				// Gets a list of the index of each route segment
+				?.split('-')
+				?.map((s) => parseInt(s))
+				// Gets the route object for each segment and appends the `path`, if there is one
+				?.reduce(
+					([rawPath, { children }], path) => {
+						// No `children`, nowhere to go
+						if (!children) return [rawPath, { children }] as any;
 
-					const item = children[path]!;
+						const item = children[path]!;
 
-					if (!('path' in item)) return [rawPath, item];
+						// No `path`, continue without adding to path
+						if (!('path' in item)) return [rawPath, item];
 
-					return [`${rawPath}/${item.path}`, item];
-				},
-				['' as string, { children: routes }] as const
-			),
+						// `path` found, chuck it on the end
+						return [`${rawPath}/${item.path}`, item];
+					},
+					['' as string, { children: routes }] as const
+				) ?? []
+
+			return rawPath ?? "/"
+		},
 		[lastMatchId]
 	);
 
-	return rawPath
-}
+	return rawPath;
+};

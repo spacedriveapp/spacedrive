@@ -126,7 +126,7 @@ export const AddLocationDialog = ({
 					throw new Error('Unimplemented custom remote error handling');
 			}
 		},
-		[createLocation, relinkLocation, addLocationToLibrary]
+		[createLocation, relinkLocation, addLocationToLibrary, addLocationToLibrary]
 	);
 
 	const handleAddError = useCallback(

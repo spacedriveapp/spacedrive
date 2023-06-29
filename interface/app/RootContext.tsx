@@ -4,6 +4,9 @@ interface RootContext {
 	rawPath: string;
 }
 
+/**
+ * Provides data that should be accessible to all routes but is not platform-specific.
+ */
 export const RootContext = createContext<RootContext | null>(null);
 
 export const useRootContext = () => {
