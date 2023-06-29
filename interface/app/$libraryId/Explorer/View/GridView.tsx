@@ -76,7 +76,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={explorerView.isRenaming || !explorerView.selectable}
-			preventContextMenuSelection={!explorerView.contextMenu}
+			preventContextMenuSelection={explorerView.contextMenu === undefined}
 		>
 			{({ index, item: Item }) => {
 				const item = explorerView.items?.[index];
