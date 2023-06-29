@@ -7,7 +7,8 @@ import {
 	UnionToTuple,
 	extractInfoRSPCError,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	usePlausibleEvent
 } from '@sd/client';
 import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 import { showAlertDialog } from '~/components';
@@ -60,11 +61,12 @@ export const AddLocationDialog = ({
 	...dialogProps
 }: AddLocationDialog) => {
 	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent();
 	const listLocations = useLibraryQuery(['locations.list']);
-	const createLocation = useLibraryMutation('locations.create');
+	const createLocation = useLibraryMutation('locations.create', { onSuccess: () => submitPlausibleEvent({ event: { type: 'locationCreate' } })});
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
+	const addLocationToLibrary = useLibraryMutation('locations.addLibrary', { onSuccess: () => submitPlausibleEvent({ event: { type: 'locationCreate' } })});
 	const [toggleSettings, setToggleSettings] = useState(false);
 
 	// This is required because indexRules is undefined on first render
