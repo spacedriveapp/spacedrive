@@ -8,6 +8,7 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
+import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -23,7 +24,9 @@ const Layout = () => {
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
 
-	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
+	const { rawPath } = useRootContext();
+
+	usePlausiblePageViewMonitor({ currentPath: rawPath });
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
