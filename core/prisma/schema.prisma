@@ -460,7 +460,7 @@ model IndexerRulesInLocation {
 }
 
 /// @shared(id: pub_id)
-model Preferences {
+model Preference {
 	key  String @id
 	value Bytes?
 }

@@ -303,7 +303,7 @@ impl SyncManager {
 						.await?;
 				}
 			},
-			ModelSyncData::Preferences(_, _) => todo!(),
+			ModelSyncData::Preference(_, _) => todo!(),
 		}
 
 		if let CRDTOperationType::Shared(shared_op) = op.typ {
