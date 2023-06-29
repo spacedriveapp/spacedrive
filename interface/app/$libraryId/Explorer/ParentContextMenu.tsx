@@ -52,7 +52,7 @@ export default (props: PropsWithChildren) => {
 					<CM.Item
 						onClick={async () => {
 							try {
-								await rescanLocation.mutateAsync(parent.location.id);
+								await rescanLocation.mutateAsync({ location_id: parent.location.id, reidentify_objects: false });
 							} catch (error) {
 								showAlertDialog({
 									title: 'Error',
