@@ -25,6 +25,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 pub enum Category {
 	Recents,
 	Favorites,
+	Albums,
 	Photos,
 	Videos,
 	Movies,

@@ -49,7 +49,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.3.9
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   apps/desktop:
     dependencies:
@@ -566,7 +566,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -606,7 +606,7 @@ importers:
         version: 4.8.2
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   interface:
     dependencies:
@@ -706,6 +706,12 @@ importers:
       react-colorful:
         specifier: ^5.6.1
         version: 5.6.1(react-dom@18.2.0)(react@18.2.0)
+      react-dnd:
+        specifier: ^16.0.1
+        version: 16.0.1(@types/node@18.15.1)(@types/react@18.0.38)(react@18.2.0)
+      react-dnd-html5-backend:
+        specifier: ^16.0.1
+        version: 16.0.1
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
@@ -7461,6 +7467,18 @@ packages:
       '@babel/runtime': 7.22.5
     dev: false
 
+  /@react-dnd/asap@5.0.2:
+    resolution: {integrity: sha512-WLyfoHvxhs0V9U+GTsGilGgf2QsPl6ZZ44fnv0/b8T3nQyvzxidxsg/ZltbWssbsRDlYW8UKSQMTGotuTotZ6A==}
+    dev: false
+
+  /@react-dnd/invariant@4.0.2:
+    resolution: {integrity: sha512-xKCTqAK/FFauOM9Ta2pswIyT3D8AQlfrYdOi/toTPEhqCuAs1v5tcJ3Y08Izh1cJ5Jchwy9SeAXmMg6zrKs2iw==}
+    dev: false
+
+  /@react-dnd/shallowequal@4.0.2:
+    resolution: {integrity: sha512-/RVXdLvJxLg4QKvMoM5WlwNR9ViO9z8B/qPcc+C0Sa/teJY7QG7kJ441DwzOjMYEY7GmU4dj5EcGHIkKZiQZCA==}
+    dev: false
+
   /@react-native-async-storage/async-storage@1.17.12(react-native@0.71.3):
     resolution: {integrity: sha512-BXg4OxFdjPTRt+8MvN6jz4muq0/2zII3s7HeT/11e4Zeh3WCgk/BleLzUcDfVqF3OzFHUqEkSrb76d6Ndjd/Nw==}
     peerDependencies:
@@ -8630,7 +8648,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.24.1
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -9228,7 +9246,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -10631,7 +10649,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.22.1)
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -12977,6 +12995,14 @@ packages:
 
   /dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
+
+  /dnd-core@16.0.1:
+    resolution: {integrity: sha512-HK294sl7tbw6F6IeuK16YSBUoorvHpY8RHO+9yFfaJyCDVb6n7PRcezrOEOa2SBCqiYpemh5Jx20ZcjKdFAVng==}
+    dependencies:
+      '@react-dnd/asap': 5.0.2
+      '@react-dnd/invariant': 4.0.2
+      redux: 4.2.1
+    dev: false
 
   /doctrine@2.1.0:
     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
@@ -20460,6 +20486,37 @@ packages:
       - utf-8-validate
     dev: true
 
+  /react-dnd-html5-backend@16.0.1:
+    resolution: {integrity: sha512-Wu3dw5aDJmOGw8WjH1I1/yTH+vlXEL4vmjk5p+MHxP8HuHJS1lAGeIdG/hze1AvNeXWo/JgULV87LyQOr+r5jw==}
+    dependencies:
+      dnd-core: 16.0.1
+    dev: false
+
+  /react-dnd@16.0.1(@types/node@18.15.1)(@types/react@18.0.38)(react@18.2.0):
+    resolution: {integrity: sha512-QeoM/i73HHu2XF9aKksIUuamHPDvRglEwdHL4jsp784BgUuWcg6mzfxT0QDdQz8Wj0qyRKx2eMg8iZtWvU4E2Q==}
+    peerDependencies:
+      '@types/hoist-non-react-statics': '>= 3.3.1'
+      '@types/node': '>= 12'
+      '@types/react': '>= 16'
+      react: '>= 16.14'
+    peerDependenciesMeta:
+      '@types/hoist-non-react-statics':
+        optional: true
+      '@types/node':
+        optional: true
+      '@types/react':
+        optional: true
+    dependencies:
+      '@react-dnd/invariant': 4.0.2
+      '@react-dnd/shallowequal': 4.0.2
+      '@types/node': 18.15.1
+      '@types/react': 18.0.38
+      dnd-core: 16.0.1
+      fast-deep-equal: 3.1.3
+      hoist-non-react-statics: 3.3.2
+      react: 18.2.0
+    dev: false
+
   /react-docgen-typescript@2.2.2(typescript@5.0.4):
     resolution: {integrity: sha512-tvg2ZtOpOi6QDwsb3GZhOjDkkX0h8Z2gipvTg6OVMUyoYoURhEiRNePT8NZItTVCDh39JJHnLdfCOkzoLbFnTg==}
     peerDependencies:
@@ -21108,6 +21165,12 @@ packages:
       react: 18.2.0
       react-native: 0.71.3(@babel/core@7.22.1)(@babel/preset-env@7.22.5)(react@18.2.0)
       ts-object-utils: 0.0.5
+    dev: false
+
+  /redux@4.2.1:
+    resolution: {integrity: sha512-LAUYz4lc+Do8/g7aeRa8JkyDErK6ekstQaqWQrNRW//MY1TvCEpMtpTWvlQ+FPbWCx+Xixu/6SHt5N0HR+SB4w==}
+    dependencies:
+      '@babel/runtime': 7.22.5
     dev: false
 
   /refractor@4.8.1:
@@ -24121,7 +24184,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.5.1
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24135,7 +24198,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.2.0
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24218,7 +24281,6 @@ packages:
       rollup: 3.24.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite@4.3.9(less@4.1.3):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}
