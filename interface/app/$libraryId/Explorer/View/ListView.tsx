@@ -378,7 +378,7 @@ export default () => {
 	}
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
-		if (!explorerView.onSelectedChange || !explorerView.contextMenu) return;
+		if (!explorerView.onSelectedChange || explorerView.contextMenu === undefined) return;
 
 		const itemId = row.original.item.id;
 
