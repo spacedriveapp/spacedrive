@@ -11,11 +11,11 @@ export const Component = () => {
 	return (
 		<div
 			ref={ref}
-			className="custom-scroll topbar-page-scroll app-background flex h-screen w-full flex-col"
+			className="custom-scroll topbar-page-scroll app-background  flex w-full flex-1 flex-col"
 			style={{ paddingTop: TOP_BAR_HEIGHT }}
 		>
 			<PageContext.Provider value={{ ref }}>
-				<div className="flex h-screen w-full flex-col">
+				<div className="flex w-full flex-1 flex-col">
 					<Outlet />
 				</div>
 			</PageContext.Provider>

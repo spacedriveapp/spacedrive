@@ -18,7 +18,7 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 	Games: iconNames.Game,
 	Books: iconNames.Book,
 	Encrypted: iconNames.EncryptedLock,
-	Archives: iconNames.Database,
+	Databases: iconNames.Database,
 	Projects: iconNames.Folder,
 	Trash: iconNames.Trash
 };

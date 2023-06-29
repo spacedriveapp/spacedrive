@@ -108,6 +108,16 @@ export default () => {
 						}}
 					/>
 				)}
+				<RadixCheckbox
+					label="Show hidden files"
+					name="showHiddenFiles"
+					disabled
+					onCheckedChange={(value) => {
+						// if (typeof value === 'boolean') {
+						// 	getExplorerStore().showBytesInGridView = value;
+						// }
+					}}
+				/>
 				<div>
 					<Subheading>Double click action</Subheading>
 					<Select

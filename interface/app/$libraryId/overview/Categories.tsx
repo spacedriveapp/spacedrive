@@ -8,10 +8,10 @@ import { useIsDark } from '~/hooks';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
-const CategoryList = [
+export const CategoryList = [
 	'Recents',
 	'Favorites',
-	"Albums",
+	'Albums',
 	'Photos',
 	'Videos',
 	'Movies',
@@ -21,11 +21,11 @@ const CategoryList = [
 	'Encrypted',
 	'Projects',
 	'Applications',
-	'Archives',
+	// 'Archives',
 	'Databases',
 	'Games',
 	'Books',
-	'Contacts',
+	// 'Contacts',
 	'Trash'
 ] as Category[];
 
@@ -79,8 +79,9 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				ref={ref}
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
-					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${scroll > 0 ? '10%' : '0%'
-						}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
+					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
+						scroll > 0 ? '10%' : '0%'
+					}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
 				}}
 			>
 				{categories.data &&
