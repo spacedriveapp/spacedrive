@@ -140,7 +140,7 @@ export const ParentFolderActions = ({
 			<ContextMenu.Item
 				onClick={async () => {
 					try {
-						await fullRescan.mutateAsync(locationId);
+						await fullRescan.mutateAsync({ location_id: locationId, reidentify_objects: false });
 					} catch (error) {
 						showAlertDialog({
 							title: 'Error',
