@@ -11,9 +11,13 @@ Last year, we introduced Spacedrive to the world by open-sourcing the codebase o
 
 Spacedrive reimagines the traditional file explorer. Its modern interface design, cross-platform framework, and constantly expanding toolkit offer a seamless file management experience.
 
-For this alpha release, downloads are available for [macOS](), [Windows](), and [Linux](). We're aware that there are some bugs and important features yet to be incorporated such as device connectivity, multi-select, and cloud support. Despite these, theres at lot to explore today. Add local folders, network locations, and external drives into your data library. Spacedrive will keep its database in sync with the underlying file system, extracting metadata, uniquely identifying files, and generating thumbnails. This allows you to organise and search your library even when the storage locations are offline. A job manager allows you to track the progress for each phase of indexing, copy/paste, encryption, media encoding, and more.
+For this alpha release, downloads are available for [macOS](), [Windows](), and [Linux](). We're aware that there are some bugs and important features yet to be incorporated such as device connectivity, multi-select, and cloud support.
+
+Despite that, there is at lot to explore today. You start by adding local folders, network locations, and external drives into your data library. Spacedrive will keep its database in sync with the underlying file system, extracting metadata, uniquely identifying files, and generating thumbnails. This allows you to organise and search your library even when the storage locations go offline. A job manager lets you track the progress for each phase of indexing, copy/paste, encryption, media encoding, and more.
 
 For a comprehensive overview of the features included in this release, check out our [changelog](). Your participation in this alpha release will help shape the future of Spacedrive, and we can't wait for you to try it.
+
+Lets take a look at what you can do with Spacedrive today...
 
 ## The Explorer
 
@@ -24,6 +28,12 @@ The primary interface in the Spacedrive app is the Explorer—designed as a fami
 In an upcoming release system locations such as "Desktop", "Documents", "Downloads", "Music", etc. will be automatically added to the Explorer with indexing disabled by default. For now, you can add them manually by clicking the `+` button in the sidebar.
 
 ## Tagging
+
+Tags are core to Spacedrive's design. Unlike folders, tags work great even when you're using many devices or storing files in different places. With tags, you can sort files easily, and even set up automatic backups, encryption, and more.
+
+We've also introduced a "tag assign mode". This handy feature lets you add tags to your files in any view. Just select your files, then click the tag you want in the bar at the bottom.
+
+Tags are assigned uniquely to files, so every copy of that file across your library will have the same tags. This is achived by our content-addressable storage system, which identifies files by their content, not their location.
 
 ## Albums
 
@@ -51,5 +61,7 @@ In an upcoming release system locations such as "Desktop", "Documents", "Downloa
 ## Underlying technology
 
 Reinventing the file explorer is a tremendous task, from OS compatibility to synchronizing a highly scalable distributed database running on-device, we've tackled the most challenging engineering problems and developed entirely new technologies to realize the Spacedrive vision. Our tech stack has never been done before, yet is working beyond expectation—from developer experience to runtime performance.
+
+Our unique implementation of a VDFS (Virtual Distributed File System) has been a key enabler for Spacedrive. It allows us to abstract away the underlying file system, and provide a unified interface for all storage locations. Utilizing content addressable storage we can provide an unprecidented view of your data across so many platforms. We've employed techniques such as constant time hashing, a novel indexing stratagy to ensure that Spacedrive is fast and responsive, even with millions of files.
 
 [Prisma Client Rust](), [RSPC]() and [Specta]() are all libraries developed by members of our team initially for Spacedrive, but are now growing into their own communities, with Prisma officially sponsoring PCR and Tauri adopting Specta for its own type introspection from Rust to TypeScript.
