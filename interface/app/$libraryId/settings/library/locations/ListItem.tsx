@@ -89,7 +89,7 @@ export default ({ location }: Props) => {
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						fullRescan.mutate(location.id);
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: false });
 					}}
 				>
 					<Tooltip label="Rescan Location">
