@@ -63,10 +63,10 @@ export const AddLocationDialog = ({
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent();
 	const listLocations = useLibraryQuery(['locations.list']);
-	const createLocation = useLibraryMutation('locations.create', { onSuccess: () => submitPlausibleEvent({ event: { type: 'locationCreate' } })});
+	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	const addLocationToLibrary = useLibraryMutation('locations.addLibrary', { onSuccess: () => submitPlausibleEvent({ event: { type: 'locationCreate' } })});
+	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
 	const [toggleSettings, setToggleSettings] = useState(false);
 
 	// This is required because indexRules is undefined on first render
@@ -95,6 +95,9 @@ export const AddLocationDialog = ({
 						dry_run: dryRun,
 						indexer_rules_ids: indexerRulesIds
 					});
+
+					submitPlausibleEvent({ event: { type: 'locationCreate' } });
+
 					break;
 				case 'NEED_RELINK':
 					if (!dryRun) await relinkLocation.mutateAsync(path);
@@ -107,6 +110,7 @@ export const AddLocationDialog = ({
 					// 	sync_preview_media: null,
 					// 	generate_preview_media: null
 					// });
+
 					break;
 				case 'ADD_LIBRARY':
 					await addLocationToLibrary.mutateAsync({
@@ -114,6 +118,9 @@ export const AddLocationDialog = ({
 						dry_run: dryRun,
 						indexer_rules_ids: indexerRulesIds
 					});
+
+					submitPlausibleEvent({ event: { type: 'locationCreate' } });
+
 					break;
 				default:
 					throw new Error('Unimplemented custom remote error handling');
