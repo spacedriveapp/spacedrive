@@ -277,44 +277,11 @@ export const usePlausibleEvent = () => {
 	);
 };
 
-/**
- * These rules will be matched as regular expressions via `.replace()`
- * in a `forEach` loop.
- *
- * If a rule matches, the expression will be replaced with the target value.
- *
- * @example
- * ```ts
- * let path = "/ed0c715c-d095-4f6a-b83c-1d0b25cc89e7/location/1";
- * PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
- * assert(path === "/location");
- * ```
- */
-const PageViewRegexRules: [RegExp, string][] = [
-	/**
-	 * This is for removing the library UUID from the current path
-	 */
-	[RegExp('/[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}', 'g'), ''],
-	/**
-	 * This is for removing location IDs from the current path
-	 */
-	[RegExp('/location/[0-9]+'), '/location'],
-	/**
-	 * This is for removing tag IDs from the current path
-	 */
-	[RegExp('/tag/[0-9]+'), '/tag'],
-	/**
-	 * This is for removing location IDs from the current path, when in library settings (e.g. `/settings/library/locations/12`)
-	 */
-	[RegExp('/locations/[0-9]+'), '/locations']
-];
-
 export interface PageViewMonitorProps {
 	/**
-	 * This should be unsanitized, and should still contain
-	 * all dynamic parameters (such as the library UUID).
+	 * This should be sanitized, containing no user-specific information.
 	 *
-	 * Ideally, this should be the output of `useLocation().pathname`
+	 * User-specific values should be replaced with their identifiers.
 	 *
 	 * @see {@link PageViewRegexRules} for sanitization
 	 */
@@ -347,17 +314,14 @@ export interface PageViewMonitorProps {
 export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProps) => {
 	const plausibleEvent = usePlausibleEvent();
 
-	let path = currentPath;
-	PageViewRegexRules.forEach((e) => (path = path.replace(e[0], e[1])));
-
 	useEffect(() => {
 		plausibleEvent({
 			event: {
 				type: 'pageview',
-				plausibleOptions: { url: path }
+				plausibleOptions: { url: currentPath }
 			}
 		});
-	}, [path, plausibleEvent]);
+	}, [currentPath, plausibleEvent]);
 };
 
 export const initPlausible = ({ platformType }: { platformType: PlausiblePlatformType }) => {
