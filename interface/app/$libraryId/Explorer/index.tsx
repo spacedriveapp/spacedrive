@@ -79,7 +79,7 @@ export default function Explorer(props: Props) {
 							rowsBeforeLoadMore={5}
 							selected={selectedItemId}
 							onSelectedChange={setSelectedItemId}
-							contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
+							contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
 							emptyNotice={
 								props.emptyNotice || (
 									<EmptyNotice

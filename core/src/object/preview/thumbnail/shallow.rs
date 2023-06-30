@@ -17,7 +17,7 @@ use sd_file_ext::extensions::Extension;
 use std::path::{Path, PathBuf};
 use thumbnail::init_thumbnail_dir;
 use tokio::fs;
-use tracing::info;
+use tracing::{debug, trace};
 
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
@@ -66,7 +66,7 @@ pub async fn shallow_thumbnailer(
 		)
 	};
 
-	info!(
+	debug!(
 		"Searching for images in location {location_id} at path {}",
 		path.display()
 	);
@@ -86,7 +86,7 @@ pub async fn shallow_thumbnailer(
 	)
 	.await?;
 
-	info!("Found {:?} image files", image_files.len());
+	trace!("Found {:?} image files", image_files.len());
 
 	#[cfg(feature = "ffmpeg")]
 	let video_files = {
@@ -100,7 +100,7 @@ pub async fn shallow_thumbnailer(
 		)
 		.await?;
 
-		info!("Found {:?} video files", video_files.len());
+		trace!("Found {:?} video files", video_files.len());
 
 		video_files
 	};

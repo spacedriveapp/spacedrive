@@ -23,7 +23,8 @@ use sd_file_ext::extensions::Extension;
 
 use serde::{Deserialize, Serialize};
 
-use tracing::info;
+use serde_json::json;
+use tracing::{debug, info, trace};
 
 use super::{
 	inner_process_step, ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind,
@@ -120,7 +121,7 @@ impl StatefulJob for ThumbnailerJobInit {
 			),
 		};
 
-		info!("Searching for images in location {location_id} at directory {iso_file_path}");
+		debug!("Searching for images in location {location_id} at directory {iso_file_path}");
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
@@ -130,7 +131,7 @@ impl StatefulJob for ThumbnailerJobInit {
 			ThumbnailerJobStepKind::Image,
 		)
 		.await?;
-		info!("Found {:?} image files", image_files.len());
+		trace!("Found {:?} image files", image_files.len());
 
 		#[cfg(feature = "ffmpeg")]
 		let all_files = {
@@ -142,7 +143,7 @@ impl StatefulJob for ThumbnailerJobInit {
 				ThumbnailerJobStepKind::Video,
 			)
 			.await?;
-			info!("Found {:?} video files", video_files.len());
+			trace!("Found {:?} video files", video_files.len());
 
 			image_files
 				.into_iter()
@@ -228,7 +229,7 @@ impl StatefulJob for ThumbnailerJobInit {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(run_metadata)?))
+		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
 

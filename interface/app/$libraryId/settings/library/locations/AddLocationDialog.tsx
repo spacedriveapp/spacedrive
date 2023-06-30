@@ -7,7 +7,8 @@ import {
 	UnionToTuple,
 	extractInfoRSPCError,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	usePlausibleEvent
 } from '@sd/client';
 import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 import { showAlertDialog } from '~/components';
@@ -60,6 +61,7 @@ export const AddLocationDialog = ({
 	...dialogProps
 }: AddLocationDialog) => {
 	const platform = usePlatform();
+	const submitPlausibleEvent = usePlausibleEvent();
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
@@ -93,6 +95,9 @@ export const AddLocationDialog = ({
 						dry_run: dryRun,
 						indexer_rules_ids: indexerRulesIds
 					});
+
+					submitPlausibleEvent({ event: { type: 'locationCreate' } });
+
 					break;
 				case 'NEED_RELINK':
 					if (!dryRun) await relinkLocation.mutateAsync(path);
@@ -105,6 +110,7 @@ export const AddLocationDialog = ({
 					// 	sync_preview_media: null,
 					// 	generate_preview_media: null
 					// });
+
 					break;
 				case 'ADD_LIBRARY':
 					await addLocationToLibrary.mutateAsync({
@@ -112,12 +118,15 @@ export const AddLocationDialog = ({
 						dry_run: dryRun,
 						indexer_rules_ids: indexerRulesIds
 					});
+
+					submitPlausibleEvent({ event: { type: 'locationCreate' } });
+
 					break;
 				default:
 					throw new Error('Unimplemented custom remote error handling');
 			}
 		},
-		[createLocation, relinkLocation, addLocationToLibrary]
+		[createLocation, relinkLocation, addLocationToLibrary, addLocationToLibrary]
 	);
 
 	const handleAddError = useCallback(

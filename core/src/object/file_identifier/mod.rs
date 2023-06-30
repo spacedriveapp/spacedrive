@@ -26,7 +26,7 @@ use futures::future::join_all;
 use serde_json::json;
 use thiserror::Error;
 use tokio::fs;
-use tracing::{error, info};
+use tracing::{error, trace};
 use uuid::Uuid;
 
 pub mod file_identifier_job;
@@ -83,8 +83,7 @@ impl FileMetadata {
 			.await
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
-		#[cfg(debug_assertions)]
-		tracing::debug!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
+		trace!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
@@ -204,7 +203,7 @@ async fn identifier_job_step(
 		)
 		.await?;
 
-	info!(
+	trace!(
 		"Found {} existing Objects in Library, linking file paths...",
 		existing_objects.len()
 	);
@@ -221,7 +220,7 @@ async fn identifier_job_step(
 			.map(|(_, (meta, _))| &meta.cas_id)
 			.collect::<HashSet<_>>();
 
-		info!(
+		trace!(
 			"Creating {} new Objects in Library... {:#?}",
 			file_paths_requiring_new_object.len(),
 			new_objects_cas_ids
@@ -283,10 +282,10 @@ async fn identifier_job_step(
 				0
 			});
 
-		info!("Created {} new Objects in Library", total_created_files);
+		trace!("Created {} new Objects in Library", total_created_files);
 
 		if total_created_files > 0 {
-			info!("Updating file paths with created objects");
+			trace!("Updating file paths with created objects");
 
 			sync.write_ops(db, {
 				let data: (Vec<_>, Vec<_>) = file_path_update_args.into_iter().unzip();
@@ -295,7 +294,7 @@ async fn identifier_job_step(
 			})
 			.await?;
 
-			info!("Updated file paths with created objects");
+			trace!("Updated file paths with created objects");
 		}
 
 		total_created_files as usize
@@ -313,7 +312,7 @@ fn file_path_object_connect_ops<'db>(
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	#[cfg(debug_assertions)]
-	tracing::debug!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
+	trace!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	let vec_id = object_id.as_bytes().to_vec();
 
@@ -342,7 +341,7 @@ async fn process_identifier_file_paths(
 	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize, file_path::id::Type), JobError> {
-	info!(
+	trace!(
 		"Processing {:?} orphan Paths. ({} completed of {})",
 		file_paths.len(),
 		step_number,

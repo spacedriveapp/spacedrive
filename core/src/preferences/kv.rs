@@ -1,6 +1,7 @@
 use crate::prisma::{preference, PrismaClient};
 use serde::Serialize;
 
+#[derive(Debug)]
 pub struct PreferenceKey(String);
 
 impl PreferenceKey {
@@ -19,6 +20,7 @@ impl std::fmt::Display for PreferenceKey {
 	}
 }
 
+#[derive(Debug)]
 pub struct PreferenceValue(Vec<u8>);
 
 impl PreferenceValue {
@@ -31,6 +33,7 @@ impl PreferenceValue {
 	}
 }
 
+#[derive(Debug)]
 pub struct PreferenceKVs(Vec<(PreferenceKey, PreferenceValue)>);
 
 impl IntoIterator for PreferenceKVs {

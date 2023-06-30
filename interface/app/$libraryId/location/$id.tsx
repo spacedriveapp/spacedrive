@@ -1,7 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	useLibraryContext,
+	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
@@ -22,6 +23,25 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 
 	const location = useLibraryQuery(['locations.get', locationId]);
+
+	const updatePrefs = useLibraryMutation('preferences.update');
+
+	useEffect(() => {
+		updatePrefs.mutateAsync({
+			location: {
+				[locationId.toString()]: {
+					view: {
+						layout: 'Grid',
+						list: {
+							col_sizes: {},
+							filtered: [],
+							sort_col: null
+						}
+					}
+				}
+			}
+		});
+	}, []);
 
 	useLibrarySubscription(
 		[

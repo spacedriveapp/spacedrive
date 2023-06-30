@@ -88,16 +88,15 @@ function Job({ job, className, isChild }: JobProps) {
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>
-			{isRunning ||
-				(isPaused && (
-					<div className="my-1 ml-1.5 w-[335px]">
-						<ProgressBar
-							pending={task_count == 0}
-							value={completed_task_count}
-							total={task_count}
-						/>
-					</div>
-				))}
+			{(isRunning || isPaused) && (
+				<div className="my-1 ml-1.5 w-[335px]">
+					<ProgressBar
+						pending={task_count == 0}
+						value={completed_task_count}
+						total={task_count}
+					/>
+				</div>
+			)}
 		</JobContainer>
 	);
 }

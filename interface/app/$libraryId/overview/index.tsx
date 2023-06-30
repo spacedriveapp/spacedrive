@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { useMatch, useMatches } from 'react-router';
 import { Category } from '@sd/client';
 import { ExplorerContext } from '../Explorer/Context';
 import ContextMenu from '../Explorer/ContextMenu';
@@ -30,9 +29,6 @@ export const Component = () => {
 		[selectedItemId, items]
 	);
 
-	console.log(useMatch('*'));
-	console.log(useMatches());
-
 	return (
 		<ExplorerContext.Provider value={{}}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
@@ -53,7 +49,7 @@ export const Component = () => {
 						onSelectedChange={setSelectedItemId}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={selectedItem && <ContextMenu item={selectedItem} />}
+						contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
 					/>
 
 					{explorerStore.showInspector && (

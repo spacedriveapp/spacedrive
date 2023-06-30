@@ -20,7 +20,8 @@ impl LibraryPreferences {
 	pub async fn write(self, db: &PrismaClient) -> prisma_client_rust::Result<()> {
 		let kvs = self.to_kvs();
 
-		db._batch(kvs.to_upserts(&db)).await?;
+		dbg!(kvs);
+		// db._batch(kvs.to_upserts(&db)).await?;
 
 		Ok(())
 	}
@@ -28,12 +29,21 @@ impl LibraryPreferences {
 
 #[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LocationPreferences {
+	#[specta(optional)]
 	view: Option<LocationViewSettings>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LocationViewSettings {
-	layout: Option<ExplorerLayout>,
+	layout: ExplorerLayout,
+	list: ListViewSettings,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type, Default)]
+pub struct ListViewSettings {
+	col_sizes: HashMap<String, i32>,
+	filtered: Vec<String>,
+	sort_col: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type)]
@@ -74,10 +84,12 @@ impl Preferences for LocationPreferences {
 	fn to_kvs(self) -> PreferenceKVs {
 		let Self { view } = self;
 
-		PreferenceKVs::new(vec![(
-			PreferenceKey::new("view"),
-			PreferenceValue::new(view),
-		)])
+		PreferenceKVs::new(
+			[view.map(|view| (PreferenceKey::new("view"), PreferenceValue::new(view)))]
+				.into_iter()
+				.flatten()
+				.collect(),
+		)
 	}
 }
 
