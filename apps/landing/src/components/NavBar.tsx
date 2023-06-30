@@ -15,7 +15,7 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 		<Link
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
-			className="cursor-pointer p-4 text-gray-300 no-underline transition hover:text-gray-50"
+			className="cursor-pointer p-4 text-[11pt] text-gray-300 no-underline transition hover:text-gray-50"
 			rel="noreferrer"
 		>
 			{props.children}
