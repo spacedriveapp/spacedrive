@@ -44,6 +44,7 @@ import Heart from './Heart.png';
 import HeartFlat from './HeartFlat.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
+import Key from './Key.png';
 import Keys from './Keys.png';
 import Laptop from './Laptop.png';
 import Mesh from './Mesh.png';
@@ -60,11 +61,15 @@ import Scrapbook_Light from './Scrapbook_Light.png';
 import Server from './Server.png';
 import Server_Light from './Server_Light.png';
 import Tablet from './Tablet.png';
+import Tags from './Tags.png';
+import Terminal from './Terminal.png';
 import Text from './Text.png';
 import Text_Light from './Text_Light.png';
 import TexturedMesh from './TexturedMesh.png';
 import TexturedMesh_Light from './TexturedMesh_Light.png';
 import Trash from './Trash.png';
+import Unknown from './Unknown.png';
+import Unknown_white from './Unknown_white.png';
 import Video from './Video.png';
 import Video_Light from './Video_Light.png';
 import Widget from './Widget.png';
@@ -113,6 +118,7 @@ export {
 	HeartFlat,
 	Image,
 	Image_Light,
+	Key,
 	Keys,
 	Laptop,
 	Mesh,
@@ -129,11 +135,15 @@ export {
 	Server,
 	Server_Light,
 	Tablet,
+	Tags,
+	Terminal,
 	Text,
 	Text_Light,
 	TexturedMesh,
 	TexturedMesh_Light,
 	Trash,
+	Unknown,
+	Unknown_white,
 	Video,
 	Video_Light,
 	Widget,
