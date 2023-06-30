@@ -10,20 +10,12 @@ ffbuild_dockerbuild() {
   ./autogen.sh
 
   local myconf=(
+    --host="$FFBUILD_TOOLCHAIN"
     --prefix="$FFBUILD_PREFIX"
     --disable-shared
     --enable-static
     --disable-oggtest
   )
-
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    myconf+=(
-      --host="$FFBUILD_TOOLCHAIN"
-    )
-  else
-    echo "Unknown target"
-    return 255
-  fi
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"

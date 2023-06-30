@@ -1,38 +1,27 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://chromium.googlesource.com/webm/libwebp"
-SCRIPT_TAG="v1.3.1-rc1"
+SCRIPT_REPO="https://github.com/webmproject/libwebp.git"
+SCRIPT_TAG="1.3.1"
 
 ffbuild_dockerbuild() {
-  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" webp
-  cd webp
+  git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" libwebp
+  cd libwebp
 
   ./autogen.sh
 
   local myconf=(
+    --host="$FFBUILD_TOOLCHAIN"
     --prefix="$FFBUILD_PREFIX"
     --disable-shared
     --enable-static
     --with-pic
-    --enable-libwebpmux
-    --disable-libwebpextras
-    --disable-libwebpdemux
+    --enable-everything
     --disable-sdl
-    --disable-gl
     --disable-png
     --disable-jpeg
     --disable-tiff
     --disable-gif
   )
-
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    myconf+=(
-      --host="$FFBUILD_TOOLCHAIN"
-    )
-  else
-    echo "Unknown target"
-    return 255
-  fi
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"
