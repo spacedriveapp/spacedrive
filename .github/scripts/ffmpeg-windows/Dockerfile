@@ -50,10 +50,6 @@ FROM layer-20 AS layer-25-libogg
 
 RUN --mount=src=scripts.d/25-libogg.sh,dst=/stage.sh run_stage /stage.sh
 
-FROM layer-20 AS layer-25-libpng
-
-RUN --mount=src=scripts.d/25-libpng.sh,dst=/stage.sh run_stage /stage.sh
-
 FROM layer-20 AS layer-25-xz
 
 RUN --mount=src=scripts.d/25-xz.sh,dst=/stage.sh run_stage /stage.sh
@@ -61,8 +57,6 @@ RUN --mount=src=scripts.d/25-xz.sh,dst=/stage.sh run_stage /stage.sh
 FROM layer-20 AS layer-25
 
 COPY --from=layer-25-libogg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-COPY --from=layer-25-libpng $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-25-xz $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 

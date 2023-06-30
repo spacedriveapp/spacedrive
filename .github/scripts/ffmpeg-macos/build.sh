@@ -276,9 +276,8 @@ cp -avt "$_framework_docs" COPYING* LICENSE*
     libvorbis/COPYING)
 (cd /srv && cp -avt "$_framework_docs" --parents libwebp/COPYING)
 
-# libvorbis, libogg and libtheora share the same license
+# libvorbis, libogg share the same license
 ln -s libvorbis "${_framework_docs}/libogg"
-ln -s libvorbis "${_framework_docs}/libtheora"
 
 # Create required framework symlinks
 ln -s A "/${_framework}/Versions/Current"
