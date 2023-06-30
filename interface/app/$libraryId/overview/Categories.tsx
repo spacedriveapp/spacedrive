@@ -33,8 +33,8 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const categories = useLibraryQuery(['categories.list']);
 	const isDark = useIsDark();
 	const [scroll, setScroll] = useState(0);
-	const ref = useRef<HTMLDivElement>(null) as React.MutableRefObject<HTMLDivElement>;
-	const { events } = useDraggable(ref);
+	const ref = useRef<HTMLDivElement>(null);
+	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	useEffect(() => {
