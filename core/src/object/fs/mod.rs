@@ -33,7 +33,7 @@ pub enum ObjectType {
 	Directory,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FileData {
 	pub file_path: file_path_with_object::Data,
 	pub full_path: PathBuf,

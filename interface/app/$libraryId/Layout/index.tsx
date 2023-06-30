@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
@@ -8,10 +8,11 @@ import {
 	useClientContext,
 	usePlausiblePageViewMonitor
 } from '@sd/client';
+import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { QuickPreview } from '../Explorer/QuickPreview';
+import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
@@ -23,7 +24,9 @@ const Layout = () => {
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
 	});
 
-	usePlausiblePageViewMonitor({ currentPath: useLocation().pathname });
+	const { rawPath } = useRootContext();
+
+	usePlausiblePageViewMonitor({ currentPath: rawPath });
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
@@ -50,12 +53,13 @@ const Layout = () => {
 			<Sidebar />
 			<div className="relative flex w-full overflow-hidden bg-app">
 				{library ? (
-					<LibraryContextProvider library={library}>
-						<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-							<Outlet />
-						</Suspense>
-						<QuickPreview />
-					</LibraryContextProvider>
+					<QuickPreviewContextProvider>
+						<LibraryContextProvider library={library}>
+							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+								<Outlet />
+							</Suspense>
+						</LibraryContextProvider>
+					</QuickPreviewContextProvider>
 				) : (
 					<h1 className="p-4 text-white">
 						Please select or create a library in the sidebar.

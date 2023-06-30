@@ -1,25 +1,19 @@
 use crate::{
-	extract_job_data, invalidate_query,
-	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::uuid_to_bytes, error::FileIOError},
 };
 
-use std::{
-	hash::{Hash, Hasher},
-	path::{Path, PathBuf},
-	time::Duration,
-};
+use std::path::Path;
 
 use chrono::Utc;
 use rspc::ErrorCode;
 use sd_prisma::prisma_sync;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tracing::info;
+use tracing::trace;
 
 use super::{
 	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
@@ -34,69 +28,13 @@ mod walk;
 use rules::IndexerRuleError;
 use walk::WalkedEntry;
 
+pub use indexer_job::IndexerJobInit;
 pub use shallow::*;
-
-/// `IndexerJobInit` receives a `location::Data` object to be indexed
-/// and possibly a `sub_path` to be indexed. The `sub_path` is used when
-/// we want do index just a part of a location.
-#[derive(Serialize, Deserialize)]
-pub struct IndexerJobInit {
-	pub location: location_with_indexer_rules::Data,
-	pub sub_path: Option<PathBuf>,
-}
-
-impl Hash for IndexerJobInit {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.location.id.hash(state);
-		if let Some(ref sub_path) = self.sub_path {
-			sub_path.hash(state);
-		}
-	}
-}
-/// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
-/// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
-/// contains some metadata for logging purposes.
-#[derive(Serialize, Deserialize)]
-pub struct IndexerJobData {
-	indexed_path: PathBuf,
-	indexer_rules: Vec<rules::IndexerRule>,
-	db_write_time: Duration,
-	scan_read_time: Duration,
-	total_paths: u64,
-	total_save_steps: u64,
-	indexed_count: u64,
-	removed_count: u64,
-}
-
-impl IndexerJobData {
-	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress(
-			progress
-				.iter()
-				.map(|p| match p.clone() {
-					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
-					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-					ScanProgress::Message(m) => {
-						// println!("MESSAGE: {:?}", m);
-						JobReportUpdate::Message(m)
-					}
-				})
-				.collect(),
-		)
-	}
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IndexerJobSaveStep {
 	chunk_idx: usize,
 	walked: Vec<WalkedEntry>,
-}
-
-#[derive(Clone)]
-pub enum ScanProgress {
-	ChunkCount(usize),
-	SavedChunks(usize),
-	Message(String),
 }
 
 /// Error type for the indexer module
@@ -233,53 +171,9 @@ async fn execute_indexer_save_step(
 		)
 		.await?;
 
-	info!("Inserted {count} records");
+	trace!("Inserted {count} records");
 
 	Ok(count)
-}
-
-fn finalize_indexer<SJob, Init, Step>(
-	location_path: impl AsRef<Path>,
-	state: &JobState<SJob>,
-	ctx: &mut WorkerContext,
-) -> JobResult
-where
-	SJob: StatefulJob<Init = Init, Data = IndexerJobData, Step = Step>,
-	Init: Serialize + DeserializeOwned + Send + Sync + Hash,
-	Step: Serialize + DeserializeOwned + Send + Sync,
-{
-	let data = extract_job_data!(state);
-
-	info!(
-		"scan of {} completed in {:?}. {} new files found, \
-			indexed {} files in db. db write completed in {:?}",
-		location_path.as_ref().display(),
-		data.scan_read_time,
-		data.total_paths,
-		data.indexed_count,
-		data.db_write_time,
-	);
-
-	if data.indexed_count > 0 || data.removed_count > 0 {
-		invalidate_query!(ctx.library, "search.paths");
-	}
-
-	Ok(Some(serde_json::to_value(state)?))
-}
-
-fn update_notifier_fn(batch_size: usize, ctx: &mut WorkerContext) -> impl FnMut(&Path, usize) + '_ {
-	move |path, total_entries| {
-		IndexerJobData::on_scan_progress(
-			ctx,
-			vec![
-				ScanProgress::Message(format!(
-					"Scanning: {:?}",
-					path.file_name().unwrap_or(path.as_os_str())
-				)),
-				ScanProgress::ChunkCount(total_entries / batch_size),
-			],
-		);
-	}
 }
 
 fn iso_file_path_factory(
@@ -312,11 +206,24 @@ async fn remove_non_existing_file_paths(
 macro_rules! file_paths_db_fetcher_fn {
 	($db:expr) => {{
 		|found_paths| async {
-			$db.file_path()
-				.find_many(found_paths)
-				.select($crate::location::file_path_helper::file_path_to_isolate::select())
-				.exec()
+			// Each found path is a AND with 4 terms, and SQLite has a expression tree limit of 1000 terms
+			// so we will use chunks of 200 just to be safe
+
+			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
+			let chunks = found_paths
+				.into_iter()
+				.chunks(200)
+				.into_iter()
+				.map(|founds| {
+					$db.file_path()
+						.find_many(founds.collect::<Vec<_>>())
+						.select($crate::location::file_path_helper::file_path_to_isolate::select())
+				})
+				.collect::<Vec<_>>();
+
+			$db._batch(chunks)
 				.await
+				.map(|fetched| fetched.into_iter().flatten().collect::<Vec<_>>())
 				.map_err(Into::into)
 		}
 	}};
@@ -328,26 +235,70 @@ macro_rules! file_paths_db_fetcher_fn {
 // FIXME: (fogodev) I was receiving this error here https://github.com/rust-lang/rust/issues/74497
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
-	($location_id:expr, $location_path:expr, $db:expr) => {{
+	($location_id:expr, $db:expr) => {{
 		|iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
 			let iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<'static> =
 				iso_file_path;
-			$db.file_path()
-				.find_many(vec![
-					$crate::prisma::file_path::location_id::equals(Some($location_id)),
-					$crate::prisma::file_path::materialized_path::equals(Some(
-						iso_file_path
-							.materialized_path_for_children()
-							.expect("the received isolated file path must be from a directory"),
-					)),
-					::prisma_client_rust::operator::not(
-						unique_location_id_materialized_path_name_extension_params,
-					),
-				])
-				.select($crate::location::file_path_helper::file_path_just_pub_id::select())
-				.exec()
+
+			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
+			let chunks = unique_location_id_materialized_path_name_extension_params
+				.into_iter()
+				.chunks(200)
+				.into_iter()
+				.map(|unique_params| {
+					$db.file_path()
+						.find_many(vec![
+							$crate::prisma::file_path::location_id::equals(Some($location_id)),
+							$crate::prisma::file_path::materialized_path::equals(Some(
+								iso_file_path.materialized_path_for_children().expect(
+									"the received isolated file path must be from a directory",
+								),
+							)),
+							::prisma_client_rust::operator::not(vec![
+								::prisma_client_rust::operator::or(unique_params.collect()),
+							]),
+						])
+						.select($crate::location::file_path_helper::file_path_just_pub_id::select())
+				})
+				.collect::<::std::vec::Vec<_>>();
+
+			$db._batch(chunks)
 				.await
-				.map_err(Into::into)
+				.map(|to_remove| {
+					// This is an intersection between all sets
+					let mut sets = to_remove
+						.into_iter()
+						.map(|fetched_vec| {
+							fetched_vec
+								.into_iter()
+								.map(|fetched| {
+									::uuid::Uuid::from_slice(&fetched.pub_id)
+										.expect("file_path.pub_id is invalid!")
+								})
+								.collect::<::std::collections::HashSet<_>>()
+						})
+						.collect::<Vec<_>>();
+
+					let mut intersection = ::std::collections::HashSet::new();
+					while let Some(set) = sets.pop() {
+						for pub_id in set {
+							// Remove returns true if the element was present in the set
+							if sets.iter_mut().all(|set| set.remove(&pub_id)) {
+								intersection.insert(pub_id);
+							}
+						}
+					}
+
+					intersection
+						.into_iter()
+						.map(|pub_id| {
+							$crate::location::file_path_helper::file_path_just_pub_id::Data {
+								pub_id: pub_id.as_bytes().to_vec(),
+							}
+						})
+						.collect()
+				})
+				.map_err(::std::convert::Into::into)
 		}
 	}};
 }

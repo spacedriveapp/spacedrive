@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
-	PeerMetadata,
 	useBridgeMutation,
 	useBridgeSubscription,
 	useDiscoveredPeers,
@@ -8,16 +7,16 @@ import {
 } from '@sd/client';
 import {
 	Dialog,
+	InputField,
 	Select,
 	SelectOption,
 	UseDialogProps,
 	dialogManager,
-	forms,
-	useDialog
+	useDialog,
+	useZodForm,
+	z
 } from '@sd/ui';
 import { getSpacedropState, subscribeSpacedropState } from '../hooks/useSpacedropState';
-
-const { Input, useZodForm, z } = forms;
 
 export function SpacedropUI() {
 	const isSpacedropEnabled = useFeatureFlag('spacedrop');
@@ -126,7 +125,7 @@ function SpacedropRequestDialog(
 			<div className="space-y-2 py-2">
 				<p>File Name: {props.name}</p>
 				<p>Peer Id: {props.peerId}</p>
-				<Input
+				<InputField
 					size="sm"
 					placeholder="/Users/oscar/Desktop/demo.txt"
 					className="w-full"

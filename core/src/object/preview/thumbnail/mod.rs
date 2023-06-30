@@ -1,7 +1,6 @@
 use crate::{
 	api::CoreEvent,
-	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
+	job::JobError,
 	library::Library,
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
@@ -24,10 +23,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io, task::block_in_place};
-use tracing::{error, info, trace, warn};
+use tracing::{error, trace, warn};
 use webp::Encoder;
-
-use self::thumbnailer_job::ThumbnailerJob;
 
 mod directory;
 mod shallow;
@@ -78,13 +75,6 @@ static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThumbnailerJobState {
-	thumbnail_dir: PathBuf,
-	location_path: PathBuf,
-	report: ThumbnailerJobReport,
-}
-
 #[derive(Error, Debug)]
 pub enum ThumbnailerError {
 	#[error("sub path not found: <path='{}'>", .0.display())]
@@ -100,15 +90,6 @@ pub enum ThumbnailerError {
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThumbnailerJobReport {
-	location_id: location::id::Type,
-	path: PathBuf,
-	thumbnails_created: u32,
-	thumbnails_skipped: u32,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailerJobStepKind {
 	Image,
@@ -209,65 +190,6 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 	res
 }
 
-fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: &mut WorkerContext) -> JobResult {
-	info!(
-		"Finished thumbnail generation for location {} at {}",
-		data.report.location_id,
-		data.report.path.display()
-	);
-
-	if data.report.thumbnails_created > 0 {
-		invalidate_query!(ctx.library, "search.paths");
-	}
-
-	Ok(Some(serde_json::to_value(&data.report)?))
-}
-
-async fn process_step(
-	state: &mut JobState<ThumbnailerJob>,
-	ctx: &mut WorkerContext,
-) -> Result<(), JobError> {
-	let step = &state.steps[0];
-
-	ctx.progress(vec![JobReportUpdate::Message(format!(
-		"Processing {}",
-		maybe_missing(
-			&step.file_path.materialized_path,
-			"file_path.materialized_path"
-		)?
-	))]);
-
-	let data = state
-		.data
-		.as_mut()
-		.expect("critical error: missing data on job state");
-
-	let step_result = inner_process_step(
-		step,
-		&data.location_path,
-		&data.thumbnail_dir,
-		&state.init.location,
-		&ctx.library,
-	)
-	.await;
-
-	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-		state.step_number + 1,
-	)]);
-
-	match step_result {
-		Ok(thumbnail_was_created) => {
-			if thumbnail_was_created {
-				data.report.thumbnails_created += 1;
-			} else {
-				data.report.thumbnails_skipped += 1;
-			}
-			Ok(())
-		}
-		Err(e) => Err(e),
-	}
-}
-
 pub async fn inner_process_step(
 	step: &ThumbnailerJobStep,
 	location_path: impl AsRef<Path>,
@@ -304,14 +226,14 @@ pub async fn inner_process_step(
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
-			info!(
+			trace!(
 				"Thumb already exists, skipping generation for {}",
 				output_path.display()
 			);
 			return Ok(false);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
-			info!("Writing {:?} to {:?}", path, output_path);
+			trace!("Writing {:?} to {:?}", path, output_path);
 
 			match kind {
 				ThumbnailerJobStepKind::Image => {
@@ -327,7 +249,7 @@ pub async fn inner_process_step(
 				}
 			}
 
-			info!("Emitting new thumbnail event");
+			trace!("Emitting new thumbnail event");
 			library.emit(CoreEvent::NewThumbnail {
 				thumb_key: get_thumb_key(cas_id),
 			});

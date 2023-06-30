@@ -26,17 +26,12 @@ import {
 	getItemObject,
 	isPath
 } from '@sd/client';
-import {
-	FilePathSearchOrderingKeys,
-	getExplorerStore,
-	isCut,
-	useExplorerStore,
-	useScrolled
-} from '~/hooks';
+import { useScrolled } from '~/hooks';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
+import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
@@ -218,6 +213,7 @@ export default () => {
 				id: 'dateAccessed',
 				header: 'Date Accessed',
 				accessorFn: (file) =>
+					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
@@ -382,7 +378,7 @@ export default () => {
 	}
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
-		if (!explorerView.onSelectedChange || !explorerView.contextMenu) return;
+		if (!explorerView.onSelectedChange || explorerView.contextMenu === undefined) return;
 
 		const itemId = row.original.item.id;
 

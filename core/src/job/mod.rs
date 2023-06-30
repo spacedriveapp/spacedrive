@@ -2,15 +2,16 @@ use crate::library::Library;
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
+	fmt,
 	hash::{Hash, Hasher},
 	mem,
-	sync::{atomic::Ordering, Arc},
-	time::Duration,
+	sync::Arc,
+	time::Instant,
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
-use tracing::{debug, error, info, warn};
+use tokio::{select, sync::mpsc};
+use tracing::{debug, info, trace, warn};
 use uuid::Uuid;
 
 mod error;
@@ -25,49 +26,74 @@ pub use worker::*;
 
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
-pub type JobRunErrors = Vec<String>;
-/// `JobInitData` is a trait to represent the data being passed to initialize a `Job`
-pub trait JobInitData: Serialize + DeserializeOwned + Send + Sync + Hash {
-	type Job: StatefulJob;
 
-	fn hash(&self) -> u64 {
-		let mut s = DefaultHasher::new();
-		<Self::Job as StatefulJob>::NAME.hash(&mut s);
-		<Self as Hash>::hash(self, &mut s);
-		s.finish()
+#[derive(Debug, Default)]
+pub struct JobRunErrors(pub Vec<String>);
+
+impl From<Vec<String>> for JobRunErrors {
+	fn from(errors: Vec<String>) -> Self {
+		Self(errors)
 	}
 }
 
+pub struct JobRunOutput {
+	pub metadata: JobMetadata,
+	pub errors: JobRunErrors,
+	pub next_job: Option<Box<dyn DynJob>>,
+}
+
+pub trait JobRunMetadata:
+	Default + Serialize + DeserializeOwned + Send + Sync + fmt::Debug
+{
+	fn update(&mut self, new_data: Self);
+}
+
+impl JobRunMetadata for () {
+	fn update(&mut self, _new_data: Self) {}
+}
+
 #[async_trait::async_trait]
-pub trait StatefulJob: Send + Sync + Sized {
-	type Init: JobInitData<Job = Self>;
-	type Data: Serialize + DeserializeOwned + Send + Sync;
-	type Step: Serialize + DeserializeOwned + Send + Sync;
+pub trait StatefulJob:
+	Serialize + DeserializeOwned + Hash + fmt::Debug + Send + Sync + Sized + 'static
+{
+	type Data: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
+	type Step: Serialize + DeserializeOwned + Send + Sync + fmt::Debug;
+	type RunMetadata: JobRunMetadata;
 
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
 	const IS_BACKGROUND: bool = false;
 
-	/// Construct a new instance of the job. This is used so the user can pass `Self::Init` into the `spawn_job` function and we can still run the job.
-	/// This does remove the flexibility of being able to pass arguments into the job's struct but with resumable jobs I view that as an anti-pattern anyway.
-	fn new() -> Self;
-
 	/// initialize the steps for the job
 	async fn init(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError>;
+		ctx: &WorkerContext,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError>;
 
 	/// is called for each step in the job. These steps are created in the `Self::init` method.
 	async fn execute_step(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError>;
+		ctx: &WorkerContext,
+		step: CurrentStep<'_, Self::Step>,
+		data: &Self::Data,
+		run_metadata: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError>;
 
 	/// is called after all steps have been executed
-	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		data: &Option<Self::Data>,
+		run_metadata: &Self::RunMetadata,
+	) -> JobResult;
+
+	fn hash(&self) -> u64 {
+		let mut s = DefaultHasher::new();
+		Self::NAME.hash(&mut s);
+		<Self as Hash>::hash(self, &mut s);
+		s.finish()
+	}
 }
 
 #[async_trait::async_trait]
@@ -79,9 +105,9 @@ pub trait DynJob: Send + Sync {
 	fn name(&self) -> &'static str;
 	async fn run(
 		&mut self,
-		job_manager: Arc<JobManager>,
-		ctx: &mut WorkerContext,
-	) -> Result<(JobMetadata, JobRunErrors), JobError>;
+		ctx: WorkerContext,
+		commands_rx: mpsc::Receiver<WorkerCommand>,
+	) -> Result<JobRunOutput, JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
@@ -90,96 +116,84 @@ pub trait DynJob: Send + Sync {
 	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
 }
 
-pub struct Job<SJob: StatefulJob> {
+pub struct JobBuilder<SJob: StatefulJob> {
 	id: Uuid,
-	report: Option<JobReport>,
-	state: JobState<SJob>,
-	stateful_job: SJob,
-	next_jobs: VecDeque<Box<dyn DynJob>>,
+	init: SJob,
+	report_builder: JobReportBuilder,
 }
 
-pub trait IntoJob<SJob: StatefulJob + 'static> {
-	fn into_job(self) -> Box<dyn DynJob>;
-}
-
-impl<SJob, Init> IntoJob<SJob> for Init
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn into_job(self) -> Box<dyn DynJob> {
-		Job::new(self)
+impl<SJob: StatefulJob> JobBuilder<SJob> {
+	pub fn build(self) -> Box<Job<SJob>> {
+		Box::new(Job::<SJob> {
+			id: self.id,
+			hash: <SJob as StatefulJob>::hash(&self.init),
+			report: Some(self.report_builder.build()),
+			state: Some(JobState {
+				init: self.init,
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
 	}
-}
 
-impl<SJob, Init> IntoJob<SJob> for Box<Job<SJob>>
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn into_job(self) -> Box<dyn DynJob> {
+	pub fn new(init: SJob) -> Self {
+		let id = Uuid::new_v4();
+		Self {
+			id,
+			init,
+			report_builder: JobReportBuilder::new(id, SJob::NAME.to_string()),
+		}
+	}
+
+	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
+		self.report_builder = self.report_builder.with_action(action);
+		self
+	}
+
+	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
+		self.report_builder = self.report_builder.with_parent_id(parent_id);
+		self
+	}
+
+	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+		self.report_builder = self.report_builder.with_metadata(metadata);
 		self
 	}
 }
 
-impl<SJob, Init> Job<SJob>
-where
-	SJob: StatefulJob<Init = Init> + 'static,
-	Init: JobInitData<Job = SJob>,
-{
-	fn new(init: Init) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			report: Some(JobReport::new(id, SJob::NAME.to_string())),
-			state: JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-			},
-			stateful_job: SJob::new(),
-			next_jobs: VecDeque::new(),
-		})
+pub struct Job<SJob: StatefulJob> {
+	id: Uuid,
+	hash: u64,
+	report: Option<JobReport>,
+	state: Option<JobState<SJob>>,
+	// stateful_job: Option<SJob>,
+	next_jobs: VecDeque<Box<dyn DynJob>>,
+}
+
+impl<SJob: StatefulJob> Job<SJob> {
+	pub fn new(init: SJob) -> Box<Self> {
+		JobBuilder::new(init).build()
 	}
 
-	pub fn new_with_action(init: Init, action: impl AsRef<str>) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			report: Some(JobReport::new_with_action(
-				id,
-				SJob::NAME.to_string(),
-				action,
-			)),
-			state: JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-			},
-			stateful_job: SJob::new(),
-			next_jobs: VecDeque::new(),
-		})
-	}
-
-	pub fn queue_next<NextSJob, NextInit>(mut self: Box<Self>, init: NextInit) -> Box<Self>
+	pub fn queue_next<NextSJob>(mut self: Box<Self>, init: NextSJob) -> Box<Self>
 	where
-		NextSJob: StatefulJob<Init = NextInit> + 'static,
-		NextInit: JobInitData<Job = NextSJob>,
+		NextSJob: StatefulJob + 'static,
 	{
 		let next_job_order = self.next_jobs.len() + 1;
-		self.next_jobs.push_back(Job::new_dependent(
-			init,
-			self.id,
-			// SAFETY: If we're queueing a next job then we should still have a report
-			self.report().as_ref().and_then(|parent_report| {
-				parent_report
-					.action
-					.as_ref()
-					.map(|parent_action| format!("{parent_action}-{next_job_order}"))
-			}),
-		));
+
+		let mut child_job_builder = JobBuilder::new(init).with_parent_id(self.id);
+
+		if let Some(parent_report) = self.report() {
+			if let Some(parent_action) = &parent_report.action {
+				child_job_builder =
+					child_job_builder.with_action(format!("{parent_action}-{next_job_order}"));
+			}
+		}
+
+		self.next_jobs.push_back(child_job_builder.build());
 
 		self
 	}
@@ -187,51 +201,188 @@ where
 	// this function returns an ingestible job instance from a job report
 	pub fn new_from_report(
 		mut report: JobReport,
-		stateful_job: SJob, // whichever type of job this should be is passed here
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
+		let state = rmp_serde::from_slice::<JobState<SJob>>(
+			&report
+				.data
+				.take()
+				.ok_or_else(|| JobError::MissingJobDataState(report.id, report.name.clone()))?,
+		)?;
+
 		Ok(Box::new(Self {
 			id: report.id,
-			state: rmp_serde::from_slice(
-				&report
-					.data
-					.take()
-					.ok_or_else(|| JobError::MissingJobDataState(report.id, report.name.clone()))?,
-			)?,
+			hash: <SJob as StatefulJob>::hash(&state.init),
+			state: Some(state),
 			report: Some(report),
-			stateful_job,
 			next_jobs: next_jobs.unwrap_or_default(),
 		}))
 	}
 
-	fn new_dependent(init: Init, parent_id: Uuid, parent_action: Option<String>) -> Box<Self> {
-		let id = Uuid::new_v4();
-		Box::new(Self {
-			id,
-			report: Some(JobReport::new_with_parent(
-				id,
-				SJob::NAME.to_string(),
-				parent_id,
-				parent_action,
-			)),
-			state: JobState {
-				init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-			},
-			stateful_job: SJob::new(),
-			next_jobs: VecDeque::new(),
+	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
+		library
+			.node_context
+			.job_manager
+			.clone()
+			.ingest(library, Box::new(self))
+			.await
+	}
+}
+
+#[derive(Serialize)]
+pub struct JobState<Job: StatefulJob> {
+	pub init: Job,
+	pub data: Option<Job::Data>,
+	pub steps: VecDeque<Job::Step>,
+	pub step_number: usize,
+	pub run_metadata: Job::RunMetadata,
+}
+
+impl<'de, Job: StatefulJob> Deserialize<'de> for JobState<Job> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		<JobStateRaw<Job, Job> as Deserialize<'de>>::deserialize::<D>(deserializer).map(|raw| {
+			JobState {
+				init: raw.init,
+				data: raw.data,
+				steps: raw.steps,
+				step_number: raw.step_number,
+				run_metadata: raw.run_metadata,
+			}
 		})
 	}
 }
 
+/// This is a workaround for a serde bug.
+/// Both these generics on this type should point to the same type.
+///
+/// https://github.com/serde-rs/serde/issues/2418
+/// https://github.com/rust-lang/rust/issues/34979
 #[derive(Serialize, Deserialize)]
-pub struct JobState<Job: StatefulJob> {
-	pub init: Job::Init,
+struct JobStateRaw<Job, JobInit>
+where
+	Job: StatefulJob,
+{
+	pub init: JobInit,
 	pub data: Option<Job::Data>,
 	pub steps: VecDeque<Job::Step>,
 	pub step_number: usize,
+	pub run_metadata: Job::RunMetadata,
+}
+
+pub struct JobInitOutput<RunMetadata, Step> {
+	run_metadata: RunMetadata,
+	steps: VecDeque<Step>,
+	errors: JobRunErrors,
+}
+
+impl<RunMetadata, Step> From<(RunMetadata, Vec<Step>)> for JobInitOutput<RunMetadata, Step> {
+	fn from((run_metadata, steps): (RunMetadata, Vec<Step>)) -> Self {
+		Self {
+			run_metadata,
+			steps: VecDeque::from(steps),
+			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step> From<Vec<Step>> for JobInitOutput<(), Step> {
+	fn from(steps: Vec<Step>) -> Self {
+		Self {
+			run_metadata: (),
+			steps: VecDeque::from(steps),
+			errors: Default::default(),
+		}
+	}
+}
+
+impl<RunMetadata, Step> From<(RunMetadata, Vec<Step>, JobRunErrors)>
+	for JobInitOutput<RunMetadata, Step>
+{
+	fn from((run_metadata, steps, errors): (RunMetadata, Vec<Step>, JobRunErrors)) -> Self {
+		Self {
+			run_metadata,
+			steps: VecDeque::from(steps),
+			errors,
+		}
+	}
+}
+
+pub struct CurrentStep<'step, Step> {
+	pub step: &'step Step,
+	pub step_number: usize,
+}
+
+pub struct JobStepOutput<Step, RunMetadata> {
+	maybe_more_steps: Option<Vec<Step>>,
+	maybe_more_metadata: Option<RunMetadata>,
+	errors: JobRunErrors,
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<Vec<Step>> for JobStepOutput<Step, RunMetadata> {
+	fn from(more_steps: Vec<Step>) -> Self {
+		Self {
+			maybe_more_steps: Some(more_steps),
+			maybe_more_metadata: None,
+			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<RunMetadata> for JobStepOutput<Step, RunMetadata> {
+	fn from(more_metadata: RunMetadata) -> Self {
+		Self {
+			maybe_more_steps: None,
+			maybe_more_metadata: Some(more_metadata),
+			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<JobRunErrors> for JobStepOutput<Step, RunMetadata> {
+	fn from(errors: JobRunErrors) -> Self {
+		Self {
+			maybe_more_steps: None,
+			maybe_more_metadata: None,
+			errors,
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<(Vec<Step>, RunMetadata)>
+	for JobStepOutput<Step, RunMetadata>
+{
+	fn from((more_steps, more_metadata): (Vec<Step>, RunMetadata)) -> Self {
+		Self {
+			maybe_more_steps: Some(more_steps),
+			maybe_more_metadata: Some(more_metadata),
+			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<(Vec<Step>, RunMetadata, JobRunErrors)>
+	for JobStepOutput<Step, RunMetadata>
+{
+	fn from((more_steps, more_metadata, errors): (Vec<Step>, RunMetadata, JobRunErrors)) -> Self {
+		Self {
+			maybe_more_steps: Some(more_steps),
+			maybe_more_metadata: Some(more_metadata),
+			errors,
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<Option<()>> for JobStepOutput<Step, RunMetadata> {
+	fn from(_: Option<()>) -> Self {
+		Self {
+			maybe_more_steps: None,
+			maybe_more_metadata: None,
+			errors: Vec::new().into(),
+		}
+	}
 }
 
 #[async_trait::async_trait]
@@ -262,104 +413,450 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 	async fn run(
 		&mut self,
-		job_manager: Arc<JobManager>,
-		ctx: &mut WorkerContext,
-	) -> Result<(JobMetadata, JobRunErrors), JobError> {
-		let mut job_should_run = true;
+		ctx: WorkerContext,
+		mut commands_rx: mpsc::Receiver<WorkerCommand>,
+	) -> Result<JobRunOutput, JobError> {
+		let job_name = self.name();
+		let job_id = self.id;
 		let mut errors = vec![];
-		info!(
-			"Starting job {id} ({name})",
-			id = self.id,
-			name = self.name()
-		);
+		info!("Starting Job <id='{job_id}', name='{job_name}'>");
+
+		let JobState {
+			init,
+			data,
+			mut steps,
+			mut step_number,
+			mut run_metadata,
+		} = self
+			.state
+			.take()
+			.expect("critical error: missing job state");
+
+		let stateful_job = Arc::new(init);
+
+		let ctx = Arc::new(ctx);
+
+		let mut job_should_run = true;
+		let job_time = Instant::now();
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
-		if self.state.data.is_none() {
-			if let Err(e) = self.stateful_job.init(ctx, &mut self.state).await {
-				match e {
-					JobError::EarlyFinish { .. } => {
-						info!("{e}");
-						job_should_run = false;
+		let working_data = if let Some(data) = data {
+			Some(data)
+		} else {
+			// Job init phase
+			let inner_ctx = Arc::clone(&ctx);
+			let stateful_job = Arc::clone(&stateful_job);
+
+			let init_time = Instant::now();
+
+			let mut init_handle = tokio::spawn(async move {
+				let mut new_data = None;
+				let res = stateful_job.init(&inner_ctx, &mut new_data).await;
+
+				if let Ok(res) = res.as_ref() {
+					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+				}
+
+				if let Ok(res) = res.as_ref() {
+					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+				}
+
+				(new_data, res)
+			});
+
+			loop {
+				select! {
+					Some(command) = commands_rx.recv() => {
+						match command {
+							WorkerCommand::Pause(when) => {
+								debug!(
+									"Pausing Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
+									when.elapsed()
+								);
+
+								// In case of a Pause command, we keep waiting for the next command
+								let paused_time = Instant::now();
+								while let Some(command) = commands_rx.recv().await {
+									match command {
+										WorkerCommand::Resume(when) => {
+											debug!(
+												"Resuming Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
+												when.elapsed()
+											);
+											debug!(
+												"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
+												paused_time.elapsed()
+											);
+											break;
+										}
+										// The job can also be shutdown or canceled while paused
+										WorkerCommand::Shutdown(when, signal_tx) => {
+											init_handle.abort();
+
+											debug!(
+												"Shuting down Job at init phase <id='{job_id}', name='{job_name}'> \
+												 took {:?} after running for {:?}",
+												when.elapsed(),
+												init_time.elapsed(),
+											);
+											debug!("Total paused time {:?}", paused_time.elapsed());
+
+											// Shutting down at init phase will abort the job
+											return Err(
+												JobError::Canceled(signal_tx)
+											);
+										}
+										WorkerCommand::Cancel(when, signal_tx) => {
+											init_handle.abort();
+											debug!(
+												"Canceling Job at init phase <id='{job_id}', name='{job_name}'> \
+												 took {:?} after running for {:?}",
+												when.elapsed(),
+												init_time.elapsed(),
+											);
+											debug!(
+												"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
+												paused_time.elapsed()
+											);
+											return Err(JobError::Canceled(signal_tx));
+										}
+										WorkerCommand::Pause(_) => {
+											// We continue paused lol
+										}
+									}
+								}
+							}
+
+							WorkerCommand::Resume(_) => {
+								// We're already running so we just ignore this command
+							}
+
+							WorkerCommand::Shutdown(when, signal_tx) => {
+								init_handle.abort();
+
+								debug!(
+									"Shuting down Job at init phase <id='{job_id}', name='{job_name}'> took {:?} \
+									 after running for {:?}",
+									when.elapsed(),
+									init_time.elapsed(),
+								);
+
+								// Shutting down at init phase will abort the job
+								return Err(
+									JobError::Canceled(signal_tx)
+								);
+							}
+							WorkerCommand::Cancel(when, signal_tx) => {
+								init_handle.abort();
+								debug!(
+									"Canceling Job at init phase <id='{job_id}', name='{job_name}'> took {:?} \
+									 after running for {:?}",
+									when.elapsed(),
+									init_time.elapsed()
+								);
+								return Err(JobError::Canceled(signal_tx));
+							}
+						}
 					}
-					JobError::StepCompletedWithErrors(errors_text) => errors.extend(errors_text),
-					other => return Err(other),
+					init_res = &mut init_handle => {
+						let (new_data, res) = init_res?;
+						debug!("Init phase took {:?} Job <id='{job_id}', name='{job_name}'>", init_time.elapsed());
+
+						match res {
+							Ok(JobInitOutput {
+								run_metadata: new_run_metadata,
+								steps: new_steps,
+								errors: JobRunErrors(new_errors),
+							}) => {
+								steps = new_steps;
+								errors.extend(new_errors);
+								run_metadata.update(new_run_metadata);
+							}
+
+							Err(e) if matches!(e, JobError::EarlyFinish { .. }) => {
+								job_should_run = false;
+								info!("{e}");
+							}
+							Err(other) => return Err(other),
+						}
+
+						break new_data;
+					}
 				}
 			}
-		}
-
-		let command_rx = ctx.command_rx.clone();
-		let mut command_rx = command_rx.lock().await;
+		};
 
 		// Run the job until it's done or we get a command
-		while job_should_run && !self.state.steps.is_empty() {
-			// Check for commands every iteration
-			if let Ok(command) = command_rx.try_recv() {
-				match command {
-					WorkerCommand::Shutdown => {
-						return Err(JobError::Paused(rmp_serde::to_vec_named(&self.state)?));
+		let data = if let Some(working_data) = working_data {
+			let working_data_arc = Arc::new(working_data);
+
+			// Job run phase
+			while job_should_run && !steps.is_empty() {
+				let steps_len = steps.len();
+
+				let run_metadata_arc = Arc::new(run_metadata);
+				let step_arc =
+					Arc::new(steps.pop_front().expect("just checked that we have steps"));
+
+				// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
+				let inner_ctx = Arc::clone(&ctx);
+				let inner_run_metadata = Arc::clone(&run_metadata_arc);
+				let inner_working_data = Arc::clone(&working_data_arc);
+				let inner_step = Arc::clone(&step_arc);
+				let inner_stateful_job = Arc::clone(&stateful_job);
+
+				let step_time = Instant::now();
+
+				let mut job_step_handle = tokio::spawn(async move {
+					inner_stateful_job
+						.execute_step(
+							&inner_ctx,
+							CurrentStep {
+								step: &inner_step,
+								step_number,
+							},
+							&inner_working_data,
+							&inner_run_metadata,
+						)
+						.await
+				});
+
+				loop {
+					select! {
+						// Here we have a channel that we use to receive commands from the worker
+						Some(command) = commands_rx.recv() => {
+							match command {
+								WorkerCommand::Pause(when) => {
+									debug!(
+										"Pausing Job <id='{job_id}', name='{job_name}'> took {:?}",
+										when.elapsed()
+									);
+
+									// In case of a Pause command, we keep waiting for the next command
+									let paused_time = Instant::now();
+									while let Some(command) = commands_rx.recv().await {
+										match command {
+											WorkerCommand::Resume(when) => {
+												debug!(
+													"Resuming Job <id='{job_id}', name='{job_name}'> took {:?}",
+													when.elapsed(),
+												);
+												debug!(
+													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
+													paused_time.elapsed(),
+												);
+												break;
+											}
+											// The job can also be shutdown or canceled while paused
+											WorkerCommand::Shutdown(when, signal_tx) => {
+												job_step_handle.abort();
+												let _ = job_step_handle.await;
+
+												debug!(
+													"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
+													 after running for {:?}",
+													when.elapsed(),
+													job_time.elapsed(),
+												);
+												debug!(
+													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
+													paused_time.elapsed(),
+												);
+
+												// Taking back the last step, so it can run to completion later
+												steps.push_front(
+													Arc::try_unwrap(step_arc)
+														.expect("step already ran, no more refs"),
+												);
+
+												return Err(
+													JobError::Paused(
+														rmp_serde::to_vec_named(
+															&JobState::<SJob> {
+																init: Arc::try_unwrap(stateful_job)
+																	.expect("handle abort already ran, no more refs"),
+																data: Some(
+																	Arc::try_unwrap(working_data_arc)
+																		.expect("handle abort already ran, no more refs"),
+																),
+																steps,
+																step_number,
+																run_metadata: Arc::try_unwrap(run_metadata_arc)
+																	.expect("handle abort already ran, no more refs"),
+															}
+														)?,
+														signal_tx
+													)
+												);
+											}
+											WorkerCommand::Cancel(when, signal_tx) => {
+												job_step_handle.abort();
+												let _ = job_step_handle.await;
+												debug!(
+													"Canceling Job <id='{job_id}', name='{job_name}'> \
+													 took {:?} after running for {:?}",
+													when.elapsed(),
+													job_time.elapsed(),
+												);
+												debug!(
+													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
+													paused_time.elapsed(),
+												);
+												return Err(JobError::Canceled(signal_tx));
+											}
+											WorkerCommand::Pause(_) => {
+												// We continue paused lol
+											}
+										}
+									}
+								}
+								WorkerCommand::Resume(_) => {
+									// We're already running so we just ignore this command
+								}
+
+								WorkerCommand::Shutdown(when, signal_tx) => {
+									job_step_handle.abort();
+									let _ = job_step_handle.await;
+
+									debug!(
+										"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
+										 after running for {:?}",
+										when.elapsed(),
+										job_time.elapsed(),
+									);
+
+									// Taking back the last step, so it can run to completion later
+									steps.push_front(
+										Arc::try_unwrap(step_arc)
+											.expect("handle abort already ran, no more refs"),
+									);
+
+									return Err(
+										JobError::Paused(
+											rmp_serde::to_vec_named(
+												&JobState::<SJob> {
+													init: Arc::try_unwrap(stateful_job)
+														.expect("handle abort already ran, no more refs"),
+													data: Some(
+														Arc::try_unwrap(working_data_arc)
+															.expect("handle abort already ran, no more refs"),
+													),
+													steps,
+													step_number,
+													run_metadata: Arc::try_unwrap(run_metadata_arc)
+														.expect("step already ran, no more refs"),
+												}
+											)?,
+											signal_tx
+										)
+									);
+								}
+								WorkerCommand::Cancel(when, signal_tx) => {
+									job_step_handle.abort();
+									let _ = job_step_handle.await;
+									debug!(
+										"Canceling Job <id='{job_id}', name='{job_name}'> took {:?} \
+										 after running for {:?}",
+										when.elapsed(),
+										job_time.elapsed(),
+									);
+									return Err(JobError::Canceled(signal_tx));
+								}
+							}
+						}
+
+						// Here we actually run the job, step by step
+						step_result = &mut job_step_handle => {
+							trace!(
+								"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
+								step_time.elapsed(),
+							);
+
+							run_metadata = Arc::try_unwrap(run_metadata_arc)
+								.expect("step already ran, no more refs");
+
+							match step_result? {
+								Ok(JobStepOutput {
+									maybe_more_steps,
+									maybe_more_metadata,
+									errors: JobRunErrors(new_errors)
+								}) => {
+									let mut events = vec![
+										JobReportUpdate::CompletedTaskCount(
+											step_number + 1,
+										)
+									];
+
+									if let Some(more_steps) = maybe_more_steps {
+										events.push(JobReportUpdate::TaskCount(
+											steps_len + more_steps.len(),
+										));
+
+										steps.extend(more_steps);
+									}
+
+									if let Some(more_metadata) = maybe_more_metadata {
+										run_metadata.update(more_metadata);
+									}
+
+									ctx.progress(events);
+
+									if !new_errors.is_empty() {
+										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
+										new_errors.iter().for_each(|err| {
+											warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
+										});
+
+										errors.extend(new_errors);
+									}
+								}
+								Err(e) if matches!(e, JobError::EarlyFinish { .. }) => {
+									info!("{e}");
+									break;
+								}
+								Err(e) => return Err(e),
+							}
+							// remove the step from the queue
+							step_number += 1;
+
+							break;
+						}
 					}
-					WorkerCommand::Cancel => {
-						return Err(JobError::Canceled(rmp_serde::to_vec_named(&self.state)?));
-					}
 				}
 			}
 
-			let mut state_preserved = false;
-			// Every X milliseconds, check the AtomicBool if we should pause or stay paused
-			while ctx.paused.load(Ordering::Relaxed) {
-				if !state_preserved {
-					// Save the state of the job
-					println!("Saving state {:?}", &self.report);
-					// ctx.preserve_state(rmp_serde::to_vec_named(&self.state)?);
-				}
-				state_preserved = true;
-				tokio::time::sleep(Duration::from_millis(500)).await;
-			}
+			debug!(
+				"Total job run time {:?} Job <id='{job_id}', name='{job_name}'>",
+				job_time.elapsed()
+			);
 
-			// process job step and handle errors if any
-			let step_result = self.stateful_job.execute_step(ctx, &mut self.state).await;
-			match step_result {
-				Err(JobError::EarlyFinish { .. }) => {
-					step_result
-						.map_err(|err| {
-							warn!("{}", err);
-						})
-						.ok();
-					break;
-				}
-				Err(JobError::StepCompletedWithErrors(errors_text)) => {
-					warn!("Job<id='{}'> had a step with errors", self.id);
-					errors.extend(errors_text);
-				}
-				maybe_err => maybe_err?,
-			}
-			// remove the step from the queue
-			self.state.steps.pop_front();
-			self.state.step_number += 1;
-		}
+			Some(Arc::try_unwrap(working_data_arc).expect("job already ran, no more refs"))
+		} else {
+			warn!("Tried to run a job without data Job <id='{job_id}', name='{job_name}'>");
+			None
+		};
 
-		let metadata = self.stateful_job.finalize(ctx, &mut self.state).await?;
+		let metadata = stateful_job.finalize(&ctx, &data, &run_metadata).await?;
 
 		let mut next_jobs = mem::take(&mut self.next_jobs);
 
-		if let Some(mut next_job) = next_jobs.pop_front() {
-			debug!(
-				"Job '{}' requested to spawn '{}' now that it's complete!",
-				self.name(),
-				next_job.name()
-			);
-			next_job.set_next_jobs(next_jobs);
+		Ok(JobRunOutput {
+			metadata,
+			errors: errors.into(),
+			next_job: next_jobs.pop_front().map(|mut next_job| {
+				debug!(
+					"Job<id='{job_id}', name='{job_name}'> requesting to spawn '{}' now that it's complete!",
+					next_job.name()
+				);
+				next_job.set_next_jobs(next_jobs);
 
-			if let Err(e) = job_manager.clone().ingest(&ctx.library, next_job).await {
-				error!("Failed to ingest next job: {e}");
-			}
-		}
-
-		Ok((metadata, errors))
+				next_job
+			}),
+		})
 	}
 
 	fn hash(&self) -> u64 {
-		<SJob::Init as JobInitData>::hash(&self.state.init)
+		self.hash
 	}
 
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>) {
@@ -422,24 +919,4 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		Ok(())
 	}
-}
-
-#[macro_export]
-macro_rules! extract_job_data {
-	($state:ident) => {{
-		$state
-			.data
-			.as_ref()
-			.expect("critical error: missing data on job state")
-	}};
-}
-
-#[macro_export]
-macro_rules! extract_job_data_mut {
-	($state:ident) => {{
-		$state
-			.data
-			.as_mut()
-			.expect("critical error: missing data on job state")
-	}};
 }

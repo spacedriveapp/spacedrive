@@ -19,15 +19,14 @@ use sd_sync::CRDTOperation;
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::{Path, PathBuf},
+	path::Path,
 };
 
 use futures::future::join_all;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::fs;
-use tracing::{error, info};
+use tracing::{error, trace};
 use uuid::Uuid;
 
 pub mod file_identifier_job;
@@ -84,7 +83,7 @@ impl FileMetadata {
 			.await
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
-		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
+		trace!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
@@ -92,15 +91,6 @@ impl FileMetadata {
 			fs_metadata,
 		})
 	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FileIdentifierReport {
-	location_path: PathBuf,
-	total_orphan_paths: usize,
-	total_objects_created: usize,
-	total_objects_linked: usize,
-	total_objects_ignored: usize,
 }
 
 async fn identifier_job_step(
@@ -213,7 +203,7 @@ async fn identifier_job_step(
 		)
 		.await?;
 
-	info!(
+	trace!(
 		"Found {} existing Objects in Library, linking file paths...",
 		existing_objects.len()
 	);
@@ -230,7 +220,7 @@ async fn identifier_job_step(
 			.map(|(_, (meta, _))| &meta.cas_id)
 			.collect::<HashSet<_>>();
 
-		info!(
+		trace!(
 			"Creating {} new Objects in Library... {:#?}",
 			file_paths_requiring_new_object.len(),
 			new_objects_cas_ids
@@ -292,10 +282,10 @@ async fn identifier_job_step(
 				0
 			});
 
-		info!("Created {} new Objects in Library", total_created_files);
+		trace!("Created {} new Objects in Library", total_created_files);
 
 		if total_created_files > 0 {
-			info!("Updating file paths with created objects");
+			trace!("Updating file paths with created objects");
 
 			sync.write_ops(db, {
 				let data: (Vec<_>, Vec<_>) = file_path_update_args.into_iter().unzip();
@@ -304,7 +294,7 @@ async fn identifier_job_step(
 			})
 			.await?;
 
-			info!("Updated file paths with created objects");
+			trace!("Updated file paths with created objects");
 		}
 
 		total_created_files as usize
@@ -321,7 +311,8 @@ fn file_path_object_connect_ops<'db>(
 	sync: &SyncManager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
-	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
+	#[cfg(debug_assertions)]
+	trace!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	let vec_id = object_id.as_bytes().to_vec();
 
@@ -346,23 +337,27 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut file_path::id::Type,
+	cursor: file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
-) -> Result<(usize, usize), JobError> {
-	info!(
+) -> Result<(usize, usize, file_path::id::Type), JobError> {
+	trace!(
 		"Processing {:?} orphan Paths. ({} completed of {})",
 		file_paths.len(),
 		step_number,
 		orphan_count
 	);
 
-	let counts = identifier_job_step(library, location, file_paths).await?;
+	let (total_objects_created, total_objects_linked) =
+		identifier_job_step(library, location, file_paths).await?;
 
-	// set the step data cursor to the last row of this chunk
-	if let Some(last_row) = file_paths.last() {
-		*cursor = last_row.id;
-	}
-
-	Ok(counts)
+	Ok((
+		total_objects_created,
+		total_objects_linked,
+		// returns a new cursor to the last row of this chunk or the current one
+		file_paths
+			.last()
+			.map(|last_row| last_row.id)
+			.unwrap_or(cursor),
+	))
 }

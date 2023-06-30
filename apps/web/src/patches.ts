@@ -1,7 +1,5 @@
 import { wsBatchLink } from '@rspc/client/v2';
 
-const serverOrigin = import.meta.env.VITE_SDSERVER_ORIGIN || 'localhost:8080';
-
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [
 	// TODO
@@ -9,6 +7,16 @@ globalThis.rspcLinks = [
 	// 	enabled: () => getDebugState().rspcLogger
 	// }),
 	wsBatchLink({
-		url: `ws://${serverOrigin}/rspc/ws`
+		url: (() => {
+			const currentURL = new URL(window.location.href);
+			currentURL.protocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
+			if (import.meta.env.VITE_SDSERVER_ORIGIN) {
+				currentURL.host = import.meta.env.VITE_SDSERVER_ORIGIN;
+			} else if (import.meta.env.DEV) {
+				currentURL.host = 'localhost:8080';
+			}
+			currentURL.pathname = 'rspc/ws';
+			return currentURL.href;
+		})()
 	})
 ];

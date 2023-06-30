@@ -14,7 +14,7 @@ export * from './Switch';
 export * as Tabs from './Tabs';
 export * as RadioGroup from './RadioGroup';
 export * from './Typography';
-export * as forms from './forms';
+export * from './forms';
 export * from './utils';
 export * from './Tooltip';
 export * from './Slider';

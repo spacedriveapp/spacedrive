@@ -34,8 +34,8 @@ export default ({ location }: Props) => {
 		>
 			<Folder white={!isDark} className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
-				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
+				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
+				<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
 					{location.node && (
 						<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
 							{location.node.name}
@@ -89,7 +89,7 @@ export default ({ location }: Props) => {
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						fullRescan.mutate(location.id);
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: false });
 					}}
 				>
 					<Tooltip label="Rescan Location">

@@ -8,7 +8,7 @@ export type Procedures = {
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroups } | 
+        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -38,6 +38,7 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
+        { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
@@ -51,7 +52,7 @@ export type Procedures = {
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
+        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
@@ -88,11 +89,11 @@ export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" 
 
 export type ChangeNodeNameArgs = { name: string | null }
 
-export type CreateLibraryArgs = { name: string }
+export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
-export type EditLibraryArgs = { id: string; name: string | null; description: MaybeUndefined<string> }
+export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
 
@@ -115,6 +116,8 @@ export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOr
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
 export type FromPattern = { pattern: string; replace_all: boolean }
+
+export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
@@ -140,8 +143,6 @@ export type InvalidateOperationEvent = { key: string; arg: any; result: any | nu
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
-export type JobGroups = { groups: JobGroup[]; index: { [key: string]: number } }
-
 export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
@@ -154,6 +155,8 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
+
+export type LibraryName = string
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -233,7 +236,7 @@ export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedLibraryConfig = { name: string; description: string | null; node_id: string }
+export type SanitisedLibraryConfig = { name: LibraryName; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 

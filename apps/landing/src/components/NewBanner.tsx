@@ -12,7 +12,7 @@ const NewBanner: React.FC<NewBannerProps> = (props) => {
 	return (
 		<aside
 			onClick={() => (window.location.href = href)}
-			className="fade-in-whats-new z-10 mb-5 flex w-10/12 cursor-pointer flex-row rounded-full border border-blue-200 border-opacity-50 bg-gray-800/50 px-5 py-1.5 text-xs transition hover:border-gray-550 hover:bg-gray-750 sm:w-auto sm:text-base"
+			className="fade-in-whats-new z-10 mb-5 flex w-10/12 cursor-pointer flex-row rounded-full border border-gray-550/50 bg-gray-800/50 px-5 py-1.5 text-xs transition hover:border-blue-200/50 hover:bg-gray-750 sm:w-auto sm:text-base"
 		>
 			<strong className="truncate font-semibold text-gray-350">{headline}</strong>
 			<div role="separator" className="h-22 mx-4 w-[1px] bg-gray-500" />
