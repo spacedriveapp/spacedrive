@@ -77,7 +77,16 @@ const platform: Platform = {
 	...commands
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			networkMode: 'always'
+		},
+		mutations: {
+			networkMode: 'always'
+		}
+	}
+});
 
 const router = createBrowserRouter(routes);
 
