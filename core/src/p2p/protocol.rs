@@ -132,14 +132,14 @@ pub enum NodeInformationError {
 
 /// is shared between nodes during pairing and contains the information to identify the node.
 #[derive(Debug, PartialEq, Eq)]
-pub struct NodeInformation {
+pub struct NodeLibraryPairingInformation {
 	pub pub_id: Uuid,
 	pub name: String,
 	pub public_key: RemoteIdentity,
 	pub platform: Platform,
 }
 
-impl NodeInformation {
+impl NodeLibraryPairingInformation {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, NodeInformationError> {
@@ -233,7 +233,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_node_information() {
-		let original = NodeInformation {
+		let original = NodeLibraryPairingInformation {
 			pub_id: Uuid::new_v4(),
 			name: "Name".into(),
 			public_key: Identity::new().to_remote_identity(),
@@ -242,7 +242,9 @@ mod tests {
 
 		let buf = original.to_bytes();
 		let mut cursor = std::io::Cursor::new(buf);
-		let info = NodeInformation::from_stream(&mut cursor).await.unwrap();
+		let info = NodeLibraryPairingInformation::from_stream(&mut cursor)
+			.await
+			.unwrap();
 
 		assert_eq!(original, info);
 	}

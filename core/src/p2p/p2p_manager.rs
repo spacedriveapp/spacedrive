@@ -34,7 +34,7 @@ use uuid::Uuid;
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{NodeInformation, OperatingSystem, SyncRequestError, SPACEDRIVE_APP_ID},
+	p2p::{NodeLibraryPairingInformation, OperatingSystem, SyncRequestError, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
@@ -222,9 +222,10 @@ impl P2PManager {
 											library_manager.get_library(library_id).await.unwrap();
 
 										debug!("Waiting for nodeinfo from the remote node");
-										let remote_info = NodeInformation::from_stream(&mut stream)
-											.await
-											.unwrap();
+										let remote_info =
+											NodeLibraryPairingInformation::from_stream(&mut stream)
+												.await
+												.unwrap();
 										debug!(
 											"Received nodeinfo from the remote node: {:?}",
 											remote_info
@@ -252,7 +253,7 @@ impl P2PManager {
 										.unwrap();
 
 										// TODO(@oscar): check if this should be library stuff
-										let info = NodeInformation {
+										let info = NodeLibraryPairingInformation {
 											pub_id: library.config.node_id,
 											name: library.config.name.to_string(),
 											public_key: library.identity.to_remote_identity(),
@@ -428,7 +429,7 @@ impl P2PManager {
 			// TODO: Apply some security here cause this is so open to MITM
 			// TODO: Signing and a SPAKE style pin prompt
 
-			let info = NodeInformation {
+			let info = NodeLibraryPairingInformation {
 				pub_id: lib.config.node_id,
 				name: lib.config.name.to_string(),
 				public_key: lib.identity.to_remote_identity(),
@@ -439,7 +440,9 @@ impl P2PManager {
 			stream.write_all(&info.to_bytes()).await.unwrap();
 
 			debug!("Waiting for nodeinfo from the remote node");
-			let remote_info = NodeInformation::from_stream(&mut stream).await.unwrap();
+			let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
+				.await
+				.unwrap();
 			debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
 			node::Create {
