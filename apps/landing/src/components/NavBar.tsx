@@ -60,7 +60,7 @@ export default function NavBar() {
 		<div
 			className={clsx(
 				'fixed z-[55] h-16 w-full px-2 transition',
-				isAtTop ? 'bg-transparent' : 'backdrop-blur'
+				isAtTop ? 'bg-transparent' : 'navbar-blur !bg-black/50'
 			)}
 		>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
@@ -148,8 +148,8 @@ export default function NavBar() {
 				</div>
 			</div>
 			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
-				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/30"></div>
-				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/30"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
 		</div>
 	);

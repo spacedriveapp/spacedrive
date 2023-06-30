@@ -62,33 +62,9 @@ const AppEmbed = () => {
 				<div className="bloom burst bloom-two" />
 			</div>
 			{/* )} */}
-			<div className="relative z-30 mx-6 mt-8 h-[255px] px-1 sm:mt-16 sm:h-[428px] md:h-[428px] lg:h-[628px]">
-				<div
-					className={clsx(
-						'relative m-auto h-full max-w-7xl rounded-lg border border-gray-550 opacity-0 transition-opacity',
-						renderBloom && '!opacity-100'
-						// renderImage && 'border-none bg-transparent'
-					)}
-				>
-					{/* {showApp && !forceImg && (
-						<iframe
-							ref={iFrame}
-							referrerPolicy="origin-when-cross-origin"
-							className={clsx(
-								'shadow-iframe inset-center z-30 h-full w-full rounded-lg bg-gray-850',
-								iFrameAppReady
-									? 'fade-in-app-embed opacity-100'
-									: 'ml-[-10000px] opacity-0'
-							)}
-							src={`${
-								process.env.NEXT_PUBLIC_SDWEB_BASE_URL || 'http://localhost:8002'
-							}?showControls&library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
-						/>
-					)} */}
-					{/* {renderImage && (
-						<div className="fade-in-app-embed landing-img z-40 h-full w-auto" />
-					)} */}
-					<div className="z-30 h-[400px] w-[800px] rounded-lg bg-[red]"></div>
+			<div className="z-30 mt-8 flex h-[255px] w-full px-6 sm:mt-24 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+				<div className="relative m-auto flex h-full w-full max-w-7xl rounded-lg border border-black transition-opacity">
+					<div className="z-30 flex w-full rounded-lg border border-app-frame bg-app/70 backdrop-blur"></div>
 				</div>
 			</div>
 		</div>
