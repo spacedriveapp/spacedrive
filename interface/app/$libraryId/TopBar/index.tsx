@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { RefObject } from 'react';
 import { NavigationButtons } from './NavigationButtons';
 import SearchBar from './SearchBar';
@@ -10,15 +11,20 @@ interface Props {
 }
 
 const TopBar = (props: Props) => {
+	const transparentBg = window.location.search.includes('transparentBg');
+
 	return (
 		<div
 			data-tauri-drag-region
-			className="
+			className={clsx(
+				`
 				duration-250 top-bar-blur absolute left-0 top-0 z-50 flex
 				h-[46px] w-full flex-row items-center justify-center overflow-hidden
-				border-b border-sidebar-divider bg-app/90 px-3.5
+				border-b border-sidebar-divider px-3.5
 				transition-[background-color,border-color] ease-out
-			"
+			`,
+				transparentBg ? 'bg-app/0' : 'bg-app/90'
+			)}
 		>
 			<div data-tauri-drag-region className="flex flex-1 flex-row items-center">
 				<NavigationButtons />

@@ -19,6 +19,7 @@ import Toasts from './Toasts';
 const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
+	const transparentBg = window.location.search.includes('transparentBg');
 
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
@@ -40,7 +41,8 @@ const Layout = () => {
 			className={clsx(
 				// App level styles
 				'flex h-screen cursor-default select-none overflow-hidden text-ink',
-				os === 'browser' && 'border-t border-app-line/50 bg-app',
+				os === 'browser' && 'border-t border-app-line/50',
+				// os === 'browser' && !transparentBg && 'bg-app',
 				os === 'macOS' && 'has-blur-effects rounded-[10px]',
 				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
 			)}
@@ -51,11 +53,25 @@ const Layout = () => {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full overflow-hidden bg-app">
+			<div
+				className={clsx(
+					'relative flex w-full overflow-hidden',
+					transparentBg ? 'bg-app/80' : 'bg-app'
+				)}
+			>
 				{library ? (
 					<QuickPreviewContextProvider>
 						<LibraryContextProvider library={library}>
-							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+							<Suspense
+								fallback={
+									<div
+										className={clsx(
+											'h-screen w-screen',
+											transparentBg ? 'bg-app/80' : 'bg-app'
+										)}
+									/>
+								}
+							>
 								<Outlet />
 							</Suspense>
 						</LibraryContextProvider>

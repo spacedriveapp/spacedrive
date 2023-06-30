@@ -36,6 +36,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
+	const transparentBg = window.location.search.includes('transparentBg');
 
 	useEffect(() => {
 		const element = ref.current;
@@ -64,14 +65,19 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	};
 
 	return (
-		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
+		<div
+			className={clsx(
+				'sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur',
+				transparentBg && '!bg-none'
+			)}
+		>
 			<div
 				onClick={() => handleArrowOnClick('right')}
 				className={clsx(
 					scroll > 0
-						? 'cursor-pointer bg-app/50 opacity-100 hover:opacity-95'
+						? 'cursor-pointer opacity-100 hover:opacity-95'
 						: 'pointer-events-none',
-					'sticky left-[15px] z-40 -ml-4 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
+					'sticky left-[15px] z-40 -ml-4 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line  p-2 opacity-0 backdrop-blur-md transition-all duration-200'
 				)}
 			>
 				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />

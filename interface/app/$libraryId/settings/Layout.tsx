@@ -8,7 +8,7 @@ export const Component = () => {
 	const os = useOperatingSystem();
 
 	return (
-		<div className="app-background flex w-full flex-row">
+		<div className="flex w-full flex-row bg-app">
 			<Sidebar />
 			<div className="relative w-full">
 				<Suspense>

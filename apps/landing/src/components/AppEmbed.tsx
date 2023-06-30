@@ -62,9 +62,11 @@ const AppEmbed = () => {
 				<div className="bloom burst bloom-two" />
 			</div>
 			{/* )} */}
-			<div className="z-30 mt-8 flex h-[255px] w-full px-6 sm:mt-24 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+			<div className="z-30 mt-8 flex h-[255px] w-full px-6 sm:mt-20 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 				<div className="relative m-auto flex h-full w-full max-w-7xl rounded-lg border border-black transition-opacity">
-					<div className="z-30 flex w-full rounded-lg border border-app-frame bg-app/70 backdrop-blur"></div>
+					<div className="z-30 flex w-full rounded-lg bg-app/30 backdrop-blur">
+						<img className="rounded-lg" src="/images/test.png" />
+					</div>
 				</div>
 			</div>
 		</div>
