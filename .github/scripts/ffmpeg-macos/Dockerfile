@@ -1,60 +1,24 @@
 ARG FAKE_DEPS="gettext-runtime libiconv ncurses" \
-	FFMPEG_DEPS="brotli bzip2 dav1d fribidi libde265 libjxl libopus libpng libvorbis libvpx-devel \
-	openjpeg soxr xz zimg" \
-	HARFBUZZ_VERSION=7.3.0 \
-	FREETYPE_VERSION=VER-2-13-1 \
-	LIBASS_VERSION=0.17.1 \
-	ZVBI_VERSION=0.2.41 \
+	FFMPEG_DEPS="brotli bzip2 dav1d libde265 libjxl libopus libpng libvorbis libvpx-devel openjpeg \
+	soxr xz zimg" \
 	LIBWEBP_VERSION=1.3.1 \
 	FFMPEG_VERSION=6.0 \
 	LIBHEIF_VERSION=1.16.2
 
-FROM vvaconcellos/osxcross:12.3-564e2b9-8 as base
+FROM vvasconcellos/osxcross:12.3-564e2b9-8 as base
 
 SHELL ["/bin/bash", "-eux", "-o", "pipefail", "-c"]
 
 WORKDIR /srv
 
-ARG HARFBUZZ_VERSION
-ADD https://github.com/harfbuzz/harfbuzz/releases/download/${HARFBUZZ_VERSION}/harfbuzz-${HARFBUZZ_VERSION}.tar.xz ./
-RUN tar -xf "harfbuzz-${HARFBUZZ_VERSION}.tar.xz" && rm "harfbuzz-${HARFBUZZ_VERSION}.tar.xz" \
-	&& \
-	mv "/srv/harfbuzz-${HARFBUZZ_VERSION}" /srv/harfbuzz
-
-ARG FREETYPE_VERSION
-ADD https://gitlab.freedesktop.org/freetype/freetype/-/archive/${FREETYPE_VERSION}/freetype-${FREETYPE_VERSION}.tar.gz ./
-RUN tar -xf "freetype-${FREETYPE_VERSION}.tar.gz" && rm "freetype-${FREETYPE_VERSION}.tar.gz" \
-	&& \
-	mv "/srv/freetype-${FREETYPE_VERSION}" /srv/freetype
-
-ARG LIBASS_VERSION
-ADD https://github.com/libass/libass/releases/download/${LIBASS_VERSION}/libass-${LIBASS_VERSION}.tar.xz ./
-RUN tar -xf "libass-${LIBASS_VERSION}.tar.xz" && rm "libass-${LIBASS_VERSION}.tar.xz" \
-	&& \
-	mv "/srv/libass-${LIBASS_VERSION}" /srv/libass
-
 ARG LIBWEBP_VERSION
-ADD https://github.com/webmproject/libwebp/archive/refs/tags/v${LIBWEBP_VERSION}.tar.gz ./
+ADD "https://github.com/webmproject/libwebp/archive/refs/tags/v${LIBWEBP_VERSION}.tar.gz" ./
 RUN tar -xf "v${LIBWEBP_VERSION}.tar.gz" && rm "v${LIBWEBP_VERSION}.tar.gz" \
 	&& \
 	mv "/srv/libwebp-${LIBWEBP_VERSION}" /srv/libwebp
 
-ARG ZVBI_VERSION
-ADD https://github.com/zapping-vbi/zvbi/archive/refs/tags/v${ZVBI_VERSION}.tar.gz ./
-RUN tar -xf "v${ZVBI_VERSION}.tar.gz" && rm "v${ZVBI_VERSION}.tar.gz" \
-	&& \
-	mv "/srv/zvbi-${ZVBI_VERSION}" /srv/zvbi \
-	&& \
-	cd /srv/zvbi \
-	&& \
-	for patch in \
-	'https://github.com/videolan/vlc/raw/f7bb59d9f51cc10b25ff86d34a3eff744e60c46e/contrib/src/zvbi/zvbi-ssize_max.patch' \
-	'https://github.com/videolan/vlc/raw/f7bb59d9f51cc10b25ff86d34a3eff744e60c46e/contrib/src/zvbi/zvbi-ioctl.patch' \
-	'https://github.com/videolan/vlc/raw/f7bb59d9f51cc10b25ff86d34a3eff744e60c46e/contrib/src/zvbi/zvbi-fix-clang-support.patch' \
-	; do curl -LSs "$patch" | patch -p1; done
-
 ARG LIBHEIF_VERSION
-ADD https://github.com/strukturag/libheif/releases/download/v${LIBHEIF_VERSION}/libheif-${LIBHEIF_VERSION}.tar.gz ./
+ADD "https://github.com/strukturag/libheif/releases/download/v${LIBHEIF_VERSION}/libheif-${LIBHEIF_VERSION}.tar.gz" ./
 RUN tar -xf "libheif-${LIBHEIF_VERSION}.tar.gz" && rm "libheif-${LIBHEIF_VERSION}.tar.gz" \
 	&& \
 	mv "/srv/libheif-${LIBHEIF_VERSION}" /srv/libheif
@@ -63,7 +27,15 @@ ARG FFMPEG_VERSION
 ADD "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" ./
 RUN tar -xf "ffmpeg-${FFMPEG_VERSION}.tar.xz" && rm "ffmpeg-${FFMPEG_VERSION}.tar.xz" \
 	&& \
-	mv "/srv/ffmpeg-${FFMPEG_VERSION}" /srv/ffmpeg
+	mv "/srv/ffmpeg-${FFMPEG_VERSION}" /srv/ffmpeg \
+	&& \
+	cd /srv/ffmpeg \
+	&& \
+	for patch in \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-libavcodec-audiotoolboxenc.c.diff' \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-avutil-builtin-available.diff' \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-libavcodec-profvidworkflow.diff' \
+	; do curl -LSs "$patch" | patch -p0; done
 
 # ---
 FROM base as x86_64

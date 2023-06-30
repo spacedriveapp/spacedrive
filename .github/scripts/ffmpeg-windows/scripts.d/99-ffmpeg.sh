@@ -32,6 +32,7 @@ ffbuild_dockerbuild() {
     --disable-parser=avs3 \
     --disable-postproc \
     --disable-programs \
+    --disable-libwebp \
     --disable-sdl2 \
     --disable-metal \
     --disable-network \
@@ -49,15 +50,12 @@ ffbuild_dockerbuild() {
     --disable-xmm-clobber-test \
     --disable-neon-clobber-test \
     --enable-amf \
-    --enable-libass \
     --enable-avcodec \
     --enable-avfilter \
     --enable-avformat \
     --enable-bzlib \
     --enable-cuda-llvm \
     --enable-ffnvcodec \
-    --enable-libfreetype \
-    --enable-libfribidi \
     --enable-gpl \
     --enable-gray \
     --enable-iconv \
@@ -71,9 +69,7 @@ ffbuild_dockerbuild() {
     --enable-libvorbis \
     --enable-libvpl \
     --enable-libvpx \
-    --enable-libwebp \
     --enable-libzimg \
-    --enable-libzvbi \
     --enable-lzma \
     --enable-openal \
     --enable-opencl \

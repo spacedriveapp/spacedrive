@@ -28,10 +28,6 @@ FROM layer-10 AS layer-20-bzip2
 
 RUN --mount=src=scripts.d/20-bzip2.sh,dst=/stage.sh --mount=src=patches/bzip2,dst=/patches run_stage /stage.sh
 
-FROM layer-10 AS layer-20-harfbuzz
-
-RUN --mount=src=scripts.d/20-harfbuzz.sh,dst=/stage.sh run_stage /stage.sh
-
 FROM layer-10 AS layer-20-iconv
 
 RUN --mount=src=scripts.d/20-iconv.sh,dst=/stage.sh run_stage /stage.sh
@@ -46,15 +42,9 @@ COPY --from=layer-20-brotli $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-20-bzip2 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
-COPY --from=layer-20-harfbuzz $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
 COPY --from=layer-20-iconv $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-20-zlib $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-FROM layer-20 AS layer-25-fribidi
-
-RUN --mount=src=scripts.d/25-fribidi.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-20 AS layer-25-libogg
 
@@ -70,17 +60,11 @@ RUN --mount=src=scripts.d/25-xz.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-20 AS layer-25
 
-COPY --from=layer-25-fribidi $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
 COPY --from=layer-25-libogg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-25-libpng $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-25-xz $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-FROM layer-25 AS layer-45-freetype
-
-RUN --mount=src=scripts.d/45-freetype.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-25 AS layer-45-libvorbis
 
@@ -91,8 +75,6 @@ FROM layer-25 AS layer-45-opencl
 RUN --mount=src=scripts.d/45-opencl.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-25 AS layer-45
-
-COPY --from=layer-45-freetype $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-45-libvorbis $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -109,10 +91,6 @@ RUN --mount=src=scripts.d/50-dav1d.sh,dst=/stage.sh run_stage /stage.sh
 FROM layer-45 AS layer-50-ffnvcodec
 
 RUN --mount=src=scripts.d/50-ffnvcodec.sh,dst=/stage.sh run_stage /stage.sh
-
-FROM layer-45 AS layer-50-libass
-
-RUN --mount=src=scripts.d/50-libass.sh,dst=/stage.sh run_stage /stage.sh
 
 FROM layer-45 AS layer-50-libde265
 
@@ -162,10 +140,6 @@ FROM layer-45 AS layer-50-zimg
 
 RUN --mount=src=scripts.d/50-zimg.sh,dst=/stage.sh run_stage /stage.sh
 
-FROM layer-45 AS layer-50-zvbi
-
-RUN --mount=src=scripts.d/50-zvbi.sh,dst=/stage.sh run_stage /stage.sh
-
 FROM layer-45 AS layer-50
 
 COPY --from=layer-50-amf $FFBUILD_PREFIX/. $FFBUILD_PREFIX
@@ -174,8 +148,6 @@ COPY --from=layer-50-dav1d $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 COPY --from=layer-50-dav1d /opt/dlls /opt/dlls
 
 COPY --from=layer-50-ffnvcodec $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-COPY --from=layer-50-libass $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-libde265 $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
@@ -198,8 +170,6 @@ COPY --from=layer-50-soxr $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 COPY --from=layer-50-vulkan $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 COPY --from=layer-50-zimg $FFBUILD_PREFIX/. $FFBUILD_PREFIX
-
-COPY --from=layer-50-zvbi $FFBUILD_PREFIX/. $FFBUILD_PREFIX
 
 FROM layer-50 AS layer-99-libheif
 

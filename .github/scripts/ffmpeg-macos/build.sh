@@ -90,74 +90,6 @@ setup_cross_env() {
   export PKG_CONFIG="${TRIPLE}-pkg-config"
 }
 
-# Change cwd to harfbuzz source root
-mkdir -p /srv/harfbuzz/build
-CDPATH='' cd -- /srv/harfbuzz/build
-
-# Configure harfbuzz
-meson \
-  --prefix="/opt/local" \
-  --buildtype=release \
-  --default-library=shared \
-  --cross-file="${_osxcross_root}/${TRIPLE}.meson" \
-  --force-fallback-for=freetype2 \
-  -Dglib=disabled \
-  -Dgobject=disabled \
-  -Dcairo=disabled \
-  -Dchafa=disabled \
-  -Dgraphite=disabled \
-  -Dgraphite2=disabled \
-  -Dcoretext=enabled \
-  -Dtests=disabled \
-  -Dintrospection=disabled \
-  -Ddocs=disabled \
-  -Dutilities=disabled \
-  ..
-
-# Build harfbuzz
-ninja -j"$(nproc)" install
-
-# Change cwd to freetype source root
-mkdir -p /srv/freetype/build
-CDPATH='' cd -- /srv/freetype/build
-
-# Configure freetype
-meson \
-  --prefix="/opt/local" \
-  --buildtype=release \
-  --default-library=shared \
-  --cross-file="${_osxcross_root}/${TRIPLE}.meson" \
-  -Dpng=enabled \
-  -Dbzip2=enabled \
-  -Dtests=disabled \
-  -Dbrotli=enabled \
-  -Dharfbuzz=enabled \
-  ..
-
-# Build freetype
-ninja -j"$(nproc)" install
-
-# Change cwd to libass source root
-CDPATH='' cd -- /srv/libass
-
-# Configure libass
-(
-  setup_cross_env
-  export CFLAGS="${CFLAGS:-} -Dread_file=libass_internal_read_file"
-  ./configure \
-    --host="$TRIPLE" \
-    --prefix="/opt/local" \
-    --enable-shared \
-    --disable-static \
-    --with-sysroot="${_sdk}" \
-    --with-pic \
-    --enable-coretext \
-    --enable-large-tiles
-
-  # Build libass
-  make -j"$(nproc)" install
-)
-
 # Change cwd to libwebp source root
 CDPATH='' cd -- /srv/libwebp
 
@@ -168,8 +100,8 @@ CDPATH='' cd -- /srv/libwebp
   ./configure \
     --host="$TRIPLE" \
     --prefix="/opt/local" \
-    --enable-shared \
-    --disable-static \
+    --disable-shared \
+    --enable-static \
     --with-sysroot="${_sdk}" \
     --with-pic \
     --enable-everything \
@@ -182,37 +114,6 @@ CDPATH='' cd -- /srv/libwebp
   # Build libwebp
   make -j"$(nproc)" install
 )
-
-# Change cwd to zvbi source root
-CDPATH='' cd -- /srv/zvbi
-
-# Configure zvbi
-(
-  setup_cross_env
-  # Disable broken autoconf malloc/realloc check
-  export ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes
-  ./autogen.sh
-  ./configure \
-    --host="$TRIPLE" \
-    --prefix="/opt/local" \
-    --enable-shared \
-    --disable-static \
-    --with-sysroot="${_sdk}" \
-    --with-pic \
-    --without-doxygen \
-    --without-x \
-    --disable-dvb \
-    --disable-bktr \
-    --disable-nls \
-    --disable-v4l \
-    --disable-proxy
-
-  # Build zvbi
-  make -j"$(nproc)" install
-)
-
-# Fix zvbi pkg-config
-sed -i "s/\/[^ ]*libiconv.a/-liconv/" /opt/local/lib/pkgconfig/zvbi-0.2.pc
 
 # Create a tmp TARGET_DIR
 TARGET_DIR="$(mktemp -d -t target-XXXXXXXXXX)"
@@ -296,6 +197,7 @@ FFMPEG_VERSION="$(xargs printf '%s' <VERSION)"
   --disable-parser=avs3 \
   --disable-postproc \
   --disable-programs \
+  --disable-libwebp \
   --disable-sdl2 \
   --disable-metal \
   --disable-network \
@@ -323,23 +225,18 @@ FFMPEG_VERSION="$(xargs printf '%s' <VERSION)"
   --enable-bzlib \
   --enable-coreimage \
   --enable-cross-compile \
-  --enable-libfreetype \
-  --enable-libfribidi \
   --enable-gpl \
   --enable-gray \
   --enable-iconv \
   --enable-inline-asm \
   --enable-libdav1d \
   --enable-libjxl \
-  --enable-libass \
   --enable-libopenjpeg \
   --enable-libopus \
   --enable-libsoxr \
   --enable-libvorbis \
   --enable-libvpx \
-  --enable-libwebp \
   --enable-libzimg \
-  --enable-libzvbi \
   --enable-lto \
   --enable-lzma \
   --enable-opencl \
