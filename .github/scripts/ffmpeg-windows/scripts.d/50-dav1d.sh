@@ -10,6 +10,7 @@ ffbuild_dockerbuild() {
   mkdir build && cd build
 
   local myconf=(
+    --cross-file=/cross.meson
     -Denable_docs=false
     -Denable_tools=false
     -Denable_tests=false
@@ -18,15 +19,6 @@ ffbuild_dockerbuild() {
     --buildtype=release
     --default-library=shared
   )
-
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    myconf+=(
-      --cross-file=/cross.meson
-    )
-  else
-    echo "Unknown target"
-    return 255
-  fi
 
   meson "${myconf[@]}" ..
   ninja -j"$(nproc)"
@@ -37,5 +29,5 @@ ffbuild_dockerbuild() {
 
   mkdir -p /opt/dlls/
   cp -nav /opt/dav1d/* /opt/dlls/
-  rm -r /opt/dlls/lib/pkgconfig
+  rm -r /opt/dlls/include /opt/dlls/lib/pkgconfig
 }
