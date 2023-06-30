@@ -41,12 +41,18 @@ pub struct LocationViewSettings {
 
 #[derive(Clone, Serialize, Deserialize, Type, Default)]
 pub struct ListViewSettings {
-	#[serde(default, skip_serializing_if = "HashMap::is_empty")]
-	col_sizes: HashMap<String, i32>,
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
-	filtered: Vec<String>,
+	#[serde(default /*, skip_serializing_if = "HashMap::is_empty" */)]
+	columns: HashMap<String, ListViewColumnSettings>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	sort_col: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type, Default)]
+pub struct ListViewColumnSettings {
+	#[serde(default)]
+	hide: bool,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	size: Option<i32>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type)]
