@@ -20,7 +20,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use prisma_client_rust::operator;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::trace;
@@ -335,7 +334,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 	}: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
 	update_notifier: &mut impl FnMut(&Path, usize),
-	to_remove_db_fetcher: &impl Fn(
+	to_remove_db_fetcher: impl Fn(
 		IsolatedFilePathData<'static>,
 		Vec<file_path::WhereParam>,
 	) -> ToRemoveDbFetcherFut,
@@ -368,7 +367,7 @@ where
 
 	let mut found_paths_counts = 0;
 
-	// Marking with a loop label here in case of rejection or erros, to continue with next entry
+	// Marking with a loop label here in case of rejection or errors, to continue with next entry
 	'entries: loop {
 		let entry = match read_dir.next_entry().await {
 			Ok(Some(entry)) => entry,
@@ -477,9 +476,9 @@ where
 				// If it wasn't accepted then we mark as rejected
 				if accept_by_children_dir.is_none() {
 					trace!(
-							"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
-							current_path.display()
-						);
+						"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
+						current_path.display()
+					);
 					accept_by_children_dir = Some(false);
 				}
 			}
@@ -505,12 +504,13 @@ where
 			continue 'entries;
 		}
 
-		if accept_by_children_dir.is_none() || accept_by_children_dir.expect("<-- checked") {
+		if accept_by_children_dir.unwrap_or(true) {
 			let Ok(iso_file_path) = iso_file_path_factory(&current_path, is_dir)
 				.map_err(|e| errors.push(e))
 				else {
 					continue 'entries;
 			};
+
 			paths_buffer.push(WalkingEntry {
 				iso_file_path,
 				maybe_metadata: Some(FilePathMetadata {
@@ -586,13 +586,11 @@ where
 	// don't adding the newly indexed paths
 	let to_remove = to_remove_db_fetcher(
 		iso_file_path_to_walk,
-		vec![operator::or(
-			paths_buffer
-				.iter()
-				.map(|entry| &entry.iso_file_path)
-				.map(Into::into)
-				.collect(),
-		)],
+		paths_buffer
+			.iter()
+			.map(|entry| &entry.iso_file_path)
+			.map(Into::into)
+			.collect(),
 	)
 	.await
 	.unwrap_or_else(|e| {

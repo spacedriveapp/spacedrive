@@ -13,7 +13,7 @@ use crate::{
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{debug, trace};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -30,7 +30,7 @@ pub async fn shallow(
 ) -> Result<(), JobError> {
 	let Library { db, .. } = &library;
 
-	info!("Identifying orphan File Paths...");
+	debug!("Identifying orphan File Paths...");
 
 	let location_id = location.id;
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
@@ -68,7 +68,7 @@ pub async fn shallow(
 	}
 
 	let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
-	info!(
+	debug!(
 		"Found {} orphan Paths. Will execute {} tasks...",
 		orphan_count, task_count
 	);
@@ -98,15 +98,16 @@ pub async fn shallow(
 		let file_paths =
 			get_orphan_file_paths(&library.db, location.id, *cursor, sub_iso_file_path).await?;
 
-		process_identifier_file_paths(
+		let (_, _, new_cursor) = process_identifier_file_paths(
 			location,
 			&file_paths,
 			step_number,
-			cursor,
+			*cursor,
 			library,
 			orphan_count,
 		)
 		.await?;
+		*cursor = new_cursor;
 	}
 
 	invalidate_query!(library, "search.paths");
@@ -152,9 +153,10 @@ async fn get_orphan_file_paths(
 	file_path_id_cursor: file_path::id::Type,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
-	info!(
+	trace!(
 		"Querying {} orphan Paths at cursor: {:?}",
-		CHUNK_SIZE, file_path_id_cursor
+		CHUNK_SIZE,
+		file_path_id_cursor
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(

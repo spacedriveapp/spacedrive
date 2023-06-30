@@ -5,7 +5,7 @@ use crate::{
 		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
 		LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
 };
 
@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::info;
 
 use super::{utils::library, Ctx, R};
 
@@ -51,6 +52,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.db
 					.location()
 					.find_many(vec![])
+					.order_by(location::date_created::order(SortOrder::Desc))
 					.include(location::include!({ node }))
 					.exec()
 					.await?)
@@ -126,8 +128,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("fullRescan", {
+			#[derive(Type, Deserialize)]
+			pub struct FullRescanArgs {
+				pub location_id: location::id::Type,
+				pub reidentify_objects: bool,
+			}
+
 			R.with2(library()).mutation(
-				|(_, library), location_id: location::id::Type| async move {
+				|(_, library),
+				 FullRescanArgs {
+				     location_id,
+				     reidentify_objects,
+				 }| async move {
+					if reidentify_objects {
+						let object_ids = library
+							.db
+							.file_path()
+							.find_many(vec![
+								file_path::location_id::equals(Some(location_id)),
+								file_path::object_id::not(None),
+							])
+							.select(file_path::select!({ object_id }))
+							.exec()
+							.await?
+							.into_iter()
+							.filter_map(|file_path| file_path.object_id)
+							.collect::<Vec<_>>();
+
+						let count = library
+							.db
+							.object()
+							.delete_many(vec![object::id::in_vec(object_ids)])
+							.exec()
+							.await?;
+
+						info!("Deleted {count} objects, to be reidentified");
+					}
+
 					// rescan location
 					scan_location(
 						&library,

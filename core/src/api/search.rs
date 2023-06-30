@@ -158,7 +158,7 @@ impl ObjectSearchOrdering {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default)]
+#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 enum ObjectHiddenFilter {
 	#[default]
@@ -167,7 +167,7 @@ enum ObjectHiddenFilter {
 }
 
 impl ObjectHiddenFilter {
-	fn to_param(&self) -> Option<object::WhereParam> {
+	fn to_param(self) -> Option<object::WhereParam> {
 		match self {
 			ObjectHiddenFilter::Exclude => Some(or![
 				object::hidden::equals(None),

@@ -17,9 +17,9 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
-import { useExplorerStore, useIsDark } from '~/hooks';
-import AssignTagMenuItems from '../AssignTagMenuItems';
-import FileThumb from '../File/Thumb';
+import { useIsDark } from '~/hooks';
+import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
+import FileThumb from '../FilePath/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -47,7 +47,6 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
-	const explorerStore = useExplorerStore();
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -185,15 +184,21 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
-							<Tooltip label={dayjs(item.date_created).format('h:mm:ss a')}>
-								<MetaTextLine>
-									<InspectorIcon component={Barcode} />
-									<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-									<MetaValue>
-										{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-									</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
+							{filePathData && (
+								<Tooltip
+									label={dayjs(filePathData.date_indexed).format('h:mm:ss a')}
+								>
+									<MetaTextLine>
+										<InspectorIcon component={Barcode} />
+										<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
+										<MetaValue>
+											{dayjs(filePathData?.date_indexed).format(
+												'MMM Do YYYY'
+											)}
+										</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
 						</MetaContainer>
 
 						{!isDir && objectData && (

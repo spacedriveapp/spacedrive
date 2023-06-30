@@ -31,7 +31,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{Library, LibraryConfig, LibraryConfigWrapped};
+use super::{Library, LibraryConfig, LibraryConfigWrapped, LibraryName};
 
 pub enum SubscriberEvent {
 	Load(Uuid, Arc<Identity>, broadcast::Receiver<SyncMessage>),
@@ -129,15 +129,15 @@ impl LibraryManager {
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
 		{
 			let config_path = entry.path();
-			let metadata = entry
-				.metadata()
-				.await
-				.map_err(|e| FileIOError::from((&config_path, e)))?;
-			if metadata.is_file()
-				&& config_path
-					.extension()
-					.map(|ext| ext == "sdlibrary")
-					.unwrap_or(false)
+			if config_path
+				.extension()
+				.map(|ext| ext == "sdlibrary")
+				.unwrap_or(false)
+				&& entry
+					.metadata()
+					.await
+					.map_err(|e| FileIOError::from((&config_path, e)))?
+					.is_file()
 			{
 				let Some(Ok(library_id)) = config_path
 				.file_stem()
@@ -279,7 +279,7 @@ impl LibraryManager {
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
-		name: Option<String>,
+		name: Option<LibraryName>,
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
@@ -499,7 +499,7 @@ impl LibraryManager {
 
 		if let Err(e) = library
 			.node_context
-			.jobs
+			.job_manager
 			.clone()
 			.cold_resume(&library)
 			.await

@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobError, JobManagerError},
+	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
@@ -20,6 +20,7 @@ use std::{
 	path::{Component, Path, PathBuf},
 };
 
+use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
@@ -27,7 +28,7 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 mod error;
@@ -380,25 +381,24 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: None,
-				},
-				"scan_location",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: None,
-			}),
-		)
-		.await
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: None,
+	})
+	.with_action("scan_location")
+	.with_metadata(json!({"location": location_base_data.clone()}))
+	.build()
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: None,
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: None,
+	})
+	.spawn(library)
+	.await
+	.map_err(Into::into)
 }
 
 #[cfg(feature = "location-watcher")]
@@ -414,25 +414,27 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	library
-		.spawn_job(
-			Job::new_with_action(
-				IndexerJobInit {
-					location,
-					sub_path: Some(sub_path.clone()),
-				},
-				"scan_location_sub_path",
-			)
-			.queue_next(FileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: Some(sub_path.clone()),
-			})
-			.queue_next(ThumbnailerJobInit {
-				location: location_base_data,
-				sub_path: Some(sub_path),
-			}),
-		)
-		.await
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: Some(sub_path.clone()),
+	})
+	.with_action("scan_location_sub_path")
+	.with_metadata(json!({
+		"location": location_base_data.clone(),
+		"sub_path": sub_path.clone(),
+	}))
+	.build()
+	.queue_next(FileIdentifierJobInit {
+		location: location_base_data.clone(),
+		sub_path: Some(sub_path.clone()),
+	})
+	.queue_next(ThumbnailerJobInit {
+		location: location_base_data,
+		sub_path: Some(sub_path),
+	})
+	.spawn(library)
+	.await
+	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(
@@ -575,6 +577,8 @@ async fn create_location(
 		name = "Unknown".to_string()
 	}
 
+	let date_created = Utc::now();
+
 	let location = sync
 		.write_op(
 			db,
@@ -585,6 +589,7 @@ async fn create_location(
 				[
 					(location::name::NAME, json!(&name)),
 					(location::path::NAME, json!(&location_path)),
+					(location::date_created::NAME, json!(date_created)),
 					(
 						location::node::NAME,
 						json!(sync::node::SyncId {
@@ -599,6 +604,7 @@ async fn create_location(
 					vec![
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
+						location::date_created::set(Some(date_created.into())),
 						location::node::connect(node::id::equals(library.node_local_id)),
 					],
 				)
@@ -751,7 +757,7 @@ async fn check_nested_location(
 ) -> Result<bool, QueryError> {
 	let location_path = location_path.as_ref();
 
-	let (parents_count, children_count) = db
+	let (parents_count, potential_children) = db
 		._batch((
 			db.location().count(vec![location::path::in_vec(
 				location_path
@@ -764,7 +770,7 @@ async fn check_nested_location(
 					})
 					.collect(),
 			)]),
-			db.location().count(vec![location::path::starts_with(
+			db.location().find_many(vec![location::path::starts_with(
 				location_path
 					.to_str()
 					.map(str::to_string)
@@ -773,5 +779,27 @@ async fn check_nested_location(
 		))
 		.await?;
 
-	Ok(parents_count > 0 || children_count > 0)
+	let comps = location_path.components().collect::<Vec<_>>();
+	let is_a_child_location = potential_children.into_iter().any(|v| {
+		let Some(location_path) = v.path else {
+			warn!("Missing location path on location <id='{}'> at check nested location", v.id);
+			return false;
+		};
+		let comps2 = PathBuf::from(location_path);
+		let comps2 = comps2.components().collect::<Vec<_>>();
+
+		if comps.len() > comps2.len() {
+			return false;
+		}
+
+		for (a, b) in comps.iter().zip(comps2.iter()) {
+			if a != b {
+				return false;
+			}
+		}
+
+		true
+	});
+
+	Ok(parents_count > 0 || is_a_child_location)
 }

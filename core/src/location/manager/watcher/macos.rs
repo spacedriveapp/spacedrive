@@ -22,10 +22,7 @@ use crate::{
 	util::error::FileIOError,
 };
 
-use std::{
-	collections::{BTreeMap, HashMap},
-	path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use async_trait::async_trait;
 use notify::{
@@ -47,7 +44,8 @@ use super::{
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Library,
-	recently_created_files: BTreeMap<PathBuf, Instant>,
+	recently_created_files: HashMap<PathBuf, Instant>,
+	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
 	latest_created_dir: Option<PathBuf>,
 	last_check_rename: Instant,
@@ -65,7 +63,8 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 		Self {
 			location_id,
 			library,
-			recently_created_files: BTreeMap::new(),
+			recently_created_files: HashMap::new(),
+			recently_created_files_buffer: Vec::new(),
 			last_check_created_files: Instant::now(),
 			latest_created_dir: None,
 			last_check_rename: Instant::now(),
@@ -107,16 +106,6 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				self.latest_created_dir = Some(paths.remove(0));
 			}
 			EventKind::Create(CreateKind::File) => {
-				let path = &paths[0];
-				create_file(
-					self.location_id,
-					path,
-					&fs::metadata(path)
-						.await
-						.map_err(|e| FileIOError::from((path, e)))?,
-					self.library,
-				)
-				.await?;
 				self.recently_created_files
 					.insert(paths.remove(0), Instant::now());
 			}
@@ -143,66 +132,109 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 	}
 
 	async fn tick(&mut self) {
-		// Cleaning out recently created files that are older than 1 second
-		if self.last_check_created_files.elapsed() > ONE_SECOND {
+		// Cleaning out recently created files that are older than 200 milliseconds
+		if self.last_check_created_files.elapsed() > HUNDRED_MILLIS * 2 {
+			if let Err(e) = self.handle_recently_created_eviction().await {
+				error!("Error while handling recently created files eviction: {e:#?}");
+			}
 			self.last_check_created_files = Instant::now();
-			self.recently_created_files
-				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
 		}
 
 		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
 			// Cleaning out recently renamed files that are older than 100 milliseconds
-			self.handle_create_eviction().await;
-			self.handle_remove_eviction().await;
+			if let Err(e) = self.handle_rename_create_eviction().await {
+				error!("Failed to create file_path on MacOS : {e:#?}");
+			}
+
+			if let Err(e) = self.handle_rename_remove_eviction().await {
+				error!("Failed to remove file_path: {e:#?}");
+			}
+
+			self.last_check_rename = Instant::now();
 		}
 	}
 }
 
 impl MacOsEventHandler<'_> {
-	async fn handle_create_eviction(&mut self) {
+	async fn handle_recently_created_eviction(&mut self) -> Result<(), LocationManagerError> {
+		self.recently_created_files_buffer.clear();
+		let mut should_invalidate = false;
+
+		for (path, created_at) in self.recently_created_files.drain() {
+			if created_at.elapsed() < ONE_SECOND {
+				self.recently_created_files_buffer.push((path, created_at));
+			} else {
+				create_file(
+					self.location_id,
+					&path,
+					&fs::metadata(&path)
+						.await
+						.map_err(|e| FileIOError::from((&path, e)))?,
+					self.library,
+				)
+				.await?;
+				should_invalidate = true;
+			}
+		}
+
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
+		}
+
+		self.recently_created_files
+			.extend(self.recently_created_files_buffer.drain(..));
+
+		Ok(())
+	}
+
+	async fn handle_rename_create_eviction(&mut self) -> Result<(), LocationManagerError> {
 		// Just to make sure that our buffer is clean
 		self.paths_map_buffer.clear();
+		let mut should_invalidate = false;
 
 		for (inode_and_device, (instant, path)) in self.new_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = create_dir_or_file(self.location_id, &path, self.library).await {
-					error!("Failed to create file_path on MacOS : {e}");
-				} else {
-					trace!("Created file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				create_dir_or_file(self.location_id, &path, self.library).await?;
+				trace!("Created file_path due timeout: {}", path.display());
+				should_invalidate = true;
 			} else {
 				self.paths_map_buffer
 					.push((inode_and_device, (instant, path)));
 			}
 		}
 
-		for (key, value) in self.paths_map_buffer.drain(..) {
-			self.new_paths_map.insert(key, value);
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
+
+		self.new_paths_map.extend(self.paths_map_buffer.drain(..));
+
+		Ok(())
 	}
 
-	async fn handle_remove_eviction(&mut self) {
+	async fn handle_rename_remove_eviction(&mut self) -> Result<(), LocationManagerError> {
 		// Just to make sure that our buffer is clean
 		self.paths_map_buffer.clear();
+		let mut should_invalidate = false;
 
 		for (inode_and_device, (instant, path)) in self.old_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = remove(self.location_id, &path, self.library).await {
-					error!("Failed to remove file_path: {e}");
-				} else {
-					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				remove(self.location_id, &path, self.library).await?;
+				trace!("Removed file_path due timeout: {}", path.display());
+				should_invalidate = true;
 			} else {
 				self.paths_map_buffer
 					.push((inode_and_device, (instant, path)));
 			}
 		}
 
-		for (key, value) in self.paths_map_buffer.drain(..) {
-			self.old_paths_map.insert(key, value);
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
+
+		self.old_paths_map.extend(self.paths_map_buffer.drain(..));
+
+		Ok(())
 	}
 
 	async fn handle_single_rename_event(

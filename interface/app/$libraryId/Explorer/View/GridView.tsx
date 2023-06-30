@@ -3,10 +3,10 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
 import GridList from '~/components/GridList';
-import { isCut, useExplorerStore } from '~/hooks';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
+import { isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
@@ -76,7 +76,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={explorerView.isRenaming || !explorerView.selectable}
-			preventContextMenuSelection={!explorerView.contextMenu}
+			preventContextMenuSelection={explorerView.contextMenu === undefined}
 		>
 			{({ index, item: Item }) => {
 				const item = explorerView.items?.[index];
