@@ -27,7 +27,9 @@ impl PreferenceValue {
 	pub fn new(value: impl Serialize) -> Self {
 		let mut bytes = vec![];
 
-		rmp_serde::encode::write(&mut bytes, &value).unwrap();
+		rmp_serde::encode::write_named(&mut bytes, &value).unwrap();
+
+		// let value = rmpv::decode::read_value(&mut bytes.as_slice()).unwrap();
 
 		Self(bytes)
 	}

@@ -20,8 +20,7 @@ impl LibraryPreferences {
 	pub async fn write(self, db: &PrismaClient) -> prisma_client_rust::Result<()> {
 		let kvs = self.to_kvs();
 
-		dbg!(kvs);
-		// db._batch(kvs.to_upserts(&db)).await?;
+		db._batch(kvs.to_upserts(&db)).await?;
 
 		Ok(())
 	}
@@ -29,6 +28,7 @@ impl LibraryPreferences {
 
 #[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LocationPreferences {
+	/// View settings for the location - all writes are overwrites!
 	#[specta(optional)]
 	view: Option<LocationViewSettings>,
 }
@@ -41,8 +41,11 @@ pub struct LocationViewSettings {
 
 #[derive(Clone, Serialize, Deserialize, Type, Default)]
 pub struct ListViewSettings {
+	#[serde(default, skip_serializing_if = "HashMap::is_empty")]
 	col_sizes: HashMap<String, i32>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	filtered: Vec<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	sort_col: Option<String>,
 }
 

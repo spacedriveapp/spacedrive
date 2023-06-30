@@ -27,9 +27,15 @@ export const Component = () => {
 	const updatePrefs = useLibraryMutation('preferences.update');
 
 	useEffect(() => {
+		if (!location.data) return;
+
+		const stringId = location.data.pub_id.map((n) => n.toString(16).padStart(2, '0')).join('');
+
+		console.log(stringId);
+
 		updatePrefs.mutateAsync({
 			location: {
-				[locationId.toString()]: {
+				[stringId]: {
 					view: {
 						layout: 'Grid',
 						list: {
@@ -41,7 +47,7 @@ export const Component = () => {
 				}
 			}
 		});
-	}, []);
+	}, [location.data, updatePrefs.mutateAsync]);
 
 	useLibrarySubscription(
 		[

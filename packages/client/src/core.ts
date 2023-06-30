@@ -165,7 +165,7 @@ export type LibraryPreferences = { location?: { [key: string]: LocationPreferenc
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListViewSettings = { col_sizes: { [key: string]: number }; filtered: string[]; sort_col: string | null }
+export type ListViewSettings = { col_sizes: { [key: string]: number }; filtered: string[]; sort_col?: string | null }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null }
 
