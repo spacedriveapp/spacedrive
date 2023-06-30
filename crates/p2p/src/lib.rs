@@ -6,6 +6,7 @@ mod manager_stream;
 mod mdns;
 mod metadata_manager;
 mod peer;
+pub mod proto;
 pub mod spaceblock;
 pub mod spacetime;
 pub mod spacetunnel;

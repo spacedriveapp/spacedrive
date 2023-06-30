@@ -46,6 +46,7 @@ model Statistics {
     @@map("statistics")
 }
 
+// TODO: Maybe rename to `LibraryInstance`
 /// @local(id: pub_id)
 model Node {
     id           Int      @id @default(autoincrement())

@@ -34,7 +34,7 @@ use uuid::Uuid;
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{NodeLibraryPairingInformation, OperatingSystem, SyncRequestError, SPACEDRIVE_APP_ID},
+	p2p::{NodeLibraryPairingInformation, OperatingSystem, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
@@ -233,13 +233,16 @@ impl P2PManager {
 
 										debug!("Creating node in database");
 										node::Create {
-											pub_id: remote_info.pub_id.as_bytes().to_vec(),
-											name: remote_info.name,
+											pub_id: remote_info.node_id.as_bytes().to_vec(),
+											name: remote_info.node_name,
 											platform: remote_info.platform as i32,
 											date_created: Utc::now().into(),
 											_params: vec![
 												node::identity::set(Some(
-													remote_info.public_key.to_bytes().to_vec(),
+													remote_info
+														.library_public_key
+														.to_bytes()
+														.to_vec(),
 												)),
 												node::node_peer_id::set(Some(
 													event.peer_id.to_string(),
@@ -252,21 +255,21 @@ impl P2PManager {
 										.await
 										.unwrap();
 
-										// TODO(@oscar): check if this should be library stuff
 										let info = NodeLibraryPairingInformation {
-											pub_id: library.config.node_id,
-											name: library.config.name.to_string(),
-											public_key: library.identity.to_remote_identity(),
+											node_id: library.config.node_id,
+											node_name: library.config.name.to_string(),
 											platform: Platform::current(),
+											library_id,
+											library_name: library.config.name.to_string(),
+											library_public_key: library
+												.identity
+												.to_remote_identity(),
 										};
 
 										debug!("Sending nodeinfo to the remote node");
 										stream.write_all(&info.to_bytes()).await.unwrap();
 
-										info!(
-											"Paired with '{}' for library '{library_id}'",
-											remote_info.pub_id
-										); // TODO: Use hash of identity cert here cause pub_id can be forged
+										info!("Completed pairing with {}", remote_info.node_id);
 									}
 									Header::Sync(library_id) => {
 										let stream = match event.stream {
@@ -281,11 +284,7 @@ impl P2PManager {
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
 
 										let mut len = [0; 4];
-										stream
-											.read_exact(&mut len)
-											.await
-											.map_err(SyncRequestError::PayloadLenIoError)
-											.unwrap();
+										stream.read_exact(&mut len).await.unwrap();
 										let len = u32::from_le_bytes(len);
 
 										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
@@ -430,10 +429,12 @@ impl P2PManager {
 			// TODO: Signing and a SPAKE style pin prompt
 
 			let info = NodeLibraryPairingInformation {
-				pub_id: lib.config.node_id,
-				name: lib.config.name.to_string(),
-				public_key: lib.identity.to_remote_identity(),
+				node_id: lib.config.node_id,
+				node_name: lib.config.name.to_string(),
 				platform: Platform::current(),
+				library_id: lib.config.node_id,
+				library_name: lib.config.name.to_string(),
+				library_public_key: lib.identity.to_remote_identity(),
 			};
 
 			debug!("Sending nodeinfo to remote node");
@@ -445,25 +446,26 @@ impl P2PManager {
 				.unwrap();
 			debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
-			node::Create {
-				pub_id: remote_info.pub_id.as_bytes().to_vec(),
-				name: remote_info.name,
-				platform: remote_info.platform as i32,
-				date_created: Utc::now().into(),
-				_params: vec![
-					node::identity::set(Some(remote_info.public_key.to_bytes().to_vec())),
-					node::node_peer_id::set(Some(peer_id.to_string())),
-				],
-			}
-			// TODO: Should this be in a transaction in case it fails?
-			.to_query(&lib.db)
-			.exec()
-			.await
-			.unwrap();
+			// TODO
+			// node::Create {
+			// 	pub_id: remote_info.node_id.as_bytes().to_vec(),
+			// 	name: remote_info.name,
+			// 	platform: remote_info.platform as i32,
+			// 	date_created: Utc::now().into(),
+			// 	_params: vec![
+			// 		node::identity::set(Some(remote_info.public_key.to_bytes().to_vec())),
+			// 		node::node_peer_id::set(Some(peer_id.to_string())),
+			// 	],
+			// }
+			// // TODO: Should this be in a transaction in case it fails?
+			// .to_query(&lib.db)
+			// .exec()
+			// .await
+			// .unwrap();
 
 			info!(
 				"Paired with '{}' for library '{}'",
-				remote_info.pub_id, lib.id
+				remote_info.node_id, lib.id
 			); // TODO: Use hash of identity cert here cause pub_id can be forged
 		});
 
