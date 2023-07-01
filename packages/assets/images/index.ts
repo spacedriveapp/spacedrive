@@ -9,6 +9,7 @@ import Ball from './Ball.png';
 import BloomOne from './BloomOne.png';
 import BloomThree from './BloomThree.png';
 import BloomTwo from './BloomTwo.png';
+import Dropbox from './Dropbox.png';
 import GoogleDrive from './GoogleDrive.png';
 import Mega from './Mega.png';
 import iCloud from './iCloud.png';
@@ -23,5 +24,6 @@ export {
 	BloomTwo,
 	GoogleDrive,
 	Mega,
-	iCloud
+	iCloud,
+	Dropbox
 };

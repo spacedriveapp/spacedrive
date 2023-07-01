@@ -131,6 +131,12 @@ html {
 		background-size: contain;
 		animation-delay: 800ms;
 	}
+	&.bloom-center {
+		@apply -mt-[550px];
+		background: url('/bloom-three.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 800ms;
+	}
 	&.egg-bloom-one {
 		background: url('/egg-bloom-one.png') no-repeat center center;
 		background-size: contain;
