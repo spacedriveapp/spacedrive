@@ -1,7 +1,7 @@
-import { ComponentMeta, ComponentStory } from '@storybook/react';
+import { Meta, StoryFn } from '@storybook/react';
 import { Root } from './Dropdown';
 
-export default {
+const meta: Meta<typeof Root> = {
 	title: 'Dropdown',
 	component: Root,
 	argTypes: {},
@@ -10,11 +10,14 @@ export default {
 			default: 'dark'
 		}
 	}
-} as ComponentMeta<typeof Root>;
+};
 
-const Template: ComponentStory<typeof Root> = (args) => <Root {...args} />;
+export default meta;
 
-export const Default = Template.bind({});
+const Template: StoryFn<typeof Root> = (args) => <Root {...args} />;
+
+export const Default: StoryFn<typeof Root> = Template.bind({});
+
 // Default.args = {
 // 	buttonText: 'Item 1',
 // 	items: [
