@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense } from 'react';
+import { RefObject, Suspense, createContext, useContext, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -16,9 +16,14 @@ import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
 
+const LayoutContext = createContext<{ ref: RefObject<HTMLDivElement> } | undefined>(undefined);
+export const useLayout = () => useContext(LayoutContext);
+
 const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
+
+	const layoutRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
 		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
@@ -37,6 +42,7 @@ const Layout = () => {
 
 	return (
 		<div
+			ref={layoutRef}
 			className={clsx(
 				// App level styles
 				'flex h-screen cursor-default select-none overflow-hidden text-ink',
@@ -50,23 +56,25 @@ const Layout = () => {
 				return false;
 			}}
 		>
-			<Sidebar />
-			<div className="relative flex w-full overflow-hidden bg-app">
-				{library ? (
-					<QuickPreviewContextProvider>
-						<LibraryContextProvider library={library}>
-							<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-								<Outlet />
-							</Suspense>
-						</LibraryContextProvider>
-					</QuickPreviewContextProvider>
-				) : (
-					<h1 className="p-4 text-white">
-						Please select or create a library in the sidebar.
-					</h1>
-				)}
-			</div>
-			<Toasts />
+			<LayoutContext.Provider value={{ ref: layoutRef }}>
+				<Sidebar />
+				<div className="relative flex w-full overflow-hidden bg-app">
+					{library ? (
+						<QuickPreviewContextProvider>
+							<LibraryContextProvider library={library}>
+								<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+									<Outlet />
+								</Suspense>
+							</LibraryContextProvider>
+						</QuickPreviewContextProvider>
+					) : (
+						<h1 className="p-4 text-white">
+							Please select or create a library in the sidebar.
+						</h1>
+					)}
+				</div>
+				<Toasts />
+			</LayoutContext.Provider>
 		</div>
 	);
 };
