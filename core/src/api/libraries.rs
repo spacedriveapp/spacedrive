@@ -2,7 +2,7 @@ use crate::{
 	library::{LibraryConfig, LibraryName},
 	prisma::statistics,
 	util::MaybeUndefined,
-	volume::{get_volumes, save_volume},
+	volume::get_volumes,
 };
 
 use chrono::Utc;
@@ -26,25 +26,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let _statistics = library
-					.db
-					.statistics()
-					.find_unique(statistics::id::equals(library.node_local_id))
-					.exec()
-					.await?;
+				// TODO: get from database if library is from an offline node
+				// let _statistics = library
+				// 	.db
+				// 	.statistics()
+				// 	.find_unique(statistics::id::equals(library.node_local_id))
+				// 	.exec()
+				// 	.await?;
 
-				// TODO: get from database, not sys
-				let volumes = get_volumes();
-				save_volume(&library).await?;
+				let volumes = get_volumes().await;
+				// save_volume(&library).await?;
 
-				let mut available_capacity: u64 = 0;
 				let mut total_capacity: u64 = 0;
-
-				if let Ok(volumes) = volumes {
-					for volume in volumes {
-						total_capacity += volume.total_capacity;
-						available_capacity += volume.available_capacity;
-					}
+				let mut available_capacity: u64 = 0;
+				for volume in volumes {
+					total_capacity += volume.total_capacity;
+					available_capacity += volume.available_capacity;
 				}
 
 				let library_db_size = get_size(

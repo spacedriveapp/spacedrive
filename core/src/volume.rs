@@ -1,14 +1,17 @@
-use crate::{
-	library::Library,
-	prisma::volume::{self, *},
-};
-
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::{fmt::Display, process::Command};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+use std::{ffi::OsString, fmt::Display, path::PathBuf};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
+use tokio::sync::Mutex;
+
+fn sys_guard() -> &'static Mutex<System> {
+	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
+	SYS.get_or_init(|| Mutex::new(System::new_all()))
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 #[allow(clippy::upper_case_acronyms)]
@@ -31,8 +34,8 @@ impl Display for DiskType {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
-	pub name: String,
-	pub mount_point: String,
+	pub name: OsString,
+	pub mount_point: Vec<PathBuf>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub total_capacity: u64,
@@ -40,7 +43,7 @@ pub struct Volume {
 	#[serde_as(as = "DisplayFromStr")]
 	pub available_capacity: u64,
 	pub is_removable: bool,
-	pub disk_type: Option<DiskType>,
+	pub disk_type: DiskType,
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
 }
@@ -59,95 +62,138 @@ impl From<VolumeError> for rspc::Error {
 	}
 }
 
-pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
-	let volumes = get_volumes()?;
+// pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
+// 	// enter all volumes associate with this client add to db
+// 	for volume in get_volumes() {
+// 		let params = vec![
+// 			disk_type::set(volume.disk_type.map(|t| t.to_string())),
+// 			filesystem::set(volume.file_system.clone()),
+// 			total_bytes_capacity::set(volume.total_capacity.to_string()),
+// 			total_bytes_available::set(volume.available_capacity.to_string()),
+// 		];
 
-	// enter all volumes associate with this client add to db
-	for volume in volumes {
-		let params = vec![
-			disk_type::set(volume.disk_type.map(|t| t.to_string())),
-			filesystem::set(volume.file_system.clone()),
-			total_bytes_capacity::set(volume.total_capacity.to_string()),
-			total_bytes_available::set(volume.available_capacity.to_string()),
-		];
+// 		library
+// 			.db
+// 			.volume()
+// 			.upsert(
+// 				node_id_mount_point_name(
+// 					library.node_local_id,
+// 					volume.mount_point,
+// 					volume.name,
+// 				),
+// 				volume::create(
+// 					library.node_local_id,
+// 					volume.name,
+// 					volume.mount_point,
+// 					params.clone(),
+// 				),
+// 				params,
+// 			)
+// 			.exec()
+// 			.await?;
+// 	}
+// 	// cleanup: remove all unmodified volumes associate with this client
 
-		library
-			.db
-			.volume()
-			.upsert(
-				node_id_mount_point_name(
-					library.node_local_id,
-					volume.mount_point.to_string(),
-					volume.name.to_string(),
-				),
-				volume::create(
-					library.node_local_id,
-					volume.name,
-					volume.mount_point,
-					params.clone(),
-				),
-				params,
-			)
-			.exec()
-			.await?;
-	}
-	// cleanup: remove all unmodified volumes associate with this client
+// 	Ok(())
+// }
 
-	Ok(())
-}
+pub async fn get_volumes() -> Vec<Volume> {
+	let mut sys = sys_guard().lock().await;
 
-// TODO: Error handling in this function
-pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-	System::new_all()
-		.disks()
-		.iter()
-		.filter_map(|disk| {
-			let mut total_capacity = disk.total_space();
-			let mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
-			let available_capacity = disk.available_space();
-			let name = disk.name().to_str().unwrap_or("Volume").to_string();
-			let is_removable = disk.is_removable();
+	let mut disks: HashMap<OsString, Volume> = HashMap::new();
 
-			let file_system = String::from_utf8(disk.file_system().to_vec())
-				.unwrap_or_else(|_| "Err".to_string());
+	sys.refresh_disks_list();
 
-			let disk_type = match disk.type_() {
-				sysinfo::DiskType::SSD => DiskType::SSD,
-				sysinfo::DiskType::HDD => DiskType::HDD,
-				_ => DiskType::Removable,
-			};
+	// for loo sys.disks
+	for disk in sys.disks() {
+		let disk_name = disk.name().to_os_string();
+		let mount_point = disk.mount_point().to_path_buf();
 
-			if total_capacity < available_capacity && cfg!(target_os = "windows") {
-				let mut caption = mount_point.clone();
+		#[cfg(unix)]
+		{
+			use std::os::unix::ffi::OsStrExt;
+
+			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
+			#[cfg(target_os = "linux")]
+			if !disk_name.as_bytes().starts_with(b"/dev") {
+				continue;
+			}
+
+			#[cfg(target_os = "macos")]
+			if !disk_name.as_bytes().starts_with(b"/Volumes") {
+				continue;
+			}
+		}
+
+		if let Some(disk) = disks.get_mut(&disk_name) {
+			disk.mount_point.push(mount_point);
+			continue;
+		}
+
+		let total_capacity = disk.total_space();
+		let available_capacity = disk.available_space();
+		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
+
+		// Fix broken google drive partition size in Windows
+		#[cfg(target_os = "windows")]
+		if total_capacity < available_capacity && is_root_filesystem {
+			// Use available capacity as total capacity in the case we can't get the correct value
+			total_capacity = available_capacity;
+
+			let caption = mount_point.to_str();
+			if let Some(caption) = caption {
+				let mut caption = caption.to_string();
+
+				// Remove path separator from Disk letter
 				caption.pop();
-				let wmic_process = Command::new("cmd")
+
+				let wmic_output = Command::new("cmd")
 					.args([
 						"/C",
 						&format!("wmic logical disk where Caption='{caption}' get Size"),
 					])
 					.output()
-					.expect("failed to execute process");
-				let wmic_process_output = String::from_utf8(wmic_process.stdout).ok()?;
-				let parsed_size =
-					wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
+					.ok()
+					.and_then(|wmic_process| {
+						if wmic_process.status.success() {
+							String::from_utf8(wmic_process.stdout).ok()
+						} else {
+							None
+						}
+					});
 
-				if let Ok(n) = parsed_size.trim().parse::<u64>() {
-					total_capacity = n;
+				if let Some(wmic_output) = wmic_output {
+					if let Ok(n) = wmic_output.split("\r\r\n").collect::<Vec<&str>>()[1]
+						.to_string()
+						.trim()
+						.parse::<u64>()
+					{
+						total_capacity = n;
+					}
 				}
 			}
+		}
 
-			(!mount_point.starts_with("/System")).then_some(Ok(Volume {
-				name,
-				is_root_filesystem: mount_point == "/",
-				mount_point,
+		disks.insert(
+			disk_name.clone(),
+			Volume {
+				name: disk_name,
+				disk_type: match disk.type_() {
+					sysinfo::DiskType::SSD => DiskType::SSD,
+					sysinfo::DiskType::HDD => DiskType::HDD,
+					_ => DiskType::Removable,
+				},
+				mount_point: vec![mount_point],
+				file_system: String::from_utf8(disk.file_system().to_vec()).ok(),
+				is_removable: disk.is_removable(),
 				total_capacity,
 				available_capacity,
-				is_removable,
-				disk_type: Some(disk_type),
-				file_system: Some(file_system),
-			}))
-		})
-		.collect::<Result<Vec<_>, _>>()
+				is_root_filesystem,
+			},
+		);
+	}
+
+	disks.values().cloned().collect()
 }
 
 // #[test]
