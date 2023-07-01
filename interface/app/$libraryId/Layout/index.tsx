@@ -41,7 +41,7 @@ const Layout = () => {
 			className={clsx(
 				// App level styles
 				'flex h-screen cursor-default select-none overflow-hidden text-ink',
-				os === 'browser' && 'border-t border-app-line/50',
+				// os === 'browser' && 'border-t border-app-line/50',
 				// os === 'browser' && !transparentBg && 'bg-app',
 				os === 'macOS' && 'has-blur-effects rounded-[10px]',
 				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
