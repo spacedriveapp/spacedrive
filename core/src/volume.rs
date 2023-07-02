@@ -158,7 +158,6 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 	future::join_all(sys.disks().iter().map(|disk| async {
 		let disk_name = disk.name();
-		let disk_type = disk.type_();
 		let mount_point = disk.mount_point().to_path_buf();
 
 		#[cfg(target_os = "linux")]
@@ -167,19 +166,22 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
 			if !disk_name.as_bytes().starts_with(b"/dev") {
-				continue;
-			// Ignore proxy devices
-			} else if tokio::fs::canonicalize(disk_name.clone())
-				.await
-				.map(|path| path != disk_name)
-				.unwrap_or(true)
-			{
 				return None;
 			}
 
 			// Ignore multiple mounts of the same disk
+			// TODO: Need to test if this works correctly with ZFS and BTFS
 			let mut disk_names = disk_names_guard.lock().await;
-			if !disk_names.insert(disk_name) {
+			if !disk_names.insert(PathBuf::from(disk_name)) {
+				return None;
+			}
+
+			// Also check proxy devices
+			if let Ok(real_path) = tokio::fs::canonicalize(disk_name).await {
+				if !(real_path == disk_name || disk_names.insert(real_path)) {
+					return None;
+				}
+			} else {
 				return None;
 			}
 		}
@@ -255,7 +257,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
-				match disk_type {
+				match disk.type_() {
 					sysinfo::DiskType::SSD => DiskType::SSD,
 					sysinfo::DiskType::HDD => DiskType::HDD,
 					_ => DiskType::Removable,
