@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { RefObject, Suspense, createContext, useContext, useRef } from 'react';
+import { Suspense, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -13,11 +13,9 @@ import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
+import { LayoutContext } from './Context';
 import Sidebar from './Sidebar';
 import Toasts from './Toasts';
-
-const LayoutContext = createContext<{ ref: RefObject<HTMLDivElement> } | undefined>(undefined);
-export const useLayout = () => useContext(LayoutContext);
 
 const Layout = () => {
 	const { libraries, library } = useClientContext();
@@ -41,22 +39,22 @@ const Layout = () => {
 	}
 
 	return (
-		<div
-			ref={layoutRef}
-			className={clsx(
-				// App level styles
-				'flex h-screen cursor-default select-none overflow-hidden text-ink',
-				os === 'browser' && 'border-t border-app-line/50 bg-app',
-				os === 'macOS' && 'has-blur-effects rounded-[10px]',
-				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
-			)}
-			onContextMenu={(e) => {
-				// TODO: allow this on some UI text at least / disable default browser context menu
-				e.preventDefault();
-				return false;
-			}}
-		>
-			<LayoutContext.Provider value={{ ref: layoutRef }}>
+		<LayoutContext.Provider value={{ ref: layoutRef }}>
+			<div
+				ref={layoutRef}
+				className={clsx(
+					// App level styles
+					'flex h-screen cursor-default select-none overflow-hidden text-ink',
+					os === 'browser' && 'border-t border-app-line/50 bg-app',
+					os === 'macOS' && 'has-blur-effects rounded-[10px]',
+					os !== 'browser' && os !== 'windows' && 'border border-app-frame'
+				)}
+				onContextMenu={(e) => {
+					// TODO: allow this on some UI text at least / disable default browser context menu
+					e.preventDefault();
+					return false;
+				}}
+			>
 				<Sidebar />
 				<div className="relative flex w-full overflow-hidden bg-app">
 					{library ? (
@@ -74,8 +72,8 @@ const Layout = () => {
 					)}
 				</div>
 				<Toasts />
-			</LayoutContext.Provider>
-		</div>
+			</div>
+		</LayoutContext.Provider>
 	);
 };
 

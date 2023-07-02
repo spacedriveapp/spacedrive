@@ -29,7 +29,7 @@ import {
 import { Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { ViewItem } from '.';
-import { useLayout } from '../../Layout';
+import { useLayoutContext } from '../../Layout/Context';
 import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
@@ -89,7 +89,7 @@ const HeaderColumnName = ({ name }: { name: string }) => {
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const layout = useLayout();
+	const layout = useLayoutContext();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
