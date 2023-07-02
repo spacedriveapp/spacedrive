@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use tokio::fs as async_fs;
 
 use int_enum::IntEnum;
-use tracing::{error, info};
+use tracing::{debug, error, trace};
 
 use crate::util::{error::FileIOError, version_manager::VersionManager};
 
@@ -17,14 +17,14 @@ pub enum ThumbnailVersion {
 }
 
 pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, ThumbnailerError> {
-	info!("Initializing thumbnail directory");
+	debug!("Initializing thumbnail directory");
 	let thumbnail_dir = data_dir.join(THUMBNAIL_CACHE_DIR_NAME);
 
 	let version_file = thumbnail_dir.join("version.txt");
 	let version_manager =
 		VersionManager::<ThumbnailVersion>::new(version_file.to_str().expect("Invalid path"));
 
-	info!("Thumbnail directory: {:?}", thumbnail_dir);
+	debug!("Thumbnail directory: {:?}", thumbnail_dir);
 
 	// create all necessary directories if they don't exist
 	async_fs::create_dir_all(&thumbnail_dir)
@@ -34,7 +34,7 @@ pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, Thumbnaile
 	let mut current_version = match version_manager.get_version() {
 		Ok(version) => version,
 		Err(_) => {
-			info!("Thumbnail version file does not exist, starting fresh");
+			debug!("Thumbnail version file does not exist, starting fresh");
 			// Version file does not exist, start fresh
 			version_manager.set_version(ThumbnailVersion::V1)?;
 			ThumbnailVersion::V1
@@ -94,7 +94,7 @@ async fn move_webp_files(dir: &PathBuf) -> Result<(), ThumbnailerError> {
 			}
 		}
 	}
-	info!(
+	trace!(
 		"Moved {} webp files to their respective shard folders.",
 		count
 	);

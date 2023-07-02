@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io, task::block_in_place};
-use tracing::{error, info, trace, warn};
+use tracing::{error, trace, warn};
 use webp::Encoder;
 
 mod directory;
@@ -226,14 +226,14 @@ pub async fn inner_process_step(
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
-			info!(
+			trace!(
 				"Thumb already exists, skipping generation for {}",
 				output_path.display()
 			);
 			return Ok(false);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
-			info!("Writing {:?} to {:?}", path, output_path);
+			trace!("Writing {:?} to {:?}", path, output_path);
 
 			match kind {
 				ThumbnailerJobStepKind::Image => {
@@ -249,7 +249,7 @@ pub async fn inner_process_step(
 				}
 			}
 
-			info!("Emitting new thumbnail event");
+			trace!("Emitting new thumbnail event");
 			library.emit(CoreEvent::NewThumbnail {
 				thumb_key: get_thumb_key(cas_id),
 			});

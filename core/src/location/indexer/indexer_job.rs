@@ -24,6 +24,7 @@ use std::{
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::time::Instant;
 use tracing::info;
 
@@ -179,7 +180,7 @@ impl StatefulJob for IndexerJobInit {
 			&indexer_rules,
 			update_notifier_fn(ctx),
 			file_paths_db_fetcher_fn!(&db),
-			to_remove_db_fetcher_fn!(location_id, location_path, &db),
+			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, location_path),
 			50_000,
 		)
@@ -298,7 +299,7 @@ impl StatefulJob for IndexerJobInit {
 					&data.indexer_rules,
 					update_notifier_fn(ctx),
 					file_paths_db_fetcher_fn!(&db),
-					to_remove_db_fetcher_fn!(location_id, location_path, &db),
+					to_remove_db_fetcher_fn!(location_id, &db),
 					iso_file_path_factory(location_id, location_path),
 				)
 				.await?;
@@ -361,7 +362,7 @@ impl StatefulJob for IndexerJobInit {
 	) -> JobResult {
 		let init = self;
 		info!(
-			"scan of {} completed in {:?}. {} new files found, \
+			"Scan of {} completed in {:?}. {} new files found, \
 			indexed {} files in db. db write completed in {:?}",
 			maybe_missing(&init.location.path, "location.path")?,
 			run_metadata.scan_read_time,
@@ -374,7 +375,7 @@ impl StatefulJob for IndexerJobInit {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
-		Ok(Some(serde_json::to_value(init)?))
+		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
 

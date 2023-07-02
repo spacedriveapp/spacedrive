@@ -16,6 +16,7 @@ use crate::{
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
 use tracing::{trace, warn};
@@ -207,6 +208,6 @@ impl StatefulJob for FileCopierJobInit {
 
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(init)?))
+		Ok(Some(json!({ "init": init })))
 	}
 }

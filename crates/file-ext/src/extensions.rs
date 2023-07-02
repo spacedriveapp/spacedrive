@@ -262,6 +262,7 @@ extension_category_enum! {
 		Swift,
 		Mdx,
 		Astro,
+		Mts,
 	}
 }
 

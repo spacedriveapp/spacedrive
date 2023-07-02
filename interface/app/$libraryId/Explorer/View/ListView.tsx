@@ -213,6 +213,7 @@ export default () => {
 				id: 'dateAccessed',
 				header: 'Date Accessed',
 				accessorFn: (file) =>
+					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
@@ -377,7 +378,7 @@ export default () => {
 	}
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
-		if (!explorerView.onSelectedChange || !explorerView.contextMenu) return;
+		if (!explorerView.onSelectedChange || explorerView.contextMenu === undefined) return;
 
 		const itemId = row.original.item.id;
 

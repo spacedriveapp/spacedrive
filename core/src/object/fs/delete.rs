@@ -11,6 +11,7 @@ use crate::{
 use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
 use tracing::warn;
@@ -97,6 +98,6 @@ impl StatefulJob for FileDeleterJobInit {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(init)?))
+		Ok(Some(json!({ "init": init })))
 	}
 }

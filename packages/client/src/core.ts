@@ -52,7 +52,7 @@ export type Procedures = {
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
+        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
@@ -116,6 +116,8 @@ export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOr
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
 export type FromPattern = { pattern: string; replace_all: boolean }
+
+export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
