@@ -2,7 +2,7 @@ use futures::future;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::{ffi::OsString, fmt::Display, path::PathBuf, str::FromStr, sync::OnceLock};
+use std::{ffi::OsString, fmt::Display, path::PathBuf, sync::OnceLock};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -132,6 +132,8 @@ pub async fn get_volumes() -> Vec<Volume> {
 		.map_err(|err| tracing::error!("Failed to execute hdiutil: {err:#?}"))
 		.ok()
 		.and_then(|wmic_process| {
+			use std::str::FromStr;
+
 			if wmic_process.status.success() {
 				let info: Result<HDIUtilInfo, _> = plist::from_bytes(&wmic_process.stdout);
 				match info {
