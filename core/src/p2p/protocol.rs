@@ -144,12 +144,12 @@ impl NodeLibraryPairingInformation {
 
 		let mut buf = Vec::new();
 
-		encode::uuid(&mut buf, node_id).await;
-		encode::string(&mut buf, node_name).await;
-		buf.push(platform as u8).await;
-		encode::uuid(&mut buf, library_id).await;
-		encode::string(&mut buf, library_name).await;
-		encode::buf(&mut buf, &library_public_key.to_bytes()).await;
+		encode::uuid(&mut buf, node_id);
+		encode::string(&mut buf, node_name);
+		buf.push(platform as u8);
+		encode::uuid(&mut buf, library_id);
+		encode::string(&mut buf, library_name);
+		encode::buf(&mut buf, &library_public_key.to_bytes());
 
 		buf
 	}
