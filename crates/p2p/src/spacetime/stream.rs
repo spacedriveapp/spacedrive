@@ -6,7 +6,7 @@ use std::{
 
 use libp2p::{futures::AsyncWriteExt, swarm::NegotiatedSubstream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf};
-use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
+use tokio_util::compat::Compat;
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
 pub const UNICAST_DISCRIMINATOR: u8 = 1;

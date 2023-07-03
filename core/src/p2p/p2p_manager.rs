@@ -289,7 +289,7 @@ impl P2PManager {
 								}
 							});
 						}
-						Event::PeerBroadcast(event) => {
+						Event::PeerBroadcast(_event) => {
 							todo!();
 						}
 						Event::Shutdown => {

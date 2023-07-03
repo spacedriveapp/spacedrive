@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata, MetadataManager};
+use sd_p2p::{Event, Keypair, Manager, Metadata, MetadataManager};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
