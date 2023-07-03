@@ -11,9 +11,6 @@ use super::PeerId;
 /// This is useful for updating your UI when stuff changes on the backend.
 /// You can also interact with some events to cause an event.
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Event<TMetadata: Metadata> {
 	/// add a network interface on this node to listen for
 	AddListenAddr(SocketAddr),
@@ -33,10 +30,8 @@ pub enum Event<TMetadata: Metadata> {
 	/// communication was lost with a peer.
 	PeerDisconnected(PeerId),
 	/// the peer has opened a new unicast substream
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
 	PeerMessage(PeerMessageEvent<TMetadata, UnicastStream>),
 	/// the peer has opened a new brodcast substream
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
 	PeerBroadcast(PeerMessageEvent<TMetadata, BroadcastStream>),
 	/// the node is shutting down
 	Shutdown,
