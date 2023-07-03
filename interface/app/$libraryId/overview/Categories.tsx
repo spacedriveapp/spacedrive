@@ -135,6 +135,19 @@ const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
 		const element = ref.current;
 		if (!element) return;
 
+		const onScroll = () => {
+			setScroll(element.scrollLeft);
+
+			setMouseState((s) => {
+				if (s !== 'mousedown') return s;
+
+				if (layout.ref.current) {
+					layout.ref.current.style.cursor = 'grabbing';
+				}
+
+				return 'dragging';
+			});
+		};
 		const onWheel = (event: WheelEvent) => {
 			event.preventDefault();
 			const { deltaX, deltaY } = event;
@@ -142,37 +155,6 @@ const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
 			element.scrollTo({ left: element.scrollLeft + scrollAmount });
 		};
 		const onMouseDown = () => setMouseState('mousedown');
-
-		element.addEventListener('wheel', onWheel);
-		element.addEventListener('mousedown', onMouseDown);
-
-		return () => {
-			element.removeEventListener('wheel', onWheel);
-			element.removeEventListener('mousedown', onMouseDown);
-		};
-	}, [ref]);
-
-	useEffect(() => {
-		const element = ref.current;
-		if (!element) return;
-
-		const onScroll = () => {
-			setScroll(element.scrollLeft);
-
-			if (mouseState === 'mousedown') {
-				setMouseState('dragging');
-
-				if (layout.ref.current) {
-					layout.ref.current.style.cursor = 'grabbing';
-				}
-			}
-		};
-
-		element.addEventListener('scroll', onScroll);
-		return () => element.removeEventListener('scroll', onScroll);
-	}, [mouseState, layout.ref, ref]);
-
-	useEffect(() => {
 		const onMouseUp = () => {
 			setMouseState('idle');
 			if (layout.ref.current) {
@@ -180,9 +162,20 @@ const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
 			}
 		};
 
+		element.addEventListener('scroll', onScroll);
+		element.addEventListener('wheel', onWheel);
+		element.addEventListener('mousedown', onMouseDown);
+
 		window.addEventListener('mouseup', onMouseUp);
-		return () => window.removeEventListener('mouseup', onMouseUp);
-	}, [layout.ref]);
+
+		return () => {
+			element.removeEventListener('scroll', onScroll);
+			element.removeEventListener('wheel', onWheel);
+			element.removeEventListener('mousedown', onMouseDown);
+
+			window.removeEventListener('mouseup', onMouseUp);
+		};
+	}, [ref, layout.ref]);
 
 	return { scroll, mouseState };
 };
