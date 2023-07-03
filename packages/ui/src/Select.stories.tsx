@@ -2,7 +2,7 @@ import { Meta } from '@storybook/react';
 import { useState } from 'react';
 import { Select, SelectOption } from './Select';
 
-export default {
+const meta: Meta<typeof Select> = {
 	title: 'Select',
 	component: Select,
 	argTypes: {},
@@ -14,7 +14,9 @@ export default {
 	args: {
 		children: 'Select'
 	}
-} as Meta<typeof Select>;
+};
+
+export default meta;
 
 export const Default = () => {
 	const VALUES = ['Option 1', 'Option 2', 'Option 3'] as const;
