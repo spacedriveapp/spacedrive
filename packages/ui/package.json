@@ -49,6 +49,7 @@
 	"devDependencies": {
 		"@babel/core": "^7.19.3",
 		"@sd/config": "workspace:*",
+		"@storybook/types": "^7.0.24",
 		"@tailwindcss/typography": "^0.5.7",
 		"@types/node": "^18.15.1",
 		"@types/react": "^18.0.21",

@@ -10,21 +10,13 @@ ffbuild_dockerbuild() {
   autoreconf -i
 
   local myconf=(
+    --host="$FFBUILD_TOOLCHAIN"
     --prefix="$FFBUILD_PREFIX"
     --disable-shared
     --enable-static
     --disable-dec265
     --disable-sherlock265
   )
-
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    myconf+=(
-      --host="$FFBUILD_TOOLCHAIN"
-    )
-  else
-    echo "Unknown target"
-    return 255
-  fi
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"
