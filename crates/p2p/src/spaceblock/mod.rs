@@ -21,126 +21,13 @@ use crate::{
 	spacetime::{SpaceTimeStream, UnicastStream},
 };
 
-/// TODO
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockSize(u32); // Max block size is gonna be 3.9GB which is stupidly overkill
+mod block;
+mod block_size;
+mod sb_request;
 
-impl BlockSize {
-	// TODO: Validating `BlockSize` are multiple of 2, i think. Idk why but BEP does it.
-
-	pub fn from_size(size: u64) -> Self {
-		// TODO: Something like: https://docs.syncthing.net/specs/bep-v1.html#selection-of-block-size
-		Self(131072) // 128 KiB
-	}
-
-	/// This is super dangerous as it doesn't enforce any assumptions of the protocol and is designed just for tests.
-	#[cfg(test)]
-	pub fn dangerously_new(size: u32) -> Self {
-		Self(size)
-	}
-
-	pub fn size(&self) -> u32 {
-		self.0
-	}
-}
-
-/// TODO
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpaceblockRequest {
-	pub name: String,
-	pub size: u64,
-	// TODO: Include file permissions
-	pub block_size: BlockSize,
-}
-
-#[derive(Debug, Error)]
-pub enum SpacedropRequestError {
-	#[error("SpacedropRequestError::Name({0})")]
-	Name(decode::Error),
-	#[error("SpacedropRequestError::Size({0})")]
-	Size(std::io::Error),
-}
-
-impl SpaceblockRequest {
-	pub async fn from_stream(
-		stream: &mut (impl AsyncRead + Unpin),
-	) -> Result<Self, SpacedropRequestError> {
-		let name = decode::string(stream)
-			.await
-			.map_err(SpacedropRequestError::Name)?;
-
-		let size = stream
-			.read_u64_le()
-			.await
-			.map_err(SpacedropRequestError::Size)?;
-		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
-
-		Ok(Self {
-			name,
-			size,
-			block_size,
-		})
-	}
-
-	pub fn to_bytes(&self) -> Vec<u8> {
-		let Self {
-			name,
-			size,
-			block_size,
-		} = self;
-		let mut buf = Vec::new();
-
-		encode::string(&mut buf, name);
-		buf.extend_from_slice(&self.size.to_le_bytes());
-
-		buf
-	}
-}
-
-/// TODO
-pub struct Block<'a> {
-	// TODO: File content, checksum, source location so it can be resent!
-	pub offset: u64,
-	pub size: u64,
-	pub data: &'a [u8],
-	// TODO: Checksum?
-}
-
-impl<'a> Block<'a> {
-	pub fn to_bytes(&self) -> Vec<u8> {
-		let mut buf = Vec::new();
-		buf.extend_from_slice(&self.offset.to_le_bytes());
-		buf.extend_from_slice(&self.size.to_le_bytes());
-		buf.extend_from_slice(self.data);
-		buf
-	}
-
-	pub async fn from_stream(
-		stream: &mut (impl AsyncReadExt + Unpin),
-		data_buf: &mut [u8],
-	) -> Result<Block<'a>, ()> {
-		let mut offset = [0; 8];
-		stream.read_exact(&mut offset).await.map_err(|_| ())?; // TODO: Error handling
-		let offset = u64::from_le_bytes(offset);
-
-		let mut size = [0; 8];
-		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
-		let size = u64::from_le_bytes(size);
-
-		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
-
-		stream
-			.read_exact(&mut data_buf[..size as usize])
-			.await
-			.map_err(|_| ())?; // TODO: Error handling
-
-		Ok(Self {
-			offset,
-			size,
-			data: &[], // TODO: This is super cringe. Data should be decoded here but lifetimes and extra allocations become a major concern.
-		})
-	}
-}
+pub use block::*;
+pub use block_size::*;
+pub use sb_request::*;
 
 /// TODO
 pub struct Transfer<'a, F> {

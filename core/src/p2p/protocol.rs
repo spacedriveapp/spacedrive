@@ -122,7 +122,7 @@ impl NodeLibraryPairingInformation {
 		})
 	}
 
-	pub fn to_bytes(self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		let Self {
 			node_id,
 			node_name,
@@ -134,10 +134,10 @@ impl NodeLibraryPairingInformation {
 
 		let mut buf = Vec::new();
 
-		encode::uuid(&mut buf, &node_id);
+		encode::uuid(&mut buf, node_id);
 		encode::string(&mut buf, node_name);
-		buf.push(platform as u8);
-		encode::uuid(&mut buf, &library_id);
+		buf.push(*platform as u8);
+		encode::uuid(&mut buf, library_id);
 		encode::string(&mut buf, library_name);
 		encode::buf(&mut buf, &library_public_key.to_bytes());
 
