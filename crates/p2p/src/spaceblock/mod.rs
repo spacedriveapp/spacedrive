@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::{
 	proto::{decode, encode},
-	spacetime::{SpaceTimeStream, UnicastStream},
+	spacetime::UnicastStream,
 };
 
 mod block;

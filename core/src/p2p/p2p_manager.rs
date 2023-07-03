@@ -14,7 +14,6 @@ use chrono::Utc;
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
-	spacetime::SpaceTimeStream,
 	spacetunnel::{Identity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
@@ -124,28 +123,21 @@ impl P2PManager {
 							// TODO(Spacedrop): Disable Spacedrop for now
 							// event.dial().await;
 						}
-						Event::PeerMessage(mut event) => {
+						Event::PeerMessage(event) => {
 							let events = events.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let library_manager = library_manager.clone();
 
 							tokio::spawn(async move {
-								let header = Header::from_stream(&mut event.stream).await.unwrap();
+								let mut stream = event.stream;
+								let header = Header::from_stream(&mut stream).await.unwrap();
 
 								match header {
 									Header::Ping => {
 										debug!("Received ping from peer '{}'", event.peer_id);
 									}
 									Header::Spacedrop(req) => {
-										let mut stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
 										let id = Uuid::new_v4();
 										let (tx, rx) = oneshot::channel();
 
@@ -202,15 +194,6 @@ impl P2PManager {
 										};
 									}
 									Header::Pair(library_id) => {
-										let mut stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
-
 										info!(
 											"Starting pairing with '{}' for library '{library_id}'",
 											event.peer_id
@@ -272,15 +255,6 @@ impl P2PManager {
 										info!("Completed pairing with {}", remote_info.node_id);
 									}
 									Header::Sync(library_id) => {
-										let stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
-
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
 
 										let mut len = [0; 4];
@@ -314,6 +288,9 @@ impl P2PManager {
 									}
 								}
 							});
+						}
+						Event::PeerBroadcast(event) => {
+							todo!();
 						}
 						Event::Shutdown => {
 							shutdown = true;

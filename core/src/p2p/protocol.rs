@@ -5,7 +5,7 @@ use uuid::Uuid;
 use sd_p2p::{
 	proto::{decode, encode},
 	spaceblock::{SpaceblockRequest, SpacedropRequestError},
-	spacetime::SpaceTimeStream,
+	spacetime::UnicastStream,
 	spacetunnel::RemoteIdentity,
 };
 
@@ -32,24 +32,19 @@ pub enum HeaderError {
 	SpacedropRequest(#[from] SpacedropRequestError),
 	#[error("error reading sync request: {0}")]
 	SyncRequest(decode::Error),
-	#[error("invalid request. Spacedrop requires a unicast stream!")]
-	SpacedropOverMulticastIsForbidden,
 }
 
 impl Header {
-	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, HeaderError> {
+	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, HeaderError> {
 		let discriminator = stream
 			.read_u8()
 			.await
 			.map_err(HeaderError::DiscriminatorIo)?;
 
 		match discriminator {
-			0 => match stream {
-				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
-					SpaceblockRequest::from_stream(stream).await?,
-				)),
-				_ => Err(HeaderError::SpacedropOverMulticastIsForbidden),
-			},
+			0 => Ok(Self::Spacedrop(
+				SpaceblockRequest::from_stream(stream).await?,
+			)),
 			1 => Ok(Self::Ping),
 			2 => Ok(Self::Pair(
 				decode::uuid(stream).await.map_err(HeaderError::Pairing)?,

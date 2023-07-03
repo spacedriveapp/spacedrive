@@ -1,6 +1,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{spacetime::SpaceTimeStream, ConnectedPeer, DiscoveredPeer, Manager, Metadata};
+use crate::{
+	spacetime::{BroadcastStream, UnicastStream},
+	ConnectedPeer, DiscoveredPeer, Manager, Metadata,
+};
 
 use super::PeerId;
 
@@ -29,25 +32,34 @@ pub enum Event<TMetadata: Metadata> {
 	PeerConnected(ConnectedPeer),
 	/// communication was lost with a peer.
 	PeerDisconnected(PeerId),
-	/// the peer has opened a new substream
+	/// the peer has opened a new unicast substream
 	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	PeerMessage(PeerMessageEvent<TMetadata>),
+	PeerMessage(PeerMessageEvent<TMetadata, UnicastStream>),
+	/// the peer has opened a new brodcast substream
+	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
+	PeerBroadcast(PeerMessageEvent<TMetadata, BroadcastStream>),
 	/// the node is shutting down
 	Shutdown,
 }
 
 #[derive(Debug)]
-pub struct PeerMessageEvent<TMetadata: Metadata> {
+pub struct PeerMessageEvent<TMetadata: Metadata, S> {
 	pub stream_id: u64,
 	pub peer_id: PeerId,
 	pub manager: Arc<Manager<TMetadata>>,
-	pub stream: SpaceTimeStream,
+	pub stream: S,
 	// Prevent manual creation by end-user
 	pub(crate) _priv: (),
 }
 
-impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata>> for Event<TMetadata> {
-	fn from(event: PeerMessageEvent<TMetadata>) -> Self {
+impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata, UnicastStream>> for Event<TMetadata> {
+	fn from(event: PeerMessageEvent<TMetadata, UnicastStream>) -> Self {
 		Self::PeerMessage(event)
+	}
+}
+
+impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata, BroadcastStream>> for Event<TMetadata> {
+	fn from(event: PeerMessageEvent<TMetadata, BroadcastStream>) -> Self {
+		Self::PeerBroadcast(event)
 	}
 }
