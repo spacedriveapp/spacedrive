@@ -1,29 +1,11 @@
-import { useState, RefObject, useCallback, useEffect } from 'react';
+import { RefObject, useMemo } from 'react';
+import useResizeObserver from 'use-resize-observer';
 
-export const useIsTextTruncated = (element: RefObject<HTMLElement>, text: string | null): boolean => {
-  const determineIsTruncated = useCallback((): boolean => {
-    if (!element.current) return false;
-    return element.current.scrollWidth > element.current.clientWidth;
-}, [element]);
+export const useIsTextTruncated = (element: RefObject<HTMLElement>, text: string | null) => {
+	const { width } = useResizeObserver({ ref: element });
 
-
-  const [isTruncated, setIsTruncated] = useState<boolean>(determineIsTruncated());
-
- useEffect(() => {
-    const resizeListener = (): void => {
-      setIsTruncated(determineIsTruncated());
-    };
-
-    window.addEventListener('resize', resizeListener);
-
-    return () => {
-      window.removeEventListener('resize', resizeListener);
-    };
-  }, [element, determineIsTruncated, text]);
-
- useEffect(() => {
-    setIsTruncated(determineIsTruncated());
-  }, [element, determineIsTruncated, text]);
-
-  return isTruncated;
+	return useMemo(() => {
+		if (!element.current) return false;
+		return element.current.scrollWidth > element.current.clientWidth;
+	}, [element, width, text]);
 };
