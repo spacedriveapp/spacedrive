@@ -39,7 +39,11 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			</div>
 
 			<div className="flex flex-col justify-center">
-				<RenamableItemText item={data} selected={selected} />
+				<RenamableItemText
+					item={data}
+					selected={selected}
+					style={{ maxHeight: explorerStore.gridItemSize / 3 }}
+				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(

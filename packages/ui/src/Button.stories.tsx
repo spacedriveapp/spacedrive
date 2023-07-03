@@ -1,7 +1,7 @@
 import { Meta, StoryFn } from '@storybook/react';
 import { Button } from './Button';
 
-export default {
+const meta: Meta<typeof Button> = {
 	title: 'Button',
 	component: Button,
 	argTypes: {},
@@ -13,21 +13,23 @@ export default {
 	args: {
 		children: 'Button'
 	}
-} as Meta<typeof Button>;
+};
+
+export default meta;
 
 const Template: StoryFn<typeof Button> = (args) => <Button {...args} />;
 
-export const Default = Template.bind({});
+export const Default: StoryFn<typeof Button> = Template.bind({});
 Default.args = {
 	variant: 'default'
 };
 
-export const Primary = Template.bind({});
+export const Primary: StoryFn<typeof Button> = Template.bind({});
 Primary.args = {
 	variant: 'accent'
 };
 
-export const PrimarySmall = Template.bind({});
+export const PrimarySmall: StoryFn<typeof Button> = Template.bind({});
 PrimarySmall.args = {
 	variant: 'accent',
 	size: 'sm'

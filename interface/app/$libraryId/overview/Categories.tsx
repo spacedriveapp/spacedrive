@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
+import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { useIsDark } from '~/hooks';
 import CategoryButton from './CategoryButton';
@@ -33,6 +34,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const isDark = useIsDark();
 	const [scroll, setScroll] = useState(0);
 	const ref = useRef<HTMLDivElement>(null);
+	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	useEffect(() => {
@@ -76,6 +78,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 			</div>
 			<div
 				ref={ref}
+				{...events}
 				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
 				style={{
 					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
