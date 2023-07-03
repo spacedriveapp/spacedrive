@@ -55,12 +55,12 @@ pub mod encode {
 	use super::*;
 
 	/// Serialize uuid as it's fixed size data.
-	pub fn uuid(buf: &mut Vec<u8>, uuid: Uuid) {
+	pub fn uuid(buf: &mut Vec<u8>, uuid: &Uuid) {
 		buf.extend(uuid.as_bytes());
 	}
 
 	/// Serialize string as it's u16 length and data.
-	pub fn string(buf: &mut Vec<u8>, s: String) {
+	pub fn string(buf: &mut Vec<u8>, s: &String) {
 		let len_buf = (s.len() as u16).to_le_bytes();
 		if s.len() > u16::MAX as usize {
 			panic!("String is too long!"); // TODO: Error handling

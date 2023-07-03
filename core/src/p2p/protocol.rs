@@ -20,16 +20,6 @@ pub enum Header {
 	Sync(Uuid),
 }
 
-// #[derive(Debug, Error)]
-// pub enum SyncRequestError {
-// 	#[error("io error reading library id: {0}")]
-// 	LibraryIdErr(decode::Error),
-// 	#[error("io error decoding library id: {0}")]
-// 	ErrorDecodingLibraryId(uuid::Error),
-// 	#[error("io error reading sync payload len: {0}")]
-// 	PayloadLenIoError(std::io::Error),
-// }
-
 #[derive(Debug, Error)]
 pub enum HeaderError {
 	#[error("io error reading discriminator: {0}")]
@@ -81,14 +71,14 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Pair(library_id) => {
+			Self::Pair(uuid) => {
 				let mut bytes = vec![2];
-				bytes.extend_from_slice(library_id.as_bytes());
+				encode::uuid(&mut bytes, uuid);
 				bytes
 			}
 			Self::Sync(uuid) => {
 				let mut bytes = vec![3];
-				bytes.extend_from_slice(uuid.as_bytes());
+				encode::uuid(&mut bytes, uuid);
 				bytes
 			}
 		}
@@ -144,10 +134,10 @@ impl NodeLibraryPairingInformation {
 
 		let mut buf = Vec::new();
 
-		encode::uuid(&mut buf, node_id);
+		encode::uuid(&mut buf, &node_id);
 		encode::string(&mut buf, node_name);
 		buf.push(platform as u8);
-		encode::uuid(&mut buf, library_id);
+		encode::uuid(&mut buf, &library_id);
 		encode::string(&mut buf, library_name);
 		encode::buf(&mut buf, &library_public_key.to_bytes());
 

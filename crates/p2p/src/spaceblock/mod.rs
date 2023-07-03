@@ -16,7 +16,10 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::spacetime::{SpaceTimeStream, UnicastStream};
+use crate::{
+	proto::{decode, encode},
+	spacetime::{SpaceTimeStream, UnicastStream},
+};
 
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,39 +55,24 @@ pub struct SpaceblockRequest {
 
 #[derive(Debug, Error)]
 pub enum SpacedropRequestError {
-	#[error("io error reading name len: {0}")]
-	NameLenIoError(std::io::Error),
-	#[error("io error reading name: {0}")]
-	NameIoError(std::io::Error),
-	#[error("error utf-8 decoding name: {0}")]
-	NameFormatError(FromUtf8Error),
-	#[error("io error reading file size: {0}")]
-	SizeIoError(std::io::Error),
+	#[error("SpacedropRequestError::Name({0})")]
+	Name(decode::Error),
+	#[error("SpacedropRequestError::Size({0})")]
+	Size(std::io::Error),
 }
 
 impl SpaceblockRequest {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, SpacedropRequestError> {
-		let name = {
-			let len = stream
-				.read_u16_le()
-				.await
-				.map_err(SpacedropRequestError::NameLenIoError)?;
-
-			let mut buf = vec![0u8; len as usize];
-			stream
-				.read_exact(&mut buf)
-				.await
-				.map_err(SpacedropRequestError::NameIoError)?;
-
-			String::from_utf8(buf).map_err(SpacedropRequestError::NameFormatError)?
-		};
+		let name = decode::string(stream)
+			.await
+			.map_err(SpacedropRequestError::Name)?;
 
 		let size = stream
 			.read_u64_le()
 			.await
-			.map_err(SpacedropRequestError::SizeIoError)?;
+			.map_err(SpacedropRequestError::Size)?;
 		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
 		Ok(Self {
@@ -95,15 +83,14 @@ impl SpaceblockRequest {
 	}
 
 	pub fn to_bytes(&self) -> Vec<u8> {
+		let Self {
+			name,
+			size,
+			block_size,
+		} = self;
 		let mut buf = Vec::new();
 
-		let len_buf = (self.name.len() as u16).to_le_bytes();
-		if self.name.len() > u16::MAX as usize {
-			panic!("Name is too long!"); // TODO: Error handling
-		}
-		buf.extend_from_slice(&len_buf);
-		buf.extend(self.name.as_bytes());
-
+		encode::string(&mut buf, name);
 		buf.extend_from_slice(&self.size.to_le_bytes());
 
 		buf
