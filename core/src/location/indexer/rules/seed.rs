@@ -25,14 +25,9 @@ struct SystemIndexerRule {
 /// Seeds system indexer rules into a new or existing library,
 pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederError> {
 	// DO NOT REORDER THIS ARRAY!
-	for (i, rule) in [
-		no_os_protected(),
-		no_hidden(),
-		only_git_repos(),
-		only_images(),
-	]
-	.into_iter()
-	.enumerate()
+	for (i, rule) in [no_os_protected(), no_hidden(), no_git(), only_images()]
+		.into_iter()
+		.enumerate()
 	{
 		let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
 		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
@@ -175,13 +170,14 @@ fn no_hidden() -> SystemIndexerRule {
 	}
 }
 
-fn only_git_repos() -> SystemIndexerRule {
+fn no_git() -> SystemIndexerRule {
 	SystemIndexerRule {
-		name: "Only Git Repositories",
+		name: "No Git",
 		default: false,
-		rules: vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
-			[".git".to_string()].into_iter().collect(),
-		)],
+		rules: vec![RulePerKind::new_reject_files_by_globs_str([
+			"**/{.git,.gitignore,.gitattributes,.gitkeep,.gitconfig,.gitmodules}",
+		])
+		.expect("this is hardcoded and should always work")],
 	}
 }
 
