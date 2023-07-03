@@ -1,9 +1,8 @@
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { Info } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Statistics, byteSize, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -48,7 +47,7 @@ let mounted = false;
 const StatItem = (props: StatItemProps) => {
 	const { title, bytes = BigInt('0'), isLoading } = props;
 
-	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
+	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
 		end: +size.value,

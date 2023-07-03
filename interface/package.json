@@ -39,7 +39,6 @@
 		"@types/react-scroll-sync": "^0.8.4",
 		"@vitejs/plugin-react": "^2.1.0",
 		"autoprefixer": "^10.4.12",
-		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.5.3",
 		"clsx": "^1.2.1",
 		"crypto-random-string": "^5.0.0",
@@ -72,7 +71,6 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@types/babel-core": "^6.25.7",
-		"@types/byte-size": "^8.1.0",
 		"@types/loadable__component": "^5.13.4",
 		"@types/node": "^18.11.9",
 		"@types/react": "^18.0.21",
