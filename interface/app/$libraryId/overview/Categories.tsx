@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { useIsDark } from '~/hooks';
+import { useLayoutContext } from '../Layout/Context';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
@@ -30,24 +31,18 @@ const CategoryList = [
 ] as Category[];
 
 export const Categories = (props: { selected: Category; onSelectedChanged(c: Category): void }) => {
-	const categories = useLibraryQuery(['categories.list']);
+	const layout = useLayoutContext();
 	const isDark = useIsDark();
-	const [scroll, setScroll] = useState(0);
+
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
-	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
-	useEffect(() => {
-		const element = ref.current;
-		if (!element) return;
-		const handler = () => {
-			setScroll(element.scrollLeft);
-		};
-		element.addEventListener('scroll', handler);
-		return () => {
-			element.removeEventListener('scroll', handler);
-		};
-	}, []);
+	const categories = useLibraryQuery(['categories.list']);
+
+	const [scroll, setScroll] = useState(0);
+	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
+	const [mousedown, setMousedown] = useState(false);
+	const [dragging, setDragging] = useState(false);
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
@@ -62,6 +57,62 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const lastCategoryVisibleHandler = (index: number) => {
 		index === CategoryList.length - 1 && setLastCategoryVisible((prev) => !prev);
 	};
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+
+		const handleWheel = (event: WheelEvent) => {
+			event.preventDefault();
+			const { deltaX, deltaY } = event;
+			const scrollAmount = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+			element.scrollTo({ left: element.scrollLeft + scrollAmount });
+		};
+
+		element.addEventListener('wheel', handleWheel);
+		return () => element.removeEventListener('wheel', handleWheel);
+	}, []);
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+
+		const onScroll = () => {
+			setScroll(element.scrollLeft);
+			if (mousedown && !dragging) {
+				setDragging(true);
+				if (layout.ref.current) {
+					layout.ref.current.style.cursor = 'grabbing';
+				}
+			}
+		};
+
+		element.addEventListener('scroll', onScroll);
+		return () => element.removeEventListener('scroll', onScroll);
+	}, [mousedown, dragging, layout.ref]);
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+
+		const onMouseDown = () => setMousedown(true);
+
+		element.addEventListener('mousedown', onMouseDown);
+		return () => element.removeEventListener('mousedown', onMouseDown);
+	}, []);
+
+	useEffect(() => {
+		const onMouseUp = () => {
+			setMousedown(false);
+			setDragging(false);
+			if (layout.ref.current) {
+				layout.ref.current.style.cursor = '';
+			}
+		};
+
+		window.addEventListener('mouseup', onMouseUp);
+		return () => window.removeEventListener('mouseup', onMouseUp);
+	}, [layout.ref]);
 
 	return (
 		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
@@ -98,7 +149,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									// WARNING: Edge breaks if the values are not postfixed with px or %
 									margin: '0% -120px 0% 0%'
 								}}
-								className="min-w-fit"
+								className={clsx('min-w-fit', !dragging && '!cursor-default')}
 								key={category}
 							>
 								<CategoryButton
