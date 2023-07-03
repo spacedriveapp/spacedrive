@@ -176,6 +176,7 @@ export default () => {
 									(Array.isArray(explorerView.selected) &&
 										explorerView.selected.length > 1)
 								}
+								style={{ maxHeight: 36 }}
 							/>
 						</div>
 					);
@@ -760,10 +761,7 @@ export default () => {
 										return (
 											<div
 												key={row.id}
-												className={clsx(
-													'absolute left-0 top-0 flex w-full',
-													explorerView.isRenaming && selected && 'z-10'
-												)}
+												className="absolute left-0 top-0 flex w-full"
 												style={{
 													height: `${virtualRow.size}px`,
 													transform: `translateY(${
