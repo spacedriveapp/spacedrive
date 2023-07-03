@@ -41,8 +41,9 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 	const [scroll, setScroll] = useState(0);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
-	const [mousedown, setMousedown] = useState(false);
-	const [dragging, setDragging] = useState(false);
+
+	type MouseState = 'idle' | 'mousedown' | 'dragging';
+	const [mouseState, setMouseState] = useState<MouseState>('idle');
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
@@ -79,8 +80,9 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 		const onScroll = () => {
 			setScroll(element.scrollLeft);
-			if (mousedown && !dragging) {
-				setDragging(true);
+			if (mouseState === 'mousedown') {
+				setMouseState('dragging');
+
 				if (layout.ref.current) {
 					layout.ref.current.style.cursor = 'grabbing';
 				}
@@ -89,13 +91,13 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 		element.addEventListener('scroll', onScroll);
 		return () => element.removeEventListener('scroll', onScroll);
-	}, [mousedown, dragging, layout.ref]);
+	}, [mouseState, layout.ref]);
 
 	useEffect(() => {
 		const element = ref.current;
 		if (!element) return;
 
-		const onMouseDown = () => setMousedown(true);
+		const onMouseDown = () => setMouseState('mousedown');
 
 		element.addEventListener('mousedown', onMouseDown);
 		return () => element.removeEventListener('mousedown', onMouseDown);
@@ -103,8 +105,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 	useEffect(() => {
 		const onMouseUp = () => {
-			setMousedown(false);
-			setDragging(false);
+			setMouseState('idle');
 			if (layout.ref.current) {
 				layout.ref.current.style.cursor = '';
 			}
@@ -149,7 +150,10 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									// WARNING: Edge breaks if the values are not postfixed with px or %
 									margin: '0% -120px 0% 0%'
 								}}
-								className={clsx('min-w-fit', !dragging && '!cursor-default')}
+								className={clsx(
+									'min-w-fit',
+									mouseState !== 'dragging' && '!cursor-default'
+								)}
 								key={category}
 							>
 								<CategoryButton
