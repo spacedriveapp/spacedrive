@@ -141,9 +141,7 @@ const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
 			setMouseState((s) => {
 				if (s !== 'mousedown') return s;
 
-				if (layout.ref.current) {
-					layout.ref.current.style.cursor = 'grabbing';
-				}
+				if (layout.ref.current) layout.ref.current.style.cursor = 'grabbing';
 
 				return 'dragging';
 			});
@@ -155,6 +153,7 @@ const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
 			element.scrollTo({ left: element.scrollLeft + scrollAmount });
 		};
 		const onMouseDown = () => setMouseState('mousedown');
+
 		const onMouseUp = () => {
 			setMouseState('idle');
 			if (layout.ref.current) {
