@@ -8,7 +8,7 @@ import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
 import { useExplorerStore } from '../Explorer/store';
-import { usePageLayoutContext } from '../Layout/Page/Context';
+import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
