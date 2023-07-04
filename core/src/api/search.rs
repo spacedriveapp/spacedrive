@@ -5,7 +5,8 @@ use crate::{
 	},
 	library::{Category, Library},
 	location::{
-		file_path_helper::{check_file_path_exists, IsolatedFilePathData}, LocationError,
+		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+		LocationError,
 	},
 	object::preview::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
