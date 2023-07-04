@@ -7,6 +7,7 @@ use std::{ffi::OsString, fmt::Display, path::PathBuf, sync::OnceLock};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
+use tracing::error;
 
 fn sys_guard() -> &'static Mutex<System> {
 	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
@@ -93,7 +94,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 			// Ensure disk has a valid device path
 			let real_path = match tokio::fs::canonicalize(disk_name).await {
 				Err(real_path) => {
-					tracing::error!(
+					error!(
 						"Failed to canonicalize disk path {}: {:#?}",
 						disk_name.to_string_lossy(),
 						real_path
@@ -191,16 +192,19 @@ struct HDIUtilInfo {
 
 #[cfg(not(target_os = "linux"))]
 pub async fn get_volumes() -> Vec<Volume> {
+	use futures::future;
+	use tokio::process::Command;
+
 	let mut sys = sys_guard().lock().await;
 	sys.refresh_disks_list();
 
 	// Ignore mounted DMGs
 	#[cfg(target_os = "macos")]
-	let dmgs = &tokio::process::Command::new("hdiutil")
+	let dmgs = &Command::new("hdiutil")
 		.args(["info", "-plist"])
 		.output()
 		.await
-		.map_err(|err| tracing::error!("Failed to execute hdiutil: {err:#?}"))
+		.map_err(|err| error!("Failed to execute hdiutil: {err:#?}"))
 		.ok()
 		.and_then(|wmic_process| {
 			use std::str::FromStr;
@@ -209,7 +213,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 				let info: Result<HDIUtilInfo, _> = plist::from_bytes(&wmic_process.stdout);
 				match info {
 					Err(err) => {
-						tracing::error!("Failed to parse hdiutil output: {err:#?}");
+						error!("Failed to parse hdiutil output: {err:#?}");
 						None
 					}
 					Ok(info) => Some(
@@ -222,7 +226,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 					),
 				}
 			} else {
-				tracing::error!("Command hdiutil return error");
+				error!("Command hdiutil return error");
 				None
 			}
 		});
@@ -266,20 +270,20 @@ pub async fn get_volumes() -> Vec<Volume> {
 				// Remove path separator from Disk letter
 				caption.pop();
 
-				let wmic_output = tokio::process::Command::new("cmd")
+				let wmic_output = Command::new("cmd")
 					.args([
 						"/C",
 						&format!("wmic logical disk where Caption='{caption}' get Size"),
 					])
 					.output()
 					.await
-					.map_err(|err| tracing::error!("Failed to execute hdiutil: {err:#?}"))
+					.map_err(|err| error!("Failed to execute hdiutil: {err:#?}"))
 					.ok()
 					.and_then(|wmic_process| {
 						if wmic_process.status.success() {
 							String::from_utf8(wmic_process.stdout).ok()
 						} else {
-							tracing::error!("Command wmic return error");
+							error!("Command wmic return error");
 							None
 						}
 					});
@@ -290,7 +294,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 						.trim()
 						.parse::<u64>()
 					{
-						Err(err) => tracing::error!("Failed to parse wmic output: {err:#?}"),
+						Err(err) => error!("Failed to parse wmic output: {err:#?}"),
 						Ok(n) => total_capacity = n,
 					}
 				}
@@ -308,7 +312,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 					_ => DiskType::Removable,
 				}
 			},
-			mount_point,
+			mount_points: vec![mount_point],
 			file_system: String::from_utf8(disk.file_system().to_vec()).ok(),
 			total_capacity,
 			available_capacity,
