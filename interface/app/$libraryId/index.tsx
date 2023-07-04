@@ -3,7 +3,7 @@ import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
 const pageRoutes: RouteObject = {
-	lazy: () => import('./PageLayout'),
+	lazy: () => import('./Layout/Page'),
 	children: [
 		{
 			path: 'overview',
