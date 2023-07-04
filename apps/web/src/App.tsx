@@ -29,8 +29,7 @@ const spacedriveURL = (() => {
 	} else if (import.meta.env.DEV) {
 		currentURL.host = 'localhost:8080';
 	}
-	currentURL.pathname = 'spacedrive';
-	return currentURL.href;
+	return `${currentURL.origin}/spacedrive`;
 })();
 
 const platform: Platform = {
