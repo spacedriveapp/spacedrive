@@ -2,6 +2,7 @@ use crate::{film_strip_filter, MovieDecoder, ThumbnailSize, ThumbnailerError, Vi
 
 use std::{ops::Deref, path::Path};
 use tokio::{fs, task::spawn_blocking};
+use tracing::error;
 use webp::Encoder;
 
 /// `Thumbnailer` struct holds data from a `ThumbnailerBuilder`, exposing methods
@@ -40,15 +41,22 @@ impl Thumbnailer {
 		let quality = self.builder.quality;
 
 		spawn_blocking(move || -> Result<Vec<u8>, ThumbnailerError> {
-			let mut decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata)?;
+			let mut decoder = MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata)?;
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
 
 			if !decoder.embedded_metadata_is_available() {
-				decoder.seek(
+				let result = decoder.seek(
 					(decoder.get_video_duration().as_secs() as f32 * seek_percentage).round()
 						as i64,
-				)?;
+				);
+
+				if let Err(err) = result {
+					error!("Failed to seek: {err:#?}");
+					// seeking failed, try the first frame again
+					decoder = MovieDecoder::new(video_file_path, prefer_embedded_metadata)?;
+					decoder.decode_video_frame()?;
+				}
 			}
 
 			let mut video_frame = VideoFrame::default();

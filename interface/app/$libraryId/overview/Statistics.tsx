@@ -59,7 +59,7 @@ const StatItem = (props: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'group flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
+				'group flex w-32 shrink-0 flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
