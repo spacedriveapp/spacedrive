@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { ExplorerContext } from '../Explorer/Context';
@@ -8,7 +8,7 @@ import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
 import { useExplorerStore } from '../Explorer/store';
-import { usePageLayout } from '../PageLayout';
+import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
@@ -16,7 +16,7 @@ import { useItems } from './data';
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();
-	const page = usePageLayout();
+	const page = usePageLayoutContext();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
@@ -28,6 +28,13 @@ export const Component = () => {
 		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
 		[selectedItemId, items]
 	);
+
+	useEffect(() => {
+		if (page?.ref.current) {
+			const { scrollTop } = page.ref.current;
+			if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
+		}
+	}, [selectedCategory, page?.ref]);
 
 	return (
 		<ExplorerContext.Provider value={{}}>
