@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense, useRef } from 'react';
+import { Suspense, useMemo, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -31,6 +31,8 @@ const Layout = () => {
 
 	usePlausiblePageViewMonitor({ currentPath: rawPath });
 
+	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
+
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
@@ -39,7 +41,7 @@ const Layout = () => {
 	}
 
 	return (
-		<LayoutContext.Provider value={{ ref: layoutRef }}>
+		<LayoutContext.Provider value={ctxValue}>
 			<div
 				ref={layoutRef}
 				className={clsx(
