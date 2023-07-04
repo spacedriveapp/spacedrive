@@ -1,4 +1,5 @@
-use futures::future;
+// Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -34,7 +35,7 @@ impl Display for DiskType {
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
 	pub name: OsString,
-	pub mount_point: PathBuf,
+	pub mount_points: Vec<PathBuf>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub total_capacity: u64,
@@ -60,6 +61,113 @@ impl From<VolumeError> for rspc::Error {
 	}
 }
 
+#[cfg(target_os = "linux")]
+pub async fn get_volumes() -> Vec<Volume> {
+	use std::{collections::HashMap, path::Path};
+
+	let mut sys = sys_guard().lock().await;
+	sys.refresh_disks_list();
+
+	let mut volumes: Vec<Volume> = Vec::new();
+	let mut path_to_volume_index = HashMap::new();
+	for disk in sys.disks() {
+		let disk_name = disk.name();
+		let mount_point = disk.mount_point().to_path_buf();
+		let file_system = String::from_utf8(disk.file_system().to_vec())
+			.map(|s| s.to_uppercase())
+			.ok();
+		let total_capacity = disk.total_space();
+		let available_capacity = disk.available_space();
+		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
+
+		let mut disk_path: PathBuf = PathBuf::from(disk_name);
+		if file_system.as_ref().map(|fs| fs == "ZFS").unwrap_or(false) {
+			// Use a custom path for ZFS disks to avoid conflicts with normal disks paths
+			disk_path = Path::new("zfs://").join(disk_path);
+		} else {
+			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
+			if !disk_path.starts_with("/dev") {
+				continue;
+			}
+
+			// Ensure disk has a valid device path
+			let real_path = match tokio::fs::canonicalize(disk_name).await {
+				Err(real_path) => {
+					tracing::error!(
+						"Failed to canonicalize disk path {}: {:#?}",
+						disk_name.to_string_lossy(),
+						real_path
+					);
+					continue;
+				}
+				Ok(real_path) => real_path,
+			};
+
+			// Check if disk is a symlink to another disk
+			if real_path != disk_path {
+				// Disk is a symlink to another disk, assign it to the same volume
+				path_to_volume_index.insert(
+					real_path.into_os_string(),
+					path_to_volume_index
+						.get(disk_name)
+						.cloned()
+						.unwrap_or(path_to_volume_index.len()),
+				);
+			}
+		}
+
+		if let Some(volume_index) = path_to_volume_index.get(disk_name) {
+			// Disk already has a volume assigned, update it
+			let volume: &mut Volume = volumes
+				.get_mut(*volume_index)
+				.expect("Volume index is present so the Volume must be present too");
+
+			// Update mount point if not already present
+			if volume.mount_points.iter().all(|p| p != &mount_point) {
+				volume.mount_points.push(mount_point);
+				if !volume.is_root_filesystem {
+					volume.is_root_filesystem = is_root_filesystem;
+				}
+			}
+
+			// Update mount capacity, it can change between mounts due to quotas (ZFS, BTRFS?)
+			if volume.total_capacity < total_capacity {
+				volume.total_capacity = total_capacity;
+			}
+
+			// This shouldn't change between mounts, but just in case
+			if volume.available_capacity > available_capacity {
+				volume.available_capacity = available_capacity;
+			}
+
+			continue;
+		}
+
+		// Assign volume to disk path
+		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
+
+		volumes.push(Volume {
+			name: disk_name.to_os_string(),
+			disk_type: if disk.is_removable() {
+				DiskType::Removable
+			} else {
+				match disk.type_() {
+					sysinfo::DiskType::SSD => DiskType::SSD,
+					sysinfo::DiskType::HDD => DiskType::HDD,
+					_ => DiskType::Removable,
+				}
+			},
+			file_system,
+			mount_points: vec![mount_point],
+			total_capacity,
+			available_capacity,
+			is_root_filesystem,
+		});
+	}
+
+	volumes
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -81,47 +189,10 @@ struct HDIUtilInfo {
 	images: Vec<ImageInfo>,
 }
 
-// pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
-// 	// enter all volumes associate with this client add to db
-// 	for volume in get_volumes() {
-// 		let params = vec![
-// 			disk_type::set(volume.disk_type.map(|t| t.to_string())),
-// 			filesystem::set(volume.file_system.clone()),
-// 			total_bytes_capacity::set(volume.total_capacity.to_string()),
-// 			total_bytes_available::set(volume.available_capacity.to_string()),
-// 		];
-
-// 		library
-// 			.db
-// 			.volume()
-// 			.upsert(
-// 				node_id_mount_point_name(
-// 					library.node_local_id,
-// 					volume.mount_point,
-// 					volume.name,
-// 				),
-// 				volume::create(
-// 					library.node_local_id,
-// 					volume.name,
-// 					volume.mount_point,
-// 					params.clone(),
-// 				),
-// 				params,
-// 			)
-// 			.exec()
-// 			.await?;
-// 	}
-// 	// cleanup: remove all unmodified volumes associate with this client
-
-// 	Ok(())
-// }
-
+#[cfg(not(target_os = "linux"))]
 pub async fn get_volumes() -> Vec<Volume> {
 	let mut sys = sys_guard().lock().await;
 	sys.refresh_disks_list();
-
-	#[cfg(target_os = "linux")]
-	let disk_names_guard = Mutex::new(std::collections::HashSet::new());
 
 	// Ignore mounted DMGs
 	#[cfg(target_os = "macos")]
@@ -159,32 +230,6 @@ pub async fn get_volumes() -> Vec<Volume> {
 	future::join_all(sys.disks().iter().map(|disk| async {
 		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
-
-		#[cfg(target_os = "linux")]
-		{
-			use std::os::unix::ffi::OsStrExt;
-
-			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
-			if !disk_name.as_bytes().starts_with(b"/dev") {
-				return None;
-			}
-
-			// Ignore multiple mounts of the same disk
-			// TODO: Need to test if this works correctly with ZFS and BTFS
-			let mut disk_names = disk_names_guard.lock().await;
-			if !disk_names.insert(PathBuf::from(disk_name)) {
-				return None;
-			}
-
-			// Also check proxy devices
-			if let Ok(real_path) = tokio::fs::canonicalize(disk_name).await {
-				if !(real_path == disk_name || disk_names.insert(real_path)) {
-					return None;
-				}
-			} else {
-				return None;
-			}
-		}
 
 		#[cfg(target_os = "macos")]
 		{
@@ -276,11 +321,44 @@ pub async fn get_volumes() -> Vec<Volume> {
 	.collect::<Vec<Volume>>()
 }
 
+// pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
+// 	// enter all volumes associate with this client add to db
+// 	for volume in get_volumes() {
+// 		let params = vec![
+// 			disk_type::set(volume.disk_type.map(|t| t.to_string())),
+// 			filesystem::set(volume.file_system.clone()),
+// 			total_bytes_capacity::set(volume.total_capacity.to_string()),
+// 			total_bytes_available::set(volume.available_capacity.to_string()),
+// 		];
+
+// 		library
+// 			.db
+// 			.volume()
+// 			.upsert(
+// 				node_id_mount_point_name(
+// 					library.node_local_id,
+// 					volume.mount_point,
+// 					volume.name,
+// 				),
+// 				volume::create(
+// 					library.node_local_id,
+// 					volume.name,
+// 					volume.mount_point,
+// 					params.clone(),
+// 				),
+// 				params,
+// 			)
+// 			.exec()
+// 			.await?;
+// 	}
+// 	// cleanup: remove all unmodified volumes associate with this client
+
+// 	Ok(())
+// }
+
 // #[test]
 // fn test_get_volumes() {
 //   let volumes = get_volumes()?;
 //   dbg!(&volumes);
 //   assert!(volumes.len() > 0);
 // }
-
-// Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs

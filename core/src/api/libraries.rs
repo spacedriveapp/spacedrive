@@ -26,7 +26,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				// TODO: get from database if library is from an offline node
+				// TODO: get from database if library is offline
 				// let _statistics = library
 				// 	.db
 				// 	.statistics()
