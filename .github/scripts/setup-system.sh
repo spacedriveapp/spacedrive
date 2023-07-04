@@ -94,6 +94,9 @@ if [ "${CI:-}" != "true" ]; then
   cargo install cargo-watch
 fi
 
+echo "Installing Playwright"
+npx playwright install
+
 echo
 
 if [ "${1:-}" = "mobile" ]; then
