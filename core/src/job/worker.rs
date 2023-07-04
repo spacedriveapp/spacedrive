@@ -11,6 +11,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use serde_json::json;
 use specta::Type;
 use tokio::{
 	select,
@@ -384,7 +385,15 @@ impl Worker {
 			}) if errors.is_empty() => {
 				report.status = JobStatus::Completed;
 				report.data = None;
-				report.metadata = metadata;
+				report.metadata = match (report.metadata.take(), metadata) {
+					(Some(mut current_metadata), Some(new_metadata)) => {
+						current_metadata["output"] = new_metadata;
+						Some(current_metadata)
+					}
+					(None, Some(new_metadata)) => Some(json!({ "output": new_metadata })),
+					(Some(current_metadata), None) => Some(current_metadata),
+					_ => None,
+				};
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
 					error!("failed to update job report: {:#?}", e);
@@ -409,7 +418,15 @@ impl Worker {
 				report.status = JobStatus::CompletedWithErrors;
 				report.errors_text = errors;
 				report.data = None;
-				report.metadata = metadata;
+				report.metadata = match (report.metadata.take(), metadata) {
+					(Some(mut current_metadata), Some(new_metadata)) => {
+						current_metadata["output"] = new_metadata;
+						Some(current_metadata)
+					}
+					(None, Some(new_metadata)) => Some(json!({ "output": new_metadata })),
+					(Some(current_metadata), None) => Some(current_metadata),
+					_ => None,
+				};
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
 					error!("failed to update job report: {:#?}", e);

@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
-import { useBoundingclientrect, useKey } from 'rooks';
+import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
 	ExplorerItem,
@@ -26,8 +26,10 @@ import {
 	getItemObject,
 	isPath
 } from '@sd/client';
-import { useScrolled } from '~/hooks';
+import { Tooltip } from '@sd/ui';
+import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { ViewItem } from '.';
+import { useLayoutContext } from '../../Layout/Context';
 import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
@@ -55,11 +57,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 								'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
 								cell.column.columnDef.meta?.className
 							)}
-							style={{
-								width:
-									cell.column.getSize() -
-									(cells.length - 1 === i ? props.paddingX : 0)
-							}}
+							style={{ width: cell.column.getSize() }}
 						>
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
 						</div>
@@ -70,16 +68,36 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 	);
 });
 
+const HeaderColumnName = ({ name }: { name: string }) => {
+	const textRef = useRef<HTMLParagraphElement>(null);
+
+	const isTruncated = useIsTextTruncated(textRef, name);
+
+	return (
+		<div ref={textRef} className="truncate">
+			{isTruncated ? (
+				<Tooltip label={name}>
+					<span className="truncate">{name}</span>
+				</Tooltip>
+			) : (
+				<span>{name}</span>
+			)}
+		</div>
+	);
+};
+
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+	const layout = useLayoutContext();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
 	const tableBodyRef = useRef<HTMLDivElement>(null);
 
 	const [sized, setSized] = useState(false);
-	const [locked, setLocked] = useState(true);
+	const [locked, setLocked] = useState(false);
+	const [resizing, setResizing] = useState(false);
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<[number, number][]>([]);
@@ -119,6 +137,8 @@ export default () => {
 				id: 'name',
 				header: 'Name',
 				minSize: 200,
+				size: 350,
+				maxSize: undefined,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
 					const locationData = getItemLocation(file);
@@ -156,6 +176,7 @@ export default () => {
 									(Array.isArray(explorerView.selected) &&
 										explorerView.selected.length > 1)
 								}
+								style={{ maxHeight: 36 }}
 							/>
 						</div>
 					);
@@ -213,6 +234,7 @@ export default () => {
 				id: 'dateAccessed',
 				header: 'Date Accessed',
 				accessorFn: (file) =>
+					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
@@ -234,7 +256,7 @@ export default () => {
 	const table = useReactTable({
 		data: explorerView.items || [],
 		columns,
-		defaultColumn: { minSize: 100 },
+		defaultColumn: { minSize: 100, maxSize: 250 },
 		state: { columnSizing },
 		onColumnSizingChange: setColumnSizing,
 		columnResizeMode: 'onChange',
@@ -284,10 +306,8 @@ export default () => {
 						: {})
 				};
 			});
-		} else {
-			if (Math.abs(tableWidth - tableLength) < 10) {
-				setLocked(true);
-			}
+		} else if (Math.abs(tableWidth - (tableLength + paddingX * 2 + scrollBarWidth)) < 15) {
+			setLocked(true);
 		}
 	}
 
@@ -377,7 +397,7 @@ export default () => {
 	}
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
-		if (!explorerView.onSelectedChange || !explorerView.contextMenu) return;
+		if (!explorerView.onSelectedChange || explorerView.contextMenu === undefined) return;
 
 		const itemId = row.original.item.id;
 
@@ -407,14 +427,21 @@ export default () => {
 		if (tableRef.current) {
 			const columns = table.getAllColumns();
 			const sizings = columns.reduce(
-				(sizings, column) =>
-					column.id === 'name' ? sizings : { ...sizings, [column.id]: column.getSize() },
+				(sizings, column) => ({ ...sizings, [column.id]: column.getSize() }),
 				{} as ColumnSizingState
 			);
 			const scrollWidth = tableRef.current.offsetWidth;
 			const sizingsSum = Object.values(sizings).reduce((a, b) => a + b, 0);
-			const nameWidth = scrollWidth - paddingX * 2 - scrollBarWidth - sizingsSum;
-			table.setColumnSizing({ ...sizings, name: nameWidth });
+
+			if (sizingsSum < scrollWidth) {
+				const nameColSize = sizings.name;
+				const nameWidth =
+					scrollWidth - paddingX * 2 - scrollBarWidth - (sizingsSum - (nameColSize || 0));
+
+				table.setColumnSizing({ ...sizings, name: nameWidth });
+				setLocked(true);
+			} else table.setColumnSizing(sizings);
+
 			setSized(true);
 		}
 	}, []);
@@ -552,6 +579,17 @@ export default () => {
 		{ when: !explorerView.isRenaming }
 	);
 
+	useWindowEventListener('mouseup', () => {
+		if (resizing) {
+			setTimeout(() => {
+				setResizing(false);
+				if (layout?.ref.current) {
+					layout.ref.current.style.cursor = '';
+				}
+			});
+		}
+	});
+
 	return (
 		<div className="flex w-full flex-col" ref={tableRef}>
 			{sized && (
@@ -581,20 +619,29 @@ export default () => {
 												const isSorted =
 													explorerStore.orderBy === header.id;
 
+												const cellContent = flexRender(
+													header.column.columnDef.header,
+													header.getContext()
+												);
+
 												return (
 													<div
 														key={header.id}
-														className="relative shrink-0 truncate px-4 py-2 text-xs first:pl-24"
+														className="relative shrink-0 px-4 py-2 text-xs first:pl-24"
 														style={{
 															width:
 																i === 0
 																	? size + paddingX
 																	: i ===
 																	  headerGroup.headers.length - 1
-																	? size - paddingX
+																	? size +
+																	  paddingX +
+																	  scrollBarWidth
 																	: size
 														}}
 														onClick={() => {
+															if (resizing) return;
+
 															if (header.column.getCanSort()) {
 																if (isSorted) {
 																	getExplorerStore().orderByDirection =
@@ -612,15 +659,18 @@ export default () => {
 														{header.isPlaceholder ? null : (
 															<div
 																className={clsx(
-																	'flex items-center'
+																	'flex items-center justify-between gap-3',
+																	isSorted
+																		? 'text-ink'
+																		: 'text-ink-dull'
 																)}
 															>
-																{flexRender(
-																	header.column.columnDef.header,
-																	header.getContext()
+																{typeof cellContent ===
+																	'string' && (
+																	<HeaderColumnName
+																		name={cellContent}
+																	/>
 																)}
-
-																<div className="flex-1" />
 
 																{isSorted ? (
 																	explorerStore.orderByDirection ===
@@ -631,27 +681,26 @@ export default () => {
 																	)
 																) : null}
 
-																{(i !==
-																	headerGroup.headers.length -
-																		1 ||
-																	(i ===
-																		headerGroup.headers.length -
-																			1 &&
-																		!locked)) && (
-																	<div
-																		onClick={(e) =>
-																			e.stopPropagation()
+																<div
+																	onClick={(e) =>
+																		e.stopPropagation()
+																	}
+																	onMouseDown={(e) => {
+																		header.getResizeHandler()(
+																			e
+																		);
+
+																		setResizing(true);
+																		setLocked(false);
+
+																		if (layout?.ref.current) {
+																			layout.ref.current.style.cursor =
+																				'col-resize';
 																		}
-																		onMouseDown={(e) => {
-																			setLocked(false);
-																			header.getResizeHandler()(
-																				e
-																			);
-																		}}
-																		onTouchStart={header.getResizeHandler()}
-																		className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
-																	/>
-																)}
+																	}}
+																	onTouchStart={header.getResizeHandler()}
+																	className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+																/>
 															</div>
 														)}
 													</div>
@@ -712,10 +761,7 @@ export default () => {
 										return (
 											<div
 												key={row.id}
-												className={clsx(
-													'absolute left-0 top-0 flex w-full',
-													explorerView.isRenaming && selected && 'z-10'
-												)}
+												className="absolute left-0 top-0 flex w-full"
 												style={{
 													height: `${virtualRow.size}px`,
 													transform: `translateY(${

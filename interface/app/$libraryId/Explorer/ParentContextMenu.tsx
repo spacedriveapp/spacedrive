@@ -26,48 +26,11 @@ export default (props: PropsWithChildren) => {
 
 	return (
 		<CM.Root trigger={props.children}>
-			{parent?.type === 'Location' && (
-				<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
-			)}
-
-			<CM.Item
-				label="Share"
-				icon={Share}
-				onClick={(e) => {
-					e.preventDefault();
-
-					navigator.share?.({
-						title: 'Spacedrive',
-						text: 'Check out this cool app',
-						url: 'https://spacedrive.com'
-					});
-				}}
-				disabled
-			/>
-
-			<CM.Separator />
-
-			{parent?.type === 'Location' && (
+			{parent?.type === 'Location' && cutCopyState.active && (
 				<>
-					<CM.Item
-						onClick={async () => {
-							try {
-								await rescanLocation.mutateAsync(parent.location.id);
-							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to re-index location, due to an error: ${error}`
-								});
-							}
-						}}
-						label="Re-index"
-						icon={Repeat}
-					/>
-
 					<CM.Item
 						label="Paste"
 						keybind={keybind([ModifierKeys.Control], ['V'])}
-						hidden={!cutCopyState.active}
 						onClick={async () => {
 							const path = currentPath ?? '/';
 							const { actionType, sourcePathId, sourceParentPath, sourceLocationId } =
@@ -106,59 +69,97 @@ export default (props: PropsWithChildren) => {
 						}}
 						icon={Clipboard}
 					/>
+
+					<CM.Item
+						label="Deselect"
+						onClick={() => {
+							getExplorerStore().cutCopyState = {
+								...cutCopyState,
+								active: false
+							};
+						}}
+						icon={FileX}
+					/>
+
+					<CM.Separator />
 				</>
 			)}
 
 			<CM.Item
-				label="Deselect"
-				hidden={!cutCopyState.active}
-				onClick={() => {
-					getExplorerStore().cutCopyState = {
-						...cutCopyState,
-						active: false
-					};
+				label="Share"
+				icon={Share}
+				onClick={(e) => {
+					e.preventDefault();
+
+					navigator.share?.({
+						title: 'Spacedrive',
+						text: 'Check out this cool app',
+						url: 'https://spacedrive.com'
+					});
 				}}
-				icon={FileX}
+				disabled
 			/>
 
 			{parent?.type === 'Location' && (
-				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
-						onClick={async () => {
-							try {
-								await generateThumbsForLocation.mutateAsync({
-									id: parent.location.id,
-									path: currentPath ?? '/'
-								});
-							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to generate thumbanails, due to an error: ${error}`
-								});
-							}
-						}}
-						label="Regen Thumbnails"
-						icon={Image}
-					/>
+				<>
+					<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
 
-					<CM.Item
-						onClick={async () => {
-							try {
-								objectValidator.mutateAsync({
-									id: parent.location.id,
-									path: currentPath ?? '/'
-								});
-							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to generate checksum, due to an error: ${error}`
-								});
-							}
-						}}
-						label="Generate Checksums"
-						icon={ShieldCheck}
-					/>
-				</CM.SubMenu>
+					<CM.SubMenu label="More actions..." icon={Plus}>
+						<CM.Item
+							onClick={async () => {
+								try {
+									await rescanLocation.mutateAsync({
+										location_id: parent.location.id,
+										reidentify_objects: false
+									});
+								} catch (error) {
+									showAlertDialog({
+										title: 'Error',
+										value: `Failed to re-index location, due to an error: ${error}`
+									});
+								}
+							}}
+							label="Re-index"
+							icon={Repeat}
+						/>
+
+						<CM.Item
+							onClick={async () => {
+								try {
+									await generateThumbsForLocation.mutateAsync({
+										id: parent.location.id,
+										path: currentPath ?? '/'
+									});
+								} catch (error) {
+									showAlertDialog({
+										title: 'Error',
+										value: `Failed to generate thumbanails, due to an error: ${error}`
+									});
+								}
+							}}
+							label="Regen Thumbnails"
+							icon={Image}
+						/>
+
+						<CM.Item
+							onClick={async () => {
+								try {
+									objectValidator.mutateAsync({
+										id: parent.location.id,
+										path: currentPath ?? '/'
+									});
+								} catch (error) {
+									showAlertDialog({
+										title: 'Error',
+										value: `Failed to generate checksum, due to an error: ${error}`
+									});
+								}
+							}}
+							label="Generate Checksums"
+							icon={ShieldCheck}
+						/>
+					</CM.SubMenu>
+				</>
 			)}
 		</CM.Root>
 	);

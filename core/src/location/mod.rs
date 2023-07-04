@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{Job, JobError, JobManagerError},
+	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
@@ -28,7 +28,7 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 mod error;
@@ -342,13 +342,10 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	library: &Library,
+	Library { db, .. }: &Library,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
-	library
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
+	db.location().find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
@@ -381,13 +378,13 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	Job::new_with_action(
-		IndexerJobInit {
-			location,
-			sub_path: None,
-		},
-		"scan_location",
-	)
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: None,
+	})
+	.with_action("scan_location")
+	.with_metadata(json!({"location": location_base_data.clone()}))
+	.build()
 	.queue_next(FileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: None,
@@ -414,13 +411,16 @@ pub async fn scan_location_sub_path(
 
 	let location_base_data = location::Data::from(&location);
 
-	Job::new_with_action(
-		IndexerJobInit {
-			location,
-			sub_path: Some(sub_path.clone()),
-		},
-		"scan_location_sub_path",
-	)
+	JobBuilder::new(IndexerJobInit {
+		location,
+		sub_path: Some(sub_path.clone()),
+	})
+	.with_action("scan_location_sub_path")
+	.with_metadata(json!({
+		"location": location_base_data.clone(),
+		"sub_path": sub_path.clone(),
+	}))
+	.build()
 	.queue_next(FileIdentifierJobInit {
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
@@ -778,7 +778,11 @@ async fn check_nested_location(
 
 	let comps = location_path.components().collect::<Vec<_>>();
 	let is_a_child_location = potential_children.into_iter().any(|v| {
-		let comps2 = PathBuf::from(v.path.unwrap());
+		let Some(location_path) = v.path else {
+			warn!("Missing location path on location <id='{}'> at check nested location", v.id);
+			return false;
+		};
+		let comps2 = PathBuf::from(location_path);
 		let comps2 = comps2.components().collect::<Vec<_>>();
 
 		if comps.len() > comps2.len() {

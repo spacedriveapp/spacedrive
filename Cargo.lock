@@ -7183,6 +7183,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tracing 0.1.37",
  "webp",
 ]
 

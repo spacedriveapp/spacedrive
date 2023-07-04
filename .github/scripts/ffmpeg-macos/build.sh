@@ -45,14 +45,14 @@ DARWIN_VERSION="$(basename "$(realpath "$(command -v "oa64-clang")")" | awk -F- 
 TRIPLE="${ARCH}-apple-${DARWIN_VERSION}"
 
 # Check macOS clang exists
-if ! CC="$(command -v "${TRIPLE}-clang" 2>/dev/null)"; then
-  echo "${TRIPLE}-clang not found" >&2
+CC="${TRIPLE}-clang"
+if ! command -v "$CC" 2>/dev/null; then
+  echo "$CC not found" >&2
   exit 1
 fi
-export CC
 
 # Get osxcross root directory
-_osxcross_root="$(dirname "$(dirname "$CC")")"
+_osxcross_root="$(dirname "$(dirname "$(command -v "$CC")")")"
 
 # Check macports root exists
 _macports_root="${_osxcross_root}/macports/pkgs/opt/local"
@@ -60,6 +60,7 @@ if ! [ -d "$_macports_root" ]; then
   echo "macports root not found: $_macports_root" >&2
   exit 1
 fi
+ln -s "$_macports_root" /opt/local
 
 # Check SDK exists
 _sdk="${_osxcross_root}/SDK/MacOSX${MACOS_VERSION}.sdk"
@@ -78,15 +79,82 @@ _skd_libs="$(
     | sort -u
 )"
 
-# Change cwd to the script directory (which should be ffmpeg source root)
-CDPATH='' cd -- "$(dirname -- "$0")"
+setup_cross_env() {
+  export CC
+  export LD="${TRIPLE}-ld"
+  export AR="${TRIPLE}-ar"
+  export CXX="${TRIPLE}-clang++"
+  export STRIP="${TRIPLE}-strip"
+  export CMAKE="${TRIPLE}-cmake"
+  export RANLIB="${TRIPLE}-ranlib"
+  export PKG_CONFIG="${TRIPLE}-pkg-config"
+}
+
+# Change cwd to libwebp source root
+CDPATH='' cd -- /srv/libwebp
+
+# Configure libwebp
+(
+  setup_cross_env
+  ./autogen.sh
+  ./configure \
+    --host="$TRIPLE" \
+    --prefix="/opt/local" \
+    --disable-shared \
+    --enable-static \
+    --with-sysroot="${_sdk}" \
+    --with-pic \
+    --enable-everything \
+    --disable-sdl \
+    --disable-png \
+    --disable-jpeg \
+    --disable-tiff \
+    --disable-gif
+
+  # Build libwebp
+  make -j"$(nproc)" install
+)
+
+# Create a tmp TARGET_DIR
+TARGET_DIR="$(mktemp -d -t target-XXXXXXXXXX)"
+
+# Change cwd to libheif source root
+mkdir -p /srv/libheif/build
+CDPATH='' cd -- /srv/libheif/build
+
+# Configure libheif
+"${TRIPLE}-cmake" \
+  -GNinja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="${TARGET_DIR}" \
+  -DCMAKE_INSTALL_BINDIR="${TARGET_DIR}/bin" \
+  -DCMAKE_INSTALL_LIBDIR="${TARGET_DIR}/lib" \
+  -DCMAKE_TOOLCHAIN_FILE="${_osxcross_root}/toolchain.cmake" \
+  -DLIBSHARPYUV_INCLUDE_DIR="${_macports_root}/include/webp" \
+  -DBUILD_TESTING=OFF \
+  -DBUILD_SHARED_LIBS=ON \
+  -DWITH_DAV1D=ON \
+  -DWITH_DAV1D_PLUGIN=OFF \
+  -DWITH_LIBDE265=ON \
+  -DWITH_LIBDE265_PLUGIN=OFF \
+  -DWITH_LIBSHARPYUV=ON \
+  -DWITH_FUZZERS=OFF \
+  -DWITH_EXAMPLES=OFF \
+  -DWITH_UNCOMPRESSED_CODEC=ON \
+  -DWITH_REDUCED_VISIBILITY=ON \
+  -DWITH_DEFLATE_HEADER_COMPRESSION=ON \
+  -DENABLE_PLUGIN_LOADING=OFF \
+  -DENABLE_MULTITHREADING_SUPPORT=ON \
+  ..
+
+# Build libheif
+ninja -j"$(nproc)" install
+
+# Change cwd to ffmpeg source root
+CDPATH='' cd -- /srv/ffmpeg
 
 # Save FFmpeg version
 FFMPEG_VERSION="$(xargs printf '%s' <VERSION)"
-
-# Create a tmp TARGET_DIR
-TARGET_DIR="$(mktemp -d -t ffmpeg-macos-XXXXXXXXXX)"
-trap 'rm -rf "$TARGET_DIR"' EXIT
 
 # Configure FFMpeg.
 # NOTICE: This isn't autotools
@@ -116,44 +184,38 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --extra-ldexeflags="-Bstatic" \
   --extra-cflags=-DLIBTWOLAME_STATIC \
   --extra-cxxflags="-xc++-header" \
-  --disable-alsa \
-  --disable-cuda \
-  --disable-cuvid \
+  --disable-static \
   --disable-debug \
   --disable-doc \
   --disable-htmlpages \
-  --disable-indevs \
-  --disable-libjack \
-  --disable-libopencore-amrnb \
-  --disable-libopencore-amrwb \
-  --disable-libpulse \
-  --disable-libxcb \
-  --disable-libxcb-shape \
-  --disable-libxcb-shm \
-  --disable-libxcb-xfixes \
+  --disable-txtpages \
   --disable-manpages \
-  --disable-metal \
-  --disable-neon-clobber-test \
-  --disable-network \
-  --disable-nvdec \
-  --disable-nvenc \
-  --disable-openssl \
-  --disable-outdevs \
   --disable-podpages \
+  --disable-indevs \
+  --disable-outdevs \
+  --disable-parser=avs2 \
+  --disable-parser=avs3 \
   --disable-postproc \
   --disable-programs \
-  --disable-schannel \
+  --disable-libwebp \
   --disable-sdl2 \
+  --disable-metal \
+  --disable-network \
+  --disable-openssl \
+  --disable-schannel \
   --disable-securetransport \
-  --disable-sndio \
-  --disable-static \
-  --disable-txtpages \
-  --disable-v4l2-m2m \
-  --disable-vaapi \
-  --disable-vdpau \
-  --disable-vulkan \
   --disable-xlib \
+  --disable-libxcb \
+  --disable-libxcb-shm \
+  --disable-libxcb-xfixes \
+  --disable-libxcb-shape \
+  --disable-libv4l2 \
+  --disable-v4l2-m2m \
+  --disable-vulkan \
+  --disable-cuda-llvm \
+  --disable-w32threads \
   --disable-xmm-clobber-test \
+  --disable-neon-clobber-test \
   --enable-appkit \
   --enable-audiotoolbox \
   --enable-avcodec \
@@ -163,29 +225,17 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-bzlib \
   --enable-coreimage \
   --enable-cross-compile \
-  --enable-fontconfig \
   --enable-gpl \
   --enable-gray \
   --enable-iconv \
   --enable-inline-asm \
-  --enable-libaom \
-  --enable-libfreetype \
-  --enable-libfribidi \
-  --enable-libgsm \
-  --enable-libmp3lame \
+  --enable-libdav1d \
+  --enable-libjxl \
   --enable-libopenjpeg \
   --enable-libopus \
-  --enable-librav1e \
   --enable-libsoxr \
-  --enable-libsvtav1 \
-  --enable-libtheora \
-  --enable-libtwolame \
   --enable-libvorbis \
   --enable-libvpx \
-  --enable-libwebp \
-  --enable-libx264 \
-  --enable-libx265 \
-  --enable-libxvid \
   --enable-libzimg \
   --enable-lto \
   --enable-lzma \
@@ -203,6 +253,7 @@ trap 'rm -rf "$TARGET_DIR"' EXIT
   --enable-zlib \
   "$@"
 
+# Build FFMpeg
 make -j"$(nproc)" install
 
 # Create FFMpeg.framework
@@ -222,15 +273,11 @@ cp -avt "$_framework_docs" COPYING* LICENSE*
 (cd "${_macports_root}/share/doc" \
   && cp -avt "$_framework_docs" --parents \
     zimg/COPYING \
-    webp/COPYING \
-    libpng/LICENSE \
-    libvorbis/COPYING \
-    freetype/LICENSE.TXT \
-    fontconfig/COPYING)
+    libvorbis/COPYING)
+(cd /srv && cp -avt "$_framework_docs" --parents libwebp/COPYING)
 
-# libvorbis, libogg and libtheora share the same license
+# libvorbis, libogg share the same license
 ln -s libvorbis "${_framework_docs}/libogg"
-ln -s libvorbis "${_framework_docs}/libtheora"
 
 # Create required framework symlinks
 ln -s A "/${_framework}/Versions/Current"
@@ -268,46 +315,34 @@ cat <<EOF >"/${_framework}/Versions/Current/Resources/Info.plist"
 </plist>
 EOF
 
-# Process FFMpeg libraries to be compatible with the Framework structure
+# Process built libraries to be compatible with the Framework structure
 cd "$TARGET_DIR/lib"
 
-# Move all symlinks of ffmpeg libraries to Framework
+# Move all symlinks of built libraries to Framework
 while IFS= read -r -d '' _lib; do
   # Copy symlinks to the output directory
   cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib#./}"
   rm "$_lib"
 done < <(find . -type l -print0)
 
-# Populate queue with ffmpeg libraries
+# Populate queue with built libraries
 set -- # Clear command line arguments
 while IFS= read -r -d '' _lib; do
   set -- "$@" "${_lib#./}"
 done < <(find . -name '*.dylib' -print0)
 
-# Copy all symlinks of libheif libraries to Framework
-while IFS= read -r -d '' _lib; do
-  # Copy symlinks to the output directory
-  cp -Ppv "$_lib" "/${_framework}/Libraries/${_lib#"${_macports_root}/lib/"}"
-done < <(find "${_macports_root}/lib" -type l \( -name 'libheif.*' -a -name '*.dylib' \) -print0)
-
-# Copy libheif to cwd and add it to queue
-while IFS= read -r -d '' _lib; do
-  _lib_rel="${_lib#"${_macports_root}/lib/"}"
-  cp -Lpv "$_lib" "./${_lib_rel}"
-  set -- "$@" "${_lib_rel}"
-done < <(find "${_macports_root}/lib" -type f \( -name 'libheif.*' -a -name '*.dylib' \) -print0)
-
 while [ $# -gt 0 ]; do
   # Loop through each of the library's dependencies
-  for _dep in $("${TRIPLE}-otool" -L "$1" | tail -n+2 | awk '{print $1}'); do
+  for _dep in $("${TRIPLE}-otool" -L "$1" | tail -n+3 | awk '{print $1}'); do
     case "$_dep" in
-      # FFMpeg inter dependency
+      # Built libs inter dependency
       "${TARGET_DIR}/lib/"*)
         _linker_path="@loader_path/${_dep#"${TARGET_DIR}/lib/"}"
         ;;
       # Macports dependency (/opt/local/lib means it was installed by Macports)
-      /opt/local/lib/*)
-        _dep_rel="${_dep#/opt/local/lib/}"
+      "@rpath/"* | /opt/local/lib/*)
+        _dep_rel="${_dep#'@rpath/'}"
+        _dep_rel="${_dep_rel#/opt/local/lib/}"
         # Check if the macports dependency is already included in the macOS SDK
         if [ -n "$(comm -12 <(printf "%s" "$_dep_rel") <(printf "%s" "$_skd_libs"))" ]; then
           # Relink libs already included in macOS SDK
@@ -344,10 +379,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Copy all libheif headers to framework
-cp -av "${_macports_root}/include/libheif" "/${_framework}/Headers/"
-
-# Copy all FFMPEG headers to framework
+# Copy all built headers to framework
 cp -av "${TARGET_DIR}/include/"* "/${_framework}/Headers/"
 
 # Strip all libraries

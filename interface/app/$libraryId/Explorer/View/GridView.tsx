@@ -39,7 +39,11 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			</div>
 
 			<div className="flex flex-col justify-center">
-				<RenamableItemText item={data} selected={selected} />
+				<RenamableItemText
+					item={data}
+					selected={selected}
+					style={{ maxHeight: explorerStore.gridItemSize / 3 }}
+				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
@@ -76,7 +80,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={explorerView.isRenaming || !explorerView.selectable}
-			preventContextMenuSelection={!explorerView.contextMenu}
+			preventContextMenuSelection={explorerView.contextMenu === undefined}
 		>
 			{({ index, item: Item }) => {
 				const item = explorerView.items?.[index];
