@@ -34,3 +34,8 @@ export type UnionToTuple<T> = UnionToIntersection<T extends never ? never : (t: 
 ) => infer W
 	? [...UnionToTuple<Exclude<T, W>>, W]
 	: [];
+
+export function formatNumber(n: number) {
+	if (!n) return '0';
+	return Intl.NumberFormat().format(n);
+}

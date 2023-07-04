@@ -1,5 +1,5 @@
 import { Copy, Fingerprint, Folder, Image, Scissors, Trash } from 'phosphor-react';
-import { JobProgressEvent, JobReport } from '@sd/client';
+import { JobProgressEvent, JobReport, formatNumber } from '@sd/client';
 import { TextItems } from './JobContainer';
 
 interface JobNiceData {
@@ -34,7 +34,7 @@ export default function useJobInfo(
 							? job.message
 							: isRunning && realtimeUpdate?.message
 							? realtimeUpdate.message
-							: `${comma(output?.total_paths)} ${plural(
+							: `${formatNumber(output?.total_paths)} ${plural(
 									output?.total_paths,
 									'path'
 							  )} discovered`
@@ -53,8 +53,8 @@ export default function useJobInfo(
 								? 'None generated'
 								: `${
 										completedTaskCount
-											? comma(completedTaskCount || 0)
-											: comma(output?.thumbnails_created)
+											? formatNumber(completedTaskCount || 0)
+											: formatNumber(output?.thumbnails_created)
 								  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
 					},
 					{
@@ -74,19 +74,19 @@ export default function useJobInfo(
 						? [{ text: 'No files changed' }]
 						: [
 								{
-									text: `${comma(output?.total_orphan_paths)} ${plural(
+									text: `${formatNumber(output?.total_orphan_paths)} ${plural(
 										output?.total_orphan_paths,
 										'file'
 									)}`
 								},
 								{
-									text: `${comma(output?.total_objects_created)} ${plural(
+									text: `${formatNumber(output?.total_objects_created)} ${plural(
 										output?.total_objects_created,
 										'Object'
 									)} created`
 								},
 								{
-									text: `${comma(output?.total_objects_linked)} ${plural(
+									text: `${formatNumber(output?.total_objects_linked)} ${plural(
 										output?.total_objects_linked,
 										'Object'
 									)} linked`
@@ -133,11 +133,6 @@ function plural(count: number, name?: string) {
 	return `${name || ''}s`;
 }
 
-function comma(x: number) {
-	if (!x) return '0';
-	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
 function addCommasToNumbersInMessage(input?: string): string {
 	if (!input) return '';
 	// use regular expression to split on numbers
@@ -146,7 +141,7 @@ function addCommasToNumbersInMessage(input?: string): string {
 		// if a part is a number, convert it to number and pass to the comma function
 		if (!isNaN(Number(parts[i]))) {
 			const part = parts[i];
-			if (part) parts[i] = comma(parseInt(part));
+			if (part) parts[i] = formatNumber(parseInt(part));
 		}
 	}
 	// join the parts back together
