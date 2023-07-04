@@ -2,7 +2,7 @@ import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
+import { RefObject, useEffect, useRef, useState } from 'react';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { useIsDark } from '~/hooks';
@@ -31,18 +31,16 @@ const CategoryList = [
 ] as Category[];
 
 export const Categories = (props: { selected: Category; onSelectedChanged(c: Category): void }) => {
-	const layout = useLayoutContext();
 	const isDark = useIsDark();
 
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
 
+	const { scroll, mouseState } = useMouseHandlers({ ref });
+
 	const categories = useLibraryQuery(['categories.list']);
 
-	const [scroll, setScroll] = useState(0);
 	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
-	const [mousedown, setMousedown] = useState(false);
-	const [dragging, setDragging] = useState(false);
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
@@ -57,62 +55,6 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	const lastCategoryVisibleHandler = (index: number) => {
 		index === CategoryList.length - 1 && setLastCategoryVisible((prev) => !prev);
 	};
-
-	useEffect(() => {
-		const element = ref.current;
-		if (!element) return;
-
-		const handleWheel = (event: WheelEvent) => {
-			event.preventDefault();
-			const { deltaX, deltaY } = event;
-			const scrollAmount = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-			element.scrollTo({ left: element.scrollLeft + scrollAmount });
-		};
-
-		element.addEventListener('wheel', handleWheel);
-		return () => element.removeEventListener('wheel', handleWheel);
-	}, []);
-
-	useEffect(() => {
-		const element = ref.current;
-		if (!element) return;
-
-		const onScroll = () => {
-			setScroll(element.scrollLeft);
-			if (mousedown && !dragging) {
-				setDragging(true);
-				if (layout.ref.current) {
-					layout.ref.current.style.cursor = 'grabbing';
-				}
-			}
-		};
-
-		element.addEventListener('scroll', onScroll);
-		return () => element.removeEventListener('scroll', onScroll);
-	}, [mousedown, dragging, layout.ref]);
-
-	useEffect(() => {
-		const element = ref.current;
-		if (!element) return;
-
-		const onMouseDown = () => setMousedown(true);
-
-		element.addEventListener('mousedown', onMouseDown);
-		return () => element.removeEventListener('mousedown', onMouseDown);
-	}, []);
-
-	useEffect(() => {
-		const onMouseUp = () => {
-			setMousedown(false);
-			setDragging(false);
-			if (layout.ref.current) {
-				layout.ref.current.style.cursor = '';
-			}
-		};
-
-		window.addEventListener('mouseup', onMouseUp);
-		return () => window.removeEventListener('mouseup', onMouseUp);
-	}, [layout.ref]);
 
 	return (
 		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
@@ -149,7 +91,10 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 									// WARNING: Edge breaks if the values are not postfixed with px or %
 									margin: '0% -120px 0% 0%'
 								}}
-								className={clsx('min-w-fit', !dragging && '!cursor-default')}
+								className={clsx(
+									'min-w-fit',
+									mouseState !== 'dragging' && '!cursor-default'
+								)}
 								key={category}
 							>
 								<CategoryButton
@@ -176,4 +121,60 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 			</div>
 		</div>
 	);
+};
+
+const useMouseHandlers = ({ ref }: { ref: RefObject<HTMLDivElement> }) => {
+	const layout = useLayoutContext();
+
+	const [scroll, setScroll] = useState(0);
+
+	type MouseState = 'idle' | 'mousedown' | 'dragging';
+	const [mouseState, setMouseState] = useState<MouseState>('idle');
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+
+		const onScroll = () => {
+			setScroll(element.scrollLeft);
+
+			setMouseState((s) => {
+				if (s !== 'mousedown') return s;
+
+				if (layout.ref.current) layout.ref.current.style.cursor = 'grabbing';
+
+				return 'dragging';
+			});
+		};
+		const onWheel = (event: WheelEvent) => {
+			event.preventDefault();
+			const { deltaX, deltaY } = event;
+			const scrollAmount = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+			element.scrollTo({ left: element.scrollLeft + scrollAmount });
+		};
+		const onMouseDown = () => setMouseState('mousedown');
+
+		const onMouseUp = () => {
+			setMouseState('idle');
+			if (layout.ref.current) {
+				layout.ref.current.style.cursor = '';
+			}
+		};
+
+		element.addEventListener('scroll', onScroll);
+		element.addEventListener('wheel', onWheel);
+		element.addEventListener('mousedown', onMouseDown);
+
+		window.addEventListener('mouseup', onMouseUp);
+
+		return () => {
+			element.removeEventListener('scroll', onScroll);
+			element.removeEventListener('wheel', onWheel);
+			element.removeEventListener('mousedown', onMouseDown);
+
+			window.removeEventListener('mouseup', onMouseUp);
+		};
+	}, [ref, layout.ref]);
+
+	return { scroll, mouseState };
 };
