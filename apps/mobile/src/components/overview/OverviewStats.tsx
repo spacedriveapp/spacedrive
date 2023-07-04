@@ -29,7 +29,7 @@ const EMPTY_STATISTICS = {
 const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(bytes);
 
-	const count = useCounter({ name: title, end: Number(value) });
+	const count = useCounter({ name: title, end: value });
 
 	return (
 		<View style={tw`flex flex-col p-4`}>

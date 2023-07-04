@@ -96,11 +96,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={
-								filePathData?.size_in_bytes_bytes
-									? byteSize(filePathData.size_in_bytes_bytes).toString()
-									: 0
-							}
+							value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
 						{/* Duration */}
 						{fullObjectData.data?.media_data?.duration_seconds && (

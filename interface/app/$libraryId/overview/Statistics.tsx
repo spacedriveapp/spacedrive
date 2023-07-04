@@ -45,12 +45,12 @@ const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof type
 let mounted = false;
 
 const StatItem = (props: StatItemProps) => {
-	const { title, bytes = BigInt('0'), isLoading } = props;
+	const { title, bytes, isLoading } = props;
 
 	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
-		end: +size.value,
+		end: size.value,
 		duration: mounted ? 0 : 1,
 		saveState: false
 	});

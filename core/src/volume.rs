@@ -209,7 +209,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
 
 		// Fix broken google drive partition size in Windows
-		#[cfg(target_os = "windows")]
+		#[cfg(windows)]
 		if total_capacity < available_capacity && is_root_filesystem {
 			// Use available capacity as total capacity in the case we can't get the correct value
 			total_capacity = available_capacity;

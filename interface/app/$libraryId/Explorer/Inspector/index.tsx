@@ -156,7 +156,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									<InspectorIcon component={Cube} />
 									<span className="mr-1.5">Size</span>
 									<MetaValue>
-										{byteSize(filePathData.size_in_bytes_bytes).toString()}
+										{`${byteSize(filePathData.size_in_bytes_bytes)}`}
 									</MetaValue>
 								</MetaTextLine>
 							)}

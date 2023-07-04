@@ -84,10 +84,7 @@ export const ActionsModal = () => {
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-xs text-ink-faint`}>
-										{filePath?.size_in_bytes_bytes
-											? byteSize(filePath.size_in_bytes_bytes).toString()
-											: 0}
-										,
+										{`${byteSize(filePath?.size_in_bytes_bytes)}`},
 									</Text>
 									<Text style={tw`text-xs text-ink-faint`}>
 										{' '}

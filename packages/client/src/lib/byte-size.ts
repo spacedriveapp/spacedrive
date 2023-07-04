@@ -43,37 +43,35 @@ export interface ByteSizeOpts {
  *
  * @param value - The bytes value to convert.
  * @param options - Optional config.
- * @param options.locales - *Node >=13 or modern browser only - on earlier platforms this option is ignored*. The locale to use for number formatting (e.g. `'de-DE'`). Defaults to your system locale. Passed directed into [Intl.NumberFormat()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat).
+ * @param options.locales - The locale to use for number formatting (e.g. `'de-DE'`). Defaults to your system locale. Passed directed into [Intl.NumberFormat()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat).
  * @param options.precision - Number of decimal places. Defaults to `1`.
  */
 export const byteSize = (
-	value: string | number | bigint | string[] | number[] | bigint[],
+	value: null | string | number | bigint | string[] | number[] | bigint[] | undefined,
 	{ precision, locales }: ByteSizeOpts = { precision: 1 }
 ) => {
+	if (value == null) value = 0n;
+	if (Array.isArray(value)) value = bytesToNumber(value);
+	else if (typeof value !== 'bigint') value = BigInt(value);
+	const [isNegative, bytes] = value < 0n ? [true, -value] : [false, value];
+
+	const unit = getDecimalUnit(bytes);
 	const defaultFormat = new Intl.NumberFormat(locales, {
 		style: 'decimal',
 		minimumFractionDigits: precision,
 		maximumFractionDigits: precision
 	});
-
-	if (Array.isArray(value)) value = bytesToNumber(value);
-	else if (typeof value !== 'bigint') value = BigInt(value);
-	const [prefix, bytes] = value < 0n ? ['-', -value] : ['', value];
-
-	const unit = getDecimalUnit(bytes);
 	const precisionFactor = 10 ** precision;
 	return {
 		unit: unit.short,
 		long: unit.long,
 		value:
-			prefix +
-			defaultFormat.format(
-				unit.from === 0n
-					? bytes
-					: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor
-			),
+			(isNegative ? -1 : 1) *
+			(unit.from === 0n
+				? Number(bytes)
+				: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor),
 		toString() {
-			return `${this.value} ${this.unit}`;
+			return `${defaultFormat.format(this.value)} ${this.unit}`;
 		}
 	};
 };

@@ -49,7 +49,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
 					>
-						{byteSize(filePathData.size_in_bytes_bytes).toString()}
+						{`${byteSize(filePathData.size_in_bytes_bytes)}`}
 					</span>
 				)}
 			</div>
