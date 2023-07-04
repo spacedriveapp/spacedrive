@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { MacTrafficLights } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useOperatingSystem, useSearchStore } from '~/hooks';
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
@@ -8,7 +8,7 @@ import { macOnly } from './helpers';
 
 export default () => {
 	const os = useOperatingSystem();
-	const showControls = window.location.search.includes('showControls');
+	const showControls = useSearchStore();
 	const transparentBg = window.location.search.includes('transparentBg');
 
 	return (
