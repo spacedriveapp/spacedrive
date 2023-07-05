@@ -59,6 +59,7 @@ import Scrapbook_Light from './Scrapbook_Light.png';
 import Server from './Server.png';
 import Server_Light from './Server_Light.png';
 import Tablet from './Tablet.png';
+import Terminal from './Terminal.png';
 import Text from './Text.png';
 import Text_Light from './Text_Light.png';
 import TexturedMesh from './TexturedMesh.png';
@@ -127,6 +128,7 @@ export {
 	Server,
 	Server_Light,
 	Tablet,
+	Terminal,
 	Text,
 	Text_Light,
 	TexturedMesh,

@@ -1,4 +1,4 @@
-import { EncryptedLock } from '@sd/assets/icons';
+import { EncryptedLock, Keys, Terminal } from '@sd/assets/icons';
 import clsx from 'clsx';
 import Image from 'next/image';
 import { tw } from '@sd/ui';
@@ -19,6 +19,9 @@ const BentoBox = ({ rowSpan = 1, colSpan = 1, className = '', children }) => (
 	</div>
 );
 
+const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg border border-black transition-opacity`;
+const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/30 backdrop-blur`;
+
 export const BentoBoxes = () => {
 	return (
 		<div className="mb-48 grid w-full max-w-7xl auto-rows-[300px] grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -34,17 +37,25 @@ export const BentoBoxes = () => {
 				<Text>
 					macOS, Windows, Linux, iOS, Android, and the web. Spacedrive is everywhere.
 				</Text>
+				<AppFrameOuter>
+					<AppFrameInner>
+						<Image
+							width={1278}
+							height={626}
+							alt="l"
+							className="rounded-lg"
+							src="/images/test.png"
+						/>
+					</AppFrameInner>
+				</AppFrameOuter>
 			</BentoBox>
 			<BentoBox rowSpan={2} className="p-6">
-				<Heading className="pt-4 !text-left">Light as a feather</Heading>
-				<Text className="!text-left">
-					Spacedrive is built without the bloat. It's fast, native feeling and doesn't hog
-					your resources.
-				</Text>
+				<Heading className="pt-4 !text-left text-[22pt]">Supercharged tags</Heading>
+				<Text className="!text-left"></Text>
 			</BentoBox>
 			<BentoBox className="p-6">
-				<Image alt="EncryptedLock" src={EncryptedLock} width={150} className="mx-auto" />
-				<Heading className="text-xl font-bold">Native encryption</Heading>
+				<Image alt="Keys" src={Keys} width={150} className="mx-auto" />
+				<Heading className="text-xl font-bold">Key manager</Heading>
 				<Text className="!text-sm">
 					Encryption tools and a key manager make Spacedrive a safe haven for your
 					sensitive data.
@@ -53,10 +64,11 @@ export const BentoBoxes = () => {
 
 			<BentoBox className="p-6">
 				<Heading className="text-xl font-bold">Free & open source</Heading>
+				<Image alt="Terminal" src={Terminal} width={150} className="mx-auto" />
 			</BentoBox>
 			<BentoBox rowSpan={2}>
 				<div className="p-6">
-					<Heading className="text-xl font-bold">Packed with tools</Heading>
+					<Heading className="text-2xl font-bold">Packed with tools</Heading>
 					<Text className="!text-sm">
 						Everything you need from a file manager and much more...
 					</Text>
@@ -71,11 +83,22 @@ export const BentoBoxes = () => {
 					/>
 				</div>
 			</BentoBox>
-			<BentoBox className="p-6">
-				<Heading className="pt-4 !text-left text-[18pt] font-bold">
-					File types, <br />
-					we know them all.
-				</Heading>
+			<BentoBox>
+				<div className="p-6">
+					<Heading className="!text-left text-[18pt] font-bold">
+						File types, <br />
+						we know them all.
+					</Heading>
+				</div>
+				<div className="circle -mt-6">
+					<Image
+						alt="Context menu"
+						width={800}
+						height={800}
+						src="/images/icongrid.png"
+						className="mx-auto -rotate-[25deg] scale-125"
+					/>
+				</div>
 			</BentoBox>
 			<BentoBox>
 				<div className="p-6">
@@ -100,10 +123,15 @@ export const BentoBoxes = () => {
 			</BentoBox>
 
 			<BentoBox colSpan={2} className="p-6">
+				<Image alt="EncryptedLock" src={EncryptedLock} width={150} className="mx-auto" />
 				<Heading className="text-3xl font-bold">Privacy means local first</Heading>
 			</BentoBox>
-			<BentoBox colSpan={2} rowSpan={2} className="p-6">
-				<Heading className="text-5xl font-bold">Supercharged tags</Heading>
+			<BentoBox colSpan={1} rowSpan={2} className="p-6">
+				<Heading className="text-3xl font-bold">Backups</Heading>
+				<Text>
+					Spacedrive is built without the bloat. It's fast, native feeling and doesn't hog
+					your resources.
+				</Text>
 			</BentoBox>
 			<BentoBox className="p-6">
 				<Heading className="text-xl font-bold">Content addressable storage</Heading>
@@ -111,7 +139,13 @@ export const BentoBoxes = () => {
 			<BentoBox className="p-6">
 				<Heading className="text-xl font-bold">Preview media generation</Heading>
 			</BentoBox>
-
+			<BentoBox colSpan={1} rowSpan={2} className="p-6">
+				<Heading className="text-3xl font-bold">Duplicate discovery</Heading>
+				<Text>
+					Spacedrive is built without the bloat. It's fast, native feeling and doesn't hog
+					your resources.
+				</Text>
+			</BentoBox>
 			<BentoBox className="p-6" colSpan={2}>
 				<Heading className="text-xl font-bold">Peer-to-peer</Heading>
 			</BentoBox>

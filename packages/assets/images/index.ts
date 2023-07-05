@@ -22,8 +22,8 @@ export {
 	BloomOne,
 	BloomThree,
 	BloomTwo,
+	Dropbox,
 	GoogleDrive,
 	Mega,
-	iCloud,
-	Dropbox
+	iCloud
 };

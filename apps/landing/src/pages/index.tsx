@@ -116,7 +116,7 @@ export default function HomePage() {
 						</div>
 					</div>
 					{/* <AppEmbed /> */}
-					<div className="relative mx-auto my-48 flex w-full max-w-4xl flex-col items-center justify-center px-4">
+					<div className="relative mx-auto mb-24 mt-48 flex w-full max-w-4xl flex-col items-center justify-center px-4">
 						<div className="absolute top-0 z-40 w-full py-16">
 							<Image
 								alt="icon"
