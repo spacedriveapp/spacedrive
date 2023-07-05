@@ -3,10 +3,8 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
-	LibraryContextProvider,
 	arraysEqual,
 	useBridgeQuery,
-	useClientContext,
 	useDebugState,
 	useFeatureFlag,
 	useLibraryQuery,
@@ -14,8 +12,7 @@ import {
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Folder } from '~/components/Folder';
-import { SubtleButton } from '~/components/SubtleButton';
+import { Folder, SubtleButton } from '~/components';
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
@@ -128,11 +125,8 @@ export const LibrarySection = () => {
 				}
 			>
 				{locations?.map((location) => {
-					const online = onlineLocations.some((l) =>
-						arraysEqual(location.pub_id, l as number[])
-					);
+					const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
 
-					// const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink

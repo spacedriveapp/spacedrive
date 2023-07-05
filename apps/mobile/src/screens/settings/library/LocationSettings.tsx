@@ -99,7 +99,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<View
 						style={twStyle(
 							'absolute bottom-0.5 right-0 h-2 w-2 rounded-full',
-							onlineLocations.some((l) => arraysEqual(location.pub_id, l as number[]))
+							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
 						)}

@@ -17,7 +17,7 @@
 				"problemMatcher": "$rustc"
 			},
 			"env": {
-				"RUST_BACKTRACE": "short",
+				"RUST_BACKTRACE": "short"
 				// "RUST_LOG": "sd_core::invalidate-query=trace"
 			},
 			"sourceLanguages": ["rust"],

@@ -9,7 +9,7 @@ export function isPath(item: ExplorerItem): item is Extract<ExplorerItem, { type
 	return item.type === 'Path';
 }
 
-export function arraysEqual<T>(a: T[], b: T[]) {
+export function arraysEqual<T>(a: readonly T[], b: readonly T[]) {
 	if (a === b) return true;
 	if (a == null || b == null) return false;
 	if (a.length !== b.length) return false;
