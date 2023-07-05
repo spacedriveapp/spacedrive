@@ -3,19 +3,25 @@
  * To regenerate this file, run: pnpm assets gen
  */
 import Album from './Album.png';
+import Album_Light from './Album_Light.png';
 import Alias from './Alias.png';
 import Alias_Light from './Alias_Light.png';
 import Application from './Application.png';
+import Application_white from './Application_white.png';
 import Archive from './Archive.png';
 import Archive_Light from './Archive_Light.png';
 import Audio from './Audio.png';
 import Audio_Light from './Audio_Light.png';
+import Audio_white from './Audio_white.png';
 import Ball from './Ball.png';
 import Book from './Book.png';
+import Book_Light from './Book_Light.png';
 import Collection from './Collection.png';
 import Collection_Light from './Collection_Light.png';
+import Collection_white from './Collection_white.png';
 import Database from './Database.png';
 import Database_Light from './Database_Light.png';
+import Database_white from './Database_white.png';
 import Document from './Document.png';
 import Document_Light from './Document_Light.png';
 import Document_doc from './Document_doc.png';
@@ -26,6 +32,7 @@ import Document_xls from './Document_xls.png';
 import Document_xls_Light from './Document_xls_Light.png';
 import Drive from './Drive.png';
 import Drive_Light from './Drive_Light.png';
+import Drive_white from './Drive_white.png';
 import Encrypted from './Encrypted.png';
 import EncryptedLock from './EncryptedLock.png';
 import Encrypted_Light from './Encrypted_Light.png';
@@ -40,56 +47,80 @@ import FolderGrey from './FolderGrey.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import Folder_Light from './Folder_Light.png';
 import Game from './Game.png';
+import Game_Light from './Game_Light.png';
 import Heart from './Heart.png';
 import HeartFlat from './HeartFlat.png';
+import HeartFlat_Light from './HeartFlat_Light.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
 import Key from './Key.png';
+import Key_Light from './Key_Light.png';
 import Keys from './Keys.png';
+import Keys_Light from './Keys_Light.png';
 import Laptop from './Laptop.png';
+import Laptop_Light from './Laptop_Light.png';
+import Link_Light from './Link_Light.png';
+import Lock_white from './Lock_white.png';
 import Mesh from './Mesh.png';
 import Mesh_Light from './Mesh_Light.png';
 import Mobile from './Mobile.png';
+import Mobile_Light from './Mobile_Light.png';
 import Movie from './Movie.png';
 import Movie_Light from './Movie_Light.png';
 import Node from './Node.png';
 import Node_Light from './Node_Light.png';
+import Node_white from './Node_white.png';
 import Package from './Package.png';
 import Package_Light from './Package_Light.png';
 import Scrapbook from './Scrapbook.png';
 import Scrapbook_Light from './Scrapbook_Light.png';
+import Scrapbook_white1 from './Scrapbook_white-1.png';
+import Scrapbook_white from './Scrapbook_white.png';
 import Server from './Server.png';
 import Server_Light from './Server_Light.png';
+import Server_white from './Server_white.png';
 import Tablet from './Tablet.png';
 import Tags from './Tags.png';
+import Tags_Light from './Tags_Light.png';
 import Terminal from './Terminal.png';
+import Terminal_Light from './Terminal_Light.png';
 import Text from './Text.png';
 import Text_Light from './Text_Light.png';
+import Text_white from './Text_white.png';
 import TexturedMesh from './TexturedMesh.png';
 import TexturedMesh_Light from './TexturedMesh_Light.png';
 import Trash from './Trash.png';
+import Trash_Light from './Trash_Light.png';
+import Undefined_Light from './Undefined_Light.png';
 import Unknown from './Unknown.png';
 import Unknown_white from './Unknown_white.png';
 import Video from './Video.png';
 import Video_Light from './Video_Light.png';
 import Widget from './Widget.png';
 import Widget_Light from './Widget_Light.png';
+import Widget_white from './Widget_white.png';
 
 export {
 	Album,
+	Album_Light,
 	Alias,
 	Alias_Light,
 	Application,
+	Application_white,
 	Archive,
 	Archive_Light,
 	Audio,
 	Audio_Light,
+	Audio_white,
 	Ball,
 	Book,
+	Book_Light,
 	Collection,
 	Collection_Light,
+	Collection_white,
 	Database,
 	Database_Light,
+	Database_white,
 	Document,
 	Document_Light,
 	Document_doc,
@@ -100,6 +131,7 @@ export {
 	Document_xls_Light,
 	Drive,
 	Drive_Light,
+	Drive_white,
 	Encrypted,
 	EncryptedLock,
 	Encrypted_Light,
@@ -114,38 +146,56 @@ export {
 	FolderGrey_Light,
 	Folder_Light,
 	Game,
+	Game_Light,
 	Heart,
 	HeartFlat,
+	HeartFlat_Light,
 	Image,
 	Image_Light,
 	Key,
+	Key_Light,
 	Keys,
+	Keys_Light,
 	Laptop,
+	Laptop_Light,
+	Link_Light,
+	Lock_white,
 	Mesh,
 	Mesh_Light,
 	Mobile,
+	Mobile_Light,
 	Movie,
 	Movie_Light,
 	Node,
 	Node_Light,
+	Node_white,
 	Package,
 	Package_Light,
 	Scrapbook,
 	Scrapbook_Light,
+	Scrapbook_white1,
+	Scrapbook_white,
 	Server,
 	Server_Light,
+	Server_white,
 	Tablet,
 	Tags,
+	Tags_Light,
 	Terminal,
+	Terminal_Light,
 	Text,
 	Text_Light,
+	Text_white,
 	TexturedMesh,
 	TexturedMesh_Light,
 	Trash,
+	Trash_Light,
+	Undefined_Light,
 	Unknown,
 	Unknown_white,
 	Video,
 	Video_Light,
 	Widget,
-	Widget_Light
+	Widget_Light,
+	Widget_white
 };
