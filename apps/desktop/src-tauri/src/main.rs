@@ -85,6 +85,10 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
+	// Initialize and configure app logging
+	// Return value must be assigned to variable for flushing remaining logs on main exit throught Drop
+	let _guard = Node::init_logger(&data_dir);
+
 	let result = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default();
@@ -118,7 +122,6 @@ async fn main() -> tauri::Result<()> {
 	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
 	#[cfg(target_os = "macos")]
 	let app = app.on_window_event(|event| {
-		#[cfg(target_os = "macos")]
 		if let WindowEvent::CloseRequested { api, .. } = event.event() {
 			if event.window().label() == "main" {
 				AppHandle::hide(&event.window().app_handle()).expect("Window should hide on macOS");
