@@ -4,7 +4,6 @@ import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Check } from 'phosphor-react';
 import { PropsWithChildren, forwardRef } from 'react';
-import type { FieldPath, FieldPathValue, FieldValues } from 'react-hook-form';
 
 export const selectStyles = cva(
 	[
@@ -30,19 +29,20 @@ export const selectStyles = cva(
 	}
 );
 
-export interface SelectProps<
-	TFieldValues extends FieldValues = FieldValues,
-	TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
-> extends VariantProps<typeof selectStyles> {
-	value: FieldPathValue<TFieldValues, TName>;
-	onChange: (value: FieldPathValue<TFieldValues, TName>) => void;
+export interface SelectProps<TValue extends string = string>
+	extends VariantProps<typeof selectStyles> {
+	value: TValue;
+	onChange: (value: TValue) => void;
 	placeholder?: string;
 	className?: string;
 	disabled?: boolean;
 }
 
 export const Select = forwardRef(
-	(props: PropsWithChildren<SelectProps>, ref: React.ForwardedRef<HTMLDivElement>) => {
+	<TValue extends string = string>(
+		props: PropsWithChildren<SelectProps<TValue>>,
+		ref: React.ForwardedRef<HTMLDivElement>
+	) => {
 		return (
 			<div ref={ref}>
 				<RS.Root
