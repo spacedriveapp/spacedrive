@@ -18,11 +18,10 @@ export function toTitleCase(str: string) {
 // https://github.com/mrdoob/three.js/blob/7fa8637df3edcf21a516e1ebbb9b327136457baa/src/renderers/WebGLRenderer.js#L266
 const webGLCtxNames = ['webgl2', 'webgl', 'experimental-webgl'];
 export function detectWebGLContext() {
-	const WebGLRenderingContext = window.WebGLRenderingContext;
+	const { WebGLRenderingContext, WebGL2RenderingContext } = window;
 	if (WebGLRenderingContext == null) return false;
 
 	const canvas = window.document.createElement('canvas');
-	const WebGL2RenderingContext = window.WebGL2RenderingContext;
 	return webGLCtxNames
 		.map((ctxName) => {
 			try {
