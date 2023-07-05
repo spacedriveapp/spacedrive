@@ -322,9 +322,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^4.29.1
         version: 4.29.1(react-dom@18.2.0)(react-native@0.71.3)(react@18.2.0)
-      byte-size:
-        specifier: ^8.1.0
-        version: 8.1.0
       class-variance-authority:
         specifier: ^0.5.3
         version: 0.5.3(typescript@5.1.3)
@@ -676,9 +673,6 @@ importers:
       autoprefixer:
         specifier: ^10.4.12
         version: 10.4.14(postcss@8.4.23)
-      byte-size:
-        specifier: ^8.1.0
-        version: 8.1.0
       class-variance-authority:
         specifier: ^0.5.3
         version: 0.5.3(typescript@5.0.4)
@@ -770,9 +764,6 @@ importers:
       '@types/babel-core':
         specifier: ^6.25.7
         version: 6.25.7
-      '@types/byte-size':
-        specifier: ^8.1.0
-        version: 8.1.0
       '@types/loadable__component':
         specifier: ^5.13.4
         version: 5.13.4
@@ -5875,7 +5866,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.0.4)
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -8638,7 +8629,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.26.0
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -9226,7 +9217,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -10048,10 +10039,6 @@ packages:
     dependencies:
       '@types/connect': 3.4.35
       '@types/node': 18.15.1
-
-  /@types/byte-size@8.1.0:
-    resolution: {integrity: sha512-LCIlZh8vyx+I2fgRycE1D34c33QDppYY6quBYYoaOpQ1nGhJ/avSP2VlrAefVotjJxgSk6WkKo0rTcCJwGG7vA==}
-    dev: true
 
   /@types/connect@3.4.35:
     resolution: {integrity: sha512-cdeYyv4KWoEgpBISTxWvqYsVy444DOqehiF3fM3ne10AmJ62RSyNkUnxMJXHQWRQQX2eR94m5y1IZyDwBjV9FQ==}
@@ -11668,11 +11655,6 @@ packages:
     engines: {node: '>=10.16.0'}
     dependencies:
       streamsearch: 1.1.0
-    dev: false
-
-  /byte-size@8.1.0:
-    resolution: {integrity: sha512-FkgMTAg44I0JtEaUAvuZTtU2a2YDmBRbQxdsQNSMtLCjhG0hMcF5b1IMN9UjSCJaU4nvlj/GER7B9sI4nKdCgA==}
-    engines: {node: '>=12.17'}
     dev: false
 
   /bytes@3.0.0:
@@ -24251,6 +24233,7 @@ packages:
       rollup: 3.26.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite@4.3.9(less@4.1.3):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}

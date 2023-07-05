@@ -3,7 +3,7 @@ import { ArrowsOutSimple } from 'phosphor-react';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import GridList from '~/components/GridList';
+import { GridList } from '~/components';
 import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';

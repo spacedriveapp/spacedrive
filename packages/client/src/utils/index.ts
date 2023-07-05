@@ -1,7 +1,6 @@
 import { ExplorerItem } from '../core';
 
 export * from './objectKind';
-export * from './formatBytes';
 export * from './explorerItem';
 // export * from './keys';
 
