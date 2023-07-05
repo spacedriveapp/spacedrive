@@ -13,6 +13,7 @@ export * from './useKeyboardHandler';
 export * from './useOperatingSystem';
 export * from './useScrolled';
 export * from './useSearchStore';
+export * from './useShowControls';
 export * from './useSpacedropState';
 export * from './useTheme';
 export * from './useToasts';

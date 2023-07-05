@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { MacTrafficLights } from '~/components';
-import { useOperatingSystem, useSearchStore } from '~/hooks';
+import { useOperatingSystem, useShowControls } from '~/hooks';
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
@@ -8,7 +8,7 @@ import { macOnly } from './helpers';
 
 export default () => {
 	const os = useOperatingSystem();
-	const showControls = useSearchStore();
+	const showControls = useShowControls();
 	const transparentBg = window.location.search.includes('transparentBg');
 
 	return (
@@ -18,7 +18,7 @@ export default () => {
 				os === 'macOS' || transparentBg ? 'bg-opacity-[0.65]' : 'bg-opacity-[1]'
 			)}
 		>
-			{showControls && <MacTrafficLights className="z-50 mb-1" />}
+			{showControls.isEnabled && <MacTrafficLights className="z-50 mb-1" />}
 			{os === 'macOS' && <div data-tauri-drag-region className="h-5 w-full" />}
 			<LibrariesDropdown />
 			<Contents />
