@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { tw } from '@sd/ui';
 
-const Heading = tw.h1`z-30 mb-3 px-2 text-center font-black leading-tight text-white text-4xl`;
+const Heading = tw.h1`z-30 mb-3  text-center font-black leading-tight text-white text-4xl`;
 const Text = tw.p`leading-2 text-ink-dull z-30 mb-8 mt-1 max-w-4xl text-center text-md lg:text-lg lg:leading-8"`;
 
 // @ts-expect-error
@@ -49,13 +49,27 @@ export const BentoBoxes = () => {
 					</AppFrameInner>
 				</AppFrameOuter>
 			</BentoBox>
-			<BentoBox rowSpan={2} className="p-6">
-				<Heading className="pt-4 !text-left text-[22pt]">Supercharged tags</Heading>
-				<Text className="!text-left"></Text>
+			<BentoBox rowSpan={2}>
+				<div className="circle rotate-180">
+					<Image
+						alt="Context menu"
+						width={500}
+						height={500}
+						src="/images/taggrid.png"
+						className="mx-auto -rotate-[190deg] scale-125"
+					/>
+				</div>
+				<div className="p-6">
+					<Heading className="!text-left text-[22pt]">Supercharged tags</Heading>
+					<Text className="!text-left !text-sm">
+						Tags are powerful in Spacedrive, tag files from any storage location,
+						automate routines such as sharing, encryption, media encoding and backup.
+					</Text>
+				</div>
 			</BentoBox>
 			<BentoBox className="p-6">
 				<Image alt="Keys" src={Keys} width={150} className="mx-auto" />
-				<Heading className="text-xl font-bold">Key manager</Heading>
+				<Heading className="text-xl font-bold">Built-in key manager</Heading>
 				<Text className="!text-sm">
 					Encryption tools and a key manager make Spacedrive a safe haven for your
 					sensitive data.
@@ -65,15 +79,19 @@ export const BentoBoxes = () => {
 			<BentoBox className="p-6">
 				<Heading className="text-xl font-bold">Free & open source</Heading>
 				<Image alt="Terminal" src={Terminal} width={150} className="mx-auto" />
+				<Text className="!text-sm">
+					Encryption tools and a key manager make Spacedrive a safe haven for your
+					sensitive data.
+				</Text>
 			</BentoBox>
 			<BentoBox rowSpan={2}>
 				<div className="p-6">
-					<Heading className="text-2xl font-bold">Packed with tools</Heading>
+					<Heading className="text-2xl font-bold">Tools on hand</Heading>
 					<Text className="!text-sm">
 						Everything you need from a file manager and much more...
 					</Text>
 				</div>
-				<div className="circle -mt-10">
+				<div className="circle -mt-16">
 					<Image
 						alt="Context menu"
 						width={612}
@@ -87,7 +105,7 @@ export const BentoBoxes = () => {
 				<div className="p-6">
 					<Heading className="!text-left text-[18pt] font-bold">
 						File types, <br />
-						we know them all.
+						it knows them all.
 					</Heading>
 				</div>
 				<div className="circle -mt-6">
@@ -120,11 +138,19 @@ export const BentoBoxes = () => {
 			</BentoBox>
 			<BentoBox colSpan={2} rowSpan={2} className="p-6">
 				<Heading className="text-5xl font-bold">All the views</Heading>
+				<Text className="!text-sm">
+					Encryption tools and a key manager make Spacedrive a safe haven for your
+					sensitive data.
+				</Text>
 			</BentoBox>
 
 			<BentoBox colSpan={2} className="p-6">
 				<Image alt="EncryptedLock" src={EncryptedLock} width={150} className="mx-auto" />
-				<Heading className="text-3xl font-bold">Privacy means local first</Heading>
+				<Heading className="text-3xl font-bold">Total privacy, local first</Heading>
+				<Text className=" !text-sm">
+					Tags are powerful in Spacedrive, tag files from any storage location, automate
+					routines such as sharing, encryption, media encoding and backup.
+				</Text>
 			</BentoBox>
 			<BentoBox colSpan={1} rowSpan={2} className="p-6">
 				<Heading className="text-3xl font-bold">Backups</Heading>
