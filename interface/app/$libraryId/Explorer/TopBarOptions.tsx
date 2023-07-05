@@ -114,6 +114,7 @@ export const useExplorerTopBarOptions = () => {
 						'locations.quickRescan',
 						{
 							location_id: parent.location.id,
+							// FIXME: this is currently broken, sub_path should be the current directory open in explorer
 							sub_path: ''
 						}
 					],
