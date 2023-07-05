@@ -16,6 +16,7 @@ import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarO
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';
+import { useExplorerSearchParams } from './util';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
@@ -84,6 +85,8 @@ export const useExplorerTopBarOptions = () => {
 
 	const { parent } = useExplorerContext();
 
+	const [{ path }] = useExplorerSearchParams();
+
 	const toolOptions = [
 		{
 			toolTipLabel: 'Key Manager',
@@ -114,8 +117,7 @@ export const useExplorerTopBarOptions = () => {
 						'locations.quickRescan',
 						{
 							location_id: parent.location.id,
-							// FIXME: this is currently broken, sub_path should be the current directory open in explorer
-							sub_path: ''
+							sub_path: path ?? ''
 						}
 					],
 					{ onData() {} }
