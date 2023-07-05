@@ -14,3 +14,27 @@ export function toTitleCase(str: string) {
 		})
 		.replaceAll('-', ' ');
 }
+
+// https://github.com/mrdoob/three.js/blob/7fa8637df3edcf21a516e1ebbb9b327136457baa/src/renderers/WebGLRenderer.js#L266
+const webGLCtxNames = ['webgl2', 'webgl', 'experimental-webgl'];
+export function detectWebGLContext() {
+	const WebGLRenderingContext = window.WebGLRenderingContext;
+	if (WebGLRenderingContext == null) return false;
+
+	const canvas = window.document.createElement('canvas');
+	const WebGL2RenderingContext = window.WebGL2RenderingContext;
+	return webGLCtxNames
+		.map((ctxName) => {
+			try {
+				return canvas.getContext(ctxName);
+			} catch {
+				return null;
+			}
+		})
+		.some(
+			(ctx) =>
+				ctx != null &&
+				(ctx instanceof WebGLRenderingContext ||
+					(WebGL2RenderingContext != null && ctx instanceof WebGL2RenderingContext))
+		);
+}
