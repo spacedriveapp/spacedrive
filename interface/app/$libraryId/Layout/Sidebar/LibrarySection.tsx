@@ -128,8 +128,9 @@ export const LibrarySection = () => {
 				}
 			>
 				{locations?.map((location) => {
-					const online =
-						onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
+					const online = onlineLocations.some((l) =>
+						arraysEqual(location.pub_id, l as number[])
+					);
 
 					// const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
 					return (

@@ -23,7 +23,7 @@ export default ({ location }: Props) => {
 
 	if (hide) return <></>;
 
-	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
+	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l as number[]));
 
 	return (
 		<Card
