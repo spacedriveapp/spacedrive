@@ -21,7 +21,10 @@ use crate::{
 	},
 	prisma::{file_path, location, object},
 	sync,
-	util::{db::maybe_missing, error::FileIOError},
+	util::{
+		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
+		error::FileIOError,
+	},
 };
 
 #[cfg(target_family = "unix")]
@@ -382,16 +385,8 @@ async fn inner_update_file(
 	let location_path = location_path.as_ref();
 
 	let (current_inode, current_device) = (
-		u64::from_le_bytes(
-			maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]
-				.try_into()
-				.map_err(|_| LocationManagerError::InvalidInode)?,
-		),
-		u64::from_le_bytes(
-			maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]
-				.try_into()
-				.map_err(|_| LocationManagerError::InvalidDevice)?,
-		),
+		inode_from_db(&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]),
+		device_from_db(&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]),
 	);
 
 	trace!(
@@ -480,7 +475,7 @@ async fn inner_update_file(
 						if let Some(new_inode) = maybe_new_inode {
 							(
 								(inode::NAME, json!(new_inode)),
-								Some(inode::set(Some(new_inode.to_le_bytes().to_vec()))),
+								Some(inode::set(Some(inode_to_db(new_inode)))),
 							)
 						} else {
 							((inode::NAME, serde_json::Value::Null), None)
@@ -490,7 +485,7 @@ async fn inner_update_file(
 						if let Some(new_device) = maybe_new_device {
 							(
 								(device::NAME, json!(new_device)),
-								Some(device::set(Some(new_device.to_le_bytes().to_vec()))),
+								Some(device::set(Some(device_to_db(new_device)))),
 							)
 						} else {
 							((device::NAME, serde_json::Value::Null), None)
@@ -801,15 +796,11 @@ pub(super) async fn extract_inode_and_device_from_path(
 			Err(FilePathError::NotFound(path.into()).into()),
 			|file_path| {
 				Ok((
-					u64::from_le_bytes(
-						maybe_missing(file_path.inode, "file_path.inode")?[0..8]
-							.try_into()
-							.map_err(|_| LocationManagerError::InvalidInode)?,
+					inode_from_db(
+						&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8],
 					),
-					u64::from_le_bytes(
-						maybe_missing(file_path.device, "file_path.device")?[0..8]
-							.try_into()
-							.map_err(|_| LocationManagerError::InvalidDevice)?,
+					device_from_db(
+						&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8],
 					),
 				))
 			},

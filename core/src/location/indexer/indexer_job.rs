@@ -175,6 +175,7 @@ impl StatefulJob for IndexerJobInit {
 			to_walk,
 			to_remove,
 			errors,
+			..
 		} = walk(
 			&to_walk_path,
 			&indexer_rules,
@@ -291,6 +292,7 @@ impl StatefulJob for IndexerJobInit {
 
 				let WalkResult {
 					walked,
+					to_update: _to_update,
 					to_walk,
 					to_remove,
 					errors,

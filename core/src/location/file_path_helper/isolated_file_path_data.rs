@@ -16,12 +16,12 @@ use serde::{Deserialize, Serialize};
 use super::{
 	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
-	file_path_to_isolate_with_id, file_path_with_object, FilePathError,
+	file_path_to_isolate_with_id, file_path_walker, file_path_with_object, FilePathError,
 };
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
@@ -446,6 +446,7 @@ mod macros {
 impl_from_db!(
 	file_path,
 	file_path_to_isolate,
+	file_path_walker,
 	file_path_to_isolate_with_id,
 	file_path_with_object
 );

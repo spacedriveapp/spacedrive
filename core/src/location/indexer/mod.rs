@@ -2,7 +2,10 @@ use crate::{
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
 	sync,
-	util::{db::uuid_to_bytes, error::FileIOError},
+	util::{
+		db::{device_to_db, inode_to_db, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use std::path::Path;
@@ -127,11 +130,11 @@ async fn execute_indexer_save_step(
 				),
 				(
 					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
-					inode::set(Some(entry.metadata.inode.to_le_bytes().into())),
+					inode::set(Some(inode_to_db(entry.metadata.inode))),
 				),
 				(
 					(device::NAME, json!(entry.metadata.device.to_le_bytes())),
-					device::set(Some(entry.metadata.device.to_le_bytes().into())),
+					device::set(Some(device_to_db(entry.metadata.device))),
 				),
 				(
 					(date_created::NAME, json!(entry.metadata.created_at)),
@@ -200,7 +203,7 @@ async fn remove_non_existing_file_paths(
 }
 
 // TODO: Change this macro to a fn when we're able to return
-// `impl Fn(Vec<file_path::WhereParam>) -> impl Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>`
+// `impl Fn(Vec<file_path::WhereParam>) -> impl Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>`
 // Maybe when TAITs arrive
 #[macro_export]
 macro_rules! file_paths_db_fetcher_fn {
@@ -217,7 +220,7 @@ macro_rules! file_paths_db_fetcher_fn {
 				.map(|founds| {
 					$db.file_path()
 						.find_many(founds.collect::<Vec<_>>())
-						.select($crate::location::file_path_helper::file_path_to_isolate::select())
+						.select($crate::location::file_path_helper::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
 
