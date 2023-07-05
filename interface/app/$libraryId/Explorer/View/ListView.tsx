@@ -7,7 +7,6 @@ import {
 	useReactTable
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
@@ -19,7 +18,7 @@ import {
 	ExplorerItem,
 	FilePath,
 	ObjectKind,
-	bytesToNumber,
+	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
@@ -210,7 +209,7 @@ export default () => {
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
 
-					return byteSize(bytesToNumber(file_path.size_in_bytes_bytes));
+					return byteSize(file_path.size_in_bytes_bytes);
 				}
 			},
 			{
