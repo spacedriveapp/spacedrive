@@ -1,8 +1,7 @@
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
-import GridList from '~/components/GridList';
+import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { GridList } from '~/components';
 import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
@@ -50,7 +49,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
 					>
-						{byteSize(bytesToNumber(filePathData.size_in_bytes_bytes)).toString()}
+						{`${byteSize(filePathData.size_in_bytes_bytes)}`}
 					</span>
 				)}
 			</div>
