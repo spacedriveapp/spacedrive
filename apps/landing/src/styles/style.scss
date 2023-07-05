@@ -97,14 +97,16 @@ html {
 }
 
 .bloom {
-	@apply absolute -mt-[320px] h-[1200px] w-[1200px];
 	will-change: opacity;
 	opacity: 0;
 	will-change: filter opacity;
+	position: absolute;
 	animation-timing-function: ease-in-out;
 	animation-fill-mode: forwards;
 	animation-iteration-count: 1;
 	animation-direction: forwards;
+	width: 1200px;
+	height: 1200px;
 	&.burst {
 		animation-name: bloomBurst;
 		animation-duration: 1s;
@@ -114,13 +116,11 @@ html {
 		animation-duration: 3s;
 	}
 	&.bloom-one {
-		@apply left-0 -ml-[300px];
 		background: url('/bloom-one.png') no-repeat center center;
 		background-size: contain;
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
-		@apply right-0 -mr-[300px];
 		background: url('/bloom-two.png') no-repeat center center;
 		background-size: contain;
 		animation-delay: 0ms;
@@ -275,4 +275,9 @@ pre {
 
 .shadow-top {
 	box-shadow: 0 0px 50px -8px linear-gradient(to right, rgb(59, 130, 246), rgb(75, 0, 130));
+}
+
+.circle {
+	-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
+	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
 }

@@ -1,19 +1,25 @@
+/* eslint-disable tailwindcss/enforces-negative-arbitrary-values */
+
+/* eslint-disable tailwindcss/classnames-order */
+
 /* eslint-disable jsx-a11y/alt-text */
 import { Ball, Folder, Laptop, Mobile, Server } from '@sd/assets/icons';
 import { Dropbox, GoogleDrive, Mega, iCloud } from '@sd/assets/images';
+import clsx from 'clsx';
 import Head from 'next/head';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import Space from '~/components/Space';
+import { BentoBoxes } from '../components/BentoBoxes';
 
 const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
 
-const AppFrameOuter = tw.div`relative m-auto flex h-full w-full max-w-7xl rounded-lg border border-black transition-opacity`;
+const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg border border-black transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/30 backdrop-blur`;
 
 export default function HomePage() {
@@ -90,10 +96,10 @@ export default function HomePage() {
 					</p>
 					<HomeCTA />
 					<div className="w-screen">
-						<div className="relative mx-auto max-w-full sm:w-full sm:max-w-[1400px]">
-							<div className="bloom burst bloom-one" />
+						<div className="relative mx-auto w-full max-w-full sm:max-w-[1400px]">
+							<div className="bloom burst bloom-one left-[-300px] top-[-300px]" />
 							<div className="bloom burst bloom-three" />
-							<div className="bloom burst bloom-two" />
+							<div className="bloom burst bloom-two right-[-350px] top-[-300px] " />
 						</div>
 						<div className="z-30 mt-8 flex h-[255px] w-full px-6 sm:mt-20 sm:h-[428px] md:h-[428px] lg:h-[628px]">
 							<AppFrameOuter>
@@ -174,26 +180,7 @@ export default function HomePage() {
 						</ExplainerText>
 					</div>
 
-					<div className="col relative mx-auto my-48 flex w-full max-w-4xl items-center justify-center gap-4 px-4">
-						<AppFrameOuter>
-							<AppFrameInner>
-								<div className="p-5">
-									<ExplainerHeading className="mt-5">
-										A data hoarder's dream.
-									</ExplainerHeading>
-									<ExplainerText className="text-sm">
-										Spacedrive allows you to access and manage all files from
-										one place, from any device or cloud service.
-									</ExplainerText>
-								</div>
-							</AppFrameInner>
-						</AppFrameOuter>
-						<AppFrameOuter>
-							<AppFrameInner>
-								<div className="p-5">Some content</div>
-							</AppFrameInner>
-						</AppFrameOuter>
-					</div>
+					<BentoBoxes />
 				</div>
 			</PageWrapper>
 		</>
