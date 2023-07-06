@@ -136,6 +136,8 @@ macro_rules! invalidate_query {
 			}
 		}
 
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
 			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
@@ -164,6 +166,8 @@ macro_rules! invalidate_query {
 					})
 			}
 		}
+
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
@@ -202,6 +206,8 @@ macro_rules! invalidate_query {
 					})
 			}
 		}
+
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
