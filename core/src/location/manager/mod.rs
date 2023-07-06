@@ -452,7 +452,7 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
-						if location.node_id == Some(library.node_local_id) {
+						if location.node_id == Some(library.local_id) {
 							let is_online = match check_online(&location, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {
