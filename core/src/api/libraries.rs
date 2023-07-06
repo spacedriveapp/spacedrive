@@ -30,7 +30,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let _statistics = library
 						.db
 						.statistics()
-						.find_unique(statistics::id::equals(library.node_local_id))
+						.find_unique(statistics::id::equals(library.local_id))
 						.exec()
 						.await?;
 

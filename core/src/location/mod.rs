@@ -289,7 +289,7 @@ impl LocationUpdateArgs {
 			)
 			.await?;
 
-			if location.node_id == Some(library.node_local_id) {
+			if location.node_id == Some(library.local_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
@@ -375,7 +375,7 @@ pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
-	if location.node_id != Some(library.node_local_id) {
+	if location.node_id != Some(library.local_id) {
 		return Ok(());
 	}
 
@@ -444,7 +444,7 @@ pub async fn light_scan_location(
 ) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	if location.node_id != Some(library.node_local_id) {
+	if location.node_id != Some(library.local_id) {
 		return Ok(());
 	}
 
@@ -605,7 +605,7 @@ async fn create_location(
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
 						location::date_created::set(Some(date_created.into())),
-						location::node::connect(node::id::equals(library.node_local_id)),
+						location::node::connect(node::id::equals(library.local_id)),
 					],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -659,7 +659,7 @@ pub async fn delete_location(
 		.exec()
 		.await?;
 
-	if location.node_id == Some(library.node_local_id) {
+	if location.node_id == Some(library.local_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
 				metadata.remove_library(library.id).await?;

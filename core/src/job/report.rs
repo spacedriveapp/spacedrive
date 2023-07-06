@@ -205,7 +205,7 @@ impl JobReport {
 				self.id.as_bytes().to_vec(),
 				chain_optional_iter(
 					[
-						job::node::connect(node::id::equals(library.node_local_id)),
+						job::node::connect(node::id::equals(library.local_id)),
 						job::name::set(Some(self.name.clone())),
 						job::action::set(self.action.clone()),
 						job::data::set(self.data.clone()),

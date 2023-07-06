@@ -473,7 +473,6 @@ impl LibraryManager {
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
-			node_local_id: node_data.id,
 			node_context,
 			identity,
 		};
