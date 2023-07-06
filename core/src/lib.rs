@@ -52,6 +52,7 @@ pub struct Node {
 	location_manager: Arc<LocationManager>,
 	job_manager: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
+	system: sysinfo::System,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
@@ -111,6 +112,7 @@ impl Node {
 			job_manager,
 			p2p,
 			event_bus,
+			system: System::new_all(),
 			// peer_request: tokio::sync::Mutex::new(None),
 		};
 
@@ -202,21 +204,6 @@ impl Node {
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
-
-	// pub async fn begin_guest_peer_request(
-	// 	&self,
-	// 	peer_id: String,
-	// ) -> Option<Receiver<peer_request::guest::State>> {
-	// 	let mut pr_guard = self.peer_request.lock().await;
-
-	// 	if pr_guard.is_some() {
-	// 		return None;
-	// 	}
-
-	// 	let (req, stream) = peer_request::guest::PeerRequest::new_actor(peer_id);
-	// 	*pr_guard = Some(PeerRequest::Guest(req));
-	// 	Some(stream)
-	// }
 }
 
 /// Error type for Node related errors.

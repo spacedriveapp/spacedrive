@@ -1,13 +1,14 @@
 use crate::{
 	library::Library,
 	prisma::volume::{self, *},
+	Node,
 };
 
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
 use std::{fmt::Display, process::Command};
-use sysinfo::{DiskExt, System, SystemExt};
+use sysinfo::{DiskExt, SystemExt};
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
@@ -96,9 +97,8 @@ pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
 	Ok(())
 }
 
-// TODO: Error handling in this function
-pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-	System::new_all()
+pub fn get_volumes(ctx: &Node) -> Result<Vec<Volume>, VolumeError> {
+	ctx.system
 		.disks()
 		.iter()
 		.filter_map(|disk| {

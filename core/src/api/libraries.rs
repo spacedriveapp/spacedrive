@@ -25,67 +25,68 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("statistics", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				let _statistics = library
-					.db
-					.statistics()
-					.find_unique(statistics::id::equals(library.node_local_id))
-					.exec()
-					.await?;
+			R.with2(library())
+				.query(|(ctx, library), _: ()| async move {
+					let _statistics = library
+						.db
+						.statistics()
+						.find_unique(statistics::id::equals(library.node_local_id))
+						.exec()
+						.await?;
 
-				// TODO: get from database, not sys
-				let volumes = get_volumes();
-				save_volume(&library).await?;
+					// TODO: get from database, not sys
+					let volumes = get_volumes(&ctx);
+					save_volume(&library).await?;
 
-				let mut available_capacity: u64 = 0;
-				let mut total_capacity: u64 = 0;
+					let mut available_capacity: u64 = 0;
+					let mut total_capacity: u64 = 0;
 
-				if let Ok(volumes) = volumes {
-					for volume in volumes {
-						total_capacity += volume.total_capacity;
-						available_capacity += volume.available_capacity;
+					if let Ok(volumes) = volumes {
+						for volume in volumes {
+							total_capacity += volume.total_capacity;
+							available_capacity += volume.available_capacity;
+						}
 					}
-				}
 
-				let library_db_size = get_size(
-					library
-						.config()
-						.data_directory()
-						.join("libraries")
-						.join(&format!("{}.db", library.id)),
-				)
-				.await
-				.unwrap_or(0);
-
-				let thumbnail_folder_size =
-					get_size(library.config().data_directory().join("thumbnails"))
-						.await
-						.unwrap_or(0);
-
-				use statistics::*;
-				let params = vec![
-					id::set(1), // Each library is a database so only one of these ever exists
-					date_captured::set(Utc::now().into()),
-					total_object_count::set(0),
-					library_db_size::set(library_db_size.to_string()),
-					total_bytes_used::set(0.to_string()),
-					total_bytes_capacity::set(total_capacity.to_string()),
-					total_unique_bytes::set(0.to_string()),
-					total_bytes_free::set(available_capacity.to_string()),
-					preview_media_bytes::set(thumbnail_folder_size.to_string()),
-				];
-
-				Ok(library
-					.db
-					.statistics()
-					.upsert(
-						statistics::id::equals(1), // Each library is a database so only one of these ever exists
-						statistics::create(params.clone()),
-						params,
+					let library_db_size = get_size(
+						library
+							.config()
+							.data_directory()
+							.join("libraries")
+							.join(&format!("{}.db", library.id)),
 					)
-					.exec()
-					.await?)
-			})
+					.await
+					.unwrap_or(0);
+
+					let thumbnail_folder_size =
+						get_size(library.config().data_directory().join("thumbnails"))
+							.await
+							.unwrap_or(0);
+
+					use statistics::*;
+					let params = vec![
+						id::set(1), // Each library is a database so only one of these ever exists
+						date_captured::set(Utc::now().into()),
+						total_object_count::set(0),
+						library_db_size::set(library_db_size.to_string()),
+						total_bytes_used::set(0.to_string()),
+						total_bytes_capacity::set(total_capacity.to_string()),
+						total_unique_bytes::set(0.to_string()),
+						total_bytes_free::set(available_capacity.to_string()),
+						preview_media_bytes::set(thumbnail_folder_size.to_string()),
+					];
+
+					Ok(library
+						.db
+						.statistics()
+						.upsert(
+							statistics::id::equals(1), // Each library is a database so only one of these ever exists
+							statistics::create(params.clone()),
+							params,
+						)
+						.exec()
+						.await?)
+				})
 		})
 		.procedure("create", {
 			#[derive(Deserialize, Type)]
