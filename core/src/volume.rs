@@ -76,17 +76,8 @@ pub async fn save_volume(ctx: &Node, library: &Library) -> Result<(), VolumeErro
 			.db
 			.volume()
 			.upsert(
-				node_id_mount_point_name(
-					library.node_local_id,
-					volume.mount_point.to_string(),
-					volume.name.to_string(),
-				),
-				volume::create(
-					library.node_local_id,
-					volume.name,
-					volume.mount_point,
-					params.clone(),
-				),
+				mount_point_name(volume.mount_point.to_string(), volume.name.to_string()),
+				volume::create(volume.name, volume.mount_point, params.clone()),
 				params,
 			)
 			.exec()

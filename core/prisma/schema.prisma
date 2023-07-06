@@ -69,7 +69,6 @@ model Node {
 /// @local
 model Volume {
     id                    Int      @id @default(autoincrement())
-    node_id               Int
     name                  String
     mount_point           String
     total_bytes_capacity  String   @default("0")
@@ -79,7 +78,7 @@ model Volume {
     is_system             Boolean  @default(false)
     date_modified         DateTime @default(now())
 
-    @@unique([node_id, mount_point, name])
+    @@unique([mount_point, name])
     @@map("volume")
 }
 
