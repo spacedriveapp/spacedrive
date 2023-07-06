@@ -42,7 +42,7 @@ use std::{
 
 use sd_file_ext::extensions::ImageExtension;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
@@ -446,7 +446,7 @@ async fn inner_update_file(
 						))),
 					),
 					{
-						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
+						let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
 
 						(
 							(date_modified::NAME, json!(date)),
@@ -569,6 +569,7 @@ pub(super) async fn rename(
 	location_id: location::id::Type,
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
+	new_path_metadata: Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let location_path = extract_location_path(location_id, library).await?;
@@ -637,6 +638,9 @@ pub(super) async fn rename(
 					file_path::materialized_path::set(Some(new_path_materialized_str)),
 					file_path::name::set(Some(new.name.to_string())),
 					file_path::extension::set(Some(new.extension.to_string())),
+					file_path::date_modified::set(Some(
+						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
+					)),
 				],
 			)
 			.exec()
