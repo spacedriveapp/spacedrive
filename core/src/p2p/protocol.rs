@@ -14,6 +14,7 @@ use crate::node::Platform;
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
+	// TODO: Split out cause this is a broadcast
 	Ping,
 	Spacedrop(SpaceblockRequest),
 	Pair(Uuid),
