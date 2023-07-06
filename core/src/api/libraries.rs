@@ -36,7 +36,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					// TODO: get from database, not sys
 					let volumes = get_volumes(&ctx);
-					save_volume(&library).await?;
+					save_volume(&ctx, &library).await?;
 
 					let mut available_capacity: u64 = 0;
 					let mut total_capacity: u64 = 0;

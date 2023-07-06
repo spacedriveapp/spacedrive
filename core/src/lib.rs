@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub use sd_prisma::*;
+use sysinfo::{System, SystemExt};
 
 use std::{
 	path::{Path, PathBuf},

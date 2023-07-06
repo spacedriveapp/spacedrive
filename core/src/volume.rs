@@ -60,8 +60,8 @@ impl From<VolumeError> for rspc::Error {
 	}
 }
 
-pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
-	let volumes = get_volumes()?;
+pub async fn save_volume(ctx: &Node, library: &Library) -> Result<(), VolumeError> {
+	let volumes = get_volumes(ctx)?;
 
 	// enter all volumes associate with this client add to db
 	for volume in volumes {
