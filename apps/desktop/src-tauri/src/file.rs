@@ -330,7 +330,7 @@ pub async fn reveal_items(
 				.db
 				.location()
 				.find_many(vec![
-					location::node_id::equals(Some(library.node_local_id)),
+					location::node_id::equals(Some(library.local_id)),
 					location::id::in_vec(locations),
 				])
 				.select(location::select!({ path }))

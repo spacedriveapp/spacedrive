@@ -408,7 +408,7 @@ pub async fn scan_location_sub_path(
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != Some(library.node_local_id) {
+	if location.node_id != Some(library.local_id) {
 		return Ok(());
 	}
 
