@@ -23,7 +23,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Duration, FixedOffset};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::trace;
@@ -53,6 +53,7 @@ pub struct ToWalkEntry {
 	parent_dir_accepted_by_its_children: Option<bool>,
 }
 
+#[derive(Debug)]
 struct WalkingEntry {
 	iso_file_path: IsolatedFilePathData<'static>,
 	maybe_metadata: Option<FilePathMetadata>,
@@ -376,9 +377,13 @@ where
 						let (inode, device) =
 							(inode_from_db(&inode[0..8]), device_from_db(&device[0..8]));
 
+						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
+						// instead of using != operator
 						if inode != metadata.inode
-							|| device != metadata.device || *date_modified
-							!= DateTime::<FixedOffset>::from(metadata.modified_at)
+							|| device != metadata.device || DateTime::<FixedOffset>::from(
+							metadata.modified_at,
+						) - *date_modified
+							> Duration::milliseconds(1)
 						{
 							to_update.push((from_bytes_to_uuid(&file_path.pub_id), entry).into());
 						}

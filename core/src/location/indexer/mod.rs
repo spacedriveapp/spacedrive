@@ -40,6 +40,12 @@ pub struct IndexerJobSaveStep {
 	walked: Vec<WalkedEntry>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IndexerJobUpdateStep {
+	chunk_idx: usize,
+	to_update: Vec<WalkedEntry>,
+}
+
 /// Error type for the indexer module
 #[derive(Error, Debug)]
 pub enum IndexerError {
@@ -179,6 +185,91 @@ async fn execute_indexer_save_step(
 	Ok(count)
 }
 
+async fn execute_indexer_update_step(
+	update_step: &IndexerJobUpdateStep,
+	library: &Library,
+) -> Result<i64, IndexerError> {
+	let Library { sync, db, .. } = &library;
+
+	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
+		.to_update
+		.iter()
+		.map(|entry| {
+			let IsolatedFilePathData { is_dir, .. } = &entry.iso_file_path;
+
+			use file_path::*;
+
+			let pub_id = uuid_to_bytes(entry.pub_id);
+
+			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+				// As this file was updated while Spacedrive was offline, we mark the object_id as null
+				// So this file_path will be updated at file identifier job
+				(
+					(object_id::NAME, serde_json::Value::Null),
+					object::disconnect(),
+				),
+				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
+				(
+					(
+						size_in_bytes_bytes::NAME,
+						json!(entry.metadata.size_in_bytes.to_be_bytes().to_vec()),
+					),
+					size_in_bytes_bytes::set(Some(
+						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
+					)),
+				),
+				(
+					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
+					inode::set(Some(inode_to_db(entry.metadata.inode))),
+				),
+				(
+					(device::NAME, json!(entry.metadata.device.to_le_bytes())),
+					device::set(Some(device_to_db(entry.metadata.device))),
+				),
+				(
+					(date_created::NAME, json!(entry.metadata.created_at)),
+					date_created::set(Some(entry.metadata.created_at.into())),
+				),
+				(
+					(date_modified::NAME, json!(entry.metadata.modified_at)),
+					date_modified::set(Some(entry.metadata.modified_at.into())),
+				),
+			]
+			.into_iter()
+			.unzip();
+
+			(
+				sync_params
+					.into_iter()
+					.map(|(field, value)| {
+						sync.shared_update(
+							sync::file_path::SyncId {
+								pub_id: pub_id.clone(),
+							},
+							field,
+							value,
+						)
+					})
+					.collect::<Vec<_>>(),
+				db.file_path()
+					.update(file_path::pub_id::equals(pub_id), db_params)
+					.select(file_path::select!({ id })),
+			)
+		})
+		.unzip();
+
+	let updated = sync
+		.write_ops(
+			db,
+			(sync_stuff.into_iter().flatten().collect(), paths_to_update),
+		)
+		.await?;
+
+	trace!("Updated {updated:?} records");
+
+	Ok(updated.len() as i64)
+}
+
 fn iso_file_path_factory(
 	location_id: location::id::Type,
 	location_path: &Path,
@@ -219,7 +310,9 @@ macro_rules! file_paths_db_fetcher_fn {
 				.into_iter()
 				.map(|founds| {
 					$db.file_path()
-						.find_many(founds.collect::<Vec<_>>())
+						.find_many(vec![::prisma_client_rust::operator::or(
+							founds.collect::<Vec<_>>(),
+						)])
 						.select($crate::location::file_path_helper::file_path_walker::select())
 				})
 				.collect::<Vec<_>>();
