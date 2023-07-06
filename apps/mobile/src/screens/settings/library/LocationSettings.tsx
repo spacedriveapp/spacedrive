@@ -73,7 +73,9 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				{/* Full Re-scan IS too much here */}
 				<Pressable
 					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
-					onPress={() => fullRescan.mutate({ location_id: location.id, reidentify_objects: true })}
+					onPress={() =>
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: true })
+					}
 				>
 					<Repeat size={18} color="white" />
 				</Pressable>
@@ -97,7 +99,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<View
 						style={twStyle(
 							'absolute bottom-0.5 right-0 h-2 w-2 rounded-full',
-							onlineLocations?.some((l) => arraysEqual(location.pub_id, l))
+							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
 						)}

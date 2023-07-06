@@ -119,11 +119,6 @@ impl Node {
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
-		let log_filter = match cfg!(debug_assertions) {
-			true => tracing::Level::DEBUG,
-			false => tracing::Level::INFO,
-		};
-
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -137,8 +132,8 @@ impl Node {
 			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
 			.with(
 				fmt::Subscriber::new()
-					.with_writer(std::io::stdout.with_max_level(log_filter))
-					.with_filter(
+					.with_writer(std::io::stdout)
+					.with_filter(if cfg!(debug_assertions) {
 						EnvFilter::from_default_env()
 							.add_directive(
 								"warn".parse().expect("Error invalid tracing directive!"),
@@ -177,8 +172,10 @@ impl Node {
 								"rspc=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
-							),
-					),
+							)
+					} else {
+						EnvFilter::from("info")
+					}),
 			);
 
 		tracing::collect::set_global_default(collector)
