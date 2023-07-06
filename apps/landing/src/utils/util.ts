@@ -34,6 +34,7 @@ export function detectWebGLContext() {
 			(ctx) =>
 				ctx != null &&
 				(ctx instanceof WebGLRenderingContext ||
-					(WebGL2RenderingContext != null && ctx instanceof WebGL2RenderingContext))
+					(WebGL2RenderingContext != null && ctx instanceof WebGL2RenderingContext)) &&
+				ctx.getParameter(ctx.VERSION) != null
 		);
 }
