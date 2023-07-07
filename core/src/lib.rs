@@ -104,6 +104,8 @@ impl Node {
 				.await?;
 		}
 
+		sysinfo::set_open_files_limit(0); // We don't use sysinfo's process metadata.
+
 		let router = api::mount();
 		let node = Node {
 			data_dir: data_dir.to_path_buf(),
