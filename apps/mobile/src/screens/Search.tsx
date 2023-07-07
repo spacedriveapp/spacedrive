@@ -1,12 +1,14 @@
 import { MagnifyingGlass } from 'phosphor-react-native';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
-import { Button } from '~/components/primitive/Button';
+import Explorer from '~/components/explorer/Explorer';
 import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
 import { getExplorerStore } from '~/stores/explorerStore';
+
+// TODO: Animations!
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const { top } = useSafeAreaInsets();
@@ -15,8 +17,6 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
-
-	// TODO: Animations!
 
 	const query = useLibraryQuery(
 		[
@@ -29,7 +29,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			}
 		],
 		{
-			// suspense: true,
+			suspense: true,
 			enabled: !!deferredSearch,
 			onSuccess: () => getExplorerStore().resetNewThumbnails()
 		}
@@ -38,6 +38,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const items = useMemo(() => {
 		const items = query.data?.items;
 
+		// Mobile does not thave media layout
 		// if (explorerStore.layoutMode !== 'media') return items;
 
 		return items?.filter((item) => {
@@ -45,8 +46,6 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			return kind === 'Video' || kind === 'Image';
 		});
 	}, [query.data]);
-
-	console.log('items', items);
 
 	return (
 		<View style={twStyle('flex-1', { marginTop: top + 10 })}>
@@ -87,11 +86,10 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 				</Pressable>
 			</View>
 			{/* Content */}
-			<View style={tw`mt-8 flex-1 items-center`}>
-				<Text style={tw`text-white`}>{deferredSearch}</Text>
-				<Button variant="accent" onPress={() => setLoading((v) => !v)}>
-					<Text>Toggle loading</Text>
-				</Button>
+			<View style={tw`flex-1`}>
+				<Suspense fallback={<ActivityIndicator />}>
+					<Explorer items={items} />
+				</Suspense>
 			</View>
 		</View>
 	);
