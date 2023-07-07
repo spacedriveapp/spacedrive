@@ -1090,9 +1090,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.25"
+version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdbc37d37da9e5bce8173f3a41b71d9bf3c674deebbaceacd0ebdabde76efb03"
+checksum = "ec837a71355b28f6556dbd569b37b3f363091c0bd4b2e735674521b4c5fd9bc5"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -7090,6 +7090,7 @@ dependencies = [
  "sd-ffmpeg",
  "sd-file-ext",
  "sd-heif",
+ "sd-media-data",
  "sd-p2p",
  "sd-prisma",
  "sd-sync",
@@ -7213,6 +7214,15 @@ name = "sd-macos"
 version = "0.1.0"
 dependencies = [
  "swift-rs",
+]
+
+[[package]]
+name = "sd-media-data"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "kamadak-exif",
+ "thiserror",
 ]
 
 [[package]]
