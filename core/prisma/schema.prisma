@@ -249,15 +249,23 @@ model Object {
 // }
 
 model MediaData {
-    id                      Int     @id
-    pixel_width             Int
-    pixel_height            Int
-    longitude               Float?
-    latitude                Float?
-    codecs                  String? // eg: "h264,acc"
-    capture_device_make     String? // eg: "Apple"
-    capture_device_model    String? // eg: "iPhone 12"
-    capture_device_software String? // eg: "12.1.1"
+    id              Int       @id
+    date_created    DateTime? // filesystem creation time
+    date_taken      DateTime?
+    pixel_width     Int?
+    pixel_height    Int?
+    color_space     String?
+    longitude       Float?
+    latitude        Float?
+    codecs          String? // eg: "h264,acc"
+    device_make     String? // eg: "Apple"
+    device_model    String? // eg: "iPhone 12"
+    device_software String? // eg: "12.1.1"
+    focal_length    Float?
+    shutter_speed   Float?
+    orientation     String?
+    copyright       String?
+    flash           Boolean?
 
     // video-specific
     duration Int?

@@ -7218,7 +7218,7 @@ dependencies = [
 
 [[package]]
 name = "sd-media-data"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "chrono",
  "kamadak-exif",

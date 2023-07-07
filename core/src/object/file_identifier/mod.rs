@@ -17,12 +17,14 @@ use crate::{
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_sync::CRDTOperation;
 
+use once_cell::sync::Lazy;
 use std::{
 	collections::{HashMap, HashSet},
 	path::Path,
 };
 
 use futures::future::join_all;
+use sd_file_ext::extensions::ImageExtension;
 use serde_json::json;
 use thiserror::Error;
 use tokio::fs;
@@ -360,4 +362,24 @@ async fn process_identifier_file_paths(
 			.map(|last_row| last_row.id)
 			.unwrap_or(cursor),
 	))
+}
+
+static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+	sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
+		.iter()
+		.map(Clone::clone)
+		.filter(can_generate_media_data_for_image)
+		.map(Extension::Image)
+		.collect()
+});
+
+pub const fn can_generate_media_data_for_image(image_extension: &ImageExtension) -> bool {
+	use ImageExtension::*;
+
+	let res = matches!(
+		image_extension,
+		Jpg | Jpeg | Png | Tiff | Webp | Heic | Heics | Heif | Heifs | Avif
+	);
+
+	res
 }

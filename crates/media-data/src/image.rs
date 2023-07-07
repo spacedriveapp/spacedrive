@@ -9,18 +9,23 @@ pub struct MediaDataImage {
 	pub timestamp: Option<DateTime<FixedOffset>>,
 	pub width: Option<u32>,
 	pub height: Option<u32>,
-	pub color_space: Option<String>, // enum this probs
-	// lat: f32, // not sure if 32 or 64
-	// long: f32,
-	// altitude: f32,
+	pub color_space: Option<String>, // enum this probsç
+	pub compression: Option<String>, // enum this probsç
+	// lat: f32, // custom parsing
+	// long: f32. // meed custom parsing
+	// altitude: f32, // custom parsing
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
 	pub focal_length: Option<f32>,
 	pub shutter_speed: Option<f32>,
 	pub flash: Option<bool>,
+	pub orientation: Option<String>, // custom parsing but we should grab this anyway
 	pub copyright: Option<String>,
+	pub artist: Option<String>,
+	// pub software: Option<String>, // commenting as this varies and is very iffy
 }
 
+// TODO(brxken128): will probably be modifieid a bit
 // pub struct MediaDataVideo {
 // 	timestamp: DateTime<FixedOffset>,
 // 	width: u32,
@@ -44,24 +49,18 @@ pub enum MediaDataError {
 	Io(#[from] std::io::Error),
 	#[error("error from the exif crate: {0}")]
 	Exif(#[from] exif::Error),
-	#[error("a primary field doesn't exist")]
-	NonExistant,
 	#[error("there was an error while parsing the time")]
 	TimeParse,
 	#[error("there was an error while parsing time with chrono: {0}")]
 	Chrono(#[from] chrono::ParseError),
 	#[error("there was an error while converting between types")]
-	Conversion, // #[error("tried to get a value that was out of bounds")]
-	            // OutOfBoundsInt,
+	Conversion,
 }
 
-fn has_flash(s: &'static str) -> Result<bool> {
-	match s {
-		"fired, no return light detection function, forced" => Ok(true),
-		"not fired, no return light detection function, suppressed" => Ok(false),
-		_ => Err(MediaDataError::NonExistant),
-	}
-}
+const HAS_FLASH: &str = "fired, no return light detection function, forced";
+// i don't think we need this at all. the `.map` will catch auto flash being enabled/disabled,
+// and [`HAS_FLASH`] does the job
+// const HAS_FLASH_DISABLED: &str = "not fired, no return light detection function, suppressed";
 
 // const TAGS: [Tag; 10] = [
 // 	Tag::PixelXDimension,
@@ -85,124 +84,116 @@ fn has_flash(s: &'static str) -> Result<bool> {
 type Result<T> = std::result::Result<T, MediaDataError>;
 
 pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
-	let file = File::open(path).unwrap();
+	let file = File::open(path)?;
 	let mut reader = BufReader::new(file);
 	let exif_data = exif::Reader::new().read_from_container(&mut reader)?;
 
 	let mut data = MediaDataImage::default();
 
-	// dbg!(
-	// 	"software: {}",
-	// 	exif_data
-	// 		.get_field(Tag::Flash, In::PRIMARY)
-	// 		.unwrap()
-	// 		.display_value()
-	// 		.to_string(),
-	// );
-
 	let local_time = exif_data
 		.get_field(Tag::DateTimeOriginal, In::PRIMARY)
-		.ok_or(MediaDataError::NonExistant)?
-		.display_value()
-		.to_string();
+		.map(|x| x.display_value().to_string())
+		.ok_or(MediaDataError::Conversion)?;
 
 	let offset = exif_data
 		.get_field(Tag::OffsetTimeOriginal, In::PRIMARY)
-		.ok_or(MediaDataError::NonExistant)?
-		.display_value()
-		.to_string()
-		.as_str()[1..7]
-		.to_string();
+		.map(|x| x.display_value().to_string().as_str()[1..7].to_string())
+		.ok_or(MediaDataError::Conversion)?;
 
 	data.timestamp = Some(DateTime::parse_from_str(
 		&format!("{} {}", local_time, offset),
 		"%Y-%m-%d %H:%M:%S %z",
 	)?);
 
-	data.width = Some(
-		exif_data
-			.get_field(Tag::PixelXDimension, In::PRIMARY)
-			.ok_or(MediaDataError::NonExistant)?
-			.value
-			.display_as(Tag::PixelXDimension)
-			.to_string()
-			.parse::<u32>()
-			.map_err(|_| MediaDataError::Conversion)?,
-	);
+	data.width = exif_data
+		.get_field(Tag::PixelXDimension, In::PRIMARY)
+		.map(|x| {
+			x.value
+				.display_as(Tag::PixelXDimension)
+				.to_string()
+				.parse::<u32>()
+				.ok()
+		})
+		.unwrap_or_default();
 
-	data.height = Some(
-		exif_data
-			.get_field(Tag::PixelYDimension, In::PRIMARY)
-			.ok_or(MediaDataError::NonExistant)?
-			.value
-			.display_as(Tag::PixelYDimension)
-			.to_string()
-			.parse::<u32>()
-			.map_err(|_| MediaDataError::Conversion)?,
-	);
+	data.height = exif_data
+		.get_field(Tag::PixelYDimension, In::PRIMARY)
+		.map(|x| {
+			x.value
+				.display_as(Tag::PixelYDimension)
+				.to_string()
+				.parse::<u32>()
+				.ok()
+		})
+		.unwrap_or_default();
 
-	data.color_space = Some(
-		exif_data
-			.get_field(Tag::ColorSpace, In::PRIMARY)
-			.ok_or(MediaDataError::NonExistant)?
-			.value
-			.display_as(Tag::ColorSpace)
-			.to_string(),
-	);
+	data.color_space = exif_data
+		.get_field(Tag::ColorSpace, In::PRIMARY)
+		.map(|x| x.value.display_as(Tag::ColorSpace).to_string());
 
-	data.device_make = Some(
-		exif_data
-			.get_field(Tag::Make, In::PRIMARY)
-			.ok_or(MediaDataError::NonExistant)?
-			.value
+	data.compression = exif_data
+		.get_field(Tag::Compression, In::PRIMARY)
+		.map(|x| x.value.display_as(Tag::Compression).to_string());
+
+	data.device_make = exif_data.get_field(Tag::Make, In::PRIMARY).map(|x| {
+		x.value
 			.display_as(Tag::Make)
 			.to_string()
-			.trim_matches('\\')
-			.trim_matches('\"')
-			.to_string(),
-	);
+			.replace(['\\', '\"'], "")
+	});
 
-	data.device_model = Some(
-		exif_data
-			.get_field(Tag::Model, In::PRIMARY)
-			.ok_or(MediaDataError::NonExistant)?
-			.value
+	data.device_model = exif_data.get_field(Tag::Model, In::PRIMARY).map(|x| {
+		x.value
 			.display_as(Tag::Model)
 			.to_string()
-			.trim_matches('\\')
-			.trim_matches('\"')
-			.to_string(),
-	);
+			.replace(['\\', '\"'], "")
+	});
 
 	data.focal_length = exif_data
 		.get_field(Tag::FocalLength, In::PRIMARY)
-		.ok_or(MediaDataError::NonExistant)?
-		.value
-		.display_as(Tag::FocalLength)
-		.to_string()
-		.parse()
-		.ok();
+		.map(|x| {
+			x.value
+				.display_as(Tag::FocalLength)
+				.to_string()
+				.parse::<f32>()
+				.ok()
+		})
+		.unwrap_or_default();
 
 	data.shutter_speed = exif_data
 		.get_field(Tag::ShutterSpeedValue, In::PRIMARY)
-		.ok_or(MediaDataError::NonExistant)?
-		.value
-		.display_as(Tag::ShutterSpeedValue)
-		.to_string()
-		.parse()
-		.ok();
+		.map(|x| {
+			x.value
+				.display_as(Tag::ShutterSpeedValue)
+				.to_string()
+				.parse::<f32>()
+				.ok()
+		})
+		.unwrap_or_default();
+
+	data.flash = exif_data.get_field(Tag::Flash, In::PRIMARY).map(|x| {
+		x.value
+			.display_as(Tag::Flash)
+			.to_string()
+			.contains(HAS_FLASH)
+	});
+
+	data.orientation = exif_data
+		.get_field(Tag::Orientation, In::PRIMARY)
+		.map(|x| x.value.display_as(Tag::Orientation).to_string());
+
+	data.copyright = exif_data
+		.get_field(Tag::Copyright, In::PRIMARY)
+		.map(|x| x.value.display_as(Tag::Copyright).to_string());
+
+	data.artist = exif_data
+		.get_field(Tag::Artist, In::PRIMARY)
+		.map(|x| x.value.display_as(Tag::Artist).to_string());
+
+	// temporarily disabled until i can get more test data
+	// data.software = exif_data
+	// 	.get_field(Tag::Software, In::PRIMARY)
+	// 	.map(|x| x.value.display_as(Tag::Software).to_string());
 
 	Ok(data)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::get_data_for_image;
-
-	#[test]
-	fn t() {
-		dbg!(get_data_for_image("./SA704136.JPG")).unwrap();
-		// dbg!(get_data_for_image("./img.jpg")).unwrap();
-		// dbg!(get_data_for_image("./img3.jpg")).unwrap();
-	}
 }

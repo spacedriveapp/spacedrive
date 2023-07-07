@@ -1,0 +1,12 @@
+[package]
+name = "sd-media-data"
+version = "0.0.0"
+authors = ["Jake Robinson <jake@spacedrive.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+kamadak-exif = "0.5.5"
+thiserror = "1.0.40"
+chrono = "0.4.26"
