@@ -27,6 +27,24 @@ CREATE TABLE "new_job" (
 INSERT INTO "new_job" ("action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count") SELECT "action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count" FROM "job";
 DROP TABLE "job";
 ALTER TABLE "new_job" RENAME TO "job";
+CREATE TABLE "new_location" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "pub_id" BLOB NOT NULL,
+    "name" TEXT,
+    "path" TEXT,
+    "total_capacity" INTEGER,
+    "available_capacity" INTEGER,
+    "is_archived" BOOLEAN,
+    "generate_preview_media" BOOLEAN,
+    "sync_preview_media" BOOLEAN,
+    "hidden" BOOLEAN,
+    "date_created" DATETIME,
+    "node_id" INTEGER
+);
+INSERT INTO "new_location" ("available_capacity", "date_created", "generate_preview_media", "hidden", "id", "is_archived", "name", "node_id", "path", "pub_id", "sync_preview_media", "total_capacity") SELECT "available_capacity", "date_created", "generate_preview_media", "hidden", "id", "is_archived", "name", "node_id", "path", "pub_id", "sync_preview_media", "total_capacity" FROM "location";
+DROP TABLE "location";
+ALTER TABLE "new_location" RENAME TO "location";
+CREATE UNIQUE INDEX "location_pub_id_key" ON "location"("pub_id");
 CREATE TABLE "new_volume" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT NOT NULL,

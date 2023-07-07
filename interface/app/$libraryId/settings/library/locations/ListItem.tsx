@@ -2,14 +2,14 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
+import { Location, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
 import { Folder } from '~/components/Folder';
 import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
-	location: Location & { node: Node | null };
+	location: Location;
 }
 
 export default ({ location }: Props) => {
@@ -36,11 +36,12 @@ export default ({ location }: Props) => {
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
-					{location.node && (
+					{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
+					{/* {location.node && (
 						<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
 							{location.node.name}
 						</span>
-					)}
+					)} */}
 					{location.path}
 				</p>
 			</div>

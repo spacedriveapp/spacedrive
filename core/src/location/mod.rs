@@ -7,12 +7,9 @@ use crate::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
 		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, PrismaClient},
+	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	sync,
-	util::{
-		db::{chain_optional_iter, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::chain_optional_iter, error::FileIOError},
 };
 
 use std::{
@@ -590,12 +587,6 @@ async fn create_location(
 					(location::name::NAME, json!(&name)),
 					(location::path::NAME, json!(&location_path)),
 					(location::date_created::NAME, json!(date_created)),
-					(
-						location::node::NAME,
-						json!(sync::node::SyncId {
-							pub_id: uuid_to_bytes(library.id)
-						}),
-					),
 				],
 			),
 			db.location()
@@ -605,7 +596,6 @@ async fn create_location(
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
 						location::date_created::set(Some(date_created.into())),
-						location::node::connect(node::id::equals(library.local_id)),
 					],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -722,7 +712,6 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
 			date_created: data.date_created,
-			node: None,
 			file_paths: None,
 			indexer_rules: None,
 		}
@@ -744,7 +733,6 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
 			date_created: data.date_created,
-			node: None,
 			file_paths: None,
 			indexer_rules: None,
 		}
