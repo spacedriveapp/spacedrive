@@ -21,9 +21,11 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 mod desktop_entry;
+mod env;
 mod handler;
 mod system;
 
 pub use desktop_entry::{DesktopEntry, Mode as ExecMode};
+pub use env::normalize_environment;
 pub use handler::{Handler, HandlerType};
 pub use system::SystemApps;

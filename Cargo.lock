@@ -3844,9 +3844,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.146"
+version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92be4933c13fd498862a9e02a3055f8a8d9c039ce33db97306fd5a6caa7f29b"
+checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
 name = "libdbus-sys"
@@ -7135,6 +7135,7 @@ dependencies = [
  "aho-corasick 1.0.2",
  "atty",
  "freedesktop_entry_parser",
+ "libc",
  "mime",
  "shlex",
  "thiserror",
