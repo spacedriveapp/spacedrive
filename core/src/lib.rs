@@ -10,7 +10,6 @@ use crate::{
 };
 
 pub use sd_prisma::*;
-use sysinfo::{System, SystemExt};
 
 use std::{
 	path::{Path, PathBuf},
@@ -53,7 +52,6 @@ pub struct Node {
 	location_manager: Arc<LocationManager>,
 	job_manager: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
-	system: sysinfo::System,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
 }
@@ -104,8 +102,6 @@ impl Node {
 				.await?;
 		}
 
-		sysinfo::set_open_files_limit(0); // We don't use sysinfo's process metadata.
-
 		let router = api::mount();
 		let node = Node {
 			data_dir: data_dir.to_path_buf(),
@@ -115,7 +111,6 @@ impl Node {
 			job_manager,
 			p2p,
 			event_bus,
-			system: System::new_all(),
 			// peer_request: tokio::sync::Mutex::new(None),
 		};
 
@@ -124,11 +119,6 @@ impl Node {
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
-		let log_filter = match cfg!(debug_assertions) {
-			true => tracing::Level::DEBUG,
-			false => tracing::Level::INFO,
-		};
-
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -142,8 +132,8 @@ impl Node {
 			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
 			.with(
 				fmt::Subscriber::new()
-					.with_writer(std::io::stdout.with_max_level(log_filter))
-					.with_filter(
+					.with_writer(std::io::stdout)
+					.with_filter(if cfg!(debug_assertions) {
 						EnvFilter::from_default_env()
 							.add_directive(
 								"warn".parse().expect("Error invalid tracing directive!"),
@@ -182,8 +172,10 @@ impl Node {
 								"rspc=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
-							),
-					),
+							)
+					} else {
+						EnvFilter::from("info")
+					}),
 			);
 
 		tracing::collect::set_global_default(collector)

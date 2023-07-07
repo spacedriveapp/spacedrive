@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Location, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
-import { Folder } from '~/components/Folder';
+import { Folder } from '~/components';
 import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 
@@ -23,7 +23,7 @@ export default ({ location }: Props) => {
 
 	if (hide) return <></>;
 
-	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
+	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
 
 	return (
 		<Card

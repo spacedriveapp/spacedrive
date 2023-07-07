@@ -47,7 +47,10 @@ interface ResizeProps<T extends GridListSelection> extends GridListDefaults<T> {
 
 type GridListProps<T extends GridListSelection> = WrapProps<T> | ResizeProps<T>;
 
-export default <T extends GridListSelection>({ selectable = true, ...props }: GridListProps<T>) => {
+export const GridList = <T extends GridListSelection>({
+	selectable = true,
+	...props
+}: GridListProps<T>) => {
 	const scrollBarWidth = 6;
 
 	const multiSelect = Array.isArray(props.selected);

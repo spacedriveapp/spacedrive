@@ -31,7 +31,7 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 	) => {
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
-		const textRef = useRef<HTMLParagraphElement>(null);
+
 		const [allowRename, setAllowRename] = useState(false);
 		const [renamable, setRenamable] = useState(false);
 
@@ -108,12 +108,11 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		}
 
 		//this is to determine if file name is truncated
-		const isTruncated = useIsTextTruncated(textRef, text);
+		const isTruncated = useIsTextTruncated(ref, text);
 
 		// Focus and highlight when renaming is allowed
 		useEffect(() => {
 			if (allowRename) {
-				explorerView.setIsRenaming(true);
 				setTimeout(() => {
 					if (ref?.current) {
 						ref.current.focus();
@@ -146,56 +145,64 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 
 		// Rename or blur on Enter key
 		useKey('Enter', (e) => {
-			if (allowRename) {
-				e.preventDefault();
-				blur();
-			} else if (!disabled) setAllowRename(true);
+			e.preventDefault();
+
+			if (allowRename) blur();
+			else if (!disabled) {
+				setAllowRename(true);
+				explorerView.setIsRenaming(true);
+			}
 		});
 
+		useEffect(() => {
+			const scroll = (e: WheelEvent) => {
+				if (allowRename) {
+					e.preventDefault();
+					if (ref.current) ref.current.scrollTop += e.deltaY;
+				}
+			};
+
+			ref.current?.addEventListener('wheel', scroll);
+			return () => ref.current?.removeEventListener('wheel', scroll);
+		}, [allowRename]);
+
 		return (
-			<div
-				ref={ref}
-				role="textbox"
-				contentEditable={allowRename}
-				suppressContentEditableWarning
-				className={clsx(
-					'cursor-default overflow-y-auto truncate rounded-md px-1.5 py-px text-xs text-ink',
-					allowRename && [
-						'whitespace-normal bg-app outline-none ring-2 ring-accent-deep',
-						activeClassName
-					],
-					className
-				)}
-				onDoubleClick={(e) => e.stopPropagation()}
-				onMouseDown={(e) => e.button === 0 && setRenamable(!disabled)}
-				onMouseUp={(e) => {
-					if (e.button === 0) {
-						if (renamable) {
-							setAllowRename(true);
+			<Tooltip label={!isTruncated || allowRename ? null : text} asChild>
+				<div
+					ref={ref}
+					role="textbox"
+					contentEditable={allowRename}
+					suppressContentEditableWarning
+					className={clsx(
+						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink',
+						allowRename && [
+							'whitespace-normal bg-app outline-none ring-2 ring-accent-deep',
+							activeClassName
+						],
+						className
+					)}
+					onDoubleClick={(e) => e.stopPropagation()}
+					onMouseDown={(e) => e.button === 0 && setRenamable(!disabled)}
+					onMouseUp={(e) => {
+						if (e.button === 0) {
+							if (renamable) {
+								setAllowRename(true);
+								explorerView.setIsRenaming(true);
+							}
+							setRenamable(false);
 						}
-						setRenamable(false);
-					}
-				}}
-				onBlur={async () => {
-					await handleRename();
-					setAllowRename(false);
-					explorerView.setIsRenaming(false);
-				}}
-				onKeyDown={handleKeyDown}
-				{...props}
-			>
-				{text && (
-					<div ref={textRef}>
-						{isTruncated ? (
-							<Tooltip label={text}>
-								<p className="truncate">{text}</p>
-							</Tooltip>
-						) : (
-							<p>{text}</p>
-						)}
-					</div>
-				)}
-			</div>
+					}}
+					onBlur={async () => {
+						await handleRename();
+						setAllowRename(false);
+						explorerView.setIsRenaming(false);
+					}}
+					onKeyDown={handleKeyDown}
+					{...props}
+				>
+					{text}
+				</div>
+			</Tooltip>
 		);
 	}
 );

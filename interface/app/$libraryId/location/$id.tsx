@@ -27,7 +27,7 @@ export const Component = () => {
 		[
 			'locations.quickRescan',
 			{
-				sub_path: location.data?.path ?? '',
+				sub_path: path ?? '',
 				location_id: locationId
 			}
 		],

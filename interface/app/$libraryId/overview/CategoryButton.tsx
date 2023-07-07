@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { formatNumber } from '@sd/client';
 
 interface CategoryButtonProps {
 	category: string;
@@ -24,14 +25,10 @@ export default ({ category, icon, items, selected, onClick, disabled }: Category
 				<h2 className="text-sm font-medium">{category}</h2>
 				{items !== undefined && (
 					<p className="text-xs text-ink-faint">
-						{numberWithCommas(items)} Item{(items > 1 || items === 0) && 's'}
+						{formatNumber(items)} Item{(items > 1 || items === 0) && 's'}
 					</p>
 				)}
 			</div>
 		</div>
 	);
 };
-
-function numberWithCommas(x: number) {
-	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}

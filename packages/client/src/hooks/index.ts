@@ -2,6 +2,7 @@ export * from './useClientContext';
 export * from './useDebugState';
 export * from './useFeatureFlag';
 export * from './useLibraryContext';
+export * from './useLibraryStore';
 export * from './useOnboardingStore';
 export * from './useP2PEvents';
 export * from './usePlausible';

@@ -339,13 +339,10 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	library: &Library,
+	Library { db, .. }: &Library,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
-	library
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
+	db.location().find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
