@@ -33,11 +33,11 @@ use uuid::Uuid;
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{NodeLibraryPairingInformation, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{responder, OperatingSystem, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
-use super::{Header, PeerMetadata};
+use super::{originator, Header, PeerMetadata};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -193,11 +193,12 @@ impl P2PManager {
 											}
 										};
 									}
-									Header::Pair(library_id) => {
-										info!(
-											"Starting pairing with node '{}' for library '{library_id}'",
-											event.peer_id
-										);
+									Header::Pair => {
+										responder(event.peer_id);
+										// info!(
+										// 	"Starting pairing with node '{}' for library '{library_id}'",
+										// 	event.peer_id
+										// );
 
 										// TODO: Authentication and security stuff
 
@@ -393,25 +394,28 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
-	pub fn pair(&self, peer_id: PeerId, lib: Library) -> u16 {
+	pub fn pair(&self, peer_id: PeerId) -> u16 {
 		let pairing_id = self.pairing_id.fetch_add(1, Ordering::SeqCst);
 
 		let manager = self.manager.clone();
+
 		tokio::spawn(async move {
-			info!(
-				"Started pairing session '{pairing_id}' with peer '{peer_id}' for library '{}'",
-				lib.id
-			);
+			originator(peer_id).await;
 
-			let mut stream = manager.stream(peer_id).await.unwrap();
+			// info!(
+			// 	"Started pairing session '{pairing_id}' with peer '{peer_id}' for library '{}'",
+			// 	lib.id
+			// );
 
-			let header = Header::Pair(lib.id);
-			stream.write_all(&header.to_bytes()).await.unwrap();
+			// let mut stream = manager.stream(peer_id).await.unwrap();
+
+			// let header = Header::Pair(lib.id);
+			// stream.write_all(&header.to_bytes()).await.unwrap();
 
 			// TODO: Apply some security here cause this is so open to MITM
 			// TODO: Signing and a SPAKE style pin prompt
 
-			todo!();
+			// todo!();
 			// let self_instance = lib
 			// 	.db
 			// 	.instance()

@@ -1,10 +1,12 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Remove once this is fully stablised
 
 mod p2p_manager;
+mod pairing;
 mod peer_metadata;
 mod protocol;
 
 pub use p2p_manager::*;
+pub use pairing::*;
 pub use peer_metadata::*;
 pub use protocol::*;
 
