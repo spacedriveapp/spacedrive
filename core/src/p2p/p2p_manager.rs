@@ -204,55 +204,57 @@ impl P2PManager {
 										let library =
 											library_manager.get_library(library_id).await.unwrap();
 
-										debug!("Waiting for nodeinfo from the remote node");
-										let remote_info =
-											NodeLibraryPairingInformation::from_stream(&mut stream)
-												.await
-												.unwrap();
-										debug!(
-											"Received nodeinfo from the remote node: {:?}",
-											remote_info
-										);
+										todo!();
 
-										debug!("Creating node in database");
-										node::Create {
-											pub_id: remote_info.node_id.as_bytes().to_vec(),
-											name: remote_info.node_name,
-											platform: remote_info.platform as i32,
-											date_created: Utc::now().into(),
-											_params: vec![
-												node::identity::set(Some(
-													remote_info
-														.library_public_key
-														.to_bytes()
-														.to_vec(),
-												)),
-												node::node_peer_id::set(Some(
-													event.peer_id.to_string(),
-												)),
-											],
-										}
-										// TODO: Should this be in a transaction in case it fails?
-										.to_query(&library.db)
-										.exec()
-										.await
-										.unwrap();
+										// debug!("Waiting for nodeinfo from the remote node");
+										// let remote_info =
+										// 	NodeLibraryPairingInformation::from_stream(&mut stream)
+										// 		.await
+										// 		.unwrap();
+										// debug!(
+										// 	"Received nodeinfo from the remote node: {:?}",
+										// 	remote_info
+										// );
 
-										let info = NodeLibraryPairingInformation {
-											node_id: library.config.node_id,
-											node_name: library.config.name.to_string(),
-											platform: Platform::current(),
-											library_id,
-											library_name: library.config.name.to_string(),
-											library_public_key: library
-												.identity
-												.to_remote_identity(),
-										};
+										// debug!("Creating node in database");
+										// instance::Create {
+										// 	pub_id: remote_info.node_id.as_bytes().to_vec(),
+										// 	name: remote_info.node_name,
+										// 	platform: remote_info.platform as i32,
+										// 	date_created: Utc::now().into(),
+										// 	_params: vec![
+										// 		node::identity::set(Some(
+										// 			remote_info
+										// 				.library_public_key
+										// 				.to_bytes()
+										// 				.to_vec(),
+										// 		)),
+										// 		node::node_peer_id::set(Some(
+										// 			event.peer_id.to_string(),
+										// 		)),
+										// 	],
+										// }
+										// // TODO: Should this be in a transaction in case it fails?
+										// .to_query(&library.db)
+										// .exec()
+										// .await
+										// .unwrap();
 
-										debug!("Sending nodeinfo to the remote node");
-										stream.write_all(&info.to_bytes()).await.unwrap();
+										// let info = NodeLibraryPairingInformation {
+										// 	node_id: library.config.node_id,
+										// 	node_name: library.config.name.to_string(),
+										// 	platform: Platform::current(),
+										// 	library_id,
+										// 	library_name: library.config.name.to_string(),
+										// 	library_public_key: library
+										// 		.identity
+										// 		.to_remote_identity(),
+										// };
 
-										info!("Completed pairing with {}", remote_info.node_id);
+										// debug!("Sending nodeinfo to the remote node");
+										// stream.write_all(&info.to_bytes()).await.unwrap();
+
+										// info!("Completed pairing with {}", remote_info.node_id);
 									}
 									Header::Sync(library_id) => {
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
@@ -405,26 +407,28 @@ impl P2PManager {
 			// TODO: Apply some security here cause this is so open to MITM
 			// TODO: Signing and a SPAKE style pin prompt
 
-			let info = NodeLibraryPairingInformation {
-				node_id: lib.config.node_id,
-				node_name: lib.config.name.to_string(),
-				platform: Platform::current(),
-				library_id: lib.config.node_id,
-				library_name: lib.config.name.to_string(),
-				library_public_key: lib.identity.to_remote_identity(),
-			};
+			todo!();
 
-			debug!("Sending nodeinfo to remote node");
-			stream.write_all(&info.to_bytes()).await.unwrap();
+			// let info = NodeLibraryPairingInformation {
+			// 	node_id: lib.config.node_id,
+			// 	node_name: lib.config.name.to_string(),
+			// 	platform: Platform::current(),
+			// 	library_id: lib.config.node_id,
+			// 	library_name: lib.config.name.to_string(),
+			// 	library_public_key: lib.identity.to_remote_identity(),
+			// };
 
-			debug!("Waiting for nodeinfo from the remote node");
-			let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
-				.await
-				.unwrap();
-			debug!("Received nodeinfo from the remote node: {:?}", remote_info);
+			// debug!("Sending nodeinfo to remote node");
+			// stream.write_all(&info.to_bytes()).await.unwrap();
+
+			// debug!("Waiting for nodeinfo from the remote node");
+			// let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
+			// 	.await
+			// 	.unwrap();
+			// debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
 			// TODO
-			// node::Create {
+			// instance::Create {
 			// 	pub_id: remote_info.node_id.as_bytes().to_vec(),
 			// 	name: remote_info.name,
 			// 	platform: remote_info.platform as i32,
@@ -440,10 +444,10 @@ impl P2PManager {
 			// .await
 			// .unwrap();
 
-			info!(
-				"Paired with '{}' for library '{}'",
-				remote_info.node_id, lib.id
-			); // TODO: Use hash of identity cert here cause pub_id can be forged
+			// info!(
+			// 	"Paired with '{}' for library '{}'",
+			// 	remote_info.node_id, lib.id
+			// ); // TODO: Use hash of identity cert here cause pub_id can be forged
 		});
 
 		pairing_id
@@ -471,34 +475,37 @@ impl P2PManager {
 		// TODO: Establish a connection to them
 
 		let library = self.library_manager.get_library(library_id).await.unwrap();
+
+		todo!();
+
 		// TODO: probs cache this query in memory cause this is gonna be stupid frequent
-		let target_nodes = library
-			.db
-			.node()
-			.find_many(vec![])
-			.exec()
-			.await
-			.unwrap()
-			.into_iter()
-			.map(|n| {
-				PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
-					.unwrap()
-			})
-			.collect::<Vec<_>>();
+		// let target_nodes = library
+		// 	.db
+		// 	.node()
+		// 	.find_many(vec![])
+		// 	.exec()
+		// 	.await
+		// 	.unwrap()
+		// 	.into_iter()
+		// 	.map(|n| {
+		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
+		// 			.unwrap()
+		// 	})
+		// 	.collect::<Vec<_>>();
 
-		info!(
-			"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
-			library_id, target_nodes
-		);
+		// info!(
+		// 	"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
+		// 	library_id, target_nodes
+		// );
 
-		// TODO: Do in parallel
-		for peer_id in target_nodes {
-			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+		// // TODO: Do in parallel
+		// for peer_id in target_nodes {
+		// 	let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
-			let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+		// 	let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
 
-			tunnel.write_all(&head_buf).await.unwrap();
-		}
+		// 	tunnel.write_all(&head_buf).await.unwrap();
+		// }
 	}
 
 	pub async fn ping(&self) {

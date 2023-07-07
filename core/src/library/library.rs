@@ -31,8 +31,6 @@ use super::{LibraryConfig, LibraryManagerError};
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
-	/// local_id holds the local ID of the current library.
-	pub local_id: i32,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
@@ -55,7 +53,6 @@ impl Debug for Library {
 			.field("id", &self.id)
 			.field("config", &self.config)
 			.field("db", &self.db)
-			.field("node_local_id", &self.local_id)
 			.finish()
 	}
 }
@@ -96,33 +93,34 @@ impl Library {
 			.map(|id| (id, None))
 			.collect::<HashMap<_, _>>();
 
-		out.extend(
-			self.db
-				.file_path()
-				.find_many(vec![
-					file_path::location::is(vec![location::node_id::equals(Some(self.local_id))]),
-					file_path::id::in_vec(ids),
-				])
-				.select(file_path_to_full_path::select())
-				.exec()
-				.await?
-				.into_iter()
-				.flat_map(|file_path| {
-					let location = maybe_missing(&file_path.location, "file_path.location")?;
+		todo!(); // TODO: `Node` to `Location` relation
+		 // out.extend(
+		 // 	self.db
+		 // 		.file_path()
+		 // 		.find_many(vec![
+		 // 			file_path::location::is(vec![location::node_id::equals(Some(self.local_id))]),
+		 // 			file_path::id::in_vec(ids),
+		 // 		])
+		 // 		.select(file_path_to_full_path::select())
+		 // 		.exec()
+		 // 		.await?
+		 // 		.into_iter()
+		 // 		.flat_map(|file_path| {
+		 // 			let location = maybe_missing(&file_path.location, "file_path.location")?;
 
-					Ok::<_, LibraryManagerError>((
-						file_path.id,
-						location
-							.path
-							.as_ref()
-							.map(|location_path| {
-								IsolatedFilePathData::try_from((location.id, &file_path))
-									.map(|data| Path::new(&location_path).join(data))
-							})
-							.transpose()?,
-					))
-				}),
-		);
+		// 			Ok::<_, LibraryManagerError>((
+		// 				file_path.id,
+		// 				location
+		// 					.path
+		// 					.as_ref()
+		// 					.map(|location_path| {
+		// 						IsolatedFilePathData::try_from((location.id, &file_path))
+		// 							.map(|data| Path::new(&location_path).join(data))
+		// 					})
+		// 					.transpose()?,
+		// 			))
+		// 		}),
+		// );
 
 		Ok(out)
 	}

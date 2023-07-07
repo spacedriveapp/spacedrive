@@ -20,8 +20,9 @@ use std::{
 	sync::Arc,
 };
 
-use chrono::Local;
+use chrono::{Local, Utc};
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
+use sd_prisma::prisma::instance;
 use thiserror::Error;
 use tokio::{
 	fs, io,
@@ -92,8 +93,8 @@ pub enum LibraryManagerError {
 	LocationWatcher(#[from] LocationManagerError),
 	#[error("failed to parse library p2p identity: {0}")]
 	Identity(#[from] IdentityErr),
-	#[error("current node with id '{0}' was not found in the database")]
-	CurrentNodeNotFound(String),
+	#[error("current instance with id '{0}' was not found in the database")]
+	CurrentInstanceNotFound(String),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
 }
@@ -197,24 +198,32 @@ impl LibraryManager {
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(
 		&self,
-		config: LibraryConfig,
+		name: LibraryName,
+		description: Option<String>,
 		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), config, node_cfg)
+		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg)
 			.await
 	}
 
 	pub(crate) async fn create_with_uuid(
 		&self,
 		id: Uuid,
-		config: LibraryConfig,
+		name: LibraryName,
+		description: Option<String>,
 		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		if config.name.is_empty() || config.name.chars().all(|x| x.is_whitespace()) {
+		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
 			));
 		}
+
+		let config = LibraryConfig {
+			name,
+			description,
+			instance_id: Uuid::new_v4(),
+		};
 
 		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
 		config.save(&config_path)?;
@@ -225,21 +234,22 @@ impl LibraryManager {
 			config_path.display()
 		);
 
+		let now = Utc::now();
 		let library = Self::load(
 			id,
 			self.libraries_dir.join(format!("{id}.db")),
 			config_path,
 			self.node_context.clone(),
 			&self.subscribers,
-			Some(node::Create {
-				pub_id: config.node_id.as_bytes().to_vec(),
-				name: node_cfg.name.clone(),
-				platform: Platform::current() as i32,
-				date_created: Local::now().into(),
-				_params: vec![
-					node::identity::set(Some(config.identity.clone())),
-					node::node_peer_id::set(Some(node_cfg.keypair.peer_id().to_string())),
-				],
+			Some(instance::Create {
+				id: config.instance_id.as_bytes().to_vec(),
+				identity: Identity::new().to_bytes(),
+				node_id: node_cfg.id.as_bytes().to_vec(),
+				node_name: node_cfg.name.clone(),
+				node_platform: Platform::current() as i32,
+				last_seen: now.clone().into(),
+				date_created: now.into(),
+				_params: vec![],
 			}),
 		)
 		.await?;
@@ -382,7 +392,7 @@ impl LibraryManager {
 		config_path: PathBuf,
 		node_context: NodeContext,
 		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
-		create: Option<node::Create>,
+		create: Option<instance::Create>,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -398,66 +408,51 @@ impl LibraryManager {
 		}
 
 		let node_config = node_context.config.get().await;
-		let config = LibraryConfig::load_and_migrate(
-			&config_path,
-			&(node_config.id, node_config.keypair.peer_id(), db.clone()),
-		)
-		.await?;
-		let identity = Arc::new(Identity::from_bytes(&config.identity)?);
+		let config =
+			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
+				.await?;
 
-		let node_data = db
-			.node()
-			.find_unique(node::pub_id::equals(node_config.id.as_bytes().to_vec()))
+		let instance = db
+			.instance()
+			.find_unique(instance::id::equals(config.instance_id.as_bytes().to_vec()))
 			.exec()
 			.await?
-			.ok_or_else(|| LibraryManagerError::CurrentNodeNotFound(id.to_string()))?;
+			.ok_or_else(|| {
+				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
+			})?;
+		let identity = Arc::new(Identity::from_bytes(&instance.identity)?);
 
+		let instance_id = Uuid::from_slice(&instance.id)?;
 		let curr_platform = Platform::current() as i32;
-		if node_data.platform != curr_platform {
+		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
+		if instance_node_id != node_config.id
+			|| instance.node_platform != curr_platform
+			|| instance.node_name != node_config.name
+		{
 			info!(
-				"Detected change of platform for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
-				id,
-				node_data.platform,
-				curr_platform
+				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
+				id, instance_node_id, node_config.id
 			);
 
-			db.node()
+			db.instance()
 				.update(
-					node::pub_id::equals(node_data.pub_id.clone()),
+					instance::id::equals(instance.id),
 					vec![
-						node::platform::set(curr_platform),
-						node::name::set(node_config.name.clone()),
+						instance::node_id::set(node_config.id.as_bytes().to_vec()),
+						instance::node_platform::set(curr_platform),
+						instance::node_name::set(node_config.name),
 					],
 				)
 				.exec()
 				.await?;
 		}
 
-		if node_data.name != node_config.name {
-			info!(
-				"Detected change of node name for library '{}', was previously '{}' and will change to '{}'. Reconciling node data.",
-				id,
-				node_data.name,
-				node_config.name,
-			);
-
-			db.node()
-				.update(
-					node::pub_id::equals(node_data.pub_id),
-					vec![node::name::set(node_config.name.clone())],
-				)
-				.exec()
-				.await?;
-		}
-
-		drop(node_config); // Let's be sure not to cause a future deadlock
-
 		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let (sync_manager, sync_rx) = SyncManager::new(&db, id);
+		let (sync_manager, sync_rx) = SyncManager::new(&db, instance_id);
 
 		Self::emit(
 			subscribers,
@@ -467,7 +462,6 @@ impl LibraryManager {
 
 		let library = Library {
 			id,
-			local_id: node_data.id,
 			config,
 			// key_manager,
 			sync: Arc::new(sync_manager),
@@ -479,22 +473,23 @@ impl LibraryManager {
 
 		indexer::rules::seed::new_or_existing_library(&library).await?;
 
-		for location in library
-			.db
-			.location()
-			.find_many(vec![location::node_id::equals(Some(node_data.id))])
-			.exec()
-			.await?
-		{
-			if let Err(e) = library
-				.node_context
-				.location_manager
-				.add(location.id, library.clone())
-				.await
-			{
-				error!("Failed to watch location on startup: {e}");
-			};
-		}
+		// TODO: This is using the `Node` -> `Location` relation which has to go with P2P.
+		// for location in library
+		// 	.db
+		// 	.location()
+		// 	.find_many(vec![location::node_id::equals(Some(instance.node_id))])
+		// 	.exec()
+		// 	.await?
+		// {
+		// 	if let Err(e) = library
+		// 		.node_context
+		// 		.location_manager
+		// 		.add(location.id, library.clone())
+		// 		.await
+		// 	{
+		// 		error!("Failed to watch location on startup: {e}");
+		// 	};
+		// }
 
 		if let Err(e) = library
 			.node_context

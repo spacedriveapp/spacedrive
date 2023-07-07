@@ -84,14 +84,16 @@ impl Header {
 /// is shared between nodes during pairing and contains the information to identify the node.
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeLibraryPairingInformation {
-	pub node_id: Uuid, // TODO: Is this node_id or library_node_id, lol
+	pub instance_id: Uuid,
+	pub instance_public_key: RemoteIdentity,
+
+	pub node_id: Uuid,
 	pub node_name: String,
-	pub platform: Platform,
+	pub node_platform: Platform,
 
 	pub library_id: Uuid,
 	pub library_name: String,
-	// Public key for the certificate help by the node for the current library.
-	pub library_public_key: RemoteIdentity,
+	pub library_description: Option<String>,
 }
 
 impl NodeLibraryPairingInformation {
@@ -99,43 +101,63 @@ impl NodeLibraryPairingInformation {
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, (&'static str, decode::Error)> {
 		Ok(Self {
+			instance_id: decode::uuid(stream).await.map_err(|e| ("instance_id", e))?,
+			instance_public_key: decode::buf(stream)
+				.await
+				.and_then(|buf| Ok(RemoteIdentity::from_bytes(&buf)?))
+				.map_err(|e| ("library_public_key", e))?,
+
 			node_id: decode::uuid(stream).await.map_err(|e| ("node_id", e))?,
 			node_name: decode::string(stream).await.map_err(|e| ("node_name", e))?,
-			platform: stream
+			node_platform: stream
 				.read_u8()
 				.await
 				.map(|b| Platform::try_from(b).unwrap_or(Platform::Unknown))
-				.map_err(|e| ("platform", e.into()))?,
+				.map_err(|e| ("node_platform", e.into()))?,
 
 			library_id: decode::uuid(stream).await.map_err(|e| ("library_id", e))?,
 			library_name: decode::string(stream)
 				.await
 				.map_err(|e| ("library_name", e))?,
-			library_public_key: decode::buf(stream)
+			library_description: match decode::string(stream)
 				.await
-				.and_then(|buf| Ok(RemoteIdentity::from_bytes(&buf)?))
-				.map_err(|e| ("library_public_key", e))?,
+				.map_err(|e| ("library_description", e))?
+			{
+				s if s == "" => None,
+				s => Some(s),
+			},
 		})
 	}
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let Self {
+			instance_id,
+			instance_public_key,
+
 			node_id,
 			node_name,
-			platform,
+			node_platform,
 			library_id,
 			library_name,
-			library_public_key,
+			library_description,
 		} = self;
 
 		let mut buf = Vec::new();
 
+		encode::uuid(&mut buf, instance_id);
+		encode::buf(&mut buf, &instance_public_key.to_bytes());
+
 		encode::uuid(&mut buf, node_id);
 		encode::string(&mut buf, node_name);
-		buf.push(*platform as u8);
+		buf.push(*node_platform as u8);
+
 		encode::uuid(&mut buf, library_id);
 		encode::string(&mut buf, library_name);
-		encode::buf(&mut buf, &library_public_key.to_bytes());
+
+		encode::string(
+			&mut buf,
+			library_description.as_deref().unwrap_or_else(|| ""),
+		);
 
 		buf
 	}
@@ -149,13 +171,29 @@ mod tests {
 	#[tokio::test]
 	async fn test_node_information() {
 		let original = NodeLibraryPairingInformation {
+			instance_id: Uuid::new_v4(),
+			instance_public_key: Identity::new().to_remote_identity(),
+
 			node_id: Uuid::new_v4(),
 			node_name: "Node Name".into(),
-			platform: Platform::current(),
+			node_platform: Platform::current(),
 
 			library_id: Uuid::new_v4(),
 			library_name: "Library Name".into(),
-			library_public_key: Identity::new().to_remote_identity(),
+			library_description: Some("Library Description".into()),
+		};
+
+		let buf = original.to_bytes();
+		let mut cursor = std::io::Cursor::new(buf);
+		let info = NodeLibraryPairingInformation::from_stream(&mut cursor)
+			.await
+			.unwrap();
+
+		assert_eq!(original, info);
+
+		let original = NodeLibraryPairingInformation {
+			library_description: None,
+			..original
 		};
 
 		let buf = original.to_bytes();

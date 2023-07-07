@@ -78,7 +78,7 @@ export type Procedures = {
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { node: string; timestamp: number; id: string; typ: CRDTOperationType }
+export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
@@ -154,7 +154,12 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
  */
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
-export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
+/**
+ * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
+ */
+export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: string }
+
+export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 export type LibraryName = string
 
@@ -233,8 +238,6 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
-
-export type SanitisedLibraryConfig = { name: LibraryName; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 

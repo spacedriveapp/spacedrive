@@ -21,21 +21,21 @@ pub enum SyncMessage {
 
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
-	node: Uuid,
+	instance: Uuid,
 	_clocks: HashMap<Uuid, NTP64>,
 	clock: HLC,
 	pub tx: Sender<SyncMessage>,
 }
 
 impl SyncManager {
-	pub fn new(db: &Arc<PrismaClient>, node: Uuid) -> (Self, Receiver<SyncMessage>) {
+	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> (Self, Receiver<SyncMessage>) {
 		let (tx, rx) = broadcast::channel(64);
 
 		(
 			Self {
 				db: db.clone(),
-				node,
-				clock: HLCBuilder::new().with_id(node.into()).build(),
+				instance,
+				clock: HLCBuilder::new().with_id(instance.into()).build(),
 				_clocks: Default::default(),
 				tx,
 			},
@@ -67,7 +67,7 @@ impl SyncManager {
 							to_vec(&shared_op.record_id).unwrap(),
 							kind.to_string(),
 							to_vec(&shared_op.data).unwrap(),
-							node::pub_id::equals(op.node.as_bytes().to_vec()),
+							instance::id::equals(op.instance.as_bytes().to_vec()),
 							vec![],
 						))
 					}
@@ -114,7 +114,7 @@ impl SyncManager {
 							to_vec(&shared_op.record_id).unwrap(),
 							kind.to_string(),
 							to_vec(&shared_op.data).unwrap(),
-							node::pub_id::equals(op.node.as_bytes().to_vec()),
+							instance::id::equals(op.instance.as_bytes().to_vec()),
 							vec![],
 						),
 						query,
@@ -141,8 +141,8 @@ impl SyncManager {
 			.shared_operation()
 			.find_many(vec![])
 			.order_by(shared_operation::timestamp::order(SortOrder::Asc))
-			.include(shared_operation::include!({ node: select {
-                pub_id
+			.include(shared_operation::include!({ instance: select {
+                id
             } }))
 			.exec()
 			.await?
@@ -150,7 +150,7 @@ impl SyncManager {
 			.flat_map(|op| {
 				Some(CRDTOperation {
 					id: Uuid::from_slice(&op.id).ok()?,
-					node: Uuid::from_slice(&op.node.pub_id).ok()?,
+					instance: Uuid::from_slice(&op.instance.id).ok()?,
 					timestamp: NTP64(op.timestamp as u64),
 					typ: CRDTOperationType::Shared(SharedOperation {
 						record_id: serde_json::from_slice(&op.record_id).ok()?,
@@ -166,8 +166,8 @@ impl SyncManager {
 		let db = &self.db;
 
 		if db
-			.node()
-			.find_unique(node::pub_id::equals(op.node.as_bytes().to_vec()))
+			.instance()
+			.find_unique(instance::id::equals(op.instance.as_bytes().to_vec()))
 			.exec()
 			.await?
 			.is_none()
@@ -320,7 +320,7 @@ impl SyncManager {
 					to_vec(&shared_op.record_id).unwrap(),
 					kind.to_string(),
 					to_vec(&shared_op.data).unwrap(),
-					node::pub_id::equals(op.node.as_bytes().to_vec()),
+					instance::id::equals(op.instance.as_bytes().to_vec()),
 					vec![],
 				)
 				.exec()
@@ -336,7 +336,7 @@ impl SyncManager {
 		let timestamp = self.clock.new_timestamp();
 
 		CRDTOperation {
-			node: self.node,
+			instance: self.instance,
 			timestamp: *timestamp.get_time(),
 			id: Uuid::new_v4(),
 			typ,

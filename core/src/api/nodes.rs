@@ -50,6 +50,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let node_config = ctx.config.get().await;
 					let node_pub_id = node_config.id.as_bytes().to_vec();
 					// 2. get node from database
+					// TODO: Nodes table is being deprecated so this will be broken for now
 					let node = library
 						.db
 						.node()

@@ -325,21 +325,22 @@ pub async fn reveal_items(
 	}
 
 	if !locations.is_empty() {
-		paths_to_open.extend(
-			library
-				.db
-				.location()
-				.find_many(vec![
-					location::node_id::equals(Some(library.local_id)),
-					location::id::in_vec(locations),
-				])
-				.select(location::select!({ path }))
-				.exec()
-				.await
-				.unwrap_or_default()
-				.into_iter()
-				.flat_map(|location| location.path.map(Into::into)),
-		);
+		todo!(); // TODO: `Node` to `Location` relation
+		 // paths_to_open.extend(
+		 // 	library
+		 // 		.db
+		 // 		.location()
+		 // 		.find_many(vec![
+		 // 			location::node_id::equals(Some(library.local_id)),
+		 // 			location::id::in_vec(locations),
+		 // 		])
+		 // 		.select(location::select!({ path }))
+		 // 		.exec()
+		 // 		.await
+		 // 		.unwrap_or_default()
+		 // 		.into_iter()
+		 // 		.flat_map(|location| location.path.map(Into::into)),
+		 // );
 	}
 
 	for path in paths_to_open {

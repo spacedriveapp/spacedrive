@@ -286,17 +286,18 @@ impl LocationUpdateArgs {
 			)
 			.await?;
 
-			if location.node_id == Some(library.local_id) {
-				if let Some(path) = &location.path {
-					if let Some(mut metadata) =
-						SpacedriveLocationMetadataFile::try_load(path).await?
-					{
-						metadata
-							.update(library.id, self.name.expect("TODO"))
-							.await?;
-					}
-				}
-			}
+			todo!(); // TODO: `Node` to `Location` relation
+			 // if location.node_id == Some(library.local_id) {
+			 // 	if let Some(path) = &location.path {
+			 // 		if let Some(mut metadata) =
+			 // 			SpacedriveLocationMetadataFile::try_load(path).await?
+			 // 		{
+			 // 			metadata
+			 // 				.update(library.id, self.name.expect("TODO"))
+			 // 				.await?;
+			 // 		}
+			 // 	}
+			 // }
 		}
 
 		let current_rules_ids = location
@@ -369,9 +370,10 @@ pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
-	if location.node_id != Some(library.local_id) {
-		return Ok(());
-	}
+	todo!(); // TODO: `Node` to `Location` relation
+		 // if location.node_id != Some(library.local_id) {
+		 // 	return Ok(());
+		 // }
 
 	let location_base_data = location::Data::from(&location);
 
@@ -402,9 +404,11 @@ pub async fn scan_location_sub_path(
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != Some(library.local_id) {
-		return Ok(());
-	}
+
+	todo!(); // TODO: `Node` to `Location` relation
+		 // if location.node_id != Some(library.local_id) {
+		 // 	return Ok(());
+		 // }
 
 	let location_base_data = location::Data::from(&location);
 
@@ -438,9 +442,10 @@ pub async fn light_scan_location(
 ) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	if location.node_id != Some(library.local_id) {
-		return Ok(());
-	}
+	// if location.node_id != Some(library.local_id) {
+	// 	return Ok(());
+	// }
+	todo!(); // TODO: `Node` to `Location` relation
 
 	let location_base_data = location::Data::from(&location);
 
@@ -646,13 +651,16 @@ pub async fn delete_location(
 		.exec()
 		.await?;
 
-	if location.node_id == Some(library.local_id) {
-		if let Some(path) = &location.path {
-			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
-				metadata.remove_library(library.id).await?;
-			}
-		}
-	}
+	// TODO: This should really be queued to the proper node so it will always run
+	// TODO: Deal with whether a location is online or not
+	todo!(); // TODO: `Node` to `Location` relation
+		 // if location.node_id == Some(library.local_id) {
+		 // 	if let Some(path) = &location.path {
+		 // 		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+		 // 			metadata.remove_library(library.id).await?;
+		 // 		}
+		 // 	}
+		 // }
 
 	invalidate_query!(library, "locations.list");
 

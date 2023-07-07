@@ -25,26 +25,27 @@ pub(super) async fn check_online(
 
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
-	if location.node_id == Some(library.local_id) {
-		match fs::metadata(&location_path).await {
-			Ok(_) => {
-				library.location_manager().add_online(pub_id).await;
-				Ok(true)
-			}
-			Err(e) if e.kind() == ErrorKind::NotFound => {
-				library.location_manager().remove_online(&pub_id).await;
-				Ok(false)
-			}
-			Err(e) => {
-				error!("Failed to check if location is online: {:#?}", e);
-				Ok(false)
-			}
-		}
-	} else {
-		// In this case, we don't have a `local_path`, but this location was marked as online
-		library.location_manager().remove_online(&pub_id).await;
-		Err(LocationManagerError::NonLocalLocation(location.id))
-	}
+	todo!(); // TODO: `Node` to `Location` relation
+	     // if location.node_id == Some(library.local_id) {
+	     // 	match fs::metadata(&location_path).await {
+	     // 		Ok(_) => {
+	     // 			library.location_manager().add_online(pub_id).await;
+	     // 			Ok(true)
+	     // 		}
+	     // 		Err(e) if e.kind() == ErrorKind::NotFound => {
+	     // 			library.location_manager().remove_online(&pub_id).await;
+	     // 			Ok(false)
+	     // 		}
+	     // 		Err(e) => {
+	     // 			error!("Failed to check if location is online: {:#?}", e);
+	     // 			Ok(false)
+	     // 		}
+	     // 	}
+	     // } else {
+	     // 	// In this case, we don't have a `local_path`, but this location was marked as online
+	     // 	library.location_manager().remove_online(&pub_id).await;
+	     // 	Err(LocationManagerError::NonLocalLocation(location.id))
+	     // }
 }
 
 pub(super) async fn location_check_sleep(
@@ -139,19 +140,20 @@ pub(super) async fn handle_remove_location_request(
 ) {
 	let key = (location_id, library.id);
 	if let Some(location) = get_location(location_id, &library).await {
-		if location.node_id == Some(library.local_id) {
-			unwatch_location(location, library.id, locations_watched, locations_unwatched);
-			locations_unwatched.remove(&key);
-			forced_unwatch.remove(&key);
-		} else {
-			drop_location(
-				location_id,
-				library.id,
-				"Dropping location from location manager, because we don't have a `local_path` anymore",
-				locations_watched,
-				locations_unwatched
-			);
-		}
+		todo!(); // TODO: `Node` to `Location` relation
+		 // if location.node_id == Some(library.local_id) {
+		 // 	unwatch_location(location, library.id, locations_watched, locations_unwatched);
+		 // 	locations_unwatched.remove(&key);
+		 // 	forced_unwatch.remove(&key);
+		 // } else {
+		 // 	drop_location(
+		 // 		location_id,
+		 // 		library.id,
+		 // 		"Dropping location from location manager, because we don't have a `local_path` anymore",
+		 // 		locations_watched,
+		 // 		locations_unwatched
+		 // 	);
+		 // }
 	} else {
 		drop_location(
 			location_id,

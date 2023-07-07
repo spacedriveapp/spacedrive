@@ -2,9 +2,22 @@
   Warnings:
 
   - You are about to drop the column `node_id` on the `job` table. All the data in the column will be lost.
+  - You are about to drop the column `node_id` on the `shared_operation` table. All the data in the column will be lost.
   - You are about to drop the column `node_id` on the `volume` table. All the data in the column will be lost.
+  - Added the required column `instance_id` to the `shared_operation` table without a default value. This is not possible if the table is not empty.
 
 */
+-- CreateTable
+CREATE TABLE "instance" (
+    "id" BLOB NOT NULL PRIMARY KEY,
+    "identity" BLOB NOT NULL,
+    "node_id" BLOB NOT NULL,
+    "node_name" TEXT NOT NULL,
+    "node_platform" INTEGER NOT NULL,
+    "last_seen" DATETIME NOT NULL,
+    "date_created" DATETIME NOT NULL
+);
+
 -- RedefineTables
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_job" (
@@ -27,6 +40,19 @@ CREATE TABLE "new_job" (
 INSERT INTO "new_job" ("action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count") SELECT "action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count" FROM "job";
 DROP TABLE "job";
 ALTER TABLE "new_job" RENAME TO "job";
+CREATE TABLE "new_shared_operation" (
+    "id" BLOB NOT NULL PRIMARY KEY,
+    "timestamp" BIGINT NOT NULL,
+    "model" TEXT NOT NULL,
+    "record_id" BLOB NOT NULL,
+    "kind" TEXT NOT NULL,
+    "data" BLOB NOT NULL,
+    "instance_id" BLOB NOT NULL,
+    CONSTRAINT "shared_operation_instance_id_fkey" FOREIGN KEY ("instance_id") REFERENCES "instance" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO "new_shared_operation" ("data", "id", "kind", "model", "record_id", "timestamp") SELECT "data", "id", "kind", "model", "record_id", "timestamp" FROM "shared_operation";
+DROP TABLE "shared_operation";
+ALTER TABLE "new_shared_operation" RENAME TO "shared_operation";
 CREATE TABLE "new_location" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,

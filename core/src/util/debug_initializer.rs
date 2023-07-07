@@ -116,16 +116,7 @@ impl InitConfig {
 				None => {
 					let node_pub_id = Uuid::new_v4();
 					let library = library_manager
-						.create_with_uuid(
-							lib.id,
-							LibraryConfig {
-								name: lib.name,
-								description: lib.description,
-								identity: Identity::new().to_bytes(),
-								node_id: node_pub_id,
-							},
-							node_cfg.clone(),
-						)
+						.create_with_uuid(lib.id, lib.name, lib.description, node_cfg.clone())
 						.await?;
 
 					match library_manager.get_library(library.uuid).await {
