@@ -26,11 +26,11 @@ export const Tooltip = ({ position = 'bottom', ...props }: TooltipProps) => {
 						<TooltipPrimitive.Content
 							side={position}
 							className={clsx(
-								'z-50 max-w-[200px] break-words rounded bg-app-darkBox px-2 py-1 text-center text-xs text-ink',
+								'z-50 max-w-[200px] break-words rounded bg-black px-2 py-1 text-center text-xs text-white',
 								props.tooltipClassName
 							)}
 						>
-							<TooltipPrimitive.Arrow className="fill-app-darkBox" />
+							<TooltipPrimitive.Arrow className="fill-black" />
 							{props.label}
 						</TooltipPrimitive.Content>
 					)}
