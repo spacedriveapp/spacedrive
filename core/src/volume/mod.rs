@@ -89,6 +89,8 @@ pub async fn save_volume(ctx: &Node, library: &Library) -> Result<(), VolumeErro
 }
 
 pub fn get_volumes(ctx: &Node) -> Result<Vec<Volume>, VolumeError> {
+	// ctx.system.refresh_disks(); // TODO
+
 	ctx.system
 		.disks()
 		.iter()
