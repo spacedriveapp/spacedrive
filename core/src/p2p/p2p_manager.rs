@@ -17,7 +17,7 @@ use sd_p2p::{
 	spacetunnel::{Identity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
-use sd_prisma::prisma::node;
+use sd_prisma::prisma::{instance, node};
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
@@ -195,16 +195,16 @@ impl P2PManager {
 									}
 									Header::Pair(library_id) => {
 										info!(
-											"Starting pairing with '{}' for library '{library_id}'",
+											"Starting pairing with node '{}' for library '{library_id}'",
 											event.peer_id
 										);
 
 										// TODO: Authentication and security stuff
 
-										let library =
-											library_manager.get_library(library_id).await.unwrap();
-
 										todo!();
+
+										// let library =
+										// 	library_manager.get_library(library_id).await.unwrap();
 
 										// debug!("Waiting for nodeinfo from the remote node");
 										// let remote_info =
@@ -215,6 +215,10 @@ impl P2PManager {
 										// 	"Received nodeinfo from the remote node: {:?}",
 										// 	remote_info
 										// );
+
+										// TODO: Create new library
+										// TODO: Create instance in library for self
+										// TODO: Create instance in library for remote
 
 										// debug!("Creating node in database");
 										// instance::Create {
@@ -408,15 +412,14 @@ impl P2PManager {
 			// TODO: Signing and a SPAKE style pin prompt
 
 			todo!();
-
-			// let info = NodeLibraryPairingInformation {
-			// 	node_id: lib.config.node_id,
-			// 	node_name: lib.config.name.to_string(),
-			// 	platform: Platform::current(),
-			// 	library_id: lib.config.node_id,
-			// 	library_name: lib.config.name.to_string(),
-			// 	library_public_key: lib.identity.to_remote_identity(),
-			// };
+			// let self_instance = lib
+			// 	.db
+			// 	.instance()
+			// 	.find_unique(instance::id::equals(
+			// 		lib.config.instance_id.as_bytes().to_vec(),
+			// 	))
+			// 	.expect("instance must be found");
+			// let info: NodeLibraryPairingInformation = (self_instance, lib.config.clone()).into();
 
 			// debug!("Sending nodeinfo to remote node");
 			// stream.write_all(&info.to_bytes()).await.unwrap();
@@ -427,16 +430,16 @@ impl P2PManager {
 			// 	.unwrap();
 			// debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
-			// TODO
+			// let now = Utc::now();
 			// instance::Create {
-			// 	pub_id: remote_info.node_id.as_bytes().to_vec(),
-			// 	name: remote_info.name,
-			// 	platform: remote_info.platform as i32,
-			// 	date_created: Utc::now().into(),
-			// 	_params: vec![
-			// 		node::identity::set(Some(remote_info.public_key.to_bytes().to_vec())),
-			// 		node::node_peer_id::set(Some(peer_id.to_string())),
-			// 	],
+			// 	id: remote_info.instance_id.as_bytes().to_vec(),
+			// 	identity: remote_info.identity.as_bytes().to_vec(),
+			// 	node_id: remote_info.node_id.as_bytes().to_vec(),
+			// 	node_name: remote_info.name,
+			// 	node_platform: remote_info.platform as i32,
+			// 	last_seen: now.clone().into(),
+			// 	date_created: now.into(),
+			// 	_params: vec![],
 			// }
 			// // TODO: Should this be in a transaction in case it fails?
 			// .to_query(&lib.db)
@@ -445,8 +448,8 @@ impl P2PManager {
 			// .unwrap();
 
 			// info!(
-			// 	"Paired with '{}' for library '{}'",
-			// 	remote_info.node_id, lib.id
+			// 	"Paired with instance '{}' within library '{}' coming from node '{}'",
+			// 	remote_info.instance_id, lib.id, remote_info.node_id
 			// ); // TODO: Use hash of identity cert here cause pub_id can be forged
 		});
 

@@ -1,3 +1,4 @@
+use sd_prisma::prisma::instance;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
@@ -9,7 +10,7 @@ use sd_p2p::{
 	spacetunnel::RemoteIdentity,
 };
 
-use crate::node::Platform;
+use crate::{library::LibraryConfig, node::Platform};
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -94,6 +95,24 @@ pub struct NodeLibraryPairingInformation {
 	pub library_id: Uuid,
 	pub library_name: String,
 	pub library_description: Option<String>,
+}
+
+impl From<(instance::Data, LibraryConfig)> for NodeLibraryPairingInformation {
+	fn from((instance, library): (instance::Data, LibraryConfig)) -> Self {
+		// Self {
+		// 	instance_id: instance.id,
+		// 	instance_public_key: instance.public_key,
+
+		// 	node_id: instance.node_id,
+		// 	node_name: instance.node_name,
+		// 	node_platform: instance.node_platform,
+
+		// 	library_id: library.id,
+		// 	library_name: library.name,
+		// 	library_description: library.description,
+		// }
+		todo!();
+	}
 }
 
 impl NodeLibraryPairingInformation {
