@@ -1,24 +1,23 @@
 /* eslint-disable no-case-declarations */
 import clsx from 'clsx';
 import { ExplorerItem, getItemFilePath, getItemLocation } from '@sd/client';
-import { useExplorerStore } from '~/hooks';
-import { RenameLocationTextBox, RenamePathTextBox } from '../File/RenameTextBox';
+import { RenameLocationTextBox, RenamePathTextBox } from '../FilePath/RenameTextBox';
 
 export default function RenamableItemText(props: {
 	item: ExplorerItem;
 	selected: boolean;
 	disabled?: boolean;
 	allowHighlight?: boolean;
+	style?: React.CSSProperties;
 }) {
-	const { item, selected, disabled, allowHighlight } = props;
-	const explorerStore = useExplorerStore();
+	const { item, selected, disabled, allowHighlight, style } = props;
 
 	const sharedProps = {
 		className: clsx(
 			'text-center font-medium text-ink',
 			selected && allowHighlight !== false && 'bg-accent text-white dark:text-ink'
 		),
-		style: { maxHeight: explorerStore.gridItemSize / 3 },
+		style: style,
 		activeClassName: '!text-ink',
 		disabled: !selected || disabled
 	};

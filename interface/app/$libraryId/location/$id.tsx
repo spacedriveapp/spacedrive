@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
 	useLibraryContext,
 	useLibraryQuery,
@@ -8,48 +8,45 @@ import {
 } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodRouteParams,
-	useZodSearchParams
-} from '~/hooks';
+import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
+import { ExplorerContext } from '../Explorer/Context';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
 
-	const { data: location } = useLibraryQuery(['locations.get', locationId]);
+	const location = useLibraryQuery(['locations.get', locationId]);
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				sub_path: location?.path ?? '',
+				sub_path: path ?? '',
 				location_id: locationId
 			}
 		],
 		{ onData() {} }
 	);
 
-	const explorerStore = getExplorerStore();
-
-	useEffect(() => {
-		explorerStore.locationId = locationId;
-	}, [explorerStore, locationId]);
-
 	const { items, loadMore } = useItems({ locationId });
 
 	return (
-		<>
+		<ExplorerContext.Provider
+			value={{
+				parent: location.data
+					? {
+							type: 'Location',
+							location: location.data
+					  }
+					: undefined
+			}}
+		>
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
@@ -58,21 +55,19 @@ export const Component = () => {
 							<span className="max-w-[100px] truncate text-sm font-medium">
 								{path && path?.length > 1
 									? getLastSectionOfPath(path)
-									: location?.name}
+									: location.data?.name}
 							</span>
 						</span>
-						{location && <LocationOptions location={location} path={path || ''} />}
+						{location.data && (
+							<LocationOptions location={location.data} path={path || ''} />
+						)}
 					</div>
 				}
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
+				right={<DefaultTopBarOptions />}
 			/>
 
 			<Explorer items={items} onLoadMore={loadMore} />
-		</>
+		</ExplorerContext.Provider>
 	);
 };
 

@@ -1,7 +1,6 @@
 import { Trash } from 'phosphor-react';
 import { Tag, useLibraryMutation } from '@sd/client';
-import { Button, Switch, Tooltip, dialogManager } from '@sd/ui';
-import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { Button, Form, InputField, Switch, Tooltip, dialogManager, useZodForm, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
 import { useDebouncedFormWatch } from '~/hooks';
 import Setting from '../../Setting';
@@ -25,12 +24,14 @@ interface Props {
 
 export default ({ tag, onDelete }: Props) => {
 	const updateTag = useLibraryMutation('tags.update');
+
 	const form = useZodForm({
 		schema,
 		mode: 'onChange',
 		defaultValues: tag,
 		reValidateMode: 'onChange'
 	});
+
 	useDebouncedFormWatch(form, (data) => {
 		updateTag.mutate({
 			name: data.name ?? null,
@@ -43,7 +44,7 @@ export default ({ tag, onDelete }: Props) => {
 		<Form form={form}>
 			<div className="flex justify-between">
 				<div className="mb-10 flex flex-row space-x-3">
-					<Input
+					<InputField
 						label="Color"
 						maxLength={7}
 						value={form.watch('color')?.trim() ?? '#ffffff'}
@@ -51,7 +52,7 @@ export default ({ tag, onDelete }: Props) => {
 						{...form.register('color')}
 					/>
 
-					<Input maxLength={24} label="Name" {...form.register('name')} />
+					<InputField maxLength={24} label="Name" {...form.register('name')} />
 				</div>
 				<Button
 					variant="gray"

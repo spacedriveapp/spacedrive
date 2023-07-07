@@ -11,6 +11,7 @@ import {
 	useMemo,
 	useState
 } from 'react';
+import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	ExplorerItem,
@@ -23,14 +24,11 @@ import {
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
-import {
-	ExplorerLayoutMode,
-	getExplorerStore,
-	useExplorerConfigStore,
-	useOperatingSystem
-} from '~/hooks';
+import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
+import { QuickPreview } from '../QuickPreview';
+import { useQuickPreviewContext } from '../QuickPreview/Context';
 import {
 	ExplorerViewContext,
 	ExplorerViewSelection,
@@ -38,6 +36,8 @@ import {
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
+import { useExplorerConfigStore } from '../config';
+import { getExplorerStore, useExplorerStore } from '../store';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -51,7 +51,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { library } = useLibraryContext();
 	const navigate = useNavigate();
 
-	const { openFilePath } = usePlatform();
+	const { openFilePaths } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(data);
 	const location = getItemLocation(data);
@@ -74,7 +74,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				}).toString()
 			});
 		} else if (
-			openFilePath &&
+			openFilePaths &&
 			filePath &&
 			explorerConfig.openOnDoubleClick &&
 			!explorerView.isRenaming
@@ -83,7 +83,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				updateAccessTime.mutate(data.item.object_id);
 			}
 
-			openFilePath(library.uuid, [filePath.id]);
+			openFilePaths(library.uuid, [filePath.id]);
 		} else {
 			const { kind } = getExplorerItemData(data);
 
@@ -101,7 +101,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				</div>
 			}
 			onOpenChange={explorerView.setIsContextMenuOpen}
-			disabled={!explorerView.contextMenu}
+			disabled={explorerView.contextMenu === undefined}
 			asChild={false}
 		>
 			{explorerView.contextMenu}
@@ -114,196 +114,206 @@ export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerVie
 		ExplorerViewContext<T>,
 		'multiSelect' | 'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen'
 	> {
-	layout: ExplorerLayoutMode;
 	className?: string;
-	emptyNotice?: JSX.Element | { icon?: Icon | ReactNode; message?: ReactNode } | null;
+	emptyNotice?: JSX.Element;
 }
 
 export default memo(
 	<T extends ExplorerViewSelection>({
-		layout,
 		className,
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
-		const os = useOperatingSystem();
-		const { library } = useLibraryContext();
-		const { openFilePath } = usePlatform();
+		const { layoutMode } = useExplorerStore();
+
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
-		const selectedItem = useMemo(
-			() =>
-				contextProps.items?.find(
-					(item) =>
-						item.item.id ===
-						(Array.isArray(contextProps.selected)
-							? contextProps.selected[0]
-							: contextProps.selected)
-				),
-			[contextProps.items, contextProps.selected]
-		);
-		const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
 
-		const handleNewTag = useCallback(
-			async (event: KeyboardEvent) => {
-				if (
-					itemPath == null ||
-					event.key.toUpperCase() !== 'N' ||
-					!event.getModifierState(
-						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-					)
-				)
-					return;
+		useKeyDownHandlers({
+			items: contextProps.items,
+			selected: contextProps.selected,
+			isRenaming
+		});
 
-				dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={itemPath.id} />);
-			},
-			[os, itemPath]
-		);
+		const quickPreviewCtx = useQuickPreviewContext();
 
-		const handleOpenShortcut = useCallback(
-			async (event: KeyboardEvent) => {
-				if (
-					itemPath == null ||
-					openFilePath == null ||
-					event.key.toUpperCase() !== 'O' ||
-					!event.getModifierState(
-						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-					)
-				)
-					return;
-
-				try {
-					await openFilePath(library.uuid, [itemPath.id]);
-				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: `Couldn't open file, due to an error: ${error}`
-					});
-				}
-			},
-			[os, itemPath, library.uuid, openFilePath]
-		);
-
-		const handleOpenQuickPreview = useCallback(
-			async (event: KeyboardEvent) => {
-				if (event.key !== ' ') return;
-				if (!getExplorerStore().quickViewObject) {
-					if (selectedItem) {
-						getExplorerStore().quickViewObject = selectedItem;
+		return (
+			<>
+				<div
+					className={clsx('h-full w-full', className)}
+					onMouseDown={() =>
+						contextProps.onSelectedChange?.(
+							(Array.isArray(contextProps.selected)
+								? []
+								: undefined) as ExplorerViewSelectionChange<T>
+						)
 					}
-				} else {
-					getExplorerStore().quickViewObject = null;
+				>
+					{contextProps.items === null ||
+					(contextProps.items && contextProps.items.length > 0) ? (
+						<ViewContext.Provider
+							value={
+								{
+									...contextProps,
+									multiSelect: Array.isArray(contextProps.selected),
+									selectable: !isContextMenuOpen,
+									setIsContextMenuOpen,
+									isRenaming,
+									setIsRenaming
+								} as ExplorerViewContext
+							}
+						>
+							{layoutMode === 'grid' && <GridView />}
+							{layoutMode === 'rows' && <ListView />}
+							{layoutMode === 'media' && <MediaView />}
+						</ViewContext.Provider>
+					) : (
+						emptyNotice
+					)}
+				</div>
+
+				{quickPreviewCtx.ref.current &&
+					createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
+			</>
+		);
+	}
+) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;
+
+export const EmptyNotice = ({
+	icon,
+	message
+}: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+}) => {
+	const { layoutMode } = useExplorerStore();
+
+	const emptyNoticeIcon = (icon?: Icon) => {
+		const Icon =
+			icon ??
+			{
+				grid: GridFour,
+				media: MonitorPlay,
+				columns: Columns,
+				rows: Rows
+			}[layoutMode];
+
+		return <Icon size={100} opacity={0.3} />;
+	};
+
+	return (
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+			{icon
+				? isValidElement(icon)
+					? icon
+					: emptyNoticeIcon(icon as Icon)
+				: emptyNoticeIcon()}
+
+			<p className="mt-5 text-xs">{message !== undefined ? message : 'This list is empty'}</p>
+		</div>
+	);
+};
+
+const useKeyDownHandlers = ({
+	items,
+	selected,
+	isRenaming
+}: Pick<ExplorerViewProps, 'items' | 'selected'> & { isRenaming: boolean }) => {
+	const os = useOperatingSystem();
+	const { library } = useLibraryContext();
+	const { openFilePaths } = usePlatform();
+
+	const selectedItem = useMemo(
+		() =>
+			items?.find(
+				(item) => item.item.id === (Array.isArray(selected) ? selected[0] : selected)
+			),
+		[items, selected]
+	);
+
+	const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
+
+	const handleNewTag = useCallback(
+		async (event: KeyboardEvent) => {
+			if (
+				itemPath == null ||
+				event.key.toUpperCase() !== 'N' ||
+				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+			)
+				return;
+
+			dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={itemPath.id} />);
+		},
+		[os, itemPath]
+	);
+
+	const handleOpenShortcut = useCallback(
+		async (event: KeyboardEvent) => {
+			if (
+				itemPath == null ||
+				openFilePaths == null ||
+				event.key.toUpperCase() !== 'O' ||
+				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+			)
+				return;
+
+			try {
+				await openFilePaths(library.uuid, [itemPath.id]);
+			} catch (error) {
+				showAlertDialog({
+					title: 'Error',
+					value: `Couldn't open file, due to an error: ${error}`
+				});
+			}
+		},
+		[os, itemPath, library.uuid, openFilePaths]
+	);
+
+	const handleOpenQuickPreview = useCallback(
+		async (event: KeyboardEvent) => {
+			if (event.key !== ' ') return;
+			if (!getExplorerStore().quickViewObject) {
+				if (selectedItem) {
+					getExplorerStore().quickViewObject = selectedItem;
 				}
-			},
-			[selectedItem]
-		);
+			} else {
+				getExplorerStore().quickViewObject = null;
+			}
+		},
+		[selectedItem]
+	);
 
-		const handleExplorerShortcut = useCallback(
-			(event: KeyboardEvent) => {
-				if (
-					event.key.toUpperCase() !== 'I' ||
-					!event.getModifierState(
-						os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-					)
-				)
-					return;
+	const handleExplorerShortcut = useCallback(
+		(event: KeyboardEvent) => {
+			if (
+				event.key.toUpperCase() !== 'I' ||
+				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+			)
+				return;
 
-				getExplorerStore().showInspector = !getExplorerStore().showInspector;
-			},
-			[os]
-		);
+			getExplorerStore().showInspector = !getExplorerStore().showInspector;
+		},
+		[os]
+	);
 
-		useEffect(() => {
-			const handlers = [
-				handleNewTag,
-				handleOpenShortcut,
-				handleOpenQuickPreview,
-				handleExplorerShortcut
-			];
-			const handler = (event: KeyboardEvent) => {
-				if (isRenaming) return;
-				for (const handler of handlers) handler(event);
-			};
-			document.body.addEventListener('keydown', handler);
-			return () => document.body.removeEventListener('keydown', handler);
-		}, [
-			isRenaming,
+	useEffect(() => {
+		const handlers = [
 			handleNewTag,
 			handleOpenShortcut,
 			handleOpenQuickPreview,
 			handleExplorerShortcut
-		]);
-
-		const emptyNoticeIcon = (icon?: Icon) => {
-			let Icon = icon;
-
-			if (!Icon) {
-				switch (layout) {
-					case 'grid':
-						Icon = GridFour;
-						break;
-					case 'media':
-						Icon = MonitorPlay;
-						break;
-					case 'columns':
-						Icon = Columns;
-						break;
-					case 'rows':
-						Icon = Rows;
-						break;
-				}
-			}
-
-			return <Icon size={100} opacity={0.3} />;
+		];
+		const handler = (event: KeyboardEvent) => {
+			if (isRenaming) return;
+			for (const handler of handlers) handler(event);
 		};
-
-		return (
-			<div
-				className={clsx('h-full w-full', className)}
-				onMouseDown={() =>
-					contextProps.onSelectedChange?.(
-						(Array.isArray(contextProps.selected)
-							? []
-							: undefined) as ExplorerViewSelectionChange<T>
-					)
-				}
-			>
-				{contextProps.items === null ||
-				(contextProps.items && contextProps.items.length > 0) ? (
-					<ViewContext.Provider
-						value={
-							{
-								...contextProps,
-								multiSelect: Array.isArray(contextProps.selected),
-								selectable: !isContextMenuOpen,
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming
-							} as ExplorerViewContext
-						}
-					>
-						{layout === 'grid' && <GridView />}
-						{layout === 'rows' && <ListView />}
-						{layout === 'media' && <MediaView />}
-					</ViewContext.Provider>
-				) : emptyNotice === null ? null : isValidElement(emptyNotice) ? (
-					emptyNotice
-				) : (
-					<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-						{emptyNotice && 'icon' in emptyNotice
-							? isValidElement(emptyNotice.icon)
-								? emptyNotice.icon
-								: emptyNoticeIcon(emptyNotice.icon as Icon)
-							: emptyNoticeIcon()}
-
-						<p className="mt-5 text-xs">
-							{emptyNotice && 'message' in emptyNotice
-								? emptyNotice.message
-								: 'This list is empty'}
-						</p>
-					</div>
-				)}
-			</div>
-		);
-	}
-) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;
+		document.body.addEventListener('keydown', handler);
+		return () => document.body.removeEventListener('keydown', handler);
+	}, [
+		isRenaming,
+		handleNewTag,
+		handleOpenShortcut,
+		handleOpenQuickPreview,
+		handleExplorerShortcut
+	]);
+};

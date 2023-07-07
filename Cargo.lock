@@ -1764,6 +1764,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dbus"
+version = "0.9.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bb21987b9fb1613058ba3843121dd18b163b254d8a6e797e144cbac14d96d1b"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+ "winapi",
+]
+
+[[package]]
 name = "deps-generator"
 version = "0.0.0"
 dependencies = [
@@ -3838,6 +3849,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f92be4933c13fd498862a9e02a3055f8a8d9c039ce33db97306fd5a6caa7f29b"
 
 [[package]]
+name = "libdbus-sys"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06085512b750d640299b79be4bad3d2fa90a9c00b1fd9e1b46364f66f0485c72"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
 name = "libheif-rs"
 version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5192,7 +5213,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c62dcb6174f9cb326eac248f07e955d5d559c272730b6c03e396b443b562788"
 dependencies = [
  "bstr",
+ "dbus",
  "normpath",
+ "url",
  "winapi",
 ]
 
@@ -5848,7 +5871,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5881,7 +5904,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
 dependencies = [
  "directories",
  "flate2",
@@ -5901,7 +5924,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5913,7 +5936,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f#2e9ca1da3c94a14ed65eb5ef534a164bb4802a3f"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -7042,6 +7065,7 @@ dependencies = [
  "normpath",
  "notify",
  "once_cell",
+ "plist",
  "prisma-client-rust",
  "regex",
  "rmp",
@@ -7144,6 +7168,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tracing 0.1.37",
  "webp",
 ]
 
@@ -7794,12 +7819,14 @@ dependencies = [
  "httpz 0.0.3",
  "opener",
  "percent-encoding",
+ "prisma-client-rust",
  "rand 0.8.5",
  "rspc",
  "sd-core",
  "sd-desktop-linux",
  "sd-desktop-macos",
  "sd-desktop-windows",
+ "sd-prisma",
  "serde",
  "specta",
  "tauri",

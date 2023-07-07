@@ -18,7 +18,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use serde_json::json;
+use tracing::{debug, info, trace};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -50,26 +51,21 @@ pub struct FileIdentifierJobData {
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct FileIdentifierJobRunMetadata {
-	report: FileIdentifierReport,
 	cursor: file_path::id::Type,
-}
-
-impl JobRunMetadata for FileIdentifierJobRunMetadata {
-	fn update(&mut self, new_data: Self) {
-		self.report.total_orphan_paths += new_data.report.total_orphan_paths;
-		self.report.total_objects_created += new_data.report.total_objects_created;
-		self.report.total_objects_linked += new_data.report.total_objects_linked;
-		self.report.total_objects_ignored += new_data.report.total_objects_ignored;
-		self.cursor = new_data.cursor;
-	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FileIdentifierReport {
 	total_orphan_paths: usize,
 	total_objects_created: usize,
 	total_objects_linked: usize,
 	total_objects_ignored: usize,
+}
+
+impl JobRunMetadata for FileIdentifierJobRunMetadata {
+	fn update(&mut self, new_data: Self) {
+		self.total_orphan_paths += new_data.total_orphan_paths;
+		self.total_objects_created += new_data.total_objects_created;
+		self.total_objects_linked += new_data.total_objects_linked;
+		self.total_objects_ignored += new_data.total_objects_ignored;
+		self.cursor = new_data.cursor;
+	}
 }
 
 #[async_trait::async_trait]
@@ -88,7 +84,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		let init = self;
 		let Library { db, .. } = &ctx.library;
 
-		info!("Identifying orphan File Paths...");
+		debug!("Identifying orphan File Paths...");
 
 		let location_id = init.location.id;
 
@@ -138,10 +134,10 @@ impl StatefulJob for FileIdentifierJobInit {
 			});
 		}
 
-		info!("Found {} orphan file paths", orphan_count);
+		debug!("Found {} orphan file paths", orphan_count);
 
 		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
-		info!(
+		debug!(
 			"Found {} orphan Paths. Will execute {} tasks...",
 			orphan_count, task_count
 		);
@@ -160,11 +156,9 @@ impl StatefulJob for FileIdentifierJobInit {
 
 		Ok((
 			FileIdentifierJobRunMetadata {
-				report: FileIdentifierReport {
-					total_orphan_paths: orphan_count,
-					..Default::default()
-				},
+				total_orphan_paths: orphan_count,
 				cursor: first_path.id,
+				..Default::default()
 			},
 			vec![(); task_count],
 		)
@@ -209,18 +203,18 @@ impl StatefulJob for FileIdentifierJobInit {
 				step_number,
 				run_metadata.cursor,
 				&ctx.library,
-				run_metadata.report.total_orphan_paths,
+				run_metadata.total_orphan_paths,
 			)
 			.await?;
 
-		new_metadata.report.total_objects_created = total_objects_created;
-		new_metadata.report.total_objects_linked = total_objects_linked;
+		new_metadata.total_objects_created = total_objects_created;
+		new_metadata.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
 
 		ctx.progress_msg(format!(
 			"Processed {} of {} orphan Paths",
 			step_number * CHUNK_SIZE,
-			run_metadata.report.total_orphan_paths
+			run_metadata.total_orphan_paths
 		));
 
 		Ok(new_metadata.into())
@@ -233,9 +227,9 @@ impl StatefulJob for FileIdentifierJobInit {
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
-		info!("Finalizing identifier job: {:?}", &run_metadata.report);
+		info!("Finalizing identifier job: {:?}", &run_metadata);
 
-		Ok(Some(serde_json::to_value(init)?))
+		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
 
@@ -286,9 +280,10 @@ async fn get_orphan_file_paths(
 	file_path_id: file_path::id::Type,
 	maybe_sub_materialized_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Result<Vec<file_path_for_file_identifier::Data>, prisma_client_rust::QueryError> {
-	info!(
+	trace!(
 		"Querying {} orphan Paths at cursor: {:?}",
-		CHUNK_SIZE, file_path_id
+		CHUNK_SIZE,
+		file_path_id
 	);
 	db.file_path()
 		.find_many(orphan_path_filters(

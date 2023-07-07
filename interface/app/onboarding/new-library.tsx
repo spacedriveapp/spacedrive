@@ -2,8 +2,7 @@ import { Database } from '@sd/assets/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getOnboardingStore, useOnboardingStore } from '@sd/client';
-import { Button } from '@sd/ui';
-import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { Button, Form, InputField, useZodForm, z } from '@sd/ui';
 import {
 	OnboardingContainer,
 	OnboardingDescription,
@@ -63,7 +62,7 @@ export default function OnboardingNewLibrary() {
 					</div>
 				) : (
 					<>
-						<Input
+						<InputField
 							{...form.register('name')}
 							size="lg"
 							autoFocus

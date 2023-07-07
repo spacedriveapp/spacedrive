@@ -52,7 +52,7 @@ export type Procedures = {
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
+        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
@@ -89,11 +89,11 @@ export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" 
 
 export type ChangeNodeNameArgs = { name: string | null }
 
-export type CreateLibraryArgs = { name: string }
+export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
-export type EditLibraryArgs = { id: string; name: string | null; description: MaybeUndefined<string> }
+export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
 
@@ -116,6 +116,8 @@ export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOr
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
 export type FromPattern = { pattern: string; replace_all: boolean }
+
+export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
@@ -153,6 +155,8 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 export type LibraryArgs<T> = { library_id: string; arg: T }
 
 export type LibraryConfigWrapped = { uuid: string; config: SanitisedLibraryConfig }
+
+export type LibraryName = string
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -232,7 +236,7 @@ export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedLibraryConfig = { name: string; description: string | null; node_id: string }
+export type SanitisedLibraryConfig = { name: LibraryName; description: string | null; node_id: string }
 
 export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
 
@@ -260,4 +264,4 @@ export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
-export type Volume = { name: string; mount_point: string; total_capacity: string; available_capacity: string; is_removable: boolean; disk_type: DiskType | null; file_system: string | null; is_root_filesystem: boolean }
+export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }

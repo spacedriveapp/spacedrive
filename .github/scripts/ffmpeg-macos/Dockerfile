@@ -1,19 +1,41 @@
-ARG FAKE_DEPS="python311 perl5.34 gdk-pixbuf2 xorg-libsm xorg-libX11" \
-	FFMPEG_DEPS="aom bzip2 fontconfig freetype fribidi lame libgsm libheif libogg libopus libpng \
-	libtheora libvorbis libvpx-devel openjpeg rav1e soxr svt-av1 twolame webp x264 x265 XviD xz zimg \
-	zlib" \
-	FFMPEG_VERSION=6.0
+ARG FAKE_DEPS="gettext-runtime libiconv ncurses" \
+	FFMPEG_DEPS="brotli bzip2 dav1d libde265 libjxl libopus libpng libvorbis libvpx-devel openjpeg \
+	soxr xz zimg" \
+	LIBWEBP_VERSION=1.3.1 \
+	FFMPEG_VERSION=6.0 \
+	LIBHEIF_VERSION=1.16.2
 
-FROM vvasconcellos/osxcross:12.3-50e86eb-1 as base
+FROM vvasconcellos/osxcross:12.3-564e2b9-8 as base
 
-# Download ffmpeg
+SHELL ["/bin/bash", "-eux", "-o", "pipefail", "-c"]
+
+WORKDIR /srv
+
+ARG LIBWEBP_VERSION
+ADD "https://github.com/webmproject/libwebp/archive/refs/tags/v${LIBWEBP_VERSION}.tar.gz" ./
+RUN tar -xf "v${LIBWEBP_VERSION}.tar.gz" && rm "v${LIBWEBP_VERSION}.tar.gz" \
+	&& \
+	mv "/srv/libwebp-${LIBWEBP_VERSION}" /srv/libwebp
+
+ARG LIBHEIF_VERSION
+ADD "https://github.com/strukturag/libheif/releases/download/v${LIBHEIF_VERSION}/libheif-${LIBHEIF_VERSION}.tar.gz" ./
+RUN tar -xf "libheif-${LIBHEIF_VERSION}.tar.gz" && rm "libheif-${LIBHEIF_VERSION}.tar.gz" \
+	&& \
+	mv "/srv/libheif-${LIBHEIF_VERSION}" /srv/libheif
+
 ARG FFMPEG_VERSION
 ADD "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" ./
-RUN tar -xf ffmpeg-${FFMPEG_VERSION}.tar.xz && rm ffmpeg-${FFMPEG_VERSION}.tar.xz
-
-WORKDIR /srv/ffmpeg-${FFMPEG_VERSION}
-
-COPY --chmod=755 ./ffmpeg-build-macos.sh ./
+RUN tar -xf "ffmpeg-${FFMPEG_VERSION}.tar.xz" && rm "ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+	&& \
+	mv "/srv/ffmpeg-${FFMPEG_VERSION}" /srv/ffmpeg \
+	&& \
+	cd /srv/ffmpeg \
+	&& \
+	for patch in \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-libavcodec-audiotoolboxenc.c.diff' \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-avutil-builtin-available.diff' \
+	'https://github.com/macports/macports-ports/raw/0e62a6d66fbaa7faf7b4eb9029647d3d5651fb2e/multimedia/ffmpeg6/files/patch-libavcodec-profvidworkflow.diff' \
+	; do curl -LSs "$patch" | patch -p0; done
 
 # ---
 FROM base as x86_64
@@ -30,7 +52,7 @@ RUN --mount=type=cache,id=macports-x86_64,target=/opt/osxcross/macports/cache \
 	osxcross-macports install $FFMPEG_DEPS
 
 # Build ffmpeg
-RUN ./ffmpeg-build-macos.sh x86_64 "$MACOSX_SDK"
+RUN --mount=src=build.sh,dst=/srv/build.sh /srv/build.sh x86_64 "$MACOSX_SDK"
 
 # ---
 FROM base as aarch64
@@ -56,7 +78,7 @@ RUN --mount=type=cache,id=macports-arm64,target=/opt/osxcross/macports/cache \
 	osxcross-macports install --arm64 $FFMPEG_DEPS
 
 # Build ffmpeg
-RUN ./ffmpeg-build-macos.sh aarch64 "$MACOSX_SDK"
+RUN --mount=src=build.sh,dst=/srv/build.sh /srv/build.sh aarch64 "$MACOSX_SDK"
 
 # ---
 FROM scratch

@@ -1,12 +1,7 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { type SortOrder, SortOrderSchema } from '~/app/route-schemas';
-import {
-	FilePathSearchOrderingKeys,
-	getExplorerConfigStore,
-	getExplorerStore,
-	useExplorerConfigStore,
-	useExplorerStore
-} from '~/hooks';
+import { getExplorerConfigStore, useExplorerConfigStore } from './config';
+import { FilePathSearchOrderingKeys, getExplorerStore, useExplorerStore } from './store';
 
 const Heading = tw.div`text-ink-dull text-xs font-semibold`;
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;

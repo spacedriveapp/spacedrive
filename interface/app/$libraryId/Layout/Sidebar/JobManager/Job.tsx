@@ -47,7 +47,6 @@ function Job({ job, className, isChild }: JobProps) {
 	// dayjs from seconds to time
 	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
 
-
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
 		const JobError = (
@@ -84,14 +83,12 @@ function Job({ job, className, isChild }: JobProps) {
 			name={niceData.name}
 			circleIcon={niceData.icon}
 			textItems={
-				['Queued'].includes(job.status)
-					? [[{ text: job.status }]]
-					: niceData.textItems
+				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
 			}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>
-			{isRunning || isPaused && (
+			{(isRunning || isPaused) && (
 				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar
 						pending={task_count == 0}

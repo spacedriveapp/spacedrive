@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 					type: 'section',
 					text: {
 						type: 'mrkdwn',
-						text: `${feedback}${emoji !== undefined && `\n\n${result.data.emoji}`}`
+						text: [feedback, emoji].filter(Boolean).join('\n\n')
 					}
 				}
 			]

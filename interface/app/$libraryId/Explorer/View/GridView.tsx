@@ -1,12 +1,11 @@
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, bytesToNumber, getItemFilePath, getItemLocation } from '@sd/client';
-import GridList from '~/components/GridList';
-import { isCut, useExplorerStore } from '~/hooks';
+import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { GridList } from '~/components';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
+import { isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
@@ -39,14 +38,18 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			</div>
 
 			<div className="flex flex-col justify-center">
-				<RenamableItemText item={data} selected={selected} />
+				<RenamableItemText
+					item={data}
+					selected={selected}
+					style={{ maxHeight: explorerStore.gridItemSize / 3 }}
+				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
 							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
 						)}
 					>
-						{byteSize(bytesToNumber(filePathData.size_in_bytes_bytes)).toString()}
+						{`${byteSize(filePathData.size_in_bytes_bytes)}`}
 					</span>
 				)}
 			</div>
@@ -76,7 +79,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={explorerView.isRenaming || !explorerView.selectable}
-			preventContextMenuSelection={!explorerView.contextMenu}
+			preventContextMenuSelection={explorerView.contextMenu === undefined}
 		>
 			{({ index, item: Item }) => {
 				const item = explorerView.items?.[index];

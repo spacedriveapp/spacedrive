@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/xz-mirror/xz.git"
+SCRIPT_REPO="https://github.com/tukaani-project/xz.git"
 SCRIPT_TAG="v5.4.3"
 
 ffbuild_dockerbuild() {
@@ -10,21 +10,21 @@ ffbuild_dockerbuild() {
   ./autogen.sh --no-po4a --no-doxygen
 
   local myconf=(
+    --host="$FFBUILD_TOOLCHAIN"
     --prefix="$FFBUILD_PREFIX"
+    --enable-small
+    --disable-xz
+    --disable-xzdec
+    --disable-lzmadec
+    --disable-lzmainfo
+    --disable-lzma-links
+    --disable-scripts
+    --disable-doc
     --disable-symbol-versions
     --disable-shared
     --enable-static
     --with-pic
   )
-
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    myconf+=(
-      --host="$FFBUILD_TOOLCHAIN"
-    )
-  else
-    echo "Unknown target"
-    return 255
-  fi
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"

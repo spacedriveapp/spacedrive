@@ -3,9 +3,13 @@ import clsx from 'clsx';
 import { PropsWithChildren, forwardRef } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
 
 const styles = cva(
-	'max-w flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0',
+	[
+		'max-w flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none',
+		'ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0'
+	],
 	{
 		variants: {
 			active: {
@@ -22,18 +26,22 @@ const styles = cva(
 
 const Link = forwardRef<
 	HTMLAnchorElement,
-	PropsWithChildren<NavLinkProps & { disabled?: boolean }>
->(({ className, onClick, disabled, ...props }, ref) => {
+	PropsWithChildren<Omit<NavLinkProps, 'onClick'> & { disabled?: boolean }>
+>(({ className, disabled, ...props }, ref) => {
 	const os = useOperatingSystem();
+	const { platform } = usePlatform();
 
 	return (
 		<NavLink
 			onClick={(e) => {
-				// Prevent default action if Command (metaKey) or Control is pressed
-				if (e.metaKey || e.ctrlKey || disabled) {
+				const shouldOpenNewTab = e.metaKey || e.ctrlKey || e.shiftKey;
+
+				const shouldOverrideNewTabBehaviour = shouldOpenNewTab && platform === 'tauri';
+
+				if (shouldOverrideNewTabBehaviour || disabled) {
 					e.preventDefault();
-				} else {
-					onClick?.(e);
+
+					if (shouldOverrideNewTabBehaviour) e.currentTarget.click();
 				}
 			}}
 			className={({ isActive }) =>

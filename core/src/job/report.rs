@@ -174,24 +174,6 @@ impl JobReport {
 		}
 	}
 
-	pub fn new_with_action(uuid: Uuid, name: String, action: impl AsRef<str>) -> Self {
-		let mut report = Self::new(uuid, name);
-		report.action = Some(action.as_ref().to_string());
-		report
-	}
-
-	pub fn new_with_parent(
-		uuid: Uuid,
-		name: String,
-		parent_id: Uuid,
-		action: Option<String>,
-	) -> Self {
-		let mut report = Self::new(uuid, name);
-		report.parent_id = Some(parent_id);
-		report.action = action;
-		report
-	}
-
 	pub fn get_meta(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
 		let Some(action_name) = self.action
@@ -311,5 +293,61 @@ impl TryFrom<i32> for JobStatus {
 		};
 
 		Ok(s)
+	}
+}
+
+pub struct JobReportBuilder {
+	pub id: Uuid,
+	pub name: String,
+	pub action: Option<String>,
+	pub metadata: Option<serde_json::Value>,
+	pub parent_id: Option<Uuid>,
+}
+
+impl JobReportBuilder {
+	pub fn build(self) -> JobReport {
+		JobReport {
+			id: self.id,
+			is_background: false, // deprecated
+			name: self.name,
+			action: self.action,
+			created_at: None,
+			started_at: None,
+			completed_at: None,
+			status: JobStatus::Queued,
+			errors_text: vec![],
+			task_count: 0,
+			data: None,
+			metadata: self.metadata,
+			parent_id: self.parent_id,
+			completed_task_count: 0,
+			message: String::new(),
+			estimated_completion: Utc::now(),
+		}
+	}
+
+	pub fn new(id: Uuid, name: String) -> Self {
+		Self {
+			id,
+			name,
+			action: None,
+			metadata: None,
+			parent_id: None,
+		}
+	}
+
+	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
+		self.action = Some(action.as_ref().to_string());
+		self
+	}
+
+	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+		self.metadata = Some(metadata);
+		self
+	}
+
+	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
+		self.parent_id = Some(parent_id);
+		self
 	}
 }

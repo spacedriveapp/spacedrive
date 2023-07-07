@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
 	job::JobManagerError,
-	library::{LibraryConfig, LibraryManagerError},
+	library::{LibraryConfig, LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
@@ -39,7 +39,7 @@ pub struct LocationInitConfig {
 #[serde(rename_all = "camelCase")]
 pub struct LibraryInitConfig {
 	id: Uuid,
-	name: String,
+	name: LibraryName,
 	description: Option<String>,
 	#[serde(default)]
 	reset_locations_on_startup: bool,
@@ -103,7 +103,7 @@ impl InitConfig {
 		info!("Initializing app from file: {:?}", self.path);
 
 		for lib in self.libraries {
-			let name = lib.name.clone();
+			let name = lib.name.to_string();
 			let _guard = AbortOnDrop(tokio::spawn(async move {
 				loop {
 					info!("Initializing library '{name}' from 'sd_init.json'...");
@@ -133,7 +133,7 @@ impl InitConfig {
 						None => {
 							warn!(
 								"Debug init error: library '{}' was not found after being created!",
-								library.config.name
+								library.config.name.as_ref()
 							);
 							return Ok(());
 						}
