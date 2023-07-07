@@ -1,6 +1,5 @@
 // import types from '../../constants/file-types.json';
 import { Image, Image_Light } from '@sd/assets/icons';
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
@@ -10,7 +9,7 @@ import {
 	Location,
 	ObjectKind,
 	Tag,
-	bytesToNumber,
+	byteSize,
 	getItemFilePath,
 	getItemObject,
 	isPath,
@@ -157,9 +156,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									<InspectorIcon component={Cube} />
 									<span className="mr-1.5">Size</span>
 									<MetaValue>
-										{byteSize(
-											bytesToNumber(filePathData.size_in_bytes_bytes)
-										).toString()}
+										{`${byteSize(filePathData.size_in_bytes_bytes)}`}
 									</MetaValue>
 								</MetaTextLine>
 							)}

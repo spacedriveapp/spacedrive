@@ -7081,6 +7081,7 @@ dependencies = [
  "normpath",
  "notify",
  "once_cell",
+ "plist",
  "prisma-client-rust",
  "regex",
  "rmp",

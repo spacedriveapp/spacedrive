@@ -8,8 +8,7 @@ import AppEmbed from '~/components/AppEmbed';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import Space from '~/components/Space';
-import { getWindow } from '~/utils/util';
+import { detectWebGLContext, getWindow } from '~/utils/util';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -47,6 +46,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 
 export default function HomePage() {
 	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
+	const [background, setBackground] = useState<JSX.Element | null>(null);
 
 	const router = useRouter();
 
@@ -78,6 +78,20 @@ export default function HomePage() {
 			}
 		})();
 	}, [router.query.wunsub]);
+
+	useEffect(() => {
+		if (!(getWindow() && background == null)) return;
+		(async () => {
+			if (detectWebGLContext()) {
+				const Space = (await import('~/components/Space')).Space;
+				setBackground(<Space />);
+			} else {
+				console.warn('Fallback to Bubbles background due WebGL not being available');
+				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
+				setBackground(<Bubbles />);
+			}
+		})();
+	}, [background]);
 
 	return (
 		<PageWrapper>
@@ -152,7 +166,7 @@ export default function HomePage() {
 						</>
 					}
 				/>
-				<Space />
+				{background}
 			</div>
 		</PageWrapper>
 	);
