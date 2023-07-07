@@ -194,7 +194,7 @@ impl P2PManager {
 										};
 									}
 									Header::Pair => {
-										responder(event.peer_id);
+										responder(event.peer_id, &library_manager);
 										// info!(
 										// 	"Starting pairing with node '{}' for library '{library_id}'",
 										// 	event.peer_id
