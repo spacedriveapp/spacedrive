@@ -77,7 +77,8 @@ module.exports = function (app, options) {
 						hover: alpha('--color-app-hover'),
 						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),
-						frame: alpha('--color-app-frame')
+						frame: alpha('--color-app-frame'),
+						slider: alpha('--color-app-slider')
 					},
 					menu: {
 						DEFAULT: alpha('--color-menu'),

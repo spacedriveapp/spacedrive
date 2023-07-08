@@ -3,10 +3,13 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { RefObject, useEffect, useRef, useState } from 'react';
+import Sticky from 'react-sticky-el';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
+import { tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import { useLayoutContext } from '../Layout/Context';
+import { usePageLayoutContext } from '../PageLayout/Context';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
@@ -30,8 +33,12 @@ const CategoryList = [
 	'Trash'
 ] as Category[];
 
+const ArrowButton = tw.div`absolute top-1/2 z-40 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center p-2 cursor-pointer justify-center rounded-full border border-app-line bg-app/50 hover:opacity-95 backdrop-blur-md transition-all duration-200`;
+
 export const Categories = (props: { selected: Category; onSelectedChanged(c: Category): void }) => {
 	const isDark = useIsDark();
+
+	const { ref: pageRef } = usePageLayoutContext();
 
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
@@ -56,70 +63,74 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 		index === CategoryList.length - 1 && setLastCategoryVisible((prev) => !prev);
 	};
 
+	const maskImage = `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
+		scroll > 0 ? '10%' : '0%'
+	}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`;
+
 	return (
-		<div className="sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur">
-			<div
-				onClick={() => handleArrowOnClick('right')}
-				className={clsx(
-					scroll > 0
-						? 'cursor-pointer bg-app/50 opacity-100 hover:opacity-95'
-						: 'pointer-events-none',
-					'sticky left-[15px] z-40 -ml-4 mt-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app p-2 opacity-0 backdrop-blur-md transition-all duration-200'
-				)}
-			>
-				<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
+		<Sticky
+			scrollElement={pageRef.current || undefined}
+			stickyClassName="z-10 !top-[46px]"
+			topOffset={-46}
+		>
+			<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">
+				<ArrowButton
+					onClick={() => handleArrowOnClick('right')}
+					className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
+				>
+					<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
+				</ArrowButton>
+
+				<div
+					ref={ref}
+					{...events}
+					className="no-scrollbar flex space-x-px overflow-x-scroll pr-[60px]"
+					style={{
+						WebkitMaskImage: maskImage, // Required for Chromium based browsers
+						maskImage
+					}}
+				>
+					{categories.data &&
+						CategoryList.map((category, index) => {
+							const iconString = IconForCategory[category] || 'Document';
+							return (
+								<motion.div
+									onViewportEnter={() => lastCategoryVisibleHandler(index)}
+									onViewportLeave={() => lastCategoryVisibleHandler(index)}
+									viewport={{
+										root: ref,
+										// WARNING: Edge breaks if the values are not postfixed with px or %
+										margin: '0% -120px 0% 0%'
+									}}
+									className={clsx(
+										'min-w-fit',
+										mouseState !== 'dragging' && '!cursor-default'
+									)}
+									key={category}
+								>
+									<CategoryButton
+										category={category}
+										icon={getIcon(iconString, isDark)}
+										items={categories.data[category]}
+										selected={props.selected === category}
+										onClick={() => props.onSelectedChanged(category)}
+									/>
+								</motion.div>
+							);
+						})}
+				</div>
+
+				<ArrowButton
+					onClick={() => handleArrowOnClick('left')}
+					className={clsx(
+						'right-3',
+						lastCategoryVisible && 'pointer-events-none opacity-0'
+					)}
+				>
+					<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
+				</ArrowButton>
 			</div>
-			<div
-				ref={ref}
-				{...events}
-				className="no-scrollbar flex space-x-[1px] overflow-x-scroll py-1.5 pl-0 pr-[60px]"
-				style={{
-					maskImage: `linear-gradient(90deg, transparent 0.1%, rgba(0, 0, 0, 1) ${
-						scroll > 0 ? '10%' : '0%'
-					}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`
-				}}
-			>
-				{categories.data &&
-					CategoryList.map((category, index) => {
-						const iconString = IconForCategory[category] || 'Document';
-						return (
-							<motion.div
-								onViewportEnter={() => lastCategoryVisibleHandler(index)}
-								onViewportLeave={() => lastCategoryVisibleHandler(index)}
-								viewport={{
-									root: ref,
-									// WARNING: Edge breaks if the values are not postfixed with px or %
-									margin: '0% -120px 0% 0%'
-								}}
-								className={clsx(
-									'min-w-fit',
-									mouseState !== 'dragging' && '!cursor-default'
-								)}
-								key={category}
-							>
-								<CategoryButton
-									category={category}
-									icon={getIcon(iconString, isDark)}
-									items={categories.data[category]}
-									selected={props.selected === category}
-									onClick={() => props.onSelectedChanged(category)}
-								/>
-							</motion.div>
-						);
-					})}
-			</div>
-			<div
-				onClick={() => handleArrowOnClick('left')}
-				className={clsx(
-					lastCategoryVisible
-						? 'pointer-events-none opacity-0 hover:opacity-0'
-						: 'hover:opacity-95',
-					'sticky right-[15px] z-40 mt-4 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-line bg-app/50 p-2 backdrop-blur-md transition-all duration-200'
-				)}
-			>
-				<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
-			</div>
-		</div>
+		</Sticky>
 	);
 };
 
