@@ -72,6 +72,7 @@ export type Procedures = {
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
+        { key: "p2p.pairingProgress", input: number, result: PairingStatus } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
 };
@@ -220,6 +221,8 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
  * TODO: P2P event for the frontend
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string }
+
+export type PairingStatus = "PairingRequested" | { PairingInProgress: { library_name: string; library_description: string; node_name: string } } | { InitialSyncProgress: number } | "PairingComplete"
 
 export type PeerId = string
 

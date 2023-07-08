@@ -64,7 +64,7 @@ pub struct P2PManager {
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
-	pairing: PairingManager,
+	pub pairing: PairingManager,
 	library_manager: Arc<LibraryManager>,
 }
 
@@ -394,60 +394,6 @@ impl P2PManager {
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
-	}
-
-	pub async fn pair(&self, peer_id: PeerId, node_config: NodeConfig) -> u16 {
-		self.pairing.originator(peer_id, node_config).await
-
-		// 	// let header = Header::Pair(lib.id);
-		// 	// stream.write_all(&header.to_bytes()).await.unwrap();
-
-		// 	// TODO: Apply some security here cause this is so open to MITM
-		// 	// TODO: Signing and a SPAKE style pin prompt
-
-		// 	// todo!();
-		// 	// let self_instance = lib
-		// 	// 	.db
-		// 	// 	.instance()
-		// 	// 	.find_unique(instance::id::equals(
-		// 	// 		lib.config.instance_id.as_bytes().to_vec(),
-		// 	// 	))
-		// 	// 	.expect("instance must be found");
-		// 	// let info: NodeLibraryPairingInformation = (self_instance, lib.config.clone()).into();
-
-		// 	// debug!("Sending nodeinfo to remote node");
-		// 	// stream.write_all(&info.to_bytes()).await.unwrap();
-
-		// 	// debug!("Waiting for nodeinfo from the remote node");
-		// 	// let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
-		// 	// 	.await
-		// 	// 	.unwrap();
-		// 	// debug!("Received nodeinfo from the remote node: {:?}", remote_info);
-
-		// 	// let now = Utc::now();
-		// 	// instance::Create {
-		// 	// 	id: remote_info.instance_id.as_bytes().to_vec(),
-		// 	// 	identity: remote_info.identity.as_bytes().to_vec(),
-		// 	// 	node_id: remote_info.node_id.as_bytes().to_vec(),
-		// 	// 	node_name: remote_info.name,
-		// 	// 	node_platform: remote_info.platform as i32,
-		// 	// 	last_seen: now.clone().into(),
-		// 	// 	date_created: now.into(),
-		// 	// 	_params: vec![],
-		// 	// }
-		// 	// // TODO: Should this be in a transaction in case it fails?
-		// 	// .to_query(&lib.db)
-		// 	// .exec()
-		// 	// .await
-		// 	// .unwrap();
-
-		// 	// info!(
-		// 	// 	"Paired with instance '{}' within library '{}' coming from node '{}'",
-		// 	// 	remote_info.instance_id, lib.id, remote_info.node_id
-		// 	// ); // TODO: Use hash of identity cert here cause pub_id can be forged
-		// });
-
-		// pairing_id
 	}
 
 	pub async fn broadcast_sync_events(

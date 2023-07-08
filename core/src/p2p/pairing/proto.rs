@@ -16,7 +16,6 @@ use crate::node::Platform;
 /// Responder - is in-charge of accepting or rejecting the originator's request and then selecting which library to "share".
 
 /// A modified version of `prisma::instance::Data` that uses proper validated types for the fields.
-#[derive(Debug)]
 pub struct Instance {
 	pub id: Uuid,
 	pub identity: Identity,
@@ -29,12 +28,10 @@ pub struct Instance {
 
 /// 1. Request for pairing to a library that is owned and will be selected by the responder.
 /// Sent `Originator` -> `Responder`.
-#[derive(Debug)]
 pub struct PairingRequest(/* Originator's instance */ pub Instance);
 
 /// 2. Decision for whether pairing was accepted or rejected once a library is decided on by the user.
 /// Sent `Responder` -> `Originator`.
-#[derive(Debug)]
 pub enum PairingResponse {
 	/// Pairing was accepted and the responder chose the library of their we are pairing to.
 	Accepted {
@@ -54,7 +51,6 @@ pub enum PairingResponse {
 
 /// 3. Tell the responder that the database was correctly paired.
 /// Sent `Originator` -> `Responder`.
-#[derive(Debug)]
 pub enum PairingConfirmation {
 	Ok,
 	Error,
@@ -104,7 +100,7 @@ impl Instance {
 		let mut buf = Vec::new();
 
 		encode::uuid(&mut buf, id);
-		encode::buf(&mut buf, &identity.as_bytes());
+		encode::buf(&mut buf, &identity.to_bytes());
 		encode::uuid(&mut buf, node_id);
 		encode::string(&mut buf, node_name);
 		buf.push(*node_platform as u8);
