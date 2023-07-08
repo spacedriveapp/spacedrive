@@ -17,7 +17,7 @@ import {
 	useZodForm,
 	z
 } from '@sd/ui';
-import { getSpacedropState, subscribeSpacedropState } from '../hooks/useSpacedropState';
+import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
 
 export function SpacedropUI() {
 	const isSpacedropEnabled = useFeatureFlag('spacedrop');
