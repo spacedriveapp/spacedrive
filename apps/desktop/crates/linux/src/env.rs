@@ -89,10 +89,9 @@ fn normalize_pathlist(var_name: &str, default_dirs: &[PathBuf]) {
 
 fn normalize_xdg_environment(name: &str, default_value: PathBuf) -> PathBuf {
 	if let Ok(value) = env::var(name) {
-		if value.is_empty() {
+		if !value.is_empty() {
 			let path = PathBuf::from(value);
 			if path.is_absolute() && path.is_dir() {
-				env::set_var(name, &path);
 				return path;
 			}
 		}
