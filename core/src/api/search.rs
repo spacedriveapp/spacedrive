@@ -6,14 +6,14 @@ use crate::{
 	library::{Category, Library},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		LocationError,
+		non_indexed, LocationError,
 	},
 	object::preview::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 	util::db::chain_optional_iter,
 };
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or};
@@ -270,6 +270,18 @@ impl ObjectFilterArgs {
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
+		.procedure("non-indexed-paths", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct NonIndexedPath {
+				path: PathBuf,
+			}
+
+			R.with2(library())
+				.query(|(_node, library), NonIndexedPath { path }| async move {
+					non_indexed::walk(path, library).await.map_err(Into::into)
+				})
+		})
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]

@@ -25,7 +25,7 @@ mod files;
 mod jobs;
 mod keys;
 mod libraries;
-mod locations;
+pub mod locations;
 mod nodes;
 mod p2p;
 mod search;

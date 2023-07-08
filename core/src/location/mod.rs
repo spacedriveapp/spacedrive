@@ -34,6 +34,7 @@ use uuid::Uuid;
 mod error;
 pub mod file_path_helper;
 pub mod indexer;
+pub mod non_indexed;
 mod manager;
 mod metadata;
 
