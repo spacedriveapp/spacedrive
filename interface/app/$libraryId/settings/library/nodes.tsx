@@ -1,4 +1,4 @@
-import { useDiscoveredPeers, useFeatureFlag, useLibraryMutation } from '@sd/client';
+import { useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Heading } from '../Layout';
 
@@ -22,7 +22,7 @@ export const Component = () => {
 // TODO: This entire component shows a UI which is pairing by node but that is just not how it works.
 function IncorrectP2PPairingPane() {
 	const onlineNodes = useDiscoveredPeers();
-	const p2pPair = useLibraryMutation('p2p.pair', {
+	const p2pPair = useBridgeMutation('p2p.pair', {
 		onSuccess(data) {
 			console.log(data);
 		}

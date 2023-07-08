@@ -24,7 +24,7 @@ use specta::Type;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
-	sync::{broadcast, oneshot, Mutex},
+	sync::{broadcast, mpsc, oneshot, Mutex},
 	time::sleep,
 };
 use tracing::{debug, error, info, warn};
@@ -33,11 +33,11 @@ use uuid::Uuid;
 use crate::{
 	library::{Library, LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{responder, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
 
-use super::{originator, Header, PeerMetadata};
+use super::{Header, PairingManager, PeerMetadata};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -64,7 +64,7 @@ pub struct P2PManager {
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
-	pairing_id: AtomicU16,
+	pairing: PairingManager,
 	library_manager: Arc<LibraryManager>,
 }
 
@@ -194,7 +194,9 @@ impl P2PManager {
 										};
 									}
 									Header::Pair => {
-										responder(event.peer_id, &library_manager);
+										todo!();
+										// self.pairing.responder(event.peer_id, &library_manager);
+
 										// info!(
 										// 	"Starting pairing with node '{}' for library '{library_id}'",
 										// 	event.peer_id
@@ -321,11 +323,11 @@ impl P2PManager {
 
 		let this = Arc::new(Self {
 			events: (tx, rx),
-			manager,
+			manager: manager.clone(),
 			spacedrop_pairing_reqs,
 			metadata_manager,
 			spacedrop_progress,
-			pairing_id: AtomicU16::new(0),
+			pairing: PairingManager::new(manager),
 			library_manager: library_manager.clone(),
 		});
 
@@ -394,70 +396,58 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
-	pub fn pair(&self, peer_id: PeerId) -> u16 {
-		let pairing_id = self.pairing_id.fetch_add(1, Ordering::SeqCst);
+	pub async fn pair(&self, peer_id: PeerId, node_config: NodeConfig) -> u16 {
+		self.pairing.originator(peer_id, node_config).await
 
-		let manager = self.manager.clone();
+		// 	// let header = Header::Pair(lib.id);
+		// 	// stream.write_all(&header.to_bytes()).await.unwrap();
 
-		tokio::spawn(async move {
-			originator(peer_id).await;
+		// 	// TODO: Apply some security here cause this is so open to MITM
+		// 	// TODO: Signing and a SPAKE style pin prompt
 
-			// info!(
-			// 	"Started pairing session '{pairing_id}' with peer '{peer_id}' for library '{}'",
-			// 	lib.id
-			// );
+		// 	// todo!();
+		// 	// let self_instance = lib
+		// 	// 	.db
+		// 	// 	.instance()
+		// 	// 	.find_unique(instance::id::equals(
+		// 	// 		lib.config.instance_id.as_bytes().to_vec(),
+		// 	// 	))
+		// 	// 	.expect("instance must be found");
+		// 	// let info: NodeLibraryPairingInformation = (self_instance, lib.config.clone()).into();
 
-			// let mut stream = manager.stream(peer_id).await.unwrap();
+		// 	// debug!("Sending nodeinfo to remote node");
+		// 	// stream.write_all(&info.to_bytes()).await.unwrap();
 
-			// let header = Header::Pair(lib.id);
-			// stream.write_all(&header.to_bytes()).await.unwrap();
+		// 	// debug!("Waiting for nodeinfo from the remote node");
+		// 	// let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
+		// 	// 	.await
+		// 	// 	.unwrap();
+		// 	// debug!("Received nodeinfo from the remote node: {:?}", remote_info);
 
-			// TODO: Apply some security here cause this is so open to MITM
-			// TODO: Signing and a SPAKE style pin prompt
+		// 	// let now = Utc::now();
+		// 	// instance::Create {
+		// 	// 	id: remote_info.instance_id.as_bytes().to_vec(),
+		// 	// 	identity: remote_info.identity.as_bytes().to_vec(),
+		// 	// 	node_id: remote_info.node_id.as_bytes().to_vec(),
+		// 	// 	node_name: remote_info.name,
+		// 	// 	node_platform: remote_info.platform as i32,
+		// 	// 	last_seen: now.clone().into(),
+		// 	// 	date_created: now.into(),
+		// 	// 	_params: vec![],
+		// 	// }
+		// 	// // TODO: Should this be in a transaction in case it fails?
+		// 	// .to_query(&lib.db)
+		// 	// .exec()
+		// 	// .await
+		// 	// .unwrap();
 
-			// todo!();
-			// let self_instance = lib
-			// 	.db
-			// 	.instance()
-			// 	.find_unique(instance::id::equals(
-			// 		lib.config.instance_id.as_bytes().to_vec(),
-			// 	))
-			// 	.expect("instance must be found");
-			// let info: NodeLibraryPairingInformation = (self_instance, lib.config.clone()).into();
+		// 	// info!(
+		// 	// 	"Paired with instance '{}' within library '{}' coming from node '{}'",
+		// 	// 	remote_info.instance_id, lib.id, remote_info.node_id
+		// 	// ); // TODO: Use hash of identity cert here cause pub_id can be forged
+		// });
 
-			// debug!("Sending nodeinfo to remote node");
-			// stream.write_all(&info.to_bytes()).await.unwrap();
-
-			// debug!("Waiting for nodeinfo from the remote node");
-			// let remote_info = NodeLibraryPairingInformation::from_stream(&mut stream)
-			// 	.await
-			// 	.unwrap();
-			// debug!("Received nodeinfo from the remote node: {:?}", remote_info);
-
-			// let now = Utc::now();
-			// instance::Create {
-			// 	id: remote_info.instance_id.as_bytes().to_vec(),
-			// 	identity: remote_info.identity.as_bytes().to_vec(),
-			// 	node_id: remote_info.node_id.as_bytes().to_vec(),
-			// 	node_name: remote_info.name,
-			// 	node_platform: remote_info.platform as i32,
-			// 	last_seen: now.clone().into(),
-			// 	date_created: now.into(),
-			// 	_params: vec![],
-			// }
-			// // TODO: Should this be in a transaction in case it fails?
-			// .to_query(&lib.db)
-			// .exec()
-			// .await
-			// .unwrap();
-
-			// info!(
-			// 	"Paired with instance '{}' within library '{}' coming from node '{}'",
-			// 	remote_info.instance_id, lib.id, remote_info.node_id
-			// ); // TODO: Use hash of identity cert here cause pub_id can be forged
-		});
-
-		pairing_id
+		// pairing_id
 	}
 
 	pub async fn broadcast_sync_events(

@@ -59,7 +59,7 @@ export type Procedures = {
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
-        { key: "p2p.pair", input: LibraryArgs<PeerId>, result: number } | 
+        { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
