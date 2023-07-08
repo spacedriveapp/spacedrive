@@ -37,7 +37,7 @@ use crate::{
 	sync::SyncMessage,
 };
 
-use super::{Header, PairingManager, PeerMetadata};
+use super::{Header, PairingManager, PairingStatus, PeerMetadata};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -55,7 +55,10 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		name: String,
 	},
-	// TODO: Expire peer + connection/disconnect
+	PairingProgress {
+		id: u16,
+		status: PairingStatus,
+	}, // TODO: Expire peer + connection/disconnect
 }
 
 pub struct P2PManager {
@@ -64,7 +67,7 @@ pub struct P2PManager {
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
-	pub pairing: PairingManager,
+	pub pairing: Arc<PairingManager>,
 	library_manager: Arc<LibraryManager>,
 }
 
@@ -299,7 +302,7 @@ impl P2PManager {
 							});
 						}
 						Event::PeerBroadcast(_event) => {
-							todo!();
+							// todo!();
 						}
 						Event::Shutdown => {
 							shutdown = true;
@@ -322,12 +325,12 @@ impl P2PManager {
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 		let this = Arc::new(Self {
+			pairing: PairingManager::new(manager.clone(), tx.clone()),
 			events: (tx, rx),
-			manager: manager.clone(),
+			manager,
 			spacedrop_pairing_reqs,
 			metadata_manager,
 			spacedrop_progress,
-			pairing: PairingManager::new(manager),
 			library_manager: library_manager.clone(),
 		});
 

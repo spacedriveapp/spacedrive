@@ -1,20 +1,13 @@
-use std::{
-	collections::HashMap,
-	sync::{
-		atomic::{AtomicU16, Ordering},
-		Arc,
-	},
+use std::sync::{
+	atomic::{AtomicU16, Ordering},
+	Arc,
 };
 
-use chrono::Utc;
-use sd_p2p::{spacetunnel::Identity, Manager, PeerId};
-use sd_prisma::prisma::instance;
-use serde::{Deserialize, Serialize};
+use sd_p2p::{Manager, PeerId};
+
+use serde::Serialize;
 use specta::Type;
-use tokio::{
-	io::AsyncWriteExt,
-	sync::{broadcast, Mutex},
-};
+use tokio::sync::broadcast;
 use tracing::info;
 use uuid::Uuid;
 
@@ -22,56 +15,52 @@ mod proto;
 
 use proto::*;
 
-use crate::{
-	library::LibraryManager,
-	node::{NodeConfig, Platform},
-	util::Observable,
-};
+use crate::{library::LibraryManager, node::NodeConfig};
 
-use super::PeerMetadata;
+use super::{P2PEvent, PeerMetadata};
 
 pub struct PairingManager {
 	id: AtomicU16,
-	active: Mutex<HashMap<u16, Arc<Observable<PairingStatus>>>>,
+	events_tx: broadcast::Sender<P2PEvent>,
 	manager: Arc<Manager<PeerMetadata>>,
 }
 
 impl PairingManager {
-	pub fn new(manager: Arc<Manager<PeerMetadata>>) -> Self {
-		Self {
+	pub fn new(
+		manager: Arc<Manager<PeerMetadata>>,
+		events_tx: broadcast::Sender<P2PEvent>,
+	) -> Arc<Self> {
+		Arc::new(Self {
 			id: AtomicU16::new(0),
-			active: Mutex::new(HashMap::new()),
+			events_tx,
 			manager,
-		}
+		})
 	}
 
-	pub async fn progress(&self, pairing_id: u16) -> Option<Arc<Observable<PairingStatus>>> {
-		self.active.lock().await.get(&pairing_id).cloned()
+	fn emit_progress(&self, id: u16, status: PairingStatus) {
+		self.events_tx
+			.send(P2PEvent::PairingProgress { id, status })
+			.ok();
 	}
 
 	// TODO: Error handling
 
-	pub async fn originator(&self, peer_id: PeerId, node_config: NodeConfig) -> u16 {
+	pub async fn originator(self: Arc<Self>, peer_id: PeerId, node_config: NodeConfig) -> u16 {
 		// TODO: Timeout for max number of pairings in a time period
 
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
-		let progress = Arc::new(Observable::new(PairingStatus::PairingRequested));
-		self.active
-			.lock()
-			.await
-			.insert(pairing_id, progress.clone());
+		self.emit_progress(pairing_id, PairingStatus::PairingRequested);
 
 		info!("Beginning pairing '{pairing_id}' as originator to remote peer '{peer_id}'");
 
-		let manager = self.manager.clone();
 		tokio::spawn(async move {
 			loop {
-				progress.set(PairingStatus::PairingRequested).await;
+				self.emit_progress(pairing_id, PairingStatus::PairingRequested);
 				tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-				progress.set(PairingStatus::PairingComplete).await;
+				self.emit_progress(pairing_id, PairingStatus::PairingComplete);
 			}
 
-			// let mut stream = manager.stream(peer_id).await.unwrap();
+			// let mut stream = self.manager.stream(peer_id).await.unwrap();
 
 			// // TODO: Ensure both clients are on a compatible version cause Prisma model changes will cause issues
 
@@ -123,7 +112,7 @@ impl PairingManager {
 		pairing_id
 	}
 
-	pub async fn responder(&self, peer_id: PeerId, library_manager: &LibraryManager) {
+	pub async fn responder(self: Arc<Self>, peer_id: PeerId, library_manager: &LibraryManager) {
 		info!("Beginning pairing as responder to remote peer '{peer_id}'");
 
 		// let msg: PairingRequest = todo!(); // Receive from network

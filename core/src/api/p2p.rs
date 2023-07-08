@@ -1,7 +1,7 @@
 use async_stream::stream;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_p2p::PeerId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -68,6 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
+		// TODO: Send this over `p2p.events`
 		.procedure("spacedropProgress", {
 			R.subscription(|ctx, id: Uuid| async move {
 				ctx.p2p.spacedrop_progress(id).await.ok_or_else(|| {
@@ -77,24 +78,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("pair", {
 			R.mutation(|ctx, id: PeerId| async move {
-				ctx.p2p.pairing.originator(id, ctx.config.get().await).await
-			})
-		})
-		.procedure("pairingProgress", {
-			R.subscription(|ctx, pairing_id: u16| async move {
-				if let Some(progress) = ctx.p2p.pairing.progress(pairing_id).await {
-					Ok(stream! {
-						loop {
-							let v = progress.wait().await;
-							yield v;
-						}
-					})
-				} else {
-					Err(rspc::Error::new(
-						ErrorCode::BadRequest,
-						"Pairing not found!".into(),
-					))
-				}
+				ctx.p2p
+					.pairing
+					.clone()
+					.originator(id, ctx.config.get().await)
+					.await
 			})
 		})
 }
