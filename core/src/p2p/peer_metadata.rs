@@ -4,6 +4,8 @@ use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::node::Platform;
+
 #[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {
 	pub(super) name: String,
@@ -65,6 +67,20 @@ pub enum OperatingSystem {
 	Ios,
 	Android,
 	Other(String),
+}
+
+// TODO: Should `Platform` and `OperatingSystem` be merged into one?
+impl From<Platform> for OperatingSystem {
+	fn from(platform: Platform) -> Self {
+		match platform {
+			Platform::Unknown => OperatingSystem::Other("Unknown".into()),
+			Platform::Windows => OperatingSystem::Windows,
+			Platform::Linux => OperatingSystem::Linux,
+			Platform::MacOS => OperatingSystem::MacOS,
+			Platform::IOS => OperatingSystem::Ios,
+			Platform::Android => OperatingSystem::Android,
+		}
+	}
 }
 
 impl OperatingSystem {

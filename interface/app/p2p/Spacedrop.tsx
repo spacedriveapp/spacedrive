@@ -4,7 +4,8 @@ import {
 	useBridgeSubscription,
 	useDiscoveredPeers,
 	useFeatureFlag,
-	useP2PEvents
+	useP2PEvents,
+	withFeatureFlag
 } from '@sd/client';
 import {
 	Dialog,
@@ -20,15 +21,6 @@ import {
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
 
 export function SpacedropUI() {
-	const isSpacedropEnabled = useFeatureFlag('spacedrop');
-	if (!isSpacedropEnabled) {
-		return null;
-	}
-
-	return <SpacedropUIInner />;
-}
-
-function SpacedropUIInner() {
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);

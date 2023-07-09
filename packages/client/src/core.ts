@@ -60,6 +60,7 @@ export type Procedures = {
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
+        { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -219,9 +220,11 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
 
-export type PairingStatus = "PairingRequested" | { PairingInProgress: { library_name: string; library_description: string; node_name: string } } | { InitialSyncProgress: number } | "PairingComplete"
+export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
+
+export type PairingStatus = { type: "EstablishingConnection" } | { type: "PairingRequested" } | { type: "PairingDecisionRequest" } | { type: "PairingInProgress"; data: { library_name: string; library_description: string | null } } | { type: "InitialSyncProgress"; data: number } | { type: "PairingComplete"; data: string } | { type: "PairingRejected" }
 
 export type PeerId = string
 

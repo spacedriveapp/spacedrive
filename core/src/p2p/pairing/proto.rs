@@ -5,6 +5,7 @@ use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::Identity,
 };
+use sd_prisma::prisma::instance;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
@@ -24,6 +25,21 @@ pub struct Instance {
 	pub node_platform: Platform,
 	pub last_seen: DateTime<Utc>,
 	pub date_created: DateTime<Utc>,
+}
+
+impl From<Instance> for instance::CreateUnchecked {
+	fn from(i: Instance) -> Self {
+		Self {
+			id: i.id.as_bytes().to_vec(),
+			identity: i.identity.to_bytes(),
+			node_id: i.node_id.as_bytes().to_vec(),
+			node_name: i.node_name,
+			node_platform: i.node_platform as i32,
+			last_seen: i.last_seen.into(),
+			date_created: i.date_created.into(),
+			_params: vec![],
+		}
+	}
 }
 
 /// 1. Request for pairing to a library that is owned and will be selected by the responder.
@@ -130,15 +146,31 @@ impl PairingResponse {
 	) -> Result<Self, (&'static str, decode::Error)> {
 		// TODO: Error handling
 		match stream.read_u8().await.unwrap() {
-			0 => {
-				todo!();
-			}
-			1 => {
-				todo!();
-			}
-			_ => {
-				todo!();
-			}
+			0 => Ok(Self::Accepted {
+				library_id: decode::uuid(stream).await.map_err(|e| ("library_id", e))?,
+				library_name: decode::string(stream)
+					.await
+					.map_err(|e| ("library_name", e))?,
+				library_description: match decode::string(stream)
+					.await
+					.map_err(|e| ("library_description", e))?
+				{
+					s if s == "" => None,
+					s => Some(s),
+				},
+				instances: {
+					let len = stream.read_u16_le().await.unwrap();
+					let mut instances = Vec::with_capacity(len as usize); // TODO: Prevent DOS
+
+					for i in 0..len {
+						instances.push(Instance::from_stream(stream).await.unwrap());
+					}
+
+					instances
+				},
+			}),
+			1 => Ok(Self::Rejected),
+			_ => todo!(),
 		}
 	}
 
@@ -155,8 +187,10 @@ impl PairingResponse {
 				encode::uuid(&mut buf, library_id);
 				encode::string(&mut buf, library_name);
 				encode::string(&mut buf, library_description.as_deref().unwrap_or(""));
-				// encode::vec(&mut buf, instances, Instance::to_bytes); // TODO
-				todo!();
+				buf.extend((instances.len() as u16).to_le_bytes());
+				for instance in instances {
+					buf.extend(instance.to_bytes());
+				}
 
 				buf
 			}

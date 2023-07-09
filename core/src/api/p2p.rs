@@ -1,12 +1,11 @@
-use async_stream::stream;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_p2p::PeerId;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::p2p::P2PEvent;
+use crate::p2p::{P2PEvent, PairingDecision};
 
 use super::{Ctx, R};
 
@@ -83,6 +82,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.clone()
 					.originator(id, ctx.config.get().await)
 					.await
+			})
+		})
+		.procedure("pairingResponse", {
+			R.mutation(|ctx, (pairing_id, decision): (u16, PairingDecision)| {
+				ctx.p2p.pairing.decision(pairing_id, decision);
 			})
 		})
 }

@@ -1,5 +1,6 @@
 import { useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
 import { Button } from '@sd/ui';
+import { startPairing } from '~/app/p2p/pairing';
 import { Heading } from '../Layout';
 
 export const Component = () => {
@@ -28,8 +29,6 @@ function IncorrectP2PPairingPane() {
 		}
 	});
 
-	console.log(onlineNodes);
-
 	return (
 		<>
 			<h1>Pairing</h1>
@@ -37,7 +36,19 @@ function IncorrectP2PPairingPane() {
 				<div key={id} className="flex space-x-2">
 					<p>{node.name}</p>
 
-					<Button onClick={() => p2pPair.mutate(id)}>Pair</Button>
+					<Button
+						onClick={() => {
+							// TODO: This is not great
+							p2pPair.mutateAsync(id).then((id) =>
+								startPairing(id, {
+									name: node.name,
+									os: node.os
+								})
+							);
+						}}
+					>
+						Pair
+					</Button>
 				</div>
 			))}
 		</>

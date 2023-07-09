@@ -55,6 +55,13 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		name: String,
 	},
+	// Pairing was reuqest has come in.
+	// This will fire on the responder only.
+	PairingRequest {
+		id: u16,
+		name: String,
+		os: OperatingSystem,
+	},
 	PairingProgress {
 		id: u16,
 		status: PairingStatus,
@@ -98,11 +105,13 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
+		let pairing = PairingManager::new(manager.clone(), tx.clone(), library_manager.clone());
 		tokio::spawn({
 			let events = tx.clone();
 			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = spacedrop_progress.clone();
 			let library_manager = library_manager.clone();
+			let pairing = pairing.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -131,6 +140,7 @@ impl P2PManager {
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let library_manager = library_manager.clone();
+							let pairing = pairing.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -197,74 +207,7 @@ impl P2PManager {
 										};
 									}
 									Header::Pair => {
-										todo!();
-										// self.pairing.responder(event.peer_id, &library_manager);
-
-										// info!(
-										// 	"Starting pairing with node '{}' for library '{library_id}'",
-										// 	event.peer_id
-										// );
-
-										// TODO: Authentication and security stuff
-
-										todo!();
-
-										// let library =
-										// 	library_manager.get_library(library_id).await.unwrap();
-
-										// debug!("Waiting for nodeinfo from the remote node");
-										// let remote_info =
-										// 	NodeLibraryPairingInformation::from_stream(&mut stream)
-										// 		.await
-										// 		.unwrap();
-										// debug!(
-										// 	"Received nodeinfo from the remote node: {:?}",
-										// 	remote_info
-										// );
-
-										// TODO: Create new library
-										// TODO: Create instance in library for self
-										// TODO: Create instance in library for remote
-
-										// debug!("Creating node in database");
-										// instance::Create {
-										// 	pub_id: remote_info.node_id.as_bytes().to_vec(),
-										// 	name: remote_info.node_name,
-										// 	platform: remote_info.platform as i32,
-										// 	date_created: Utc::now().into(),
-										// 	_params: vec![
-										// 		node::identity::set(Some(
-										// 			remote_info
-										// 				.library_public_key
-										// 				.to_bytes()
-										// 				.to_vec(),
-										// 		)),
-										// 		node::node_peer_id::set(Some(
-										// 			event.peer_id.to_string(),
-										// 		)),
-										// 	],
-										// }
-										// // TODO: Should this be in a transaction in case it fails?
-										// .to_query(&library.db)
-										// .exec()
-										// .await
-										// .unwrap();
-
-										// let info = NodeLibraryPairingInformation {
-										// 	node_id: library.config.node_id,
-										// 	node_name: library.config.name.to_string(),
-										// 	platform: Platform::current(),
-										// 	library_id,
-										// 	library_name: library.config.name.to_string(),
-										// 	library_public_key: library
-										// 		.identity
-										// 		.to_remote_identity(),
-										// };
-
-										// debug!("Sending nodeinfo to the remote node");
-										// stream.write_all(&info.to_bytes()).await.unwrap();
-
-										// info!("Completed pairing with {}", remote_info.node_id);
+										pairing.responder(event.peer_id, stream).await;
 									}
 									Header::Sync(library_id) => {
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
@@ -325,7 +268,7 @@ impl P2PManager {
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 		let this = Arc::new(Self {
-			pairing: PairingManager::new(manager.clone(), tx.clone()),
+			pairing,
 			events: (tx, rx),
 			manager,
 			spacedrop_pairing_reqs,

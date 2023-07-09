@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
 	collections::hash_map::DefaultHasher,
 	hash::{Hash, Hasher},
@@ -41,7 +43,6 @@ where
 		*self.get_mut().await = t;
 	}
 
-	#[allow(dead_code)]
 	pub async fn get(&self) -> RwLockReadGuard<'_, T> {
 		self.t.read().await
 	}
