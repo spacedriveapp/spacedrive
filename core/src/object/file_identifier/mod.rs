@@ -379,5 +379,5 @@ pub const fn can_generate_media_data_for_image(image_extension: &ImageExtension)
 	matches!(
 		image_extension,
 		Jpg | Jpeg | Png | Tiff | Webp | Heic | Heics | Heif | Heifs | Avif
-	);
+	)
 }
