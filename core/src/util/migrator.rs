@@ -66,6 +66,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 						}
 					}
 				};
+				file.rewind()?;
 
 				if cfg.version > Self::CURRENT_VERSION {
 					return Err(MigratorError::YourAppIsOutdated);
