@@ -460,13 +460,11 @@ model IndexerRulesInLocation {
 }
 
 model Notification {
-    id         Bytes    @id
-    title      String
-    level      String // Rust enum
-    style      String // Rust enum
-    read       Boolean  @default(false)
-    body       String?
-    created_at DateTime @default(now())
+    id         Int       @id @default(autoincrement())
+    read       Boolean   @default(false)
+    // Enum: crate::api::notifications::NotificationData
+    data       Bytes
+    expires_at DateTime?
 
     @@map("notification")
 }

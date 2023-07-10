@@ -10,7 +10,7 @@ use tokio::sync::{RwLock, RwLockWriteGuard};
 use uuid::Uuid;
 
 use crate::{
-	notifications::Notification,
+	api::notifications::Notification,
 	util::migrator::{Migrate, MigratorError},
 };
 
@@ -18,7 +18,7 @@ use crate::{
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
+#[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
 	pub id: Uuid,
@@ -147,7 +147,6 @@ impl NodeConfigManager {
 	}
 
 	/// write allows the user to update the configuration. This is done in a closure while a Mutex lock is held so that the user can't cause a race condition if the config were to be updated in multiple parts of the app at the same time.
-	#[allow(unused)]
 	pub(crate) async fn write<F: FnOnce(RwLockWriteGuard<NodeConfig>)>(
 		&self,
 		mutation_fn: F,

@@ -27,6 +27,7 @@ mod keys;
 mod libraries;
 mod locations;
 mod nodes;
+pub mod notifications;
 mod p2p;
 mod search;
 mod sync;
@@ -82,7 +83,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("p2p.", p2p::mount())
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
-		.merge("notifications.", crate::notifications::mount())
+		.merge("notifications.", notifications::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
 			#[allow(clippy::let_and_return)]

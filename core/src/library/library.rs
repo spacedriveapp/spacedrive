@@ -1,5 +1,8 @@
 use crate::{
-	api::CoreEvent,
+	api::{
+		notifications::{Notification, NotificationData, NotificationId},
+		CoreEvent,
+	},
 	location::{
 		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 		LocationManager,
@@ -19,7 +22,9 @@ use std::{
 	sync::Arc,
 };
 
+use chrono::{DateTime, Utc};
 use sd_p2p::spacetunnel::Identity;
+use sd_prisma::prisma::notification;
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
@@ -129,5 +134,50 @@ impl Library {
 		);
 
 		Ok(out)
+	}
+
+	/// Create a new notification which will be stored into the DB and emitted to the UI.
+	pub async fn emit_notification(&self, data: NotificationData, expires: Option<DateTime<Utc>>) {
+		let result = match self
+			.db
+			.notification()
+			.create(
+				match rmp_serde::to_vec(&data).map_err(|err| err.to_string()) {
+					Ok(data) => data,
+					Err(err) => {
+						warn!(
+							"Failed to serialize notification data for library '{}': {}",
+							self.id, err
+						);
+						return;
+					}
+				},
+				expires
+					.map(|e| vec![notification::expires_at::set(Some(e.fixed_offset()))])
+					.unwrap_or_else(|| vec![]),
+			)
+			.exec()
+			.await
+		{
+			Ok(result) => result,
+			Err(err) => {
+				warn!(
+					"Failed to create notification in library '{}': {}",
+					self.id, err
+				);
+				return;
+			}
+		};
+
+		self.node_context
+			.notifications
+			.0
+			.send(Notification {
+				id: NotificationId::Library(self.id, result.id as u32),
+				data,
+				read: false,
+				expires,
+			})
+			.ok();
 	}
 }
