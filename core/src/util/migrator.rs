@@ -91,6 +91,8 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 					file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
 				}
 
+				file.flush()?;
+
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
 			false => Ok(serde_json::from_value(Value::Object(
