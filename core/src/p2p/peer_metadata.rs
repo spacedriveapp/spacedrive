@@ -1,8 +1,10 @@
 use std::{collections::HashMap, env, str::FromStr};
 
+use itertools::Itertools;
 use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
 use crate::node::Platform;
 
@@ -13,11 +15,12 @@ pub struct PeerMetadata {
 	pub(super) version: Option<String>,
 	pub(super) email: Option<String>,
 	pub(super) img_url: Option<String>,
+	pub(super) instances: Vec<Uuid>,
 }
 
 impl Metadata for PeerMetadata {
 	fn to_hashmap(self) -> HashMap<String, String> {
-		let mut map = HashMap::with_capacity(3);
+		let mut map = HashMap::with_capacity(5);
 		map.insert("name".to_owned(), self.name);
 		if let Some(os) = self.operating_system {
 			map.insert("os".to_owned(), os.to_string());
@@ -31,6 +34,10 @@ impl Metadata for PeerMetadata {
 		if let Some(img_url) = self.img_url {
 			map.insert("img_url".to_owned(), img_url);
 		}
+		map.insert(
+			"instances".to_owned(),
+			self.instances.into_iter().map(|i| i.to_string()).join(","),
+		);
 		map
 	}
 
@@ -53,6 +60,15 @@ impl Metadata for PeerMetadata {
 			version: data.get("version").map(|v| v.to_owned()),
 			email: data.get("email").map(|v| v.to_owned()),
 			img_url: data.get("img_url").map(|v| v.to_owned()),
+			instances: data
+				.get("instances")
+				.ok_or_else(|| {
+					"DNS record for field 'instances' missing. Unable to decode 'PeerMetadata'!"
+						.to_owned()
+				})?
+				.split(',')
+				.map(|s| s.parse().map_err(|_| "Unable to parse instance 'Uuid'!"))
+				.collect::<Result<Vec<_>, _>>()?,
 		})
 	}
 }

@@ -79,7 +79,10 @@ impl P2PManager {
 	) -> Result<Arc<Self>, ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(Self::config_to_metadata(&config), config.keypair)
+			(
+				Self::config_to_metadata(&config, &library_manager).await,
+				config.keypair,
+			)
 		};
 
 		let metadata_manager = MetadataManager::new(config);
@@ -304,20 +307,30 @@ impl P2PManager {
 		Ok(this)
 	}
 
-	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
+	async fn config_to_metadata(
+		config: &NodeConfig,
+		library_manager: &LibraryManager,
+	) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
+			instances: library_manager
+				.get_all_instances()
+				.await
+				.into_iter()
+				.filter_map(|i| Uuid::from_slice(&i.id).ok())
+				.collect(),
 		}
 	}
 
 	#[allow(unused)] // TODO: Should probs be using this
 	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
-		self.metadata_manager
-			.update(Self::config_to_metadata(&node_config_manager.get().await));
+		self.metadata_manager.update(
+			Self::config_to_metadata(&node_config_manager.get().await, &self.library_manager).await,
+		);
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
