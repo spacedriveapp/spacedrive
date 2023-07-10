@@ -41,7 +41,11 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 	async fn load_and_migrate(path: &Path, ctx: &Self::Ctx) -> Result<Self, MigratorError> {
 		match path.try_exists()? {
 			true => {
-				let mut file = BufReader::new(File::options().read(true).open(path)?);
+				let mut file = File::options()
+					.write(true)
+					.read(true)
+					.truncate(true)
+					.open(path)?;
 				let mut cfg: BaseConfig = match serde_json::from_reader(&mut file) {
 					Ok(cfg) => cfg,
 					Err(err) => {
@@ -62,9 +66,6 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 						}
 					}
 				};
-				drop(file);
-				let file = File::options().write(true).open(path)?;
-				let mut file = BufWriter::new(file);
 
 				if cfg.version > Self::CURRENT_VERSION {
 					return Err(MigratorError::YourAppIsOutdated);
@@ -85,8 +86,6 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 				if !is_latest {
 					file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
 				}
-
-				file.flush()?;
 
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
