@@ -1,7 +1,7 @@
 use std::{
 	any::type_name,
 	fs::File,
-	io::{self, BufReader, BufWriter, Seek, Write},
+	io::{self, Seek, Write},
 	path::{Path, PathBuf},
 };
 
