@@ -21,7 +21,7 @@ import {
 
 type Node = {
 	name: string;
-	os: OperatingSystem;
+	os: OperatingSystem | null;
 };
 
 export function startPairing(pairing_id: number, node: Node) {
@@ -46,7 +46,7 @@ function OriginatorDialog({
 			submitDisabled={pairingStatus?.type !== 'PairingComplete'}
 			ctaLabel="Done"
 			// closeLabel="Cancel"
-			onSubmit={() => {
+			onSubmit={async () => {
 				alert('TODO');
 				// TODO: Change into the new library
 			}}
@@ -85,17 +85,19 @@ function PairingResponder({ pairingId }: { pairingId: number }) {
 	);
 	const pairingResponse = useBridgeMutation('p2p.pairingResponse');
 
-	console.log(selectedLibrary); // TODO
-
 	return (
 		<>
-			<Select onChange={(e) => setSelectedLibrary(e)} value={selectedLibrary}>
-				{libraries.data?.map((lib, index) => (
-					<SelectOption default={index === 0} key={lib.uuid} value={lib.uuid}>
-						{lib.config.name}
-					</SelectOption>
-				))}
-			</Select>
+			{selectedLibrary ? (
+				<Select onChange={(e) => setSelectedLibrary(e)} value={selectedLibrary}>
+					{libraries.data?.map((lib, index) => (
+						<SelectOption default={index === 0} key={lib.uuid} value={lib.uuid}>
+							{lib.config.name}
+						</SelectOption>
+					))}
+				</Select>
+			) : (
+				<p>No libraries. Uh oh!</p>
+			)}
 			<div className="align-center flex h-full w-full items-center justify-center space-x-2">
 				<Button
 					variant="accent"

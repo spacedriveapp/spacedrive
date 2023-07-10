@@ -42,7 +42,7 @@ function IncorrectP2PPairingPane() {
 							p2pPair.mutateAsync(id).then((id) =>
 								startPairing(id, {
 									name: node.name,
-									os: node.os
+									os: node.operating_system
 								})
 							);
 						}}

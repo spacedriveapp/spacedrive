@@ -10,7 +10,7 @@ export function P2P() {
 		if (data.type === 'PairingRequest') {
 			startPairing(data.id, {
 				name: data.name,
-				platform: data.platform
+				os: data.os
 			});
 		}
 	});
