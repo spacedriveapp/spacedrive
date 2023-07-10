@@ -65,7 +65,7 @@ CREATE TABLE "new_shared_operation" (
     "instance_id" BLOB NOT NULL,
     CONSTRAINT "shared_operation_instance_id_fkey" FOREIGN KEY ("instance_id") REFERENCES "instance" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_shared_operation" ("data", "id", "kind", "model", "record_id", "timestamp") SELECT "data", "id", "kind", "model", "record_id", "timestamp" FROM "shared_operation";
+-- INSERT INTO "new_shared_operation" ("data", "id", "kind", "model", "record_id", "timestamp") SELECT "data", "id", "kind", "model", "record_id", "timestamp" FROM "shared_operation";
 DROP TABLE "shared_operation";
 ALTER TABLE "new_shared_operation" RENAME TO "shared_operation";
 CREATE TABLE "new_job" (

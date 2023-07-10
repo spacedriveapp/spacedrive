@@ -452,7 +452,7 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
-						// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+						// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 						if location.instance_id.as_deref() == Some(&*library.config.instance_id.as_bytes()) {
 							let is_online = match check_online(&location, &library).await {
 								Ok(is_online) => is_online,

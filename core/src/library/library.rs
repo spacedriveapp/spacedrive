@@ -97,7 +97,7 @@ impl Library {
 			self.db
 				.file_path()
 				.find_many(vec![
-					// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+					// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 					file_path::location::is(vec![location::instance_id::equals(Some(
 						self.config.instance_id.as_bytes().to_vec(),
 					))]),
