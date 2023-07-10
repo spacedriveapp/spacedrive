@@ -49,7 +49,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.3.9
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   apps/desktop:
     dependencies:
@@ -563,7 +563,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -603,7 +603,7 @@ importers:
         version: 4.8.2
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   interface:
     dependencies:
@@ -730,6 +730,9 @@ importers:
       react-selecto:
         specifier: ^1.22.3
         version: 1.22.3
+      react-sticky-el:
+        specifier: ^2.1.0
+        version: 2.1.0(react-dom@18.2.0)(react@18.2.0)
       react-use-draggable-scroll:
         specifier: ^0.4.7
         version: 0.4.7(react@18.2.0)
@@ -10600,7 +10603,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.22.1)
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -20946,6 +20949,16 @@ packages:
       react: 18.2.0
       react-is: 18.2.0
 
+  /react-sticky-el@2.1.0(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-oo+a2GedF4QMfCfm20e9gD+RuuQp/ngvwGMUXAXpST+h4WnmKhuv7x6MQ4X/e3AHiLYgE0zDyJo1Pzo8m51KpA==}
+    peerDependencies:
+      react: '>=16.3.0'
+      react-dom: '>=16.3.0'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
   /react-style-singleton@2.2.1(@types/react@18.0.38)(react@18.2.0):
     resolution: {integrity: sha512-ZWj0fHEMyWkHzKYUr2Bs/4zU6XLmq9HsgBURm7g5pAVfyn49DgUiNgY2d4lXRlYSiCif9YBGpQleewkcqddc7g==}
     engines: {node: '>=10'}
@@ -24143,7 +24156,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.5.1
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24157,7 +24170,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.2.0
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24240,7 +24253,6 @@ packages:
       rollup: 3.26.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite@4.3.9(less@4.1.3):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}
