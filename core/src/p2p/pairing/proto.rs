@@ -159,14 +159,14 @@ impl PairingResponse {
 					.await
 					.map_err(|e| ("library_description", e))?
 				{
-					s if s == "" => None,
+					s if s.is_empty() => None,
 					s => Some(s),
 				},
 				instances: {
 					let len = stream.read_u16_le().await.unwrap();
 					let mut instances = Vec::with_capacity(len as usize); // TODO: Prevent DOS
 
-					for i in 0..len {
+					for _ in 0..len {
 						instances.push(Instance::from_stream(stream).await.unwrap());
 					}
 

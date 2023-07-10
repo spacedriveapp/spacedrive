@@ -1,7 +1,7 @@
-use crate::prisma::{location, node};
+use crate::prisma::location;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 
-use sd_prisma::prisma::instance::{self, node_id};
+use sd_prisma::prisma::instance;
 use serde::Deserialize;
 use specta::Type;
 use tracing::error;
@@ -48,7 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("listLocations", {
 			R.with2(library())
 				// TODO: I don't like this. `node_id` should probs be a machine hash or something cause `node_id` is dynamic in the context of P2P and what does it mean for removable media to be owned by a node?
-				.query(|(ctx, library), node_id: Option<Uuid>| async move {
+				.query(|(_, library), node_id: Option<Uuid>| async move {
 					// Be aware multiple instances can exist on a single node. This is generally an edge case but it's possible.
 					let instances = library
 						.db

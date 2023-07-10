@@ -2,37 +2,31 @@ use std::{
 	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
-	str::FromStr,
-	sync::{
-		atomic::{AtomicU16, Ordering},
-		Arc,
-	},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use chrono::Utc;
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{Identity, Tunnel},
 	Event, Manager, ManagerError, MetadataManager, PeerId,
 };
-use sd_prisma::prisma::{instance, node};
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
-	sync::{broadcast, mpsc, oneshot, Mutex},
+	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
-	library::{Library, LibraryManager, SubscriberEvent},
-	node::{NodeConfig, NodeConfigManager, Platform},
+	library::{LibraryManager, SubscriberEvent},
+	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	sync::SyncMessage,
 };
@@ -363,7 +357,7 @@ impl P2PManager {
 
 		// TODO: Establish a connection to them
 
-		let library = self.library_manager.get_library(library_id).await.unwrap();
+		let _library = self.library_manager.get_library(library_id).await.unwrap();
 
 		todo!();
 

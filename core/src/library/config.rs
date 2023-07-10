@@ -9,7 +9,7 @@ use crate::{
 
 use chrono::Utc;
 use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::{instance, node};
+use sd_prisma::prisma::{instance, location, node};
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -163,17 +163,17 @@ impl Migrate for LibraryConfig {
 			6 => {
 				let nodes = db.node().find_many(vec![]).exec().await?;
 
-				if nodes.len() == 0 {
-					println!("No nodes found... How did you even get this far? but this is fine we can fix it.");
+				if nodes.is_empty() {
+					println!("6 - No nodes found... How did you even get this far? but this is fine we can fix it.");
 				} else if nodes.len() > 1 {
 					return Err(MigratorError::Custom(
-						"More than one node found in the DB... This can't be automatically reconciled!"
+						"6 - More than one node found in the DB... This can't be automatically reconciled!"
 							.into(),
 					));
 				}
 
 				let node = nodes.first();
-				let now = Utc::now();
+				let now = Utc::now().fixed_offset();
 				let instance_id = Uuid::new_v4();
 				instance::Create {
 					id: instance_id.as_bytes().to_vec(),
@@ -183,8 +183,8 @@ impl Migrate for LibraryConfig {
 					node_id: node_config.id.as_bytes().to_vec(),
 					node_name: node_config.name.clone(),
 					node_platform: Platform::current() as i32,
-					last_seen: now.clone().into(),
-					date_created: node.map(|n| n.date_created).unwrap_or_else(|| now.into()),
+					last_seen: now,
+					date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
 					_params: vec![],
 				}
 				.to_query(db)
@@ -196,11 +196,31 @@ impl Migrate for LibraryConfig {
 				config.insert("instance_id".into(), Value::String(instance_id.to_string()));
 			}
 			7 => {
-				let nodes = db.node().find_many(vec![]).exec().await?;
+				let instances = db.instance().find_many(vec![]).exec().await?;
 
-				// I am dropping the `node_id: Int` columns so we are gonna relink all to the current instance.
-				// Migration 6 would have failed if there was more than one node in the DB so this is fine.
-				db.location().update_many(vec![], vec![]).exec().await?;
+				if instances.len() > 1 {
+					return Err(MigratorError::Custom(
+						"7 - More than one node found in the DB... This can't be automatically reconciled!"
+							.into(),
+					));
+				}
+				let Some(instance) = instances.first() else {
+					return Err(MigratorError::Custom(
+						"7 - No nodes found... How did you even get this far?!".into(),
+					));
+				};
+
+				// I am dropping the `node_id: Int` columns so we are gonna relink all locations to the current instance.
+				// If you have more than one node in your database and your not @Oscar, something went horribly wrong.
+				db.location()
+					.update_many(
+						vec![],
+						vec![location::instance::connect(instance::id::equals(
+							instance.id.clone(),
+						))],
+					)
+					.exec()
+					.await?;
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}

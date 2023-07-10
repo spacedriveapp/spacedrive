@@ -3,7 +3,7 @@ use crate::{
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
 	object::{orphan_remover::OrphanRemoverActor, tag},
-	prisma::{location, node},
+	prisma::location,
 	sync::{SyncManager, SyncMessage},
 	util::{
 		db::{self, MissingFieldError},
@@ -20,7 +20,7 @@ use std::{
 	sync::Arc,
 };
 
-use chrono::{Local, Utc};
+use chrono::Utc;
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use sd_prisma::prisma::instance;
 use thiserror::Error;
@@ -234,7 +234,7 @@ impl LibraryManager {
 			config_path.display()
 		);
 
-		let now = Utc::now();
+		let now = Utc::now().fixed_offset();
 		let library = Self::load(
 			id,
 			self.libraries_dir.join(format!("{id}.db")),
@@ -247,8 +247,8 @@ impl LibraryManager {
 				node_id: node_cfg.id.as_bytes().to_vec(),
 				node_name: node_cfg.name.clone(),
 				node_platform: Platform::current() as i32,
-				last_seen: now.clone().into(),
-				date_created: now.into(),
+				last_seen: now,
+				date_created: now,
 				_params: vec![],
 			}),
 		)
@@ -268,10 +268,7 @@ impl LibraryManager {
 
 		debug!("Pushed library into manager '{id:?}'");
 
-		Ok(LibraryConfigWrapped {
-			uuid: id,
-			config: config.into(),
-		})
+		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
 	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
@@ -280,7 +277,7 @@ impl LibraryManager {
 			.await
 			.iter()
 			.map(|lib| LibraryConfigWrapped {
-				config: lib.config.clone().into(),
+				config: lib.config.clone(),
 				uuid: lib.id,
 			})
 			.collect()

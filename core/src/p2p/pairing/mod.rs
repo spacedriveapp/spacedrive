@@ -88,13 +88,13 @@ impl PairingManager {
 			let req = PairingRequest(Instance {
 				id: Uuid::new_v4(),
 				identity: Identity::new(), // TODO: Public key only
-				node_id: node_config.id.clone(),
+				node_id: node_config.id,
 				node_name: node_config.name.clone(),
 				node_platform: Platform::current(),
-				last_seen: now.into(),
-				date_created: now.into(),
+				last_seen: now,
+				date_created: now,
 			});
-			stream.write_all(&mut req.to_bytes()).await.unwrap();
+			stream.write_all(&req.to_bytes()).await.unwrap();
 
 			// 2.
 			match PairingResponse::from_stream(&mut stream).await.unwrap() {
@@ -192,7 +192,7 @@ impl PairingManager {
 		let PairingDecision::Accept(library_id) = rx.await.unwrap() else {
     			info!("The user rejected pairing '{pairing_id}'!");
     			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
-    			stream.write_all(&mut PairingResponse::Rejected.to_bytes()).await.unwrap();
+    			stream.write_all(&PairingResponse::Rejected.to_bytes()).await.unwrap();
     			return;
     		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
@@ -200,7 +200,7 @@ impl PairingManager {
 		let library = self.library_manager.get_library(library_id).await.unwrap();
 		stream
 			.write_all(
-				&mut PairingResponse::Accepted {
+				&PairingResponse::Accepted {
 					library_id: library.id,
 					library_name: library.config.name.into(),
 					library_description: library.config.description.clone(),
