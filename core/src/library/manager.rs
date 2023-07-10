@@ -473,23 +473,25 @@ impl LibraryManager {
 
 		indexer::rules::seed::new_or_existing_library(&library).await?;
 
-		// TODO: This is using the `Node` -> `Location` relation which has to go with P2P.
-		// for location in library
-		// 	.db
-		// 	.location()
-		// 	.find_many(vec![location::node_id::equals(Some(instance.node_id))])
-		// 	.exec()
-		// 	.await?
-		// {
-		// 	if let Err(e) = library
-		// 		.node_context
-		// 		.location_manager
-		// 		.add(location.id, library.clone())
-		// 		.await
-		// 	{
-		// 		error!("Failed to watch location on startup: {e}");
-		// 	};
-		// }
+		for location in library
+			.db
+			.location()
+			.find_many(vec![
+				// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+				location::instance_id::equals(Some(instance_id.as_bytes().to_vec())),
+			])
+			.exec()
+			.await?
+		{
+			if let Err(e) = library
+				.node_context
+				.location_manager
+				.add(location.id, library.clone())
+				.await
+			{
+				error!("Failed to watch location on startup: {e}");
+			};
+		}
 
 		if let Err(e) = library
 			.node_context

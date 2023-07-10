@@ -9,7 +9,10 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	sync,
-	util::{db::chain_optional_iter, error::FileIOError},
+	util::{
+		db::{chain_optional_iter, uuid_to_bytes},
+		error::FileIOError,
+	},
 };
 
 use std::{
@@ -21,6 +24,7 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
+use sd_prisma::prisma::instance;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -370,10 +374,10 @@ pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
-	todo!(); // TODO: `Node` to `Location` relation
-		 // if location.node_id != Some(library.local_id) {
-		 // 	return Ok(());
-		 // }
+	// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+	if location.instance_id.as_deref() != Some(&*library.config.instance_id.as_bytes()) {
+		return Ok(());
+	}
 
 	let location_base_data = location::Data::from(&location);
 
@@ -405,10 +409,10 @@ pub async fn scan_location_sub_path(
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	todo!(); // TODO: `Node` to `Location` relation
-		 // if location.node_id != Some(library.local_id) {
-		 // 	return Ok(());
-		 // }
+	// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+	if location.instance_id.as_deref() != Some(&*library.config.instance_id.as_bytes()) {
+		return Ok(());
+	}
 
 	let location_base_data = location::Data::from(&location);
 
@@ -442,10 +446,10 @@ pub async fn light_scan_location(
 ) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	// if location.node_id != Some(library.local_id) {
-	// 	return Ok(());
-	// }
-	todo!(); // TODO: `Node` to `Location` relation
+	// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+	if location.instance_id.as_deref() != Some(&*library.config.instance_id.as_bytes()) {
+		return Ok(());
+	}
 
 	let location_base_data = location::Data::from(&location);
 
@@ -589,6 +593,12 @@ async fn create_location(
 					(location::name::NAME, json!(&name)),
 					(location::path::NAME, json!(&location_path)),
 					(location::date_created::NAME, json!(date_created)),
+					(
+						location::instance_id::NAME,
+						json!(sync::instance::SyncId {
+							id: uuid_to_bytes(library.config.instance_id)
+						}),
+					),
 				],
 			),
 			db.location()
@@ -598,6 +608,9 @@ async fn create_location(
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
 						location::date_created::set(Some(date_created.into())),
+						location::instance::connect(instance::id::equals(
+							library.config.instance_id.as_bytes().to_vec(),
+						)),
 					],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -653,14 +666,14 @@ pub async fn delete_location(
 
 	// TODO: This should really be queued to the proper node so it will always run
 	// TODO: Deal with whether a location is online or not
-	todo!(); // TODO: `Node` to `Location` relation
-		 // if location.node_id == Some(library.local_id) {
-		 // 	if let Some(path) = &location.path {
-		 // 		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
-		 // 			metadata.remove_library(library.id).await?;
-		 // 		}
-		 // 	}
-		 // }
+	// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+	if location.instance_id.as_deref() == Some(&*library.config.instance_id.as_bytes()) {
+		if let Some(path) = &location.path {
+			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+				metadata.remove_library(library.id).await?;
+			}
+		}
+	}
 
 	invalidate_query!(library, "locations.list");
 
@@ -708,7 +721,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id,
 			path: data.path,
-			node_id: data.node_id,
+			instance_id: data.instance_id,
 			name: data.name,
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
@@ -719,6 +732,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
+			instance: None,
 		}
 	}
 }
@@ -729,7 +743,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id.clone(),
 			path: data.path.clone(),
-			node_id: data.node_id,
+			instance_id: data.instance_id.clone(),
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
@@ -740,6 +754,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
+			instance: None,
 		}
 	}
 }

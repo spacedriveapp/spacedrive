@@ -93,34 +93,36 @@ impl Library {
 			.map(|id| (id, None))
 			.collect::<HashMap<_, _>>();
 
-		todo!(); // TODO: `Node` to `Location` relation
-		 // out.extend(
-		 // 	self.db
-		 // 		.file_path()
-		 // 		.find_many(vec![
-		 // 			file_path::location::is(vec![location::node_id::equals(Some(self.local_id))]),
-		 // 			file_path::id::in_vec(ids),
-		 // 		])
-		 // 		.select(file_path_to_full_path::select())
-		 // 		.exec()
-		 // 		.await?
-		 // 		.into_iter()
-		 // 		.flat_map(|file_path| {
-		 // 			let location = maybe_missing(&file_path.location, "file_path.location")?;
+		out.extend(
+			self.db
+				.file_path()
+				.find_many(vec![
+					// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+					file_path::location::is(vec![location::instance_id::equals(Some(
+						self.config.instance_id.as_bytes().to_vec(),
+					))]),
+					file_path::id::in_vec(ids),
+				])
+				.select(file_path_to_full_path::select())
+				.exec()
+				.await?
+				.into_iter()
+				.flat_map(|file_path| {
+					let location = maybe_missing(&file_path.location, "file_path.location")?;
 
-		// 			Ok::<_, LibraryManagerError>((
-		// 				file_path.id,
-		// 				location
-		// 					.path
-		// 					.as_ref()
-		// 					.map(|location_path| {
-		// 						IsolatedFilePathData::try_from((location.id, &file_path))
-		// 							.map(|data| Path::new(&location_path).join(data))
-		// 					})
-		// 					.transpose()?,
-		// 			))
-		// 		}),
-		// );
+					Ok::<_, LibraryManagerError>((
+						file_path.id,
+						location
+							.path
+							.as_ref()
+							.map(|location_path| {
+								IsolatedFilePathData::try_from((location.id, &file_path))
+									.map(|data| Path::new(&location_path).join(data))
+							})
+							.transpose()?,
+					))
+				}),
+		);
 
 		Ok(out)
 	}

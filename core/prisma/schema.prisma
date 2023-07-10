@@ -46,6 +46,7 @@ model Node {
     @@map("node")
 }
 
+/// @local
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
@@ -61,6 +62,7 @@ model Instance {
     date_created DateTime
 
     SharedOperation SharedOperation[]
+    Location        Location[]
 
     @@map("instance")
 }
@@ -110,7 +112,8 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
-    node_id Int? // TODO: Remove this cause it's problematic with P2P
+    instance_id Bytes?
+    instance    Instance? @relation(fields: [instance_id], references: [id])
 
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]

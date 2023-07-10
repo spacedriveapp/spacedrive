@@ -452,45 +452,45 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
-						todo!(); // TODO: `Node` to `Location` relation
-						// if location.node_id == Some(library.local_id) {
-						// 	let is_online = match check_online(&location, &library).await {
-						// 		Ok(is_online) => is_online,
-						// 		Err(e) => {
-						// 			error!("Error while checking online status of location {location_id}: {e}");
-						// 			continue;
-						// 		}
-						// 	};
+						// TODO(N): This isn't gonna work with removable media and will permanently break if the DB is copied between machines or restored from a backup.
+						if location.instance_id.as_deref() == Some(&*library.config.instance_id.as_bytes()) {
+							let is_online = match check_online(&location, &library).await {
+								Ok(is_online) => is_online,
+								Err(e) => {
+									error!("Error while checking online status of location {location_id}: {e}");
+									continue;
+								}
+							};
 
-						// 	if is_online
-						// 		&& !forced_unwatch.contains(&key)
-						// 	{
-						// 		watch_location(
-						// 			location,
-						// 			library.id,
-						// 			&mut locations_watched,
-						// 			&mut locations_unwatched,
-						// 		);
-						// 	} else {
-						// 		unwatch_location(
-						// 			location,
-						// 			library.id,
-						// 			&mut locations_watched,
-						// 			&mut locations_unwatched,
-						// 		);
-						// 	}
-						// 	to_check_futures.push(location_check_sleep(location_id, library));
-						// } else {
-						// 	drop_location(
-						// 		location_id,
-						// 		library.id,
-						// 		"Dropping location from location manager, because \
-						// 		it isn't a location in the current node",
-						// 		&mut locations_watched,
-						// 		&mut locations_unwatched
-						// 	);
-						// 	forced_unwatch.remove(&key);
-						// }
+							if is_online
+								&& !forced_unwatch.contains(&key)
+							{
+								watch_location(
+									location,
+									library.id,
+									&mut locations_watched,
+									&mut locations_unwatched,
+								);
+							} else {
+								unwatch_location(
+									location,
+									library.id,
+									&mut locations_watched,
+									&mut locations_unwatched,
+								);
+							}
+							to_check_futures.push(location_check_sleep(location_id, library));
+						} else {
+							drop_location(
+								location_id,
+								library.id,
+								"Dropping location from location manager, because \
+								it isn't a location in the current node",
+								&mut locations_watched,
+								&mut locations_unwatched
+							);
+							forced_unwatch.remove(&key);
+						}
 					} else {
 						drop_location(
 							location_id,

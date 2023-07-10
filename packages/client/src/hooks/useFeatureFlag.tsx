@@ -1,4 +1,5 @@
-import { useSnapshot } from 'valtio';
+import { useEffect } from 'react';
+import { subscribe, useSnapshot } from 'valtio';
 import { valtioPersist } from '../lib/valito';
 
 export const features = ['spacedrop', 'p2pPairing'] as const;
@@ -18,6 +19,10 @@ export function useFeatureFlag(flag: FeatureFlag | FeatureFlag[]) {
 	return Array.isArray(flag) ? flag.every((f) => isEnabled(f)) : isEnabled(flag);
 }
 
+export function useOnFeatureFlagsChange(callback: (flags: FeatureFlag[]) => void) {
+	useEffect(() => subscribe(featureFlagState, () => callback(featureFlagState.enabled)));
+}
+
 export const isEnabled = (flag: FeatureFlag) => featureFlagState.enabled.find((ff) => flag === ff);
 
 export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
@@ -26,6 +31,12 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 	}
 	flags.forEach((f) => {
 		if (!featureFlagState.enabled.find((ff) => f === ff)) {
+			if (f === 'p2pPairing') {
+				alert(
+					'Pairing will render your database broken and it WILL need to be reset! Use at your own risk!'
+				);
+			}
+
 			featureFlagState.enabled.push(f);
 		} else {
 			featureFlagState.enabled = featureFlagState.enabled.filter((ff) => f !== ff);

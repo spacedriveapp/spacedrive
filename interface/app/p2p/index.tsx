@@ -1,4 +1,4 @@
-import { useP2PEvents, withFeatureFlag } from '@sd/client';
+import { useOnFeatureFlagsChange, useP2PEvents, withFeatureFlag } from '@sd/client';
 import { SpacedropUI } from './Spacedrop';
 import { startPairing } from './pairing';
 

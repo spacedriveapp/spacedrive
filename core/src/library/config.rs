@@ -35,7 +35,7 @@ pub struct LibraryConfig {
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 6;
+	const CURRENT_VERSION: u32 = 7;
 
 	type Ctx = (NodeConfig, Arc<PrismaClient>);
 
@@ -194,6 +194,13 @@ impl Migrate for LibraryConfig {
 				config.remove("node_id");
 				config.remove("identity");
 				config.insert("instance_id".into(), Value::String(instance_id.to_string()));
+			}
+			7 => {
+				let nodes = db.node().find_many(vec![]).exec().await?;
+
+				// I am dropping the `node_id: Int` columns so we are gonna relink all to the current instance.
+				// Migration 6 would have failed if there was more than one node in the DB so this is fine.
+				db.location().update_many(vec![], vec![]).exec().await?;
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}
