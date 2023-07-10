@@ -19,7 +19,8 @@ export type Procedures = {
         { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; node: Node | null }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
-        { key: "notifications.clearAll", input: never, result: null } | 
+        { key: "notifications.dismiss", input: NotificationId, result: null } | 
+        { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -194,11 +195,18 @@ export type Node = { id: number; pub_id: number[]; name: string; platform: numbe
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
-export type Notification = { id: string; title: string; level: NotificationLevel; style: NotificationStyle; read: boolean; body: string | null; created_at: string }
+/**
+ * Represents a single notification.
+ */
+export type Notification = ({ type: "library"; id: [string, number] } | { type: "node"; id: number }) & { data: NotificationData; read: boolean; expires: string | null }
 
-export type NotificationLevel = "Alert" | "Warning" | "Info" | "Success" | "Error"
+/**
+ * Represents the data of a single notification.
+ * This data is used by the frontend to properly display the notification.
+ */
+export type NotificationData = { PairingRequest: { id: string; pairing_id: number } }
 
-export type NotificationStyle = "Dismiss" | "AcceptDeny" | "AcceptCancel"
+export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
