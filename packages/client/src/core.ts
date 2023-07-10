@@ -61,6 +61,8 @@ export type Procedures = {
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
+        { key: "notifications.test", input: never, result: null } | 
+        { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.pair", input: LibraryArgs<PeerId>, result: number } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
@@ -204,7 +206,7 @@ export type Notification = ({ type: "library"; id: [string, number] } | { type: 
  * Represents the data of a single notification.
  * This data is used by the frontend to properly display the notification.
  */
-export type NotificationData = { PairingRequest: { id: string; pairing_id: number } }
+export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
 
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 

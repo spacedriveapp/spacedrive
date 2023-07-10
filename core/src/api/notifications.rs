@@ -9,6 +9,8 @@ use uuid::Uuid;
 
 use crate::api::{Ctx, R};
 
+use super::utils::library;
+
 /// Represents a single notification.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Notification {
@@ -31,6 +33,7 @@ pub enum NotificationId {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum NotificationData {
 	PairingRequest { id: Uuid, pairing_id: u16 },
+	Test,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -159,5 +162,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 			})
+		})
+		.procedure("test", {
+			R.mutation(|ctx, _: ()| async move {
+				ctx.emit_notification(NotificationData::Test, None).await;
+			})
+		})
+		.procedure("testLibrary", {
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					library
+						.emit_notification(NotificationData::Test, None)
+						.await;
+				})
 		})
 }
