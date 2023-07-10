@@ -5,11 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import AppEmbed from '~/components/AppEmbed';
-import { Bubbles } from '~/components/Bubbles';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import { getWindow } from '~/utils/util';
+import { detectWebGLContext, getWindow } from '~/utils/util';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -47,6 +46,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 
 export default function HomePage() {
 	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
+	const [background, setBackground] = useState<JSX.Element | null>(null);
 
 	const router = useRouter();
 
@@ -79,6 +79,20 @@ export default function HomePage() {
 		})();
 	}, [router.query.wunsub]);
 
+	useEffect(() => {
+		if (!(getWindow() && background == null)) return;
+		(async () => {
+			if (detectWebGLContext()) {
+				const Space = (await import('~/components/Space')).Space;
+				setBackground(<Space />);
+			} else {
+				console.warn('Fallback to Bubbles background due WebGL not being available');
+				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
+				setBackground(<Bubbles />);
+			}
+		})();
+	}, [background]);
+
 	return (
 		<PageWrapper>
 			<div className="flex w-full flex-col items-center px-4">
@@ -99,7 +113,7 @@ export default function HomePage() {
 					<meta name="author" content="Spacedrive Technology Inc." />
 				</Head>
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
-				<div className="mt-24 lg:mt-5" />
+				<div className="mt-24 lg:mt-8" />
 				<NewBanner
 					headline="Spacedrive raises $2M led by OSS Capital"
 					href="/blog/spacedrive-funding-announcement"
@@ -119,7 +133,7 @@ export default function HomePage() {
 					</div>
 				)}
 
-				<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-6xl">
+				<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-7xl">
 					A file explorer from the future.
 				</h1>
 				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
@@ -152,7 +166,7 @@ export default function HomePage() {
 						</>
 					}
 				/>
-				<Bubbles />
+				{background}
 			</div>
 		</PageWrapper>
 	);

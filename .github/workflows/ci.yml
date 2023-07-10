@@ -2,20 +2,6 @@ name: CI
 
 on:
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.cspell/**'
-      - '.vscode/**'
-      - '.github/CODEOWNERS'
-      - '.github/FUNDING.yml'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/scripts/osxcross/**'
-      - '.github/scripts/ffmpeg-macos/**'
-      - '.gitattributes'
-      - 'cspell.config.yaml'
-  workflow_dispatch:
   merge_group:
 
 env:
@@ -64,10 +50,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'core/**'
+              - 'crates/*/**'
+
       - name: Setup Rust and Prisma
+        if: steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
 
       - name: Run rustfmt
+        if: steps.filter.outputs.changes == 'true'
         run: cargo fmt --all -- --check
 
   clippy:
@@ -80,12 +76,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'core/**'
+              - 'crates/*/**'
+
       - name: Setup System and Rust
+        if: steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
+        if: steps.filter.outputs.changes == 'true'
         uses: actions-rs/clippy-check@v1
         with:
           args: --workspace --all-features

@@ -1,14 +1,15 @@
+use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
 
 use serde_json::json;
-use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
 	library::Library,
-	prisma::{object, tag, tag_on_object},
+	object::tag::TagCreateArgs,
+	prisma::{tag, tag_on_object},
 	sync,
 };
 
@@ -45,53 +46,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-		// .library_mutation("create", |t| {
-		// 	#[derive(Type, Deserialize)]
-		// 	pub struct TagCreateArgs {
-		// 		pub name: String,
-		// 		pub color: String,
-		// 	}
-		// 	t(|_, args: TagCreateArgs, library| async move {
-		// 		let created_tag = Tag::new(args.name, args.color);
-		// 		created_tag.save(&library.db).await?;
-		// 		invalidate_query!(library, "tags.list");
-		// 		Ok(created_tag)
-		// 	})
-		// })
 		.procedure("create", {
-			#[derive(Type, Deserialize)]
-			pub struct TagCreateArgs {
-				pub name: String,
-				pub color: String,
-			}
-
 			R.with2(library())
 				.mutation(|(_, library), args: TagCreateArgs| async move {
-					let Library { db, sync, .. } = &library;
-
-					let pub_id = Uuid::new_v4().as_bytes().to_vec();
-
-					let created_tag = sync
-						.write_op(
-							db,
-							sync.unique_shared_create(
-								sync::tag::SyncId {
-									pub_id: pub_id.clone(),
-								},
-								[
-									(tag::name::NAME, json!(args.name)),
-									(tag::color::NAME, json!(args.color)),
-								],
-							),
-							db.tag().create(
-								pub_id,
-								vec![
-									tag::name::set(Some(args.name)),
-									tag::color::set(Some(args.color)),
-								],
-							),
-						)
-						.await?;
+					let created_tag = args.exec(&library).await?;
 
 					invalidate_query!(library, "tags.list");
 
@@ -101,28 +59,34 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("assign", {
 			#[derive(Debug, Type, Deserialize)]
 			pub struct TagAssignArgs {
-				pub object_id: i32,
+				pub object_ids: Vec<i32>,
 				pub tag_id: i32,
 				pub unassign: bool,
 			}
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
+					let Library { db, .. } = &library;
+
 					if args.unassign {
-						library
-							.db
-							.tag_on_object()
-							.delete(tag_on_object::tag_id_object_id(args.tag_id, args.object_id))
+						db.tag_on_object()
+							.delete_many(vec![
+								tag_on_object::tag_id::equals(args.tag_id),
+								tag_on_object::object_id::in_vec(args.object_ids),
+							])
 							.exec()
 							.await?;
 					} else {
-						library
-							.db
-							.tag_on_object()
-							.create(
-								tag::id::equals(args.tag_id),
-								object::id::equals(args.object_id),
-								vec![],
+						db.tag_on_object()
+							.create_many(
+								args.object_ids
+									.iter()
+									.map(|&object_id| tag_on_object::CreateUnchecked {
+										tag_id: args.tag_id,
+										object_id,
+										_params: vec![],
+									})
+									.collect(),
 							)
 							.exec()
 							.await?;
@@ -155,6 +119,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							ErrorCode::NotFound,
 							"Error finding tag in db".into(),
 						))?;
+
+					db.tag()
+						.update(
+							tag::id::equals(args.id),
+							vec![tag::date_modified::set(Some(Utc::now().into()))],
+						)
+						.exec()
+						.await?;
 
 					sync.write_ops(
 						db,

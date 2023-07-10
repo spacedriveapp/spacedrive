@@ -1,8 +1,8 @@
-use crate::{library::Library, prisma::location};
+use crate::{library::Library, prisma::location, util::db::maybe_missing};
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	time::Duration,
 };
 
@@ -10,10 +10,10 @@ use tokio::{fs, io::ErrorKind, sync::oneshot, time::sleep};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{watcher::LocationWatcher, LocationId, LocationManagerError};
+use super::{watcher::LocationWatcher, LocationManagerError};
 
 type LibraryId = Uuid;
-type LocationAndLibraryKey = (LocationId, LibraryId);
+type LocationAndLibraryKey = (location::id::Type, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -23,8 +23,10 @@ pub(super) async fn check_online(
 ) -> Result<bool, LocationManagerError> {
 	let pub_id = Uuid::from_slice(&location.pub_id)?;
 
-	if location.node_id == library.node_local_id {
-		match fs::metadata(&location.path).await {
+	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
+
+	if location.node_id == Some(library.node_local_id) {
+		match fs::metadata(&location_path).await {
 			Ok(_) => {
 				library.location_manager().add_online(pub_id).await;
 				Ok(true)
@@ -46,9 +48,9 @@ pub(super) async fn check_online(
 }
 
 pub(super) async fn location_check_sleep(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
-) -> (LocationId, Library) {
+) -> (location::id::Type, Library) {
 	sleep(LOCATION_CHECK_INTERVAL).await;
 	(location_id, library)
 }
@@ -60,11 +62,14 @@ pub(super) fn watch_location(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return
+    };
+
 	if let Some(mut watcher) = locations_unwatched.remove(&(location_id, library_id)) {
-		if watcher.check_path(&location.path) {
+		if watcher.check_path(location_path) {
 			watcher.watch();
-		} else {
-			watcher.update_data(location, true);
 		}
 
 		locations_watched.insert((location_id, library_id), watcher);
@@ -78,11 +83,14 @@ pub(super) fn unwatch_location(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
+	let location_path = location.path.as_ref();
+	let Some(location_path) = location_path.map(Path::new) else {
+        return
+    };
+
 	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
-		if watcher.check_path(&location.path) {
+		if watcher.check_path(location_path) {
 			watcher.unwatch();
-		} else {
-			watcher.update_data(location, false)
 		}
 
 		locations_unwatched.insert((location_id, library_id), watcher);
@@ -90,7 +98,7 @@ pub(super) fn unwatch_location(
 }
 
 pub(super) fn drop_location(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library_id: LibraryId,
 	message: &str,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -104,7 +112,10 @@ pub(super) fn drop_location(
 	}
 }
 
-pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<location::Data> {
+pub(super) async fn get_location(
+	location_id: location::id::Type,
+	library: &Library,
+) -> Option<location::Data> {
 	library
 		.db
 		.location()
@@ -118,7 +129,7 @@ pub(super) async fn get_location(location_id: i32, library: &Library) -> Option<
 }
 
 pub(super) async fn handle_remove_location_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -128,7 +139,7 @@ pub(super) async fn handle_remove_location_request(
 ) {
 	let key = (location_id, library.id);
 	if let Some(location) = get_location(location_id, &library).await {
-		if location.node_id == library.node_local_id {
+		if location.node_id == Some(library.node_local_id) {
 			unwatch_location(location, library.id, locations_watched, locations_unwatched);
 			locations_unwatched.remove(&key);
 			forced_unwatch.remove(&key);
@@ -158,7 +169,7 @@ pub(super) async fn handle_remove_location_request(
 }
 
 pub(super) async fn handle_stop_watcher_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -166,7 +177,7 @@ pub(super) async fn handle_stop_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	async fn inner(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -201,7 +212,7 @@ pub(super) async fn handle_stop_watcher_request(
 }
 
 pub(super) async fn handle_reinit_watcher_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
@@ -209,7 +220,7 @@ pub(super) async fn handle_reinit_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	async fn inner(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		library: Library,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -244,7 +255,7 @@ pub(super) async fn handle_reinit_watcher_request(
 }
 
 pub(super) fn handle_ignore_path_request(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	library: Library,
 	path: PathBuf,
 	ignore: bool,

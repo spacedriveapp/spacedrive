@@ -1,50 +1,24 @@
 import { MagnifyingGlass } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
-import { z } from 'zod';
-import { useLibraryQuery } from '@sd/client';
-import {
-	SortOrder,
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodSearchParams
-} from '~/hooks';
+import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
+import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
-import { getExplorerItemData } from './Explorer/util';
+import { ExplorerContext } from './Explorer/Context';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
+import { getExplorerStore, useExplorerStore } from './Explorer/store';
 import { TopBarPortal } from './TopBar/Portal';
-import TopBarOptions from './TopBar/TopBarOptions';
 
-export const SEARCH_PARAMS = z.object({
-	search: z.string().optional(),
-	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
-});
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
-const SearchExplorer = memo((props: { args: SearchArgs }) => {
+const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
 
 	const { search, ...args } = props.args;
 
-	const query = useLibraryQuery(
-		[
-			'search.paths',
-			{
-				...args,
-				filter: {
-					search
-				}
-			}
-		],
-		{
-			suspense: true,
-			enabled: !!search,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
-		}
-	);
+	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
+		suspense: true,
+		enabled: !!search,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
 
 	const items = useMemo(() => {
 		const items = query.data?.items;
@@ -57,27 +31,13 @@ const SearchExplorer = memo((props: { args: SearchArgs }) => {
 		});
 	}, [query.data, explorerStore.layoutMode]);
 
-	useEffect(() => {
-		getExplorerStore().selectedRowIndex = null;
-	}, [search]);
-
 	return (
 		<>
 			{items && items.length > 0 ? (
-				<>
-					<TopBarPortal
-						right={
-							<TopBarOptions
-								options={[
-									explorerViewOptions,
-									explorerToolOptions,
-									explorerControlOptions
-								]}
-							/>
-						}
-					/>
+				<ExplorerContext.Provider value={{}}>
+					<TopBarPortal right={<DefaultTopBarOptions />} />
 					<Explorer items={items} />
-				</>
+				</ExplorerContext.Provider>
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center">
 					{!search && (
@@ -93,7 +53,7 @@ const SearchExplorer = memo((props: { args: SearchArgs }) => {
 });
 
 export const Component = () => {
-	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams] = useZodSearchParams(SearchParamsSchema);
 
 	const search = useDeferredValue(searchParams);
 

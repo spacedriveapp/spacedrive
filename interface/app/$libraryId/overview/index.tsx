@@ -1,28 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
-import { z } from '@sd/ui/src/forms';
-import { useExplorerStore, useExplorerTopBarOptions } from '~/hooks';
-import ContextMenu from '../Explorer/File/ContextMenu';
+import { ExplorerContext } from '../Explorer/Context';
+import ContextMenu from '../Explorer/ContextMenu';
+// import ContextMenu from '../Explorer/FilePath/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
-import { SEARCH_PARAMS } from '../Explorer/util';
-import { usePageLayout } from '../PageLayout';
+import { useExplorerStore } from '../Explorer/store';
+import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
 import { useItems } from './data';
 
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
 export const Component = () => {
 	const explorerStore = useExplorerStore();
-
-	const page = usePageLayout();
-
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
+	const page = usePageLayoutContext();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
@@ -35,15 +29,16 @@ export const Component = () => {
 		[selectedItemId, items]
 	);
 
+	useEffect(() => {
+		if (page?.ref.current) {
+			const { scrollTop } = page.ref.current;
+			if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
+		}
+	}, [selectedCategory, page?.ref]);
+
 	return (
-		<>
-			<TopBarPortal
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
-			/>
+		<ExplorerContext.Provider value={{}}>
+			<TopBarPortal right={<DefaultTopBarOptions />} />
 
 			<div>
 				<Statistics />
@@ -52,7 +47,6 @@ export const Component = () => {
 
 				<div className="flex">
 					<View
-						layout={explorerStore.layoutMode}
 						items={query.isLoading ? null : items || []}
 						// TODO: Fix this type here.
 						scrollRef={page?.ref as any}
@@ -62,8 +56,7 @@ export const Component = () => {
 						onSelectedChange={setSelectedItemId}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={<ContextMenu data={selectedItem} />}
-						emptyNotice={null}
+						contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
 					/>
 
 					{explorerStore.showInspector && (
@@ -75,6 +68,6 @@ export const Component = () => {
 					)}
 				</div>
 			</div>
-		</>
+		</ExplorerContext.Provider>
 	);
 };

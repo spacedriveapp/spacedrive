@@ -3,11 +3,11 @@ import { ArrowsOutSimple } from 'phosphor-react';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import GridList from '~/components/GridList';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { GridList } from '~/components';
 import { ViewItem } from '.';
-import FileThumb from '../File/Thumb';
+import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
+import { getExplorerStore, useExplorerStore } from '../store';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
@@ -68,7 +68,7 @@ export default () => {
 			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
 			top={explorerView.top}
 			preventSelection={!explorerView.selectable}
-			preventContextMenuSelection={!explorerView.contextMenu}
+			preventContextMenuSelection={explorerView.contextMenu === undefined}
 		>
 			{({ index, item: Item }) => {
 				if (!explorerView.items) {

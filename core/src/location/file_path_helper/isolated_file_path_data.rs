@@ -1,29 +1,44 @@
-use crate::{location::LocationId, prisma::file_path, util::error::NonUtf8PathError};
+use crate::{
+	prisma::{file_path, location},
+	util::error::NonUtf8PathError,
+};
 
-use std::{borrow::Cow, fmt, path::Path};
+use std::{
+	borrow::Cow,
+	fmt,
+	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+	sync::OnceLock,
+};
 
+use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
 	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
-	file_path_with_object, FilePathError,
+	file_path_to_isolate_with_id, file_path_with_object, FilePathError,
 };
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
-	pub(in crate::location) location_id: LocationId,
+	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
+	// and are not public. They have some specific logic on them and should not be writen to directly.
+	// If you wanna access one of them outside from location module, write yourself an accessor method
+	// to have read only access to them.
+	pub(in crate::location) location_id: location::id::Type,
 	pub(in crate::location) materialized_path: Cow<'a, str>,
 	pub(in crate::location) is_dir: bool,
 	pub(in crate::location) name: Cow<'a, str>,
 	pub(in crate::location) extension: Cow<'a, str>,
-	pub(in crate::location) relative_path: Cow<'a, str>,
+	relative_path: Cow<'a, str>,
 }
 
 impl IsolatedFilePathData<'static> {
 	pub fn new(
-		location_id: LocationId,
+		location_id: location::id::Type,
 		location_path: impl AsRef<Path>,
 		full_path: impl AsRef<Path>,
 		is_dir: bool,
@@ -53,7 +68,7 @@ impl IsolatedFilePathData<'static> {
 			)?),
 			name: Cow::Owned(
 				(location_path != full_path)
-					.then(|| Self::prepare_name(full_path).to_string())
+					.then(|| Self::prepare_name(full_path, is_dir).to_string())
 					.unwrap_or_default(),
 			),
 			extension: Cow::Owned(extension),
@@ -67,8 +82,15 @@ impl IsolatedFilePathData<'static> {
 }
 
 impl<'a> IsolatedFilePathData<'a> {
-	pub fn location_id(&self) -> LocationId {
+	pub fn location_id(&self) -> location::id::Type {
 		self.location_id
+	}
+
+	pub fn is_root(&self) -> bool {
+		self.is_dir
+			&& self.materialized_path == "/"
+			&& self.name.is_empty()
+			&& self.relative_path.is_empty()
 	}
 
 	pub fn parent(&'a self) -> Self {
@@ -97,7 +119,10 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	pub fn from_relative_str(location_id: LocationId, relative_file_path_str: &'a str) -> Self {
+	pub fn from_relative_str(
+		location_id: location::id::Type,
+		relative_file_path_str: &'a str,
+	) -> Self {
 		let is_dir = relative_file_path_str.ends_with('/');
 
 		let (materialized_path, maybe_name, maybe_extension) =
@@ -113,6 +138,14 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
+	pub fn full_name(&self) -> String {
+		if self.extension.is_empty() {
+			self.name.to_string()
+		} else {
+			format!("{}.{}", self.name, self.extension)
+		}
+	}
+
 	pub fn materialized_path_for_children(&self) -> Option<String> {
 		if self.materialized_path == "/" && self.name.is_empty() && self.is_dir {
 			// We're at the root file_path
@@ -121,6 +154,53 @@ impl<'a> IsolatedFilePathData<'a> {
 			self.is_dir
 				.then(|| format!("{}{}/", self.materialized_path, self.name))
 		}
+	}
+
+	pub fn separate_name_and_extension_from_str(
+		source: &'a str,
+	) -> Result<(&'a str, &'a str), FilePathError> {
+		if source.contains(MAIN_SEPARATOR) {
+			return Err(FilePathError::InvalidFilenameAndExtension(
+				source.to_string(),
+			));
+		}
+
+		if let Some(last_dot_idx) = source.rfind('.') {
+			if last_dot_idx == 0 {
+				// The dot is the first character, so it's a hidden file
+				Ok((source, ""))
+			} else {
+				Ok((&source[..last_dot_idx], &source[last_dot_idx + 1..]))
+			}
+		} else {
+			// It's a file without extension
+			Ok((source, ""))
+		}
+	}
+
+	pub fn accept_file_name(name: &str) -> bool {
+		let reg = {
+			// Maybe we should enforce windows more restrictive rules on all platforms?
+			#[cfg(target_os = "windows")]
+			{
+				FORBIDDEN_FILE_NAMES.get_or_init(|| {
+					RegexSet::new([
+						r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.\w+)*$",
+						r#"[<>:"/\\|?*\u0000-\u0031]"#,
+					])
+					.expect("this regex should always be valid")
+				})
+			}
+
+			#[cfg(not(target_os = "windows"))]
+			{
+				FORBIDDEN_FILE_NAMES.get_or_init(|| {
+					RegexSet::new([r"/|\x00"]).expect("this regex should always be valid")
+				})
+			}
+		};
+
+		!reg.is_match(name)
 	}
 
 	pub fn separate_path_name_and_extension_from_str(
@@ -169,33 +249,37 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	fn prepare_name(path: &Path) -> &str {
+	fn prepare_name(path: &Path, is_dir: bool) -> &str {
 		// Not using `impl AsRef<Path>` here because it's an private method
-		path.file_stem()
-			.unwrap_or_default()
-			.to_str()
-			.unwrap_or_default()
+		if is_dir {
+			path.file_name()
+		} else {
+			path.file_stem()
+		}
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
 	}
 
-	fn from_db_data(
-		location_id: LocationId,
-		db_materialized_path: &'a str,
-		db_is_dir: bool,
-		db_name: &'a str,
-		db_extension: &'a str,
+	pub fn from_db_data(
+		location_id: location::id::Type,
+		is_dir: bool,
+		materialized_path: Cow<'a, str>,
+		name: Cow<'a, str>,
+		extension: Cow<'a, str>,
 	) -> Self {
 		Self {
-			location_id,
-			materialized_path: Cow::Borrowed(db_materialized_path),
-			is_dir: db_is_dir,
-			name: Cow::Borrowed(db_name),
-			extension: Cow::Borrowed(db_extension),
 			relative_path: Cow::Owned(assemble_relative_path(
-				db_materialized_path,
-				db_name,
-				db_extension,
-				db_is_dir,
+				&materialized_path,
+				&name,
+				&extension,
+				is_dir,
 			)),
+			location_id,
+			materialized_path,
+			is_dir,
+			name,
+			extension,
 		}
 	}
 }
@@ -220,10 +304,10 @@ impl From<IsolatedFilePathData<'static>> for file_path::UniqueWhereParam {
 impl From<IsolatedFilePathData<'static>> for file_path::WhereParam {
 	fn from(path: IsolatedFilePathData<'static>) -> Self {
 		Self::And(vec![
-			file_path::location_id::equals(path.location_id),
-			file_path::materialized_path::equals(path.materialized_path.into_owned()),
-			file_path::name::equals(path.name.into_owned()),
-			file_path::extension::equals(path.extension.into_owned()),
+			file_path::location_id::equals(Some(path.location_id)),
+			file_path::materialized_path::equals(Some(path.materialized_path.into_owned())),
+			file_path::name::equals(Some(path.name.into_owned())),
+			file_path::extension::equals(Some(path.extension.into_owned())),
 		])
 	}
 }
@@ -242,10 +326,10 @@ impl From<&IsolatedFilePathData<'_>> for file_path::UniqueWhereParam {
 impl From<&IsolatedFilePathData<'_>> for file_path::WhereParam {
 	fn from(path: &IsolatedFilePathData<'_>) -> Self {
 		Self::And(vec![
-			file_path::location_id::equals(path.location_id),
-			file_path::materialized_path::equals(path.materialized_path.to_string()),
-			file_path::name::equals(path.name.to_string()),
-			file_path::extension::equals(path.extension.to_string()),
+			file_path::location_id::equals(Some(path.location_id)),
+			file_path::materialized_path::equals(Some(path.materialized_path.to_string())),
+			file_path::name::equals(Some(path.name.to_string())),
+			file_path::extension::equals(Some(path.extension.to_string())),
 		])
 	}
 }
@@ -261,49 +345,47 @@ mod macros {
 	macro_rules! impl_from_db {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::From<$file_path_kind::Data> for $crate::
+				impl ::std::convert::TryFrom<$file_path_kind::Data> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-					fn from(path: $file_path_kind::Data) -> Self {
-						Self {
-							location_id: path.location_id,
-							relative_path: ::std::borrow::Cow::Owned(
-								$crate::
-								location::
-								file_path_helper::
-								isolated_file_path_data::
-								assemble_relative_path(
-									&path.materialized_path,
-									&path.name,
-									&path.extension,
-									path.is_dir,
-								)
-							),
-							materialized_path: ::std::borrow::Cow::Owned(path.materialized_path),
-							is_dir: path.is_dir,
-							name: ::std::borrow::Cow::Owned(path.name),
-							extension: ::std::borrow::Cow::Owned(path.extension),
-						}
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from(path: $file_path_kind::Data) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+                        Ok(Self::from_db_data(
+                            maybe_missing(path.location_id, "file_path.location_id")?,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+                            Cow::Owned(maybe_missing(path.materialized_path, "file_path.materialized_path")?),
+                            Cow::Owned(maybe_missing(path.name, "file_path.name")?),
+                            Cow::Owned(maybe_missing(path.extension, "file_path.extension")?)
+                        ))
 					}
 				}
 
-				impl<'a> ::std::convert::From<&'a $file_path_kind::Data> for $crate::
+				impl<'a> ::std::convert::TryFrom<&'a $file_path_kind::Data> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-					fn from(path: &'a $file_path_kind::Data) -> Self {
-						Self::from_db_data(
-							path.location_id,
-							&path.materialized_path,
-							path.is_dir,
-							&path.name,
-							&path.extension
-						)
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from(path: &'a $file_path_kind::Data) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+						Ok(Self::from_db_data(
+							maybe_missing(path.location_id, "file_path.location_id")?,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+							Cow::Borrowed(maybe_missing(&path.materialized_path, "file_path.materialized_path")?),
+							Cow::Borrowed(maybe_missing(&path.name, "file_path.name")?),
+							Cow::Borrowed(maybe_missing(&path.extension, "file_path.extension")?)
+						))
 					}
 				}
 			)+
@@ -313,49 +395,47 @@ mod macros {
 	macro_rules! impl_from_db_without_location_id {
 		($($file_path_kind:ident),+ $(,)?) => {
 			$(
-				impl ::std::convert::From<($crate::location::LocationId, $file_path_kind::Data)> for $crate::
+				impl ::std::convert::TryFrom<($crate::prisma::location::id::Type, $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'static>
 				{
-					fn from((location_id, path): ($crate::location::LocationId, $file_path_kind::Data)) -> Self {
-						Self {
-							location_id,
-							relative_path: Cow::Owned(
-								$crate::
-								location::
-								file_path_helper::
-								isolated_file_path_data::
-								assemble_relative_path(
-									&path.materialized_path,
-									&path.name,
-									&path.extension,
-									path.is_dir,
-								)
-							),
-							materialized_path: Cow::Owned(path.materialized_path),
-							is_dir: path.is_dir,
-							name: Cow::Owned(path.name),
-							extension: Cow::Owned(path.extension),
-						}
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from((location_id, path): ($crate::prisma::location::id::Type, $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+                        Ok(Self::from_db_data(
+                            location_id,
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+                            Cow::Owned(maybe_missing(path.materialized_path, "file_path.materialized_path")?),
+                            Cow::Owned(maybe_missing(path.name, "file_path.name")?),
+                            Cow::Owned(maybe_missing(path.extension, "file_path.extension")?)
+                        ))
 					}
 				}
 
-				impl<'a> ::std::convert::From<($crate::location::LocationId, &'a $file_path_kind::Data)> for $crate::
+				impl<'a> ::std::convert::TryFrom<($crate::prisma::location::id::Type, &'a $file_path_kind::Data)> for $crate::
 					location::
 					file_path_helper::
 					isolated_file_path_data::
 					IsolatedFilePathData<'a>
 				{
-					fn from((location_id, path): ($crate::location::LocationId, &'a $file_path_kind::Data)) -> Self {
-						Self::from_db_data(
+                    type Error = $crate::util::db::MissingFieldError;
+
+					fn try_from((location_id, path): ($crate::prisma::location::id::Type, &'a $file_path_kind::Data)) -> Result<Self, Self::Error> {
+                        use $crate::util::db::maybe_missing;
+                        use ::std::borrow::Cow;
+
+						Ok(Self::from_db_data(
 							location_id,
-							&path.materialized_path,
-							path.is_dir,
-							&path.name,
-							&path.extension
-						)
+                            maybe_missing(path.is_dir, "file_path.is_dir")?,
+							Cow::Borrowed(maybe_missing(&path.materialized_path, "file_path.materialized_path")?),
+							Cow::Borrowed(maybe_missing(&path.name, "file_path.name")?),
+							Cow::Borrowed(maybe_missing(&path.extension, "file_path.extension")?)
+						))
 					}
 				}
 			)+
@@ -363,7 +443,12 @@ mod macros {
 	}
 }
 
-impl_from_db!(file_path, file_path_to_isolate, file_path_with_object);
+impl_from_db!(
+	file_path,
+	file_path_to_isolate,
+	file_path_to_isolate_with_id,
+	file_path_with_object
+);
 
 impl_from_db_without_location_id!(
 	file_path_for_file_identifier,
@@ -374,7 +459,7 @@ impl_from_db_without_location_id!(
 );
 
 fn extract_relative_path(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 ) -> Result<String, FilePathError> {
@@ -396,7 +481,7 @@ fn extract_relative_path(
 /// This function separates a file path from a location path, and normalizes replacing '\' with '/'
 /// to be consistent between Windows and Unix like systems
 pub fn extract_normalized_materialized_path_str(
-	location_id: LocationId,
+	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 ) -> Result<String, FilePathError> {
@@ -438,7 +523,42 @@ fn assemble_relative_path(
 	}
 }
 
+pub fn join_location_relative_path(
+	location_path: impl AsRef<Path>,
+	relative_path: impl AsRef<Path>,
+) -> PathBuf {
+	let relative_path = relative_path.as_ref();
+
+	location_path
+		.as_ref()
+		.join(if relative_path.starts_with(MAIN_SEPARATOR_STR) {
+			relative_path
+				.strip_prefix(MAIN_SEPARATOR_STR)
+				.expect("just checked")
+		} else {
+			relative_path
+		})
+}
+
+pub fn push_location_relative_path(
+	mut location_path: PathBuf,
+	relative_path: impl AsRef<Path>,
+) -> PathBuf {
+	let relative_path = relative_path.as_ref();
+
+	location_path.push(if relative_path.starts_with(MAIN_SEPARATOR_STR) {
+		relative_path
+			.strip_prefix(MAIN_SEPARATOR_STR)
+			.expect("just checked")
+	} else {
+		relative_path
+	});
+
+	location_path
+}
+
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
 	use super::*;
 

@@ -1,129 +1,136 @@
 use crate::{
 	invalidate_query,
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobRunErrors, JobStepOutput, StatefulJob,
+		WorkerContext,
 	},
+	library::Library,
+	location::file_path_helper::push_location_relative_path,
+	object::fs::{construct_target_filename, error::FileSystemJobsError},
+	prisma::{file_path, location},
 	util::error::FileIOError,
 };
 
 use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
-use tokio::fs;
+use tokio::{fs, io};
 use tracing::{trace, warn};
 
-use super::{context_menu_fs_info, get_location_path_from_location_id, FsInfo};
+use super::{fetch_source_and_target_location_paths, get_many_files_datas, FileData};
 
-pub struct FileCutterJob {}
-
-#[derive(Serialize, Deserialize, Hash, Type)]
+#[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileCutterJobInit {
-	pub source_location_id: i32,
-	pub source_path_id: i32,
-	pub target_location_id: i32,
-	pub target_path: PathBuf,
+	pub source_location_id: location::id::Type,
+	pub target_location_id: location::id::Type,
+	pub sources_file_path_ids: Vec<file_path::id::Type>,
+	pub target_location_relative_directory_path: PathBuf,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct FileCutterJobStep {
-	pub source_fs_info: FsInfo,
-	pub target_directory: PathBuf,
-}
-
-impl JobInitData for FileCutterJobInit {
-	type Job = FileCutterJob;
+pub struct FileCutterJobData {
+	full_target_directory_path: PathBuf,
 }
 
 #[async_trait::async_trait]
-impl StatefulJob for FileCutterJob {
-	type Init = FileCutterJobInit;
-	type Data = ();
-	type Step = FileCutterJobStep;
+impl StatefulJob for FileCutterJobInit {
+	type Data = FileCutterJobData;
+	type Step = FileData;
+	type RunMetadata = ();
 
 	const NAME: &'static str = "file_cutter";
 
-	fn new() -> Self {
-		Self {}
-	}
+	async fn init(
+		&self,
+		ctx: &WorkerContext,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
+		let Library { db, .. } = &ctx.library;
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let source_fs_info = context_menu_fs_info(
-			&ctx.library.db,
-			state.init.source_location_id,
-			state.init.source_path_id,
-		)
-		.await?;
+		let (sources_location_path, targets_location_path) =
+			fetch_source_and_target_location_paths(
+				db,
+				init.source_location_id,
+				init.target_location_id,
+			)
+			.await?;
 
-		let mut full_target_path =
-			get_location_path_from_location_id(&ctx.library.db, state.init.target_location_id)
-				.await?;
-		full_target_path.push(&state.init.target_path);
+		let full_target_directory_path = push_location_relative_path(
+			targets_location_path,
+			&init.target_location_relative_directory_path,
+		);
 
-		state.steps.push_back(FileCutterJobStep {
-			source_fs_info,
-			target_directory: full_target_path,
+		*data = Some(FileCutterJobData {
+			full_target_directory_path,
 		});
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+		let steps =
+			get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids).await?;
 
-		Ok(())
+		Ok(steps.into())
 	}
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-		let source_info = &step.source_fs_info;
+		_: &WorkerContext,
+		CurrentStep {
+			step: file_data, ..
+		}: CurrentStep<'_, Self::Step>,
+		data: &Self::Data,
+		_: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
+		let full_output = data
+			.full_target_directory_path
+			.join(construct_target_filename(file_data, &None)?);
 
-		let full_output = step
-			.target_directory
-			.join(source_info.fs_path.file_name().ok_or(JobError::OsStr)?);
+		if file_data.full_path == full_output {
+			// File is already here, do nothing
+			Ok(().into())
+		} else {
+			match fs::metadata(&full_output).await {
+				Ok(_) => {
+					warn!(
+						"Skipping {} as it would be overwritten",
+						full_output.display()
+					);
 
-		let parent_source = source_info.fs_path.parent().ok_or(JobError::Path)?;
+					Ok(JobRunErrors(vec![FileSystemJobsError::WouldOverwrite(
+						full_output.into_boxed_path(),
+					)
+					.to_string()])
+					.into())
+				}
+				Err(e) if e.kind() == io::ErrorKind::NotFound => {
+					trace!(
+						"Cutting {} to {}",
+						file_data.full_path.display(),
+						full_output.display()
+					);
 
-		let parent_output = full_output.parent().ok_or(JobError::Path)?;
+					fs::rename(&file_data.full_path, &full_output)
+						.await
+						.map_err(|e| FileIOError::from((&file_data.full_path, e)))?;
 
-		if fs::canonicalize(parent_source)
-			.await
-			.map_err(|e| FileIOError::from((parent_source, e)))?
-			== fs::canonicalize(parent_output)
-				.await
-				.map_err(|e| FileIOError::from((parent_output, e)))?
-		{
-			return Err(JobError::MatchingSrcDest(source_info.fs_path.clone()));
+					Ok(().into())
+				}
+
+				Err(e) => return Err(FileIOError::from((&full_output, e)).into()),
+			}
 		}
-
-		if fs::metadata(&full_output).await.is_ok() {
-			warn!(
-				"Skipping {} as it would be overwritten",
-				full_output.display()
-			);
-
-			return Err(JobError::WouldOverwrite(full_output));
-		}
-
-		trace!(
-			"Cutting {} to {}",
-			source_info.fs_path.display(),
-			full_output.display()
-		);
-
-		fs::rename(&source_info.fs_path, &full_output)
-			.await
-			.map_err(|e| FileIOError::from((&source_info.fs_path, e)))?;
-
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-			state.step_number + 1,
-		)]);
-		Ok(())
 	}
 
-	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(json!({ "init": init })))
 	}
 }

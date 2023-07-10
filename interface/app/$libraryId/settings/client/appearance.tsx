@@ -1,11 +1,9 @@
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { CheckCircle } from 'phosphor-react';
-import { useEffect, useRef } from 'react';
-import { useState } from 'react';
-import { getThemeStore, useThemeStore } from '@sd/client';
-import { Themes } from '@sd/client';
-import { Button, Slider, forms } from '@sd/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Themes, getThemeStore, useThemeStore } from '@sd/client';
+import { Button, Form, SwitchField, useZodForm, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
@@ -20,8 +18,6 @@ type Theme = {
 };
 
 type ThemeProps = Theme & { isSelected?: boolean; className?: string };
-
-const { Form, Switch, useZodForm, z } = forms;
 
 const schema = z.object({
 	uiAnimations: z.boolean(),
@@ -166,48 +162,54 @@ export const Component = () => {
 						);
 					})}
 				</div>
-				<Setting
-					mini
-					title="Theme hue value"
-					toolTipLabel={
-						themeStore.theme === 'vanilla' &&
-						'Hue color changes visible in dark mode only'
-					}
-					description="Change the hue of the theme"
-				>
-					<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
-						<div className="w-full">
-							<Slider
-								value={[themeStore.hueValue ?? 235]}
-								onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
-								min={0}
-								max={359}
-								step={1}
-								defaultValue={[235]}
-							/>
-							<p className="text-center text-xs text-ink-faint">
-								{themeStore.hueValue}
-							</p>
-						</div>
-					</div>
-				</Setting>
 
-				<Setting
-					mini
-					title="UI Animations"
-					className="opacity-30"
-					description="Dialogs and other UI elements will animate when opening and closing."
-				>
-					<Switch disabled {...form.register('uiAnimations')} className="m-2 ml-4" />
-				</Setting>
-				<Setting
-					mini
-					title="Blur Effects"
-					className="opacity-30"
-					description="Some components will have a blur effect applied to them."
-				>
-					<Switch disabled {...form.register('blurEffects')} className="m-2 ml-4" />
-				</Setting>
+				{/* {themeStore.theme === 'dark' && (
+					<Setting mini title="Theme hue value" description="Change the hue of the theme">
+						<div className="mr-3 w-full max-w-[200px] justify-between gap-5">
+							<div className="w-full">
+								<Slider
+									value={[themeStore.hueValue ?? 235]}
+									onValueChange={(val) => hueSliderHandler(val[0] ?? 235)}
+									min={0}
+									max={359}
+									step={1}
+									defaultValue={[235]}
+								/>
+								<p className="text-center text-xs text-ink-faint">
+									{themeStore.hueValue}
+								</p>
+							</div>
+						</div>
+					</Setting>
+				)} */}
+
+				<div className="flex flex-col gap-4">
+					<Setting
+						mini
+						title="UI Animations"
+						className="opacity-30"
+						description="Dialogs and other UI elements will animate when opening and closing."
+					>
+						<SwitchField
+							disabled
+							{...form.register('uiAnimations')}
+							className="m-2 ml-4"
+						/>
+					</Setting>
+
+					<Setting
+						mini
+						title="Blur Effects"
+						className="opacity-30"
+						description="Some components will have a blur effect applied to them."
+					>
+						<SwitchField
+							disabled
+							{...form.register('blurEffects')}
+							className="m-2 ml-4"
+						/>
+					</Setting>
+				</div>
 			</Form>
 		</>
 	);

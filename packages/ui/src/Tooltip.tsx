@@ -1,32 +1,39 @@
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import { PropsWithChildren } from 'react';
+import clsx from 'clsx';
+import { PropsWithChildren, ReactNode } from 'react';
 
-export interface TooltipProps {
-	label: string;
+export interface TooltipProps extends PropsWithChildren {
+	label: ReactNode;
 	position?: 'top' | 'right' | 'bottom' | 'left';
 	className?: string;
+	tooltipClassName?: string;
+	asChild?: boolean;
 }
 
-export const Tooltip = ({
-	children,
-	label,
-	position = 'bottom',
-	className
-}: PropsWithChildren<TooltipProps>) => {
+export const Tooltip = ({ position = 'bottom', ...props }: TooltipProps) => {
 	return (
 		<TooltipPrimitive.Provider>
 			<TooltipPrimitive.Root>
 				<TooltipPrimitive.Trigger asChild>
-					<span className={className}>{children}</span>
+					{props.asChild ? (
+						props.children
+					) : (
+						<span className={props.className}>{props.children}</span>
+					)}
 				</TooltipPrimitive.Trigger>
 				<TooltipPrimitive.Portal>
-					<TooltipPrimitive.Content
-						side={position}
-						className="z-50 mb-[2px] max-w-[200px] rounded bg-app-darkBox px-2 py-1 text-center text-xs text-ink"
-					>
-						<TooltipPrimitive.Arrow className="fill-app-darkBox" />
-						{label}
-					</TooltipPrimitive.Content>
+					{props.label && (
+						<TooltipPrimitive.Content
+							side={position}
+							className={clsx(
+								'z-50 max-w-[200px] break-words rounded bg-black px-2 py-1 text-center text-xs text-white',
+								props.tooltipClassName
+							)}
+						>
+							<TooltipPrimitive.Arrow className="fill-black" />
+							{props.label}
+						</TooltipPrimitive.Content>
+					)}
 				</TooltipPrimitive.Portal>
 			</TooltipPrimitive.Root>
 		</TooltipPrimitive.Provider>

@@ -1,15 +1,17 @@
 import clsx from 'clsx';
-import { Trash } from 'phosphor-react';
-import { Info } from 'phosphor-react';
-import { ChangeEvent, useEffect, useId } from 'react';
-import { useCallback } from 'react';
+import { Info, Trash } from 'phosphor-react';
+import { ChangeEvent, useCallback, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
-import { z } from 'zod';
-import { RuleKind, UnionToTuple, extractInfoRSPCError, useLibraryMutation } from '@sd/client';
-import { IndexerRuleCreateArgs } from '@sd/client';
-import { Button, Card, Divider, Input, Select, SelectOption, Switch, Tooltip } from '@sd/ui';
-import { ErrorMessage, Form, useZodForm } from '@sd/ui/src/forms';
+import {
+	IndexerRuleCreateArgs,
+	RuleKind,
+	UnionToTuple,
+	extractInfoRSPCError,
+	useLibraryMutation
+} from '@sd/client';
+import { Button, Card, Divider, Input, Select, SelectOption, Tooltip } from '@sd/ui';
+import { ErrorMessage, Form, useZodForm, z } from '@sd/ui/src/forms';
 import { InputKinds, RuleInput, validateInput } from './RuleInput';
 
 const ruleKinds: UnionToTuple<RuleKind> = [
@@ -21,7 +23,7 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 const ruleKindEnum = z.enum(ruleKinds);
 
 const schema = z.object({
-	name: z.string().min(3),
+	name: z.string().trim().min(3).max(18),
 	rules: z.array(
 		z.object({
 			type: z.string(),
@@ -139,6 +141,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 					form={formId}
 					size="md"
 					placeholder="Name"
+					maxLength={18}
 					{...form.register('name')}
 				/>
 				{errors.name && <p className="mt-2 text-sm text-red-500">{errors.name?.message}</p>}

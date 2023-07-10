@@ -17,14 +17,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import {
-	appReady,
-	getFilePathOpenWithApps,
-	lockAppTheme,
-	openFilePath,
-	openFilePathWith,
-	openLogsDir
-} from './commands';
+import * as commands from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -59,7 +52,11 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 
 const platform: Platform = {
 	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) => convertFileSrc(`thumbnail/${keyParts.map(i => encodeURIComponent(i)).join("/")}`, 'spacedrive'),
+	getThumbnailUrlByThumbKey: (keyParts) =>
+		convertFileSrc(
+			`thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}`,
+			'spacedrive'
+		),
 	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
 		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
 		if (_linux_workaround && customUriServerUrl) {
@@ -77,22 +74,26 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path),
-	openLogsDir,
-	openFilePath,
-	getFilePathOpenWithApps,
-	openFilePathWith,
-	lockAppTheme
+	...commands
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			networkMode: 'always'
+		},
+		mutations: {
+			networkMode: 'always'
+		}
+	}
+});
 
 const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		appReady();
+		commands.appReady();
 	}, []);
 
 	useEffect(() => {

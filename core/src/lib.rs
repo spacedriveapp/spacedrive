@@ -16,6 +16,7 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
+
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
 use tracing::{debug, error, info, warn};
@@ -41,10 +42,9 @@ pub(crate) mod volume;
 #[derive(Clone)]
 pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
-	pub jobs: Arc<JobManager>,
+	pub job_manager: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub p2p: Arc<P2PManager>,
 }
 
 pub struct Node {
@@ -52,7 +52,7 @@ pub struct Node {
 	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
 	location_manager: Arc<LocationManager>,
-	jobs: Arc<JobManager>,
+	job_manager: Arc<JobManager>,
 	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	notifier: Arc<Notifier>,
@@ -62,6 +62,8 @@ pub struct Node {
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
+
+		info!("Starting core with data directory '{}'", data_dir.display());
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
@@ -73,53 +75,37 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
+		debug!("Initialised 'NodeConfigManager'...");
 
-		let jobs = JobManager::new();
+		let job_manager = JobManager::new();
+
+		debug!("Initialised 'JobManager'...");
+
 		let location_manager = LocationManager::new();
-		let (p2p, mut p2p_rx) = P2PManager::new(config.clone()).await?;
-
+		debug!("Initialised 'LocationManager'...");
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
 				config: config.clone(),
-				jobs: jobs.clone(),
+				job_manager: job_manager.clone(),
 				location_manager: location_manager.clone(),
-				p2p: p2p.clone(),
+				// p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 			},
 		)
 		.await?;
+		debug!("Initialised 'LibraryManager'...");
+		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
+		debug!("Initialised 'P2PManager'...");
 
 		let notifier = Notifier::new(config.clone(), library_manager.clone());
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data.apply(&library_manager).await?;
+			init_data
+				.apply(&library_manager, config.get().await)
+				.await?;
 		}
-
-		tokio::spawn({
-			let library_manager = library_manager.clone();
-
-			async move {
-				while let Ok((library_id, operations)) = p2p_rx.recv().await {
-					debug!("going to ingest {} operations", operations.len());
-
-					let Some(library) = library_manager.get_library(library_id).await else {
-						warn!("no library found!");
-						continue;
-					};
-
-					for op in operations {
-						library.sync.ingest_op(op).await.unwrap_or_else(|err| {
-							error!(
-								"error ingesting operation for library '{}': {err:?}",
-								library.id
-							);
-						});
-					}
-				}
-			}
-		});
 
 		let router = api::mount();
 		let node = Node {
@@ -127,7 +113,7 @@ impl Node {
 			config,
 			library_manager,
 			location_manager,
-			jobs,
+			job_manager,
 			p2p,
 			event_bus,
 			notifier, // peer_request: tokio::sync::Mutex::new(None),
@@ -138,11 +124,6 @@ impl Node {
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
-		let log_filter = match cfg!(debug_assertions) {
-			true => tracing::Level::DEBUG,
-			false => tracing::Level::INFO,
-		};
-
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -156,8 +137,8 @@ impl Node {
 			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
 			.with(
 				fmt::Subscriber::new()
-					.with_writer(std::io::stdout.with_max_level(log_filter))
-					.with_filter(
+					.with_writer(std::io::stdout)
+					.with_filter(if cfg!(debug_assertions) {
 						EnvFilter::from_default_env()
 							.add_directive(
 								"warn".parse().expect("Error invalid tracing directive!"),
@@ -196,22 +177,30 @@ impl Node {
 								"rspc=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
-							),
-					),
+							)
+					} else {
+						EnvFilter::from("info")
+					}),
 			);
 
 		tracing::collect::set_global_default(collector)
 			.map_err(|err| {
-				println!("Error initializing global logger: {:?}", err);
+				eprintln!("Error initializing global logger: {:?}", err);
 			})
 			.ok();
+
+		let prev_hook = std::panic::take_hook();
+		std::panic::set_hook(Box::new(move |panic_info| {
+			error!("{}", panic_info);
+			prev_hook(panic_info);
+		}));
 
 		guard
 	}
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.jobs.pause().await;
+		self.job_manager.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
@@ -244,7 +233,7 @@ pub enum NodeError {
 	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(#[from] sd_p2p::ManagerError),
 	#[error("invalid platform integer: {0}")]
-	InvalidPlatformInt(i32),
+	InvalidPlatformInt(u8),
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),

@@ -10,14 +10,9 @@ export const Component = () => {
 	return (
 		<div className="app-background flex w-full flex-row">
 			<Sidebar />
-			<div className="w-full">
-				{os !== 'browser' ? (
-					<div data-tauri-drag-region className="h-3 w-full" />
-				) : (
-					<div className="h-5" />
-				)}
+			<div className="relative w-full">
 				<Suspense>
-					<DragRegion />
+					<DragRegion className="absolute inset-x-0 top-0 z-50 h-8" />
 					<Outlet />
 				</Suspense>
 			</div>

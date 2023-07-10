@@ -6,13 +6,11 @@ import {
 	Video,
 	Video_Light
 } from '@sd/assets/icons';
-import { useTheme } from '@tanstack/react-query-devtools/build/lib/theme';
-import clsx from 'clsx';
 import { ReactNode } from 'react';
 import DismissibleNotice from '~/components/DismissibleNotice';
 import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { ExplorerLayoutMode, useExplorerStore } from '~/hooks/useExplorerStore';
+import { ExplorerLayoutMode, useExplorerStore } from './store';
 
 const MediaViewIcon = () => {
 	const isDark = useIsDark();

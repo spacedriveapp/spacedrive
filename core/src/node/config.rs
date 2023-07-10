@@ -18,7 +18,7 @@ use crate::{
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
 	pub id: Uuid,
@@ -30,11 +30,37 @@ pub struct NodeConfig {
 	#[serde(default)]
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
-	#[specta(skip)]
+	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	pub keypair: Keypair,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
+}
+
+// A version of [NodeConfig] that is safe to share with the frontend
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct SanitisedNodeConfig {
+	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
+	pub id: Uuid,
+	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
+	pub name: String,
+	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
+	pub p2p_port: Option<u32>,
+	// TODO: These will probs be replaced by your Spacedrive account in the near future.
+	pub p2p_email: Option<String>,
+	pub p2p_img_url: Option<String>,
+}
+
+impl From<NodeConfig> for SanitisedNodeConfig {
+	fn from(value: NodeConfig) -> Self {
+		Self {
+			id: value.id,
+			name: value.name,
+			p2p_port: value.p2p_port,
+			p2p_email: value.p2p_email,
+			p2p_img_url: value.p2p_img_url,
+		}
+	}
 }
 
 #[async_trait::async_trait]
@@ -42,6 +68,25 @@ impl Migrate for NodeConfig {
 	const CURRENT_VERSION: u32 = 0;
 
 	type Ctx = ();
+
+	fn default(_path: PathBuf) -> Result<Self, MigratorError> {
+		Ok(Self {
+			id: Uuid::new_v4(),
+			name: match hostname::get() {
+				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
+				Ok(hostname) => hostname.to_string_lossy().into_owned(),
+				Err(err) => {
+					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{err}'");
+					"my-spacedrive".into()
+				}
+			},
+			p2p_port: None,
+			keypair: Keypair::generate(),
+			p2p_email: None,
+			p2p_img_url: None,
+			notifications: vec![],
+		})
+	}
 
 	async fn migrate(
 		from_version: u32,

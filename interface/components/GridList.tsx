@@ -47,7 +47,10 @@ interface ResizeProps<T extends GridListSelection> extends GridListDefaults<T> {
 
 type GridListProps<T extends GridListSelection> = WrapProps<T> | ResizeProps<T>;
 
-export default <T extends GridListSelection>({ selectable = true, ...props }: GridListProps<T>) => {
+export const GridList = <T extends GridListSelection>({
+	selectable = true,
+	...props
+}: GridListProps<T>) => {
 	const scrollBarWidth = 6;
 
 	const multiSelect = Array.isArray(props.selected);
@@ -272,7 +275,7 @@ export default <T extends GridListSelection>({ selectable = true, ...props }: Gr
 	return (
 		<div
 			ref={ref}
-			className="relative w-full"
+			className="relative w-full overflow-x-hidden"
 			style={{
 				height: `${rowVirtualizer.getTotalSize()}px`
 			}}

@@ -1,5 +1,5 @@
+import { telemetryStore, useTelemetryState } from '@sd/client';
 import { Switch } from '@sd/ui';
-import { telemetryStore, useTelemetryState } from '~/../packages/client/src';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -18,6 +18,7 @@ export const Component = () => {
 					checked={shareTelemetry}
 					onClick={() => (telemetryStore.shareTelemetry = !shareTelemetry)}
 					className="m-2 ml-4"
+					size="md"
 				/>
 			</Setting>
 		</>

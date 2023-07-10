@@ -9,6 +9,7 @@ import Archive from './Archive.png';
 import Archive_Light from './Archive_Light.png';
 import Audio from './Audio.png';
 import Audio_Light from './Audio_Light.png';
+import Ball from './Ball.png';
 import Book from './Book.png';
 import Collection from './Collection.png';
 import Collection_Light from './Collection_Light.png';
@@ -42,6 +43,7 @@ import Heart from './Heart.png';
 import HeartFlat from './HeartFlat.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
+import Keys from './Keys.png';
 import Laptop from './Laptop.png';
 import Mesh from './Mesh.png';
 import Mesh_Light from './Mesh_Light.png';
@@ -75,6 +77,7 @@ export {
 	Archive_Light,
 	Audio,
 	Audio_Light,
+	Ball,
 	Book,
 	Collection,
 	Collection_Light,
@@ -108,6 +111,7 @@ export {
 	HeartFlat,
 	Image,
 	Image_Light,
+	Keys,
 	Laptop,
 	Mesh,
 	Mesh_Light,

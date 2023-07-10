@@ -3,7 +3,7 @@ import { FallbackProps } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
 import { Button } from '@sd/ui';
-import { useOperatingSystem } from './hooks';
+import { useOperatingSystem, useTheme } from './hooks';
 
 export function RouterErrorBoundary() {
 	const error = useRouteError();
@@ -36,7 +36,8 @@ export default ({ error, resetErrorBoundary }: FallbackProps) => (
 const errorsThatRequireACoreReset = [
 	'failed to initialize config',
 	'failed to initialize library manager: failed to run library migrations',
-	'failed to initialize config: We detected a Spacedrive config from a super early version of the app!'
+	'failed to initialize config: We detected a Spacedrive config from a super early version of the app!',
+	'failed to initialize library manager: failed to run library migrations: YourAppIsOutdated - the config file is for a newer version of the app. Please update to the latest version to load it!'
 ];
 
 export function ErrorPage({
@@ -50,10 +51,10 @@ export function ErrorPage({
 	message: string;
 	submessage?: string;
 }) {
+	useTheme();
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
-
 	if (!submessage && debug.enabled)
 		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
@@ -62,7 +63,7 @@ export function ErrorPage({
 			data-tauri-drag-region
 			role="alert"
 			className={
-				'flex h-screen w-screen flex-col items-center justify-center border border-app-divider bg-app p-4' +
+				'flex h-screen w-screen flex-col items-center justify-center border border-app-divider p-4' +
 				(isMacOS ? ' rounded-lg' : '')
 			}
 		>
@@ -83,7 +84,9 @@ export function ErrorPage({
 						Send report
 					</Button>
 				)}
-				{errorsThatRequireACoreReset.includes(message) && (
+				{(errorsThatRequireACoreReset.includes(message) ||
+					message.startsWith('NodeError::FailedToInitializeConfig') ||
+					message.startsWith('failed to initialize library manager')) && (
 					<div className="flex flex-col items-center pt-12">
 						<p className="text-md max-w-[650px] text-center">
 							We detected you may have created your library with an older version of
@@ -97,11 +100,13 @@ export function ErrorPage({
 							variant="colored"
 							className="mt-4 max-w-xs border-transparent bg-red-500"
 							onClick={() => {
+								localStorage.clear();
+
 								// @ts-expect-error
 								window.__TAURI_INVOKE__('reset_spacedrive');
 							}}
 						>
-							Reset Spacedrive
+							Reset Spacedrive & Quit App
 						</Button>
 					</div>
 				)}

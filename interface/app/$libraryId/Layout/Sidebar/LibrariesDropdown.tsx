@@ -35,7 +35,7 @@ export default () => {
 					key={lib.uuid}
 					selected={lib.uuid === currentLibraryId}
 				>
-					{lib.config.name}
+					<p className="truncate">{lib.config.name}</p>
 				</DropdownMenu.Item>
 			))}
 			<DropdownMenu.Separator className="mx-0" />

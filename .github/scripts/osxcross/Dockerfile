@@ -10,11 +10,12 @@ WORKDIR /srv
 # Host dependencies, required to build osxcross, gcc for macOS and ffmpeg. ~1GiB
 # hadolint ignore=DL3018
 RUN --mount=type=cache,target=/var/cache/apk ln -vs /var/cache/apk /etc/apk/cache && apk add --update \
-	bash bsd-compat-headers build-base bzip2-dev clang15 cmake curl git gmp-dev libc++-dev libc-dev libuuid libxml2-dev \
-	llvm15-dev llvm15-static mpc1-dev mpfr-dev musl-fts-dev openssl openssl-dev perl python3 xz yasm zlib-dev
+	autoconf automake bash bsd-compat-headers build-base bzip2-dev clang15 cmake curl gettext gettext-dev git gmp-dev \
+	libc++-dev libc-dev libtool libuuid libxml2-dev llvm15-dev llvm15-static meson mpc1-dev mpfr-dev musl-fts-dev nasm \
+	ninja openssl openssl-dev perl python3 xz yasm zlib-dev
 
 # Download osxcross, use a specific commit to avoid breaking changes and allow docker to cache it
-ADD https://github.com/tpoechtrager/osxcross/archive/50e86eb.zip /srv/osxcross.zip
+ADD https://github.com/tpoechtrager/osxcross/archive/564e2b9.zip /srv/osxcross.zip
 RUN unzip osxcross.zip && mv osxcross-* osxcross && rm osxcross.zip
 
 WORKDIR /srv/osxcross/tarballs
@@ -38,7 +39,7 @@ WORKDIR /srv/osxcross
 # Some important patches from unmerged PRs
 # PR 180 code needed to be updated to work with the latest osxcross
 # 181 is not related to the 181 PR. It's just custom code that needed to be patched after 180 and before 379
-COPY 180.diff 181.diff 314.diff 372.diff 379.diff ./
+COPY 180.diff 181.diff 314.diff ./
 RUN set -eux; for patch in *.diff; do patch -p1 < "$patch"; done
 
 # Build osxcross
@@ -58,10 +59,13 @@ WORKDIR /srv
 # Setup macports
 RUN osxcross-macports --help
 
+# Setup meson cross-compilation toolchain file
+RUN --mount=src=cross.meson.sh,dst=/srv/cross.meson.sh /srv/cross.meson.sh
+
 LABEL org.opencontainers.image.title="osxcross" \
 	# Version is macOS SDK version + osxcross commit hash
-	org.opencontainers.image.version="12.3-50e86eb" \
+	org.opencontainers.image.version="12.3-564e2b9" \
 	org.opencontainers.image.authors="Vítor Vasconcellos <vasconcellos.dev@gmail.com>, Spacedrive <support@spacedrive.com>" \
-	org.opencontainers.image.revision="1" \
+	org.opencontainers.image.revision="8" \
 	org.opencontainers.image.licenses="GPL-2.0" \
 	org.opencontainers.image.description="macOS cross toolchain configured inside Alpine Linux"

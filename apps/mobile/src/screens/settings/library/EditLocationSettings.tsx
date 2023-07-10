@@ -20,12 +20,12 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({
-	displayName: z.string(),
-	localPath: z.string(),
+	displayName: z.string().nullable(),
+	localPath: z.string().nullable(),
 	indexer_rules_ids: z.array(z.string()),
-	generatePreviewMedia: z.boolean(),
-	syncPreviewMedia: z.boolean(),
-	hidden: z.boolean()
+	generatePreviewMedia: z.boolean().nullable(),
+	syncPreviewMedia: z.boolean().nullable(),
+	hidden: z.boolean().nullable()
 });
 
 const EditLocationSettingsScreen = ({
@@ -115,7 +115,7 @@ const EditLocationSettingsScreen = ({
 					name="displayName"
 					control={form.control}
 					render={({ field: { onBlur, onChange, value } }) => (
-						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
+						<Input onBlur={onBlur} onChangeText={onChange} value={value ?? undefined} />
 					)}
 				/>
 				<SettingsInputInfo>
@@ -128,7 +128,7 @@ const EditLocationSettingsScreen = ({
 					name="localPath"
 					control={form.control}
 					render={({ field: { onBlur, onChange, value } }) => (
-						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
+						<Input onBlur={onBlur} onChangeText={onChange} value={value ?? undefined} />
 					)}
 				/>
 				<SettingsInputInfo>
@@ -146,7 +146,7 @@ const EditLocationSettingsScreen = ({
 								name="generatePreviewMedia"
 								control={form.control}
 								render={({ field: { onChange, value } }) => (
-									<Switch value={value} onValueChange={onChange} />
+									<Switch value={value ?? undefined} onValueChange={onChange} />
 								)}
 							/>
 						}
@@ -158,7 +158,7 @@ const EditLocationSettingsScreen = ({
 								name="syncPreviewMedia"
 								control={form.control}
 								render={({ field: { onChange, value } }) => (
-									<Switch value={value} onValueChange={onChange} />
+									<Switch value={value ?? undefined} onValueChange={onChange} />
 								)}
 							/>
 						}
@@ -170,7 +170,7 @@ const EditLocationSettingsScreen = ({
 								name="hidden"
 								control={form.control}
 								render={({ field: { onChange, value } }) => (
-									<Switch value={value} onValueChange={onChange} />
+									<Switch value={value ?? undefined} onValueChange={onChange} />
 								)}
 							/>
 						}
@@ -185,7 +185,7 @@ const EditLocationSettingsScreen = ({
 					<SettingsItem
 						title="Full Reindex"
 						rightArea={
-							<AnimatedButton size="sm" onPress={() => fullRescan.mutate(id)}>
+							<AnimatedButton size="sm" onPress={() => fullRescan.mutate({ location_id: id, reidentify_objects: true })}>
 								<ArrowsClockwise color="white" size={20} />
 							</AnimatedButton>
 						}

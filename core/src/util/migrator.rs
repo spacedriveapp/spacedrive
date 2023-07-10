@@ -2,13 +2,15 @@ use std::{
 	any::type_name,
 	fs::File,
 	io::{self, BufReader, Seek, Write},
-	path::Path,
+	path::{Path, PathBuf},
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use specta::Type;
 use thiserror::Error;
+
+use super::db::MissingFieldError;
 
 /// is used to decode the configuration and work out what migrations need to be applied before the config can be properly loaded.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.
@@ -23,10 +25,12 @@ pub struct BaseConfig {
 
 /// System for managing app level migrations on a config file so we can introduce breaking changes to the app without the user needing to reset their whole system.
 #[async_trait::async_trait]
-pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
+pub trait Migrate: Sized + DeserializeOwned + Serialize {
 	const CURRENT_VERSION: u32;
 
 	type Ctx: Sync;
+
+	fn default(path: PathBuf) -> Result<Self, MigratorError>;
 
 	async fn migrate(
 		from_version: u32,
@@ -54,7 +58,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 							};
 
 							if let Some(obj) = y.as_object_mut() {
-								if let Some(_) = obj.get("version").and_then(|v| v.as_str()) {
+								if obj.contains_key("version") {
 									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
 								} else {
 									return Err(err.into());
@@ -74,7 +78,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 				let is_latest = cfg.version == Self::CURRENT_VERSION;
 				for v in (cfg.version + 1)..=Self::CURRENT_VERSION {
 					cfg.version = v;
-					match Self::migrate(v, &mut cfg.other, &ctx).await {
+					match Self::migrate(v, &mut cfg.other, ctx).await {
 						Ok(()) => (),
 						Err(err) => {
 							file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
@@ -90,7 +94,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize + Default {
 				Ok(serde_json::from_value(Value::Object(cfg.other))?)
 			}
 			false => Ok(serde_json::from_value(Value::Object(
-				Self::default().save(path)?.other,
+				Self::default(path.into())?.save(path)?.other,
 			))?),
 		}
 	}
@@ -128,11 +132,16 @@ pub enum MigratorError {
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("We detected a Spacedrive config from a super early version of the app!")]
 	HasSuperLegacyConfig,
+	#[error("file '{}' was not found by the migrator!", .0.display())]
+	ConfigFileMissing(PathBuf),
+	#[error("missing-field: {0}")]
+	MissingField(#[from] MissingFieldError),
 	#[error("custom migration error: {0}")]
 	Custom(String),
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod test {
 	use std::{fs, io::Read, path::PathBuf};
 
@@ -153,10 +162,14 @@ mod test {
 
 		type Ctx = ();
 
+		fn default(_path: PathBuf) -> Result<Self, MigratorError> {
+			Ok(<Self as Default>::default())
+		}
+
 		async fn migrate(
 			to_version: u32,
 			config: &mut Map<String, Value>,
-			ctx: &Self::Ctx,
+			_ctx: &Self::Ctx,
 		) -> Result<(), MigratorError> {
 			match to_version {
 				0 => Ok(()),
@@ -223,7 +236,7 @@ mod test {
 		assert_eq!(file_as_str(&p), r#"{"version":0}"#);
 
 		// Load + migrate config
-		let config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
+		let _config = MyConfigType::load_and_migrate(&p, &()).await.unwrap();
 
 		assert_eq!(
 			file_as_str(&p),

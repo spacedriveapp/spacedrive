@@ -1,7 +1,8 @@
 use crate::{
-	library::LibraryConfig,
+	library::{LibraryConfig, LibraryName},
 	prisma::statistics,
-	volume::{get_volumes, save_volume},
+	util::MaybeUndefined,
+	volume::get_volumes,
 };
 
 use chrono::Utc;
@@ -25,25 +26,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let _statistics = library
-					.db
-					.statistics()
-					.find_unique(statistics::id::equals(library.node_local_id))
-					.exec()
-					.await?;
+				// TODO: get from database if library is offline
+				// let _statistics = library
+				// 	.db
+				// 	.statistics()
+				// 	.find_unique(statistics::id::equals(library.node_local_id))
+				// 	.exec()
+				// 	.await?;
 
-				// TODO: get from database, not sys
-				let volumes = get_volumes();
-				save_volume(&library).await?;
+				let volumes = get_volumes().await;
+				// save_volume(&library).await?;
 
-				let mut available_capacity: u64 = 0;
 				let mut total_capacity: u64 = 0;
-
-				if let Ok(volumes) = volumes {
-					for volume in volumes {
-						total_capacity += volume.total_capacity;
-						available_capacity += volume.available_capacity;
-					}
+				let mut available_capacity: u64 = 0;
+				for volume in volumes {
+					total_capacity += volume.total_capacity;
+					available_capacity += volume.available_capacity;
 				}
 
 				let library_db_size = get_size(
@@ -89,7 +87,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
-				name: String,
+				name: LibraryName,
 			}
 
 			R.mutation(|ctx, args: CreateLibraryArgs| async move {
@@ -97,10 +95,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let new_library = ctx
 					.library_manager
-					.create(LibraryConfig {
-						name: args.name.to_string(),
-						..Default::default()
-					})
+					.create(
+						LibraryConfig::new(args.name, ctx.config.get().await.id),
+						ctx.config.get().await,
+					)
 					.await?;
 
 				Ok(new_library)
@@ -110,8 +108,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Type, Deserialize)]
 			pub struct EditLibraryArgs {
 				pub id: Uuid,
-				pub name: Option<String>,
-				pub description: Option<String>,
+				pub name: Option<LibraryName>,
+				pub description: MaybeUndefined<String>,
 			}
 
 			R.mutation(|ctx, args: EditLibraryArgs| async move {

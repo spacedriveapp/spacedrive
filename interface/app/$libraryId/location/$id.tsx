@@ -1,86 +1,77 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
-	ExplorerItem,
 	useLibraryContext,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Folder } from '~/components/Folder';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useKeyDeleteFile,
-	useZodRouteParams
-} from '~/hooks';
+import { LocationIdParamsSchema } from '~/app/route-schemas';
+import { Folder } from '~/components';
+import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
+import { ExplorerContext } from '../Explorer/Context';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
-
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
 
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
-	const { id: location_id } = useZodRouteParams(PARAMS);
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 
-	const location = useLibraryQuery(['locations.get', location_id]);
+	const location = useLibraryQuery(['locations.get', locationId]);
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				location_id,
-				sub_path: path ?? ''
+				sub_path: path ?? '',
+				location_id: locationId
 			}
 		],
-		{ onData() { } }
+		{ onData() {} }
 	);
 
-	const explorerStore = getExplorerStore();
-
-	useEffect(() => {
-		explorerStore.locationId = location_id;
-	}, [explorerStore, location_id, path]);
-
-	const { items, loadMore } = useItems();
+	const { items, loadMore } = useItems({ locationId });
 
 	return (
-		<>
+		<ExplorerContext.Provider
+			value={{
+				parent: location.data
+					? {
+							type: 'Location',
+							location: location.data
+					  }
+					: undefined
+			}}
+		>
 			<TopBarPortal
 				left={
-					<div className='group flex flex-row items-center space-x-2'>
-						<span>
+					<div className="group flex flex-row items-center space-x-2">
+						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="text-sm font-medium">
-								{path ? getLastSectionOfPath(path) : location.data?.name}
+							<span className="max-w-[100px] truncate text-sm font-medium">
+								{path && path?.length > 1
+									? getLastSectionOfPath(path)
+									: location.data?.name}
 							</span>
 						</span>
-						{location.data && <LocationOptions location={location.data} path={path || ""} />}
+						{location.data && (
+							<LocationOptions location={location.data} path={path || ''} />
+						)}
 					</div>
 				}
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
+				right={<DefaultTopBarOptions />}
 			/>
 
 			<Explorer items={items} onLoadMore={loadMore} />
-		</>
+		</ExplorerContext.Provider>
 	);
 };
 
-const useItems = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
+const useItems = ({ locationId }: { locationId: number }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();

@@ -1,15 +1,19 @@
 [package]
 name = "server"
 version = "0.1.0"
-license.workspace = true
-repository.workspace = true
-edition.workspace = true
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
 
 [features]
 assets = []
 
 [dependencies]
-sd-core = { path = "../../core", features = ["ffmpeg", "location-watcher"] }
+sd-core = { path = "../../core", features = [
+	"ffmpeg",
+	"location-watcher",
+	"heif",
+] }
 rspc = { workspace = true, features = ["axum"] }
 httpz = { workspace = true, features = ["axum"] }
 axum = "0.6.18"

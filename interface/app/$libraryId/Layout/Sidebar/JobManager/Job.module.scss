@@ -1,0 +1,46 @@
+:root {
+	--border-color: rgba(50, 51, 67, 1);
+	--left-amount: 29px;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--border-color: rgba(50, 51, 67, 0.192); // Use lighter color for light mode
+	}
+}
+
+.job-group-child {
+	&:last-child {
+		padding-bottom: 12px;
+		&::after {
+			position: absolute;
+			z-index: 10;
+			height: 32px;
+			top: 0px;
+			width: 10px;
+			border-left: 1px solid var(--border-color);
+			content: '';
+			left: var(--left-amount);
+		}
+	}
+	&::before {
+		position: absolute;
+		top: 19px;
+		height: 1em;
+		width: 18px;
+		border-bottom: 1px solid var(--border-color);
+		content: '';
+		display: inline-block;
+		left: var(--left-amount);
+	}
+	&::after {
+		position: absolute;
+		z-index: 10;
+		height: 100%;
+		top: 0;
+		width: 10px;
+		border-left: 1px solid var(--border-color);
+		content: '';
+		left: var(--left-amount);
+	}
+}

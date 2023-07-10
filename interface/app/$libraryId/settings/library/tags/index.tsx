@@ -1,15 +1,25 @@
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
-import { Heading } from '../../Layout';
+import { Heading } from '~/app/$libraryId/settings/Layout';
+import { TagsSettingsParamsSchema } from '~/app/route-schemas';
+import { useZodRouteParams } from '~/hooks';
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
 export const Component = () => {
 	const tags = useLibraryQuery(['tags.list']);
+	const { id: locationId } = useZodRouteParams(TagsSettingsParamsSchema);
+	const tagSelectedParam = tags.data?.find((tag) => tag.id === locationId);
+	const [selectedTag, setSelectedTag] = useState<null | Tag>(
+		tagSelectedParam ?? tags.data?.[0] ?? null
+	);
 
-	const [selectedTag, setSelectedTag] = useState<null | Tag>(tags.data?.[0] ?? null);
+	// Update selected tag when the route param changes
+	useEffect(() => {
+		setSelectedTag(tagSelectedParam !== undefined ? tagSelectedParam : null);
+	}, [tagSelectedParam]);
 
 	return (
 		<>

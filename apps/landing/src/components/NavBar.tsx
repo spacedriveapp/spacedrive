@@ -59,10 +59,8 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed z-[55] h-16 w-full border-b px-2 transition',
-				isAtTop
-					? 'border-transparent bg-transparent'
-					: 'border-gray-550 bg-gray-700/80 backdrop-blur'
+				'fixed z-[55] h-16 w-full px-2 transition',
+				isAtTop ? 'bg-transparent' : 'backdrop-blur'
 			)}
 		>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
@@ -138,16 +136,20 @@ export default function NavBar() {
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
 					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
-						<Discord className="h-6 w-6 text-white" />
+						<Discord className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 					<Link
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="h-6 w-6 text-white" />
+						<Github className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 				</div>
+			</div>
+			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
+				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/30"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/30"></div>
 			</div>
 		</div>
 	);

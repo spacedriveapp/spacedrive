@@ -178,6 +178,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     Write-Host
     Write-Host 'Installing Visual Studio Build Tools...' -ForegroundColor Yellow
     Write-Host 'This will take some time as it involves downloading several gigabytes of data....' -ForegroundColor Cyan
+    winget install -e --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools `
+        --override 'updateall --quiet --wait'
     # Force install because BuildTools is itself a package manager, so let it decide if something needs to be installed or not
     winget install -e --accept-source-agreements --force --disable-interactivity --id Microsoft.VisualStudio.2022.BuildTools `
         --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
@@ -205,6 +207,8 @@ https://learn.microsoft.com/windows/package-manager/winget/
     } else {
         $LASTEXITCODE = 0
     }
+
+    # TODO: Install Strawberry perl, required by debug build of openssl-sys
 
     Write-Host
     Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
@@ -319,7 +323,7 @@ if (-not ($filename -and $downloadUri)) {
 }
 
 Write-Host "Dowloading protobuf zip from ${downloadUri}..." -ForegroundColor Yellow
-Start-BitsTransfer -TransferType Download -Source $downloadUri -Destination "$temp\protobuf.zip"
+Invoke-RestMethodGithub -Uri $downloadUri -OutFile "$temp\protobuf.zip"
 
 Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
 Expand-Archive "$temp\protobuf.zip" "$projectRoot\target\Frameworks" -Force
@@ -341,7 +345,7 @@ while ($page -gt 0) {
 
         $_.workflow_runs | ForEach-Object {
             $artifactPath = (
-                    (Invoke-RestMethod -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
+                (Invoke-RestMethodGithub -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
                 | Where-Object {
                     $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
                 } | ForEach-Object {
@@ -396,7 +400,7 @@ if ($success -ne 'yes') {
     "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
     '',
     '[target.x86_64-pc-windows-msvc]',
-    "rustflags = [`"-L $("$projectRoot\target\Frameworks\lib" -replace '\\', '\\')`"]",
+    "rustflags = [`"-L`", `"$("$projectRoot\target\Frameworks\lib" -replace '\\', '\\')`"]",
     '',
     (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
 ) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"

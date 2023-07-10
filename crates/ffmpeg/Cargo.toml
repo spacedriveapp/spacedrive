@@ -5,16 +5,17 @@ authors = ["Ericson Soares <ericson.ds999@gmail.com>"]
 readme = "README.md"
 description = "A simple library to generate video thumbnails using ffmpeg with the webp format"
 rust-version = "1.64.0"
-license.workspace = true
-repository.workspace = true
-edition.workspace = true
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ffmpeg-sys-next = "6.0.0"
+ffmpeg-sys-next = "6.0.1"
+tracing = "0.1.37"
 
-thiserror = "1.0.37"
+thiserror = "1.0.40"
 webp = "0.2.2"
 tokio = { workspace = true, features = ["fs", "rt"] }
 

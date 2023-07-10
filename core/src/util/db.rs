@@ -75,3 +75,35 @@ pub fn chain_optional_iter<T>(
 pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
 	uuid.as_bytes().to_vec()
 }
+
+#[derive(Error, Debug)]
+#[error("Missing field {0}")]
+pub struct MissingFieldError(&'static str);
+
+pub trait OptionalField: Sized {
+	type Out;
+
+	fn transform(self) -> Option<Self::Out>;
+}
+
+impl<T> OptionalField for Option<T> {
+	type Out = T;
+
+	fn transform(self) -> Option<T> {
+		self
+	}
+}
+impl<'a, T> OptionalField for &'a Option<T> {
+	type Out = &'a T;
+
+	fn transform(self) -> Option<Self::Out> {
+		self.as_ref()
+	}
+}
+
+pub fn maybe_missing<T: OptionalField>(
+	data: T,
+	field: &'static str,
+) -> Result<T::Out, MissingFieldError> {
+	data.transform().ok_or(MissingFieldError(field))
+}

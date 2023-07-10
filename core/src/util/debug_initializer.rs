@@ -8,14 +8,16 @@ use std::{
 
 use crate::{
 	job::JobManagerError,
-	library::{LibraryConfig, LibraryManagerError},
+	library::{LibraryConfig, LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
+	node::NodeConfig,
 	prisma::location,
 	util::AbortOnDrop,
 };
 use prisma_client_rust::QueryError;
+use sd_p2p::spacetunnel::Identity;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
@@ -37,7 +39,7 @@ pub struct LocationInitConfig {
 #[serde(rename_all = "camelCase")]
 pub struct LibraryInitConfig {
 	id: Uuid,
-	name: String,
+	name: LibraryName,
 	description: Option<String>,
 	#[serde(default)]
 	reset_locations_on_startup: bool,
@@ -93,11 +95,15 @@ impl InitConfig {
 		Ok(None)
 	}
 
-	pub async fn apply(self, library_manager: &LibraryManager) -> Result<(), InitConfigError> {
+	pub async fn apply(
+		self,
+		library_manager: &LibraryManager,
+		node_cfg: NodeConfig,
+	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);
 
 		for lib in self.libraries {
-			let name = lib.name.clone();
+			let name = lib.name.to_string();
 			let _guard = AbortOnDrop(tokio::spawn(async move {
 				loop {
 					info!("Initializing library '{name}' from 'sd_init.json'...");
@@ -108,13 +114,17 @@ impl InitConfig {
 			let library = match library_manager.get_library(lib.id).await {
 				Some(lib) => lib,
 				None => {
+					let node_pub_id = Uuid::new_v4();
 					let library = library_manager
 						.create_with_uuid(
 							lib.id,
 							LibraryConfig {
 								name: lib.name,
-								description: lib.description.unwrap_or("".to_string()),
+								description: lib.description,
+								identity: Identity::new().to_bytes(),
+								node_id: node_pub_id,
 							},
+							node_cfg.clone(),
 						)
 						.await?;
 
@@ -123,7 +133,7 @@ impl InitConfig {
 						None => {
 							warn!(
 								"Debug init error: library '{}' was not found after being created!",
-								library.config.name
+								library.config.name.as_ref()
 							);
 							return Ok(());
 						}
@@ -144,7 +154,7 @@ impl InitConfig {
 				if let Some(location) = library
 					.db
 					.location()
-					.find_first(vec![location::path::equals(loc.path.clone())])
+					.find_first(vec![location::path::equals(Some(loc.path.clone()))])
 					.exec()
 					.await?
 				{

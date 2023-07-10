@@ -1,14 +1,10 @@
 use crate::{
 	api::CoreEvent,
-	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, WorkerContext},
+	job::JobError,
 	library::Library,
-	location::{
-		file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
-		LocationId,
-	},
+	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
-	util::{error::FileIOError, version_manager::VersionManagerError},
+	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
 };
 
 use std::{
@@ -27,10 +23,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io, task::block_in_place};
-use tracing::{error, info, trace, warn};
+use tracing::{error, trace, warn};
 use webp::Encoder;
-
-use self::thumbnailer_job::ThumbnailerJob;
 
 mod directory;
 mod shallow;
@@ -81,13 +75,6 @@ static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThumbnailerJobState {
-	thumbnail_dir: PathBuf,
-	location_path: PathBuf,
-	report: ThumbnailerJobReport,
-}
-
 #[derive(Error, Debug)]
 pub enum ThumbnailerError {
 	#[error("sub path not found: <path='{}'>", .0.display())]
@@ -103,14 +90,6 @@ pub enum ThumbnailerError {
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThumbnailerJobReport {
-	location_id: LocationId,
-	path: PathBuf,
-	thumbnails_created: u32,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailerJobStepKind {
 	Image,
@@ -211,75 +190,28 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 	res
 }
 
-fn finalize_thumbnailer(data: &ThumbnailerJobState, ctx: WorkerContext) -> JobResult {
-	info!(
-		"Finished thumbnail generation for location {} at {}",
-		data.report.location_id,
-		data.report.path.display()
-	);
-
-	if data.report.thumbnails_created > 0 {
-		invalidate_query!(ctx.library, "search.paths");
-	}
-
-	Ok(Some(serde_json::to_value(&data.report)?))
-}
-
-async fn process_step(
-	state: &mut JobState<ThumbnailerJob>,
-	ctx: WorkerContext,
-) -> Result<(), JobError> {
-	let step = &state.steps[0];
-
-	ctx.progress(vec![JobReportUpdate::Message(format!(
-		"Processing {}",
-		step.file_path.materialized_path
-	))]);
-
-	let data = state
-		.data
-		.as_mut()
-		.expect("critical error: missing data on job state");
-
-	let step_result = inner_process_step(
-		&step,
-		&data.location_path,
-		&data.thumbnail_dir,
-		&state.init.location,
-		&ctx.library,
-	)
-	.await;
-
-	data.report.thumbnails_created += 1;
-
-	ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-		state.step_number + 1,
-	)]);
-
-	step_result
-}
-
 pub async fn inner_process_step(
 	step: &ThumbnailerJobStep,
-	location_path: &PathBuf,
-	thumbnail_dir: &PathBuf,
+	location_path: impl AsRef<Path>,
+	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
 	library: &Library,
-) -> Result<(), JobError> {
+) -> Result<bool, JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
+	let location_path = location_path.as_ref();
+	let thumbnail_dir = thumbnail_dir.as_ref();
 
 	// assemble the file path
-	let path = location_path.join(IsolatedFilePathData::from((location.id, file_path)));
+	let path = location_path.join(IsolatedFilePathData::try_from((location.id, file_path))?);
 	trace!("image_file {:?}", file_path);
 
 	// get cas_id, if none found skip
 	let Some(cas_id) = &file_path.cas_id else {
 		warn!(
 			"skipping thumbnail generation for {}",
-			file_path.materialized_path
+			maybe_missing(&file_path.materialized_path, "file_path.materialized_path")?
 		);
-
-		return Ok(());
+		return Ok(false);
 	};
 
 	let thumb_dir = thumbnail_dir.join(get_shard_hex(cas_id));
@@ -294,13 +226,14 @@ pub async fn inner_process_step(
 
 	match fs::metadata(&output_path).await {
 		Ok(_) => {
-			info!(
+			trace!(
 				"Thumb already exists, skipping generation for {}",
 				output_path.display()
 			);
+			return Ok(false);
 		}
 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
-			info!("Writing {:?} to {:?}", path, output_path);
+			trace!("Writing {:?} to {:?}", path, output_path);
 
 			match kind {
 				ThumbnailerJobStepKind::Image => {
@@ -316,7 +249,7 @@ pub async fn inner_process_step(
 				}
 			}
 
-			info!("Emitting new thumbnail event");
+			trace!("Emitting new thumbnail event");
 			library.emit(CoreEvent::NewThumbnail {
 				thumb_key: get_thumb_key(cas_id),
 			});
@@ -324,5 +257,5 @@ pub async fn inner_process_step(
 		Err(e) => return Err(ThumbnailerError::from(FileIOError::from((output_path, e))).into()),
 	}
 
-	Ok(())
+	Ok(true)
 }

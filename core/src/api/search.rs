@@ -1,25 +1,25 @@
 use crate::{
-	location::file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-	object::preview::get_thumb_key,
-};
-use std::collections::BTreeSet;
-
-use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::operator::or;
-use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::{Deserialize, Serialize};
-use specta::Type;
-
-use crate::{
 	api::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
 		utils::library,
 	},
-	library::Library,
-	location::{find_location, LocationError},
-	prisma::{self, file_path, object, tag, tag_on_object},
+	library::{Category, Library},
+	location::{
+		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+		LocationError,
+	},
+	object::preview::get_thumb_key,
+	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 	util::db::chain_optional_iter,
 };
+
+use std::collections::BTreeSet;
+
+use chrono::{DateTime, FixedOffset, Utc};
+use prisma_client_rust::{operator, or};
+use rspc::{alpha::AlphaRouter, ErrorCode};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::{Ctx, R};
 
@@ -80,7 +80,7 @@ impl FilePathSearchOrdering {
 		use file_path::*;
 		match self {
 			Self::Name(_) => name::order(dir),
-			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes_bytes::order(dir),
 			Self::DateCreated(_) => date_created::order(dir),
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
@@ -109,9 +109,9 @@ impl<T> MaybeNot<T> {
 #[serde(rename_all = "camelCase")]
 struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<i32>,
-	#[serde(default)]
-	search: String,
+	location_id: Option<location::id::Type>,
+	#[specta(optional)]
+	search: Option<String>,
 	#[specta(optional)]
 	extension: Option<String>,
 	#[serde(default)]
@@ -122,17 +122,66 @@ struct FilePathFilterArgs {
 	object: Option<ObjectFilterArgs>,
 }
 
-#[derive(Deserialize, Type, Debug)]
-#[serde(rename_all = "camelCase")]
-struct FilePathSearchArgs {
-	#[specta(optional)]
-	take: Option<i32>,
-	#[specta(optional)]
-	order: Option<FilePathSearchOrdering>,
-	#[specta(optional)]
-	cursor: Option<Vec<u8>>,
-	#[serde(default)]
-	filter: FilePathFilterArgs,
+impl FilePathFilterArgs {
+	async fn into_params(
+		self,
+		db: &PrismaClient,
+	) -> Result<Vec<file_path::WhereParam>, rspc::Error> {
+		let location = if let Some(location_id) = self.location_id {
+			Some(
+				db.location()
+					.find_unique(location::id::equals(location_id))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(location_id))?,
+			)
+		} else {
+			None
+		};
+
+		let directory_materialized_path_str = match (self.path, location) {
+			(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
+				let parent_iso_file_path =
+					IsolatedFilePathData::from_relative_str(location.id, &path);
+				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Directory not found".into(),
+					));
+				}
+
+				parent_iso_file_path.materialized_path_for_children()
+			}
+			(Some(_empty), _) => Some("/".into()),
+			_ => None,
+		};
+
+		{
+			use file_path::*;
+
+			Ok(chain_optional_iter(
+				self.search
+					.unwrap_or_default()
+					.split(' ')
+					.map(str::to_string)
+					.map(name::contains),
+				[
+					self.location_id.map(Some).map(location_id::equals),
+					self.extension.map(Some).map(extension::equals),
+					self.created_at.from.map(|v| date_created::gte(v.into())),
+					self.created_at.to.map(|v| date_created::lte(v.into())),
+					directory_materialized_path_str
+						.map(Some)
+						.map(materialized_path::equals),
+					self.object.and_then(|obj| {
+						let params = obj.into_params();
+
+						(!params.is_empty()).then(|| object::is(params))
+					}),
+				],
+			))
+		}
+	}
 }
 
 #[derive(Deserialize, Type, Debug, Clone)]
@@ -158,7 +207,7 @@ impl ObjectSearchOrdering {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default)]
+#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 enum ObjectHiddenFilter {
 	#[default]
@@ -166,11 +215,14 @@ enum ObjectHiddenFilter {
 	Include,
 }
 
-impl Into<Option<object::WhereParam>> for ObjectHiddenFilter {
-	fn into(self) -> Option<object::WhereParam> {
+impl ObjectHiddenFilter {
+	fn to_param(self) -> Option<object::WhereParam> {
 		match self {
-			Self::Exclude => Some(object::hidden::not(true)),
-			Self::Include => None,
+			ObjectHiddenFilter::Exclude => Some(or![
+				object::hidden::equals(None),
+				object::hidden::not(Some(true))
+			]),
+			ObjectHiddenFilter::Include => None,
 		}
 	}
 }
@@ -188,46 +240,50 @@ struct ObjectFilterArgs {
 	kind: BTreeSet<i32>,
 	#[serde(default)]
 	tags: Vec<i32>,
+	#[specta(optional)]
+	category: Option<Category>,
 }
 
 impl ObjectFilterArgs {
 	fn into_params(self) -> Vec<object::WhereParam> {
+		use object::*;
+
 		chain_optional_iter(
 			[],
 			[
-				self.hidden.into(),
-				self.favorite.map(object::favorite::equals),
+				self.hidden.to_param(),
+				self.favorite.map(Some).map(favorite::equals),
 				self.date_accessed
-					.map(|date| date.into_prisma(object::date_accessed::equals)),
-				(!self.kind.is_empty())
-					.then(|| object::kind::in_vec(self.kind.into_iter().collect())),
+					.map(|date| date.into_prisma(date_accessed::equals)),
+				(!self.kind.is_empty()).then(|| kind::in_vec(self.kind.into_iter().collect())),
 				(!self.tags.is_empty()).then(|| {
 					let tags = self.tags.into_iter().map(tag::id::equals).collect();
-					let tags_on_object = tag_on_object::tag::is(vec![or(tags)]);
+					let tags_on_object = tag_on_object::tag::is(vec![operator::or(tags)]);
 
-					object::tags::some(vec![tags_on_object])
+					tags::some(vec![tags_on_object])
 				}),
+				self.category.map(Category::to_where_param),
 			],
 		)
 	}
 }
 
-#[derive(Deserialize, Type, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ObjectSearchArgs {
-	#[specta(optional)]
-	take: Option<i32>,
-	#[specta(optional)]
-	order: Option<ObjectSearchOrdering>,
-	#[specta(optional)]
-	cursor: Option<Vec<u8>>,
-	#[serde(default)]
-	filter: ObjectFilterArgs,
-}
-
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("paths", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct FilePathSearchArgs {
+				#[specta(optional)]
+				take: Option<i32>,
+				#[specta(optional)]
+				order: Option<FilePathSearchOrdering>,
+				#[specta(optional)]
+				cursor: Option<Vec<u8>>,
+				#[serde(default)]
+				filter: FilePathFilterArgs,
+			}
+
 			R.with2(library()).query(
 				|(_, library),
 				 FilePathSearchArgs {
@@ -238,66 +294,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = &library;
 
-					let location = if let Some(location_id) = filter.location_id {
-						Some(
-							find_location(&library, location_id)
-								.exec()
-								.await?
-								.ok_or(LocationError::IdNotFound(location_id))?,
-						)
-					} else {
-						None
-					};
-
-					let directory_materialized_path_str = match (filter.path, location) {
-						(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
-							let parent_iso_file_path =
-								IsolatedFilePathData::from_relative_str(location.id, &path);
-							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db)
-								.await?
-							{
-								return Err(rspc::Error::new(
-									ErrorCode::NotFound,
-									"Directory not found".into(),
-								));
-							}
-
-							parent_iso_file_path.materialized_path_for_children()
-						}
-						(Some(_empty), _) => Some("/".into()),
-						_ => None,
-					};
-
-					let params = chain_optional_iter(
-						filter
-							.search
-							.split(' ')
-							.map(str::to_string)
-							.map(file_path::name::contains),
-						[
-							filter.location_id.map(file_path::location_id::equals),
-							filter.extension.map(file_path::extension::equals),
-							filter
-								.created_at
-								.from
-								.map(|v| file_path::date_created::gte(v.into())),
-							filter
-								.created_at
-								.to
-								.map(|v| file_path::date_created::lte(v.into())),
-							directory_materialized_path_str
-								.map(file_path::materialized_path::equals),
-							filter.object.and_then(|obj| {
-								let params = obj.into_params();
-
-								(!params.is_empty()).then(|| file_path::object::is(params))
-							}),
-						],
-					);
-
 					let take = take.unwrap_or(100);
 
-					let mut query = db.file_path().find_many(params).take(take as i64 + 1);
+					let mut query = db
+						.file_path()
+						.find_many(filter.into_params(db).await?)
+						.take(take as i64 + 1);
 
 					if let Some(order) = order {
 						query = query.order_by(order.into_param());
@@ -345,6 +347,19 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("objects", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct ObjectSearchArgs {
+				#[specta(optional)]
+				take: Option<i32>,
+				#[specta(optional)]
+				order: Option<ObjectSearchOrdering>,
+				#[specta(optional)]
+				cursor: Option<Vec<u8>>,
+				#[serde(default)]
+				filter: ObjectFilterArgs,
+			}
+
 			R.with2(library()).query(
 				|(_, library),
 				 ObjectSearchArgs {

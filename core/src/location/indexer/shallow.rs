@@ -2,9 +2,12 @@ use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::JobError,
 	library::Library,
-	location::file_path_helper::{
-		check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-		IsolatedFilePathData,
+	location::{
+		file_path_helper::{
+			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
+			IsolatedFilePathData,
+		},
+		LocationError,
 	},
 	to_remove_db_fetcher_fn,
 };
@@ -29,7 +32,9 @@ pub async fn shallow(
 	library: &Library,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
-	let location_path = Path::new(&location.path);
+	let Some(location_path) = location.path.as_ref().map(PathBuf::from) else {
+        return Err(JobError::Location(LocationError::MissingPath(location_id)));
+    };
 
 	let db = library.db.clone();
 
@@ -40,17 +45,17 @@ pub async fn shallow(
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(IndexerError::from)?;
 
-	let (add_root, to_walk_path) = if sub_path != Path::new("") {
-		let full_path = ensure_sub_path_is_in_location(location_path, &sub_path)
+	let (add_root, to_walk_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
+		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)
 			.await
 			.map_err(IndexerError::from)?;
-		ensure_sub_path_is_directory(location_path, &sub_path)
+		ensure_sub_path_is_directory(&location_path, &sub_path)
 			.await
 			.map_err(IndexerError::from)?;
 
 		(
 			!check_file_path_exists::<IndexerError>(
-				&IsolatedFilePathData::new(location_id, location_path, &full_path, true)
+				&IsolatedFilePathData::new(location_id, &location_path, &full_path, true)
 					.map_err(IndexerError::from)?,
 				&db,
 			)
@@ -67,8 +72,8 @@ pub async fn shallow(
 			&indexer_rules,
 			|_, _| {},
 			file_paths_db_fetcher_fn!(&db),
-			to_remove_db_fetcher_fn!(location_id, location_path, &db),
-			iso_file_path_factory(location_id, location_path),
+			to_remove_db_fetcher_fn!(location_id, &db),
+			iso_file_path_factory(location_id, &location_path),
 			add_root,
 		)
 		.await?
@@ -98,10 +103,10 @@ pub async fn shallow(
 		.collect::<Vec<_>>();
 
 	for step in steps {
-		execute_indexer_save_step(&location, &step, &library).await?;
+		execute_indexer_save_step(location, &step, library).await?;
 	}
 
-	invalidate_query!(&library, "search.paths");
+	invalidate_query!(library, "search.paths");
 
 	library.orphan_remover.invoke().await;
 
