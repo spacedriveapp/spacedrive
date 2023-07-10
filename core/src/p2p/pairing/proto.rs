@@ -17,6 +17,7 @@ use crate::node::Platform;
 /// Responder - is in-charge of accepting or rejecting the originator's request and then selecting which library to "share".
 
 /// A modified version of `prisma::instance::Data` that uses proper validated types for the fields.
+#[derive(Debug, PartialEq)]
 pub struct Instance {
 	pub id: Uuid,
 	pub identity: Identity,
@@ -44,10 +45,12 @@ impl From<Instance> for instance::CreateUnchecked {
 
 /// 1. Request for pairing to a library that is owned and will be selected by the responder.
 /// Sent `Originator` -> `Responder`.
+#[derive(Debug, PartialEq)]
 pub struct PairingRequest(/* Originator's instance */ pub Instance);
 
 /// 2. Decision for whether pairing was accepted or rejected once a library is decided on by the user.
 /// Sent `Responder` -> `Originator`.
+#[derive(Debug, PartialEq)]
 pub enum PairingResponse {
 	/// Pairing was accepted and the responder chose the library of their we are pairing to.
 	Accepted {
@@ -67,6 +70,7 @@ pub enum PairingResponse {
 
 /// 3. Tell the responder that the database was correctly paired.
 /// Sent `Originator` -> `Responder`.
+#[derive(Debug, PartialEq)]
 pub enum PairingConfirmation {
 	Ok,
 	Error,
@@ -221,4 +225,78 @@ impl PairingConfirmation {
 	}
 }
 
-// TODO: Unit testing
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn test_types() {
+		let instance = || Instance {
+			id: Uuid::new_v4(),
+			identity: Identity::new(),
+			node_id: Uuid::new_v4(),
+			node_name: "Node Name".into(),
+			node_platform: Platform::current(),
+			last_seen: Utc::now().into(),
+			date_created: Utc::now().into(),
+		};
+
+		{
+			let original = PairingRequest(instance());
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingRequest::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = PairingResponse::Accepted {
+				library_id: Uuid::new_v4(),
+				library_name: "Library Name".into(),
+				library_description: Some("Library Description".into()),
+				instances: vec![instance(), instance(), instance()],
+			};
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingResponse::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = PairingResponse::Accepted {
+				library_id: Uuid::new_v4(),
+				library_name: "Library Name".into(),
+				library_description: None,
+				instances: vec![],
+			};
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingResponse::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = PairingResponse::Rejected;
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingResponse::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = PairingConfirmation::Ok;
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingConfirmation::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = PairingConfirmation::Error;
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = PairingConfirmation::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+	}
+}

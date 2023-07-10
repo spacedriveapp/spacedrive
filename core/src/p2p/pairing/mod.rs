@@ -10,7 +10,6 @@ use chrono::Utc;
 use futures::channel::oneshot;
 use sd_p2p::{spacetunnel::Identity, Manager, PeerId};
 
-use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
@@ -172,6 +171,7 @@ impl PairingManager {
 
 		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{peer_id}'");
 
+		// let inner = || async move {
 		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);
 		self.events_tx
@@ -190,11 +190,11 @@ impl PairingManager {
 			.unwrap()
 			.insert(pairing_id, tx);
 		let PairingDecision::Accept(library_id) = rx.await.unwrap() else {
-			info!("The user rejected pairing '{pairing_id}'!");
-			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
-			stream.write_all(&mut PairingResponse::Rejected.to_bytes()).await.unwrap();
-			return;
-		};
+    			info!("The user rejected pairing '{pairing_id}'!");
+    			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
+    			stream.write_all(&mut PairingResponse::Rejected.to_bytes()).await.unwrap();
+    			return;
+    		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
 		let library = self.library_manager.get_library(library_id).await.unwrap();
@@ -234,6 +234,10 @@ impl PairingManager {
 
 		stream.flush().await.unwrap();
 		tokio::time::sleep(std::time::Duration::from_secs(30)).await; // TODO
+
+		// };
+
+		// inner().await.unwrap();
 	}
 }
 
