@@ -215,9 +215,7 @@ impl Migrate for LibraryConfig {
 				db.location()
 					.update_many(
 						vec![],
-						vec![location::instance::connect(instance::id::equals(
-							instance.id.clone(),
-						))],
+						vec![location::instance_id::set(Some(instance.id.clone()))],
 					)
 					.exec()
 					.await?;

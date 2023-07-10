@@ -62,7 +62,6 @@ model Instance {
     date_created DateTime
 
     SharedOperation SharedOperation[]
-    Location        Location[]
 
     @@map("instance")
 }
@@ -113,7 +112,7 @@ model Location {
     date_created           DateTime?
 
     instance_id Bytes?
-    instance    Instance? @relation(fields: [instance_id], references: [id])
+    // instance    Instance? @relation(fields: [instance_id], references: [id]) // TODO: Enabling this breaks migration 7's `update_many` in `library/config.rs`
 
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]

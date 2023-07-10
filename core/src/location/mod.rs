@@ -24,7 +24,6 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
-use sd_prisma::prisma::instance;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -608,9 +607,12 @@ async fn create_location(
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
 						location::date_created::set(Some(date_created.into())),
-						location::instance::connect(instance::id::equals(
+						location::instance_id::set(Some(
 							library.config.instance_id.as_bytes().to_vec(),
 						)),
+						// location::instance::connect(instance::id::equals(
+						// 	library.config.instance_id.as_bytes().to_vec(),
+						// )),
 					],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -732,7 +734,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			instance: None,
+			// instance: None,
 		}
 	}
 }
@@ -754,7 +756,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			instance: None,
+			// instance: None,
 		}
 	}
 }
