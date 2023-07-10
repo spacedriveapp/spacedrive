@@ -1,7 +1,7 @@
 use std::{
 	any::type_name,
 	fs::File,
-	io::{self, BufReader, Seek, Write},
+	io::{self, BufReader, BufWriter, Seek, Write},
 	path::{Path, PathBuf},
 };
 
@@ -41,23 +41,16 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 	async fn load_and_migrate(path: &Path, ctx: &Self::Ctx) -> Result<Self, MigratorError> {
 		match path.try_exists()? {
 			true => {
-				let mut file = File::options().read(true).write(true).open(path)?;
-				let mut cfg: BaseConfig = match serde_json::from_reader(BufReader::new(&mut file)) {
+				let mut file = BufReader::new(File::options().read(true).open(path)?);
+				let mut cfg: BaseConfig = match serde_json::from_reader(&mut file) {
 					Ok(cfg) => cfg,
 					Err(err) => {
 						// This is for backwards compatibility for the backwards compatibility cause the super super old system store the version as a string.
 						{
 							file.rewind()?;
-							let mut y = match serde_json::from_reader::<_, Value>(BufReader::new(
-								&mut file,
-							)) {
-								Ok(y) => y,
-								Err(_) => {
-									return Err(err.into());
-								}
-							};
+							let mut cfg = serde_json::from_reader::<_, Value>(file)?;
 
-							if let Some(obj) = y.as_object_mut() {
+							if let Some(obj) = cfg.as_object_mut() {
 								if obj.contains_key("version") {
 									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
 								} else {
@@ -69,7 +62,9 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 						}
 					}
 				};
-				file.rewind()?; // Fail early so we don't end up invalid state
+				drop(file);
+				let file = File::options().write(true).open(path)?;
+				let mut file = BufWriter::new(file);
 
 				if cfg.version > Self::CURRENT_VERSION {
 					return Err(MigratorError::YourAppIsOutdated);
