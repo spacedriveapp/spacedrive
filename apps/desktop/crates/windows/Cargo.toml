@@ -8,7 +8,7 @@ edition = { workspace = true }
 [dependencies]
 thiserror = "1.0.40"
 normpath = "1.1.1"
-libc = "0.2.146"
+libc = "0.2"
 
 [dependencies.windows]
 version = "0.48"

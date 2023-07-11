@@ -1,8 +1,10 @@
 use std::{
 	collections::{BTreeSet, HashMap},
+	hash::{Hash, Hasher},
 	sync::Arc,
 };
 
+use futures::future;
 use sd_core::{
 	prisma::{file_path, location},
 	Node,
@@ -57,15 +59,25 @@ pub async fn open_file_paths(
 	Ok(res)
 }
 
-#[derive(Serialize, Type)]
+#[derive(Serialize, Type, Debug, Clone)]
 pub struct OpenWithApplication {
-	id: i32,
-	name: String,
-	#[cfg(target_os = "linux")]
-	url: std::path::PathBuf,
-	#[cfg(not(target_os = "linux"))]
 	url: String,
+	name: String,
 }
+
+impl Hash for OpenWithApplication {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.url.hash(state);
+	}
+}
+
+impl PartialEq for OpenWithApplication {
+	fn eq(&self, other: &Self) -> bool {
+		self.url == other.url
+	}
+}
+
+impl Eq for OpenWithApplication {}
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -100,9 +112,8 @@ pub async fn get_file_path_open_with_apps(
 				.as_slice()
 				.iter()
 				.map(|app| OpenWithApplication {
-					id,
-					name: app.name.to_string(),
 					url: app.url.to_string(),
+					name: app.name.to_string(),
 				})
 				.collect::<Vec<_>>()
 		})
@@ -110,57 +121,35 @@ pub async fn get_file_path_open_with_apps(
 
 	#[cfg(target_os = "linux")]
 	{
-		use sd_desktop_linux::{DesktopEntry, HandlerType, SystemApps};
+		use sd_desktop_linux::list_apps_associated_with_ext;
+		use std::collections::HashSet;
 
-		// TODO: cache this, and only update when the underlying XDG desktop apps changes
-		let Ok(system_apps) = SystemApps::populate()
-			.map_err(|e| { error!("{e:#?}"); })
-			else {
-				return Ok(vec![]);
-			};
-
-		return Ok(paths
-			.into_iter()
-			.flat_map(|(id, path)| {
-				let Some(path) = path
+		let apps = future::join_all(paths.into_values().map(|path| async {
+			let Some(path) = path
 					else {
 						error!("File not found in database");
-						return vec![];
+						return None;
 					};
 
-				let Some(name) = path.file_name()
-					.and_then(|name| name.to_str())
-					.map(|name| name.to_string())
-					else {
-						error!("Failed to extract file name");
-						return vec![];
-					};
-
-				system_apps
-					.get_handlers(HandlerType::Ext(name))
-					.map(|handler| {
-						handler
-							.get_path()
-							.map_err(|e| {
-								error!("{e:#?}");
-							})
-							.and_then(|path| {
-								DesktopEntry::try_from(&path)
-									// TODO: Ignore desktop entries that have commands that don't exist/aren't available in path
-									.map(|entry| OpenWithApplication {
-										id,
-										name: entry.name,
-										url: path,
-									})
-									.map_err(|e| {
-										error!("{e:#?}");
-									})
-							})
+			Some(
+				list_apps_associated_with_ext(&path)
+					.await
+					.into_iter()
+					.map(|app| OpenWithApplication {
+						url: app.id,
+						name: app.name,
 					})
-					.collect::<Result<Vec<_>, _>>()
-					.unwrap_or(vec![])
-			})
-			.collect());
+					.collect::<HashSet<_>>(),
+			)
+		}))
+		.await;
+
+		return Ok(apps
+			.into_iter()
+			.flatten()
+			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+			.map(|set| set.into_iter().collect())
+			.unwrap_or(vec![]));
 	}
 
 	#[cfg(windows)]
@@ -199,7 +188,7 @@ pub async fn get_file_path_open_with_apps(
 							return None
 						};
 
-							Some(OpenWithApplication { id, name, url })
+							Some(OpenWithApplication { name, url })
 						})
 						.collect::<Vec<_>>()
 				})
@@ -262,11 +251,9 @@ pub async fn open_file_path_with(
 					};
 
 					#[cfg(target_os = "linux")]
-					return sd_desktop_linux::Handler::assume_valid(url.into())
-						.open(&[path])
-						.map_err(|e| {
-							error!("{e:#?}");
-						});
+					return sd_desktop_linux::open_files_path_with(&[path], url).map_err(|e| {
+						error!("{e:#?}");
+					});
 
 					#[cfg(windows)]
 					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {

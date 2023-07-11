@@ -9,22 +9,23 @@ use std::{
 };
 
 pub fn get_current_user_home() -> Option<PathBuf> {
+	use libc::{getpwuid_r, getuid, passwd, ERANGE};
+
 	if let Some(home) = env::var("HOME").ok().map(PathBuf::from) {
 		if home.is_absolute() && home.is_dir() {
 			return Some(home);
 		}
 	}
 
-	let uid = unsafe { libc::getuid() };
+	let uid = unsafe { getuid() };
 	let mut buf = vec![0; 2048];
-	let mut passwd = unsafe { mem::zeroed::<libc::passwd>() };
-	let mut result = ptr::null_mut::<libc::passwd>();
+	let mut passwd = unsafe { mem::zeroed::<passwd>() };
+	let mut result = ptr::null_mut::<passwd>();
 
 	loop {
-		let r =
-			unsafe { libc::getpwuid_r(uid, &mut passwd, buf.as_mut_ptr(), buf.len(), &mut result) };
+		let r = unsafe { getpwuid_r(uid, &mut passwd, buf.as_mut_ptr(), buf.len(), &mut result) };
 
-		if r != libc::ERANGE {
+		if r != ERANGE {
 			break;
 		}
 
@@ -43,7 +44,7 @@ pub fn get_current_user_home() -> Option<PathBuf> {
 		return None;
 	}
 
-	let passwd: libc::passwd = unsafe { result.read() };
+	let passwd: passwd = unsafe { result.read() };
 	if passwd.pw_dir.is_null() {
 		return None;
 	}
@@ -59,9 +60,12 @@ pub fn get_current_user_home() -> Option<PathBuf> {
 	}
 }
 
-fn normalize_pathlist(var_name: &str, default_dirs: &[PathBuf]) {
-	let dirs = if let Ok(var_value) = env::var(var_name) {
-		let mut dirs = var_value.split(':').map(PathBuf::from).collect::<Vec<_>>();
+fn normalize_pathlist(
+	env_name: &str,
+	default_dirs: &[PathBuf],
+) -> Result<Vec<PathBuf>, env::JoinPathsError> {
+	let dirs = if let Some(value) = env::var_os(env_name) {
+		let mut dirs = env::split_paths(&value).collect::<Vec<_>>();
 
 		let mut insert_index: usize = dirs.len();
 		for default_dir in default_dirs {
@@ -77,18 +81,19 @@ fn normalize_pathlist(var_name: &str, default_dirs: &[PathBuf]) {
 	};
 
 	let mut unique = HashSet::new();
-	env::set_var(
-		var_name,
-		dirs.iter()
-			.filter(|dir| unique.insert(*dir))
-			.map(|dir| dir.as_os_str())
-			.collect::<Vec<&OsStr>>()
-			.join(OsStr::new(":")),
-	);
+	let pathlist = dirs
+		.iter()
+		.filter(|dir| unique.insert(*dir))
+		.cloned()
+		.collect::<Vec<_>>();
+
+	env::set_var(env_name, env::join_paths(&pathlist)?);
+
+	Ok(pathlist)
 }
 
 fn normalize_xdg_environment(name: &str, default_value: PathBuf) -> PathBuf {
-	if let Ok(value) = env::var(name) {
+	if let Some(value) = env::var_os(name) {
 		if !value.is_empty() {
 			let path = PathBuf::from(value);
 			if path.is_absolute() && path.is_dir() {
@@ -104,18 +109,24 @@ fn normalize_xdg_environment(name: &str, default_value: PathBuf) -> PathBuf {
 pub fn normalize_environment() {
 	let home = get_current_user_home().expect("No user home directory found");
 
-	// Normalize XDG environment variables
+	// Normalize user XDG dirs environment variables
 	let data_home = normalize_xdg_environment("XDG_DATA_HOME", home.join(".local/share"));
 	normalize_xdg_environment("XDG_CACHE_HOME", home.join(".cache"));
 	normalize_xdg_environment("XDG_CONFIG_HOME", home.join(".config"));
+
+	// Normalize system XDG dirs environment variables
 	normalize_pathlist(
 		"XDG_DATA_DIRS",
 		&[
 			PathBuf::from("/usr/share"),
 			PathBuf::from("/usr/local/share"),
+			PathBuf::from("/var/lib/flatpak/exports/share"),
+			data_home.join("flatpak/exports/share"),
 		],
-	);
-	normalize_pathlist("XDG_CONFIG_DIRS", &[PathBuf::from("/etc/xdg")]);
+	)
+	.expect("XDG_DATA_DIRS must be successfully normalized");
+	normalize_pathlist("XDG_CONFIG_DIRS", &[PathBuf::from("/etc/xdg")])
+		.expect("XDG_CONFIG_DIRS must be successfully normalized");
 
 	// Normalize PATH
 	normalize_pathlist(
@@ -130,5 +141,6 @@ pub fn normalize_environment() {
 			PathBuf::from("/var/lib/flatpak/exports/bin"),
 			data_home.join("flatpak/exports/bin"),
 		],
-	);
+	)
+	.expect("PATH must be successfully normalized");
 }
