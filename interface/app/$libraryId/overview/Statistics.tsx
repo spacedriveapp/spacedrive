@@ -1,9 +1,8 @@
-import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { Info } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Statistics, byteSize, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -46,12 +45,12 @@ const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof type
 let mounted = false;
 
 const StatItem = (props: StatItemProps) => {
-	const { title, bytes = BigInt('0'), isLoading } = props;
+	const { title, bytes, isLoading } = props;
 
-	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
+	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
-		end: +size.value,
+		end: size.value,
 		duration: mounted ? 0 : 1,
 		saveState: false
 	});
@@ -59,7 +58,7 @@ const StatItem = (props: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'group flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
+				'group flex w-32 shrink-0 flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
@@ -107,7 +106,7 @@ export default () => {
 	});
 	mounted = true;
 	return (
-		<div className="flex w-full px-5 pt-4">
+		<div className="flex w-full px-5 pb-2 pt-4">
 			{/* STAT CONTAINER */}
 			<div className="-mb-1 flex h-20 overflow-hidden">
 				{Object.entries(stats?.data || []).map(([key, value]) => {

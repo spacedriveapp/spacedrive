@@ -2,23 +2,22 @@
 import clsx from 'clsx';
 import { ExplorerItem, getItemFilePath, getItemLocation } from '@sd/client';
 import { RenameLocationTextBox, RenamePathTextBox } from '../FilePath/RenameTextBox';
-import { useExplorerStore } from '../store';
 
 export default function RenamableItemText(props: {
 	item: ExplorerItem;
 	selected: boolean;
 	disabled?: boolean;
 	allowHighlight?: boolean;
+	style?: React.CSSProperties;
 }) {
-	const { item, selected, disabled, allowHighlight } = props;
-	const explorerStore = useExplorerStore();
+	const { item, selected, disabled, allowHighlight, style } = props;
 
 	const sharedProps = {
 		className: clsx(
 			'text-center font-medium text-ink',
 			selected && allowHighlight !== false && 'bg-accent text-white dark:text-ink'
 		),
-		style: { maxHeight: explorerStore.gridItemSize / 3 },
+		style: style,
 		activeClassName: '!text-ink',
 		disabled: !selected || disabled
 	};

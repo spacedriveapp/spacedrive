@@ -7075,6 +7075,7 @@ dependencies = [
  "normpath",
  "notify",
  "once_cell",
+ "plist",
  "prisma-client-rust",
  "regex",
  "rmp",
@@ -7178,6 +7179,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tracing 0.1.37",
  "webp",
 ]
 

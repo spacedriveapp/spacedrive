@@ -36,7 +36,9 @@ impl FfmpegFrame {
 
 impl Drop for FfmpegFrame {
 	fn drop(&mut self) {
-		unsafe { av_frame_free(&mut self.data) };
-		self.data = std::ptr::null_mut();
+		if !self.data.is_null() {
+			unsafe { av_frame_free(&mut self.data) };
+			self.data = std::ptr::null_mut();
+		}
 	}
 }

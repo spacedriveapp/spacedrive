@@ -12,13 +12,8 @@ ffbuild_dockerbuild() {
     --static
   )
 
-  if [[ $TARGET == win* || $TARGET == linux* ]]; then
-    export CC="${FFBUILD_CROSS_PREFIX}gcc"
-    export AR="${FFBUILD_CROSS_PREFIX}ar"
-  else
-    echo "Unknown target"
-    return 255
-  fi
+  export CC="${FFBUILD_CROSS_PREFIX}gcc"
+  export AR="${FFBUILD_CROSS_PREFIX}ar"
 
   ./configure "${myconf[@]}"
   make -j"$(nproc)"
