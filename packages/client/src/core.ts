@@ -19,6 +19,7 @@ export type Procedures = {
         { key: "locations.list", input: LibraryArgs<null>, result: { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null; node: Node | null }[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
+        { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
@@ -165,9 +166,9 @@ export type LibraryPreferences = { location?: { [key: string]: LocationPreferenc
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListViewColumnSettings = { hide?: boolean; size?: number | null }
+export type ListViewColumnSettings = { hide: boolean; size: number | null }
 
-export type ListViewSettings = { columns?: { [key: string]: ListViewColumnSettings }; sort_col?: string | null }
+export type ListViewSettings = { columns: { [key: string]: ListViewColumnSettings }; sort_col: string | null }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; node_id: number | null }
 

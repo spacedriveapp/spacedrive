@@ -49,7 +49,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.3.9
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   apps/desktop:
     dependencies:
@@ -566,7 +566,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -606,7 +606,7 @@ importers:
         version: 4.8.2
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   interface:
     dependencies:
@@ -670,6 +670,9 @@ importers:
       '@types/react-scroll-sync':
         specifier: ^0.8.4
         version: 0.8.4
+      '@types/uuid':
+        specifier: ^9.0.2
+        version: 9.0.2
       '@vitejs/plugin-react':
         specifier: ^2.1.0
         version: 2.1.0(vite@4.3.9)
@@ -757,6 +760,9 @@ importers:
       use-resize-observer:
         specifier: ^9.1.0
         version: 9.1.0(react-dom@18.2.0)(react@18.2.0)
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.0
       valtio:
         specifier: ^1.7.4
         version: 1.10.4(react@18.2.0)
@@ -8630,7 +8636,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.24.1
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -9228,7 +9234,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -10423,6 +10429,10 @@ packages:
   /@types/unist@2.0.6:
     resolution: {integrity: sha512-PBjIUxZHOuj0R15/xuwJYjFi+KZdNFrehocChv4g5hu6aFroHue8m0lBP0POdK2nKzbw0cgV1mws8+V/JAcEkQ==}
 
+  /@types/uuid@9.0.2:
+    resolution: {integrity: sha512-kNnC1GFBLuhImSnV7w4njQkUiJi0ZXUycu1rUaouPqiKlXkh77JKgdRnTAp1x5eBwcIwbtI+3otwzuIDEuDoxQ==}
+    dev: false
+
   /@types/webxr@0.5.2:
     resolution: {integrity: sha512-szL74BnIcok9m7QwYtVmQ+EdIKwbjPANudfuvDrAF8Cljg9MKUlIoc1w5tjj9PMpeSH3U1Xnx//czQybJ0EfSw==}
 
@@ -10631,7 +10641,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.22.1)
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -24121,7 +24131,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.5.1
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24135,7 +24145,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.2.0
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24218,7 +24228,6 @@ packages:
       rollup: 3.24.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite@4.3.9(less@4.1.3):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct LibraryPreferences {
 	#[serde(default)]
 	#[specta(optional)]
@@ -24,38 +24,50 @@ impl LibraryPreferences {
 
 		Ok(())
 	}
+
+	pub async fn read(db: &PrismaClient) -> prisma_client_rust::Result<Self> {
+		let kvs = db.preference().find_many(vec![]).exec().await?;
+
+		let prefs = PreferenceKVs::new(
+			kvs.into_iter()
+				.filter_map(|data| {
+					let a = rmpv::decode::read_value(&mut data.value?.as_slice()).unwrap();
+
+					Some((PreferenceKey::new(data.key), PreferenceValue::from_value(a)))
+				})
+				.collect(),
+		);
+
+		Ok(prefs.parse())
+	}
 }
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct LocationPreferences {
 	/// View settings for the location - all writes are overwrites!
 	#[specta(optional)]
 	view: Option<LocationViewSettings>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct LocationViewSettings {
 	layout: ExplorerLayout,
 	list: ListViewSettings,
 }
 
-#[derive(Clone, Serialize, Deserialize, Type, Default)]
+#[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
 pub struct ListViewSettings {
-	#[serde(default /*, skip_serializing_if = "HashMap::is_empty" */)]
 	columns: HashMap<String, ListViewColumnSettings>,
-	#[serde(default, skip_serializing_if = "Option::is_none")]
 	sort_col: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Type, Default)]
+#[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
 pub struct ListViewColumnSettings {
-	#[serde(default)]
 	hide: bool,
-	#[serde(default, skip_serializing_if = "Option::is_none")]
 	size: Option<i32>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub enum ExplorerLayout {
 	Grid,
 	List,
@@ -79,6 +91,17 @@ where
 				.collect(),
 		)
 	}
+
+	fn from_entries(entries: Entries) -> Self {
+		entries
+			.into_iter()
+			.map(|(key, value)| {
+				let id = Uuid::parse_str(&key).unwrap();
+
+				(id, V::from_entries(value.expect_nested()))
+			})
+			.collect()
+	}
 }
 
 impl Preferences for LibraryPreferences {
@@ -86,6 +109,15 @@ impl Preferences for LibraryPreferences {
 		let Self { location } = self;
 
 		location.to_kvs().with_prefix("location")
+	}
+
+	fn from_entries(mut entries: Entries) -> Self {
+		Self {
+			location: entries
+				.remove("location")
+				.map(|value| HashMap::from_entries(value.expect_nested()))
+				.unwrap_or_default(),
+		}
 	}
 }
 
@@ -100,8 +132,15 @@ impl Preferences for LocationPreferences {
 				.collect(),
 		)
 	}
+
+	fn from_entries(mut entries: Entries) -> Self {
+		Self {
+			view: entries.remove("view").map(|view| view.expect_value()),
+		}
+	}
 }
 
 pub trait Preferences {
 	fn to_kvs(self) -> PreferenceKVs;
+	fn from_entries(entries: Entries) -> Self;
 }

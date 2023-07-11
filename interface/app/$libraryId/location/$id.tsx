@@ -1,8 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
 	useLibraryContext,
-	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
@@ -23,31 +22,6 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 
 	const location = useLibraryQuery(['locations.get', locationId]);
-
-	const updatePrefs = useLibraryMutation('preferences.update');
-
-	useEffect(() => {
-		if (!location.data) return;
-
-		const stringId = location.data.pub_id.map((n) => n.toString(16).padStart(2, '0')).join('');
-
-		console.log(stringId);
-
-		updatePrefs.mutateAsync({
-			location: {
-				[stringId]: {
-					view: {
-						layout: 'Grid',
-						list: {
-							col_sizes: {},
-							filtered: [],
-							sort_col: null
-						}
-					}
-				}
-			}
-		});
-	}, [location.data, updatePrefs.mutateAsync]);
 
 	useLibrarySubscription(
 		[
