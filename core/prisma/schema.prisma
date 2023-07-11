@@ -459,8 +459,10 @@ model IndexerRulesInLocation {
     @@map("indexer_rule_in_location")
 }
 
-/// @shared(id: pub_id)
+/// @shared(id: key)
 model Preference {
 	key  String @id
 	value Bytes?
+
+    @@map("preference")
 }
