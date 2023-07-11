@@ -268,7 +268,7 @@ impl MacOsEventHandler<'_> {
 						);
 
 						// We found a new path for this old path, so we can rename it
-						rename(self.location_id, &path, &old_path, self.library).await?;
+						rename(self.location_id, &path, &old_path, meta, self.library).await?;
 					} else {
 						trace!("No match for new path yet: {}", path.display());
 						self.new_paths_map
@@ -299,7 +299,16 @@ impl MacOsEventHandler<'_> {
 					);
 
 					// We found a new path for this old path, so we can rename it
-					rename(self.location_id, &new_path, &path, self.library).await?;
+					rename(
+						self.location_id,
+						&new_path,
+						&path,
+						fs::metadata(&new_path)
+							.await
+							.map_err(|e| FileIOError::from((&new_path, e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					trace!("No match for old path yet: {}", path.display());
 					// We didn't find a new path for this old path, so we store ir for later
