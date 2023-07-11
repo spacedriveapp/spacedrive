@@ -9,6 +9,11 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// Preferences are a set of types that are serialized as a list of key-value pairs,
+// where nested type keys are serialized as a dot-separated path.
+// They are serailized as a list because this allows preferences to be a synchronisation boundary,
+// whereas their values (referred to as settings) will be overwritten.
+
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct LibraryPreferences {
 	#[serde(default)]
