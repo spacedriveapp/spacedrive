@@ -17,7 +17,6 @@
  */
 import type { Adapter } from '@auth/core/adapters';
 import { and, eq } from 'drizzle-orm';
-// @ts-expect-error
 import { v4 as uuid } from 'uuid';
 import type { DbClient, Schema } from './schema';
 
