@@ -33,6 +33,7 @@ pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
+pub(crate) mod preferences;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;

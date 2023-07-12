@@ -469,3 +469,11 @@ model IndexerRulesInLocation {
     @@id([location_id, indexer_rule_id])
     @@map("indexer_rule_in_location")
 }
+
+/// @shared(id: key)
+model Preference {
+	key  String @id
+	value Bytes?
+
+    @@map("preference")
+}

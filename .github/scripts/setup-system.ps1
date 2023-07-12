@@ -162,7 +162,13 @@ https://learn.microsoft.com/windows/package-manager/winget/
 '@
     }
 
-    # TODO: Check system winget version is greater or equal to v1.4.10052
+    # Check system winget version is greater or equal to v1.4.10052
+    $wingetVersion = [Version]((winget --version)  -replace '.*?(\d+)\.(\d+)\.(\d+).*', '$1.$2.$3')
+    $requiredVersion = [Version]'1.4.10052'
+    if ($wingetVersion.CompareTo($requiredVersion) -lt 0) {
+        $errorMessage = "You need to update your winget to version $requiredVersion or higher."
+        Exit-WithError $errorMessage
+    }
 
     # Check connectivity to GitHub
     $ProgressPreference = 'SilentlyContinue'

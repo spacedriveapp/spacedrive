@@ -110,11 +110,6 @@ pub enum LocationManagerError {
 	#[error("missing-field")]
 	MissingField(#[from] MissingFieldError),
 
-	#[error("invalid inode")]
-	InvalidInode,
-	#[error("invalid device")]
-	InvalidDevice,
-
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }
