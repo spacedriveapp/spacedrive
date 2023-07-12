@@ -1,14 +1,58 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use gtk::{
 	gio::{
-		content_type_guess, prelude::AppInfoExt, AppInfo, AppLaunchContext, DesktopAppInfo,
-		File as GioFile, ResourceError,
+		content_type_guess, prelude::AppInfoExt, prelude::AppLaunchContextExt, AppInfo,
+		AppLaunchContext, DesktopAppInfo, File as GioFile, ResourceError,
 	},
 	glib::error::Error as GlibError,
+	prelude::IsA,
 };
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+
+use crate::env::remove_prefix_from_pathlist;
+
+fn remove_prefix_from_env_in_ctx(
+	ctx: &impl IsA<AppLaunchContext>,
+	env_name: &str,
+	prefix: &impl AsRef<Path>,
+) {
+	if let Some(value) = remove_prefix_from_pathlist(env_name, prefix) {
+		ctx.setenv(env_name, value);
+	} else {
+		ctx.unsetenv(env_name);
+	}
+}
+
+thread_local! {
+	static LAUNCH_CTX: AppLaunchContext = {
+		// TODO: Display supports requires GDK, which can only run on the main thread
+		// let ctx = Display::default()
+		// 		.and_then(|display| display.app_launch_context())
+		// 		.map(|display| display.to_value().get::<AppLaunchContext>().expect(
+		// 			"This is an Glib type conversion, it should never fail because GDKAppLaunchContext is a subclass of AppLaunchContext"
+		// 		)).unwrap_or_default();
+
+		let ctx = AppLaunchContext::default();
+
+		if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+			// Remove AppImage paths from environment variables to avoid external applications attempting to use the AppImage's libraries
+			// https://github.com/AppImage/AppImageKit/blob/701b711f42250584b65a88f6427006b1d160164d/src/AppRun.c#L168-L194
+			ctx.unsetenv("PYTHONHOME");
+			remove_prefix_from_env_in_ctx(&ctx, "PATH", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "LD_LIBRARY_PATH", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "PYTHONPATH", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "XDG_DATA_DIRS", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "GSETTINGS_SCHEMA_DIR", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "QT_PLUGIN_PATH", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH", &appdir);
+			remove_prefix_from_env_in_ctx(&ctx, "GST_PLUGIN_SYSTEM_PATH_1_0", &appdir);
+		}
+
+		ctx
+	}
+}
 
 pub struct App {
 	pub id: String,
@@ -66,16 +110,14 @@ pub async fn list_apps_associated_with_ext(file_path: impl AsRef<Path>) -> Vec<A
 }
 
 pub fn open_files_path_with(file_paths: &[impl AsRef<Path>], id: &str) -> Result<(), GlibError> {
-	if let Some(app) = DesktopAppInfo::new(id) {
+	let Some(app) = DesktopAppInfo::new(id) else {
+		return Err(GlibError::new(ResourceError::NotFound, "App not found"))
+	};
+
+	LAUNCH_CTX.with(|ctx| {
 		app.launch(
 			&file_paths.iter().map(GioFile::for_path).collect::<Vec<_>>(),
-			None::<&AppLaunchContext>,
-			// TODO: Get default display requires GDK, which can only run on the main thread
-			// Display::default()
-			// 	.and_then(|display| display.app_launch_context())
-			// 	.as_ref(),
+			Some(ctx),
 		)
-	} else {
-		Err(GlibError::new(ResourceError::NotFound, "App not found"))
-	}
+	})
 }
