@@ -287,7 +287,7 @@ impl LocationUpdateArgs {
 			.await?;
 
 			// TODO(N): This will probs fall apart with removable media.
-			if location.node_id == Some(library.config.instance_id) {
+			if location.instance_id == Some(library.config.instance_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
