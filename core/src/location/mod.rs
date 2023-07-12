@@ -1,11 +1,15 @@
 use crate::{
+	api::CoreEvent,
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
+		preview::{
+			can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
+			get_thumbnail_path, shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
+		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, PrismaClient},
 	sync,
@@ -18,7 +22,10 @@ use crate::{
 use std::{
 	collections::HashSet,
 	path::{Component, Path, PathBuf},
+	str::FromStr,
 };
+
+use sd_file_ext::extensions::ImageExtension;
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
@@ -28,15 +35,15 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn, trace};
 use uuid::Uuid;
 
 mod error;
 pub mod file_path_helper;
 pub mod indexer;
-pub mod non_indexed;
 mod manager;
 mod metadata;
+pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::IndexerJobInit;
@@ -800,4 +807,56 @@ async fn check_nested_location(
 	});
 
 	Ok(parents_count > 0 || is_a_child_location)
+}
+
+pub(super) async fn generate_thumbnail(
+	extension: &str,
+	cas_id: &str,
+	path: impl AsRef<Path>,
+	library: &Library,
+) {
+	let path = path.as_ref();
+	let output_path = get_thumbnail_path(library, cas_id);
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != io::ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
+			);
+		}
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else {
+		debug!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return;
+	}
+
+	if let Ok(extension) = ImageExtension::from_str(extension) {
+		if can_generate_thumbnail_for_image(&extension) {
+			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
+				error!("Failed to image thumbnail on location manager: {e:#?}");
+			}
+		}
+	}
+
+	#[cfg(feature = "ffmpeg")]
+	{
+		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use sd_file_ext::extensions::VideoExtension;
+
+		if let Ok(extension) = VideoExtension::from_str(extension) {
+			if can_generate_thumbnail_for_video(&extension) {
+				if let Err(e) = generate_video_thumbnail(path, &output_path).await {
+					error!("Failed to video thumbnail on location manager: {e:#?}");
+				}
+			}
+		}
+	}
+
+	trace!("Emitting new thumbnail event");
+	library.emit(CoreEvent::NewThumbnail {
+		thumb_key: get_thumb_key(cas_id),
+	});
 }
