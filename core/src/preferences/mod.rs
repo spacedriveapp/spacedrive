@@ -25,7 +25,7 @@ impl LibraryPreferences {
 	pub async fn write(self, db: &PrismaClient) -> prisma_client_rust::Result<()> {
 		let kvs = self.to_kvs();
 
-		db._batch(kvs.to_upserts(&db)).await?;
+		db._batch(kvs.to_upserts(db)).await?;
 
 		Ok(())
 	}
