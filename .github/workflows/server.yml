@@ -32,7 +32,7 @@ jobs:
             export IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
           fi
           export GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
-          export IMAGE_NAME="ghcr.io/$GITHUB_REPOSITORY_LOWER/server"
+          export IMAGE_NAME="ghcr.io/$GITHUB_REPOSITORY_LOWER-server"
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "Building $IMAGE_NAME:$IMAGE_TAG"
