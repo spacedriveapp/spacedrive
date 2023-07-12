@@ -52,7 +52,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.location()
 					.find_many(vec![])
 					.order_by(location::date_created::order(SortOrder::Desc))
-					.include(location::include!({ node }))
 					.exec()
 					.await?)
 			})

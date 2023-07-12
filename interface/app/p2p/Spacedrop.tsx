@@ -3,7 +3,9 @@ import {
 	useBridgeMutation,
 	useBridgeSubscription,
 	useDiscoveredPeers,
-	useFeatureFlag
+	useFeatureFlag,
+	useP2PEvents,
+	withFeatureFlag
 } from '@sd/client';
 import {
 	Dialog,
@@ -16,37 +18,25 @@ import {
 	useZodForm,
 	z
 } from '@sd/ui';
-import { getSpacedropState, subscribeSpacedropState } from '../hooks/useSpacedropState';
+import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
 
 export function SpacedropUI() {
-	const isSpacedropEnabled = useFeatureFlag('spacedrop');
-	if (!isSpacedropEnabled) {
-		return null;
-	}
-
-	return <SpacedropUIInner />;
-}
-
-function SpacedropUIInner() {
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
 		})
 	);
 
-	// TODO: In a perfect world, this would not exist as it means we have two open subscriptions for the same data (the other one being in `useP2PEvents.tsx` in `@sd/client`). It's just hard so we will eat the overhead for now.
-	useBridgeSubscription(['p2p.events'], {
-		onData(data) {
-			if (data.type === 'SpacedropRequest') {
-				dialogManager.create((dp) => (
-					<SpacedropRequestDialog
-						dropId={data.id}
-						name={data.name}
-						peerId={data.peer_id}
-						{...dp}
-					/>
-				));
-			}
+	useP2PEvents((data) => {
+		if (data.type === 'SpacedropRequest') {
+			dialogManager.create((dp) => (
+				<SpacedropRequestDialog
+					dropId={data.id}
+					name={data.name}
+					peerId={data.peer_id}
+					{...dp}
+				/>
+			));
 		}
 	});
 
