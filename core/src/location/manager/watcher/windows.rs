@@ -88,7 +88,16 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					);
 
 					// We found a new path for this old path, so we can rename it instead of removing and creating it
-					rename(self.location_id, &paths[0], &old_path, self.library).await?;
+					rename(
+						self.location_id,
+						&paths[0],
+						&old_path,
+						fs::metadata(&paths[0])
+							.await
+							.map_err(|e| FileIOError::from((&paths[0], e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					let metadata =
 						create_dir_or_file(self.location_id, &paths[0], self.library).await?;
@@ -120,7 +129,16 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 				if let Some((_, new_path)) = self.rename_to_map.remove(&inode_and_device) {
 					// We found a new path for this old path, so we can rename it
-					rename(self.location_id, &new_path, &path, self.library).await?;
+					rename(
+						self.location_id,
+						&new_path,
+						&path,
+						fs::metadata(&new_path)
+							.await
+							.map_err(|e| FileIOError::from((&new_path, e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					self.rename_from_map
 						.insert(inode_and_device, (Instant::now(), path));
@@ -135,7 +153,16 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 				if let Some((_, old_path)) = self.rename_to_map.remove(&inode_and_device) {
 					// We found a old path for this new path, so we can rename it
-					rename(self.location_id, &path, &old_path, self.library).await?;
+					rename(
+						self.location_id,
+						&path,
+						&old_path,
+						fs::metadata(&path)
+							.await
+							.map_err(|e| FileIOError::from((&path, e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					self.rename_from_map
 						.insert(inode_and_device, (Instant::now(), path));
