@@ -25,7 +25,7 @@ impl LibraryPreferences {
 	pub async fn write(self, db: &PrismaClient) -> prisma_client_rust::Result<()> {
 		let kvs = self.to_kvs();
 
-		db._batch(kvs.to_upserts(db)).await?;
+		db._batch(kvs.into_upserts(db)).await?;
 
 		Ok(())
 	}
@@ -36,7 +36,8 @@ impl LibraryPreferences {
 		let prefs = PreferenceKVs::new(
 			kvs.into_iter()
 				.filter_map(|data| {
-					let a = rmpv::decode::read_value(&mut data.value?.as_slice()).unwrap();
+					let a = rmpv::decode::read_value(&mut data.value?.as_slice())
+						.expect("should not fail");
 
 					Some((PreferenceKey::new(data.key), PreferenceValue::from_value(a)))
 				})
@@ -101,7 +102,7 @@ where
 		entries
 			.into_iter()
 			.map(|(key, value)| {
-				let id = Uuid::parse_str(&key).unwrap();
+				let id = Uuid::parse_str(&key).expect("should not fail");
 
 				(id, V::from_entries(value.expect_nested()))
 			})
