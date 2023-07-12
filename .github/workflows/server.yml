@@ -34,9 +34,9 @@ jobs:
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
-          tags: ${{ steps.version.image_info.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
+          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
           archs: amd64
-          image: ${{ steps.version.image_info.name }}
+          image: ${{ steps.image_info.outputs.name }}
           context: ./apps/server/docker
           build-args: |
             REPO=${GITHUB_REPOSITORY}
