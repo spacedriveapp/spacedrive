@@ -35,7 +35,7 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
-use tracing::{debug, error, info, warn, trace};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 mod error;

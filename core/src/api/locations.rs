@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs, non_indexed::NonIndexedPath,
+		location_with_indexer_rules, non_indexed::NonIndexedPathItem, relink_location,
+		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -41,7 +41,7 @@ pub enum ExplorerItem {
 	NonIndexedPath {
 		has_local_thumbnail: bool,
 		thumbnail_key: Option<Vec<String>>,
-		item: NonIndexedPath,
+		item: NonIndexedPathItem,
 	},
 }
 

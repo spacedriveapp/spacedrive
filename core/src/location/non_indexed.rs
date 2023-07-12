@@ -62,7 +62,7 @@ pub struct NonIndexedFileSystemEntries {
 }
 
 #[derive(Serialize, Type, Debug)]
-pub struct NonIndexedPath {
+pub struct NonIndexedPathItem {
 	name: String,
 	extension: String,
 	kind: i32,
@@ -116,34 +116,30 @@ pub async fn walk(
 				.map(Into::into)
 				.unwrap_or(ObjectKind::Unknown);
 
-			let thumbnail_key =
-				if matches!(kind, ObjectKind::Image) || matches!(kind, ObjectKind::Video) {
-					// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-
+			let thumbnail_key = if matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+				if let Ok(cas_id) = generate_cas_id(&entry_path, metadata.len())
+					.await
+					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
+				{
+					let thumbnail_key = get_thumb_key(&cas_id);
+					let extension = extension.clone();
 					let library = library.clone();
+					tokio::spawn(async move {
+						generate_thumbnail(&extension, &cas_id, entry_path, &library).await;
+					});
 
-					if let Ok(cas_id) = generate_cas_id(&entry_path, metadata.len())
-						.await
-						.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-					{
-						let thumbnail_key = get_thumb_key(&cas_id);
-						let extension = extension.clone();
-						tokio::spawn(async move {
-							generate_thumbnail(&extension, &cas_id, entry_path, &library).await;
-						});
-
-						Some(thumbnail_key)
-					} else {
-						None
-					}
+					Some(thumbnail_key)
 				} else {
 					None
-				};
+				}
+			} else {
+				None
+			};
 
 			entries.push(ExplorerItem::NonIndexedPath {
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
-				item: NonIndexedPath {
+				item: NonIndexedPathItem {
 					name,
 					extension,
 					kind: kind as i32,
@@ -179,7 +175,7 @@ pub async fn walk(
 			entries.push(ExplorerItem::NonIndexedPath {
 				has_local_thumbnail: false,
 				thumbnail_key: None,
-				item: NonIndexedPath {
+				item: NonIndexedPathItem {
 					name: Path::new(&directory)
 						.file_name()
 						.expect("we just built this path from a string")
