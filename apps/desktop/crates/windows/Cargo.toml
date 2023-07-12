@@ -10,6 +10,6 @@ thiserror = "1.0.40"
 normpath = "1.1.1"
 libc = "0.2"
 
-[dependencies.windows]
+[target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.48"
 features = ["Win32_UI_Shell", "Win32_System_Com"]
