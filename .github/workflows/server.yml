@@ -14,6 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Update buildah
+        shell: bash
+        run: |
+          wget -O- 'https://github.com/nicholasdille/buildah-static/releases/download/v1.30.0/buildah-amd64.tar.gz' \
+          | tar -xzf- -C /usr/
+
       - name: Determine image name & tag
         id: image_info
         shell: bash
