@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           wget -O- 'https://github.com/nicholasdille/buildah-static/releases/download/v1.30.0/buildah-amd64.tar.gz' \
-          | tar -xzf- -C /usr/
+          | sudo tar -xzf- -C /usr/
 
       - name: Determine image name & tag
         id: image_info
