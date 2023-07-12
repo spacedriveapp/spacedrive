@@ -271,6 +271,10 @@ impl LibraryManager {
 		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
+	pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
+		self.libraries.read().await.clone()
+	}
+
 	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
 		self.libraries
 			.read()
