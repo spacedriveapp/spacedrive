@@ -286,18 +286,18 @@ impl LocationUpdateArgs {
 			)
 			.await?;
 
-			todo!(); // TODO: `Node` to `Location` relation
-			 // if location.node_id == Some(library.local_id) {
-			 // 	if let Some(path) = &location.path {
-			 // 		if let Some(mut metadata) =
-			 // 			SpacedriveLocationMetadataFile::try_load(path).await?
-			 // 		{
-			 // 			metadata
-			 // 				.update(library.id, self.name.expect("TODO"))
-			 // 				.await?;
-			 // 		}
-			 // 	}
-			 // }
+			// TODO(N): This will probs fall apart with removable media.
+			if location.node_id == Some(library.config.instance_id) {
+				if let Some(path) = &location.path {
+					if let Some(mut metadata) =
+						SpacedriveLocationMetadataFile::try_load(path).await?
+					{
+						metadata
+							.update(library.id, self.name.expect("TODO"))
+							.await?;
+					}
+				}
+			}
 		}
 
 		let current_rules_ids = location
