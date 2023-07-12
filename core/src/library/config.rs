@@ -200,7 +200,7 @@ impl Migrate for LibraryConfig {
 
 				if instances.len() > 1 {
 					return Err(MigratorError::Custom(
-						"7 - More than one node found in the DB... This can't be automatically reconciled!"
+						"7 - More than one instance found in the DB... This can't be automatically reconciled!"
 							.into(),
 					));
 				}
