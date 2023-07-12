@@ -71,7 +71,7 @@ pub enum CRDTOperationType {
 
 #[derive(Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
-	pub node: Uuid,
+	pub instance: Uuid,
 	#[specta(type = u32)]
 	pub timestamp: NTP64,
 	pub id: Uuid,
@@ -82,7 +82,7 @@ pub struct CRDTOperation {
 impl Debug for CRDTOperation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("CRDTOperation")
-			.field("node", &self.node.to_string())
+			.field("instance", &self.instance.to_string())
 			.field("timestamp", &self.timestamp.to_string())
 			.field("typ", &self.typ)
 			.finish()

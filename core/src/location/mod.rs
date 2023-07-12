@@ -11,12 +11,9 @@ use crate::{
 			get_thumbnail_path, shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
 		},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, PrismaClient},
+	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	sync,
-	util::{
-		db::{chain_optional_iter, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::chain_optional_iter, error::FileIOError},
 };
 
 use std::{
@@ -297,7 +294,8 @@ impl LocationUpdateArgs {
 			)
 			.await?;
 
-			if location.node_id == Some(library.node_local_id) {
+			// TODO(N): This will probs fall apart with removable media.
+			if location.instance_id == Some(library.config.instance_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
@@ -380,7 +378,8 @@ pub async fn scan_location(
 	library: &Library,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
-	if location.node_id != Some(library.node_local_id) {
+	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+	if location.instance_id != Some(library.config.instance_id) {
 		return Ok(());
 	}
 
@@ -413,7 +412,9 @@ pub async fn scan_location_sub_path(
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
-	if location.node_id != Some(library.node_local_id) {
+
+	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+	if location.instance_id != Some(library.config.instance_id) {
 		return Ok(());
 	}
 
@@ -449,7 +450,8 @@ pub async fn light_scan_location(
 ) -> Result<(), JobError> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
-	if location.node_id != Some(library.node_local_id) {
+	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+	if location.instance_id != Some(library.config.instance_id) {
 		return Ok(());
 	}
 
@@ -596,9 +598,9 @@ async fn create_location(
 					(location::path::NAME, json!(&location_path)),
 					(location::date_created::NAME, json!(date_created)),
 					(
-						location::node::NAME,
-						json!(sync::node::SyncId {
-							pub_id: uuid_to_bytes(library.id)
+						location::instance_id::NAME,
+						json!(sync::instance::SyncId {
+							id: library.config.instance_id,
 						}),
 					),
 				],
@@ -610,7 +612,10 @@ async fn create_location(
 						location::name::set(Some(name.clone())),
 						location::path::set(Some(location_path)),
 						location::date_created::set(Some(date_created.into())),
-						location::node::connect(node::id::equals(library.node_local_id)),
+						location::instance_id::set(Some(library.config.instance_id)),
+						// location::instance::connect(instance::id::equals(
+						// 	library.config.instance_id.as_bytes().to_vec(),
+						// )),
 					],
 				)
 				.include(location_with_indexer_rules::include()),
@@ -664,7 +669,10 @@ pub async fn delete_location(
 		.exec()
 		.await?;
 
-	if location.node_id == Some(library.node_local_id) {
+	// TODO: This should really be queued to the proper node so it will always run
+	// TODO: Deal with whether a location is online or not
+	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+	if location.instance_id == Some(library.config.instance_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
 				metadata.remove_library(library.id).await?;
@@ -718,7 +726,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id,
 			path: data.path,
-			node_id: data.node_id,
+			instance_id: data.instance_id,
 			name: data.name,
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
@@ -727,9 +735,9 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
 			date_created: data.date_created,
-			node: None,
 			file_paths: None,
 			indexer_rules: None,
+			// instance: None,
 		}
 	}
 }
@@ -740,7 +748,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id.clone(),
 			path: data.path.clone(),
-			node_id: data.node_id,
+			instance_id: data.instance_id,
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
@@ -749,9 +757,9 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
 			date_created: data.date_created,
-			node: None,
 			file_paths: None,
 			indexer_rules: None,
+			// instance: None,
 		}
 	}
 }

@@ -106,7 +106,7 @@ export function ErrorPage({
 								window.__TAURI_INVOKE__('reset_spacedrive');
 							}}
 						>
-							Reset Spacedrive & Quit App
+							Reset & Quit App
 						</Button>
 					</div>
 				)}
