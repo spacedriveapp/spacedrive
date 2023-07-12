@@ -4,7 +4,6 @@ use itertools::Itertools;
 use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 use crate::node::Platform;
 
@@ -15,7 +14,7 @@ pub struct PeerMetadata {
 	pub(super) version: Option<String>,
 	pub(super) email: Option<String>,
 	pub(super) img_url: Option<String>,
-	pub(super) instances: Vec<Uuid>,
+	pub(super) instances: Vec<String>,
 }
 
 impl Metadata for PeerMetadata {
@@ -34,10 +33,7 @@ impl Metadata for PeerMetadata {
 		if let Some(img_url) = self.img_url {
 			map.insert("img_url".to_owned(), img_url);
 		}
-		map.insert(
-			"instances".to_owned(),
-			self.instances.into_iter().map(|i| i.to_string()).join(","),
-		);
+		map.insert("instances".to_owned(), self.instances.into_iter().join(","));
 		map
 	}
 

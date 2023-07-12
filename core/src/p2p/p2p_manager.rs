@@ -321,7 +321,11 @@ impl P2PManager {
 				.get_all_instances()
 				.await
 				.into_iter()
-				.filter_map(|i| Uuid::from_slice(&i.id).ok())
+				.filter_map(|i| {
+					Identity::from_bytes(&i.identity)
+						.map(|i| hex::encode(i.public_key().to_bytes()))
+						.ok()
+				})
 				.collect(),
 		}
 	}

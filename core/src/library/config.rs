@@ -30,7 +30,7 @@ pub struct LibraryConfig {
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: Option<String>,
 	/// id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
-	pub instance_id: Uuid,
+	pub instance_id: i32,
 }
 
 #[async_trait::async_trait]
@@ -176,7 +176,7 @@ impl Migrate for LibraryConfig {
 				let now = Utc::now().fixed_offset();
 				let instance_id = Uuid::new_v4();
 				instance::Create {
-					id: instance_id.as_bytes().to_vec(),
+					pub_id: instance_id.as_bytes().to_vec(),
 					identity: node
 						.and_then(|n| n.identity.clone())
 						.unwrap_or_else(|| Identity::new().to_bytes()),
@@ -210,13 +210,10 @@ impl Migrate for LibraryConfig {
 					));
 				};
 
-				// I am dropping the `node_id: Int` columns so we are gonna relink all locations to the current instance.
-				// If you have more than one node in your database and your not @Oscar, something went horribly wrong.
+				// We are relinking all locations to the current instance.
+				// If you have more than one node in your database and your not @Oscar, something went horribly wrong so this is fine.
 				db.location()
-					.update_many(
-						vec![],
-						vec![location::instance_id::set(Some(instance.id.clone()))],
-					)
+					.update_many(vec![], vec![location::instance_id::set(Some(instance.id))])
 					.exec()
 					.await?;
 			}

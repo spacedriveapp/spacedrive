@@ -213,7 +213,7 @@ impl PairingManager {
 						.unwrap()
 						.into_iter()
 						.map(|i| Instance {
-							id: Uuid::from_slice(&i.id).unwrap(),
+							id: Uuid::from_slice(&i.pub_id).unwrap(),
 							// TODO: If `i.identity` contains a public/private keypair replace it with the public key
 							identity: Identity::from_bytes(&i.identity).unwrap(),
 							node_id: Uuid::from_slice(&i.node_id).unwrap(),

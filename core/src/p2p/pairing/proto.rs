@@ -31,7 +31,7 @@ pub struct Instance {
 impl From<Instance> for instance::CreateUnchecked {
 	fn from(i: Instance) -> Self {
 		Self {
-			id: i.id.as_bytes().to_vec(),
+			pub_id: i.id.as_bytes().to_vec(),
 			identity: i.identity.to_bytes(),
 			node_id: i.node_id.as_bytes().to_vec(),
 			node_name: i.node_name,

@@ -162,7 +162,7 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: string }
+export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
@@ -176,7 +176,7 @@ export type ListViewColumnSettings = { hide: boolean; size: number | null }
 
 export type ListViewSettings = { columns: { [key: string]: ListViewColumnSettings }; sort_col: string | null }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number[] | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -199,7 +199,7 @@ export type LocationUpdateArgs = { id: number; name: string | null; generate_pre
 
 export type LocationViewSettings = { layout: ExplorerLayout; list: ListViewSettings }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number[] | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type MaybeNot<T> = T | { not: T }
 

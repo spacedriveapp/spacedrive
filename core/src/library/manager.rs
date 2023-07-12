@@ -222,7 +222,7 @@ impl LibraryManager {
 		let config = LibraryConfig {
 			name,
 			description,
-			instance_id: Uuid::new_v4(),
+			instance_id: 0, // First instance will always be zero
 		};
 
 		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
@@ -242,14 +242,14 @@ impl LibraryManager {
 			self.node_context.clone(),
 			&self.subscribers,
 			Some(instance::Create {
-				id: config.instance_id.as_bytes().to_vec(),
+				pub_id: Uuid::new_v4().as_bytes().to_vec(),
 				identity: Identity::new().to_bytes(),
 				node_id: node_cfg.id.as_bytes().to_vec(),
 				node_name: node_cfg.name.clone(),
 				node_platform: Platform::current() as i32,
 				last_seen: now,
 				date_created: now,
-				_params: vec![],
+				_params: vec![instance::id::set(config.instance_id)],
 			}),
 		)
 		.await?;
@@ -415,7 +415,7 @@ impl LibraryManager {
 
 		let instance = db
 			.instance()
-			.find_unique(instance::id::equals(config.instance_id.as_bytes().to_vec()))
+			.find_unique(instance::id::equals(config.instance_id))
 			.exec()
 			.await?
 			.ok_or_else(|| {
@@ -423,7 +423,7 @@ impl LibraryManager {
 			})?;
 		let identity = Arc::new(Identity::from_bytes(&instance.identity)?);
 
-		let instance_id = Uuid::from_slice(&instance.id)?;
+		let instance_id = Uuid::from_slice(&instance.pub_id)?;
 		let curr_platform = Platform::current() as i32;
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
 		if instance_node_id != node_config.id
@@ -479,7 +479,7 @@ impl LibraryManager {
 			.location()
 			.find_many(vec![
 				// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-				location::instance_id::equals(Some(instance_id.as_bytes().to_vec())),
+				location::instance_id::equals(Some(instance.id)),
 			])
 			.exec()
 			.await?

@@ -67,7 +67,7 @@ impl SyncManager {
 							to_vec(&shared_op.record_id).unwrap(),
 							kind.to_string(),
 							to_vec(&shared_op.data).unwrap(),
-							instance::id::equals(op.instance.as_bytes().to_vec()),
+							instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 							vec![],
 						))
 					}
@@ -114,7 +114,7 @@ impl SyncManager {
 							to_vec(&shared_op.record_id).unwrap(),
 							kind.to_string(),
 							to_vec(&shared_op.data).unwrap(),
-							instance::id::equals(op.instance.as_bytes().to_vec()),
+							instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 							vec![],
 						),
 						query,
@@ -142,7 +142,7 @@ impl SyncManager {
 			.find_many(vec![])
 			.order_by(shared_operation::timestamp::order(SortOrder::Asc))
 			.include(shared_operation::include!({ instance: select {
-                id
+                pub_id
             } }))
 			.exec()
 			.await?
@@ -150,7 +150,7 @@ impl SyncManager {
 			.flat_map(|op| {
 				Some(CRDTOperation {
 					id: Uuid::from_slice(&op.id).ok()?,
-					instance: Uuid::from_slice(&op.instance.id).ok()?,
+					instance: Uuid::from_slice(&op.instance.pub_id).ok()?,
 					timestamp: NTP64(op.timestamp as u64),
 					typ: CRDTOperationType::Shared(SharedOperation {
 						record_id: serde_json::from_slice(&op.record_id).ok()?,
@@ -167,7 +167,7 @@ impl SyncManager {
 
 		if db
 			.instance()
-			.find_unique(instance::id::equals(op.instance.as_bytes().to_vec()))
+			.find_unique(instance::pub_id::equals(op.instance.as_bytes().to_vec()))
 			.exec()
 			.await?
 			.is_none()
@@ -321,7 +321,7 @@ impl SyncManager {
 					to_vec(&shared_op.record_id).unwrap(),
 					kind.to_string(),
 					to_vec(&shared_op.data).unwrap(),
-					instance::id::equals(op.instance.as_bytes().to_vec()),
+					instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 					vec![],
 				)
 				.exec()

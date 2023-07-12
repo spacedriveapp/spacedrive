@@ -26,8 +26,10 @@ model SharedOperation {
     kind      String
     data      Bytes
 
-    instance_id Bytes
+    instance_id Int
     instance    Instance @relation(fields: [instance_id], references: [id])
+
+    // attestation Bytes
 
     @@map("shared_operation")
 }
@@ -50,7 +52,9 @@ model Node {
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
-    id       Bytes @id
+    id       Int   @id @default(autoincrement()) // This is is NOT globally unique
+    pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
+    // Enum: sd_p2p::identity::Identity
     identity Bytes
 
     node_id       Bytes
@@ -60,6 +64,8 @@ model Instance {
 
     last_seen    DateTime // Time core started for owner, last P2P message for P2P node
     date_created DateTime
+
+    // attestation Bytes
 
     SharedOperation SharedOperation[]
 
@@ -111,7 +117,7 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
-    instance_id Bytes?
+    instance_id Int?
     // instance    Instance? @relation(fields: [instance_id], references: [id]) // TODO: Enabling this breaks migration 7's `update_many` in `library/config.rs`
 
     file_paths    FilePath[]
@@ -472,8 +478,8 @@ model IndexerRulesInLocation {
 
 /// @shared(id: key)
 model Preference {
-	key  String @id
-	value Bytes?
+    key   String @id
+    value Bytes?
 
     @@map("preference")
 }
