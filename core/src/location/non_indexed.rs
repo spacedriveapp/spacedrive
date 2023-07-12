@@ -13,6 +13,7 @@ use std::{
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 
+use chrono::{DateTime, Utc};
 use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;
@@ -20,7 +21,7 @@ use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, warn};
 
-use super::generate_thumbnail;
+use super::{file_path_helper::MetadataExt, generate_thumbnail};
 
 #[derive(Debug, Error)]
 pub enum NonIndexedLocationError {
@@ -67,6 +68,8 @@ pub struct NonIndexedPathItem {
 	extension: String,
 	kind: i32,
 	is_dir: bool,
+	date_created: DateTime<Utc>,
+	date_modified: DateTime<Utc>,
 }
 
 pub async fn walk(
@@ -92,7 +95,9 @@ pub async fn walk(
 		if metadata.is_dir() {
 			entry_path
 				.to_str()
-				.map(|directory_path_str| directories.push(directory_path_str.to_string()))
+				.map(|directory_path_str| {
+					directories.push((directory_path_str.to_string(), metadata))
+				})
 				.unwrap_or_else(|| {
 					error!("Failed to convert path to string: {}", entry_path.display())
 				});
@@ -144,6 +149,8 @@ pub async fn walk(
 					extension,
 					kind: kind as i32,
 					is_dir: false,
+					date_created: metadata.created_or_now().into(),
+					date_modified: metadata.modified_or_now().into(),
 				},
 			});
 		}
@@ -152,7 +159,9 @@ pub async fn walk(
 	let mut locations = library
 		.db
 		.location()
-		.find_many(vec![location::path::in_vec(directories.clone())])
+		.find_many(vec![location::path::in_vec(
+			directories.iter().map(|(path, _)| path.clone()).collect(),
+		)])
 		.exec()
 		.await?
 		.into_iter()
@@ -164,7 +173,7 @@ pub async fn walk(
 		})
 		.collect::<HashMap<_, _>>();
 
-	for directory in directories {
+	for (directory, metadata) in directories {
 		if let Some(location) = locations.remove(&directory) {
 			entries.push(ExplorerItem::Location {
 				has_local_thumbnail: false,
@@ -185,6 +194,8 @@ pub async fn walk(
 					extension: "".to_string(),
 					kind: ObjectKind::Folder as i32,
 					is_dir: true,
+					date_created: metadata.created_or_now().into(),
+					date_modified: metadata.modified_or_now().into(),
 				},
 			});
 		}
