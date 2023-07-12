@@ -36,8 +36,6 @@ use super::{LibraryConfig, LibraryManagerError};
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
-	/// local_id holds the local ID of the current library.
-	pub local_id: i32,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
@@ -45,8 +43,6 @@ pub struct Library {
 	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// node_local_id holds the local ID of the node which is running the library.
-	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub node_context: NodeContext,
 	/// p2p identity
@@ -62,7 +58,6 @@ impl Debug for Library {
 			.field("id", &self.id)
 			.field("config", &self.config)
 			.field("db", &self.db)
-			.field("node_local_id", &self.node_local_id)
 			.finish()
 	}
 }
@@ -107,8 +102,9 @@ impl Library {
 			self.db
 				.file_path()
 				.find_many(vec![
-					file_path::location::is(vec![location::node_id::equals(Some(
-						self.node_local_id,
+					// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+					file_path::location::is(vec![location::instance_id::equals(Some(
+						self.config.instance_id,
 					))]),
 					file_path::id::in_vec(ids),
 				])

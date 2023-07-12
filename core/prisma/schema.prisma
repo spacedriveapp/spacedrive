@@ -26,10 +26,50 @@ model SharedOperation {
     kind      String
     data      Bytes
 
-    node_id Int
-    node    Node @relation(fields: [node_id], references: [id])
+    instance_id Int
+    instance    Instance @relation(fields: [instance_id], references: [id])
+
+    // attestation Bytes
 
     @@map("shared_operation")
+}
+
+/// @deprecated: This model has to exist solely for backwards compatibility.
+model Node {
+    id           Int      @id @default(autoincrement())
+    pub_id       Bytes    @unique
+    name         String
+    // Enum: sd_core::node::Platform
+    platform     Int
+    date_created DateTime
+    identity     Bytes? // TODO: Change to required field in future
+    node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
+
+    @@map("node")
+}
+
+/// @local
+// represents a single `.db` file (SQLite DB) that is paired to the current library.
+// A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
+model Instance {
+    id       Int   @id @default(autoincrement()) // This is is NOT globally unique
+    pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
+    // Enum: sd_p2p::identity::Identity
+    identity Bytes
+
+    node_id       Bytes
+    node_name     String
+    // Enum: sd_core::node::Platform
+    node_platform Int
+
+    last_seen    DateTime // Time core started for owner, last P2P message for P2P node
+    date_created DateTime
+
+    // attestation Bytes
+
+    SharedOperation SharedOperation[]
+
+    @@map("instance")
 }
 
 model Statistics {
@@ -46,29 +86,9 @@ model Statistics {
     @@map("statistics")
 }
 
-/// @local(id: pub_id)
-model Node {
-    id           Int      @id @default(autoincrement())
-    pub_id       Bytes    @unique
-    name         String
-    // Enum: sd_core::node::Platform
-    platform     Int
-    date_created DateTime
-    identity     Bytes? // TODO: Change to required field in future
-    node_peer_id String? // TODO: Remove as part of - https://linear.app/spacedriveapp/issue/ENG-757/p2p-library-portability
-
-    jobs     Job[]
-    Location Location[]
-
-    SharedOperation SharedOperation[]
-
-    @@map("node")
-}
-
 /// @local
 model Volume {
     id                    Int      @id @default(autoincrement())
-    node_id               Int
     name                  String
     mount_point           String
     total_bytes_capacity  String   @default("0")
@@ -78,7 +98,7 @@ model Volume {
     is_system             Boolean  @default(false)
     date_modified         DateTime @default(now())
 
-    @@unique([node_id, mount_point, name])
+    @@unique([mount_point, name])
     @@map("volume")
 }
 
@@ -97,8 +117,8 @@ model Location {
     hidden                 Boolean?
     date_created           DateTime?
 
-    node_id Int?
-    node    Node? @relation(fields: [node_id], references: [id])
+    instance_id Int?
+    // instance    Instance? @relation(fields: [instance_id], references: [id]) // TODO: Enabling this breaks migration 7's `update_many` in `library/config.rs`
 
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]
@@ -357,9 +377,8 @@ model ObjectInSpace {
 model Job {
     id Bytes @id
 
-    name    String?
-    node_id Int?
-    action  String? // Will be composed of "{action_description}(-{children_order})*"
+    name   String?
+    action String? // Will be composed of "{action_description}(-{children_order})*"
 
     // Enum: sd_core::job::job_manager:JobStatus
     status Int? // 0 = Queued
@@ -379,8 +398,6 @@ model Job {
     date_created   DateTime?
     date_started   DateTime? // Started execution
     date_completed DateTime? // Finished execution
-
-    node Node? @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
     parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     children Job[] @relation("jobs_dependency")
@@ -457,6 +474,14 @@ model IndexerRulesInLocation {
 
     @@id([location_id, indexer_rule_id])
     @@map("indexer_rule_in_location")
+}
+
+/// @shared(id: key)
+model Preference {
+    key   String @id
+    value Bytes?
+
+    @@map("preference")
 }
 
 model Notification {

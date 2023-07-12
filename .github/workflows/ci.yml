@@ -55,8 +55,16 @@ jobs:
         with:
           filters: |
             changes:
+              - 'apps/cli/*/**'
+              - 'apps/desktop/crates/*/**'
+              - 'apps/desktop/src-tauri/*/**'
+              - 'apps/mobile/crates/*/**'
+              - 'apps/server/*/**'
               - 'core/**'
               - 'crates/*/**'
+              - 'extensions/*/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
 
       - name: Setup Rust and Prisma
         if: steps.filter.outputs.changes == 'true'
@@ -81,8 +89,16 @@ jobs:
         with:
           filters: |
             changes:
+              - 'apps/cli/*/**'
+              - 'apps/desktop/crates/*/**'
+              - 'apps/desktop/src-tauri/*/**'
+              - 'apps/mobile/crates/*/**'
+              - 'apps/server/*/**'
               - 'core/**'
               - 'crates/*/**'
+              - 'extensions/*/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
 
       - name: Setup System and Rust
         if: steps.filter.outputs.changes == 'true'

@@ -10,7 +10,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import { NotificationContextProvider, P2PContextProvider, useDebugState } from '@sd/client';
 import ErrorFallback from './ErrorFallback';
-import { SpacedropUI } from './app/Spacedrop';
+import { P2P } from './app/p2p';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
@@ -50,8 +50,8 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<P2PContextProvider>
 				<NotificationContextProvider>
+					<P2P />
 					<Devtools />
-					<SpacedropUI />
 					<RouterProvider router={props.router} />
 				</NotificationContextProvider>
 			</P2PContextProvider>
