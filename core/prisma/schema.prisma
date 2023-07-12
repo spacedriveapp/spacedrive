@@ -483,3 +483,13 @@ model Preference {
 
     @@map("preference")
 }
+
+model Notification {
+    id         Int       @id @default(autoincrement())
+    read       Boolean   @default(false)
+    // Enum: crate::api::notifications::NotificationData
+    data       Bytes
+    expires_at DateTime?
+
+    @@map("notification")
+}

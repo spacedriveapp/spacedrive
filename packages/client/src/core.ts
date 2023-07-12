@@ -19,6 +19,9 @@ export type Procedures = {
         { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
+        { key: "notifications.dismiss", input: NotificationId, result: null } | 
+        { key: "notifications.dismissAll", input: never, result: null } | 
+        { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -59,6 +62,8 @@ export type Procedures = {
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
+        { key: "notifications.test", input: never, result: null } | 
+        { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
@@ -74,6 +79,7 @@ export type Procedures = {
         { key: "jobs.progress", input: LibraryArgs<string>, result: JobProgressEvent } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
+        { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
@@ -208,6 +214,19 @@ export type MaybeUndefined<T> = null | null | T
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+
+/**
+ * Represents a single notification.
+ */
+export type Notification = ({ type: "library"; id: [string, number] } | { type: "node"; id: number }) & { data: NotificationData; read: boolean; expires: string | null }
+
+/**
+ * Represents the data of a single notification.
+ * This data is used by the frontend to properly display the notification.
+ */
+export type NotificationData = { PairingRequest: { id: string; pairing_id: number } } | "Test"
+
+export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 

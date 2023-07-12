@@ -7,7 +7,7 @@ use std::sync::Arc;
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
 #[allow(non_upper_case_globals)]
-pub(self) const R: Rspc<Ctx> = Rspc::new();
+pub(crate) const R: Rspc<Ctx> = Rspc::new();
 
 pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
@@ -27,6 +27,7 @@ mod keys;
 mod libraries;
 mod locations;
 mod nodes;
+pub mod notifications;
 mod p2p;
 mod preferences;
 mod search;
@@ -84,6 +85,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("nodes.", nodes::mount())
 		.merge("sync.", sync::mount())
 		.merge("preferences.", preferences::mount())
+		.merge("notifications.", notifications::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
 			#[allow(clippy::let_and_return)]
