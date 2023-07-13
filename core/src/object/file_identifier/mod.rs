@@ -5,7 +5,7 @@ use crate::{
 		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
-	prisma::{file_path, location, object, PrismaClient},
+	prisma::{file_path, location, media_data, object, PrismaClient},
 	sync,
 	sync::SyncManager,
 	util::{
@@ -15,10 +15,12 @@ use crate::{
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+use sd_media_data::image;
 use sd_sync::CRDTOperation;
 
 use once_cell::sync::Lazy;
 use std::{
+	borrow::Cow,
 	collections::{HashMap, HashSet},
 	path::Path,
 };
@@ -228,36 +230,88 @@ async fn identifier_job_step(
 			new_objects_cas_ids
 		);
 
-		let (object_create_args, file_path_update_args): (Vec<_>, Vec<_>) =
-			file_paths_requiring_new_object
-				.iter()
-				.map(|(file_path_pub_id, (meta, fp))| {
-					let object_pub_id = Uuid::new_v4();
+		let ((object_create_args, file_path_update_args), media_data_create): (
+			(Vec<_>, Vec<_>),
+			Vec<_>,
+		) = file_paths_requiring_new_object
+			.iter()
+			.map(|(file_path_pub_id, (meta, fp))| {
+				let object_pub_id = Uuid::new_v4();
 
-					let sync_id = || sync::object::SyncId {
-						pub_id: uuid_to_bytes(object_pub_id),
+				let mp = fp.materialized_path.clone().unwrap_or_default();
+				let name = fp.name.clone().unwrap_or_default();
+				let ext = fp.extension.clone().unwrap_or_default();
+
+				let materialized_path = Cow::Borrowed(mp.as_str());
+				let name = Cow::Borrowed(name.as_str());
+				let ext = Cow::Borrowed(ext.as_str());
+
+				let path = IsolatedFilePathData::from_db_data(
+					location.id,
+					fp.is_dir.unwrap_or_default(),
+					materialized_path,
+					name,
+					ext,
+				);
+
+				let sync_id = || sync::object::SyncId {
+					pub_id: uuid_to_bytes(object_pub_id),
+				};
+
+				let kind = meta.kind as i32;
+
+				let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+					(
+						(object::date_created::NAME, json!(fp.date_created)),
+						object::date_created::set(fp.date_created),
+					),
+					(
+						(object::kind::NAME, json!(kind)),
+						object::kind::set(Some(kind)),
+					),
+				]
+				.into_iter()
+				.unzip();
+
+				let object_creation_args = (
+					sync.unique_shared_create(sync_id(), sync_params),
+					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
+				);
+
+				let create_media_data: Option<sd_prisma::prisma::media_data::CreateUnchecked> =
+					if FILTERED_IMAGE_EXTENSIONS
+						.iter()
+						.any(|x| fp.extension.clone().unwrap_or_default() == x.to_string())
+					{
+						let data = image::get_data_for_image(location_path.join(&path)).expect("");
+
+						// TODO(brxken128): needs a from/to impl
+						let create_media_data = media_data::create_unchecked(vec![
+							media_data::date_created::set(data.timestamp),
+							media_data::pixel_height::set(data.width),
+							media_data::pixel_height::set(data.height),
+							media_data::color_space::set(data.color_space),
+							media_data::device_make::set(data.device_make),
+							media_data::device_model::set(data.device_model),
+							media_data::focal_length::set(data.focal_length),
+							media_data::shutter_speed::set(data.shutter_speed),
+							media_data::flash::set(data.flash),
+							media_data::orientation::set(data.orientation),
+							media_data::copyright::set(data.copyright),
+							media_data::artist::set(data.artist),
+						]);
+
+						trace!(
+							"Extracted EXIF data for {}",
+							location_path.join(path).display()
+						);
+
+						Some(create_media_data)
+					} else {
+						None
 					};
 
-					let kind = meta.kind as i32;
-
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-						(
-							(object::date_created::NAME, json!(fp.date_created)),
-							object::date_created::set(fp.date_created),
-						),
-						(
-							(object::kind::NAME, json!(kind)),
-							object::kind::set(Some(kind)),
-						),
-					]
-					.into_iter()
-					.unzip();
-
-					let object_creation_args = (
-						sync.unique_shared_create(sync_id(), sync_params),
-						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
-					);
-
+				(
 					(object_creation_args, {
 						let (crdt_op, db_op) = file_path_object_connect_ops(
 							*file_path_pub_id,
@@ -267,9 +321,11 @@ async fn identifier_job_step(
 						);
 
 						(crdt_op, db_op.select(file_path::select!({ pub_id })))
-					})
-				})
-				.unzip();
+					}),
+					create_media_data,
+				)
+			})
+			.unzip();
 
 		// create new object records with assembled values
 		let total_created_files = sync
@@ -298,6 +354,14 @@ async fn identifier_job_step(
 
 			trace!("Updated file paths with created objects");
 		}
+
+		let total_created_media_data = db
+			.media_data()
+			.create_many(media_data_create.into_iter().flatten().collect())
+			.exec()
+			.await?;
+
+		trace!("Extracted EXIF data for {} files", total_created_media_data);
 
 		total_created_files as usize
 	} else {

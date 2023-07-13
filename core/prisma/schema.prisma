@@ -249,7 +249,8 @@ model Object {
 // }
 
 model MediaData {
-    id              Int       @id
+    id Int @id @default(autoincrement())
+
     date_created    DateTime? // filesystem creation time
     date_taken      DateTime?
     pixel_width     Int?
@@ -266,6 +267,7 @@ model MediaData {
     orientation     String?
     copyright       String?
     flash           Boolean?
+    artist          String?
 
     // video-specific
     duration Int?

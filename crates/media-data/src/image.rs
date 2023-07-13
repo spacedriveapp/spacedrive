@@ -7,17 +7,17 @@ use thiserror::Error;
 #[derive(Default, Debug)]
 pub struct MediaDataImage {
 	pub timestamp: Option<DateTime<FixedOffset>>,
-	pub width: Option<u32>,
-	pub height: Option<u32>,
+	pub width: Option<i32>,
+	pub height: Option<i32>,
 	pub color_space: Option<String>, // enum this probsç
-	pub compression: Option<String>, // enum this probsç
-	// lat: f32, // custom parsing
-	// long: f32. // meed custom parsing
-	// altitude: f32, // custom parsing
+	// pub compression: Option<String>, // enum this probsç
+	// lat: f64, // custom parsing
+	// long: f64. // meed custom parsing
+	// altitude: f64, // custom parsing
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
-	pub focal_length: Option<f32>,
-	pub shutter_speed: Option<f32>,
+	pub focal_length: Option<f64>,
+	pub shutter_speed: Option<f64>,
 	pub flash: Option<bool>,
 	pub orientation: Option<String>, // custom parsing but we should grab this anyway
 	pub copyright: Option<String>,
@@ -28,19 +28,19 @@ pub struct MediaDataImage {
 // TODO(brxken128): will probably be modifieid a bit
 // pub struct MediaDataVideo {
 // 	timestamp: DateTime<FixedOffset>,
-// 	width: u32,
-// 	height: u32,
-// 	lat: f32, // not sure if 32 or 64
-// 	long: f32,
-// 	altitude: f32,
-// 	fps: u32,
+// 	width: i32,
+// 	height: i32,
+// 	lat: f64, // not sure if 32 or 64
+// 	long: f64,
+// 	altitude: f64,
+// 	fps: i32,
 // 	device_make: String,
 // 	device_model: String,
 // 	device_software: String,
-// 	duration: u32,
+// 	duration: i32,
 // 	video_codec: String, // enum thse
 // 	audio_codec: String, // enum these
-// 	stream_count: u32,   // we'll need to ues the ffmpeg crate for this one
+// 	stream_count: i32,   // we'll need to ues the ffmpeg crate for this one
 // }
 
 #[derive(Debug, Error)]
@@ -62,25 +62,6 @@ const HAS_FLASH: &str = "fired, no return light detection function, forced";
 // and [`HAS_FLASH`] does the job
 // const HAS_FLASH_DISABLED: &str = "not fired, no return light detection function, suppressed";
 
-// const TAGS: [Tag; 10] = [
-// 	Tag::PixelXDimension,
-// 	Tag::PixelYDimension,
-// 	Tag::Make,
-// 	Tag::Model,
-// 	Tag::DateTimeOriginal,
-// 	Tag::OffsetTimeOriginal,
-// 	Tag::ExposureTime,
-// 	// Tag::ISOSpeed,
-// 	// Tag::ApertureValue,
-// 	// Tag::FlashEnergy,
-// 	Tag::FocalLength,
-// 	// Tag::FNumber,
-// 	Tag::ColorSpace,
-// 	Tag::ShutterSpeedValue,
-// 	// Tag::WhiteBalance,
-// 	// Tag::GPSLatitude, // Tag::GPS,
-// ];
-
 type Result<T> = std::result::Result<T, MediaDataError>;
 
 pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
@@ -93,17 +74,21 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 	let local_time = exif_data
 		.get_field(Tag::DateTimeOriginal, In::PRIMARY)
 		.map(|x| x.display_value().to_string())
-		.ok_or(MediaDataError::Conversion)?;
+		.ok_or(MediaDataError::Conversion);
 
 	let offset = exif_data
 		.get_field(Tag::OffsetTimeOriginal, In::PRIMARY)
 		.map(|x| x.display_value().to_string().as_str()[1..7].to_string())
-		.ok_or(MediaDataError::Conversion)?;
+		.ok_or(MediaDataError::Conversion);
 
-	data.timestamp = Some(DateTime::parse_from_str(
-		&format!("{} {}", local_time, offset),
-		"%Y-%m-%d %H:%M:%S %z",
-	)?);
+	if let Ok(local) = local_time {
+		if let Ok(offset) = offset {
+			data.timestamp = Some(DateTime::parse_from_str(
+				&format!("{} {}", local, offset),
+				"%Y-%m-%d %H:%M:%S %z",
+			)?)
+		}
+	};
 
 	data.width = exif_data
 		.get_field(Tag::PixelXDimension, In::PRIMARY)
@@ -111,7 +96,7 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 			x.value
 				.display_as(Tag::PixelXDimension)
 				.to_string()
-				.parse::<u32>()
+				.parse::<i32>()
 				.ok()
 		})
 		.unwrap_or_default();
@@ -122,7 +107,7 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 			x.value
 				.display_as(Tag::PixelYDimension)
 				.to_string()
-				.parse::<u32>()
+				.parse::<i32>()
 				.ok()
 		})
 		.unwrap_or_default();
@@ -131,9 +116,9 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 		.get_field(Tag::ColorSpace, In::PRIMARY)
 		.map(|x| x.value.display_as(Tag::ColorSpace).to_string());
 
-	data.compression = exif_data
-		.get_field(Tag::Compression, In::PRIMARY)
-		.map(|x| x.value.display_as(Tag::Compression).to_string());
+	// data.compression = exif_data
+	// 	.get_field(Tag::Compression, In::PRIMARY)
+	// 	.map(|x| x.value.display_as(Tag::Compression).to_string());
 
 	data.device_make = exif_data.get_field(Tag::Make, In::PRIMARY).map(|x| {
 		x.value
@@ -155,7 +140,7 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 			x.value
 				.display_as(Tag::FocalLength)
 				.to_string()
-				.parse::<f32>()
+				.parse::<f64>()
 				.ok()
 		})
 		.unwrap_or_default();
@@ -166,7 +151,7 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 			x.value
 				.display_as(Tag::ShutterSpeedValue)
 				.to_string()
-				.parse::<f32>()
+				.parse::<f64>()
 				.ok()
 		})
 		.unwrap_or_default();
