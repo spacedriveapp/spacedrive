@@ -303,8 +303,8 @@ impl PairingManager {
 			.await
 			.unwrap();
 
-		stream.flush().await.unwrap();
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
+		stream.flush().await.unwrap();
 	}
 }
 
