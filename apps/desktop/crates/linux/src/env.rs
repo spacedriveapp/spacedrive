@@ -177,5 +177,15 @@ pub(crate) fn remove_prefix_from_pathlist(
 	env_name: &str,
 	prefix: &impl AsRef<Path>,
 ) -> Option<OsString> {
-	env::var_os(env_name).map(|value| env::join_paths(env::split_paths(&value).filter(|dir| !dir.starts_with(prefix))).expect("Should not fail because we are only filtering a pathlist retrieved from the environmnet"))
+	env::var_os(env_name).and_then(|value| {
+		let mut dirs = env::split_paths(&value)
+		.filter(|dir| !(dir.as_os_str().is_empty() || dir.starts_with(prefix)))
+		.peekable();
+
+		if dirs.peek().is_none() {
+			None
+		} else {
+			Some(env::join_paths(dirs).expect("Should not fail because we are only filtering a pathlist retrieved from the environmnet"))
+		}
+	})
 }
