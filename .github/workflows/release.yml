@@ -39,6 +39,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Remove 32-bit libs
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get purge $(dpkg --get-selections | grep ":i386" | awk '{print $1}')
+          dpkg --remove-architecture i386
+
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
         run: |
