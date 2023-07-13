@@ -290,7 +290,11 @@ impl PairingManager {
 				pairing_id,
 				PairingStatus::InitialSyncProgress((synced as f32 / total as f32 * 100.0) as u8), // SAFETY: It's a percentage
 			);
-			debug!("Initial library sync: {:?}", cursor);
+			debug!(
+				"Initial library sync cursor={:?} items={}",
+				cursor,
+				data.len()
+			);
 
 			stream
 				.write_all(&SyncData::Data { total_models, data }.to_bytes().unwrap())
