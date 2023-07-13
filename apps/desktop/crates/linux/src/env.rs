@@ -66,12 +66,18 @@ fn normalize_pathlist(
 	default_dirs: &[PathBuf],
 ) -> Result<Vec<PathBuf>, env::JoinPathsError> {
 	let dirs = if let Some(value) = env::var_os(env_name) {
-		let mut dirs = env::split_paths(&value).collect::<Vec<_>>();
+		let mut dirs = env::split_paths(&value)
+			.filter(|entry| !entry.as_os_str().is_empty())
+			.collect::<Vec<_>>();
 
-		let mut insert_index: usize = dirs.len();
+		let mut insert_index = dirs.len();
 		for default_dir in default_dirs {
 			match dirs.iter().position(|dir| dir == default_dir) {
-				Some(index) => insert_index = index,
+				Some(index) => {
+					if index < insert_index {
+						insert_index = index
+					}
+				}
 				None => dirs.insert(insert_index, default_dir.to_path_buf()),
 			}
 		}
