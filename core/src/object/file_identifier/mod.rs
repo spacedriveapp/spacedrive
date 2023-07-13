@@ -288,8 +288,8 @@ async fn identifier_job_step(
 						// TODO(brxken128): needs a from/to impl
 						let create_media_data = media_data::create_unchecked(vec![
 							media_data::date_created::set(data.timestamp),
+							media_data::pixel_width::set(data.width),
 							media_data::pixel_height::set(data.width),
-							media_data::pixel_height::set(data.height),
 							media_data::color_space::set(data.color_space),
 							media_data::device_make::set(data.device_make),
 							media_data::device_model::set(data.device_model),
