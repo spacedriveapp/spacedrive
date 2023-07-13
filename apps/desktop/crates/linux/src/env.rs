@@ -72,8 +72,9 @@ fn normalize_pathlist(
 
 		let mut insert_index = dirs.len();
 		for default_dir in default_dirs {
-			match dirs.iter().position(|dir| dir == default_dir) {
-				Some(index) => {
+			match dirs.iter().rev().position(|dir| dir == default_dir) {
+				Some(mut index) => {
+					index = dirs.len() - index - 1;
 					if index < insert_index {
 						insert_index = index
 					}
@@ -88,11 +89,14 @@ fn normalize_pathlist(
 	};
 
 	let mut unique = HashSet::new();
-	let pathlist = dirs
+	let mut pathlist = dirs
 		.iter()
+		.rev() // Reverse order to remove duplicates from the end
 		.filter(|dir| unique.insert(*dir))
 		.cloned()
 		.collect::<Vec<_>>();
+
+	pathlist.reverse();
 
 	env::set_var(env_name, env::join_paths(&pathlist)?);
 
