@@ -42,8 +42,9 @@ jobs:
       - name: Remove 32-bit libs
         if: ${{ runner.os == 'Linux' }}
         run: |
-          sudo apt-get purge $(dpkg --get-selections | grep ":i386" | awk '{print $1}')
-          dpkg --remove-architecture i386
+          dpkg -l | grep i386
+          sudo apt-get purge --allow-remove-essential ".*:i386"
+          sudo dpkg --remove-architecture i386
 
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
