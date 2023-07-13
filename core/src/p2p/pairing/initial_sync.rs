@@ -45,7 +45,12 @@ macro_rules! impl_for_models {
 				match self {
 					$(
 						Self::$variant(data) => {
-							db.$model().create_many(data.into_iter().map(|v| FromData(v).into()).collect()).exec().await?;
+							// TODO: Prisma Client Rust is broke
+							// db.$model().create_many(data.into_iter().map(|v| FromData(v).into()).collect()).exec().await?;
+
+							for i in data {
+								$model::CreateUnchecked::from(FromData(i)).to_query(db).exec().await?;
+							}
 						}
 					)*
 				}
@@ -348,12 +353,13 @@ impl From<FromData<preference::Data>> for preference::CreateUnchecked {
 	}
 }
 
+// Ensure you order the models to Foreign Keys are created before the models that reference them.
 impl_for_models! {
+	Object(object),
 	SharedOperation(shared_operation),
 	Volume(volume),
 	Location(location),
 	FilePath(file_path),
-	Object(object),
 	Tag(tag),
 	TagOnObject(tag_on_object),
 	IndexerRule(indexer_rule),

@@ -119,6 +119,21 @@ impl PairingManager {
 					// TODO: Future - Library in pairing state
 					// TODO: Create library
 
+					if self
+						.library_manager
+						.get_all_libraries()
+						.await
+						.into_iter()
+						.find(|i| i.id == library_id)
+						.is_some()
+					{
+						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
+
+						// TODO: Properly handle this at a protocol level so the error is on both sides
+
+						return;
+					}
+
 					let library_config = self
 						.library_manager
 						.create_with_uuid(
@@ -126,6 +141,7 @@ impl PairingManager {
 							LibraryName::new(library_name).unwrap(),
 							library_description,
 							node_config,
+							false, // We will sync everything which will conflict with the seeded stuff
 						)
 						.await
 						.unwrap();
@@ -288,6 +304,7 @@ impl PairingManager {
 			.unwrap();
 
 		stream.flush().await.unwrap();
+		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 	}
 }
 
@@ -303,6 +320,7 @@ pub enum PairingDecision {
 pub enum PairingStatus {
 	EstablishingConnection,
 	PairingRequested,
+	LibraryAlreadyExists,
 	PairingDecisionRequest,
 	PairingInProgress {
 		library_name: String,

@@ -169,6 +169,7 @@ impl LibraryManager {
 						node_context.clone(),
 						&subscribers,
 						None,
+						true,
 					)
 					.await?,
 				);
@@ -202,7 +203,7 @@ impl LibraryManager {
 		description: Option<String>,
 		node_cfg: NodeConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg)
+		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true)
 			.await
 	}
 
@@ -212,6 +213,7 @@ impl LibraryManager {
 		name: LibraryName,
 		description: Option<String>,
 		node_cfg: NodeConfig,
+		should_seed: bool,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -251,16 +253,17 @@ impl LibraryManager {
 				date_created: now,
 				_params: vec![instance::id::set(config.instance_id)],
 			}),
+			should_seed,
 		)
 		.await?;
 
 		debug!("Loaded library '{id:?}'");
 
-		// Run seeders
-		tag::seed::new_library(&library).await?;
-		indexer::rules::seed::new_or_existing_library(&library).await?;
-
-		debug!("Seeded library '{id:?}'");
+		if should_seed {
+			tag::seed::new_library(&library).await?;
+			indexer::rules::seed::new_or_existing_library(&library).await?;
+			debug!("Seeded library '{id:?}'");
+		}
 
 		invalidate_query!(library, "library.list");
 
@@ -398,6 +401,7 @@ impl LibraryManager {
 		node_context: NodeContext,
 		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
 		create: Option<instance::Create>,
+		should_seed: bool,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -476,7 +480,10 @@ impl LibraryManager {
 			identity,
 		};
 
-		indexer::rules::seed::new_or_existing_library(&library).await?;
+		if should_seed {
+			library.orphan_remover.invoke().await;
+			indexer::rules::seed::new_or_existing_library(&library).await?;
+		}
 
 		for location in library
 			.db
