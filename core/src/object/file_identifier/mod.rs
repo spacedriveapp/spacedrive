@@ -14,6 +14,7 @@ use crate::{
 	},
 };
 
+use chrono::Utc;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_media_data::image;
 use sd_sync::CRDTOperation;
@@ -287,7 +288,8 @@ async fn identifier_job_step(
 
 						// TODO(brxken128): needs a from/to impl
 						let create_media_data = media_data::create_unchecked(vec![
-							media_data::date_created::set(data.timestamp),
+							media_data::date_created::set(Some(Utc::now().into())),
+							media_data::date_taken::set(data.timestamp),
 							media_data::pixel_width::set(data.width),
 							media_data::pixel_height::set(data.width),
 							media_data::color_space::set(data.color_space),

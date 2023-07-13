@@ -87,6 +87,8 @@ pub fn get_data_for_image<P: AsRef<Path>>(path: P) -> Result<MediaDataImage> {
 				&format!("{} {}", local, offset),
 				"%Y-%m-%d %H:%M:%S %z",
 			)?)
+		} else {
+			data.timestamp = Some(DateTime::parse_from_str(&local, "%Y-%m-%d %H:%M:%S %z")?)
 		}
 	};
 
