@@ -38,10 +38,6 @@ function IncorrectP2PPairingPane() {
 
 					<Button
 						onClick={() => {
-							if (!isEnabled('p2pPairing')) {
-								alert('P2P Pairing is not enabled!');
-							}
-
 							// TODO: This is not great
 							p2pPair.mutateAsync(id).then((id) =>
 								startPairing(id, {

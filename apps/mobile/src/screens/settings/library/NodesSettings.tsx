@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { useBridgeMutation, useDiscoveredPeers } from '@sd/client';
+import { isEnabled, useBridgeMutation, useDiscoveredPeers } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
@@ -23,6 +23,10 @@ const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSett
 
 					<Button
 						onPress={() => {
+							if (!isEnabled('p2pPairing')) {
+								alert('P2P Pairing is not enabled!');
+							}
+
 							// TODO: This is not great
 							p2pPair.mutateAsync(id).then((id) => {
 								// TODO: Show UI lmao
