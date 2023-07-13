@@ -1,4 +1,4 @@
-import { useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
+import { isEnabled, useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
 import { Heading } from '../Layout';
@@ -38,6 +38,10 @@ function IncorrectP2PPairingPane() {
 
 					<Button
 						onClick={() => {
+							if (!isEnabled('p2pPairing')) {
+								alert('P2P Pairing is not enabled!');
+							}
+
 							// TODO: This is not great
 							p2pPair.mutateAsync(id).then((id) =>
 								startPairing(id, {
