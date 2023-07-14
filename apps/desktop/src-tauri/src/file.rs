@@ -4,7 +4,6 @@ use std::{
 	sync::Arc,
 };
 
-use futures::future;
 use sd_core::{
 	prisma::{file_path, location},
 	Node,
@@ -99,28 +98,37 @@ pub async fn get_file_path_open_with_apps(
 		};
 
 	#[cfg(target_os = "macos")]
-	return Ok(paths
-		.into_iter()
-		.flat_map(|(id, path)| {
-			let Some(path) = path
-				else {
-					error!("File not found in database");
-					return vec![];
-				};
+	return {
+		use std::collections::HashSet;
 
-			unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
-				.as_slice()
-				.iter()
-				.map(|app| OpenWithApplication {
-					url: app.url.to_string(),
-					name: app.name.to_string(),
-				})
-				.collect::<Vec<_>>()
-		})
-		.collect());
+		Ok(paths
+			.into_values()
+			.flat_map(|path| {
+				let Some(path) = path.and_then(|path| path.into_os_string().into_string().ok())
+					else {
+						error!("File not found in database");
+						return None;
+					};
+
+				Some(
+					unsafe { sd_desktop_macos::get_open_with_applications(&path.as_str().into()) }
+						.as_slice()
+						.iter()
+						.map(|app| OpenWithApplication {
+							url: app.url.to_string(),
+							name: app.name.to_string(),
+						})
+						.collect::<HashSet<_>>(),
+				)
+			})
+			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+			.map(|set| set.into_iter().collect())
+			.unwrap_or(vec![]))
+	};
 
 	#[cfg(target_os = "linux")]
 	{
+		use futures::future;
 		use sd_desktop_linux::list_apps_associated_with_ext;
 		use std::collections::HashSet;
 
@@ -241,12 +249,7 @@ pub async fn open_file_path_with(
 
 					#[cfg(target_os = "macos")]
 					return {
-						unsafe {
-							sd_desktop_macos::open_file_path_with(
-								&path.into(),
-								&url.as_str().into(),
-							)
-						};
+						sd_desktop_macos::open_file_paths_with(&[path], url);
 						Ok(())
 					};
 
