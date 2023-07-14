@@ -130,6 +130,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
+	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
 	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.

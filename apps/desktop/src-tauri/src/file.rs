@@ -330,7 +330,8 @@ pub async fn reveal_items(
 				.db
 				.location()
 				.find_many(vec![
-					location::node_id::equals(Some(library.node_local_id)),
+					// TODO(N): This will fall apart with removable media and is making an invalid assumption that the `Node` is fixed for an `Instance`.
+					location::instance_id::equals(Some(library.config.instance_id)),
 					location::id::in_vec(locations),
 				])
 				.select(location::select!({ path }))

@@ -139,6 +139,7 @@ impl SpacedriveLocationMetadataFile {
 		self.write_metadata().await
 	}
 
+	#[allow(dead_code)]
 	pub(super) async fn update(
 		&mut self,
 		library_id: LibraryId,

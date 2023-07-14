@@ -4,7 +4,6 @@ import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
 	Location,
-	Node,
 	arraysEqual,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -19,7 +18,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 type LocationItemProps = {
-	location: Location & { node: Node | null };
+	location: Location;
 	index: number;
 	navigation: SettingsStackScreenProps<'LocationSettings'>['navigation'];
 };
@@ -109,13 +108,14 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
 						{location.name}
 					</Text>
-					{location.node && (
+					{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
+					{/* {location.node && (
 						<View style={tw`mt-0.5 self-start rounded bg-app-highlight px-1 py-[1px]`}>
 							<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
 								{location.node.name}
 							</Text>
 						</View>
-					)}
+					)} */}
 					<Text
 						numberOfLines={1}
 						style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}

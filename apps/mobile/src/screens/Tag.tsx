@@ -24,11 +24,5 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 		});
 	}, [tag.data?.name, navigation]);
 
-	useEffect(() => {
-		// no location, this is tags!
-		// getExplorerStore().locationId = id;
-		// getExplorerStore().path = path;
-	}, [id]);
-
 	return <Explorer items={search.data?.items} />;
 }
