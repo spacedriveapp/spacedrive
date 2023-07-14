@@ -43,7 +43,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           dpkg -l | grep i386
-          sudo apt-get purge --allow-remove-essential ".*:i386"
+          sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
           sudo dpkg --remove-architecture i386
 
       - name: Install Apple API key
