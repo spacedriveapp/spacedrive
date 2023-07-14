@@ -2,7 +2,7 @@ use prisma_client_rust_sdk::{prelude::*, prisma::prisma_models::walkers::Refined
 
 use crate::{ModelSyncType, ModelWithSyncType};
 
-pub fn module((model, sync_type): ModelWithSyncType) -> TokenStream {
+pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 	let model_name_snake = snake_ident(model.name());
 
 	let sync_id = sync_type.as_ref().map(|sync_type| {
@@ -148,8 +148,9 @@ pub fn module((model, sync_type): ModelWithSyncType) -> TokenStream {
 		}
 	};
 
-	quote! {
-		pub mod #model_name_snake {
+	Module::new(
+		model.name(),
+		quote! {
 			use super::prisma::*;
 
 			#sync_id
@@ -157,6 +158,6 @@ pub fn module((model, sync_type): ModelWithSyncType) -> TokenStream {
 			#set_param_impl
 
 			#unique_param_impl
-		}
-	}
+		},
+	)
 }

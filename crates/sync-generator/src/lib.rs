@@ -17,8 +17,6 @@ enum Error {}
 #[derive(serde::Deserialize)]
 struct SDSyncGenerator {}
 
-type FieldVec<'a> = Vec<FieldWalker<'a>>;
-
 #[allow(unused)]
 #[derive(Clone)]
 pub enum ModelSyncType<'a> {
@@ -119,7 +117,7 @@ impl PrismaGenerator for SDSyncGenerator {
 
 	type Error = Error;
 
-	fn generate(self, args: GenerateArgs) -> Result<String, Self::Error> {
+	fn generate(self, args: GenerateArgs) -> Result<Module, Self::Error> {
 		let db = &args.schema.db;
 
 		let models_with_sync_types = db
@@ -134,21 +132,22 @@ impl PrismaGenerator for SDSyncGenerator {
 			})
 			.collect::<Vec<_>>();
 
-		let model_modules = models_with_sync_types
-			.clone()
+		let model_sync_data = sync_data::r#enum(models_with_sync_types.clone());
+
+		let mut module = Module::new(
+			"root",
+			quote! {
+				use crate::prisma;
+
+				#model_sync_data
+			},
+		);
+		models_with_sync_types
 			.into_iter()
-			.map(model::module);
+			.map(model::module)
+			.for_each(|model| module.add_submodule(model));
 
-		let model_sync_data = sync_data::r#enum(models_with_sync_types);
-
-		Ok(quote! {
-			use crate::prisma;
-
-			#model_sync_data
-
-			#(#model_modules)*
-		}
-		.to_string())
+		Ok(module)
 	}
 }
 

@@ -185,6 +185,7 @@ pub async fn create_file_path(
 	use crate::{sync, util::db::uuid_to_bytes};
 
 	use sd_prisma::prisma;
+	use sd_sync::OperationFactory;
 	use serde_json::json;
 	use uuid::Uuid;
 
