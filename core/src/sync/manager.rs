@@ -1,12 +1,11 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
 
 use crate::prisma::*;
+use sd_sync::*;
 
 use std::{collections::HashMap, sync::Arc};
 
-use sd_sync::*;
-
-use serde_json::{json, to_vec, Value};
+use serde_json::to_vec;
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
@@ -177,138 +176,14 @@ impl SyncManager {
 
 		let msg = SyncMessage::Ingested(op.clone());
 
-		match ModelSyncData::from_op(op.typ.clone()).unwrap() {
-			ModelSyncData::FilePath(id, shared_op) => match shared_op {
-				SharedOperationData::Create(data) => {
-					let data: Vec<_> = data
-						.into_iter()
-						.flat_map(|(k, v)| file_path::SetParam::deserialize(&k, v))
-						.collect();
-
-					db.file_path()
-						.upsert(
-							file_path::pub_id::equals(id.pub_id.clone()),
-							file_path::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				SharedOperationData::Update { field, value } => {
-					let data = vec![file_path::SetParam::deserialize(&field, value).unwrap()];
-
-					db.file_path()
-						.upsert(
-							file_path::pub_id::equals(id.pub_id.clone()),
-							file_path::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				_ => todo!(),
-			},
-			ModelSyncData::Location(id, shared_op) => match shared_op {
-				SharedOperationData::Create(data) => {
-					let data: Vec<_> = data
-						.into_iter()
-						.flat_map(|(k, v)| location::SetParam::deserialize(&k, v))
-						.collect();
-
-					db.location()
-						.upsert(
-							location::pub_id::equals(id.pub_id.clone()),
-							location::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				SharedOperationData::Update { field, value } => {
-					let data = vec![location::SetParam::deserialize(&field, value).unwrap()];
-
-					db.location()
-						.upsert(
-							location::pub_id::equals(id.pub_id.clone()),
-							location::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				_ => todo!(),
-			},
-			ModelSyncData::Object(id, shared_op) => match shared_op {
-				SharedOperationData::Create(data) => {
-					let data: Vec<_> = data
-						.into_iter()
-						.flat_map(|(k, v)| object::SetParam::deserialize(&k, v))
-						.collect();
-
-					db.object()
-						.upsert(
-							object::pub_id::equals(id.pub_id.clone()),
-							object::create(id.pub_id, vec![]),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				SharedOperationData::Update { field, value } => {
-					let data = vec![object::SetParam::deserialize(&field, value).unwrap()];
-
-					db.object()
-						.upsert(
-							object::pub_id::equals(id.pub_id.clone()),
-							object::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				_ => todo!(),
-			},
-			ModelSyncData::Tag(id, shared_op) => match shared_op {
-				SharedOperationData::Create(data) => {
-					let data: Vec<_> = data
-						.into_iter()
-						.flat_map(|(field, value)| tag::SetParam::deserialize(&field, value))
-						.collect();
-
-					db.tag()
-						.upsert(
-							tag::pub_id::equals(id.pub_id.clone()),
-							tag::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				SharedOperationData::Update { field, value } => {
-					let data = vec![tag::SetParam::deserialize(&field, value).unwrap()];
-
-					db.tag()
-						.upsert(
-							tag::pub_id::equals(id.pub_id.clone()),
-							tag::create(id.pub_id, data.clone()),
-							data,
-						)
-						.exec()
-						.await?;
-				}
-				SharedOperationData::Delete => {
-					db.tag()
-						.delete(tag::pub_id::equals(id.pub_id))
-						.exec()
-						.await?;
-				}
-			},
-			ModelSyncData::Preference(_, _) => todo!(),
-		}
+		ModelSyncData::from_op(op.typ.clone())
+			.unwrap()
+			.exec(db)
+			.await?;
 
 		if let CRDTOperationType::Shared(shared_op) = op.typ {
 			let kind = match &shared_op.data {
-				SharedOperationData::Create(_) => "c",
+				SharedOperationData::Create => "c",
 				SharedOperationData::Update { .. } => "u",
 				SharedOperationData::Delete => "d",
 			};
@@ -332,53 +207,14 @@ impl SyncManager {
 
 		Ok(())
 	}
+}
 
-	fn new_op(&self, typ: CRDTOperationType) -> CRDTOperation {
-		let timestamp = self.clock.new_timestamp();
-
-		CRDTOperation {
-			instance: self.instance,
-			timestamp: *timestamp.get_time(),
-			id: Uuid::new_v4(),
-			typ,
-		}
+impl OperationFactory for SyncManager {
+	fn get_clock(&self) -> &HLC {
+		&self.clock
 	}
 
-	pub fn unique_shared_create<
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = SharedSyncType>,
-	>(
-		&self,
-		id: TSyncId,
-		values: impl IntoIterator<Item = (&'static str, Value)> + 'static,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Shared(SharedOperation {
-			model: TModel::MODEL.to_string(),
-			record_id: json!(id),
-			data: SharedOperationData::Create(
-				values
-					.into_iter()
-					.map(|(name, value)| (name.to_string(), value))
-					.collect(),
-			),
-		}))
-	}
-	pub fn shared_update<
-		TSyncId: SyncId<ModelTypes = TModel>,
-		TModel: SyncType<Marker = SharedSyncType>,
-	>(
-		&self,
-		id: TSyncId,
-		field: &str,
-		value: Value,
-	) -> CRDTOperation {
-		self.new_op(CRDTOperationType::Shared(SharedOperation {
-			model: TModel::MODEL.to_string(),
-			record_id: json!(id),
-			data: SharedOperationData::Update {
-				field: field.to_string(),
-				value,
-			},
-		}))
+	fn get_instance(&self) -> Uuid {
+		self.instance
 	}
 }

@@ -225,30 +225,34 @@ pub async fn create_file_path(
 	let pub_id = uuid_to_bytes(Uuid::new_v4());
 
 	let created_path = sync
-		.write_op(
+		.write_ops(
 			db,
-			sync.unique_shared_create(
-				sync::file_path::SyncId {
-					pub_id: pub_id.clone(),
-				},
-				params,
+			(
+				sync.shared_create(
+					sync::file_path::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					params,
+				),
+				db.file_path().create(pub_id, {
+					use file_path::*;
+					vec![
+						location::connect(prisma::location::id::equals(location.id)),
+						materialized_path::set(Some(materialized_path.into_owned())),
+						name::set(Some(name.into_owned())),
+						extension::set(Some(extension.into_owned())),
+						inode::set(Some(inode_to_db(metadata.inode))),
+						device::set(Some(device_to_db(metadata.device))),
+						cas_id::set(cas_id),
+						is_dir::set(Some(is_dir)),
+						size_in_bytes_bytes::set(Some(
+							metadata.size_in_bytes.to_be_bytes().to_vec(),
+						)),
+						date_created::set(Some(metadata.created_at.into())),
+						date_modified::set(Some(metadata.modified_at.into())),
+					]
+				}),
 			),
-			db.file_path().create(pub_id, {
-				use file_path::*;
-				vec![
-					location::connect(prisma::location::id::equals(location.id)),
-					materialized_path::set(Some(materialized_path.into_owned())),
-					name::set(Some(name.into_owned())),
-					extension::set(Some(extension.into_owned())),
-					inode::set(Some(inode_to_db(metadata.inode))),
-					device::set(Some(device_to_db(metadata.device))),
-					cas_id::set(cas_id),
-					is_dir::set(Some(is_dir)),
-					size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
-					date_created::set(Some(metadata.created_at.into())),
-					date_modified::set(Some(metadata.modified_at.into())),
-				]
-			}),
 		)
 		.await?;
 
