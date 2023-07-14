@@ -160,12 +160,12 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaValue>
 								</MetaTextLine>
 							)}
-							{fullObjectData.data?.media_data?.duration_seconds && (
+							{fullObjectData.data?.media_data?.duration && (
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
 									<MetaValue>
-										{fullObjectData.data.media_data.duration_seconds}
+										{fullObjectData.data.media_data.duration}
 									</MetaValue>
 								</MetaTextLine>
 							)}
