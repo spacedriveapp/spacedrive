@@ -54,7 +54,7 @@ impl SyncManager {
 				.filter_map(|op| match &op.typ {
 					CRDTOperationType::Shared(shared_op) => {
 						let kind = match &shared_op.data {
-							SharedOperationData::Create(_) => "c",
+							SharedOperationData::Create => "c",
 							SharedOperationData::Update { .. } => "u",
 							SharedOperationData::Delete => "d",
 						};
@@ -100,7 +100,7 @@ impl SyncManager {
 			let ret = match &op.typ {
 				CRDTOperationType::Shared(shared_op) => {
 					let kind = match &shared_op.data {
-						SharedOperationData::Create(_) => "c",
+						SharedOperationData::Create => "c",
 						SharedOperationData::Update { .. } => "u",
 						SharedOperationData::Delete => "d",
 					};
