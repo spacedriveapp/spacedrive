@@ -263,9 +263,9 @@ export type PeerId = string
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null; instances: string[] }
 
-export type RelationOperation = { relation_item: string; relation_group: string; relation: string; data: RelationOperationData }
+export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 
-export type RelationOperationData = "Create" | { Update: { field: string; value: any } } | "Delete"
+export type RelationOperationData = "c" | { u: { field: string; value: any } } | "d"
 
 export type RenameFileArgs = { location_id: number; kind: RenameKind }
 
@@ -287,7 +287,7 @@ export type SetNoteArgs = { id: number; note: string | null }
 
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
-export type SharedOperationData = { c: { [key: string]: any } } | { u: { field: string; value: any } } | "d"
+export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
 
 export type SortOrder = "Asc" | "Desc"
 

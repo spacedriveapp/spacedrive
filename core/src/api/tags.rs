@@ -10,7 +10,7 @@ use crate::{
 	library::Library,
 	object::tag::TagCreateArgs,
 	prisma::{tag, tag_on_object},
-	sync,
+	sync::{self, OperationFactory},
 };
 
 use super::{utils::library, Ctx, R};
