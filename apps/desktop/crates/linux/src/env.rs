@@ -193,3 +193,34 @@ pub(crate) fn remove_prefix_from_pathlist(
 		}
 	})
 }
+
+// Check if snap by looking if SNAP is set and not empty and that the SNAP directory exists
+pub fn is_snap() -> bool {
+	if let Some(snap) = std::env::var_os("SNAP") {
+		if !snap.is_empty() && PathBuf::from(snap).is_dir() {
+			return true;
+		}
+	}
+
+	false
+}
+
+// Check if appimage by looking if APPDIR is set and is a valid directory
+pub fn is_appimage() -> bool {
+	if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+		appdir.is_absolute() && appdir.is_dir()
+	} else {
+		false
+	}
+}
+
+// Check if flatpak by looking if FLATPAK_ID is set and not empty and that the .flatpak-info file exists
+pub fn is_flatpak() -> bool {
+	if let Some(flatpak_id) = std::env::var_os("FLATPAK_ID") {
+		if !flatpak_id.is_empty() && PathBuf::from("/.flatpak-info").is_file() {
+			return true;
+		}
+	}
+
+	false
+}

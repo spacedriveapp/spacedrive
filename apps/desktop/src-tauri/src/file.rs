@@ -1,5 +1,5 @@
 use std::{
-	collections::{BTreeSet, HashMap},
+	collections::{BTreeSet, HashMap, HashSet},
 	hash::{Hash, Hasher},
 	sync::Arc,
 };
@@ -106,8 +106,6 @@ pub async fn get_file_path_open_with_apps(
 
 	#[cfg(target_os = "macos")]
 	return {
-		use std::collections::HashSet;
-
 		Ok(paths
 			.into_values()
 			.flat_map(|path| {
@@ -137,7 +135,6 @@ pub async fn get_file_path_open_with_apps(
 	{
 		use futures::future;
 		use sd_desktop_linux::list_apps_associated_with_ext;
-		use std::collections::HashSet;
 
 		let apps = future::join_all(paths.into_values().map(|path| async {
 			let Some(path) = path
@@ -169,47 +166,49 @@ pub async fn get_file_path_open_with_apps(
 
 	#[cfg(windows)]
 	return Ok(paths
-		.into_iter()
-		.flat_map(|(id, path)| {
+		.into_values()
+		.filter_map(|path| {
 			let Some(path) = path
 				else {
 					error!("File not found in database");
-					return vec![];
+					return None;
 				};
 
 			let Some(ext) = path.extension()
 				else {
 					error!("Failed to extract file extension");
-					return vec![];
+					return None;
 				};
 
 			sd_desktop_windows::list_apps_associated_with_ext(ext)
 				.map_err(|e| {
 					error!("{e:#?}");
 				})
-				.map(|handlers| {
-					handlers
-						.iter()
-						.filter_map(|handler| {
-							let (Ok(name), Ok(url)) = (
-							unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-							unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-						) else {
-							error!("Failed to get handler info");
-							return None
-						};
-
-							Some(OpenWithApplication { name, url })
-						})
-						.collect::<Vec<_>>()
-				})
-				.unwrap_or(vec![])
+				.ok()
 		})
-		.collect());
+		.map(|handler| {
+			handler
+				.iter()
+				.filter_map(|handler| {
+					let (Ok(name), Ok(url)) = (
+						unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
+							.and_then(|name| unsafe { name.to_string() }
+							.map_err(|e| { error!("{e:#?}");})),
+						unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
+							.and_then(|name| unsafe { name.to_string() }
+							.map_err(|e| { error!("{e:#?}");})),
+					) else {
+						error!("Failed to get handler info");
+						return None
+					};
+
+					Some(OpenWithApplication { name, url })
+				})
+				.collect::<HashSet<_>>()
+		})
+		.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+		.map(|set| set.into_iter().collect())
+		.unwrap_or(vec![]));
 
 	#[allow(unreachable_code)]
 	Ok(vec![])
@@ -342,12 +341,29 @@ pub async fn reveal_items(
 
 	for path in paths_to_open {
 		#[cfg(target_os = "linux")]
-		let open_result = sd_desktop_linux::open_file_path(&path);
+		if sd_desktop_linux::is_appimage() {
+			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
+			sd_desktop_linux::open_file_path(
+				&(if path.is_file() {
+					path.parent().unwrap_or(&path)
+				} else {
+					&path
+				}),
+			)
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok()
+		} else {
+			opener::reveal(path)
+				.map_err(|err| {
+					error!("Failed to open logs dir: {err}");
+				})
+				.ok()
+		};
 
 		#[cfg(not(target_os = "linux"))]
-		let open_result = opener::reveal(path);
-
-		open_result
+		opener::reveal(path)
 			.map_err(|err| {
 				error!("Failed to open logs dir: {err}");
 			})
