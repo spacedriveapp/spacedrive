@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 
 use gtk::{
 	gio::{
-		content_type_guess, prelude::AppInfoExt, prelude::AppLaunchContextExt, AppInfo,
-		AppLaunchContext, DesktopAppInfo, File as GioFile, ResourceError,
+		content_type_guess,
+		prelude::AppInfoExt,
+		prelude::{AppLaunchContextExt, FileExt},
+		AppInfo, AppLaunchContext, DesktopAppInfo, File as GioFile, ResourceError,
 	},
 	glib::error::Error as GlibError,
 	prelude::IsA,
@@ -130,4 +132,9 @@ pub fn open_files_path_with(file_paths: &[impl AsRef<Path>], id: &str) -> Result
 			Some(ctx),
 		)
 	})
+}
+
+pub fn open_file_path(file_path: &impl AsRef<Path>) -> Result<(), GlibError> {
+	let file_uri = GioFile::for_path(file_path).uri().to_string();
+	LAUNCH_CTX.with(|ctx| AppInfo::launch_default_for_uri(&file_uri.to_string(), Some(ctx)))
 }

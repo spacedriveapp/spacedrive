@@ -51,8 +51,17 @@ async fn reset_spacedrive(app_handle: AppHandle) {
 #[tauri::command(async)]
 #[specta::specta]
 async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
-	opener::open(node.data_dir.join("logs")).ok();
-	Ok(())
+	let logs_path = node.data_dir.join("logs");
+
+	#[cfg(target_os = "linux")]
+	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+
+	#[cfg(not(target_os = "linux"))]
+	let open_result = opener::open(logs_path);
+
+	open_result.map_err(|err| {
+		error!("Failed to open logs dir: {err}");
+	})
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {

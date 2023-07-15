@@ -39,10 +39,17 @@ pub async fn open_file_paths(
 					.into_iter()
 					.map(|(id, maybe_path)| {
 						if let Some(path) = maybe_path {
-							opener::open(path)
+							#[cfg(target_os = "linux")]
+							let open_result = sd_desktop_linux::open_file_path(&path);
+
+							#[cfg(not(target_os = "linux"))]
+							let open_result = opener::open(path);
+
+							open_result
 								.map(|_| OpenFilePathResult::AllGood(id))
-								.unwrap_or_else(|e| {
-									OpenFilePathResult::OpenError(id, e.to_string())
+								.unwrap_or_else(|err| {
+									error!("Failed to open logs dir: {err}");
+									OpenFilePathResult::OpenError(id, err.to_string())
 								})
 						} else {
 							OpenFilePathResult::NoFile(id)
@@ -334,7 +341,17 @@ pub async fn reveal_items(
 	}
 
 	for path in paths_to_open {
-		opener::reveal(path).ok();
+		#[cfg(target_os = "linux")]
+		let open_result = sd_desktop_linux::open_file_path(&path);
+
+		#[cfg(not(target_os = "linux"))]
+		let open_result = opener::reveal(path);
+
+		open_result
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok();
 	}
 
 	Ok(())
