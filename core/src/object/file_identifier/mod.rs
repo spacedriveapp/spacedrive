@@ -6,8 +6,7 @@ use crate::{
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
-	sync,
-	sync::SyncManager,
+	sync::{self, CRDTOperation, OperationFactory, SyncManager},
 	util::{
 		db::{maybe_missing, uuid_to_bytes},
 		error::FileIOError,
@@ -15,7 +14,6 @@ use crate::{
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_sync::CRDTOperation;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -252,7 +250,7 @@ async fn identifier_job_step(
 					.unzip();
 
 					let object_creation_args = (
-						sync.unique_shared_create(sync_id(), sync_params),
+						sync.shared_create(sync_id(), sync_params),
 						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 					);
 
@@ -274,7 +272,10 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync, db.object().create_many(db_params))
+				(
+					sync.into_iter().flatten().collect(),
+					db.object().create_many(db_params),
+				)
 			})
 			.await
 			.unwrap_or_else(|e| {

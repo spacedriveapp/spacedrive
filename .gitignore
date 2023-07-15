@@ -64,7 +64,6 @@ yalc.lock
 todos.md
 examples/*/*.lock
 /target
-prisma*.rs
 
 playwright-report
 
