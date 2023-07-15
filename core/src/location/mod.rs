@@ -21,6 +21,7 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
+use sd_sync::*;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -579,38 +580,41 @@ async fn create_location(
 	let date_created = Utc::now();
 
 	let location = sync
-		.write_op(
+		.write_ops(
 			db,
-			sync.unique_shared_create(
-				sync::location::SyncId {
-					pub_id: location_pub_id.as_bytes().to_vec(),
-				},
-				[
-					(location::name::NAME, json!(&name)),
-					(location::path::NAME, json!(&location_path)),
-					(location::date_created::NAME, json!(date_created)),
-					(
-						location::instance_id::NAME,
-						json!(sync::instance::SyncId {
-							id: library.config.instance_id,
-						}),
-					),
-				],
-			),
-			db.location()
-				.create(
-					location_pub_id.as_bytes().to_vec(),
-					vec![
-						location::name::set(Some(name.clone())),
-						location::path::set(Some(location_path)),
-						location::date_created::set(Some(date_created.into())),
-						location::instance_id::set(Some(library.config.instance_id)),
-						// location::instance::connect(instance::id::equals(
-						// 	library.config.instance_id.as_bytes().to_vec(),
-						// )),
+			(
+				sync.shared_create(
+					sync::location::SyncId {
+						pub_id: location_pub_id.as_bytes().to_vec(),
+					},
+					[
+						(location::name::NAME, json!(&name)),
+						(location::path::NAME, json!(&location_path)),
+						(location::date_created::NAME, json!(date_created)),
+						(
+							location::instance_id::NAME,
+							json!(sync::instance::SyncId {
+								pub_id: vec![],
+								// id: library.config.instance_id,
+							}),
+						),
 					],
-				)
-				.include(location_with_indexer_rules::include()),
+				),
+				db.location()
+					.create(
+						location_pub_id.as_bytes().to_vec(),
+						vec![
+							location::name::set(Some(name.clone())),
+							location::path::set(Some(location_path)),
+							location::date_created::set(Some(date_created.into())),
+							location::instance_id::set(Some(library.config.instance_id)),
+							// location::instance::connect(instance::id::equals(
+							// 	library.config.instance_id.as_bytes().to_vec(),
+							// )),
+						],
+					)
+					.include(location_with_indexer_rules::include()),
+			),
 		)
 		.await?;
 

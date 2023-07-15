@@ -11,13 +11,9 @@ const OperationItem = ({ op }: { op: CRDTOperation }) => {
 	if ('model' in op.typ) {
 		let subContents = null;
 
-		if (op.typ.data === 'd') {
-			subContents = 'Delete';
-		} else if ('c' in op.typ.data) {
-			subContents = 'Create';
-		} else {
-			subContents = `Update - ${op.typ.data.u.field}`;
-		}
+		if (op.typ.data === 'd') subContents = 'Delete';
+		else if (op.typ.data === 'c') subContents = 'Create';
+		else subContents = `Update - ${op.typ.data.u.field}`;
 
 		contents = (
 			<>
