@@ -36,6 +36,23 @@ model SharedOperation {
     @@map("shared_operation")
 }
 
+model RelationOperation {
+    id        Bytes  @id
+    timestamp BigInt
+    relation  String
+
+    item_id Bytes
+    group_id Bytes
+
+    kind      String
+    data      Bytes
+
+    instance_id Int
+    instance    Instance @relation(fields: [instance_id], references: [id])
+
+    @@map("relation_operation")
+}
+
 /// @deprecated: This model has to exist solely for backwards compatibility.
 model Node {
     id           Int      @id @default(autoincrement())
@@ -67,9 +84,13 @@ model Instance {
     last_seen    DateTime // Time core started for owner, last P2P message for P2P node
     date_created DateTime
 
+	// clock timestamp for sync
+    timestamp BigInt
+
     // attestation Bytes
 
     SharedOperation SharedOperation[]
+    RelationOperation RelationOperation[]
 
     @@map("instance")
 }

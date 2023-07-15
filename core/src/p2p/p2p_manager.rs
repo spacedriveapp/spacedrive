@@ -228,14 +228,12 @@ impl P2PManager {
 										};
 
 										for op in operations {
-											library.sync.ingest_op(op).await.unwrap_or_else(
-												|err| {
-													error!(
+											library.sync.apply_op(op).await.unwrap_or_else(|err| {
+												error!(
 														"error ingesting operation for library '{}': {err:?}",
 														library.id
 													);
-												},
-											);
+											});
 										}
 									}
 								}
