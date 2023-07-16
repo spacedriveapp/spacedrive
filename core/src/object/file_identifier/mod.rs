@@ -8,7 +8,7 @@ use crate::{
 	prisma::{file_path, location, media_data, object, PrismaClient},
 	sync,
 	sync::SyncManager,
-	sync::{CRDTOperation, OperationFactory, SyncManager},
+	sync::{CRDTOperation, OperationFactory},
 	util::{
 		db::{maybe_missing, uuid_to_bytes},
 		error::FileIOError,
@@ -18,7 +18,6 @@ use crate::{
 use chrono::Utc;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_media_data::image;
-use sd_sync::CRDTOperation;
 
 use once_cell::sync::Lazy;
 use std::{
@@ -257,10 +256,9 @@ async fn identifier_job_step(
 					ext,
 				);
 
-				let object_creation_args = (
-					sync.shared_create(sync_id(), sync_params),
-					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
-				);
+				let sync_id = || sync::object::SyncId {
+					pub_id: uuid_to_bytes(object_pub_id),
+				};
 
 				let kind = meta.kind as i32;
 
@@ -278,7 +276,7 @@ async fn identifier_job_step(
 				.unzip();
 
 				let object_creation_args = (
-					sync.unique_shared_create(sync_id(), sync_params),
+					sync.shared_create(sync_id(), sync_params),
 					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 				);
 
