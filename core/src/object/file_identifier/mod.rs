@@ -8,6 +8,7 @@ use crate::{
 	prisma::{file_path, location, media_data, object, PrismaClient},
 	sync,
 	sync::SyncManager,
+	sync::{CRDTOperation, OperationFactory, SyncManager},
 	util::{
 		db::{maybe_missing, uuid_to_bytes},
 		error::FileIOError,
@@ -256,9 +257,10 @@ async fn identifier_job_step(
 					ext,
 				);
 
-				let sync_id = || sync::object::SyncId {
-					pub_id: uuid_to_bytes(object_pub_id),
-				};
+				let object_creation_args = (
+					sync.shared_create(sync_id(), sync_params),
+					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
+				);
 
 				let kind = meta.kind as i32;
 
@@ -329,7 +331,10 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync, db.object().create_many(db_params))
+				(
+					sync.into_iter().flatten().collect(),
+					db.object().create_many(db_params),
+				)
 			})
 			.await
 			.unwrap_or_else(|e| {

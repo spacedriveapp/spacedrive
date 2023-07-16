@@ -5886,7 +5886,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=047c1102284a61ee400788baa7529d54ae745790#047c1102284a61ee400788baa7529d54ae745790"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5919,7 +5919,27 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=047c1102284a61ee400788baa7529d54ae745790#047c1102284a61ee400788baa7529d54ae745790"
+dependencies = [
+ "directories",
+ "flate2",
+ "http",
+ "prisma-client-rust-generator",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "syn 1.0.109",
+ "thiserror",
+]
+
+[[package]]
+name = "prisma-client-rust-generator"
+version = "0.6.8"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=047c1102284a61ee400788baa7529d54ae745790#047c1102284a61ee400788baa7529d54ae745790"
 dependencies = [
  "directories",
  "flate2",
@@ -5939,7 +5959,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=047c1102284a61ee400788baa7529d54ae745790#047c1102284a61ee400788baa7529d54ae745790"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5951,7 +5971,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=e0af63224dcdb00a14c0aeade878894be8304cfc#e0af63224dcdb00a14c0aeade878894be8304cfc"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=047c1102284a61ee400788baa7529d54ae745790#047c1102284a61ee400788baa7529d54ae745790"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
