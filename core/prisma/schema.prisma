@@ -4,15 +4,15 @@ datasource db {
 }
 
 generator client {
-    provider    = "cargo prisma"
-    output      = "../../crates/prisma/src/prisma"
-    module_path = "sd_prisma::prisma"
+    provider      = "cargo prisma"
+    output        = "../../crates/prisma/src/prisma"
+    module_path   = "sd_prisma::prisma"
     client_format = "folder"
 }
 
 generator sync {
-    provider = "cargo prisma-sync"
-    output   = "../../crates/prisma/src/prisma_sync"
+    provider      = "cargo prisma-sync"
+    output        = "../../crates/prisma/src/prisma_sync"
     client_format = "folder"
 }
 
@@ -283,18 +283,22 @@ model MediaData {
     codecs        String? // eg: "h264,acc"
     device_make   String? // eg: "Apple"
     device_model  String? // eg: "iPhone 12"
-    // device_software String? // eg: "12.1.1"
     focal_length  Float?
     shutter_speed Float?
     orientation   String?
-    copyright     String?
     flash         Boolean?
-    artist        String?
+
+    // probably not set
+    copyright String?
+    artist    String?
 
     // video-specific
     duration Int?
     fps      Int?
     streams  Int?
+
+    // excluding as it varies WILDLY between devices
+    // device_software String? // eg: "12.1.1"
 
     object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
