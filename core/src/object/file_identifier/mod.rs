@@ -23,6 +23,7 @@ use once_cell::sync::Lazy;
 use std::{
 	borrow::Cow,
 	collections::{HashMap, HashSet},
+	fmt::Debug,
 	path::Path,
 };
 
@@ -231,7 +232,7 @@ async fn identifier_job_step(
 			new_objects_cas_ids
 		);
 
-		let ((object_create_args, file_path_update_args), media_data_create): (
+		let ((object_create_args, file_path_update_args), create_media_data): (
 			(Vec<_>, Vec<_>),
 			Vec<_>,
 		) = file_paths_requiring_new_object
@@ -279,39 +280,33 @@ async fn identifier_job_step(
 					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 				);
 
-				let create_media_data: Option<sd_prisma::prisma::media_data::CreateUnchecked> =
-					if FILTERED_IMAGE_EXTENSIONS
-						.iter()
-						.any(|x| fp.extension.clone().unwrap_or_default() == x.to_string())
-					{
-						let data = image::get_data_for_image(location_path.join(&path)).expect("");
+				let create_media_data_items = FILTERED_IMAGE_EXTENSIONS
+					.iter()
+					.filter(|x| fp.extension.clone().unwrap_or_default() == x.to_string());
 
-						// TODO(brxken128): needs a from/to impl
-						let create_media_data = media_data::create_unchecked(vec![
-							media_data::date_created::set(Some(Utc::now().into())),
-							media_data::date_taken::set(data.timestamp),
-							media_data::pixel_width::set(data.width),
-							media_data::pixel_height::set(data.width),
-							media_data::color_space::set(data.color_space),
-							media_data::device_make::set(data.device_make),
-							media_data::device_model::set(data.device_model),
-							media_data::focal_length::set(data.focal_length),
-							media_data::shutter_speed::set(data.shutter_speed),
-							media_data::flash::set(data.flash),
-							media_data::orientation::set(data.orientation),
-							media_data::copyright::set(data.copyright),
-							media_data::artist::set(data.artist),
-						]);
-
-						trace!(
-							"Extracted EXIF data for {}",
-							location_path.join(path).display()
-						);
-
-						Some(create_media_data)
-					} else {
-						None
-					};
+				let create_media_data_items = create_media_data_items
+					.filter_map(|_| {
+						image::get_data_for_image(location_path.join(&path))
+							.ok()
+							.map(|data| {
+								media_data::create_unchecked(vec![
+									media_data::date_created::set(Some(Utc::now().into())),
+									media_data::date_taken::set(data.timestamp),
+									media_data::pixel_width::set(data.width),
+									media_data::pixel_height::set(data.width),
+									media_data::color_space::set(data.color_space),
+									media_data::device_make::set(data.device_make),
+									media_data::device_model::set(data.device_model),
+									media_data::focal_length::set(data.focal_length),
+									media_data::shutter_speed::set(data.shutter_speed),
+									media_data::flash::set(data.flash),
+									media_data::orientation::set(data.orientation),
+									media_data::copyright::set(data.copyright),
+									media_data::artist::set(data.artist),
+								])
+							})
+					})
+					.collect::<Vec<_>>();
 
 				(
 					(object_creation_args, {
@@ -324,7 +319,7 @@ async fn identifier_job_step(
 
 						(crdt_op, db_op.select(file_path::select!({ pub_id })))
 					}),
-					create_media_data,
+					create_media_data_items,
 				)
 			})
 			.unzip();
@@ -359,7 +354,7 @@ async fn identifier_job_step(
 
 		let total_created_media_data = db
 			.media_data()
-			.create_many(media_data_create.into_iter().flatten().collect())
+			.create_many(create_media_data.into_iter().flatten().collect())
 			.exec()
 			.await?;
 
