@@ -12,7 +12,7 @@ use std::path::Path;
 
 use chrono::Utc;
 use rspc::ErrorCode;
-use sd_prisma::prisma_sync;
+use sd_sync::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
@@ -109,7 +109,7 @@ async fn execute_indexer_save_step(
 				(
 					(
 						location::NAME,
-						json!(prisma_sync::location::SyncId {
+						json!(sync::location::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -159,7 +159,7 @@ async fn execute_indexer_save_step(
 			.unzip();
 
 			(
-				sync.unique_shared_create(
+				sync.shared_create(
 					sync::file_path::SyncId {
 						pub_id: uuid_to_bytes(entry.pub_id),
 					},
@@ -174,7 +174,7 @@ async fn execute_indexer_save_step(
 		.write_ops(
 			db,
 			(
-				sync_stuff,
+				sync_stuff.into_iter().flatten().collect(),
 				db.file_path().create_many(paths).skip_duplicates(),
 			),
 		)

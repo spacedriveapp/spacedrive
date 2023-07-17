@@ -405,7 +405,7 @@ impl LibraryManager {
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
-			"file:{}?socket_timeout=15",
+			"file:{}?socket_timeout=15&connection_limit=1",
 			db_path.as_os_str().to_str().ok_or_else(|| {
 				LibraryManagerError::NonUtf8Path(NonUtf8PathError(db_path.into()))
 			})?

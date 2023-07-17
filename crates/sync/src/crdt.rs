@@ -1,22 +1,25 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum RelationOperationData {
+	#[serde(rename = "c")]
 	Create,
+	#[serde(rename = "u")]
 	Update { field: String, value: Value },
+	#[serde(rename = "d")]
 	Delete,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub struct RelationOperation {
-	pub relation_item: Uuid,
-	pub relation_group: Uuid,
+	pub relation_item: Value,
+	pub relation_group: Value,
 	pub relation: String,
 	pub data: RelationOperationData,
 }
@@ -24,7 +27,7 @@ pub struct RelationOperation {
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum SharedOperationData {
 	#[serde(rename = "c")]
-	Create(Map<String, Value>),
+	Create,
 	#[serde(rename = "u")]
 	Update { field: String, value: Value },
 	#[serde(rename = "d")]
