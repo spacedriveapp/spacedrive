@@ -25,7 +25,7 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 
 	useBridgeSubscription(['p2p.events'], {
 		onData(data) {
-			events.current.dispatchEvent(new CustomEvent<P2PEvent>('p2p-event', { detail: data }));
+			events.current.dispatchEvent(new CustomEvent('p2p-event', { detail: data }));
 
 			if (data.type === 'DiscoveredPeer') {
 				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
