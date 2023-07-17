@@ -165,6 +165,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 							kind == 'Video' || kind == 'Audio'
 						)
 					);
+					// TODO: Implement original preview for non-indexed files
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}

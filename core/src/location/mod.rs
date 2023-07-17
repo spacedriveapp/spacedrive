@@ -509,17 +509,8 @@ pub struct CreatedLocationResult {
 	pub data: location_with_indexer_rules::Data,
 }
 
-async fn create_location(
-	library: &Library,
-	location_pub_id: Uuid,
-	location_path: impl AsRef<Path>,
-	indexer_rules_ids: &[i32],
-	dry_run: bool,
-) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &library;
-
-	let mut path = location_path.as_ref().to_path_buf();
-
+pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, String)> {
+	let mut path = path.as_ref().to_path_buf();
 	let (location_path, normalized_path) = path
 		// Normalize path and also check if it exists
 		.normalize()
@@ -541,8 +532,7 @@ async fn create_location(
 				))?,
 				normalized_path,
 			))
-		})
-		.map_err(|_| LocationError::DirectoryNotFound(path.clone()))?;
+		})?;
 
 	// Not needed on Windows because the normalization already handles it
 	if cfg!(not(windows)) {
@@ -553,24 +543,6 @@ async fn create_location(
 				path = normalized_path.as_path().to_path_buf();
 			}
 		}
-	}
-
-	if library
-		.db
-		.location()
-		.count(vec![location::path::equals(Some(location_path.clone()))])
-		.exec()
-		.await? > 0
-	{
-		return Err(LocationError::LocationAlreadyExists(path));
-	}
-
-	if check_nested_location(&location_path, &library.db).await? {
-		return Err(LocationError::NestedLocation(path));
-	}
-
-	if dry_run {
-		return Ok(None);
 	}
 
 	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
@@ -585,6 +557,43 @@ async fn create_location(
 		name = "Unknown".to_string()
 	}
 
+	Ok((location_path, name))
+}
+
+async fn create_location(
+	library: &Library,
+	location_pub_id: Uuid,
+	location_path: impl AsRef<Path>,
+	indexer_rules_ids: &[i32],
+	dry_run: bool,
+) -> Result<Option<CreatedLocationResult>, LocationError> {
+	let Library { db, sync, .. } = &library;
+
+	let (path, name) = normalize_path(&location_path)
+		.map_err(|_| LocationError::DirectoryNotFound(location_path.as_ref().to_path_buf()))?;
+
+	if library
+		.db
+		.location()
+		.count(vec![location::path::equals(Some(path.clone()))])
+		.exec()
+		.await? > 0
+	{
+		return Err(LocationError::LocationAlreadyExists(
+			location_path.as_ref().to_path_buf(),
+		));
+	}
+
+	if check_nested_location(&location_path, &library.db).await? {
+		return Err(LocationError::NestedLocation(
+			location_path.as_ref().to_path_buf(),
+		));
+	}
+
+	if dry_run {
+		return Ok(None);
+	}
+
 	let date_created = Utc::now();
 
 	let location = sync
@@ -597,7 +606,7 @@ async fn create_location(
 					},
 					[
 						(location::name::NAME, json!(&name)),
-						(location::path::NAME, json!(&location_path)),
+						(location::path::NAME, json!(&path)),
 						(location::date_created::NAME, json!(date_created)),
 						(
 							location::instance_id::NAME,
@@ -613,7 +622,7 @@ async fn create_location(
 						location_pub_id.as_bytes().to_vec(),
 						vec![
 							location::name::set(Some(name.clone())),
-							location::path::set(Some(location_path)),
+							location::path::set(Some(path)),
 							location::date_created::set(Some(date_created.into())),
 							location::instance_id::set(Some(library.config.instance_id)),
 							// location::instance::connect(instance::id::equals(

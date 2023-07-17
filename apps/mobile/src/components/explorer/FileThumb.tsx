@@ -122,7 +122,7 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 				if (isDir !== null) setSrc(getIcon(kind, isDarkTheme(), extension, isDir));
 				break;
 		}
-	}, [filePath?.id, itemData, props.data.item.id, thumbType]);
+	}, [itemData, thumbType]);
 
 	return (
 		<FileThumbWrapper size={size}>

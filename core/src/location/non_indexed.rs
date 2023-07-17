@@ -21,7 +21,7 @@ use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, warn};
 
-use super::{file_path_helper::MetadataExt, generate_thumbnail};
+use super::{file_path_helper::MetadataExt, generate_thumbnail, normalize_path};
 
 #[derive(Debug, Error)]
 pub enum NonIndexedLocationError {
@@ -64,6 +64,8 @@ pub struct NonIndexedFileSystemEntries {
 
 #[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {
+	id: i32,
+	path: String,
 	name: String,
 	extension: String,
 	kind: i32,
@@ -79,12 +81,17 @@ pub async fn walk(
 	let path = full_path.as_ref();
 	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
 
+	let mut id = 1;
 	let mut directories = vec![];
 	let mut errors = vec![];
 	let mut entries = vec![];
 
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
-		let entry_path = entry.path();
+		let Ok((entry_path, name)) = normalize_path(entry.path())
+			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into())) else {
+			continue;
+		};
+
 		let Ok(metadata) = entry.metadata()
 			.await
 			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
@@ -93,28 +100,21 @@ pub async fn walk(
 		};
 
 		if metadata.is_dir() {
-			entry_path
-				.to_str()
-				.map(|directory_path_str| {
-					directories.push((directory_path_str.to_string(), metadata))
-				})
-				.unwrap_or_else(|| {
-					error!("Failed to convert path to string: {}", entry_path.display())
-				});
+			directories.push((entry_path, id, name, metadata));
 		} else {
-			let Some(name) = entry_path.file_stem()
+			let path = Path::new(&entry_path);
+
+			let Some(name) = path.file_stem()
 				.and_then(|s| s.to_str().map(str::to_string))
 				else {
-				warn!("Failed to extract name from path: {}", entry_path.display());
+				warn!("Failed to extract name from path: {}", &entry_path);
 				continue;
 			};
 
-			let Some(extension) = entry_path.extension()
+			let extension = path
+				.extension()
 				.and_then(|s| s.to_str().map(str::to_string))
-				else {
-				warn!("Failed to extract extension from path: {}", entry_path.display());
-				continue;
-			};
+				.unwrap_or("".to_string());
 
 			let kind = Extension::resolve_conflicting(&path, false)
 				.await
@@ -127,6 +127,7 @@ pub async fn walk(
 					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
 				{
 					let thumbnail_key = get_thumb_key(&cas_id);
+					let entry_path = entry_path.clone();
 					let extension = extension.clone();
 					let library = library.clone();
 					tokio::spawn(async move {
@@ -145,6 +146,8 @@ pub async fn walk(
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
+					id,
+					path: entry_path,
 					name,
 					extension,
 					kind: kind as i32,
@@ -154,13 +157,18 @@ pub async fn walk(
 				},
 			});
 		}
+
+		id += 1;
 	}
 
 	let mut locations = library
 		.db
 		.location()
 		.find_many(vec![location::path::in_vec(
-			directories.iter().map(|(path, _)| path.clone()).collect(),
+			directories
+				.iter()
+				.map(|(path, _, _, _)| path.clone())
+				.collect(),
 		)])
 		.exec()
 		.await?
@@ -173,7 +181,7 @@ pub async fn walk(
 		})
 		.collect::<HashMap<_, _>>();
 
-	for (directory, metadata) in directories {
+	for (directory, id, name, metadata) in directories {
 		if let Some(location) = locations.remove(&directory) {
 			entries.push(ExplorerItem::Location {
 				has_local_thumbnail: false,
@@ -185,12 +193,9 @@ pub async fn walk(
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
-					name: Path::new(&directory)
-						.file_name()
-						.expect("we just built this path from a string")
-						.to_str()
-						.expect("we just built this path from a string")
-						.to_string(),
+					id,
+					path: directory,
+					name,
 					extension: "".to_string(),
 					kind: ObjectKind::Folder as i32,
 					is_dir: true,
