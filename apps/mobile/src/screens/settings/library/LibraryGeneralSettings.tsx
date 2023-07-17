@@ -5,7 +5,7 @@ import { Alert, View } from 'react-native';
 import { useBridgeMutation, useLibraryContext } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
-import DeleteLibraryModal from '~/components/modal/confirm-modals/DeleteLibraryModal';
+import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { SettingsContainer, SettingsTitle } from '~/components/settings/SettingsContainer';
