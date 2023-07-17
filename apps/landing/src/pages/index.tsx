@@ -111,26 +111,18 @@ export default function HomePage() {
 
 					<div>
 						<div
-							className="absolute-horizontal-center hidden w-[70%] overflow-hidden rounded-full bg-gradient-to-r
+							className="absolute-horizontal-center top-[400px] h-[10%] w-[70%] overflow-hidden rounded-full bg-gradient-to-r
 						from-transparent to-indigo-400 blur-[50px] md:h-[500px] md:blur-[150px] lg:top-[550px]
-						lg:block lg:h-[526px] lg:w-[728px]"
+						lg:h-[526px] lg:w-[728px]"
 						/>
 						<div
-							className="absolute-horizontal-center hidden h-[7%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
-						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px] lg:block
+							className="absolute-horizontal-center top-[500px] h-[12%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
+						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px]
 						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
 						/>
 						<video
-							className="absolute-horizontal-center pointer-events-none hidden w-[1000px] lg:block"
+							className="absolute-horizontal-center pointer-events-none w-[1000px]"
 							src="/images/ball.webm"
-							autoPlay
-							muted
-							playsInline
-							loop
-						/>
-						<video
-							className="absolute-horizontal-center pointer-events-none block lg:hidden xl:w-[60%]"
-							src="/images/ball.mp4"
 							autoPlay
 							muted
 							playsInline

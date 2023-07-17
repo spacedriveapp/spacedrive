@@ -149,7 +149,7 @@ const BentoBoxes = () => {
 			</BentoBox>
 			<BentoBox
 				colSpan={3}
-				className="h-[354px]  p-6 md:h-auto"
+				className="h-[354px] p-6 lg:h-auto"
 				bgUrl="images/bento/opensource-bg.webp"
 			>
 				<>
