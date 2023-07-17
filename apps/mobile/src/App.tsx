@@ -19,6 +19,8 @@ import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
 	LibraryContextProvider,
+	NotificationContextProvider,
+	P2PContextProvider,
 	RspcProvider,
 	initPlausible,
 	useClientContext,
@@ -30,6 +32,7 @@ import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
+import { P2P } from './screens/p2p';
 import { currentLibraryStore } from './utils/nav';
 
 dayjs.extend(advancedFormat);
@@ -111,7 +114,12 @@ function AppContainer() {
 					<BottomSheetModalProvider>
 						<StatusBar style="light" />
 						<ClientContextProvider currentLibraryId={id}>
-							<AppNavigation />
+							<P2PContextProvider>
+								<P2P />
+								<NotificationContextProvider>
+									<AppNavigation />
+								</NotificationContextProvider>
+							</P2PContextProvider>
 						</ClientContextProvider>
 					</BottomSheetModalProvider>
 				</MenuProvider>

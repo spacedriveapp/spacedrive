@@ -328,6 +328,9 @@ importers:
       dayjs:
         specifier: ^1.11.8
         version: 1.11.8
+      event-target-polyfill:
+        specifier: ^0.0.3
+        version: 0.0.3
       expo:
         specifier: ~48.0.19
         version: 48.0.19(@babel/core@7.22.1)
@@ -14238,6 +14241,10 @@ packages:
       d: 1.0.1
       es5-ext: 0.10.62
     dev: true
+
+  /event-target-polyfill@0.0.3:
+    resolution: {integrity: sha512-ZMc6UuvmbinrCk4RzGyVmRyIsAyxMRlp4CqSrcQRO8Dy0A9ldbiRy5kdtBj4OtP7EClGdqGfIqo9JmOClMsGLQ==}
+    dev: false
 
   /event-target-shim@5.0.1:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}

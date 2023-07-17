@@ -16,11 +16,13 @@ use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::broadcast,
 };
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
+mod initial_sync;
 mod proto;
 
+pub use initial_sync::*;
 use proto::*;
 
 use crate::{
@@ -117,6 +119,21 @@ impl PairingManager {
 					// TODO: Future - Library in pairing state
 					// TODO: Create library
 
+					if self
+						.library_manager
+						.get_all_libraries()
+						.await
+						.into_iter()
+						.find(|i| i.id == library_id)
+						.is_some()
+					{
+						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
+
+						// TODO: Properly handle this at a protocol level so the error is on both sides
+
+						return;
+					}
+
 					let library_config = self
 						.library_manager
 						.create_with_uuid(
@@ -124,6 +141,7 @@ impl PairingManager {
 							LibraryName::new(library_name).unwrap(),
 							library_description,
 							node_config,
+							false, // We will sync everything which will conflict with the seeded stuff
 						)
 						.await
 						.unwrap();
@@ -144,12 +162,36 @@ impl PairingManager {
 					// 3.
 					// TODO: Either rollback or update library out of pairing state
 
-					// TODO: Fake initial sync
+					// TODO: This should timeout if taking too long so it can't be used as a DOS style thing???
+					let mut total = 0;
+					let mut synced = 0;
+					loop {
+						match SyncData::from_stream(&mut stream).await.unwrap() {
+							SyncData::Data { total_models, data } => {
+								if let Some(total_models) = total_models {
+									total = total_models;
+								}
+								synced += data.len();
+
+								data.insert(&library.db).await.unwrap();
+
+								// Prevent divide by zero
+								if total != 0 {
+									self.emit_progress(
+										pairing_id,
+										PairingStatus::InitialSyncProgress(
+											((synced as f32 / total as f32) * 100.0) as u8,
+										),
+									);
+								}
+							}
+							SyncData::Finished => break,
+						}
+					}
 
 					// TODO: Done message to frontend
 					self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
-
-					tokio::time::sleep(std::time::Duration::from_secs(30)).await; // TODO
+					stream.flush().await.unwrap();
 				}
 				PairingResponse::Rejected => {
 					info!("Pairing '{pairing_id}' rejected by remote");
@@ -232,12 +274,41 @@ impl PairingManager {
 
 		// TODO: Pairing confirmation + rollback
 
+		let total = ModelData::total_count(&library.db).await.unwrap();
+		let mut synced = 0;
+		info!("Starting sync of {} rows", total);
+
+		let mut cursor = ModelSyncCursor::new();
+		while let Some(data) = cursor.next(&library.db).await {
+			let data = data.unwrap();
+			let total_models = match synced {
+				0 => Some(total),
+				_ => None,
+			};
+			synced += data.len();
+			self.emit_progress(
+				pairing_id,
+				PairingStatus::InitialSyncProgress((synced as f32 / total as f32 * 100.0) as u8), // SAFETY: It's a percentage
+			);
+			debug!(
+				"Initial library sync cursor={:?} items={}",
+				cursor,
+				data.len()
+			);
+
+			stream
+				.write_all(&SyncData::Data { total_models, data }.to_bytes().unwrap())
+				.await
+				.unwrap();
+		}
+
+		stream
+			.write_all(&SyncData::Finished.to_bytes().unwrap())
+			.await
+			.unwrap();
+
+		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 		stream.flush().await.unwrap();
-		tokio::time::sleep(std::time::Duration::from_secs(30)).await; // TODO
-
-		// };
-
-		// inner().await.unwrap();
 	}
 }
 
@@ -253,6 +324,7 @@ pub enum PairingDecision {
 pub enum PairingStatus {
 	EstablishingConnection,
 	PairingRequested,
+	LibraryAlreadyExists,
 	PairingDecisionRequest,
 	PairingInProgress {
 		library_name: String,

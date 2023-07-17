@@ -1,6 +1,7 @@
 import {
 	Books,
 	FlyingSaucer,
+	Gear,
 	GearSix,
 	HardDrive,
 	Heart,
@@ -12,7 +13,8 @@ import {
 	TagSimple
 } from 'phosphor-react-native';
 import React from 'react';
-import { SectionList, Text, View } from 'react-native';
+import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
@@ -26,7 +28,7 @@ type SectionType = {
 	}[];
 };
 
-const sections: SectionType[] = [
+const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 	{
 		title: 'Client',
 		data: [
@@ -99,7 +101,16 @@ const sections: SectionType[] = [
 				icon: Heart,
 				navigateTo: 'Support',
 				title: 'Support'
-			}
+			},
+			...(debugState.enabled
+				? ([
+						{
+							icon: Gear,
+							navigateTo: 'Debug',
+							title: 'Debug'
+						}
+				  ] as const)
+				: [])
 		]
 	}
 ];
@@ -118,10 +129,12 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 }
 
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Home'>) {
+	const debugState = useDebugState();
+
 	return (
 		<View style={tw`flex-1`}>
 			<SectionList
-				sections={sections}
+				sections={sections(debugState)}
 				contentContainerStyle={tw`py-4`}
 				ItemSeparatorComponent={SettingsItemDivider}
 				renderItem={({ item }) => (
@@ -132,17 +145,25 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 					/>
 				)}
 				renderSectionHeader={renderSectionHeader}
-				ListFooterComponent={
-					<View style={tw`mb-4 mt-6 items-center`}>
-						<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
-						{/* TODO: Get this automatically (expo-device have this?) */}
-						<Text style={tw`mt-0.5 text-xs font-medium text-ink-faint`}>v0.1.0</Text>
-					</View>
-				}
+				ListFooterComponent={<FooterComponent />}
 				showsVerticalScrollIndicator={false}
 				stickySectionHeadersEnabled={false}
 				initialNumToRender={50}
 			/>
+		</View>
+	);
+}
+
+function FooterComponent() {
+	const onClick = useDebugStateEnabler();
+
+	return (
+		<View style={tw`mb-4 mt-6 items-center`}>
+			<TouchableWithoutFeedback onPress={onClick}>
+				<Text style={tw`text-base font-bold text-ink`}>Spacedrive</Text>
+			</TouchableWithoutFeedback>
+			{/* TODO: Get this automatically (expo-device have this?) */}
+			<Text style={tw`mt-0.5 text-xs font-medium text-ink-faint`}>v0.1.0</Text>
 		</View>
 	);
 }

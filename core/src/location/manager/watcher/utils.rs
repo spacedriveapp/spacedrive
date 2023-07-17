@@ -18,7 +18,7 @@ use crate::{
 		file_identifier::FileMetadata, preview::get_thumbnail_path, validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
-	sync,
+	sync::{self, OperationFactory},
 	util::{
 		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
 		error::FileIOError,
