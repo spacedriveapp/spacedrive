@@ -35,7 +35,7 @@ pub struct LibraryConfig {
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 7;
+	const CURRENT_VERSION: u32 = 8;
 
 	type Ctx = (NodeConfig, Arc<PrismaClient>);
 
@@ -200,7 +200,7 @@ impl Migrate for LibraryConfig {
 
 				if instances.len() > 1 {
 					return Err(MigratorError::Custom(
-						"7 - More than one node found in the DB... This can't be automatically reconciled!"
+						"7 - More than one instance found in the DB... This can't be automatically reconciled!"
 							.into(),
 					));
 				}
@@ -210,12 +210,27 @@ impl Migrate for LibraryConfig {
 					));
 				};
 
+				config.remove("instance_id");
+				config.insert("instance_id".into(), Value::Number(instance.id.into()));
+
 				// We are relinking all locations to the current instance.
 				// If you have more than one node in your database and your not @Oscar, something went horribly wrong so this is fine.
 				db.location()
 					.update_many(vec![], vec![location::instance_id::set(Some(instance.id))])
 					.exec()
 					.await?;
+			}
+			8 => {
+				let instances = db.instance().find_many(vec![]).exec().await?;
+				let Some(instance) = instances.first() else {
+					return Err(MigratorError::Custom(
+						"8 - No nodes found... How did you even get this far?!".into(),
+					));
+				};
+
+				// This should be in 7 but it's added to ensure to hell it runs.
+				config.remove("instance_id");
+				config.insert("instance_id".into(), Value::Number(instance.id.into()));
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}

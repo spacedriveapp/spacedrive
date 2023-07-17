@@ -1,8 +1,7 @@
 import { AppLogo } from '@sd/assets/images';
 import { Discord, Github } from '@sd/assets/svgs/brands';
 import { Globe } from 'phosphor-react';
-import { useEffect, useState } from 'react';
-import { getDebugState, useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useDebugStateEnabler } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -13,18 +12,7 @@ export const Component = () => {
 	const os = useOperatingSystem();
 	const currentPlatformNiceName =
 		os === 'browser' ? 'Web' : os == 'macOS' ? os : os.charAt(0).toUpperCase() + os.slice(1);
-
-	const [clicked, setClicked] = useState(0);
-
-	useEffect(() => {
-		if (clicked >= 5) {
-			getDebugState().enabled = true;
-		}
-
-		const timeout = setTimeout(() => setClicked(0), 1000);
-
-		return () => clearTimeout(timeout);
-	}, [clicked]);
+	const onClick = useDebugStateEnabler();
 
 	return (
 		<div className="h-auto">
@@ -33,7 +21,7 @@ export const Component = () => {
 					src={AppLogo}
 					className="mr-8 h-[88px] w-[88px]"
 					draggable="false"
-					onClick={() => setClicked((clicked) => clicked + 1)}
+					onClick={onClick}
 				/>
 				<div className="flex flex-col">
 					<h1 className="text-2xl font-bold">

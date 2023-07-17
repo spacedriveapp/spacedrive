@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '../lib/valito';
 
@@ -23,4 +24,20 @@ export function useDebugState() {
 
 export function getDebugState() {
 	return debugState;
+}
+
+export function useDebugStateEnabler(): () => void {
+	const [clicked, setClicked] = useState(0);
+
+	useEffect(() => {
+		if (clicked >= 5) {
+			getDebugState().enabled = true;
+		}
+
+		const timeout = setTimeout(() => setClicked(0), 1000);
+
+		return () => clearTimeout(timeout);
+	}, [clicked]);
+
+	return () => setClicked((c) => c + 1);
 }

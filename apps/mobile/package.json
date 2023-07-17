@@ -32,6 +32,7 @@
 		"@tanstack/react-query": "^4.29.1",
 		"class-variance-authority": "^0.5.3",
 		"dayjs": "^1.11.8",
+		"event-target-polyfill": "^0.0.3",
 		"expo": "~48.0.19",
 		"expo-linking": "~4.0.1",
 		"expo-media-library": "~15.2.3",
