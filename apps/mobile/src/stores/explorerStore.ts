@@ -17,7 +17,7 @@ const state = {
 	newThumbnails: proxySet() as Set<string>
 };
 
-function flattenThumbnailKey(thumbKey: string[]) {
+export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
 }
 
