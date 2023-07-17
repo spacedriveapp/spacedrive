@@ -5,13 +5,15 @@ datasource db {
 
 generator client {
     provider    = "cargo prisma"
-    output      = "../../crates/prisma/src/prisma.rs"
+    output      = "../../crates/prisma/src/prisma"
     module_path = "sd_prisma::prisma"
+    client_format = "folder"
 }
 
 generator sync {
     provider = "cargo prisma-sync"
-    output   = "../../crates/prisma/src/prisma_sync.rs"
+    output   = "../../crates/prisma/src/prisma_sync"
+    client_format = "folder"
 }
 
 //// Sync ////
@@ -48,7 +50,7 @@ model Node {
     @@map("node")
 }
 
-/// @local
+/// @local(id: pub_id)
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
 model Instance {
