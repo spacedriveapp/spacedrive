@@ -3,18 +3,20 @@
 /* eslint-disable tailwindcss/classnames-order */
 
 /* eslint-disable jsx-a11y/alt-text */
-import { Ball, Folder, Laptop, Mobile, Server } from '@sd/assets/icons';
-import { Dropbox, GoogleDrive, Mega, iCloud } from '@sd/assets/images';
 import clsx from 'clsx';
 import Head from 'next/head';
 import Image from 'next/image';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { Download } from 'phosphor-react';
+import { useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
+import AccessData from '~/components/AccessData';
+import BentoBoxes from '~/components/BentoBoxes';
+import CloudStorage from '~/components/CloudStorage';
+import DownloadToday from '~/components/DownloadToday';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import Space from '~/components/Space';
-import { BentoBoxes } from '../components/BentoBoxes';
 
 const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
@@ -74,16 +76,20 @@ export default function HomePage() {
 			</div>
 
 			<PageWrapper>
+				<div
+					className="absolute-horizontal-center h-[253px] w-[60%] overflow-hidden
+				rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 opacity-40 blur-[80px] md:blur-[150px]"
+				/>
 				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
-						headline="Spacedrive raises $2M led by OSS Capital"
+						headline="Alpha has been released"
 						href="/blog/spacedrive-funding-announcement"
 						link="Read post"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
 					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
@@ -94,93 +100,64 @@ export default function HomePage() {
 							Designed for creators, hoarders and the painfully disorganized.
 						</span>
 					</p>
-					<HomeCTA />
-					<div className="w-screen">
-						<div className="relative mx-auto w-full max-w-full sm:max-w-[1400px]">
-							<div className="bloom burst bloom-one left-[-300px] top-[-300px]" />
-							<div className="bloom burst bloom-three" />
-							<div className="bloom burst bloom-two right-[-350px] top-[-300px] " />
-						</div>
-						<div className="z-30 mt-8 flex h-[255px] w-full px-6 sm:mt-20 sm:h-[428px] md:h-[428px] lg:h-[628px]">
+					<HomeCTA icon={<Download />} text="Download on Mac" />
+					<p
+						className={clsx(
+							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
+						)}
+					>
+						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
+					</p>
+
+					<div>
+						<div
+							className="absolute-horizontal-center hidden w-[70%] overflow-hidden rounded-full bg-gradient-to-r
+						from-transparent to-indigo-400 blur-[50px] md:h-[500px] md:blur-[150px] lg:top-[550px]
+						lg:block lg:h-[526px] lg:w-[728px]"
+						/>
+						<div
+							className="absolute-horizontal-center hidden h-[7%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
+						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px] lg:block
+						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
+						/>
+						<video
+							className="absolute-horizontal-center pointer-events-none hidden lg:block xl:w-[60%]"
+							src="/images/ball.webm"
+							autoPlay
+							muted
+							playsInline
+							loop
+						/>
+						<video
+							className="absolute-horizontal-center pointer-events-none block lg:hidden xl:w-[60%]"
+							src="/images/ball.mp4"
+							autoPlay
+							muted
+							playsInline
+							loop
+						/>
+						<div
+							className="z-30 mt-[24%] flex h-[255px] w-full px-6 xs:mt-[170px]
+						 sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:h-[628px] xl:mt-[350px]"
+						>
 							<AppFrameOuter>
 								<AppFrameInner>
 									<Image
 										width={1278}
 										height={626}
+										quality={100}
 										alt="l"
 										className="rounded-lg"
-										src="/images/test.png"
+										src="/images/app.webp"
 									/>
 								</AppFrameInner>
 							</AppFrameOuter>
 						</div>
 					</div>
-					{/* <AppEmbed /> */}
-					<div className="relative mx-auto mb-24 mt-48 flex w-full max-w-4xl flex-col items-center justify-center px-4">
-						<div className="absolute top-0 z-40 w-full py-16">
-							<Image
-								alt="icon"
-								src={Mobile}
-								width={100}
-								className="absolute left-0 top-0 rotate-[20deg]"
-							/>
-							<Image
-								alt="icon"
-								src={Server}
-								width={100}
-								className="absolute left-[100px] top-0 rotate-[-40deg]"
-							/>
-							<Image
-								alt="icon"
-								src={Folder}
-								width={70}
-								className="absolute left-[170px] top-[90px] rotate-[10deg]"
-							/>
-							<Image
-								alt="icon"
-								src={Laptop}
-								width={100}
-								className="absolute left-[230px] top-0 rotate-[30deg]"
-							/>
-							<Image
-								alt="icon"
-								src={GoogleDrive}
-								width={80}
-								className="absolute right-0 top-0 rotate-[-30deg]"
-							/>
-							<Image
-								alt="icon"
-								src={iCloud}
-								width={90}
-								className="absolute right-[90px] top-0 rotate-[20deg]"
-							/>
-							<Image
-								alt="icon"
-								src={Dropbox}
-								width={60}
-								className="absolute right-[140px] top-[80px] rotate-[10deg]"
-							/>
-							<Image
-								alt="icon"
-								src={Mega}
-								width={100}
-								className="absolute right-[210px] top-0 rotate-[-40deg]"
-							/>
-						</div>
-						<Image alt="ball" src={Ball} width={250} />
-						<div className="relative mx-auto max-w-full sm:w-full sm:max-w-[1400px]">
-							{/* <div className="bloom burst bloom-center" /> */}
-						</div>
-						<ExplainerHeading className="mt-5 text-6xl">
-							A data hoarder's dream.
-						</ExplainerHeading>
-						<ExplainerText className="text-md lg:text-lg lg:leading-8">
-							Spacedrive allows you to access and manage all files from one place,
-							from any device or cloud service.
-						</ExplainerText>
-					</div>
-
 					<BentoBoxes />
+					<CloudStorage />
+					<AccessData />
+					<DownloadToday />
 				</div>
 			</PageWrapper>
 		</>

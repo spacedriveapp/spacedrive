@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Newspaper } from 'phosphor-react';
 
 export interface NewBannerProps {
 	headline: string;
@@ -12,13 +13,19 @@ const NewBanner: React.FC<NewBannerProps> = (props) => {
 	return (
 		<aside
 			onClick={() => (window.location.href = href)}
-			className="fade-in-whats-new z-10 mb-5 flex w-10/12 cursor-pointer flex-row rounded-full border border-gray-550/50 bg-gray-800/50 px-5 py-1.5 text-xs transition hover:border-blue-200/50 hover:bg-gray-750 sm:w-auto sm:text-base"
+			className="news-banner-border-gradient news-banner-glow fade-in-whats-new z-10 mb-5 flex
+			w-fit cursor-pointer flex-row
+			 rounded-full bg-black/10 px-5 py-2.5 text-xs backdrop-blur-md
+			 transition hover:brightness-125 sm:w-auto sm:text-base"
 		>
-			<strong className="truncate font-semibold text-gray-350">{headline}</strong>
-			<div role="separator" className="h-22 mx-4 w-[1px] bg-gray-500" />
+			<div className="flex items-center gap-2">
+				<Newspaper weight="fill" className="text-white " size={20} />
+				<p className="font-regular truncate text-white">{headline}</p>
+			</div>
+			<div role="separator" className="h-22 mx-4 w-[1px] bg-zinc-700/70" />
 			<Link
 				href={href}
-				className="font-regular shrink-0 bg-gradient-to-r from-primary-400 to-blue-600 bg-clip-text text-transparent decoration-primary-600"
+				className="font-regular shrink-0 bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent decoration-primary-600"
 			>
 				{link} <span aria-hidden="true">&rarr;</span>
 			</Link>

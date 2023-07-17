@@ -57,12 +57,7 @@ export default function NavBar() {
 	}, []);
 
 	return (
-		<div
-			className={clsx(
-				'fixed z-[55] h-16 w-full px-2 transition',
-				isAtTop ? 'bg-transparent' : 'navbar-blur !bg-black/50'
-			)}
-		>
+		<div className={'navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition'}>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
 					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />

@@ -1,5 +1,5 @@
 html {
-	@apply bg-black;
+	background-color: #16131c;
 	-ms-overflow-style: none; /* IE and Edge */
 	scrollbar-width: none; /* Firefox */
 	&::-webkit-scrollbar {
@@ -12,6 +12,142 @@ html {
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
+}
+
+.download-today-shadow-inset {
+	box-shadow: 50px 66px 78px -80px rgba(135, 63, 226, 0.30) inset;
+	border-radius: 15px;
+	background-image: url('/images/stars.webp');
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: cover;
+}
+
+.download-today-border-gradient::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 15px;
+	z-index: -1;
+	padding: 1px;
+	background: linear-gradient(90deg, #ffa4fa, #454545);
+	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+}
+
+.contribute-drop-shadow {
+	filter: drop-shadow(0px 0px 20px #34d3997a);
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+
+.cloud-card-hover {
+	&:hover::after {
+			opacity: 1;
+	}
+}
+
+.cloud-card-gradient-bg::after {
+	background: linear-gradient(to top,rgba(255,255,255,0) 0%, #161423 100%);
+	content: "";
+	height: 100%;
+	left: 0;
+	opacity: 0;
+	pointer-events: none;
+	position: absolute;
+	top: 0;
+	transition: .45s cubic-bezier(.6,.6,0,1) opacity;
+	width: 100%;
+}
+
+.news-banner-border-gradient::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: 100px;
+		padding: 1px;
+		background: linear-gradient(45deg, #904DFF, #EB72FF);
+		-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+}
+
+.absolute-horizontal-center {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.absolute-center {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.bento-box-border-gradient::before {
+	content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  padding: 1px;
+  background: linear-gradient(90deg, #8b60a558, #3a3a3a14);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+.news-banner-glow {
+	filter: drop-shadow(0px 0px 5px #914dff79);
+}
+
+.home-button-border-gradient::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	padding: 1px;
+	border-radius: 10px;
+	background: linear-gradient(20deg,  #3c4c860e 30%, #9daadba2);
+	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+}
+
+.bento-radial-gradient-fade {
+background: rgb(18,19,30);
+background: -moz-radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
+background: -webkit-radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
+background: radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
+filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endColorstr="#15161f",GradientType=1);
+}
+
+.before-bento-gradient-border::before {
+	content: "";
+	width: 100%;
+	height: 100%;
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  padding: 1px;
+  background: linear-gradient(90deg, #8b60a558, #3a3a3a14);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
 }
 
 .oss-credit-gradient {

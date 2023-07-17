@@ -1,27 +1,33 @@
-import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
-import { Github } from '@sd/assets/svgs/brands';
-import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
-import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
 import clsx from 'clsx';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Button, Input } from '@sd/ui';
+import { Download, IconProps } from 'phosphor-react';
+import { Button } from '@sd/ui';
 
-export function HomeCTA() {
+interface Props {
+	className?: string;
+	text: string;
+	icon?: IconProps;
+}
+
+export function HomeCTA({ className, text, icon }: Props) {
 	return (
 		<>
-			<div className="animation-delay-2 z-30 flex h-10 flex-row items-center space-x-4 fade-in">
-				<Button size="lg" className="z-30 cursor-pointer border-0" variant="accent">
-					Download for Mac
-				</Button>
-			</div>
-			<p
+			<div
 				className={clsx(
-					'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
+					'animation-delay-2 z-30 flex h-10 flex-row items-center space-x-4 fade-in',
+					className
 				)}
 			>
-				Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
-			</p>
+				<Button
+					size="lg"
+					className="home-button-border-gradient relative z-30 flex cursor-pointer items-center gap-2 !rounded-md
+					border-0 !bg-[#2F3152]/30 py-2 text-sm !backdrop-blur-lg hover:brightness-110 md:text-[16px]"
+				>
+					<>
+						{icon && icon}
+						{text}
+					</>
+				</Button>
+			</div>
 		</>
 	);
 }

@@ -26,7 +26,15 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 
 export function Footer() {
 	return (
-		<footer id="footer" className="z-50 w-screen border-t border-gray-550 pt-3 backdrop-blur">
+		<footer id="footer" className="relative z-50 w-screen overflow-hidden pt-3 backdrop-blur">
+			<div
+				className="absolute bottom-0 left-0 z-[-1] h-[60%] w-[50%]
+			bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-40 blur-[150px]"
+			/>
+			<div
+				className="absolute left-[20%] top-0 z-[-1] h-[40%] w-[30%]
+			 bg-gradient-to-r from-transparent to-indigo-400 opacity-50 blur-[100px]"
+			/>
 			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<Image alt="Spacedrive logo" src={AppLogo} className="mb-5 h-10 w-10" />
@@ -112,6 +120,10 @@ export function Footer() {
 						<FooterLink link="/docs/company/legal/terms">Terms</FooterLink>
 					</div>
 				</div>
+			</div>
+			<div className="absolute top-0 flex h-1 w-full flex-row items-center justify-center opacity-100">
+				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
 		</footer>
 	);
