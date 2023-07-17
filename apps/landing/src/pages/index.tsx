@@ -121,7 +121,7 @@ export default function HomePage() {
 						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
 						/>
 						<video
-							className="absolute-horizontal-center pointer-events-none hidden lg:block xl:w-[60%]"
+							className="absolute-horizontal-center pointer-events-none hidden w-[1000px] lg:block"
 							src="/images/ball.webm"
 							autoPlay
 							muted
@@ -137,8 +137,8 @@ export default function HomePage() {
 							loop
 						/>
 						<div
-							className="z-30 mt-[24%] flex h-[255px] w-full px-6 xs:mt-[170px]
-						 sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:h-[628px] xl:mt-[350px]"
+							className="xl2: z-30 mt-[24%] flex h-[255px] w-full px-6
+						 xs:mt-[170px] sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:mt-[310px] lg:h-[628px]"
 						>
 							<AppFrameOuter>
 								<AppFrameInner>
