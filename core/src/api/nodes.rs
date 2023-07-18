@@ -1,5 +1,5 @@
 use crate::prisma::location;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 
 use sd_prisma::prisma::instance;
 use serde::Deserialize;
@@ -7,9 +7,9 @@ use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
-use super::{locations::ExplorerItem, utils::library, Ctx, R};
+use super::{locations::ExplorerItem, utils::library, Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("edit", {
 			#[derive(Deserialize, Type)]

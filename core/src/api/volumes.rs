@@ -1,10 +1,8 @@
-use rspc::alpha::AlphaRouter;
-
 use crate::volume::get_volumes;
 
-use super::{Ctx, R};
+use super::{Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router().procedure("list", {
 		R.query(|_, _: ()| async move { Ok(get_volumes().await) })
 	})

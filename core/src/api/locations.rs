@@ -11,11 +11,11 @@ use crate::{
 
 use std::path::PathBuf;
 
-use rspc::{self, alpha::AlphaRouter, ErrorCode};
+use rspc::{self, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Router, R};
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -43,7 +43,7 @@ pub enum ExplorerItem {
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
@@ -208,10 +208,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}),
 		)
-		.merge("indexer_rules.", mount_indexer_rule_routes())
+		.merge("indexer_rules", mount_indexer_rule_routes())
 }
 
-fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
+fn mount_indexer_rule_routes() -> Router {
 	R.router()
 		.procedure("create", {
 			R.with2(library())

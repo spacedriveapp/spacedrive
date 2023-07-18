@@ -1,4 +1,3 @@
-// use rspc::alpha::AlphaRouter;
 // use rspc::ErrorCode;
 // use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 // use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
@@ -15,7 +14,7 @@
 // use crate::{invalidate_query, prisma::key};
 
 // use super::utils::library;
-// use super::{Ctx, R};
+// use super::{Ctx, R, Router};
 
 // #[derive(Type, Deserialize)]
 // pub struct KeyAddArgs {
@@ -52,7 +51,7 @@
 // 	status: bool,
 // }
 
-// pub(crate) fn mount() -> AlphaRouter<Ctx> {
+// pub(crate) fn mount() -> Router {
 // 	R.router()
 // 		.procedure("list", {
 // 			R.with2(library())

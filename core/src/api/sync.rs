@@ -1,10 +1,8 @@
-use rspc::alpha::AlphaRouter;
-
 use crate::sync::SyncMessage;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("newMessage", {
 			R.with2(library())

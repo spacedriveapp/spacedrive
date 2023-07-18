@@ -1,8 +1,6 @@
 use rspc::{
-	alpha::{
-		unstable::{MwArgMapper, MwArgMapperMiddleware},
-		MwV3,
-	},
+	internal::middleware::{Middleware, SealedMiddleware},
+	unstable::{MwArgMapper, MwArgMapperMiddleware},
 	ErrorCode,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -29,8 +27,7 @@ impl MwArgMapper for LibraryArgsLike {
 		(arg.arg, arg.library_id)
 	}
 }
-
-pub(crate) fn library() -> impl MwV3<Ctx, NewCtx = (Ctx, Library)> {
+pub(crate) fn library() -> impl Middleware<Ctx> + SealedMiddleware<Ctx, NewCtx = (Ctx, Library)> {
 	MwArgMapperMiddleware::<LibraryArgsLike>::new().mount(|mw, ctx: Ctx, library_id| async move {
 		let library = ctx
 			.library_manager

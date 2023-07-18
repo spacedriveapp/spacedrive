@@ -2,12 +2,11 @@ use crate::library::{get_category_count, Category};
 
 use std::{collections::BTreeMap, str::FromStr};
 
-use rspc::alpha::AlphaRouter;
 use strum::VariantNames;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router().procedure("list", {
 		R.with2(library()).query(|(_, library), _: ()| async move {
 			let mut data = BTreeMap::new();

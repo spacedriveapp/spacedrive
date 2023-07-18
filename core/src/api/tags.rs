@@ -1,5 +1,5 @@
 use chrono::Utc;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::Deserialize;
 use specta::Type;
 
@@ -13,9 +13,9 @@ use crate::{
 	sync::{self, OperationFactory},
 };
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {

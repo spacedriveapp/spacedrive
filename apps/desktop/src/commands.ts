@@ -3,43 +3,68 @@
 
 declare global {
     interface Window {
-        __TAURI_INVOKE__<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
+        __TAURI_INVOKE__(cmd: string, args?: Record<string, unknown>): Promise<any>;
     }
 }
 
 // Function avoids 'window not defined' in SSR
 const invoke = () => window.__TAURI_INVOKE__;
 
-export function appReady() {
-    return invoke()<null>("app_ready")
+export async function appReady(): Promise<null> {
+return await invoke()("app_ready");
 }
 
-export function resetSpacedrive() {
-    return invoke()<null>("reset_spacedrive")
+export async function resetSpacedrive(): Promise<null> {
+return await invoke()("reset_spacedrive");
 }
 
-export function openLogsDir() {
-    return invoke()<null>("open_logs_dir")
+export async function openLogsDir(): Promise<[null, undefined] | [undefined, null]> {
+try {
+    return [await invoke()("open_logs_dir"), undefined];
+} catch (e: any) {
+    if(e instanceof Error) throw e;
+    else return [undefined, e];
+}
 }
 
-export function openFilePaths(library: string, ids: number[]) {
-    return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
+export async function openFilePaths(library: string, ids: number[]): Promise<[OpenFilePathResult[], undefined] | [undefined, null]> {
+try {
+    return [await invoke()("open_file_paths", { library,ids }), undefined];
+} catch (e: any) {
+    if(e instanceof Error) throw e;
+    else return [undefined, e];
+}
 }
 
-export function getFilePathOpenWithApps(library: string, ids: number[]) {
-    return invoke()<OpenWithApplication[]>("get_file_path_open_with_apps", { library,ids })
+export async function getFilePathOpenWithApps(library: string, ids: number[]): Promise<[OpenWithApplication[], undefined] | [undefined, null]> {
+try {
+    return [await invoke()("get_file_path_open_with_apps", { library,ids }), undefined];
+} catch (e: any) {
+    if(e instanceof Error) throw e;
+    else return [undefined, e];
+}
 }
 
-export function openFilePathWith(library: string, fileIdsAndUrls: ([number, string])[]) {
-    return invoke()<null>("open_file_path_with", { library,fileIdsAndUrls })
+export async function openFilePathWith(library: string, fileIdsAndUrls: ([number, string])[]): Promise<[null, undefined] | [undefined, null]> {
+try {
+    return [await invoke()("open_file_path_with", { library,fileIdsAndUrls }), undefined];
+} catch (e: any) {
+    if(e instanceof Error) throw e;
+    else return [undefined, e];
+}
 }
 
-export function revealItems(library: string, items: RevealItem[]) {
-    return invoke()<null>("reveal_items", { library,items })
+export async function revealItems(library: string, items: RevealItem[]): Promise<[null, undefined] | [undefined, null]> {
+try {
+    return [await invoke()("reveal_items", { library,items }), undefined];
+} catch (e: any) {
+    if(e instanceof Error) throw e;
+    else return [undefined, e];
+}
 }
 
-export function lockAppTheme(themeType: AppThemeType) {
-    return invoke()<null>("lock_app_theme", { themeType })
+export async function lockAppTheme(themeType: AppThemeType): Promise<null> {
+return await invoke()("lock_app_theme", { themeType });
 }
 
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }

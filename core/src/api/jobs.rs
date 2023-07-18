@@ -17,16 +17,15 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::or;
-use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::{interval, Duration};
 use tracing::{info, trace};
 use uuid::Uuid;
 
-use super::{utils::library, CoreEvent, Ctx, R};
+use super::{utils::library, CoreEvent, Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("progress", {
 			// Listen for updates from the job manager

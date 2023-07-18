@@ -1,7 +1,7 @@
 use crate::api::{CoreEvent, Ctx, Router, R};
 
 use async_stream::stream;
-use rspc::alpha::AlphaRouter;
+use rspc::BuiltRouter;
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
@@ -66,7 +66,7 @@ impl InvalidRequests {
 	}
 
 	#[allow(unused_variables, clippy::panic)]
-	pub(crate) fn validate(r: Arc<Router>) {
+	pub(crate) fn validate(r: Arc<BuiltRouter<Ctx>>) {
 		#[cfg(debug_assertions)]
 		{
 			let invalidate_requests = INVALIDATION_REQUESTS
@@ -77,7 +77,7 @@ impl InvalidRequests {
 			for req in &invalidate_requests.queries {
 				if let Some(query_ty) = queries.get(req.key) {
 					if let Some(arg) = &req.arg_ty {
-						if &query_ty.ty.input != arg {
+						if &query_ty.ty().input != arg {
 							panic!(
 								"Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
 								req.macro_src, req.key
@@ -86,7 +86,7 @@ impl InvalidRequests {
 					}
 
 					if let Some(result) = &req.result_ty {
-						if &query_ty.ty.result != result {
+						if &query_ty.ty().result != result {
 							panic!(
 								"Error at '{}': Attempted to invalid query '{}' but the data type does not match the type defined on the router.",
 								req.macro_src, req.key
@@ -225,7 +225,7 @@ macro_rules! invalidate_query {
 	}};
 }
 
-pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
+pub(crate) fn mount_invalidate() -> Router {
 	let (tx, _) = broadcast::channel(100);
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 

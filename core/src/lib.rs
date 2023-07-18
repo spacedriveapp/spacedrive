@@ -1,7 +1,7 @@
 #![warn(clippy::unwrap_used, clippy::panic)]
 
 use crate::{
-	api::{CoreEvent, Router},
+	api::{BuiltRouter, CoreEvent},
 	job::JobManager,
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
@@ -64,7 +64,9 @@ pub struct Node {
 }
 
 impl Node {
-	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+	pub async fn new(
+		data_dir: impl AsRef<Path>,
+	) -> Result<(Arc<Node>, Arc<BuiltRouter>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
 		info!("Starting core with data directory '{}'", data_dir.display());

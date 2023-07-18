@@ -5629,18 +5629,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c95a7476719eab1e366eaf73d0260af3021184f18177925b07f54b30089ceead"
+checksum = "030ad2bc4db10a8944cb0d837f158bdfec4d4a4873ab701a95046770d11f8842"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39407670928234ebc5e6e580247dd567ad73a3578460c5990f9503df207e8f07"
+checksum = "ec2e072ecce94ec471b13398d5402c188e76ac03cf74dd1a975161b23a3f6d9c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5812,7 +5812,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=12f577fad7112e193077e8d6bcd806e7a738f7d6#12f577fad7112e193077e8d6bcd806e7a738f7d6"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5845,7 +5845,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=12f577fad7112e193077e8d6bcd806e7a738f7d6#12f577fad7112e193077e8d6bcd806e7a738f7d6"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
 dependencies = [
  "directories",
  "flate2",
@@ -5865,7 +5865,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=12f577fad7112e193077e8d6bcd806e7a738f7d6#12f577fad7112e193077e8d6bcd806e7a738f7d6"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
 dependencies = [
  "directories",
  "flate2",
@@ -5885,7 +5885,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=12f577fad7112e193077e8d6bcd806e7a738f7d6#12f577fad7112e193077e8d6bcd806e7a738f7d6"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5897,7 +5897,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=12f577fad7112e193077e8d6bcd806e7a738f7d6#12f577fad7112e193077e8d6bcd806e7a738f7d6"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -6718,7 +6718,6 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=ebb9a98b106a45fbd4fd7655dbca42415f5d97f2#ebb9a98b106a45fbd4fd7655dbca42415f5d97f2"
 dependencies = [
  "futures",
  "httpz 0.0.5",
@@ -7509,9 +7508,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.1.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21e47d95bc83ed33b2ecf84f4187ad1ab9685d18ff28db000c99deac8ce180e3"
+checksum = "9f02d8aa6e3c385bf084924f660ce2a3a6bd333ba55b35e8590b321f35d88513"
 dependencies = [
  "base64 0.21.2",
  "chrono",
@@ -7519,7 +7518,7 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
- "serde_with_macros 3.1.0",
+ "serde_with_macros 3.0.0",
  "time 0.3.15",
 ]
 
@@ -7537,9 +7536,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.1.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea3cee93715c2e266b9338b7544da68a9f24e227722ba482bd1c024367c77c65"
+checksum = "edc7d5d3932fb12ce722ee5e64dd38c504efba37567f0c402f6ca728c3b8b070"
 dependencies = [
  "darling 0.20.1",
  "proc-macro2",
@@ -8540,7 +8539,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "serde_with 3.1.0",
+ "serde_with 3.0.0",
  "thiserror",
  "url",
  "walkdir",

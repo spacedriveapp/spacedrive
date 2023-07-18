@@ -1,7 +1,6 @@
 use crate::{library::LibraryName, util::MaybeUndefined, volume::get_volumes};
 
 use chrono::Utc;
-use rspc::alpha::AlphaRouter;
 use sd_prisma::prisma::statistics;
 use serde::Deserialize;
 use specta::Type;
@@ -10,10 +9,10 @@ use uuid::Uuid;
 
 use super::{
 	utils::{get_size, library},
-	Ctx, R,
+	Router, R,
 };
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("list", {
 			R.query(

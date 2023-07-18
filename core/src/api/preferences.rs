@@ -1,9 +1,7 @@
-use rspc::alpha::AlphaRouter;
-
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Router, R};
 use crate::preferences::LibraryPreferences;
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("update", {
 			R.with2(library())

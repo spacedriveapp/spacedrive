@@ -21,15 +21,15 @@ use std::path::Path;
 use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::Deserialize;
 use specta::Type;
 use tokio::fs;
 use tracing::error;
 
-use super::{Ctx, R};
+use super::{Router, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("get", {
 			#[derive(Type, Deserialize)]

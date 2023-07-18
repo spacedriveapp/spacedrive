@@ -106,7 +106,7 @@ async fn main() -> tauri::Result<()> {
 				)
 				.plugin(rspc::integrations::tauri::plugin(router, {
 					let node = node.clone();
-					move || node.clone()
+					move |_| node.clone()
 				}))
 				.manage(node.clone());
 

@@ -1,15 +1,15 @@
 use async_stream::stream;
 use chrono::{DateTime, Utc};
 use futures::future::join_all;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use sd_prisma::prisma::notification;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::api::{Ctx, R};
+use crate::api::R;
 
-use super::utils::library;
+use super::{utils::library, Router};
 
 /// Represents a single notification.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -36,7 +36,7 @@ pub enum NotificationData {
 	Test,
 }
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> Router {
 	R.router()
 		.procedure("get", {
 			R.query(|ctx, _: ()| async move {

@@ -17,11 +17,11 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or};
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::{Ctx, R};
+use super::{Router, R};
 
 #[derive(Serialize, Type, Debug)]
 struct SearchData<T> {
@@ -268,7 +268,7 @@ impl ObjectFilterArgs {
 	}
 }
 
-pub fn mount() -> AlphaRouter<Ctx> {
+pub fn mount() -> Router {
 	R.router()
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
