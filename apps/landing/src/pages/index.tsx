@@ -22,7 +22,7 @@ const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black le
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
-const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/10 backdrop-blur`;
+const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/1 backdrop-blur`;
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(1);
@@ -175,7 +175,7 @@ const LineAnimation = memo(() => {
 										 bg-gradient-to-r from-transparent to-fuchsia-300 opacity-0"
 				/>
 			))}
-			{[...Array(5)].map((_, i) => (
+			{[...Array(3)].map((_, i) => (
 				<div
 					key={i}
 					style={{
