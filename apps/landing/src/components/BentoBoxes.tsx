@@ -181,7 +181,7 @@ const BentoBoxes = () => {
 			<BentoBox colSpan={3} bgUrl={'/images/bento/platforms-bg.webp'} className="p-6">
 				<>
 					<video
-						className="pointer-events-none relative z-30 mx-auto w-[75%]"
+						className="pointer-events-none relative left-[7px] z-30 mx-auto w-[75%]"
 						autoPlay
 						src="/images/bento/platforms.webm"
 						playsInline
@@ -191,7 +191,8 @@ const BentoBoxes = () => {
 					<div className="relative z-30 mt-8">
 						<Heading>Cross platform</Heading>
 						<Text className="mx-auto max-w-[417px]">
-							macOS, Linux, iOS, Android, and the web. Spacedrive is everywhere.
+							Windows, macOS, Linux, iOS, Android, and the web. Spacedrive is
+							everywhere.
 						</Text>
 					</div>
 					<div className="before-bento-gradient-border bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />

@@ -160,14 +160,14 @@ export default function HomePage() {
 const LineAnimation = memo(() => {
 	return (
 		<>
-			{[...Array(5)].map((_, i) => (
+			{[...Array(3)].map((_, i) => (
 				<div
 					key={i}
 					style={{
 						animation: `left-line-animation-fade ${
 							3 + Math.random() * 2
 						}s ease-in-out infinite`,
-						animationDelay: `${i * Math.random() * 5}s`,
+						animationDelay: `${i * Math.random() + 1 * 2}s`,
 						animationFillMode: 'backwards',
 						width: `${Math.random() * 50 + 50}px`
 					}}
@@ -182,7 +182,7 @@ const LineAnimation = memo(() => {
 						animation: `top-line-animation-fade ${
 							3 + Math.random() * 2
 						}s ease-in-out infinite`,
-						animationDelay: `${i * Math.random() * 5}s`,
+						animationDelay: `${i * Math.random() + 2 * 2}s`,
 						animationFillMode: 'backwards',
 						height: `${Math.random() * 50 + 30}px`
 					}}
