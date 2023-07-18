@@ -49,32 +49,24 @@ impl SyncManager {
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		#[cfg(feature = "sync-messages")]
 		let res = {
-			let shared = _ops
-				.iter()
-				.filter_map(|op| match &op.typ {
-					CRDTOperationType::Shared(shared_op) => {
-						let kind = match &shared_op.data {
-							SharedOperationData::Create => "c",
-							SharedOperationData::Update { .. } => "u",
-							SharedOperationData::Delete => "d",
-						};
+			macro_rules! variant {
+				($var:ident, $variant:ident, $fn:ident) => {
+					let $var = _ops
+						.iter()
+						.filter_map(|op| match &op.typ {
+							CRDTOperationType::$variant(inner) => {
+								Some($fn(&op, &inner).to_query(tx))
+							}
+							_ => None,
+						})
+						.collect::<Vec<_>>();
+				};
+			}
 
-						Some(tx.shared_operation().create(
-							op.id.as_bytes().to_vec(),
-							op.timestamp.0 as i64,
-							shared_op.model.to_string(),
-							to_vec(&shared_op.record_id).unwrap(),
-							kind.to_string(),
-							to_vec(&shared_op.data).unwrap(),
-							instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-							vec![],
-						))
-					}
-					_ => None,
-				})
-				.collect::<Vec<_>>();
+			variant!(shared, Shared, shared_op_db);
+			variant!(relation, Relation, relation_op_db);
 
-			let (res, _) = tx._batch((queries, shared)).await?;
+			let (res, _) = tx._batch((queries, (shared, relation))).await?;
 
 			for op in _ops {
 				self.tx.send(SyncMessage::Created(op)).ok();
@@ -97,31 +89,15 @@ impl SyncManager {
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		#[cfg(feature = "sync-messages")]
 		let ret = {
-			let ret = match &op.typ {
-				CRDTOperationType::Shared(shared_op) => {
-					let kind = match &shared_op.data {
-						SharedOperationData::Create => "c",
-						SharedOperationData::Update { .. } => "u",
-						SharedOperationData::Delete => "d",
-					};
+			macro_rules! exec {
+				($fn:ident, $inner:ident) => {
+					tx._batch(($fn(&op, $inner).to_query(tx), query)).await?.1
+				};
+			}
 
-					tx._batch((
-						tx.shared_operation().create(
-							op.id.as_bytes().to_vec(),
-							op.timestamp.0 as i64,
-							shared_op.model.to_string(),
-							to_vec(&shared_op.record_id).unwrap(),
-							kind.to_string(),
-							to_vec(&shared_op.data).unwrap(),
-							instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-							vec![],
-						),
-						query,
-					))
-					.await?
-					.1
-				}
-				_ => todo!(),
+			let ret = match &op.typ {
+				CRDTOperationType::Shared(inner) => exec!(shared_op_db, inner),
+				CRDTOperationType::Relation(inner) => exec!(relation_op_db, inner),
 			};
 
 			self.tx.send(SyncMessage::Created(op)).ok();
@@ -162,57 +138,32 @@ impl SyncManager {
 	}
 
 	pub async fn apply_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
-		let msg = SyncMessage::Ingested(op.clone());
-
 		ModelSyncData::from_op(op.typ.clone())
 			.unwrap()
 			.exec(&self.db)
 			.await?;
 
-		if let CRDTOperationType::Shared(shared_op) = op.typ {
-			let kind = match &shared_op.data {
-				SharedOperationData::Create => "c",
-				SharedOperationData::Update { .. } => "u",
-				SharedOperationData::Delete => "d",
-			};
-
-			self.db
-				.shared_operation()
-				.create(
-					op.id.as_bytes().to_vec(),
-					op.timestamp.0 as i64,
-					shared_op.model.to_string(),
-					to_vec(&shared_op.record_id).unwrap(),
-					kind.to_string(),
-					to_vec(&shared_op.data).unwrap(),
-					instance::pub_id::equals(op.instance.as_bytes().to_vec()),
-					vec![],
-				)
-				.exec()
-				.await?;
+		match &op.typ {
+			CRDTOperationType::Shared(shared_op) => {
+				shared_op_db(&op, &shared_op)
+					.to_query(&self.db)
+					.exec()
+					.await?;
+			}
+			CRDTOperationType::Relation(relation_op) => {
+				relation_op_db(&op, &relation_op)
+					.to_query(&self.db)
+					.exec()
+					.await?;
+			}
 		}
 
-		self.tx.send(msg).ok();
+		self.tx.send(SyncMessage::Ingested(op.clone())).ok();
 
 		Ok(())
 	}
 
 	async fn compare_message(&self, op: &CRDTOperation) -> bool {
-		enum OperationKind<'a> {
-			Create,
-			Update(&'a str),
-			Delete,
-		}
-		impl<'a> OperationKind<'a> {
-			fn to_string(self) -> String {
-				match self {
-					OperationKind::Create => "c".to_string(),
-					OperationKind::Update(field) => format!("u:{}", field),
-					OperationKind::Delete => "d".to_string(),
-				}
-			}
-		}
-
 		let old_timestamp = match &op.typ {
 			CRDTOperationType::Shared(shared_op) => {
 				let newer_op = self
@@ -224,16 +175,7 @@ impl SyncManager {
 						shared_operation::record_id::equals(
 							serde_json::to_vec(&shared_op.record_id).unwrap(),
 						),
-						shared_operation::kind::equals(
-							match &shared_op.data {
-								SharedOperationData::Create => OperationKind::Delete,
-								SharedOperationData::Delete => OperationKind::Create,
-								SharedOperationData::Update { field, .. } => {
-									OperationKind::Update(&field)
-								}
-							}
-							.to_string(),
-						),
+						shared_operation::kind::equals(shared_op.kind().to_string()),
 					])
 					.order_by(shared_operation::timestamp::order(SortOrder::Desc))
 					.exec()
@@ -252,16 +194,7 @@ impl SyncManager {
 						relation_operation::item_id::equals(
 							serde_json::to_vec(&relation_op.relation_item).unwrap(),
 						),
-						relation_operation::kind::equals(
-							match &relation_op.data {
-								RelationOperationData::Create => OperationKind::Delete,
-								RelationOperationData::Delete => OperationKind::Create,
-								RelationOperationData::Update { field, .. } => {
-									OperationKind::Update(&field)
-								}
-							}
-							.to_string(),
-						),
+						relation_operation::kind::equals(relation_op.kind().to_string()),
 					])
 					.order_by(relation_operation::timestamp::order(SortOrder::Desc))
 					.exec()
@@ -311,6 +244,36 @@ impl SyncManager {
 			.exec()
 			.await
 			.ok();
+	}
+}
+
+fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
+	shared_operation::Create {
+		id: op.id.as_bytes().to_vec(),
+		timestamp: op.timestamp.0 as i64,
+		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		kind: shared_op.kind().to_string(),
+		data: to_vec(&shared_op.data).unwrap(),
+		model: shared_op.model.to_string(),
+		record_id: to_vec(&shared_op.record_id).unwrap(),
+		_params: vec![],
+	}
+}
+
+fn relation_op_db(
+	op: &CRDTOperation,
+	relation_op: &RelationOperation,
+) -> relation_operation::Create {
+	relation_operation::Create {
+		id: op.id.as_bytes().to_vec(),
+		timestamp: op.timestamp.0 as i64,
+		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		kind: relation_op.kind().to_string(),
+		data: to_vec(&relation_op.data).unwrap(),
+		relation: relation_op.relation.to_string(),
+		item_id: to_vec(&relation_op.relation_item).unwrap(),
+		group_id: to_vec(&relation_op.relation_group).unwrap(),
+		_params: vec![],
 	}
 }
 
