@@ -181,7 +181,7 @@ const BentoBoxes = () => {
 			<BentoBox colSpan={3} bgUrl={'/images/bento/platforms-bg.webp'} className="p-6">
 				<>
 					<video
-						className="pointer-events-none relative left-[7px] z-30 mx-auto w-[75%]"
+						className="pointer-events-none relative top-[10px] z-30 mx-auto w-[70%]"
 						autoPlay
 						src="/images/bento/platforms.webm"
 						playsInline
