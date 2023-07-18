@@ -1,6 +1,6 @@
 import { ProcedureDef } from '@rspc/client';
-import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
-import { Context, createReactQueryHooks } from '@rspc/react/v2';
+import { RSPCError, initRspc } from '@rspc/client';
+import { Context, createReactQueryHooks } from '@rspc/react';
 import { QueryClient } from '@tanstack/react-query';
 import { PropsWithChildren, createContext, useContext } from 'react';
 import { LibraryArgs, Procedures } from './core';
@@ -65,7 +65,6 @@ const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 		return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 	}
 });
-// @ts-expect-error // TODO: idk
 const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
 	context
 });
@@ -113,6 +112,6 @@ export function useInvalidateQuery() {
 
 // TODO: Remove/fix this when rspc typesafe errors are working
 export function extractInfoRSPCError(error: unknown) {
-	if (!(error instanceof AlphaRSPCError)) return null;
+	if (!(error instanceof RSPCError)) return null;
 	return error;
 }

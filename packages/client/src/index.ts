@@ -1,4 +1,4 @@
-import { Link } from '@rspc/client/v2';
+import { Link } from '@rspc/client';
 
 declare global {
 	// eslint-disable-next-line
