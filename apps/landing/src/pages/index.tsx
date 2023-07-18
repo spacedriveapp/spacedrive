@@ -21,8 +21,8 @@ import Space from '~/components/Space';
 const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
 
-const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg news-banner-border-gradient transition-opacity`;
-const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/30 backdrop-blur`;
+const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
+const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/10 backdrop-blur`;
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(1);
