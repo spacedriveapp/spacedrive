@@ -3,7 +3,10 @@
 use crate::{prisma::*, util::db::uuid_to_bytes};
 use sd_sync::*;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, HashMap},
+	sync::Arc,
+};
 
 use serde_json::to_vec;
 use tokio::sync::broadcast::{self, Receiver, Sender};
@@ -111,29 +114,96 @@ impl SyncManager {
 	}
 
 	pub async fn get_ops(&self) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
-		Ok(self
-			.db
-			.shared_operation()
-			.find_many(vec![])
-			.order_by(shared_operation::timestamp::order(SortOrder::Desc))
-			.include(shared_operation::include!({ instance: select {
-                pub_id
-            } }))
-			.exec()
-			.await?
-			.into_iter()
-			.flat_map(|op| {
-				Some(CRDTOperation {
-					id: Uuid::from_slice(&op.id).ok()?,
-					instance: Uuid::from_slice(&op.instance.pub_id).ok()?,
-					timestamp: NTP64(op.timestamp as u64),
-					typ: CRDTOperationType::Shared(SharedOperation {
-						record_id: serde_json::from_slice(&op.record_id).ok()?,
-						model: op.model,
-						data: serde_json::from_slice(&op.data).ok()?,
-					}),
+		let Self { db, .. } = self;
+
+		shared_operation::include!(shared_include {
+			instance: select { pub_id }
+		});
+		relation_operation::include!(relation_include {
+			instance: select { pub_id }
+		});
+
+		enum DbOperation {
+			Shared(shared_include::Data),
+			Relation(relation_include::Data),
+		}
+
+		impl DbOperation {
+			fn timestamp(&self) -> NTP64 {
+				NTP64(match self {
+					Self::Shared(op) => op.timestamp,
+					Self::Relation(op) => op.timestamp,
+				} as u64)
+			}
+
+			fn id(&self) -> Uuid {
+				Uuid::from_slice(match self {
+					Self::Shared(op) => &op.id,
+					Self::Relation(op) => &op.id,
 				})
-			})
+				.unwrap()
+			}
+
+			fn instance(&self) -> Uuid {
+				Uuid::from_slice(match self {
+					Self::Shared(op) => &op.instance.pub_id,
+					Self::Relation(op) => &op.instance.pub_id,
+				})
+				.unwrap()
+			}
+
+			fn to_operation(self) -> CRDTOperation {
+				CRDTOperation {
+					id: self.id(),
+					instance: self.instance(),
+					timestamp: self.timestamp(),
+					typ: match self {
+						Self::Shared(op) => CRDTOperationType::Shared(SharedOperation {
+							record_id: serde_json::from_slice(&op.record_id).unwrap(),
+							model: op.model,
+							data: serde_json::from_slice(&op.data).unwrap(),
+						}),
+						Self::Relation(op) => CRDTOperationType::Relation(RelationOperation {
+							relation: op.relation,
+							data: serde_json::from_slice(&op.data).unwrap(),
+							relation_item: serde_json::from_slice(&op.item_id).unwrap(),
+							relation_group: serde_json::from_slice(&op.group_id).unwrap(),
+						}),
+					},
+				}
+			}
+		}
+
+		let (shared, relation) = db
+			._batch((
+				db.shared_operation()
+					.find_many(vec![])
+					.include(shared_include::include()),
+				db.relation_operation()
+					.find_many(vec![])
+					.include(relation_include::include()),
+			))
+			.await?;
+
+		let mut ops = BTreeMap::new();
+
+		ops.extend(
+			shared
+				.into_iter()
+				.map(DbOperation::Shared)
+				.map(|op| (op.timestamp(), op)),
+		);
+		ops.extend(
+			relation
+				.into_iter()
+				.map(DbOperation::Relation)
+				.map(|op| (op.timestamp(), op)),
+		);
+
+		Ok(ops
+			.into_values()
+			.map(DbOperation::to_operation)
+			.rev()
 			.collect())
 	}
 

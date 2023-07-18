@@ -144,8 +144,8 @@ function calculateGroups(messages: CRDTOperation[]) {
 			});
 		} else {
 			const id = {
-				item: JSON.stringify(typ.relation_item.pub_id),
-				group: JSON.stringify(typ.relation_group.pub_id)
+				item: stringify(typ.relation_item.pub_id),
+				group: stringify(typ.relation_group.pub_id)
 			};
 
 			const latest = (() => {
