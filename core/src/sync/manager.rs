@@ -115,7 +115,7 @@ impl SyncManager {
 			.db
 			.shared_operation()
 			.find_many(vec![])
-			.order_by(shared_operation::timestamp::order(SortOrder::Asc))
+			.order_by(shared_operation::timestamp::order(SortOrder::Desc))
 			.include(shared_operation::include!({ instance: select {
                 pub_id
             } }))
