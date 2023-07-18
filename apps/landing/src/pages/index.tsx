@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import Head from 'next/head';
 import Image from 'next/image';
 import { Download } from 'phosphor-react';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
 import AccessData from '~/components/AccessData';
 import BentoBoxes from '~/components/BentoBoxes';
@@ -21,7 +21,7 @@ import Space from '~/components/Space';
 const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
 
-const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg border border-black transition-opacity`;
+const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg news-banner-border-gradient transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/30 backdrop-blur`;
 
 export default function HomePage() {
@@ -132,7 +132,8 @@ export default function HomePage() {
 							className="xl2: z-30 mt-[24%] flex h-[255px] w-full px-6
 						 xs:mt-[170px] sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:mt-[310px] lg:h-[628px]"
 						>
-							<AppFrameOuter>
+							<AppFrameOuter className="relative overflow-hidden">
+								<LineAnimation />
 								<AppFrameInner>
 									<Image
 										width={1278}
@@ -155,3 +156,42 @@ export default function HomePage() {
 		</>
 	);
 }
+
+const LineAnimation = memo(() => {
+	return (
+		<>
+			{[...Array(5)].map((_, i) => (
+				<div
+					key={i}
+					style={{
+						animation: `left-line-animation-fade ${
+							3 + Math.random() * 2
+						}s ease-in-out infinite`,
+						animationDelay: `${i * Math.random() * 5}s`,
+						animationFillMode: 'backwards',
+						width: `${Math.random() * 50 + 50}px`
+					}}
+					className="absolute top-0 z-[50] h-[1px]
+										 bg-gradient-to-r from-transparent to-fuchsia-300 opacity-0"
+				/>
+			))}
+			{[...Array(5)].map((_, i) => (
+				<div
+					key={i}
+					style={{
+						animation: `top-line-animation-fade ${
+							3 + Math.random() * 2
+						}s ease-in-out infinite`,
+						animationDelay: `${i * Math.random() * 5}s`,
+						animationFillMode: 'backwards',
+						height: `${Math.random() * 50 + 30}px`
+					}}
+					className="absolute right-0 top-0 z-[50] w-[1px]
+										 bg-gradient-to-b from-transparent to-fuchsia-300 opacity-0"
+				/>
+			))}
+		</>
+	);
+});
+
+LineAnimation.displayName = 'LineAnimation';

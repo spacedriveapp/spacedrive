@@ -113,6 +113,35 @@ html {
 	filter: drop-shadow(0px 0px 5px #914dff79);
 }
 
+
+@keyframes left-line-animation-fade {
+	0% {
+		opacity: 0;
+		left: 0;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		left: 92%;
+	}
+}
+
+@keyframes top-line-animation-fade {
+	0% {
+		opacity: 0;
+		top: 0;
+	}
+	50% {
+		opacity: 1;
+	}
+	80% {
+		opacity: 0;
+		top: 88%;
+	}
+}
+
 .home-button-border-gradient::before {
 	content: "";
 	position: absolute;
