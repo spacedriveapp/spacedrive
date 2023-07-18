@@ -3,19 +3,18 @@ import { ArrowsOutSimple } from 'phosphor-react';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import { GridList } from '~/components';
 import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
+import GridList from './GridList';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
-	index: number;
 	selected: boolean;
 }
 
-const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
+const MediaViewItem = memo(({ data, selected }: MediaViewItemProps) => {
 	const explorerStore = useExplorerStore();
 
 	return (
@@ -53,44 +52,17 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 });
 
 export default () => {
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
 	return (
-		<GridList
-			scrollRef={explorerView.scrollRef}
-			count={explorerView.items?.length || 100}
-			columns={explorerStore.mediaColumns}
-			selected={explorerView.selected}
-			onSelectedChange={explorerView.onSelectedChange}
-			overscan={explorerView.overscan}
-			onLoadMore={explorerView.onLoadMore}
-			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
-			top={explorerView.top}
-			preventSelection={!explorerView.selectable}
-			preventContextMenuSelection={explorerView.contextMenu === undefined}
-		>
-			{({ index, item: Item }) => {
-				if (!explorerView.items) {
-					return (
-						<Item className="!p-px">
-							<div className="h-full animate-pulse bg-app-box" />
-						</Item>
-					);
-				}
+		<GridList>
+			{(item) => {
+				const isSelected =
+					typeof explorerView.selected === 'object'
+						? explorerView.selected.has(item.item.id)
+						: explorerView.selected === item.item.id;
 
-				const item = explorerView.items[index];
-				if (!item) return null;
-
-				const isSelected = Array.isArray(explorerView.selected)
-					? explorerView.selected.includes(item.item.id)
-					: explorerView.selected === item.item.id;
-
-				return (
-					<Item selectable selected={isSelected} index={index} id={item.item.id}>
-						<MediaViewItem data={item} index={index} selected={isSelected} />
-					</Item>
-				);
+				return <MediaViewItem data={item} selected={isSelected} />;
 			}}
 		</GridList>
 	);

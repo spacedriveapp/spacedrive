@@ -1,13 +1,14 @@
 import { ReactNode, RefObject, createContext, useContext } from 'react';
 import { ExplorerItem } from '@sd/client';
 
-export type ExplorerViewSelection = number | number[];
+export type ExplorerViewSelection = number | Set<number>;
 
 export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerViewSelection> {
 	items: ExplorerItem[] | null;
+	viewRef: RefObject<HTMLDivElement>;
 	scrollRef: RefObject<HTMLDivElement>;
 	selected?: T;
-	onSelectedChange?: (selected: ExplorerViewSelectionChange<T>) => void;
+	onSelectedChange?: React.Dispatch<React.SetStateAction<ExplorerViewSelectionChange<T>>>;
 	overscan?: number;
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
@@ -21,8 +22,8 @@ export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerV
 	padding?: number | { x?: number; y?: number };
 }
 
-export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends number[]
-	? number[]
+export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends Set<number>
+	? Set<number>
 	: number | undefined;
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);

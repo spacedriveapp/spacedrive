@@ -9,6 +9,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -112,19 +113,28 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
 	extends Omit<
 		ExplorerViewContext<T>,
-		'multiSelect' | 'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen'
+		| 'multiSelect'
+		| 'selectable'
+		| 'isRenaming'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'viewRef'
 	> {
 	className?: string;
+	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
 }
 
 export default memo(
 	<T extends ExplorerViewSelection>({
 		className,
+		style,
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
 		const { layoutMode } = useExplorerStore();
+
+		const ref = useRef<HTMLDivElement>(null);
 
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
@@ -140,14 +150,24 @@ export default memo(
 		return (
 			<>
 				<div
-					className={clsx('h-full w-full', className)}
-					onMouseDown={() =>
-						contextProps.onSelectedChange?.(
-							(Array.isArray(contextProps.selected)
-								? []
-								: undefined) as ExplorerViewSelectionChange<T>
-						)
-					}
+					ref={ref}
+					style={style}
+					className={clsx('min-h-full w-full', className)}
+					onMouseDown={(e) => {
+						if (!contextProps.onSelectedChange || e.button === 2) return;
+
+						if (typeof contextProps.selected === 'object') {
+							if (contextProps.selected.size > 0) {
+								contextProps.onSelectedChange(
+									new Set() as ExplorerViewSelectionChange<T>
+								);
+							}
+						} else {
+							contextProps.onSelectedChange(
+								undefined as ExplorerViewSelectionChange<T>
+							);
+						}
+					}}
 				>
 					{contextProps.items === null ||
 					(contextProps.items && contextProps.items.length > 0) ? (
@@ -156,10 +176,11 @@ export default memo(
 								{
 									...contextProps,
 									multiSelect: Array.isArray(contextProps.selected),
-									selectable: !isContextMenuOpen,
+									selectable: !isContextMenuOpen && !isRenaming,
 									setIsContextMenuOpen,
 									isRenaming,
-									setIsRenaming
+									setIsRenaming,
+									viewRef: ref
 								} as ExplorerViewContext
 							}
 						>

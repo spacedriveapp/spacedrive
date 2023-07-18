@@ -27,14 +27,11 @@ export default function Explorer(props: Props) {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	const [selectedItemId, setSelectedItemId] = useState<number>();
+	const [selectedItems, setSelectedItems] = useState<Set<number>>(() => new Set());
 
 	const selectedItem = useMemo(
-		() =>
-			selectedItemId
-				? props.items?.find((item) => item.item.id === selectedItemId)
-				: undefined,
-		[selectedItemId, props.items]
+		() => props.items?.find((item) => item.item.id === selectedItems.values().next()?.value),
+		[selectedItems, props.items]
 	);
 
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -56,7 +53,7 @@ export default function Explorer(props: Props) {
 		ctx.parent?.type === 'Location' ? ctx.parent.location.id : null
 	);
 
-	useEffect(() => setSelectedItemId(undefined), [path]);
+	useEffect(() => setSelectedItems(new Set()), [path]);
 
 	return (
 		<>
@@ -77,8 +74,8 @@ export default function Explorer(props: Props) {
 							scrollRef={scrollRef}
 							onLoadMore={props.onLoadMore}
 							rowsBeforeLoadMore={5}
-							selected={selectedItemId}
-							onSelectedChange={setSelectedItemId}
+							selected={selectedItems}
+							onSelectedChange={setSelectedItems}
 							contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
 							emptyNotice={
 								props.emptyNotice || (

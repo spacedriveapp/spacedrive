@@ -1,31 +1,30 @@
 import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
-import { GridList } from '~/components';
 import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { isCut, useExplorerStore } from '../store';
+import GridList from './GridList';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
 	data: ExplorerItem;
 	selected: boolean;
-	index: number;
+	isRenaming: boolean;
 	cut: boolean;
 }
 
-const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewItemProps) => {
+const GridViewItem = memo(({ data, selected, cut, isRenaming, ...props }: GridViewItemProps) => {
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
-	const explorerView = useExplorerViewContext();
 
 	const showSize =
 		!filePathData?.is_dir &&
 		!location &&
 		explorerStore.showBytesInGridView &&
-		(!explorerView.isRenaming || (explorerView.isRenaming && !selected));
+		(!isRenaming || (isRenaming && !selected));
 
 	return (
 		<ViewItem data={data} className="h-full w-full" {...props}>
@@ -58,43 +57,25 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 });
 
 export default () => {
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
-	const itemDetailsHeight =
-		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
-	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
-
 	return (
-		<GridList
-			scrollRef={explorerView.scrollRef}
-			count={explorerView.items?.length || 100}
-			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
-			padding={12}
-			selectable={!!explorerView.items}
-			selected={explorerView.selected}
-			onSelectedChange={explorerView.onSelectedChange}
-			overscan={explorerView.overscan}
-			onLoadMore={explorerView.onLoadMore}
-			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
-			top={explorerView.top}
-			preventSelection={explorerView.isRenaming || !explorerView.selectable}
-			preventContextMenuSelection={explorerView.contextMenu === undefined}
-		>
-			{({ index, item: Item }) => {
-				const item = explorerView.items?.[index];
-				if (!item) return null;
-
-				const isSelected = Array.isArray(explorerView.selected)
-					? explorerView.selected.includes(item.item.id)
-					: explorerView.selected === item.item.id;
+		<GridList>
+			{(item) => {
+				const isSelected =
+					typeof explorerView.selected === 'object'
+						? explorerView.selected.has(item.item.id)
+						: explorerView.selected === item.item.id;
 
 				const cut = isCut(item.item.id);
 
 				return (
-					<Item selected={isSelected} id={item.item.id}>
-						<GridViewItem data={item} selected={isSelected} index={index} cut={cut} />
-					</Item>
+					<GridViewItem
+						data={item}
+						selected={isSelected}
+						cut={cut}
+						isRenaming={explorerView.isRenaming}
+					/>
 				);
 			}}
 		</GridList>

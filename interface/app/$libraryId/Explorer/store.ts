@@ -48,7 +48,8 @@ const state = {
 	mediaAspectSquare: false,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
-	groupBy: 'none'
+	groupBy: 'none',
+	isDragging: false
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
