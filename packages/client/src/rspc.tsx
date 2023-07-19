@@ -1,10 +1,10 @@
-import { ProcedureDef } from '@rspc/client';
+import { ProcedureDef, loggerLink } from '@rspc/client';
 import { RSPCError, initRspc } from '@rspc/client';
 import { Context, createReactQueryHooks } from '@rspc/react';
 import { QueryClient } from '@tanstack/react-query';
 import { PropsWithChildren, createContext, useContext } from 'react';
 import { LibraryArgs, Procedures } from './core';
-import { currentLibraryCache } from './hooks';
+import { currentLibraryCache, getDebugState } from './hooks';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
 	| Exclude<Procedures[T], { input: LibraryArgs<any> }>
@@ -43,6 +43,12 @@ export type LibraryProceduresDef = {
 const context = createContext<Context<LibraryProceduresDef>>(undefined!);
 
 export const useRspcLibraryContext = () => useContext(context);
+
+globalThis.rspcLinks.unshift(
+	loggerLink({
+		enabled: () => getDebugState().rspcLogger
+	})
+);
 
 export const rspc = initRspc<Procedures>({
 	links: globalThis.rspcLinks

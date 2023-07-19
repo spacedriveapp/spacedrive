@@ -1,13 +1,7 @@
-import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { Info, Question } from 'phosphor-react';
-import { memo, useCallback, useEffect, useState } from 'react';
-import {
-	JobProgressEvent,
-	JobReport,
-	useLibraryMutation,
-	useLibrarySubscription
-} from '@sd/client';
+import { memo, useEffect, useState } from 'react';
+import { JobProgressEvent, JobReport, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
@@ -20,8 +14,6 @@ interface JobProps {
 }
 
 function Job({ job, className, isChild }: JobProps) {
-	const queryClient = useQueryClient();
-
 	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
 	useLibrarySubscription(['jobs.progress', job.id], {

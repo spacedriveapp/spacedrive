@@ -2,10 +2,6 @@ import { wsLink } from '@rspc/client';
 
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [
-	// TODO
-	// loggerLink({
-	// 	enabled: () => getDebugState().rspcLogger
-	// }),
 	wsLink({
 		url: (() => {
 			const currentURL = new URL(window.location.href);

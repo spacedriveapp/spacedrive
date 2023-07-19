@@ -41,7 +41,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 
 	useLibrarySubscription(['jobs.progress', activeJobId as string], {
 		onData: setRealtimeUpdate,
-		enabled: !!activeJobId || !showChildJobs
+		enabled: !!activeJobId && !showChildJobs
 	});
 
 	useEffect(() => {
