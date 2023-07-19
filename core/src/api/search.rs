@@ -292,7 +292,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     cursor,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = &library;
+					let Library { db, .. } = &*library;
 
 					let take = take.unwrap_or(100);
 
@@ -368,7 +368,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     cursor,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = &library;
+					let Library { db, .. } = &*library;
 
 					let take = take.unwrap_or(100);
 

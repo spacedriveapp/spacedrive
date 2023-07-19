@@ -15,6 +15,7 @@ use crate::{
 use std::{
 	collections::HashSet,
 	path::{Component, Path, PathBuf},
+	sync::Arc,
 };
 
 use chrono::Utc;
@@ -60,7 +61,7 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
-		library: &Library,
+		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
@@ -145,7 +146,7 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
-		library: &Library,
+		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
@@ -223,8 +224,8 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Library) -> Result<(), LocationError> {
-		let Library { sync, db, .. } = &library;
+	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
 			.include(location_with_indexer_rules::include())
@@ -341,10 +342,13 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	Library { db, .. }: &Library,
+	library: &Library,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
-	db.location().find_unique(location::id::equals(location_id))
+	library
+		.db
+		.location()
+		.find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
@@ -368,7 +372,7 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -400,7 +404,7 @@ pub async fn scan_location(
 
 #[cfg(feature = "location-watcher")]
 pub async fn scan_location_sub_path(
-	library: &Library,
+	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
@@ -437,7 +441,7 @@ pub async fn scan_location_sub_path(
 }
 
 pub async fn light_scan_location(
-	library: Library,
+	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobError> {
@@ -458,10 +462,10 @@ pub async fn light_scan_location(
 }
 
 pub async fn relink_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let Library { db, id, sync, .. } = &library;
+	let Library { db, id, sync, .. } = &**library;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -502,13 +506,13 @@ pub struct CreatedLocationResult {
 }
 
 async fn create_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 	dry_run: bool,
 ) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &library;
+	let Library { db, sync, .. } = &**library;
 
 	let mut path = location_path.as_ref().to_path_buf();
 
@@ -640,11 +644,9 @@ async fn create_location(
 }
 
 pub async fn delete_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	let Library { db, .. } = library;
-
 	library
 		.location_manager()
 		.remove(location_id, library.clone())
@@ -652,14 +654,17 @@ pub async fn delete_location(
 
 	delete_directory(library, location_id, None).await?;
 
-	db.indexer_rules_in_location()
+	library
+		.db
+		.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
 			location_id,
 		)])
 		.exec()
 		.await?;
 
-	let location = db
+	let location = library
+		.db
 		.location()
 		.delete(location::id::equals(location_id))
 		.exec()
