@@ -8,7 +8,10 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path, thumbnail_remover::ThumbnailRemoverActor},
+	object::{
+		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
+		thumbnail_remover::ThumbnailRemoverActor,
+	},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
 	util::{db::maybe_missing, error::FileIOError},
