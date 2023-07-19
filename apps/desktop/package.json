@@ -14,8 +14,8 @@
 		"lint": "eslint src --cache"
 	},
 	"dependencies": {
-		"@rspc/client": "=0.0.0-main-bca3242b",
-		"@rspc/tauri": "=0.0.0-main-bca3242b",
+		"@rspc/client": "=1.0.0-rc.1",
+		"@rspc/tauri": "=1.0.0-rc.1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",

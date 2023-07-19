@@ -34,7 +34,7 @@ prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-
 	"sqlite",
 ], default-features = false }
 
-rspc = { version = "=1.0.0-rc.1" }
+rspc = { version = "=1.0.0-rc.1" } # ALWAYS USE `=` as we use unstable features that don't follow semver
 specta = { version = "=2.0.0-rc.1" }
 httpz = { version = "0.0.3" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "b33bf3728b8986672e3915ea4703ee94b6d2f7cb" }
@@ -56,5 +56,3 @@ tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }
 
-
-rspc = { path = "../rspc" } # TODO

@@ -94,7 +94,7 @@ pub(crate) fn mount() -> Arc<BuiltRouter> {
 
 	#[cfg(all(debug_assertions, not(feature = "mobile")))]
 	r.export_ts(
-		ExportConfig::new(
+		rspc::ExportConfig::new(
 			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 				.join("../packages/client/src/core.ts"),
 		)
