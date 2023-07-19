@@ -1,59 +1,39 @@
-use futures::{future::join_all, StreamExt};
-use futures_channel::mpsc;
-use once_cell::sync::{Lazy, OnceCell};
-use rspc::internal::jsonrpc::{self, *};
-use sd_core::{api::Router, Node};
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use once_cell::sync::Lazy;
+use rspc::internal::exec::{
+	Executor, OwnedStream, Request, StreamOrFut, SubscriptionManager, SubscriptionSet,
+};
+use sd_core::{api::Ctx, LoggerGuard, Node};
 use serde_json::{from_str, from_value, to_string, Value};
 use std::{
-	borrow::Cow,
 	collections::HashMap,
-	future::{ready, Ready},
 	marker::Send,
-	sync::Arc,
+	ops::{Deref, DerefMut},
+	sync::{Arc, MutexGuard, OnceLock},
 };
-use tokio::{
-	runtime::Runtime,
-	sync::{oneshot, Mutex},
-};
+use tokio::runtime::Runtime;
 use tracing::error;
 
-pub static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+// WARNING: rspc "complete" events aren't emitted by this abstraction.
+// rspc upstream needs to rethink the `Executor`/`ConnectionTask` relationship cause this doesn't fit either.
 
-pub type NodeType = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
+// Tokio async runtime
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-pub static NODE: NodeType = Lazy::new(|| Mutex::new(None));
+type NodeType = Lazy<tokio::sync::Mutex<Option<(Arc<Node>, Executor<Ctx>, Arc<LoggerGuard>)>>>;
 
-#[allow(clippy::type_complexity)]
-pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>> =
-	Lazy::new(Default::default);
+// Spacedrive node + rspc router & executor
+static STATE: NodeType = NodeType::new(|| tokio::sync::Mutex::new(None));
 
-pub static EVENT_SENDER: OnceCell<mpsc::Sender<Response>> = OnceCell::new();
+// Set of active subscriptions and the task they are running on so they can be cancelled
+type SubscriptionState = (SubscriptionSet, HashMap<u32, tokio::task::JoinHandle<()>>);
+static SUBSCRIPTIONS: Lazy<std::sync::Mutex<SubscriptionState>> = Lazy::new(Default::default);
 
-pub struct MobileSender<'a> {
-	resp: &'a mut Option<Response>,
-}
+// Callback to send a message back to the frontend outside the context of a particular request
+static MSG_CALLBACK: OnceLock<Box<dyn Fn(String) + Send + Sync + 'static>> = OnceLock::new();
 
-impl<'a> Sender<'a> for MobileSender<'a> {
-	type SendFut = Ready<()>;
-	type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
-	type OwnedSender = OwnedMpscSender;
-
-	fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
-		SubscriptionUpgrade::Supported(
-			OwnedMpscSender::new(
-				EVENT_SENDER
-					.get()
-					.expect("Core was not started before making a request!")
-					.clone(),
-			),
-			SUBSCRIPTIONS.clone(),
-		)
-	}
-
-	fn send(self, resp: jsonrpc::Response) -> Self::SendFut {
-		*self.resp = Some(resp);
-		ready(())
-	}
+pub fn set_core_event_listener(callback: impl Fn(String) + Send + Sync + 'static) {
+	MSG_CALLBACK.set(Box::new(callback)).ok();
 }
 
 pub fn handle_core_msg(
@@ -62,17 +42,18 @@ pub fn handle_core_msg(
 	callback: impl FnOnce(Result<String, String>) + Send + 'static,
 ) {
 	RUNTIME.spawn(async move {
-		let (node, router) = {
-			let node = &mut *NODE.lock().await;
-			match node {
+		let (node, executor, _) = {
+			let state = &mut *STATE.lock().await;
+			match state {
 				Some(node) => node.clone(),
 				None => {
-					let _guard = Node::init_logger(&data_dir);
+					let guard = Node::init_logger(&data_dir);
 
 					// TODO: probably don't unwrap
-					let new_node = Node::new(data_dir).await.unwrap();
-					node.replace(new_node.clone());
-					new_node
+					let (node, router) = Node::new(data_dir).await.unwrap();
+					let new_state = (node, Executor::new(router), Arc::new(guard));
+					state.replace(new_state.clone());
+					new_state
 				}
 			}
 		};
@@ -83,51 +64,96 @@ pub fn handle_core_msg(
 		}) {
 			Ok(v) => v,
 			Err(err) => {
-				error!("failed to decode JSON-RPC request: {}", err); // Don't use tracing here because it's before the `Node` is initialised which sets that config!
+				error!("failed to decode JSON-RPC request: {}", err);
 				callback(Err(query));
 				return;
 			}
 		};
 
-		let responses = join_all(reqs.into_iter().map(|request| {
-			let node = node.clone();
-			let router = router.clone();
-			async move {
-				let mut resp = Option::<Response>::None;
-				handle_json_rpc(
-					node.clone(),
-					request,
-					Cow::Borrowed(&router),
-					MobileSender { resp: &mut resp },
-				)
-				.await;
-				resp
-			}
-		}))
-		.await;
+		let fut_responses = FuturesUnordered::new();
+		let mut responses =
+			executor.execute_batch(&node, reqs, &mut Some(RnSubscriptionManager {}), |fut| {
+				fut_responses.push(fut)
+			});
+		responses.append(&mut fut_responses.collect().await);
 
-		callback(Ok(serde_json::to_string(
-			&responses.into_iter().flatten().collect::<Vec<_>>(),
-		)
-		.unwrap()));
+		match to_string(&responses) {
+			Ok(s) => callback(Ok(s)),
+			Err(err) => {
+				error!("failed to encode JSON-RPC response: {}", err);
+				callback(Err(query));
+			}
+		}
 	});
 }
 
-pub fn spawn_core_event_listener(callback: impl Fn(String) + Send + 'static) {
-	let (tx, mut rx) = mpsc::channel(100);
-	let _ = EVENT_SENDER.set(tx);
+pub struct SubscriptionMutexGuard<'a>(MutexGuard<'a, SubscriptionState>);
 
-	RUNTIME.spawn(async move {
-		while let Some(event) = rx.next().await {
-			let data = match to_string(&event) {
-				Ok(json) => json,
-				Err(err) => {
-					error!("Failed to serialize event: {err}");
-					continue;
-				}
-			};
+impl<'a> Deref for SubscriptionMutexGuard<'a> {
+	type Target = SubscriptionSet;
 
-			callback(data);
+	fn deref(&self) -> &Self::Target {
+		&self.0 .0
+	}
+}
+
+impl<'a> DerefMut for SubscriptionMutexGuard<'a> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0 .0
+	}
+}
+
+struct RnSubscriptionManager;
+
+impl<TCtx: Clone + Send + 'static> SubscriptionManager<TCtx> for RnSubscriptionManager {
+	type Set<'m> = SubscriptionMutexGuard<'m> where Self: 'm;
+
+	fn queue(&mut self, stream: OwnedStream<TCtx>) {
+		let id = stream.id;
+		let handle = RUNTIME.spawn(
+			// We wrap the stream so "complete" messages are handled for us.
+			// The need for this is an oversight on rspc API design.
+			StreamOrFut::OwnedStream { stream }
+				.map(|r| {
+					let resp = match serde_json::to_string(&r) {
+						Ok(s) => s,
+						// This error isn't really handled and that is because if `r` which is a `Response` fails serialization, well we are gonna wanna send a `Response` with the error which will also most likely fail serialization.
+						// It's important to note the user provided types are converted to `serde_json::Value` prior to being put into this type so this will only ever fail on internal types.
+						Err(err) => {
+							error!("rspc internal serialization error: {}", err);
+
+							return;
+						}
+					};
+
+					if let Some(cb) = MSG_CALLBACK.get() {
+						cb(resp);
+					} else {
+						error!("no RN event callback set! Unable to send response...");
+					}
+				})
+				.into_future()
+				.map(|_| ()),
+		);
+
+		{
+			let mut subscriptions = SUBSCRIPTIONS.lock().unwrap();
+			subscriptions.0.insert(id);
+			subscriptions.1.insert(id, handle);
 		}
-	});
+	}
+
+	fn subscriptions(&mut self) -> Self::Set<'_> {
+		SubscriptionMutexGuard(SUBSCRIPTIONS.lock().unwrap())
+	}
+
+	fn abort_subscription(&mut self, id: u32) {
+		{
+			let mut subscriptions = SUBSCRIPTIONS.lock().unwrap();
+			subscriptions.0.remove(&id);
+			if let Some(h) = subscriptions.1.remove(&id) {
+				h.abort()
+			}
+		}
+	}
 }

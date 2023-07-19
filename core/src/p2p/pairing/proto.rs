@@ -257,16 +257,15 @@ impl SyncData {
 					0 => None,
 					n => Some(n),
 				},
-				data: rmp_serde::from_slice(
-					&decode::buf(stream).await.map_err(|e| ("data", e.into()))?,
-				)
-				.unwrap(), // TODO: Error handling
+				data: rmp_serde::from_slice(&decode::buf(stream).await.map_err(|e| ("data", e))?)
+					.unwrap(), // TODO: Error handling
 			}),
 			1 => Ok(Self::Finished),
 			_ => todo!(), // TODO: Error handling
 		}
 	}
 
+	#[allow(clippy::unnecessary_cast)] // We need to be explicit with types so bugs don't come in
 	pub fn to_bytes(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
 		let mut buf = Vec::new();
 		match self {

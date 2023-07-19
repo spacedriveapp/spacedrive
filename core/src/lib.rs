@@ -130,7 +130,7 @@ impl Node {
 		Ok((Arc::new(node), router))
 	}
 
-	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
+	pub fn init_logger(data_dir: impl AsRef<Path>) -> LoggerGuard {
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -202,7 +202,7 @@ impl Node {
 			prev_hook(panic_info);
 		}));
 
-		guard
+		LoggerGuard(guard)
 	}
 
 	pub async fn shutdown(&self) {
@@ -234,6 +234,9 @@ impl Node {
 		}
 	}
 }
+
+#[must_use = "LoggerGuard must be kept alive for the logger to work correctly."]
+pub struct LoggerGuard(WorkerGuard);
 
 pub struct NotificationManager(
 	// Keep this private and use `Node::emit_notification` or `Library::emit_notification` instead.

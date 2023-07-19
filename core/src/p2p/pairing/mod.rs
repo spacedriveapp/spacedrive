@@ -124,8 +124,7 @@ impl PairingManager {
 						.get_all_libraries()
 						.await
 						.into_iter()
-						.find(|i| i.id == library_id)
-						.is_some()
+						.any(|i| i.id == library_id)
 					{
 						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
 
@@ -165,27 +164,24 @@ impl PairingManager {
 					// TODO: This should timeout if taking too long so it can't be used as a DOS style thing???
 					let mut total = 0;
 					let mut synced = 0;
-					loop {
-						match SyncData::from_stream(&mut stream).await.unwrap() {
-							SyncData::Data { total_models, data } => {
-								if let Some(total_models) = total_models {
-									total = total_models;
-								}
-								synced += data.len();
+					while let SyncData::Data { total_models, data } =
+						SyncData::from_stream(&mut stream).await.unwrap()
+					{
+						if let Some(total_models) = total_models {
+							total = total_models;
+						}
+						synced += data.len();
 
-								data.insert(&library.db).await.unwrap();
+						data.insert(&library.db).await.unwrap();
 
-								// Prevent divide by zero
-								if total != 0 {
-									self.emit_progress(
-										pairing_id,
-										PairingStatus::InitialSyncProgress(
-											((synced as f32 / total as f32) * 100.0) as u8,
-										),
-									);
-								}
-							}
-							SyncData::Finished => break,
+						// Prevent divide by zero
+						if total != 0 {
+							self.emit_progress(
+								pairing_id,
+								PairingStatus::InitialSyncProgress(
+									((synced as f32 / total as f32) * 100.0) as u8,
+								),
+							);
 						}
 					}
 

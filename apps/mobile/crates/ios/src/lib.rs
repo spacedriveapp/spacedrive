@@ -37,7 +37,7 @@ pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 	let result = panic::catch_unwind(|| {
 		let id = Id::<Object>::from_ptr(id);
 
-		spawn_core_event_listener(move |data| {
+		set_core_event_listener(move |data| {
 			let data = NSString::from_str(&data);
 			let _: () = msg_send![id, sendCoreEvent: data];
 		});

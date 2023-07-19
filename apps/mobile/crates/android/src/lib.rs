@@ -20,7 +20,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 		let jvm = env.get_java_vm().unwrap();
 		let class = env.new_global_ref(class).unwrap();
 
-		spawn_core_event_listener(move |data| {
+		set_core_event_listener(move |data| {
 			let env = jvm.attach_current_thread().unwrap();
 			env.call_method(
 				&class,

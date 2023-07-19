@@ -1,5 +1,5 @@
 use crate::{job::JobProgressEvent, node::SanitisedNodeConfig, Node};
-use rspc::{ExportConfig, Rspc};
+use rspc::Rspc;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
