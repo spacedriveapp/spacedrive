@@ -18,23 +18,23 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "8eb34d3f5edb88e7cc6572604a157f1a9504d0a3", features = [
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "62984e744b7e8179c13be0184db3b2e1890fd98a", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "8eb34d3f5edb88e7cc6572604a157f1a9504d0a3", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "62984e744b7e8179c13be0184db3b2e1890fd98a", features = [
 	"rspc",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "8eb34d3f5edb88e7cc6572604a157f1a9504d0a3", features = [
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "62984e744b7e8179c13be0184db3b2e1890fd98a", features = [
 	"sqlite",
 ], default-features = false }
 
-rspc = { version = "=1.0.0-rc.1" } # ALWAYS USE `=` as we use unstable features that don't follow semver
+rspc = { version = "=1.0.0-rc.2" } # ALWAYS USE `=` as we use unstable features that don't follow semver
 specta = { version = "=2.0.0-rc.1" }
 httpz = { version = "0.0.3" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "b33bf3728b8986672e3915ea4703ee94b6d2f7cb" }
@@ -55,4 +55,3 @@ httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdef
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "b33bf3728b8986672e3915ea4703ee94b6d2f7cb" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }
-

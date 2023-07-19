@@ -1,5 +1,5 @@
 import { Text, View, ViewStyle } from 'react-native';
-import { getPasswordStrength } from '@sd/client';
+import { usePasswordStrength } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 // NOTE: Lazy load this component.
@@ -10,7 +10,9 @@ type PasswordMeterProps = {
 };
 
 const PasswordMeter = (props: PasswordMeterProps) => {
-	const { score, scoreText } = getPasswordStrength(props.password);
+	const result = usePasswordStrength(props.password);
+	if (!result) return null; // We eager load so it probs won't hit this much.
+	const { score, scoreText } = result;
 
 	return (
 		<View style={props.containerStyle}>

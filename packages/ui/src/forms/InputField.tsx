@@ -1,10 +1,8 @@
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
+import { StrengthResult, getPasswordStrength } from '@sd/client';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 
@@ -28,29 +26,12 @@ export interface PasswordInputProps extends UseFormFieldProps, Root.InputProps {
 }
 
 const PasswordStrengthMeter = (props: { password: string }) => {
-	const [strength, setStrength] = useState<{ label: string; score: number }>();
-	const updateStrength = useDebouncedCallback(
-		() => setStrength(props.password ? getPasswordStrength(props.password) : undefined),
-		100
-	);
-
-	// TODO: Remove duplicate in @sd/client
-	function getPasswordStrength(password: string): { label: string; score: number } {
-		const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
-
-		zxcvbnOptions.setOptions({
-			dictionary: {
-				...zxcvbnCommonPackage.dictionary,
-				...zxcvbnEnPackage.dictionary
-			},
-			graphs: zxcvbnCommonPackage.adjacencyGraphs,
-			translations: zxcvbnEnPackage.translations
-		});
-
-		const result = zxcvbn(password);
-		return { label: ratings[result.score]!, score: result.score };
-	}
-
+	const [strength, setStrength] = useState<StrengthResult>();
+	const updateStrength = useDebouncedCallback(() => {
+		if (props.password) {
+			getPasswordStrength(props.password).then((v) => setStrength(v));
+		}
+	}, 100);
 	useEffect(() => updateStrength(), [props.password, updateStrength]);
 
 	return (
@@ -66,7 +47,7 @@ const PasswordStrengthMeter = (props: { password: string }) => {
 						strength.score === 4 && 'text-accent'
 					)}
 				>
-					{strength.label}
+					{strength.scoreText}
 				</span>
 			)}
 

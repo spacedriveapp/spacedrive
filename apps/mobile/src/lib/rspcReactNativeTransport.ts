@@ -22,6 +22,7 @@ function newWsManager() {
 	const activeMap = new Map<
 		number,
 		{
+			oneshot: boolean;
 			resolve: (result: any) => void;
 			reject: (error: Error | RSPCError) => void;
 		}
@@ -41,7 +42,8 @@ function newWsManager() {
 				resolve: item.resolve,
 				reject: item.reject
 			});
-			if (result.type === 'value' || result.type === 'complete') activeMap.delete(result.id);
+			if ((item.oneshot && result.type === 'value') || result.type === 'complete')
+				activeMap.delete(result.id);
 		}
 	};
 

@@ -1,12 +1,14 @@
 import clsx from 'clsx';
-import { getPasswordStrength } from '@sd/client';
+import { usePasswordStrength } from '@sd/client';
 
 export interface PasswordMeterProps {
 	password: string;
 }
 
 export const PasswordMeter = (props: PasswordMeterProps) => {
-	const { score, scoreText } = getPasswordStrength(props.password);
+	const result = usePasswordStrength(props.password);
+	if (!result) return null; // We are lazy loading `zxcvbn`. Given we eager load, this *should* rarely be hit.
+	const { score, scoreText } = result;
 
 	return (
 		<div className="relative">

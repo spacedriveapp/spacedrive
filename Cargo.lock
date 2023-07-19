@@ -5801,7 +5801,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=62984e744b7e8179c13be0184db3b2e1890fd98a#62984e744b7e8179c13be0184db3b2e1890fd98a"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5834,7 +5834,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=62984e744b7e8179c13be0184db3b2e1890fd98a#62984e744b7e8179c13be0184db3b2e1890fd98a"
 dependencies = [
  "directories",
  "flate2",
@@ -5854,7 +5854,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=62984e744b7e8179c13be0184db3b2e1890fd98a#62984e744b7e8179c13be0184db3b2e1890fd98a"
 dependencies = [
  "directories",
  "flate2",
@@ -5874,7 +5874,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=62984e744b7e8179c13be0184db3b2e1890fd98a#62984e744b7e8179c13be0184db3b2e1890fd98a"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5886,7 +5886,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=8eb34d3f5edb88e7cc6572604a157f1a9504d0a3#8eb34d3f5edb88e7cc6572604a157f1a9504d0a3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=62984e744b7e8179c13be0184db3b2e1890fd98a#62984e744b7e8179c13be0184db3b2e1890fd98a"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -6706,9 +6706,9 @@ dependencies = [
 
 [[package]]
 name = "rspc"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acce1e7caedb59d428cec5b97c75f50b3dd70a1d8d07173dc3321f286d675e2a"
+checksum = "3cca9ece85b7d817c49bbcbd6f403900fa2561117d5169d0d533a871fd184cad"
 dependencies = [
  "futures",
  "httpz 0.0.5",

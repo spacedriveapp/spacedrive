@@ -14,22 +14,22 @@
 		"build": "tsc"
 	},
 	"dependencies": {
-		"@rspc/client": "=1.0.0-rc.1",
-		"@rspc/react": "=1.0.0-rc.1",
+		"@rspc/client": "=1.0.0-rc.2",
+		"@rspc/react": "=1.0.0-rc.2",
 		"@sd/config": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
-		"@zxcvbn-ts/core": "^2.1.0",
-		"@zxcvbn-ts/language-common": "^2.0.1",
-		"@zxcvbn-ts/language-en": "^2.1.0",
+		"@tanstack/react-query": "^4.29.25",
+		"@zxcvbn-ts/core": "^3.0.3",
+		"@zxcvbn-ts/language-common": "^3.0.3",
+		"@zxcvbn-ts/language-en": "^3.0.1",
 		"plausible-tracker": "^0.3.8",
 		"valtio": "^1.7.4",
 		"zod": "^3.21.4"
 	},
 	"devDependencies": {
-		"@types/react": "^18.0.21",
+		"@types/react": "^18.2.15",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^5.0.4"
+		"typescript": "^5.1.6"
 	},
 	"peerDependencies": {
 		"react": "^18.2.0"
