@@ -27,8 +27,9 @@ function newWsManager() {
 		}
 	>();
 
-	const handle = (results: RspcResponse[]) => {
-		for (const result of results) {
+	const handle = (resp: RspcResponse[] | RspcResponse) => {
+		const respArr = Array.isArray(resp) ? resp : [resp];
+		for (const result of respArr) {
 			const item = activeMap.get(result.id);
 
 			if (!item) {
@@ -48,9 +49,7 @@ function newWsManager() {
 
 	return [
 		activeMap,
-		async (data: RspcRequest | RspcRequest[]) => {
-			const resp = JSON.parse(await SDCore.sd_core_msg(JSON.stringify(data)));
-			handle(!Array.isArray(resp) ? [resp] : resp);
-		}
+		async (data: RspcRequest | RspcRequest[]) =>
+			handle(JSON.parse(await SDCore.sd_core_msg(JSON.stringify(data))))
 	] as const;
 }
