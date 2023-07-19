@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
-import { StrengthResult, getPasswordStrength } from '@sd/client';
+import { StrengthResult, getPasswordStrength } from '@sd/client/src/lib';
 import * as Root from '../Input';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 

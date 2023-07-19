@@ -6,6 +6,10 @@
 	"files": [
 		"dist/**"
 	],
+	"exports": {
+		".": "./src/index.ts",
+		"./src/lib": "./src/lib/index.ts"
+	},
 	"scripts": {
 		"test": "jest",
 		"lint": "eslint src --cache",
