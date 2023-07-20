@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone)]
 pub struct Keypair(ed25519::Keypair);
 
+impl PartialEq for Keypair {
+	fn eq(&self, other: &Self) -> bool {
+		self.0.public().eq(&other.0.public())
+	}
+}
+
 impl Keypair {
 	pub fn generate() -> Self {
 		Self(ed25519::Keypair::generate())
@@ -46,5 +52,18 @@ impl<'de> Deserialize<'de> for Keypair {
 			ed25519::Keypair::try_from_bytes(bytes.as_mut_slice())
 				.map_err(serde::de::Error::custom)?,
 		))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn test_keypair() {
+		let pair = Keypair::generate();
+
+		let pair2 = serde_json::from_value(serde_json::to_value(&pair).unwrap()).unwrap();
+		assert_eq!(pair, pair2);
 	}
 }

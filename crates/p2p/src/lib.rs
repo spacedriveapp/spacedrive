@@ -9,6 +9,7 @@ pub mod proto;
 pub mod spaceblock;
 pub mod spacetime;
 pub mod spacetunnel;
+pub mod trustedhosts;
 mod utils;
 
 pub use discovery::*;

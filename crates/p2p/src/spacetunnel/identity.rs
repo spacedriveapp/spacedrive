@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ed25519_dalek::PublicKey;
 use rand_core::OsRng;
 use thiserror::Error;
@@ -43,7 +45,7 @@ impl Identity {
 		RemoteIdentity(self.0.public)
 	}
 }
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
 
 impl RemoteIdentity {
@@ -57,5 +59,42 @@ impl RemoteIdentity {
 
 	pub fn public_key(&self) -> PublicKey {
 		self.0
+	}
+}
+
+impl FromStr for RemoteIdentity {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let bytes = hex::decode(s).map_err(|e| e.to_string())?;
+		Ok(Self(
+			ed25519_dalek::PublicKey::from_bytes(&bytes).map_err(|e| e.to_string())?,
+		))
+	}
+}
+
+impl ToString for RemoteIdentity {
+	fn to_string(&self) -> String {
+		hex::encode(self.to_bytes())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn test_identity() {
+		let pair = Identity::new();
+
+		let pair2 = Identity::from_bytes(&pair.to_bytes()).unwrap();
+		assert_eq!(pair, pair2);
+
+		let pk = pair.to_remote_identity();
+		let pk2 = RemoteIdentity::from_bytes(&pk.to_bytes()).unwrap();
+		assert_eq!(pk, pk2);
+
+		let pk3 = pk.to_string().parse::<RemoteIdentity>().unwrap();
+		assert_eq!(pk, pk3);
 	}
 }
