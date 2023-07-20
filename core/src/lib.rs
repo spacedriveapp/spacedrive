@@ -11,6 +11,7 @@ use crate::{
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
+use sd_p2p::trustedhosts::{TrustedHostError, TrustedHostRegistry};
 pub use sd_prisma::*;
 
 use std::{
@@ -102,6 +103,8 @@ impl Node {
 		)
 		.await?;
 		debug!("Initialised 'LibraryManager'...");
+		let _registry = TrustedHostRegistry::new(data_dir.join("trusted_hosts")).await?;
+		debug!("Initialised 'TrustedHostRegistry'...");
 		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
 		debug!("Initialised 'P2PManager'...");
 
@@ -267,4 +270,6 @@ pub enum NodeError {
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
+	#[error("failed to initialize trusted hosts: {0}")]
+	TrustedHost(#[from] TrustedHostError),
 }

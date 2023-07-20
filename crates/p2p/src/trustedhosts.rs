@@ -2,6 +2,7 @@
 
 use std::{io, path::Path};
 
+use thiserror::Error;
 use tokio::{
 	fs::{File, OpenOptions},
 	io::{AsyncReadExt, AsyncWriteExt},
@@ -9,13 +10,17 @@ use tokio::{
 
 use crate::spacetunnel::RemoteIdentity;
 
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct TrustedHostError(#[from] io::Error);
+
 pub struct TrustedHostRegistry {
 	file: File,
 	trusted: Vec<RemoteIdentity>,
 }
 
 impl TrustedHostRegistry {
-	pub async fn new(path: impl AsRef<Path>) -> io::Result<Self> {
+	pub async fn new(path: impl AsRef<Path>) -> Result<Self, TrustedHostError> {
 		let mut file = OpenOptions::new()
 			.read(true)
 			.write(true)
@@ -38,7 +43,7 @@ impl TrustedHostRegistry {
 		self.trusted.contains(identity)
 	}
 
-	pub async fn add_trusted(&mut self, identity: RemoteIdentity) -> io::Result<()> {
+	pub async fn add_trusted(&mut self, identity: RemoteIdentity) -> Result<(), TrustedHostError> {
 		self.file
 			.write_all(format!("{}\n", identity.to_string()).as_bytes())
 			.await?;
@@ -83,6 +88,12 @@ mod tests {
 
 		registry.add_trusted(id.clone()).await.unwrap();
 		assert!(registry.is_trusted(&id), "identity should be trusted now");
+
+		drop(registry);
+		assert_eq!(
+			fs::read_to_string(file_path).await.unwrap(),
+			format!("{}\n", id.to_string())
+		);
 
 		drop(_guard);
 	}
