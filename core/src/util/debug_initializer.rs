@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
 	job::JobManagerError,
-	library::{LibraryConfig, LibraryManagerError, LibraryName},
+	library::{LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
@@ -17,7 +17,6 @@ use crate::{
 	util::AbortOnDrop,
 };
 use prisma_client_rust::QueryError;
-use sd_p2p::spacetunnel::Identity;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
@@ -114,18 +113,8 @@ impl InitConfig {
 			let library = match library_manager.get_library(lib.id).await {
 				Some(lib) => lib,
 				None => {
-					let node_pub_id = Uuid::new_v4();
 					let library = library_manager
-						.create_with_uuid(
-							lib.id,
-							LibraryConfig {
-								name: lib.name,
-								description: lib.description,
-								identity: Identity::new().to_bytes(),
-								node_id: node_pub_id,
-							},
-							node_cfg.clone(),
-						)
+						.create_with_uuid(lib.id, lib.name, lib.description, node_cfg.clone(), true)
 						.await?;
 
 					match library_manager.get_library(library.uuid).await {

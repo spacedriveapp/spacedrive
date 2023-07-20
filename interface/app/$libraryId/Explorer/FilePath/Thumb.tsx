@@ -1,7 +1,7 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ExplorerItem, getItemLocation, useLibraryContext } from '@sd/client';
+import { ExplorerItem, getItemFilePath, getItemLocation, useLibraryContext } from '@sd/client';
 import { PDFViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -116,6 +116,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const platform = usePlatform();
 	const itemData = useExplorerItemData(props.data);
 	const locationData = getItemLocation(props.data);
+	const filePath = getItemFilePath(props.data);
 	const { library } = useLibraryContext();
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
@@ -129,12 +130,12 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		setSrc(null);
 		setLoaded(false);
 
-		if (props.loadOriginal) {
+		if (locationData) {
+			setThumbType(ThumbType.Location);
+		} else if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
-		} else if (locationData) {
-			setThumbType(ThumbType.Location);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
@@ -159,7 +160,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 						platform.getFileUrl(
 							library.uuid,
 							locationId,
-							props.data.item.id,
+							filePath?.id || props.data.item.id,
 							// Workaround Linux webview not supporting playing video and audio through custom protocol urls
 							kind == 'Video' || kind == 'Audio'
 						)
@@ -182,7 +183,16 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
 				break;
 		}
-	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, parent]);
+	}, [
+		props.data.item.id,
+		filePath?.id,
+		isDark,
+		library.uuid,
+		itemData,
+		platform,
+		thumbType,
+		parent
+	]);
 
 	const onLoad = () => setLoaded(true);
 

@@ -1,10 +1,13 @@
 use crate::{
 	location::file_path_helper::{
-		file_path_just_pub_id, file_path_to_isolate, FilePathMetadata, IsolatedFilePathData,
+		file_path_just_pub_id, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 		MetadataExt,
 	},
 	prisma::file_path,
-	util::error::FileIOError,
+	util::{
+		db::{device_from_db, from_bytes_to_uuid, inode_from_db},
+		error::FileIOError,
+	},
 };
 
 #[cfg(target_family = "unix")]
@@ -14,12 +17,13 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 };
 
+use chrono::{DateTime, Duration, FixedOffset};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::trace;
@@ -49,9 +53,42 @@ pub struct ToWalkEntry {
 	parent_dir_accepted_by_its_children: Option<bool>,
 }
 
+#[derive(Debug)]
 struct WalkingEntry {
 	iso_file_path: IsolatedFilePathData<'static>,
 	maybe_metadata: Option<FilePathMetadata>,
+}
+
+impl From<WalkingEntry> for WalkedEntry {
+	fn from(walking_entry: WalkingEntry) -> Self {
+		let WalkingEntry {
+			iso_file_path,
+			maybe_metadata,
+		} = walking_entry;
+
+		Self {
+			pub_id: Uuid::new_v4(),
+			iso_file_path,
+			metadata: maybe_metadata
+				.expect("we always use Some in `the inner_walk_single_dir` function"),
+		}
+	}
+}
+
+impl From<(Uuid, WalkingEntry)> for WalkedEntry {
+	fn from((pub_id, walking_entry): (Uuid, WalkingEntry)) -> Self {
+		let WalkingEntry {
+			iso_file_path,
+			maybe_metadata,
+		} = walking_entry;
+
+		Self {
+			pub_id,
+			iso_file_path,
+			metadata: maybe_metadata
+				.expect("we always use Some in `the inner_walk_single_dir` function"),
+		}
+	}
 }
 
 impl PartialEq for WalkingEntry {
@@ -68,12 +105,14 @@ impl Hash for WalkingEntry {
 	}
 }
 
-pub struct WalkResult<Walked, ToRemove>
+pub struct WalkResult<Walked, ToUpdate, ToRemove>
 where
 	Walked: Iterator<Item = WalkedEntry>,
+	ToUpdate: Iterator<Item = WalkedEntry>,
 	ToRemove: Iterator<Item = file_path_just_pub_id::Data>,
 {
 	pub walked: Walked,
+	pub to_update: ToUpdate,
 	pub to_walk: VecDeque<ToWalkEntry>,
 	pub to_remove: ToRemove,
 	pub errors: Vec<IndexerError>,
@@ -96,12 +135,13 @@ pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 ) -> Result<
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
+		impl Iterator<Item = WalkedEntry>,
 		impl Iterator<Item = file_path_just_pub_id::Data>,
 	>,
 	IndexerError,
 >
 where
-	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
+	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
 	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
@@ -139,8 +179,11 @@ where
 		}
 	}
 
+	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
+
 	Ok(WalkResult {
-		walked: filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?,
+		walked,
+		to_update,
 		to_walk,
 		to_remove: to_remove.into_iter().flatten(),
 		errors,
@@ -160,12 +203,13 @@ pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 ) -> Result<
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
+		impl Iterator<Item = WalkedEntry>,
 		impl Iterator<Item = file_path_just_pub_id::Data>,
 	>,
 	IndexerError,
 >
 where
-	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
+	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
 	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
 {
 	let mut to_keep_walking = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
@@ -189,8 +233,11 @@ where
 	)
 	.await;
 
+	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
+
 	Ok(WalkResult {
-		walked: filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?,
+		walked,
+		to_update,
 		to_walk: to_keep_walking,
 		to_remove: to_remove.into_iter(),
 		errors,
@@ -211,13 +258,14 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 ) -> Result<
 	(
 		impl Iterator<Item = WalkedEntry>,
+		impl Iterator<Item = WalkedEntry>,
 		Vec<file_path_just_pub_id::Data>,
 		Vec<IndexerError>,
 	),
 	IndexerError,
 >
 where
-	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
+	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
 	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
@@ -275,19 +323,23 @@ where
 	)
 	.await;
 
-	Ok((
-		filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?,
-		to_remove,
-		errors,
-	))
+	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
+
+	Ok((walked, to_update, to_remove, errors))
 }
 
 async fn filter_existing_paths<F>(
 	indexed_paths: HashSet<WalkingEntry>,
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> F,
-) -> Result<impl Iterator<Item = WalkedEntry>, IndexerError>
+) -> Result<
+	(
+		impl Iterator<Item = WalkedEntry>,
+		impl Iterator<Item = WalkedEntry>,
+	),
+	IndexerError,
+>
 where
-	F: Future<Output = Result<Vec<file_path_to_isolate::Data>, IndexerError>>,
+	F: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
 {
 	if !indexed_paths.is_empty() {
 		file_paths_db_fetcher(
@@ -304,18 +356,47 @@ where
 	.map(move |file_paths| {
 		let isolated_paths_already_in_db = file_paths
 			.into_iter()
-			.flat_map(IsolatedFilePathData::try_from)
-			.collect::<HashSet<_>>();
-
-		indexed_paths.into_iter().filter_map(move |entry| {
-			(!isolated_paths_already_in_db.contains(&entry.iso_file_path)).then(|| WalkedEntry {
-				pub_id: Uuid::new_v4(),
-				iso_file_path: entry.iso_file_path,
-				metadata: entry
-					.maybe_metadata
-					.expect("we always use Some in `the inner_walk_single_dir` function"),
+			.flat_map(|file_path| {
+				IsolatedFilePathData::try_from(file_path.clone())
+					.map(|iso_file_path| (iso_file_path, file_path))
 			})
-		})
+			.collect::<HashMap<_, _>>();
+
+		let mut to_update = vec![];
+
+		let to_create = indexed_paths
+			.into_iter()
+			.filter_map(|entry| {
+				if let Some(file_path) = isolated_paths_already_in_db.get(&entry.iso_file_path) {
+					if let (Some(metadata), Some(inode), Some(device), Some(date_modified)) = (
+						&entry.maybe_metadata,
+						&file_path.inode,
+						&file_path.device,
+						&file_path.date_modified,
+					) {
+						let (inode, device) =
+							(inode_from_db(&inode[0..8]), device_from_db(&device[0..8]));
+
+						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
+						// instead of using != operator
+						if inode != metadata.inode
+							|| device != metadata.device || DateTime::<FixedOffset>::from(
+							metadata.modified_at,
+						) - *date_modified
+							> Duration::milliseconds(1)
+						{
+							to_update.push((from_bytes_to_uuid(&file_path.pub_id), entry).into());
+						}
+					}
+
+					None
+				} else {
+					Some(entry.into())
+				}
+			})
+			.collect::<Vec<_>>();
+
+		(to_create.into_iter(), to_update.into_iter())
 	})
 }
 

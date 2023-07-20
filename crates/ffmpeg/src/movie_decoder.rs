@@ -331,7 +331,7 @@ impl MovieDecoder {
 						tag = unsafe {
 							av_dict_get(
 								(*stream).metadata,
-								empty_cstring.as_ptr() as *const i8,
+								empty_cstring.as_ptr(),
 								tag,
 								AV_DICT_IGNORE_SUFFIX,
 							)
@@ -711,9 +711,9 @@ fn setup_filter(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
-				args_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
+				args_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				graph_ctx,
 			)
@@ -736,8 +736,8 @@ fn setup_filter_without_args(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				std::ptr::null_mut(),
 				graph_ctx,

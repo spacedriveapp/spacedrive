@@ -5,11 +5,16 @@ use std::{
 };
 
 use libp2p::{core::UpgradeInfo, swarm::NegotiatedSubstream, InboundUpgrade};
+use tokio::io::AsyncReadExt;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::debug;
 
-use crate::{Manager, ManagerStreamAction, Metadata, PeerId, PeerMessageEvent};
+use crate::{
+	spacetime::{BroadcastStream, UnicastStream},
+	Manager, ManagerStreamAction, Metadata, PeerId, PeerMessageEvent,
+};
 
-use super::{SpaceTimeProtocolName, SpaceTimeStream};
+use super::SpaceTimeProtocolName;
 
 pub struct InboundProtocol<TMetadata: Metadata> {
 	pub(crate) peer_id: PeerId,
@@ -38,23 +43,38 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 				self.peer_id
 			);
 
-			let stream = SpaceTimeStream::from_stream(io).await;
-			debug!(
-				"stream({}, {id}): stream of type {} accepted",
-				self.peer_id,
-				stream.stream_type(),
-			);
-
-			Ok(ManagerStreamAction::Event(
-				PeerMessageEvent {
-					stream_id: id,
-					peer_id: self.peer_id,
-					manager: self.manager.clone(),
-					stream,
-					_priv: (),
+			let mut io = io.compat();
+			let discriminator = io.read_u8().await.unwrap(); // TODO: Timeout on this
+			match discriminator {
+				crate::spacetime::BROADCAST_DISCRIMINATOR => {
+					debug!("stream({}, {id}): broadcast stream accepted", self.peer_id);
+					Ok(ManagerStreamAction::Event(
+						PeerMessageEvent {
+							stream_id: id,
+							peer_id: self.peer_id,
+							manager: self.manager.clone(),
+							stream: BroadcastStream::new(io),
+							_priv: (),
+						}
+						.into(),
+					))
 				}
-				.into(),
-			))
+				crate::spacetime::UNICAST_DISCRIMINATOR => {
+					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
+
+					Ok(ManagerStreamAction::Event(
+						PeerMessageEvent {
+							stream_id: id,
+							peer_id: self.peer_id,
+							manager: self.manager.clone(),
+							stream: UnicastStream::new(io),
+							_priv: (),
+						}
+						.into(),
+					))
+				}
+				_ => todo!(), // TODO: Error handling
+			}
 		})
 	}
 }

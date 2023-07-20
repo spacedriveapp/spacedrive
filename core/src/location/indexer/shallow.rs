@@ -7,6 +7,7 @@ use crate::{
 			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 			IsolatedFilePathData,
 		},
+		indexer::{execute_indexer_update_step, IndexerJobUpdateStep},
 		LocationError,
 	},
 	to_remove_db_fetcher_fn,
@@ -66,7 +67,7 @@ pub async fn shallow(
 		(false, location_path.to_path_buf())
 	};
 
-	let (walked, to_remove, errors) = {
+	let (walked, to_update, to_remove, errors) = {
 		walk_single_dir(
 			&to_walk_path,
 			&indexer_rules,
@@ -84,31 +85,38 @@ pub async fn shallow(
 	// TODO pass these uuids to sync system
 	remove_non_existing_file_paths(to_remove, &db).await?;
 
-	let total_paths = &mut 0;
-
-	let steps = walked
+	let save_steps = walked
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.enumerate()
-		.map(|(i, chunk)| {
-			let chunk_steps = chunk.collect::<Vec<_>>();
-
-			*total_paths += chunk_steps.len() as u64;
-
-			IndexerJobSaveStep {
-				chunk_idx: i,
-				walked: chunk_steps,
-			}
+		.map(|(i, chunk)| IndexerJobSaveStep {
+			chunk_idx: i,
+			walked: chunk.collect::<Vec<_>>(),
 		})
 		.collect::<Vec<_>>();
 
-	for step in steps {
+	for step in save_steps {
 		execute_indexer_save_step(location, &step, library).await?;
+	}
+
+	let update_steps = to_update
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.enumerate()
+		.map(|(i, chunk)| IndexerJobUpdateStep {
+			chunk_idx: i,
+			to_update: chunk.collect::<Vec<_>>(),
+		})
+		.collect::<Vec<_>>();
+
+	for step in update_steps {
+		execute_indexer_update_step(&step, library).await?;
 	}
 
 	invalidate_query!(library, "search.paths");
 
 	library.orphan_remover.invoke().await;
+	library.thumbnail_remover.invoke().await;
 
 	Ok(())
 }

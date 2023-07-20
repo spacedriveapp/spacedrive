@@ -29,10 +29,11 @@ use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	execute_indexer_save_step, iso_file_path_factory, remove_non_existing_file_paths,
+	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
+	remove_non_existing_file_paths,
 	rules::IndexerRule,
 	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
-	IndexerError, IndexerJobSaveStep,
+	IndexerError, IndexerJobSaveStep, IndexerJobUpdateStep,
 };
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
@@ -69,8 +70,11 @@ pub struct IndexerJobRunMetadata {
 	db_write_time: Duration,
 	scan_read_time: Duration,
 	total_paths: u64,
+	total_updated_paths: u64,
 	total_save_steps: u64,
+	total_update_steps: u64,
 	indexed_count: u64,
+	updated_count: u64,
 	removed_count: u64,
 }
 
@@ -79,7 +83,9 @@ impl JobRunMetadata for IndexerJobRunMetadata {
 		self.db_write_time += new_data.db_write_time;
 		self.scan_read_time += new_data.scan_read_time;
 		self.total_paths += new_data.total_paths;
+		self.total_updated_paths += new_data.total_updated_paths;
 		self.total_save_steps += new_data.total_save_steps;
+		self.total_update_steps += new_data.total_update_steps;
 		self.indexed_count += new_data.indexed_count;
 		self.removed_count += new_data.removed_count;
 	}
@@ -89,6 +95,7 @@ impl JobRunMetadata for IndexerJobRunMetadata {
 pub enum ScanProgress {
 	ChunkCount(usize),
 	SavedChunks(usize),
+	UpdatedChunks(usize),
 	Message(String),
 }
 
@@ -99,7 +106,9 @@ impl IndexerJobData {
 				.into_iter()
 				.map(|p| match p {
 					ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
-					ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
+					ScanProgress::SavedChunks(p) | ScanProgress::UpdatedChunks(p) => {
+						JobReportUpdate::CompletedTaskCount(p)
+					}
 					ScanProgress::Message(m) => JobReportUpdate::Message(m),
 				})
 				.collect(),
@@ -110,9 +119,9 @@ impl IndexerJobData {
 /// `IndexerJobStepInput` defines the action that should be executed in the current step
 #[derive(Serialize, Deserialize, Debug)]
 pub enum IndexerJobStepInput {
-	/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
 	Save(IndexerJobSaveStep),
 	Walk(ToWalkEntry),
+	Update(IndexerJobUpdateStep),
 }
 
 /// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
@@ -172,6 +181,7 @@ impl StatefulJob for IndexerJobInit {
 		let scan_start = Instant::now();
 		let WalkResult {
 			walked,
+			to_update,
 			to_walk,
 			to_remove,
 			errors,
@@ -192,8 +202,11 @@ impl StatefulJob for IndexerJobInit {
 		let removed_count = remove_non_existing_file_paths(to_remove, &db).await?;
 		let db_delete_time = db_delete_start.elapsed();
 
-		let total_paths = &mut 0;
+		let total_new_paths = &mut 0;
+		let total_updated_paths = &mut 0;
 		let to_walk_count = to_walk.len();
+		let to_save_chunks = &mut 0;
+		let to_update_chunks = &mut 0;
 
 		let steps = walked
 			.chunks(BATCH_SIZE)
@@ -202,22 +215,41 @@ impl StatefulJob for IndexerJobInit {
 			.map(|(i, chunk)| {
 				let chunk_steps = chunk.collect::<Vec<_>>();
 
-				*total_paths += chunk_steps.len() as u64;
+				*total_new_paths += chunk_steps.len() as u64;
+				*to_save_chunks += 1;
 
 				IndexerJobStepInput::Save(IndexerJobSaveStep {
 					chunk_idx: i,
 					walked: chunk_steps,
 				})
 			})
+			.chain(
+				to_update
+					.chunks(BATCH_SIZE)
+					.into_iter()
+					.enumerate()
+					.map(|(i, chunk)| {
+						let chunk_updates = chunk.collect::<Vec<_>>();
+
+						*total_updated_paths += chunk_updates.len() as u64;
+						*to_update_chunks += 1;
+
+						IndexerJobStepInput::Update(IndexerJobUpdateStep {
+							chunk_idx: i,
+							to_update: chunk_updates,
+						})
+					}),
+			)
 			.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
 			.collect::<Vec<_>>();
 
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
-				ScanProgress::ChunkCount(steps.len() - to_walk_count),
+				ScanProgress::ChunkCount(*to_save_chunks + *to_update_chunks),
 				ScanProgress::Message(format!(
-					"Starting saving {total_paths} files or directories, \
+					"Starting saving {total_new_paths} files or directories, \
+					{total_updated_paths} files or directories to update, \
 					there still {to_walk_count} directories to index",
 				)),
 			],
@@ -232,10 +264,13 @@ impl StatefulJob for IndexerJobInit {
 			IndexerJobRunMetadata {
 				db_write_time: db_delete_time,
 				scan_read_time,
-				total_paths: *total_paths,
+				total_paths: *total_new_paths,
+				total_updated_paths: *total_updated_paths,
 				indexed_count: 0,
+				updated_count: 0,
 				removed_count,
-				total_save_steps: steps.len() as u64 - to_walk_count as u64,
+				total_save_steps: *to_save_chunks as u64,
+				total_update_steps: *to_update_chunks as u64,
 			},
 			steps,
 			errors
@@ -272,14 +307,34 @@ impl StatefulJob for IndexerJobInit {
 					],
 				);
 
-				let count =
-					execute_indexer_save_step(&init.location, step, &ctx.library.clone()).await?;
+				let count = execute_indexer_save_step(&init.location, step, &ctx.library).await?;
 
 				new_metadata.indexed_count = count as u64;
 				new_metadata.db_write_time = start_time.elapsed();
 
 				Ok(new_metadata.into())
 			}
+			IndexerJobStepInput::Update(to_update) => {
+				let start_time = Instant::now();
+				IndexerJobData::on_scan_progress(
+					ctx,
+					vec![
+						ScanProgress::UpdatedChunks(to_update.chunk_idx + 1),
+						ScanProgress::Message(format!(
+							"Updating chunk {} of {} to database",
+							to_update.chunk_idx, run_metadata.total_save_steps
+						)),
+					],
+				);
+
+				let count = execute_indexer_update_step(to_update, &ctx.library).await?;
+
+				new_metadata.updated_count = count as u64;
+				new_metadata.db_write_time = start_time.elapsed();
+
+				Ok(new_metadata.into())
+			}
+
 			IndexerJobStepInput::Walk(to_walk_entry) => {
 				let location_id = init.location.id;
 				let location_path =
@@ -291,6 +346,7 @@ impl StatefulJob for IndexerJobInit {
 
 				let WalkResult {
 					walked,
+					to_update,
 					to_walk,
 					to_remove,
 					errors,
@@ -320,12 +376,25 @@ impl StatefulJob for IndexerJobInit {
 					.map(|(i, chunk)| {
 						let chunk_steps = chunk.collect::<Vec<_>>();
 						new_metadata.total_paths += chunk_steps.len() as u64;
+						new_metadata.total_save_steps += 1;
 
 						IndexerJobStepInput::Save(IndexerJobSaveStep {
 							chunk_idx: i,
 							walked: chunk_steps,
 						})
 					})
+					.chain(to_update.chunks(BATCH_SIZE).into_iter().enumerate().map(
+						|(i, chunk)| {
+							let chunk_updates = chunk.collect::<Vec<_>>();
+							new_metadata.total_updated_paths += chunk_updates.len() as u64;
+							new_metadata.total_update_steps += 1;
+
+							IndexerJobStepInput::Update(IndexerJobUpdateStep {
+								chunk_idx: i,
+								to_update: chunk_updates,
+							})
+						},
+					))
 					.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
 					.collect::<Vec<_>>();
 
@@ -334,8 +403,11 @@ impl StatefulJob for IndexerJobInit {
 					vec![
 						ScanProgress::ChunkCount(more_steps.len() - to_walk_count),
 						ScanProgress::Message(format!(
-							"Scanned more {} files or directories; {} more directories to scan",
-							new_metadata.total_paths, to_walk_count
+							"Scanned more {} files or directories; \
+							{} more directories to scan and more {} entries to update",
+							new_metadata.total_paths,
+							to_walk_count,
+							new_metadata.total_updated_paths
 						)),
 					],
 				);
@@ -363,16 +435,23 @@ impl StatefulJob for IndexerJobInit {
 		let init = self;
 		info!(
 			"Scan of {} completed in {:?}. {} new files found, \
-			indexed {} files in db. db write completed in {:?}",
+			indexed {} files in db, updated {} entries. db write completed in {:?}",
 			maybe_missing(&init.location.path, "location.path")?,
 			run_metadata.scan_read_time,
 			run_metadata.total_paths,
 			run_metadata.indexed_count,
+			run_metadata.total_updated_paths,
 			run_metadata.db_write_time,
 		);
 
 		if run_metadata.indexed_count > 0 || run_metadata.removed_count > 0 {
 			invalidate_query!(ctx.library, "search.paths");
+		}
+
+		if run_metadata.total_updated_paths > 0 {
+			// Invoking orphan remover here as we probably have some orphans objects due to updates
+			ctx.library.orphan_remover.invoke().await;
+			ctx.library.thumbnail_remover.invoke().await;
 		}
 
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))

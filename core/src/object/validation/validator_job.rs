@@ -8,7 +8,7 @@ use crate::{
 		file_path_for_object_validator, IsolatedFilePathData,
 	},
 	prisma::{file_path, location},
-	sync,
+	sync::{self, OperationFactory},
 	util::{
 		db::{chain_optional_iter, maybe_missing},
 		error::FileIOError,
