@@ -20,8 +20,11 @@ use crate::{
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
-	sync,
-	util::{db::maybe_missing, error::FileIOError},
+	sync::{self, OperationFactory},
+	util::{
+		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
+		error::FileIOError,
+	},
 };
 
 #[cfg(target_family = "unix")]
@@ -39,7 +42,7 @@ use std::{
 
 use sd_file_ext::extensions::ImageExtension;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use notify::{Event, EventKind};
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
@@ -382,16 +385,8 @@ async fn inner_update_file(
 	let location_path = location_path.as_ref();
 
 	let (current_inode, current_device) = (
-		u64::from_le_bytes(
-			maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]
-				.try_into()
-				.map_err(|_| LocationManagerError::InvalidInode)?,
-		),
-		u64::from_le_bytes(
-			maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]
-				.try_into()
-				.map_err(|_| LocationManagerError::InvalidDevice)?,
-		),
+		inode_from_db(&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]),
+		device_from_db(&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]),
 	);
 
 	trace!(
@@ -451,7 +446,7 @@ async fn inner_update_file(
 						))),
 					),
 					{
-						let date = DateTime::<Local>::from(fs_metadata.modified_or_now()).into();
+						let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
 
 						(
 							(date_modified::NAME, json!(date)),
@@ -480,7 +475,7 @@ async fn inner_update_file(
 						if let Some(new_inode) = maybe_new_inode {
 							(
 								(inode::NAME, json!(new_inode)),
-								Some(inode::set(Some(new_inode.to_le_bytes().to_vec()))),
+								Some(inode::set(Some(inode_to_db(new_inode)))),
 							)
 						} else {
 							((inode::NAME, serde_json::Value::Null), None)
@@ -490,7 +485,7 @@ async fn inner_update_file(
 						if let Some(new_device) = maybe_new_device {
 							(
 								(device::NAME, json!(new_device)),
-								Some(device::set(Some(new_device.to_le_bytes().to_vec()))),
+								Some(device::set(Some(device_to_db(new_device)))),
 							)
 						} else {
 							((device::NAME, serde_json::Value::Null), None)
@@ -574,6 +569,7 @@ pub(super) async fn rename(
 	location_id: location::id::Type,
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
+	new_path_metadata: Metadata,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let location_path = extract_location_path(location_id, library).await?;
@@ -642,6 +638,9 @@ pub(super) async fn rename(
 					file_path::materialized_path::set(Some(new_path_materialized_str)),
 					file_path::name::set(Some(new.name.to_string())),
 					file_path::extension::set(Some(new.extension.to_string())),
+					file_path::date_modified::set(Some(
+						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
+					)),
 				],
 			)
 			.exec()
@@ -801,15 +800,11 @@ pub(super) async fn extract_inode_and_device_from_path(
 			Err(FilePathError::NotFound(path.into()).into()),
 			|file_path| {
 				Ok((
-					u64::from_le_bytes(
-						maybe_missing(file_path.inode, "file_path.inode")?[0..8]
-							.try_into()
-							.map_err(|_| LocationManagerError::InvalidInode)?,
+					inode_from_db(
+						&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8],
 					),
-					u64::from_le_bytes(
-						maybe_missing(file_path.device, "file_path.device")?[0..8]
-							.try_into()
-							.map_err(|_| LocationManagerError::InvalidDevice)?,
+					device_from_db(
+						&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8],
 					),
 				))
 			},

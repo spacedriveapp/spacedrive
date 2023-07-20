@@ -68,6 +68,17 @@ file_path::select!(file_path_to_isolate_with_id {
 	name
 	extension
 });
+file_path::select!(file_path_walker {
+	pub_id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+	date_modified
+	inode
+	device
+});
 file_path::select!(file_path_to_handle_custom_uri {
 	materialized_path
 	is_dir
@@ -170,9 +181,11 @@ pub async fn create_file_path(
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
+	use crate::util::db::{device_to_db, inode_to_db};
 	use crate::{sync, util::db::uuid_to_bytes};
 
 	use sd_prisma::prisma;
+	use sd_sync::OperationFactory;
 	use serde_json::json;
 	use uuid::Uuid;
 
@@ -213,30 +226,34 @@ pub async fn create_file_path(
 	let pub_id = uuid_to_bytes(Uuid::new_v4());
 
 	let created_path = sync
-		.write_op(
+		.write_ops(
 			db,
-			sync.unique_shared_create(
-				sync::file_path::SyncId {
-					pub_id: pub_id.clone(),
-				},
-				params,
+			(
+				sync.shared_create(
+					sync::file_path::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					params,
+				),
+				db.file_path().create(pub_id, {
+					use file_path::*;
+					vec![
+						location::connect(prisma::location::id::equals(location.id)),
+						materialized_path::set(Some(materialized_path.into_owned())),
+						name::set(Some(name.into_owned())),
+						extension::set(Some(extension.into_owned())),
+						inode::set(Some(inode_to_db(metadata.inode))),
+						device::set(Some(device_to_db(metadata.device))),
+						cas_id::set(cas_id),
+						is_dir::set(Some(is_dir)),
+						size_in_bytes_bytes::set(Some(
+							metadata.size_in_bytes.to_be_bytes().to_vec(),
+						)),
+						date_created::set(Some(metadata.created_at.into())),
+						date_modified::set(Some(metadata.modified_at.into())),
+					]
+				}),
 			),
-			db.file_path().create(pub_id, {
-				use file_path::*;
-				vec![
-					location::connect(prisma::location::id::equals(location.id)),
-					materialized_path::set(Some(materialized_path.into_owned())),
-					name::set(Some(name.into_owned())),
-					extension::set(Some(extension.into_owned())),
-					inode::set(Some(metadata.inode.to_le_bytes().into())),
-					device::set(Some(metadata.device.to_le_bytes().into())),
-					cas_id::set(cas_id),
-					is_dir::set(Some(is_dir)),
-					size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
-					date_created::set(Some(metadata.created_at.into())),
-					date_modified::set(Some(metadata.modified_at.into())),
-				]
-			}),
 		)
 		.await?;
 

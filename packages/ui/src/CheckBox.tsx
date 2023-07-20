@@ -1,5 +1,6 @@
 import * as Checkbox from '@radix-ui/react-checkbox';
 import { VariantProps, cva } from 'class-variance-authority';
+import clsx from 'clsx';
 import { Check } from 'phosphor-react';
 import { ComponentProps, forwardRef } from 'react';
 
@@ -24,8 +25,8 @@ export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root>
 }
 
 // TODO: Replace above with this, requires refactor of usage
-export const RadixCheckbox = (props: RadixCheckboxProps) => (
-	<div className="flex items-center">
+export const RadixCheckbox = ({ className, ...props }: RadixCheckboxProps) => (
+	<div className={clsx('flex items-center', className)}>
 		<Checkbox.Root
 			className="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-md border border-app-line bg-app-button radix-state-checked:bg-accent"
 			id={props.name}

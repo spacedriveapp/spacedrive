@@ -51,6 +51,9 @@ impl Category {
 			Category::Music => ObjectKind::Audio,
 			Category::Books => ObjectKind::Book,
 			Category::Encrypted => ObjectKind::Encrypted,
+			Category::Databases => ObjectKind::Database,
+			Category::Archives => ObjectKind::Archive,
+			Category::Applications => ObjectKind::Executable,
 			_ => unimplemented!("Category::to_object_kind() for {:?}", self),
 		}
 	}
@@ -63,6 +66,9 @@ impl Category {
 			| Category::Videos
 			| Category::Music
 			| Category::Encrypted
+			| Category::Databases
+			| Category::Archives
+			| Category::Applications
 			| Category::Books => object::kind::equals(Some(self.to_object_kind() as i32)),
 			_ => object::id::equals(-1),
 		}

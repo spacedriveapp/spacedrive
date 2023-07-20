@@ -8,3 +8,4 @@ export * from './useP2PEvents';
 export * from './usePlausible';
 export * from './useTelemetryState';
 export * from './useThemeStore';
+export * from './useNotifications';

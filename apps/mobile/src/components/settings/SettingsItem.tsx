@@ -13,15 +13,15 @@ export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable onPress={props.onPress}>
 			<View style={tw`flex flex-row items-center justify-between bg-app-box px-4`}>
-				<View style={tw`flex flex-row items-center py-4`}>
+				<View style={tw`flex flex-row items-center py-3`}>
 					{props.leftIcon &&
 						props.leftIcon({ size: 20, color: tw.color('ink'), style: tw`mr-3` })}
-					<Text style={tw`text-[14px] text-ink`}>{props.title}</Text>
+					<Text style={tw`text-[14px] font-medium text-ink`}>{props.title}</Text>
 				</View>
 				{props.rightArea ? (
 					props.rightArea
 				) : (
-					<CaretRight size={20} color={tw.color('ink-dull')} />
+					<CaretRight size={20} color={tw.color('ink')} />
 				)}
 			</View>
 		</Pressable>

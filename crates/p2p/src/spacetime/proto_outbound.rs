@@ -10,6 +10,7 @@ use libp2p::{
 	OutboundUpgrade,
 };
 use tokio::sync::oneshot;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::error;
 
 use super::{SpaceTimeProtocolName, UnicastStream, BROADCAST_DISCRIMINATOR};
@@ -62,7 +63,7 @@ impl OutboundUpgrade<NegotiatedSubstream> for OutboundProtocol {
 			}
 			OutboundRequest::Unicast(sender) => {
 				// We write the discriminator to the stream in the `Manager::stream` method before returning the stream to the user to make async a tad nicer.
-				sender.send(UnicastStream::new(io)).unwrap();
+				sender.send(UnicastStream::new(io.compat())).unwrap();
 			}
 		}
 

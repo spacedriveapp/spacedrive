@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'event-target-polyfill';
 import * as SplashScreen from 'expo-splash-screen';
 import { Suspense, lazy } from 'react';
 import { Platform } from 'react-native';
@@ -6,6 +7,17 @@ import { reactNativeLink } from './lib/rspcReactNativeTransport';
 
 // Enable the splash screen
 SplashScreen.preventAutoHideAsync();
+
+// The worlds worse pollyfill for "CustomEvent". I tried "custom-event-pollyfill" from npm but it uses `document` :(
+if (typeof globalThis.CustomEvent !== 'function') {
+	// @ts-expect-error
+	globalThis.CustomEvent = (event, params) => {
+		const evt = new Event(event, params);
+		// @ts-expect-error
+		evt.detail = params.detail;
+		return evt;
+	};
+}
 
 const _localStorage = new Map<string, string>();
 

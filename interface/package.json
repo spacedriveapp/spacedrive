@@ -37,6 +37,7 @@
 		"@tanstack/react-table": "^8.8.5",
 		"@tanstack/react-virtual": "3.0.0-beta.54",
 		"@types/react-scroll-sync": "^0.8.4",
+		"@types/uuid": "^9.0.2",
 		"@vitejs/plugin-react": "^2.1.0",
 		"autoprefixer": "^10.4.12",
 		"class-variance-authority": "^0.5.3",
@@ -58,6 +59,7 @@
 		"react-router-dom": "6.9.0",
 		"react-scroll-sync": "^0.11.0",
 		"react-selecto": "^1.22.3",
+		"react-sticky-el": "^2.1.0",
 		"react-use-draggable-scroll": "^0.4.7",
 		"remix-params-helper": "^0.4.10",
 		"rooks": "^5.14.0",
@@ -66,6 +68,7 @@
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^8.0.4",
 		"use-resize-observer": "^9.1.0",
+		"uuid": "^9.0.0",
 		"valtio": "^1.7.4"
 	},
 	"devDependencies": {
