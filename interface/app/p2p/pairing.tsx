@@ -60,6 +60,9 @@ function OriginatorDialog({
 					.with({ type: 'PairingRequested' }, () => (
 						<PairingLoading msg="Requesting to pair..." />
 					))
+					.with({ type: 'LibraryAlreadyExists' }, () => (
+						<PairingLoading msg={`Pairing failed due to library already existing!`} />
+					))
 					.with({ type: 'PairingDecisionRequest' }, () => (
 						<PairingResponder pairingId={pairingId} />
 					))

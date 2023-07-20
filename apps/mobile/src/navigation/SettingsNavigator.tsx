@@ -7,6 +7,7 @@ import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
 import LibrarySettingsScreen from '~/screens/settings/client/LibrarySettings';
 import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
+import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
@@ -104,6 +105,11 @@ export default function SettingsNavigator() {
 				component={SupportScreen}
 				options={{ headerTitle: 'Support' }}
 			/>
+			<SettingsStack.Screen
+				name="Debug"
+				component={DebugScreen}
+				options={{ headerTitle: 'Debug' }}
+			/>
 		</SettingsStack.Navigator>
 	);
 }
@@ -130,6 +136,7 @@ export type SettingsStackParamList = {
 	// Info
 	About: undefined;
 	Support: undefined;
+	Debug: undefined;
 };
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =
