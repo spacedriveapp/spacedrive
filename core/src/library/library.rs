@@ -8,7 +8,10 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
+	object::{
+		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
+		thumbnail_remover::ThumbnailRemoverActor,
+	},
 	prisma::{file_path, location, PrismaClient},
 	sync::SyncManager,
 	util::{db::maybe_missing, error::FileIOError},
@@ -48,6 +51,7 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
+	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
 impl Debug for Library {
