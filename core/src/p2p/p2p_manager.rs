@@ -7,6 +7,7 @@ use std::{
 };
 
 use futures::Stream;
+use sd_core_sync::SyncMessage;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{Identity, Tunnel},
@@ -28,7 +29,6 @@ use crate::{
 	library::{LibraryManager, SubscriberEvent},
 	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
-	sync::SyncMessage,
 };
 
 use super::{Header, PairingManager, PairingStatus, PeerMetadata};

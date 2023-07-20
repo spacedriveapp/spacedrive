@@ -1,7 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
 
-use crate::{prisma::*, util::db::uuid_to_bytes};
+use sd_prisma::{prisma::*, prisma_sync::ModelSyncData};
 use sd_sync::*;
+use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -13,7 +14,7 @@ use tokio::sync::broadcast::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
 use uuid::Uuid;
 
-use super::ModelSyncData;
+pub use sd_prisma::prisma_sync;
 
 #[derive(Clone)]
 pub enum SyncMessage {

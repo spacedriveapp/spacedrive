@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
 	"core",
+	"core/crates/*",
 	"crates/*",
 	# "crates/p2p/tunnel",
 	# "crates/p2p/tunnel/utils",
@@ -42,6 +43,9 @@ tauri-specta = { version = "1.0.2" }
 swift-rs = { version = "1.0.5" }
 
 tokio = { version = "1.28.2" }
+uuid = { version = "1.3.3", features = ["v4", "serde"] }
+serde = { version = "1.0" }
+serde_json = { version = "1.0" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1

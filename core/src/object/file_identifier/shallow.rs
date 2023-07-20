@@ -7,7 +7,7 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::{chain_optional_iter, maybe_missing},
+	util::db::maybe_missing,
 };
 
 use std::path::{Path, PathBuf};
@@ -120,7 +120,7 @@ fn orphan_path_filters(
 	file_path_id: Option<file_path::id::Type>,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Vec<file_path::WhereParam> {
-	chain_optional_iter(
+	sd_utils::chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
 			file_path::is_dir::equals(Some(false)),

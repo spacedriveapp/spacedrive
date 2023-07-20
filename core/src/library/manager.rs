@@ -4,7 +4,6 @@ use crate::{
 	node::{NodeConfig, Platform},
 	object::{orphan_remover::OrphanRemoverActor, tag},
 	prisma::location,
-	sync::{SyncManager, SyncMessage},
 	util::{
 		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
@@ -21,6 +20,7 @@ use std::{
 };
 
 use chrono::Utc;
+use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use sd_prisma::prisma::instance;
 use thiserror::Error;

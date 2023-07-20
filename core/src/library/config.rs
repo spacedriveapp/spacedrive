@@ -2,7 +2,7 @@ use crate::{
 	node::{NodeConfig, Platform},
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
-		db::{maybe_missing, uuid_to_bytes},
+		db::maybe_missing,
 		migrator::{Migrate, MigratorError},
 	},
 };
@@ -65,9 +65,9 @@ impl Migrate for LibraryConfig {
 						.map(|(i, name)| {
 							db.indexer_rule().update_many(
 								vec![indexer_rule::name::equals(Some(name))],
-								vec![indexer_rule::pub_id::set(uuid_to_bytes(Uuid::from_u128(
-									i as u128,
-								)))],
+								vec![indexer_rule::pub_id::set(sd_utils::uuid_to_bytes(
+									Uuid::from_u128(i as u128),
+								))],
 							)
 						})
 						.collect::<Vec<_>>(),

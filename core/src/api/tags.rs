@@ -1,5 +1,7 @@
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_prisma::prisma_sync;
+use sd_sync::OperationFactory;
 use serde::Deserialize;
 use specta::Type;
 
@@ -10,7 +12,6 @@ use crate::{
 	library::Library,
 	object::tag::TagCreateArgs,
 	prisma::{object, tag, tag_on_object},
-	sync::{self, OperationFactory},
 };
 
 use super::{utils::library, Ctx, R};
@@ -85,11 +86,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					macro_rules! sync_id {
 						($object:ident) => {
-							sync::tag_on_object::SyncId {
-								tag: sync::tag::SyncId {
+							prisma_sync::tag_on_object::SyncId {
+								tag: prisma_sync::tag::SyncId {
 									pub_id: tag.pub_id.clone(),
 								},
-								object: sync::object::SyncId {
+								object: prisma_sync::object::SyncId {
 									pub_id: $object.pub_id.clone(),
 								},
 							}
@@ -182,7 +183,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.flatten()
 							.map(|(k, v)| {
 								sync.shared_update(
-									sync::tag::SyncId {
+									prisma_sync::tag::SyncId {
 										pub_id: tag.pub_id.clone(),
 									},
 									k,

@@ -10,7 +10,6 @@ use crate::{
 	},
 	object::preview::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
-	util::db::chain_optional_iter,
 };
 
 use std::collections::BTreeSet;
@@ -159,7 +158,7 @@ impl FilePathFilterArgs {
 		{
 			use file_path::*;
 
-			Ok(chain_optional_iter(
+			Ok(sd_utils::chain_optional_iter(
 				self.search
 					.unwrap_or_default()
 					.split(' ')
@@ -248,7 +247,7 @@ impl ObjectFilterArgs {
 	fn into_params(self) -> Vec<object::WhereParam> {
 		use object::*;
 
-		chain_optional_iter(
+		sd_utils::chain_optional_iter(
 			[],
 			[
 				self.hidden.to_param(),

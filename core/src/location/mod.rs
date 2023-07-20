@@ -8,8 +8,7 @@ use crate::{
 		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	sync,
-	util::{db::chain_optional_iter, error::FileIOError},
+	util::error::FileIOError,
 };
 
 use std::{
@@ -21,6 +20,7 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
+use sd_prisma::prisma_sync;
 use sd_sync::*;
 use serde::Deserialize;
 use serde_json::json;
@@ -273,7 +273,7 @@ impl LocationUpdateArgs {
 						.into_iter()
 						.map(|p| {
 							sync.shared_update(
-								sync::location::SyncId {
+								prisma_sync::location::SyncId {
 									pub_id: location.pub_id.clone(),
 								},
 								p.0,
@@ -479,7 +479,7 @@ pub async fn relink_location(
 	sync.write_op(
 		db,
 		sync.shared_update(
-			sync::location::SyncId {
+			prisma_sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
 			location::path::NAME,
@@ -584,7 +584,7 @@ async fn create_location(
 			db,
 			(
 				sync.shared_create(
-					sync::location::SyncId {
+					prisma_sync::location::SyncId {
 						pub_id: location_pub_id.as_bytes().to_vec(),
 					},
 					[
@@ -593,7 +593,7 @@ async fn create_location(
 						(location::date_created::NAME, json!(date_created)),
 						(
 							location::instance_id::NAME,
-							json!(sync::instance::SyncId {
+							json!(prisma_sync::instance::SyncId {
 								pub_id: vec![],
 								// id: library.config.instance_id,
 							}),
@@ -692,7 +692,7 @@ pub async fn delete_directory(
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
-	let children_params = chain_optional_iter(
+	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
 		[parent_iso_file_path.and_then(|parent| {
 			parent

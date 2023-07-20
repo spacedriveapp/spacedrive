@@ -10,7 +10,6 @@ use crate::{
 	node::NodeConfigManager,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
-	sync::SyncManager,
 	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
 };
@@ -40,7 +39,7 @@ pub struct Library {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<SyncManager>,
+	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// node_context holds the node context for the node which this library is running on.

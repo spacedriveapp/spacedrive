@@ -8,11 +8,7 @@ use crate::{
 		file_path_for_object_validator, IsolatedFilePathData,
 	},
 	prisma::{file_path, location},
-	sync::{self, OperationFactory},
-	util::{
-		db::{chain_optional_iter, maybe_missing},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{
@@ -20,6 +16,8 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use sd_prisma::prisma_sync;
+use sd_sync::OperationFactory;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::info;
@@ -101,7 +99,7 @@ impl StatefulJob for ObjectValidatorJobInit {
 
 		let steps = db
 			.file_path()
-			.find_many(chain_optional_iter(
+			.find_many(sd_utils::chain_optional_iter(
 				[
 					file_path::location_id::equals(Some(init.location.id)),
 					file_path::is_dir::equals(Some(false)),
@@ -153,7 +151,7 @@ impl StatefulJob for ObjectValidatorJobInit {
 			sync.write_op(
 				db,
 				sync.shared_update(
-					sync::file_path::SyncId {
+					prisma_sync::file_path::SyncId {
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::integrity_checksum::NAME,
