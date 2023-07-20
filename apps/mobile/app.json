@@ -9,6 +9,7 @@
 		"scheme": "spacedrive",
 		"platforms": ["ios", "android"],
 		"userInterfaceStyle": "automatic",
+		"icon": "./assets/icon.png",
 		"updates": {
 			"enabled": false,
 			"fallbackToCacheTimeout": 0
@@ -17,7 +18,13 @@
 		"ios": {
 			"supportsTablet": false
 		},
-		"android": {},
+		"android": {
+			"package": "com.spacedrive.app"
+		},
+		"splash": {
+			"image": "./assets/splash.png",
+			"backgroundColor": "#000000"
+		},
 		"privacy": "hidden"
 	}
 }
