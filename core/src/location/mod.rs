@@ -723,11 +723,10 @@ pub async fn delete_directory(
 		})],
 	);
 
-	for params in children_params.chunks(512) {
-		db.file_path().delete_many(params.to_vec()).exec().await?;
-	}
+	db.file_path().delete_many(children_params).exec().await?;
 
 	library.orphan_remover.invoke().await;
+	library.thumbnail_remover.invoke().await;
 	invalidate_query!(library, "search.paths");
 
 	Ok(())
