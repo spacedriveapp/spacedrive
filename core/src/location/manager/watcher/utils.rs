@@ -35,6 +35,7 @@ use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
 	collections::HashSet,
+	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
 	str::FromStr,
@@ -43,7 +44,7 @@ use std::{
 use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, Local, Utc};
-use notify::{Event, EventKind};
+use notify::Event;
 use prisma_client_rust::{raw, PrismaValue};
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
@@ -55,10 +56,9 @@ use super::INodeAndDevice;
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
 	!event.paths.iter().any(|p| {
-		let path_str = p.to_str().expect("Found non-UTF-8 path");
-
-		path_str.contains(".DS_Store")
-			|| (path_str.contains(".spacedrive") && matches!(event.kind, EventKind::Create(_)))
+		p.file_name()
+			.and_then(OsStr::to_str)
+			.map_or(false, |name| name == ".DS_Store" || name == ".spacedrive")
 			|| ignore_paths.contains(p)
 	})
 }
@@ -600,8 +600,10 @@ pub(super) async fn rename(
 	if let Some(file_path) = db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, old_path, false)?,
-		))
+			location_id,
+			&location_path,
+			old_path,
+		)?)
 		.exec()
 		.await?
 	{
@@ -664,8 +666,8 @@ pub(super) async fn remove(
 	let Some(file_path) = library.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, &location_path, full_path, false)?,
-		))
+		location_id, &location_path, full_path,
+		)?)
 		.exec()
 		.await? else {
 			return Ok(());
@@ -715,8 +717,6 @@ pub(super) async fn remove_by_file_path(
 						.await?;
 				}
 			}
-
-			library.orphan_remover.invoke().await;
 		}
 		Err(e) => return Err(FileIOError::from((path, e)).into()),
 	}
@@ -791,8 +791,10 @@ pub(super) async fn extract_inode_and_device_from_path(
 		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-			&IsolatedFilePathData::new(location_id, location_path, path, false)?,
-		))
+			location_id,
+			location_path,
+			path,
+		)?)
 		.select(file_path::select!({ inode device }))
 		.exec()
 		.await?
