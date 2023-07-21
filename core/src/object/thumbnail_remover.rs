@@ -149,6 +149,7 @@ impl ThumbnailRemoverActor {
 			return Ok(());
 		}
 
+		// TODO(brxken128): ensure we're not pulling *too* many at once
 		let thumbnail_ids = db
 			.file_path()
 			.find_many(vec![])
