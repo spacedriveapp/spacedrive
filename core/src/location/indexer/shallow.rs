@@ -116,7 +116,7 @@ pub async fn shallow(
 	invalidate_query!(library, "search.paths");
 
 	library.orphan_remover.invoke().await;
-	library.thumbnail_remover.invoke().await;
+	library.thumbnail_remover_proxy.invoke().await;
 
 	Ok(())
 }

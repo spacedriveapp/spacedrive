@@ -3,8 +3,10 @@ use crate::{
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
 	object::{
-		orphan_remover::OrphanRemoverActor, preview::THUMBNAIL_CACHE_DIR_NAME, tag,
-		thumbnail_remover::ThumbnailRemoverActor,
+		orphan_remover::OrphanRemoverActor,
+		preview::get_thumbnails_directory,
+		tag,
+		thumbnail_remover::{ThumbnailRemoverActor, ThumbnailRemoverActorProxy},
 	},
 	prisma::location,
 	sync::{SyncManager, SyncMessage},
@@ -64,6 +66,8 @@ pub struct LibraryManager {
 	node_context: NodeContext,
 	/// on load subscribers
 	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
+	/// An actor that removes stale thumbnails from the file system
+	thumbnail_remover: ThumbnailRemoverActor,
 }
 
 #[derive(Error, Debug)]
@@ -127,6 +131,8 @@ impl LibraryManager {
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
+		let thumbnail_remover = ThumbnailRemoverActor::new(get_thumbnails_directory(&node_context));
+
 		while let Some(entry) = read_dir
 			.next_entry()
 			.await
@@ -147,7 +153,11 @@ impl LibraryManager {
 				.file_stem()
 				.and_then(|v| v.to_str().map(Uuid::from_str))
 			else {
-				warn!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", config_path.display());
+				warn!(
+					"Attempted to load library from path '{}' \
+					but it has an invalid filename. Skipping...",
+					config_path.display()
+				);
 					continue;
 			};
 
@@ -164,24 +174,30 @@ impl LibraryManager {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				libraries.push(
-					Self::load(
-						library_id,
-						&db_path,
+				let library = Self::load(
+					library_id,
+					None,
+					true,
+					LibraryLoadManagerParams {
+						db_path,
 						config_path,
-						node_context.clone(),
-						&subscribers,
-						None,
-						true,
-					)
-					.await?,
-				);
+						node_context: node_context.clone(),
+						subscribers: &subscribers,
+						thumbnail_remover_proxy: thumbnail_remover.proxy(),
+					},
+				)
+				.await?;
+
+				thumbnail_remover.new_library(&library).await;
+
+				libraries.push(library);
 			}
 		}
 
 		Ok(Arc::new(Self {
 			libraries: RwLock::new(libraries),
 			libraries_dir,
+			thumbnail_remover,
 			node_context,
 			subscribers,
 		}))
@@ -242,10 +258,6 @@ impl LibraryManager {
 		let now = Utc::now().fixed_offset();
 		let library = Self::load(
 			id,
-			self.libraries_dir.join(format!("{id}.db")),
-			config_path,
-			self.node_context.clone(),
-			&self.subscribers,
 			Some(instance::Create {
 				pub_id: Uuid::new_v4().as_bytes().to_vec(),
 				identity: Identity::new().to_bytes(),
@@ -257,6 +269,13 @@ impl LibraryManager {
 				_params: vec![instance::id::set(config.instance_id)],
 			}),
 			should_seed,
+			LibraryLoadManagerParams {
+				db_path: self.libraries_dir.join(format!("{id}.db")),
+				config_path,
+				node_context: self.node_context.clone(),
+				subscribers: &self.subscribers,
+				thumbnail_remover_proxy: self.thumbnail_remover.proxy(),
+			},
 		)
 		.await?;
 
@@ -270,6 +289,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
+		self.thumbnail_remover.new_library(&library).await;
 		self.libraries.write().await.push(library);
 
 		debug!("Pushed library into manager '{id:?}'");
@@ -381,6 +401,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
+		self.thumbnail_remover.remove_library(id).await;
 		self.libraries.write().await.retain(|l| l.id != id);
 
 		Ok(())
@@ -399,12 +420,15 @@ impl LibraryManager {
 	/// load the library from a given path
 	async fn load(
 		id: Uuid,
-		db_path: impl AsRef<Path>,
-		config_path: PathBuf,
-		node_context: NodeContext,
-		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
 		create: Option<instance::Create>,
 		should_seed: bool,
+		LibraryLoadManagerParams {
+			db_path,
+			config_path,
+			node_context,
+			subscribers,
+			thumbnail_remover_proxy,
+		}: LibraryLoadManagerParams<'_, impl AsRef<Path>, impl AsRef<Path>>,
 	) -> Result<Library, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -420,9 +444,11 @@ impl LibraryManager {
 		}
 
 		let node_config = node_context.config.get().await;
-		let config =
-			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
-				.await?;
+		let config = LibraryConfig::load_and_migrate(
+			config_path.as_ref(),
+			&(node_config.clone(), db.clone()),
+		)
+		.await?;
 
 		let instance = db
 			.instance()
@@ -478,13 +504,7 @@ impl LibraryManager {
 			// key_manager,
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
-			thumbnail_remover: ThumbnailRemoverActor::spawn(
-				db.clone(),
-				node_context
-					.config
-					.data_directory()
-					.join(THUMBNAIL_CACHE_DIR_NAME),
-			),
+			thumbnail_remover_proxy,
 			db,
 			node_context,
 			identity,
@@ -527,4 +547,12 @@ impl LibraryManager {
 
 		Ok(library)
 	}
+}
+
+struct LibraryLoadManagerParams<'subs, DbPath: AsRef<Path>, ConfigPath: AsRef<Path>> {
+	db_path: DbPath,
+	config_path: ConfigPath,
+	node_context: NodeContext,
+	subscribers: &'subs RwLock<Vec<Box<dyn SubscriberFn>>>,
+	thumbnail_remover_proxy: ThumbnailRemoverActorProxy,
 }

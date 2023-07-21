@@ -96,6 +96,9 @@ regex = "1.8.4"
 hex = "0.4.3"
 int-enum = "0.5.0"
 tokio-stream = "0.1.14"
+futures-concurrency = "7.3"
+async-channel = "1.9"
+tokio-util = "0.7"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

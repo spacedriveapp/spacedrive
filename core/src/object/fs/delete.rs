@@ -99,7 +99,7 @@ impl StatefulJob for FileDeleterJobInit {
 		invalidate_query!(ctx.library, "search.paths");
 
 		ctx.library.orphan_remover.invoke().await;
-		ctx.library.thumbnail_remover.invoke().await;
+		ctx.library.thumbnail_remover_proxy.invoke().await;
 
 		Ok(Some(json!({ "init": init })))
 	}

@@ -451,7 +451,7 @@ impl StatefulJob for IndexerJobInit {
 		if run_metadata.total_updated_paths > 0 {
 			// Invoking orphan remover here as we probably have some orphans objects due to updates
 			ctx.library.orphan_remover.invoke().await;
-			ctx.library.thumbnail_remover.invoke().await;
+			ctx.library.thumbnail_remover_proxy.invoke().await;
 		}
 
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
