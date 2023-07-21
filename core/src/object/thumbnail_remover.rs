@@ -3,9 +3,8 @@ use crate::{
 	util::error::{FileIOError, NonUtf8PathError},
 };
 
-use std::{collections::HashSet, ffi::OsStr, path::Path, sync::Arc, time::Duration};
+use std::{ffi::OsStr, path::Path, sync::Arc, time::Duration};
 
-use futures::future::try_join_all;
 use thiserror::Error;
 use tokio::{
 	fs, select,
@@ -81,6 +80,8 @@ impl ThumbnailRemoverActor {
 			.await
 			.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;
 
+		let mut thumbnail_paths = Vec::new();
+
 		while let Some(entry) = read_dir
 			.next_entry()
 			.await
@@ -103,8 +104,6 @@ impl ThumbnailRemoverActor {
 				})?
 				.to_str()
 				.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
-
-			let mut thumbnails_paths_by_cas_id = Vec::new();
 
 			let mut entry_read_dir = fs::read_dir(&entry_path)
 				.await
@@ -133,50 +132,46 @@ impl ThumbnailRemoverActor {
 					.to_str()
 					.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 
-				thumbnails_paths_by_cas_id
+				thumbnail_paths
 					.push((format!("{}{}", entry_path_name, thumbnail_name), thumb_path));
 			}
+		}
 
-			if thumbnails_paths_by_cas_id.is_empty() {
-				fs::remove_dir(&entry_path)
-					.await
-					.map_err(|e| FileIOError::from((entry_path, e)))?;
+		if thumbnail_paths.is_empty() {
+			error!(
+				"Deleting the thumbnail directory ({}) as it's empty",
+				&thumbnails_directory.display()
+			);
+			fs::remove_dir(&thumbnails_directory)
+				.await
+				.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;
 
-				continue;
-			}
+			return Ok(());
+		}
 
-			let thumbs_in_db = db
-				.file_path()
-				.find_many(vec![file_path::cas_id::in_vec(
-					thumbnails_paths_by_cas_id
-						.iter()
-						.map(|(cas_id, _)| cas_id)
-						.cloned()
-						.collect(),
-				)])
-				.select(file_path::select!({ cas_id }))
-				.exec()
-				.await?
-				.into_iter()
-				.map(|file_path| {
-					file_path
-						.cas_id
-						.expect("only file paths with a cas_id were queried")
-				})
-				.collect::<HashSet<_>>();
+		let thumbnail_ids = db
+			.file_path()
+			.find_many(vec![])
+			.select(file_path::select!({ cas_id }))
+			.exec()
+			.await?
+			.into_iter()
+			.filter_map(|file_path| file_path.cas_id)
+			.collect::<Vec<_>>();
 
-			try_join_all(
-				thumbnails_paths_by_cas_id
-					.into_iter()
-					.filter_map(|(cas_id, path)| {
-						(!thumbs_in_db.contains(&cas_id)).then_some(async move {
-							fs::remove_file(&path)
-								.await
-								.map_err(|e| FileIOError::from((path, e)))
-						})
-					}),
-			)
-			.await?;
+		let dissociated_paths = thumbnail_paths
+			.into_iter()
+			.filter_map(|(cas_id, path)| thumbnail_ids.contains(&cas_id).then_some(path))
+			.collect::<Vec<_>>();
+
+		for file in dissociated_paths {
+			error!(
+				"Deleting the thumbnail for {} as it's no longer associated with the library",
+				&file.display()
+			);
+			fs::remove_file(&file)
+				.await
+				.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;
 		}
 
 		Ok(())
