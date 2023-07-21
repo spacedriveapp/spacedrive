@@ -40,6 +40,24 @@ pub(crate) fn library() -> impl Middleware<Ctx> + SealedMiddleware<Ctx, NewCtx =
 				)
 			})?;
 
+		// let library_id = library_id.to_string();
+		// let span = match mw.req.kind {
+		// 	ProcedureKind::Query => {
+		// 		let query = mw.req.path.as_ref();
+		// 		tracing::info_span!("rspc", query, library_id)
+		// 	}
+		// 	ProcedureKind::Mutation => {
+		// 		let mutation = mw.req.path.as_ref();
+		// 		tracing::info_span!("rspc", mutation, library_id)
+		// 	}
+		// 	ProcedureKind::Subscription => {
+		// 		let subscription = mw.req.path.as_ref();
+		// 		tracing::info_span!("rspc", subscription, library_id)
+		// 	}
+		// };
+
+		// .with_span(Some(span)) // TODO: Reenable this once we move off the tracing fork.
+
 		Ok(mw.next((ctx, library)))
 	})
 }

@@ -5801,7 +5801,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=59b2273ffb7f36a1877345db39288ef77c3c6f47#59b2273ffb7f36a1877345db39288ef77c3c6f47"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=f1aa252e8e00629faa8c4048d1d5107cdaec5775#f1aa252e8e00629faa8c4048d1d5107cdaec5775"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -5834,7 +5834,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=59b2273ffb7f36a1877345db39288ef77c3c6f47#59b2273ffb7f36a1877345db39288ef77c3c6f47"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=f1aa252e8e00629faa8c4048d1d5107cdaec5775#f1aa252e8e00629faa8c4048d1d5107cdaec5775"
 dependencies = [
  "directories",
  "flate2",
@@ -5854,7 +5854,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-generator"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=59b2273ffb7f36a1877345db39288ef77c3c6f47#59b2273ffb7f36a1877345db39288ef77c3c6f47"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=f1aa252e8e00629faa8c4048d1d5107cdaec5775#f1aa252e8e00629faa8c4048d1d5107cdaec5775"
 dependencies = [
  "directories",
  "flate2",
@@ -5874,7 +5874,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-macros"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=59b2273ffb7f36a1877345db39288ef77c3c6f47#59b2273ffb7f36a1877345db39288ef77c3c6f47"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=f1aa252e8e00629faa8c4048d1d5107cdaec5775#f1aa252e8e00629faa8c4048d1d5107cdaec5775"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -5886,7 +5886,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.8"
-source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=59b2273ffb7f36a1877345db39288ef77c3c6f47#59b2273ffb7f36a1877345db39288ef77c3c6f47"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?rev=f1aa252e8e00629faa8c4048d1d5107cdaec5775#f1aa252e8e00629faa8c4048d1d5107cdaec5775"
 dependencies = [
  "convert_case 0.5.0",
  "dmmf",
@@ -6706,9 +6706,9 @@ dependencies = [
 
 [[package]]
 name = "rspc"
-version = "1.0.0-rc.4"
+version = "1.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c87a25cf698d12bd9c499b140e480f3547dd3b7363bdc8aa539b6635e2f44196"
+checksum = "a278cced0cd23bd1cb2beb4ee81e1a1f7309bcb12b23bdd98dd94a28e7220d4e"
 dependencies = [
  "futures",
  "httpz 0.0.5",
@@ -6721,6 +6721,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing 0.1.37",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -7194,6 +7195,7 @@ dependencies = [
  "objc-foundation",
  "objc_id",
  "sd-mobile-core",
+ "tracing 0.1.37",
 ]
 
 [[package]]
@@ -8942,6 +8944,8 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
+ "futures",
+ "futures-task",
  "pin-project",
  "tracing 0.1.37",
 ]

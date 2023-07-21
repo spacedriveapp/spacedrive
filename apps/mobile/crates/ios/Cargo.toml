@@ -22,3 +22,6 @@ sd-mobile-core = { path = "../core" }
 objc = "0.2.7"
 objc_id = "0.1.1"
 objc-foundation = "0.1.1"
+
+# Other
+tracing = "0.1.37"
