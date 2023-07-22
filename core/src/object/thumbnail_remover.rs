@@ -18,7 +18,7 @@ use futures::{stream::FuturesUnordered, FutureExt};
 use futures_concurrency::{future::TryJoin, stream::Merge};
 use thiserror::Error;
 use tokio::{
-	fs,
+	fs, io,
 	time::{interval, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
@@ -230,9 +230,11 @@ impl ThumbnailRemoverActor {
 
 				trace!("Removing thumbnail: {}", thumbnail_path.display());
 
-				fs::remove_file(&thumbnail_path)
-					.await
-					.map_err(|e| FileIOError::from((thumbnail_path, e)))
+				match fs::remove_file(&thumbnail_path).await {
+					Ok(()) => Ok(()),
+					Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+					Err(e) => Err(FileIOError::from((thumbnail_path, e))),
+				}
 			})
 			.collect::<Vec<_>>()
 			.try_join()
