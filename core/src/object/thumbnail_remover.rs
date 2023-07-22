@@ -19,15 +19,14 @@ use futures_concurrency::{future::TryJoin, stream::Merge};
 use thiserror::Error;
 use tokio::{
 	fs,
-	time::{interval_at, Instant, MissedTickBehavior},
+	time::{interval, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
-const TEN_SECONDS: Duration = Duration::from_secs(10);
-const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
+const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Error, Debug)]
 enum ThumbnailRemoverActorError {
@@ -43,17 +42,11 @@ enum ThumbnailRemoverActorError {
 
 #[derive(Clone)]
 pub struct ThumbnailRemoverActorProxy {
-	invoker: chan::Sender<()>,
+	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
 	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
 }
 
 impl ThumbnailRemoverActorProxy {
-	pub async fn invoke(&self) {
-		if self.invoker.send(()).await.is_err() {
-			error!("Thumbnail remover actor is dead");
-		}
-	}
-
 	pub async fn new_non_indexed_thumbnail(&self, cas_id: String) {
 		if self
 			.non_indexed_thumbnails_cas_ids_tx
@@ -61,6 +54,12 @@ impl ThumbnailRemoverActorProxy {
 			.await
 			.is_err()
 		{
+			error!("Thumbnail remover actor is dead");
+		}
+	}
+
+	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
+		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
 			error!("Thumbnail remover actor is dead");
 		}
 	}
@@ -72,19 +71,19 @@ enum DatabaseMessage {
 }
 
 pub struct ThumbnailRemoverActor {
-	invoke_tx: chan::Sender<()>,
 	databases_tx: chan::Sender<DatabaseMessage>,
+	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
 	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
 	_cancel_loop: DropGuard,
 }
 
 impl ThumbnailRemoverActor {
 	pub fn new(thumbnails_directory: impl AsRef<Path>) -> Self {
-		let (invoke_tx, invoke_rx) = chan::bounded(4);
 		let thumbnails_directory = thumbnails_directory.as_ref().to_path_buf();
 		let (databases_tx, databases_rx) = chan::bounded(4);
 		let (non_indexed_thumbnails_cas_ids_tx, non_indexed_thumbnails_cas_ids_rx) =
 			chan::unbounded();
+		let (cas_ids_to_delete_tx, cas_ids_to_delete_rx) = chan::bounded(16);
 		let cancel_token = CancellationToken::new();
 
 		let inner_cancel_token = cancel_token.child_token();
@@ -92,8 +91,8 @@ impl ThumbnailRemoverActor {
 			loop {
 				if let Err(e) = tokio::spawn(Self::worker(
 					thumbnails_directory.clone(),
-					invoke_rx.clone(),
 					databases_rx.clone(),
+					cas_ids_to_delete_rx.clone(),
 					non_indexed_thumbnails_cas_ids_rx.clone(),
 					inner_cancel_token.child_token(),
 				))
@@ -112,8 +111,8 @@ impl ThumbnailRemoverActor {
 		});
 
 		Self {
-			invoke_tx,
 			databases_tx,
+			cas_ids_to_delete_tx,
 			non_indexed_thumbnails_cas_ids_tx,
 			_cancel_loop: cancel_token.drop_guard(),
 		}
@@ -143,28 +142,27 @@ impl ThumbnailRemoverActor {
 
 	pub fn proxy(&self) -> ThumbnailRemoverActorProxy {
 		ThumbnailRemoverActorProxy {
-			invoker: self.invoke_tx.clone(),
+			cas_ids_to_delete_tx: self.cas_ids_to_delete_tx.clone(),
 			non_indexed_thumbnails_cas_ids_tx: self.non_indexed_thumbnails_cas_ids_tx.clone(),
 		}
 	}
 
 	async fn worker(
 		thumbnails_directory: PathBuf,
-		invoke_rx: chan::Receiver<()>,
 		databases_rx: chan::Receiver<DatabaseMessage>,
+		cas_ids_to_delete_rx: chan::Receiver<Vec<String>>,
 		non_indexed_thumbnails_cas_ids_rx: chan::Receiver<String>,
 		cancel_token: CancellationToken,
 	) {
-		let mut last_checked = Instant::now();
-
-		let mut check_interval = interval_at(Instant::now() + FIVE_MINUTES, FIVE_MINUTES);
+		let mut check_interval = interval(HALF_HOUR);
 		check_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
 		let mut databases = HashMap::new();
 		let mut non_indexed_thumbnails_cas_ids = HashSet::new();
 
 		enum StreamMessage {
-			Invoke,
+			Run,
+			ToDelete(Vec<String>),
 			Database(DatabaseMessage),
 			NonIndexedThumbnail(String),
 			Stop,
@@ -173,19 +171,19 @@ impl ThumbnailRemoverActor {
 		let cancel = pin!(cancel_token.cancelled());
 
 		let mut msg_stream = (
-			invoke_rx.map(|()| StreamMessage::Invoke),
 			databases_rx.map(StreamMessage::Database),
+			cas_ids_to_delete_rx.map(StreamMessage::ToDelete),
 			non_indexed_thumbnails_cas_ids_rx.map(StreamMessage::NonIndexedThumbnail),
-			IntervalStream::new(check_interval).map(|_| StreamMessage::Invoke),
+			IntervalStream::new(check_interval).map(|_| StreamMessage::Run),
 			cancel.into_stream().map(|()| StreamMessage::Stop),
 		)
 			.merge();
 
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
-				StreamMessage::Invoke => {
+				StreamMessage::Run => {
 					// For any of them we process a clean up if a time since the last one already passed
-					if last_checked.elapsed() > TEN_SECONDS && !databases.is_empty() {
+					if !databases.is_empty() {
 						if let Err(e) = Self::process_clean_up(
 							&thumbnails_directory,
 							databases.values(),
@@ -195,9 +193,14 @@ impl ThumbnailRemoverActor {
 						{
 							error!("Got an error when trying to clean stale thumbnails: {e:#?}");
 						}
-						last_checked = Instant::now();
 					}
 				}
+				StreamMessage::ToDelete(cas_ids) => {
+					if let Err(e) = Self::remove_by_cas_ids(&thumbnails_directory, cas_ids).await {
+						error!("Got an error when trying to remove thumbnails: {e:#?}");
+					}
+				}
+
 				StreamMessage::Database(DatabaseMessage::Add(id, db)) => {
 					databases.insert(id, db);
 				}
@@ -213,6 +216,29 @@ impl ThumbnailRemoverActor {
 				}
 			}
 		}
+	}
+
+	async fn remove_by_cas_ids(
+		thumbnails_directory: &Path,
+		cas_ids: Vec<String>,
+	) -> Result<(), ThumbnailRemoverActorError> {
+		cas_ids
+			.into_iter()
+			.map(|cas_id| async move {
+				let thumbnail_path =
+					thumbnails_directory.join(format!("{}/{}.webp", &cas_id[0..2], &cas_id[2..]));
+
+				trace!("Removing thumbnail: {}", thumbnail_path.display());
+
+				fs::remove_file(&thumbnail_path)
+					.await
+					.map_err(|e| FileIOError::from((thumbnail_path, e)))
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+
+		Ok(())
 	}
 
 	async fn process_clean_up(

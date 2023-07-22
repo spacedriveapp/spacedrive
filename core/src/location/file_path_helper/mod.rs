@@ -5,7 +5,6 @@ use crate::{
 
 use std::{
 	fs::Metadata,
-	hash::{Hash, Hasher},
 	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 	time::SystemTime,
 };
@@ -24,7 +23,7 @@ pub use isolated_file_path_data::{
 };
 
 // File Path selectables!
-file_path::select!(file_path_just_pub_id { pub_id });
+file_path::select!(file_path_pub_and_cas_ids { pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
 	materialized_path
@@ -103,20 +102,6 @@ file_path::select!(file_path_to_full_path {
 
 // File Path includes!
 file_path::include!(file_path_with_object { object });
-
-impl Hash for file_path_just_pub_id::Data {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.pub_id.hash(state);
-	}
-}
-
-impl PartialEq for file_path_just_pub_id::Data {
-	fn eq(&self, other: &Self) -> bool {
-		self.pub_id == other.pub_id
-	}
-}
-
-impl Eq for file_path_just_pub_id::Data {}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct FilePathMetadata {

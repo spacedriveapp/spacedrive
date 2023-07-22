@@ -80,6 +80,16 @@ pub async fn shallow(
 		.await?
 	};
 
+	library
+		.thumbnail_remover_proxy
+		.remove_cas_ids(
+			to_remove
+				.iter()
+				.filter_map(|file_path| file_path.cas_id.clone())
+				.collect::<Vec<_>>(),
+		)
+		.await;
+
 	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system
@@ -116,7 +126,6 @@ pub async fn shallow(
 	invalidate_query!(library, "search.paths");
 
 	library.orphan_remover.invoke().await;
-	library.thumbnail_remover_proxy.invoke().await;
 
 	Ok(())
 }
