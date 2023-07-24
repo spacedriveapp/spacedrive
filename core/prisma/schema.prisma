@@ -85,7 +85,7 @@ model Instance {
     date_created DateTime
 
 	// clock timestamp for sync
-    timestamp BigInt
+    timestamp BigInt?
 
     // attestation Bytes
 

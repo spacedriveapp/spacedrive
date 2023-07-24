@@ -203,7 +203,7 @@ impl LibraryManager {
 					node_platform: Platform::current() as i32,
 					last_seen: now,
 					date_created: now,
-					timestamp: Default::default(), // TODO: Source this properly!
+					// timestamp: Default::default(), // TODO: Source this properly!
 					_params: vec![instance::id::set(config.instance_id)],
 				}),
 				should_seed,

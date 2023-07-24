@@ -308,7 +308,7 @@ impl SyncManager {
 			.instance()
 			.update(
 				instance::pub_id::equals(uuid_to_bytes(op_instance)),
-				vec![instance::timestamp::set(op_timestamp.as_u64() as i64)],
+				vec![instance::timestamp::set(Some(op_timestamp.as_u64() as i64))],
 			)
 			.exec()
 			.await
