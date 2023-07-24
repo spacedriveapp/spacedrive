@@ -220,8 +220,6 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		debug!("Pushed library into manager '{id:?}'");
-
 		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
@@ -418,6 +416,8 @@ impl LibraryManager {
 			db,
 			self.clone(),
 		));
+
+		self.libraries.write().await.push(library.clone());
 
 		if should_seed {
 			library.orphan_remover.invoke().await;
