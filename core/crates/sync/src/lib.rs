@@ -51,7 +51,7 @@ impl SyncManager {
 		tx: &PrismaClient,
 		(_ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		#[cfg(feature = "sync-messages")]
+		#[cfg(feature = "emit-messages")]
 		let res = {
 			macro_rules! variant {
 				($var:ident, $variant:ident, $fn:ident) => {
@@ -78,7 +78,7 @@ impl SyncManager {
 
 			res
 		};
-		#[cfg(not(feature = "sync-messages"))]
+		#[cfg(not(feature = "emit-messages"))]
 		let res = tx._batch([queries]).await?.remove(0);
 
 		Ok(res)
@@ -91,7 +91,7 @@ impl SyncManager {
 		op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		#[cfg(feature = "sync-messages")]
+		#[cfg(feature = "emit-messages")]
 		let ret = {
 			macro_rules! exec {
 				($fn:ident, $inner:ident) => {
@@ -108,7 +108,7 @@ impl SyncManager {
 
 			ret
 		};
-		#[cfg(not(feature = "sync-messages"))]
+		#[cfg(not(feature = "emit-messages"))]
 		let ret = tx._batch(vec![query]).await?.remove(0);
 
 		Ok(ret)

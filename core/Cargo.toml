@@ -15,7 +15,6 @@ mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
-sync-messages = []
 heif = ["dep:sd-heif"]
 
 [dependencies]
