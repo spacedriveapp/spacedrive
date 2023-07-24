@@ -20,7 +20,6 @@ use crate::{
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
-	sync::{self, OperationFactory},
 	util::{
 		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
 		error::FileIOError,
@@ -47,6 +46,8 @@ use sd_file_ext::extensions::ImageExtension;
 use chrono::{DateTime, Local, Utc};
 use notify::Event;
 use prisma_client_rust::{raw, PrismaValue};
+use sd_prisma::prisma_sync;
+use sd_sync::OperationFactory;
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
 use tracing::{debug, error, trace, warn};
@@ -508,7 +509,7 @@ async fn inner_update_file(
 						.into_iter()
 						.map(|(field, value)| {
 							sync.shared_update(
-								sync::file_path::SyncId {
+								prisma_sync::file_path::SyncId {
 									pub_id: file_path.pub_id.clone(),
 								},
 								field,
@@ -544,7 +545,7 @@ async fn inner_update_file(
 					sync.write_op(
 						db,
 						sync.shared_update(
-							sync::object::SyncId {
+							prisma_sync::object::SyncId {
 								pub_id: object.pub_id.clone(),
 							},
 							object::kind::NAME,

@@ -1,9 +1,8 @@
 use crate::{
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
-	sync,
 	util::{
-		db::{device_to_db, inode_to_db, uuid_to_bytes},
+		db::{device_to_db, inode_to_db},
 		error::FileIOError,
 	},
 };
@@ -12,6 +11,7 @@ use std::path::Path;
 
 use chrono::Utc;
 use rspc::ErrorCode;
+use sd_prisma::prisma_sync;
 use sd_sync::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -103,13 +103,13 @@ async fn execute_indexer_save_step(
 
 			use file_path::*;
 
-			let pub_id = uuid_to_bytes(entry.pub_id);
+			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				(
 					(
 						location::NAME,
-						json!(sync::location::SyncId {
+						json!(prisma_sync::location::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -160,8 +160,8 @@ async fn execute_indexer_save_step(
 
 			(
 				sync.shared_create(
-					sync::file_path::SyncId {
-						pub_id: uuid_to_bytes(entry.pub_id),
+					prisma_sync::file_path::SyncId {
+						pub_id: sd_utils::uuid_to_bytes(entry.pub_id),
 					},
 					sync_params,
 				),
@@ -199,7 +199,7 @@ async fn execute_indexer_update_step(
 
 			use file_path::*;
 
-			let pub_id = uuid_to_bytes(entry.pub_id);
+			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id as null
@@ -243,7 +243,7 @@ async fn execute_indexer_update_step(
 					.into_iter()
 					.map(|(field, value)| {
 						sync.shared_update(
-							sync::file_path::SyncId {
+							prisma_sync::file_path::SyncId {
 								pub_id: pub_id.clone(),
 							},
 							field,
