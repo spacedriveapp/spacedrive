@@ -20,7 +20,6 @@ use crate::{
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
-	sync::{self, OperationFactory},
 	util::{
 		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
 		error::FileIOError,
@@ -39,6 +38,7 @@ use std::{
 	fs::Metadata,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
 use sd_file_ext::extensions::ImageExtension;
@@ -46,6 +46,8 @@ use sd_file_ext::extensions::ImageExtension;
 use chrono::{DateTime, Local, Utc};
 use notify::Event;
 use prisma_client_rust::{raw, PrismaValue};
+use sd_prisma::prisma_sync;
+use sd_sync::OperationFactory;
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
 use tracing::{debug, error, trace, warn};
@@ -67,7 +69,7 @@ pub(super) async fn create_dir(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let location = find_location(library, location_id)
 		.include(location_with_indexer_rules::include())
@@ -144,7 +146,7 @@ pub(super) async fn create_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	inner_create_file(
 		location_id,
@@ -161,7 +163,7 @@ async fn inner_create_file(
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
 	let location_path = location_path.as_ref();
@@ -324,7 +326,7 @@ async fn inner_create_file(
 pub(super) async fn create_dir_or_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<Metadata, LocationManagerError> {
 	let path = path.as_ref();
 	let metadata = fs::metadata(path)
@@ -342,7 +344,7 @@ pub(super) async fn create_dir_or_file(
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
@@ -507,7 +509,7 @@ async fn inner_update_file(
 						.into_iter()
 						.map(|(field, value)| {
 							sync.shared_update(
-								sync::file_path::SyncId {
+								prisma_sync::file_path::SyncId {
 									pub_id: file_path.pub_id.clone(),
 								},
 								field,
@@ -543,7 +545,7 @@ async fn inner_update_file(
 					sync.write_op(
 						db,
 						sync.shared_update(
-							sync::object::SyncId {
+							prisma_sync::object::SyncId {
 								pub_id: object.pub_id.clone(),
 							},
 							object::kind::NAME,

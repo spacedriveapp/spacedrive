@@ -107,7 +107,7 @@ impl PreferenceKVs {
 		self
 	}
 
-	pub fn to_upserts(self, db: &PrismaClient) -> Vec<preference::UpsertQuery> {
+	pub fn into_upserts(self, db: &PrismaClient) -> Vec<preference::UpsertQuery> {
 		self.0
 			.into_iter()
 			.map(|(key, value)| {

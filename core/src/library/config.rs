@@ -2,7 +2,7 @@ use crate::{
 	node::{NodeConfig, Platform},
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
-		db::{maybe_missing, uuid_to_bytes},
+		db::maybe_missing,
 		migrator::{Migrate, MigratorError},
 	},
 };
@@ -23,7 +23,7 @@ use uuid::Uuid;
 use super::name::LibraryName;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: LibraryName,
@@ -65,9 +65,9 @@ impl Migrate for LibraryConfig {
 						.map(|(i, name)| {
 							db.indexer_rule().update_many(
 								vec![indexer_rule::name::equals(Some(name))],
-								vec![indexer_rule::pub_id::set(uuid_to_bytes(Uuid::from_u128(
-									i as u128,
-								)))],
+								vec![indexer_rule::pub_id::set(sd_utils::uuid_to_bytes(
+									Uuid::from_u128(i as u128),
+								))],
 							)
 						})
 						.collect::<Vec<_>>(),
@@ -185,6 +185,7 @@ impl Migrate for LibraryConfig {
 					node_platform: Platform::current() as i32,
 					last_seen: now,
 					date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
+					// timestamp: Default::default(), // TODO: Source this properly!
 					_params: vec![],
 				}
 				.to_query(db)

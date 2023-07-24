@@ -3,6 +3,7 @@ use crate::{library::Library, prisma::location, util::db::maybe_missing};
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -50,8 +51,8 @@ pub(super) async fn check_online(
 
 pub(super) async fn location_check_sleep(
 	location_id: location::id::Type,
-	library: Library,
-) -> (location::id::Type, Library) {
+	library: Arc<Library>,
+) -> (location::id::Type, Arc<Library>) {
 	sleep(LOCATION_CHECK_INTERVAL).await;
 	(location_id, library)
 }
@@ -131,7 +132,7 @@ pub(super) async fn get_location(
 
 pub(super) async fn handle_remove_location_request(
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -172,7 +173,7 @@ pub(super) async fn handle_remove_location_request(
 
 pub(super) async fn handle_stop_watcher_request(
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -180,7 +181,7 @@ pub(super) async fn handle_stop_watcher_request(
 ) {
 	async fn inner(
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -215,7 +216,7 @@ pub(super) async fn handle_stop_watcher_request(
 
 pub(super) async fn handle_reinit_watcher_request(
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -223,7 +224,7 @@ pub(super) async fn handle_reinit_watcher_request(
 ) {
 	async fn inner(
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
@@ -258,7 +259,7 @@ pub(super) async fn handle_reinit_watcher_request(
 
 pub(super) fn handle_ignore_path_request(
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	path: PathBuf,
 	ignore: bool,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
