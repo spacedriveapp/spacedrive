@@ -10,7 +10,7 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{Identity, Tunnel},
-	Event, Manager, ManagerError, MetadataManager, PeerId,
+	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
 use sd_sync::CRDTOperation;
 use serde::Serialize;
@@ -25,10 +25,9 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
-	library::{LibraryManager, SubscriberEvent},
+	library::LibraryManager,
 	node::{NodeConfig, NodeConfigManager},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
-	sync::SyncMessage,
 };
 
 use super::{Header, PairingManager, PairingStatus, PeerMetadata};
@@ -69,25 +68,23 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	library_manager: Arc<LibraryManager>,
 }
 
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-		library_manager: Arc<LibraryManager>,
-	) -> Result<Arc<Self>, ManagerError> {
+	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(
-				Self::config_to_metadata(&config, &library_manager).await,
+				Self::config_to_metadata(&config /* , &library_manager */).await,
 				config.keypair,
 			)
 		};
 
 		let metadata_manager = MetadataManager::new(config);
 
-		let (manager, mut stream) =
+		let (manager, stream) =
 			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
 
 		info!(
@@ -102,13 +99,55 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
-		let pairing = PairingManager::new(manager.clone(), tx.clone(), library_manager.clone());
+		let pairing = PairingManager::new(manager.clone(), tx.clone());
+
+		// TODO: proper shutdown
+		// https://docs.rs/ctrlc/latest/ctrlc/
+		// https://docs.rs/system_shutdown/latest/system_shutdown/
+
+		let this = Arc::new(Self {
+			pairing,
+			events: (tx, rx),
+			manager,
+			spacedrop_pairing_reqs,
+			metadata_manager,
+			spacedrop_progress,
+		});
+
+		// library_manager
+		// 	.subscribe({
+		// 		let this = this.clone();
+		// 		move |event| match event {
+		// 			SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
+		// 				let this = this.clone();
+		// 			}
+		// 		}
+		// 	})
+		// 	.await;
+
+		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
-			let events = tx.clone();
-			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
-			let spacedrop_progress = spacedrop_progress.clone();
-			let library_manager = library_manager.clone();
-			let pairing = pairing.clone();
+			let this = this.clone();
+			async move {
+				loop {
+					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+					this.ping().await;
+				}
+			}
+		});
+
+		Ok((this, stream))
+	}
+	pub fn start(
+		&self,
+		mut stream: ManagerStream<PeerMetadata>,
+		library_manager: Arc<LibraryManager>,
+	) {
+		tokio::spawn({
+			let events = self.events.0.clone();
+			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
+			let spacedrop_progress = self.spacedrop_progress.clone();
+			let pairing = self.pairing.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -204,7 +243,9 @@ impl P2PManager {
 										};
 									}
 									Header::Pair => {
-										pairing.responder(event.peer_id, stream).await;
+										pairing
+											.responder(event.peer_id, stream, library_manager)
+											.await;
 									}
 									Header::Sync(library_id) => {
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
@@ -228,14 +269,12 @@ impl P2PManager {
 										};
 
 										for op in operations {
-											library.sync.ingest_op(op).await.unwrap_or_else(
-												|err| {
-													error!(
-														"error ingesting operation for library '{}': {err:?}",
-														library.id
-													);
-												},
-											);
+											library.sync.apply_op(op).await.unwrap_or_else(|err| {
+												error!(
+													"error ingesting operation for library '{}': {err:?}",
+													library.id
+												);
+											});
 										}
 									}
 								}
@@ -259,57 +298,11 @@ impl P2PManager {
 				}
 			}
 		});
-
-		// TODO: proper shutdown
-		// https://docs.rs/ctrlc/latest/ctrlc/
-		// https://docs.rs/system_shutdown/latest/system_shutdown/
-
-		let this = Arc::new(Self {
-			pairing,
-			events: (tx, rx),
-			manager,
-			spacedrop_pairing_reqs,
-			metadata_manager,
-			spacedrop_progress,
-			library_manager: library_manager.clone(),
-		});
-
-		library_manager
-			.subscribe({
-				let this = this.clone();
-				move |event| match event {
-					SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
-						let this = this.clone();
-						tokio::spawn(async move {
-							while let Ok(op) = sync_rx.recv().await {
-								let SyncMessage::Created(op) = op else { continue; };
-
-								this.broadcast_sync_events(library_id, &library_identity, vec![op])
-									.await;
-							}
-						});
-					}
-				}
-			})
-			.await;
-
-		// TODO: Probs remove this once connection timeout/keepalive are working correctly
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				loop {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					this.ping().await;
-				}
-			}
-		});
-
-		Ok(this)
 	}
 
 	async fn config_to_metadata(
 		config: &NodeConfig,
-		library_manager: &LibraryManager,
+		// library_manager: &LibraryManager,
 	) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
@@ -317,24 +310,27 @@ impl P2PManager {
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
-			instances: library_manager
-				.get_all_instances()
-				.await
-				.into_iter()
-				.filter_map(|i| {
-					Identity::from_bytes(&i.identity)
-						.map(|i| hex::encode(i.public_key().to_bytes()))
-						.ok()
-				})
-				.collect(),
+			// instances: library_manager
+			// 	.get_all_instances()
+			// 	.await
+			// 	.into_iter()
+			// 	.filter_map(|i| {
+			// 		Identity::from_bytes(&i.identity)
+			// 			.map(|i| hex::encode(i.public_key().to_bytes()))
+			// 			.ok()
+			// 	})
+			// 	.collect(),
 		}
 	}
 
 	#[allow(unused)] // TODO: Should probs be using this
-	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
-		self.metadata_manager.update(
-			Self::config_to_metadata(&node_config_manager.get().await, &self.library_manager).await,
-		);
+	pub async fn update_metadata(
+		&self,
+		node_config_manager: &NodeConfigManager,
+		library_manager: &LibraryManager,
+	) {
+		self.metadata_manager
+			.update(Self::config_to_metadata(&node_config_manager.get().await).await);
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
@@ -358,7 +354,10 @@ impl P2PManager {
 		library_id: Uuid,
 		_identity: &Identity,
 		event: Vec<CRDTOperation>,
+		library_manager: &LibraryManager,
 	) {
+		println!("broadcasting sync events!");
+
 		let mut buf = match rmp_serde::to_vec_named(&event) {
 			Ok(buf) => buf,
 			Err(e) => {
@@ -374,7 +373,7 @@ impl P2PManager {
 
 		// TODO: Establish a connection to them
 
-		let _library = self.library_manager.get_library(library_id).await.unwrap();
+		let _library = library_manager.get_library(library_id).await.unwrap();
 
 		todo!();
 

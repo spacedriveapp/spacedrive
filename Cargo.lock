@@ -7102,6 +7102,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
@@ -7109,6 +7110,7 @@ dependencies = [
  "sd-p2p",
  "sd-prisma",
  "sd-sync",
+ "sd-utils",
  "serde",
  "serde-hashkey",
  "serde_json",
@@ -7126,10 +7128,24 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber 0.3.0",
  "tracing-test",
- "uhlc",
  "uuid",
  "webp",
  "winapi-util",
+]
+
+[[package]]
+name = "sd-core-sync"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-prisma",
+ "sd-sync",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uhlc",
+ "uuid",
 ]
 
 [[package]]
@@ -7326,6 +7342,13 @@ dependencies = [
  "quote",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "sd-utils"
+version = "0.1.0"
+dependencies = [
+ "uuid",
 ]
 
 [[package]]

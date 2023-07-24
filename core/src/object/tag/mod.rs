@@ -1,6 +1,7 @@
 pub mod seed;
 
 use chrono::{DateTime, FixedOffset, Utc};
+use sd_prisma::prisma_sync;
 use sd_sync::*;
 use serde::Deserialize;
 use serde_json::json;
@@ -8,7 +9,7 @@ use specta::Type;
 
 use uuid::Uuid;
 
-use crate::{library::Library, prisma::tag, sync};
+use crate::{library::Library, prisma::tag};
 
 #[derive(Type, Deserialize, Clone)]
 pub struct TagCreateArgs {
@@ -28,7 +29,7 @@ impl TagCreateArgs {
 			db,
 			(
 				sync.shared_create(
-					sync::tag::SyncId {
+					prisma_sync::tag::SyncId {
 						pub_id: pub_id.clone(),
 					},
 					[

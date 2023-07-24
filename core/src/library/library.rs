@@ -9,11 +9,11 @@ use crate::{
 	},
 	node::NodeConfigManager,
 	object::{
-		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
+		orphan_remover::OrphanRemoverActor,
+		preview::{get_thumbnail_path, THUMBNAIL_CACHE_DIR_NAME},
 		thumbnail_remover::ThumbnailRemoverActor,
 	},
 	prisma::{file_path, location, PrismaClient},
-	sync::SyncManager,
 	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
 };
@@ -26,13 +26,14 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManagerError};
+use super::{LibraryConfig, LibraryManager, LibraryManagerError};
 
 /// LibraryContext holds context for a library which can be passed around the application.
 pub struct Library {
@@ -42,7 +43,7 @@ pub struct Library {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<SyncManager>,
+	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// node_context holds the node context for the node which this library is running on.
@@ -66,6 +67,53 @@ impl Debug for Library {
 }
 
 impl Library {
+	pub fn new(
+		id: Uuid,
+		instance_id: Uuid,
+		config: LibraryConfig,
+		identity: Arc<Identity>,
+		db: Arc<PrismaClient>,
+		library_manager: Arc<LibraryManager>,
+		// node_context: Arc<NodeContext>,
+	) -> Self {
+		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
+		let node_context = library_manager.node_context.clone();
+
+		let library = Self {
+			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
+			thumbnail_remover: ThumbnailRemoverActor::spawn(
+				db.clone(),
+				node_context
+					.config
+					.data_directory()
+					.join(THUMBNAIL_CACHE_DIR_NAME),
+			),
+			id,
+			db,
+			config,
+			node_context,
+			// key_manager,
+			sync: Arc::new(sync_manager),
+			identity: identity.clone(),
+		};
+
+		tokio::spawn({
+			async move {
+				while let Ok(op) = sync_rx.recv().await {
+					let SyncMessage::Created(op) = op else { continue; };
+
+					library_manager
+						.node_context
+						.p2p
+						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
+						.await;
+				}
+			}
+		});
+
+		library
+	}
+
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.node_context.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
