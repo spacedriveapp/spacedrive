@@ -402,7 +402,6 @@ pub async fn scan_location(
 	.map_err(Into::into)
 }
 
-#[cfg(feature = "location-watcher")]
 pub async fn scan_location_sub_path(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,

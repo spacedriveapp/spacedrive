@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		location_with_indexer_rules, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -163,6 +163,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?
 							.ok_or(LocationError::IdNotFound(location_id))?,
+					)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
+		.procedure("sub_path_rescan", {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct RescanArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: String,
+			}
+
+			R.with2(library()).mutation(
+				|(_, library),
+				 RescanArgs {
+				     location_id,
+				     sub_path,
+				 }: RescanArgs| async move {
+					scan_location_sub_path(
+						&library,
+						find_location(&library, location_id)
+							.include(location_with_indexer_rules::include())
+							.exec()
+							.await?
+							.ok_or(LocationError::IdNotFound(location_id))?,
+						sub_path,
 					)
 					.await
 					.map_err(Into::into)
