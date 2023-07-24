@@ -23,7 +23,7 @@ use uuid::Uuid;
 use super::name::LibraryName;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: LibraryName,

@@ -82,7 +82,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		debug!("Identifying orphan File Paths...");
 

@@ -28,7 +28,7 @@ pub async fn shallow(
 	sub_path: &PathBuf,
 	library: &Library,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = &library;
+	let Library { db, .. } = library;
 
 	debug!("Identifying orphan File Paths...");
 

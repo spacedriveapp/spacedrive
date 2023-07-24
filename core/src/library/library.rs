@@ -36,7 +36,6 @@ use uuid::Uuid;
 use super::{LibraryConfig, LibraryManager, LibraryManagerError};
 
 /// LibraryContext holds context for a library which can be passed around the application.
-#[derive(Clone)]
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,

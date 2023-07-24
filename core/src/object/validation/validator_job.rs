@@ -64,7 +64,7 @@ impl StatefulJob for ObjectValidatorJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let location_id = init.location.id;
 
@@ -133,7 +133,7 @@ impl StatefulJob for ObjectValidatorJobInit {
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		let init = self;
-		let Library { db, sync, .. } = &ctx.library;
+		let Library { db, sync, .. } = &*ctx.library;
 
 		// this is to skip files that already have checksums
 		// i'm unsure what the desired behaviour is in this case
