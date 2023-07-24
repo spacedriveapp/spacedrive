@@ -243,9 +243,9 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_instances(&self) -> Vec<instance::Data> {
-		vec![] // TODO: Cache in memory
-	}
+	// pub(crate) async fn get_all_instances(&self) -> Vec<instance::Data> {
+	// 	vec![] // TODO: Cache in memory
+	// }
 
 	pub(crate) async fn edit(
 		&self,

@@ -8,7 +8,11 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
+	object::{
+		orphan_remover::OrphanRemoverActor,
+		preview::{get_thumbnail_path, THUMBNAIL_CACHE_DIR_NAME},
+		thumbnail_remover::ThumbnailRemoverActor,
+	},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
 	NodeContext,
@@ -48,6 +52,7 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
+	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
 impl Debug for Library {
@@ -73,15 +78,23 @@ impl Library {
 		// node_context: Arc<NodeContext>,
 	) -> Self {
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
+		let node_context = library_manager.node_context.clone();
 
 		let library = Self {
+			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
+			thumbnail_remover: ThumbnailRemoverActor::spawn(
+				db.clone(),
+				node_context
+					.config
+					.data_directory()
+					.join(THUMBNAIL_CACHE_DIR_NAME),
+			),
 			id,
+			db,
 			config,
+			node_context,
 			// key_manager,
 			sync: Arc::new(sync_manager),
-			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
-			db,
-			node_context: library_manager.node_context.clone(),
 			identity: identity.clone(),
 		};
 
