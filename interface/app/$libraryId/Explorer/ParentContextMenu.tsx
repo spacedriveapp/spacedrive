@@ -20,7 +20,7 @@ export default (props: PropsWithChildren) => {
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
-	const rescanLocation = useLibraryMutation('locations.fullRescan');
+	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
@@ -110,7 +110,7 @@ export default (props: PropsWithChildren) => {
 								try {
 									await rescanLocation.mutateAsync({
 										location_id: parent.location.id,
-										reidentify_objects: false
+										sub_path: currentPath ?? ''
 									});
 								} catch (error) {
 									showAlertDialog({

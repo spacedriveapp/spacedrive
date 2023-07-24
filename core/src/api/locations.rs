@@ -169,7 +169,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
-		.procedure("sub_path_rescan", {
+		.procedure("subPathRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct RescanArgs {
 				pub location_id: location::id::Type,
