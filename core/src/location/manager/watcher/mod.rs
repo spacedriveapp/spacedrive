@@ -3,6 +3,7 @@ use crate::{library::Library, prisma::location, util::db::maybe_missing};
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -47,7 +48,7 @@ const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 #[async_trait]
 trait EventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
 	where
 		Self: Sized;
 
@@ -72,7 +73,7 @@ pub(super) struct LocationWatcher {
 impl LocationWatcher {
 	pub(super) async fn new(
 		location: location::Data,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
@@ -119,7 +120,7 @@ impl LocationWatcher {
 	async fn handle_watch_events(
 		location_id: location::id::Type,
 		location_pub_id: Uuid,
-		library: Library,
+		library: Arc<Library>,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,

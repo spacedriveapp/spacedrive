@@ -35,7 +35,6 @@ use uuid::Uuid;
 use super::{LibraryConfig, LibraryManagerError};
 
 /// LibraryContext holds context for a library which can be passed around the application.
-#[derive(Clone)]
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
@@ -47,7 +46,7 @@ pub struct Library {
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: NodeContext,
+	pub node_context: Arc<NodeContext>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,

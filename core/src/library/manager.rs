@@ -59,9 +59,9 @@ pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<Vec<Library>>,
+	libraries: RwLock<Vec<Arc<Library>>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	node_context: NodeContext,
+	node_context: Arc<NodeContext>,
 	/// on load subscribers
 	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
 }
@@ -115,7 +115,7 @@ impl From<LibraryManagerError> for rspc::Error {
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
-		node_context: NodeContext,
+		node_context: Arc<NodeContext>,
 	) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -277,7 +277,7 @@ impl LibraryManager {
 		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Library> {
+	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
 		self.libraries.read().await.clone()
 	}
 
@@ -311,19 +311,17 @@ impl LibraryManager {
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
+		let mut config = library.config.clone();
 		if let Some(name) = name {
-			library.config.name = name;
+			config.name = name;
 		}
 		match description {
 			MaybeUndefined::Undefined => {}
-			MaybeUndefined::Null => library.config.description = None,
-			MaybeUndefined::Value(description) => library.config.description = Some(description),
+			MaybeUndefined::Null => config.description = None,
+			MaybeUndefined::Value(description) => config.description = Some(description),
 		}
 
-		LibraryConfig::save(
-			&library.config,
-			&self.libraries_dir.join(format!("{id}.sdlibrary")),
-		)?;
+		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 
 		invalidate_query!(library, "library.list");
 
@@ -387,7 +385,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: Uuid) -> Option<Library> {
+	pub async fn get_library(&self, library_id: Uuid) -> Option<Arc<Library>> {
 		self.libraries
 			.read()
 			.await
@@ -401,11 +399,11 @@ impl LibraryManager {
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: PathBuf,
-		node_context: NodeContext,
+		node_context: Arc<NodeContext>,
 		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
 		create: Option<instance::Create>,
 		should_seed: bool,
-	) -> Result<Library, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
@@ -472,7 +470,7 @@ impl LibraryManager {
 		)
 		.await;
 
-		let library = Library {
+		let library = Arc::new(Library {
 			id,
 			config,
 			// key_manager,
@@ -488,7 +486,7 @@ impl LibraryManager {
 			db,
 			node_context,
 			identity,
-		};
+		});
 
 		if should_seed {
 			library.orphan_remover.invoke().await;

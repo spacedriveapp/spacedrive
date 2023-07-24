@@ -14,6 +14,7 @@ use crate::{
 use std::{
 	collections::{BTreeMap, HashMap},
 	path::PathBuf,
+	sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -32,7 +33,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct LinuxEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Library,
+	library: &'lib Arc<Library>,
 	last_check_rename: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
 	rename_from_buffer: Vec<(PathBuf, Instant)>,
@@ -42,7 +43,7 @@ pub(super) struct LinuxEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self {
+	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self {
 		Self {
 			location_id,
 			library,

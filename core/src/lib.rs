@@ -43,7 +43,6 @@ pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
 
-#[derive(Clone)]
 pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
@@ -91,14 +90,14 @@ impl Node {
 		debug!("Initialised 'LocationManager'...");
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
-			NodeContext {
+			Arc::new(NodeContext {
 				config: config.clone(),
 				job_manager: job_manager.clone(),
 				location_manager: location_manager.clone(),
 				// p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 				notifications: notifications.clone(),
-			},
+			}),
 		)
 		.await?;
 		debug!("Initialised 'LibraryManager'...");

@@ -39,6 +39,7 @@ use std::{
 	fs::Metadata,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
 use sd_file_ext::extensions::ImageExtension;
@@ -67,7 +68,7 @@ pub(super) async fn create_dir(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let location = find_location(library, location_id)
 		.include(location_with_indexer_rules::include())
@@ -144,7 +145,7 @@ pub(super) async fn create_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	inner_create_file(
 		location_id,
@@ -161,7 +162,7 @@ async fn inner_create_file(
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
 	let location_path = location_path.as_ref();
@@ -324,7 +325,7 @@ async fn inner_create_file(
 pub(super) async fn create_dir_or_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<Metadata, LocationManagerError> {
 	let path = path.as_ref();
 	let metadata = fs::metadata(path)
@@ -342,7 +343,7 @@ pub(super) async fn create_dir_or_file(
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
