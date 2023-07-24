@@ -153,7 +153,7 @@ impl SyncManager {
 				.unwrap()
 			}
 
-			fn to_operation(self) -> CRDTOperation {
+			fn into_operation(self) -> CRDTOperation {
 				CRDTOperation {
 					id: self.id(),
 					instance: self.instance(),
@@ -203,7 +203,7 @@ impl SyncManager {
 
 		Ok(ops
 			.into_values()
-			.map(DbOperation::to_operation)
+			.map(DbOperation::into_operation)
 			.rev()
 			.collect())
 	}
@@ -216,13 +216,13 @@ impl SyncManager {
 
 		match &op.typ {
 			CRDTOperationType::Shared(shared_op) => {
-				shared_op_db(&op, &shared_op)
+				shared_op_db(&op, shared_op)
 					.to_query(&self.db)
 					.exec()
 					.await?;
 			}
 			CRDTOperationType::Relation(relation_op) => {
-				relation_op_db(&op, &relation_op)
+				relation_op_db(&op, relation_op)
 					.to_query(&self.db)
 					.exec()
 					.await?;
@@ -276,11 +276,9 @@ impl SyncManager {
 			}
 		};
 
-		let is_old = old_timestamp
+		old_timestamp
 			.map(|old| old != op.timestamp.as_u64() as i64)
-			.unwrap_or_default();
-
-		is_old
+			.unwrap_or_default()
 	}
 
 	pub async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
