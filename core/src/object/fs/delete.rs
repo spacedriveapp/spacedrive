@@ -98,6 +98,9 @@ impl StatefulJob for FileDeleterJobInit {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
+		ctx.library.orphan_remover.invoke().await;
+		ctx.library.thumbnail_remover.invoke().await;
+
 		Ok(Some(json!({ "init": init })))
 	}
 }

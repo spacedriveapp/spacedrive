@@ -2,7 +2,10 @@ use crate::{
 	invalidate_query,
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::{orphan_remover::OrphanRemoverActor, tag},
+	object::{
+		orphan_remover::OrphanRemoverActor, preview::THUMBNAIL_CACHE_DIR_NAME, tag,
+		thumbnail_remover::ThumbnailRemoverActor,
+	},
 	prisma::location,
 	sync::{SyncManager, SyncMessage},
 	util::{
@@ -473,6 +476,13 @@ impl LibraryManager {
 			// key_manager,
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
+			thumbnail_remover: ThumbnailRemoverActor::spawn(
+				db.clone(),
+				node_context
+					.config
+					.data_directory()
+					.join(THUMBNAIL_CACHE_DIR_NAME),
+			),
 			db,
 			node_context,
 			identity,
