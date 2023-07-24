@@ -48,7 +48,7 @@ impl StatefulJob for FileCutterJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let (sources_location_path, targets_location_path) =
 			fetch_source_and_target_location_paths(

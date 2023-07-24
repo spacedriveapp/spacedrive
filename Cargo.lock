@@ -7053,6 +7053,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
@@ -7060,6 +7061,7 @@ dependencies = [
  "sd-p2p",
  "sd-prisma",
  "sd-sync",
+ "sd-utils",
  "serde",
  "serde-hashkey",
  "serde_json",
@@ -7077,10 +7079,24 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber 0.3.0",
  "tracing-test",
- "uhlc",
  "uuid",
  "webp",
  "winapi-util",
+]
+
+[[package]]
+name = "sd-core-sync"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-prisma",
+ "sd-sync",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uhlc",
+ "uuid",
 ]
 
 [[package]]
@@ -7272,6 +7288,13 @@ dependencies = [
  "quote",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "sd-utils"
+version = "0.1.0"
+dependencies = [
+ "uuid",
 ]
 
 [[package]]
@@ -7819,8 +7842,8 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "1.0.4"
-source = "git+https://github.com/oscartbeaumont/specta?rev=2fc97ec8178ba27da1c80c0faaf43cb0db95955f#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
+version = "1.0.5"
+source = "git+https://github.com/oscartbeaumont/specta?rev=4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41#4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -7841,8 +7864,8 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "1.0.4"
-source = "git+https://github.com/oscartbeaumont/specta?rev=2fc97ec8178ba27da1c80c0faaf43cb0db95955f#2fc97ec8178ba27da1c80c0faaf43cb0db95955f"
+version = "1.0.5"
+source = "git+https://github.com/oscartbeaumont/specta?rev=4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41#4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41"
 dependencies = [
  "Inflector",
  "itertools",

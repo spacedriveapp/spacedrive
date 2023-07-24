@@ -5,7 +5,7 @@ use crate::{
 	},
 	prisma::file_path,
 	util::{
-		db::{device_from_db, from_bytes_to_uuid, inode_from_db},
+		db::{device_from_db, inode_from_db},
 		error::FileIOError,
 	},
 };
@@ -385,7 +385,9 @@ where
 						) - *date_modified
 							> Duration::milliseconds(1)
 						{
-							to_update.push((from_bytes_to_uuid(&file_path.pub_id), entry).into());
+							to_update.push(
+								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
+							);
 						}
 					}
 
