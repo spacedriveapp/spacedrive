@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::{orphan_remover::OrphanRemoverActor, tag},
+	object::tag,
 	prisma::location,
 	util::{
 		db::{self, MissingFieldError},
@@ -20,36 +20,14 @@ use std::{
 };
 
 use chrono::Utc;
-use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::{Identity, IdentityErr};
 use sd_prisma::prisma::instance;
 use thiserror::Error;
-use tokio::{
-	fs, io,
-	sync::{broadcast, RwLock},
-	try_join,
-};
+use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{Library, LibraryConfig, LibraryConfigWrapped, LibraryName};
-
-pub enum SubscriberEvent {
-	Load(Uuid, Arc<Identity>, broadcast::Receiver<SyncMessage>),
-}
-
-impl Clone for SubscriberEvent {
-	fn clone(&self) -> Self {
-		match self {
-			Self::Load(id, identity, receiver) => {
-				Self::Load(*id, identity.clone(), receiver.resubscribe())
-			}
-		}
-	}
-}
-
-pub trait SubscriberFn: Fn(SubscriberEvent) + Send + Sync + 'static {}
-impl<F: Fn(SubscriberEvent) + Send + Sync + 'static> SubscriberFn for F {}
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -58,9 +36,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	node_context: Arc<NodeContext>,
-	/// on load subscribers
-	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
+	pub node_context: Arc<NodeContext>,
 }
 
 #[derive(Error, Debug)]
@@ -127,7 +103,6 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
-			subscribers: Default::default(),
 			node_context,
 		});
 
@@ -175,18 +150,6 @@ impl LibraryManager {
 
 		Ok(this)
 	}
-
-	// /// subscribe to library events
-	// pub(crate) async fn subscribe<F: SubscriberFn>(&self, f: F) {
-	// 	self.subscribers.write().await.push(Box::new(f));
-	// }
-
-	// async fn emit(subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>, event: SubscriberEvent) {
-	// 	let subscribers = subscribers.read().await;
-	// 	for subscriber in subscribers.iter() {
-	// 		subscriber(event.clone());
-	// 	}
-	// }
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(
@@ -450,33 +413,15 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-
-		let library = Library {
+		let library = Library::new(
 			id,
+			instance_id,
 			config,
+			identity.clone(),
 			// key_manager,
-			sync: Arc::new(sync_manager),
-			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
-			node_context: self.node_context.clone(),
-			identity: identity.clone(),
-		};
-
-		tokio::spawn({
-			let this = self.clone();
-
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
-
-					this.node_context
-						.p2p
-						.broadcast_sync_events(id, &identity, vec![op], &this)
-						.await;
-				}
-			}
-		});
+			self.clone(),
+		);
 
 		if should_seed {
 			library.orphan_remover.invoke().await;

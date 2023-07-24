@@ -22,13 +22,14 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManagerError};
+use super::{LibraryConfig, LibraryManager, LibraryManagerError};
 
 /// LibraryContext holds context for a library which can be passed around the application.
 #[derive(Clone)]
@@ -62,6 +63,45 @@ impl Debug for Library {
 }
 
 impl Library {
+	pub fn new(
+		id: Uuid,
+		instance_id: Uuid,
+		config: LibraryConfig,
+		identity: Arc<Identity>,
+		db: Arc<PrismaClient>,
+		library_manager: Arc<LibraryManager>,
+		// node_context: Arc<NodeContext>,
+	) -> Self {
+		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
+
+		let library = Self {
+			id,
+			config,
+			// key_manager,
+			sync: Arc::new(sync_manager),
+			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
+			db,
+			node_context: library_manager.node_context.clone(),
+			identity: identity.clone(),
+		};
+
+		tokio::spawn({
+			async move {
+				while let Ok(op) = sync_rx.recv().await {
+					let SyncMessage::Created(op) = op else { continue; };
+
+					library_manager
+						.node_context
+						.p2p
+						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
+						.await;
+				}
+			}
+		});
+
+		library
+	}
+
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.node_context.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");

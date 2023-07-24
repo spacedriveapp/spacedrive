@@ -82,10 +82,10 @@ impl Node {
 		debug!("Initialised 'NodeConfigManager'...");
 
 		let job_manager = JobManager::new();
-
 		debug!("Initialised 'JobManager'...");
 
 		let notifications = NotificationManager::new();
+		debug!("Initialised 'NotificationManager'...");
 
 		let location_manager = LocationManager::new();
 		debug!("Initialised 'LocationManager'...");
