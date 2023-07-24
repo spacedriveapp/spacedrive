@@ -38,21 +38,21 @@ pub struct PairingManager {
 	events_tx: broadcast::Sender<P2PEvent>,
 	pairing_response: RwLock<HashMap<u16, oneshot::Sender<PairingDecision>>>,
 	manager: Arc<Manager<PeerMetadata>>,
-	library_manager: Arc<LibraryManager>,
+	// library_manager: Arc<LibraryManager>,
 }
 
 impl PairingManager {
 	pub fn new(
 		manager: Arc<Manager<PeerMetadata>>,
 		events_tx: broadcast::Sender<P2PEvent>,
-		library_manager: Arc<LibraryManager>,
+		// library_manager: Arc<LibraryManager>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id: AtomicU16::new(0),
 			events_tx,
 			pairing_response: RwLock::new(HashMap::new()),
 			manager,
-			library_manager,
+			// library_manager,
 		})
 	}
 
@@ -70,7 +70,12 @@ impl PairingManager {
 
 	// TODO: Error handling
 
-	pub async fn originator(self: Arc<Self>, peer_id: PeerId, node_config: NodeConfig) -> u16 {
+	pub async fn originator(
+		self: Arc<Self>,
+		peer_id: PeerId,
+		node_config: NodeConfig,
+		library_manager: Arc<LibraryManager>,
+	) -> u16 {
 		// TODO: Timeout for max number of pairings in a time period
 
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
@@ -119,8 +124,7 @@ impl PairingManager {
 					// TODO: Future - Library in pairing state
 					// TODO: Create library
 
-					if self
-						.library_manager
+					if library_manager
 						.get_all_libraries()
 						.await
 						.into_iter()
@@ -134,8 +138,7 @@ impl PairingManager {
 						return;
 					}
 
-					let library_config = self
-						.library_manager
+					let library_config = library_manager
 						.create_with_uuid(
 							library_id,
 							LibraryName::new(library_name).unwrap(),
@@ -145,8 +148,7 @@ impl PairingManager {
 						)
 						.await
 						.unwrap();
-					let library = self
-						.library_manager
+					let library = library_manager
 						.get_library(library_config.uuid)
 						.await
 						.unwrap();
@@ -207,6 +209,7 @@ impl PairingManager {
 		self: Arc<Self>,
 		peer_id: PeerId,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
+		library_manager: Arc<LibraryManager>,
 	) {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
@@ -239,7 +242,7 @@ impl PairingManager {
     		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
-		let library = self.library_manager.get_library(library_id).await.unwrap();
+		let library = library_manager.get_library(library_id).await.unwrap();
 		stream
 			.write_all(
 				&PairingResponse::Accepted {

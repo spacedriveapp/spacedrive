@@ -43,7 +43,7 @@ pub struct Library {
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: NodeContext,
+	pub node_context: Arc<NodeContext>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,

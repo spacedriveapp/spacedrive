@@ -58,7 +58,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Library>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	node_context: NodeContext,
+	node_context: Arc<NodeContext>,
 	/// on load subscribers
 	subscribers: RwLock<Vec<Box<dyn SubscriberFn>>>,
 }
@@ -114,15 +114,22 @@ impl LibraryManager {
 		libraries_dir: PathBuf,
 		node_context: NodeContext,
 	) -> Result<Arc<Self>, LibraryManagerError> {
+		let node_context = Arc::new(node_context);
+
 		fs::create_dir_all(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
-		let mut libraries = Vec::new();
-		let subscribers = RwLock::new(Vec::new());
 		let mut read_dir = fs::read_dir(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
+
+		let this = Arc::new(Self {
+			libraries_dir: libraries_dir.clone(),
+			libraries: Default::default(),
+			subscribers: Default::default(),
+			node_context,
+		});
 
 		while let Some(entry) = read_dir
 			.next_entry()
@@ -161,44 +168,29 @@ impl LibraryManager {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				libraries.push(
-					Self::load(
-						library_id,
-						&db_path,
-						config_path,
-						node_context.clone(),
-						&subscribers,
-						None,
-						true,
-					)
-					.await?,
-				);
+				this.load(library_id, &db_path, config_path, None, true)
+					.await?;
 			}
 		}
 
-		Ok(Arc::new(Self {
-			libraries: RwLock::new(libraries),
-			libraries_dir,
-			node_context,
-			subscribers,
-		}))
+		Ok(this)
 	}
 
-	/// subscribe to library events
-	pub(crate) async fn subscribe<F: SubscriberFn>(&self, f: F) {
-		self.subscribers.write().await.push(Box::new(f));
-	}
+	// /// subscribe to library events
+	// pub(crate) async fn subscribe<F: SubscriberFn>(&self, f: F) {
+	// 	self.subscribers.write().await.push(Box::new(f));
+	// }
 
-	async fn emit(subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>, event: SubscriberEvent) {
-		let subscribers = subscribers.read().await;
-		for subscriber in subscribers.iter() {
-			subscriber(event.clone());
-		}
-	}
+	// async fn emit(subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>, event: SubscriberEvent) {
+	// 	let subscribers = subscribers.read().await;
+	// 	for subscriber in subscribers.iter() {
+	// 		subscriber(event.clone());
+	// 	}
+	// }
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(
-		&self,
+		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
 		node_cfg: NodeConfig,
@@ -208,7 +200,7 @@ impl LibraryManager {
 	}
 
 	pub(crate) async fn create_with_uuid(
-		&self,
+		self: &Arc<Self>,
 		id: Uuid,
 		name: LibraryName,
 		description: Option<String>,
@@ -237,26 +229,25 @@ impl LibraryManager {
 		);
 
 		let now = Utc::now().fixed_offset();
-		let library = Self::load(
-			id,
-			self.libraries_dir.join(format!("{id}.db")),
-			config_path,
-			self.node_context.clone(),
-			&self.subscribers,
-			Some(instance::Create {
-				pub_id: Uuid::new_v4().as_bytes().to_vec(),
-				identity: Identity::new().to_bytes(),
-				node_id: node_cfg.id.as_bytes().to_vec(),
-				node_name: node_cfg.name.clone(),
-				node_platform: Platform::current() as i32,
-				last_seen: now,
-				date_created: now,
-				timestamp: Default::default(), // TODO: Source this properly!
-				_params: vec![instance::id::set(config.instance_id)],
-			}),
-			should_seed,
-		)
-		.await?;
+		let library = self
+			.load(
+				id,
+				self.libraries_dir.join(format!("{id}.db")),
+				config_path,
+				Some(instance::Create {
+					pub_id: Uuid::new_v4().as_bytes().to_vec(),
+					identity: Identity::new().to_bytes(),
+					node_id: node_cfg.id.as_bytes().to_vec(),
+					node_name: node_cfg.name.clone(),
+					node_platform: Platform::current() as i32,
+					last_seen: now,
+					date_created: now,
+					timestamp: Default::default(), // TODO: Source this properly!
+					_params: vec![instance::id::set(config.instance_id)],
+				}),
+				should_seed,
+			)
+			.await?;
 
 		debug!("Loaded library '{id:?}'");
 
@@ -267,8 +258,6 @@ impl LibraryManager {
 		}
 
 		invalidate_query!(library, "library.list");
-
-		self.libraries.write().await.push(library);
 
 		debug!("Pushed library into manager '{id:?}'");
 
@@ -396,11 +385,10 @@ impl LibraryManager {
 
 	/// load the library from a given path
 	async fn load(
+		self: &Arc<Self>,
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: PathBuf,
-		node_context: NodeContext,
-		subscribers: &RwLock<Vec<Box<dyn SubscriberFn>>>,
 		create: Option<instance::Create>,
 		should_seed: bool,
 	) -> Result<Library, LibraryManagerError> {
@@ -417,7 +405,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = node_context.config.get().await;
+		let node_config = self.node_context.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
@@ -462,13 +450,7 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let (sync_manager, sync_rx) = SyncManager::new(&db, instance_id);
-
-		Self::emit(
-			subscribers,
-			SubscriberEvent::Load(id, identity.clone(), sync_rx),
-		)
-		.await;
+		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
 
 		let library = Library {
 			id,
@@ -477,9 +459,24 @@ impl LibraryManager {
 			sync: Arc::new(sync_manager),
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
 			db,
-			node_context,
-			identity,
+			node_context: self.node_context.clone(),
+			identity: identity.clone(),
 		};
+
+		tokio::spawn({
+			let this = self.clone();
+
+			async move {
+				while let Ok(op) = sync_rx.recv().await {
+					let SyncMessage::Created(op) = op else { continue; };
+
+					this.node_context
+						.p2p
+						.broadcast_sync_events(id, &identity, vec![op], &this)
+						.await;
+				}
+			}
+		});
 
 		if should_seed {
 			library.orphan_remover.invoke().await;

@@ -47,6 +47,7 @@ pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
+	pub p2p: Arc<P2PManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 	pub notifications: Arc<NotificationManager>,
 }
@@ -88,21 +89,25 @@ impl Node {
 
 		let location_manager = LocationManager::new();
 		debug!("Initialised 'LocationManager'...");
+
+		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
+		debug!("Initialised 'P2PManager'...");
+
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
 				config: config.clone(),
 				job_manager: job_manager.clone(),
 				location_manager: location_manager.clone(),
-				// p2p: p2p.clone(),
+				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 				notifications: notifications.clone(),
 			},
 		)
 		.await?;
 		debug!("Initialised 'LibraryManager'...");
-		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
-		debug!("Initialised 'P2PManager'...");
+
+		p2p.start(p2p_stream, library_manager.clone());
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
