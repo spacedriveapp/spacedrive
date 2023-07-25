@@ -10,9 +10,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
-import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
+import { useBoundingclientrect, useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
 	ExplorerItem,
@@ -277,8 +277,6 @@ export default () => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	const rect = useBoundingclientrect(tableRef);
-
 	const selectedItems = useMemo(() => {
 		return Array.isArray(explorerView.selected)
 			? new Set(explorerView.selected)
@@ -415,11 +413,6 @@ export default () => {
 	}
 
 	useEffect(() => handleResize(), [tableWidth]);
-
-	// TODO: Improve this
-	useEffect(() => {
-		setListOffset(tableRef.current?.offsetTop || 0);
-	}, [rect]);
 
 	// Measure initial column widths
 	useEffect(() => {
@@ -588,6 +581,12 @@ export default () => {
 			});
 		}
 	});
+
+	useMutationObserver(explorerView.scrollRef, () =>
+		setListOffset(tableRef.current?.offsetTop ?? 0)
+	);
+
+	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
 	return (
 		<div className="flex w-full flex-col" ref={tableRef}>

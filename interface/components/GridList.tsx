@@ -1,32 +1,23 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { useCallback, useRef } from 'react';
+import React, { ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
 import { RefObject, useEffect, useMemo, useState } from 'react';
-import { useBoundingclientrect } from 'rooks';
+import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 
-type UseGridItemData = Record<any, any>;
-type Id = string | number;
-interface UseGridItem<DataT extends UseGridItemData, IdT extends Id> {
-	id: IdT;
+type ItemData = Record<any, any> | undefined;
+type ItemId = string | number | undefined;
+
+export interface GridListItem<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	index: number;
-	rect: {
-		height: number;
-		width: number;
-		top: number;
-		bottom: number;
-		left: number;
-		right: number;
-	};
+	id: IdT extends undefined ? number : IdT;
 	row: number;
+	column: number;
+	rect: Omit<DOMRect, 'toJSON'>;
 	data?: DataT;
 }
-type UseGridItems<DataT extends UseGridItemData, IdT extends Id> = {
-	items: UseGridItem<DataT, IdT>[];
-	itemsById: Record<string, UseGridItem<DataT, IdT>>;
-};
-interface UseGridPropsDefaults<DataT extends UseGridItemData, IdT extends Id> {
+
+export interface UseGridListProps<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	count: number;
-	getItemData?: (index: number) => DataT | undefined;
 	ref: RefObject<HTMLElement>;
 	padding?: number | { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
@@ -34,22 +25,22 @@ interface UseGridPropsDefaults<DataT extends UseGridItemData, IdT extends Id> {
 	top?: number;
 	rowsBeforeLoadMore?: number;
 	onLoadMore?: () => void;
-	getItemId?: (item: DataT, index: number) => IdT;
+	getItemId?: (index: number) => IdT;
+	getItemData?: (index: number) => DataT;
 	size?: number | { width: number; height: number };
 	columns?: number;
 }
 
-export const useGridList = <DataT extends UseGridItemData, IdT extends Id>({
-	count,
+export const useGridList = <IdT extends ItemId = number, DataT extends ItemData = undefined>({
 	padding,
 	gap,
 	size,
 	columns,
+	ref,
 	getItemId,
 	getItemData,
-	ref,
 	...props
-}: UseGridPropsDefaults<DataT, IdT>) => {
+}: UseGridListProps<IdT, DataT>) => {
 	const { width } = useResizeObserver({ ref });
 
 	const paddingX = (typeof padding === 'object' ? padding.x : padding) || 0;
@@ -59,106 +50,114 @@ export const useGridList = <DataT extends UseGridItemData, IdT extends Id>({
 	const gapY = (typeof gap === 'object' ? gap.y : gap) || 0;
 
 	const itemWidth = size ? (typeof size === 'object' ? size.width : size) : undefined;
-
 	const itemHeight = size ? (typeof size === 'object' ? size.height : size) : undefined;
 
 	const gridWidth = width ? width - (paddingX || 0) * 2 : 0;
 
-	// Virtualizer count calculation
-	const amountOfColumns = columns ? columns : itemWidth ? Math.floor(gridWidth / itemWidth) : 0;
-	const amountOfRows = amountOfColumns > 0 ? Math.ceil(count / amountOfColumns) : 0;
+	let columnCount = columns || 0;
 
-	// Virtualizer item size calculation
-	const virtualItemWidth = amountOfColumns > 0 ? gridWidth / amountOfColumns : 0;
+	if (!columns && itemWidth) {
+		let columns = Math.floor(gridWidth / itemWidth);
+		if (gapX) columns = Math.floor((gridWidth - (columns - 1) * gapX) / itemWidth);
+		columnCount = columns;
+	}
+
+	const rowCount = columnCount > 0 ? Math.ceil(props.count / columnCount) : 0;
+
+	const virtualItemWidth =
+		columnCount > 0 ? (gridWidth - (columnCount - 1) * gapX) / columnCount : 0;
+
 	const virtualItemHeight = itemHeight || virtualItemWidth;
 
-	const getGridItems = useCallback(() => {
-		if (width === 0) return {} as UseGridItems<DataT, IdT>;
+	const getItem = useCallback(
+		(index: number) => {
+			if (index < 0 || index >= props.count) return;
 
-		const items = Array.from<undefined>({ length: count }).reduce(
-			(items, _, i) => {
-				const column = i % amountOfColumns;
-				const row = Math.floor(i / amountOfColumns);
+			const data = getItemData?.(index);
+			const id = getItemId?.(index) || index;
 
-				const x = paddingX + gapX * column + virtualItemWidth * column;
-				const y = paddingY + gapY * row + virtualItemHeight * row;
+			const column = index % columnCount;
+			const row = Math.floor(index / columnCount);
 
-				const bottom = y + virtualItemHeight;
+			const x = paddingX + (column !== 0 ? gapX : 0) * column + virtualItemWidth * column;
+			const y = paddingY + (row !== 0 ? gapY : 0) * row + virtualItemHeight * row;
 
-				const data = getItemData?.(i);
-				const id = (data && getItemId?.(data, i)) || i;
+			const bottom = y + virtualItemHeight;
 
-				const item: UseGridItem<DataT, IdT> = {
-					id: id as IdT,
-					data: data,
-					index: i,
-					row: row,
-					rect: {
-						width: virtualItemWidth,
-						height: virtualItemHeight,
-						top: y,
-						bottom: bottom,
-						left: x,
-						right: x + virtualItemWidth
-					}
-				};
+			const item: GridListItem<typeof id, DataT> = {
+				index,
+				id: id as number | (NonNullable<IdT> extends undefined ? number : NonNullable<IdT>),
+				data,
+				row,
+				column,
+				rect: {
+					height: virtualItemHeight,
+					width: virtualItemWidth,
+					x,
+					y,
+					top: y,
+					bottom: bottom,
+					left: x,
+					right: x + virtualItemWidth
+				}
+			};
 
-				return {
-					items: [...items.items, item],
-					itemsById: { ...items.itemsById, [id]: item }
-				} satisfies UseGridItems<DataT, IdT>;
-			},
-			{ items: [], itemsById: {} } as UseGridItems<DataT, IdT>
-		);
-
-		return items;
-	}, [
-		width,
-		count,
-		amountOfColumns,
-		paddingX,
-		gapX,
-		virtualItemWidth,
-		paddingY,
-		gapY,
-		virtualItemHeight,
-		getItemData,
-		getItemId
-	]);
+			return item;
+		},
+		[
+			columnCount,
+			props.count,
+			gapX,
+			gapY,
+			getItemId,
+			getItemData,
+			paddingX,
+			paddingY,
+			virtualItemHeight,
+			virtualItemWidth
+		]
+	);
 
 	return {
-		getGridItems,
+		columnCount,
+		rowCount,
+		width: gridWidth,
 		padding: { x: paddingX, y: paddingY },
 		gap: { x: gapX, y: gapY },
-		amountOfColumns,
-		amountOfRows,
-		width: gridWidth,
-		virtualItemWidth,
-		virtualItemHeight,
 		itemHeight,
 		itemWidth,
+		virtualItemHeight,
+		virtualItemWidth,
+		getItem,
 		...props
 	};
 };
 
 export interface GridListProps {
 	grid: ReturnType<typeof useGridList>;
-	children: (index: number) => JSX.Element | null;
 	scrollRef: RefObject<HTMLElement>;
+	children: (index: number) => ReactNode;
 }
 
 export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 	const ref = useRef<HTMLDivElement>(null);
 
-	const rect = useBoundingclientrect(ref);
-
 	const [listOffset, setListOffset] = useState(0);
 
+	const getHeight = useCallback(
+		(index: number) => grid.virtualItemHeight + (index !== 0 ? grid.gap.y : 0),
+		[grid.virtualItemHeight, grid.gap.y]
+	);
+
+	const getWidth = useCallback(
+		(index: number) => grid.virtualItemWidth + (index !== 0 ? grid.gap.x : 0),
+		[grid.virtualItemWidth, grid.gap.x]
+	);
+
 	const rowVirtualizer = useVirtualizer({
-		count: grid.amountOfRows,
+		count: grid.rowCount,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => grid.virtualItemHeight,
-		measureElement: () => grid.virtualItemHeight,
+		estimateSize: getHeight,
 		paddingStart: grid.padding.y,
 		paddingEnd: grid.padding.y,
 		overscan: grid.overscan,
@@ -167,10 +166,9 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 
 	const columnVirtualizer = useVirtualizer({
 		horizontal: true,
-		count: grid.amountOfColumns,
+		count: grid.columnCount,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => grid.virtualItemWidth,
-		measureElement: () => grid.virtualItemWidth,
+		estimateSize: getWidth,
 		paddingStart: grid.padding.x,
 		paddingEnd: grid.padding.x
 	});
@@ -191,12 +189,9 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 		rowVirtualizer.calculateRange();
 		// @ts-ignore
 		columnVirtualizer.calculateRange();
-	}, [rowVirtualizer, columnVirtualizer, grid.amountOfColumns, grid.amountOfRows]);
 
-	// TODO: Improve this
-	useEffect(() => {
-		setListOffset(ref.current?.offsetTop || 0);
-	}, [rect]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [rowVirtualizer, columnVirtualizer, grid.columnCount, grid.rowCount]);
 
 	useEffect(() => {
 		if (grid.onLoadMore) {
@@ -205,15 +200,19 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 				const rowsBeforeLoadMore = grid.rowsBeforeLoadMore || 1;
 
 				const loadMoreOnIndex =
-					rowsBeforeLoadMore > grid.amountOfRows ||
-					lastRow.index > grid.amountOfRows - rowsBeforeLoadMore
-						? grid.amountOfRows - 1
-						: grid.amountOfRows - rowsBeforeLoadMore;
+					rowsBeforeLoadMore > grid.rowCount ||
+					lastRow.index > grid.rowCount - rowsBeforeLoadMore
+						? grid.rowCount - 1
+						: grid.rowCount - rowsBeforeLoadMore;
 
 				if (lastRow.index === loadMoreOnIndex) grid.onLoadMore();
 			}
 		}
-	}, [virtualRows, grid.amountOfRows, grid.rowsBeforeLoadMore, grid.onLoadMore, grid]);
+	}, [virtualRows, grid.rowCount, grid.rowsBeforeLoadMore, grid.onLoadMore, grid]);
+
+	useMutationObserver(scrollRef, () => setListOffset(ref.current?.offsetTop ?? 0));
+
+	useLayoutEffect(() => setListOffset(ref.current?.offsetTop ?? 0), []);
 
 	return (
 		<div
@@ -227,15 +226,9 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 				virtualRows.map((virtualRow) => (
 					<React.Fragment key={virtualRow.index}>
 						{virtualColumns.map((virtualColumn) => {
-							const index =
-								virtualRow.index * grid.amountOfColumns + virtualColumn.index;
+							const index = virtualRow.index * grid.columnCount + virtualColumn.index;
 
-							const item = children(index);
-							if (!item) return null;
-
-							const padding =
-								(virtualColumn.size - (grid.itemWidth || grid.virtualItemWidth)) /
-								2;
+							if (index >= grid.count) return null;
 
 							return (
 								<div
@@ -251,11 +244,19 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 										}px) translateY(${
 											virtualRow.start - rowVirtualizer.options.scrollMargin
 										}px)`,
-										paddingLeft: padding,
-										paddingRight: padding
+										paddingLeft: virtualColumn.index !== 0 ? grid.gap.x : 0,
+										paddingTop: virtualRow.index !== 0 ? grid.gap.y : 0
 									}}
 								>
-									{item}
+									<div
+										className="m-auto"
+										style={{
+											width: grid.itemWidth || '100%',
+											height: grid.itemHeight || '100%'
+										}}
+									>
+										{children(index)}
+									</div>
 								</div>
 							);
 						})}

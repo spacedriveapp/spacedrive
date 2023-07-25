@@ -47,9 +47,9 @@ const Layout = () => {
 				className={clsx(
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
-					os === 'browser' && 'border-t border-app-line/50 bg-app',
+					os === 'browser' && 'bg-app',
 					os === 'macOS' && 'has-blur-effects rounded-[10px]',
-					os !== 'browser' && os !== 'windows' && 'border border-app-frame'
+					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
 					// TODO: allow this on some UI text at least / disable default browser context menu

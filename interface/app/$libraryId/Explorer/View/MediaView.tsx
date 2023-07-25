@@ -5,16 +5,16 @@ import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
-import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
 import GridList from './GridList';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
 	selected: boolean;
+	cut: boolean;
 }
 
-const MediaViewItem = memo(({ data, selected }: MediaViewItemProps) => {
+const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 	const explorerStore = useExplorerStore();
 
 	return (
@@ -35,7 +35,7 @@ const MediaViewItem = memo(({ data, selected }: MediaViewItemProps) => {
 					size={0}
 					data={data}
 					cover={explorerStore.mediaAspectSquare}
-					className="!rounded-none"
+					className={clsx('!rounded-none', cut && 'opacity-60')}
 				/>
 
 				<Button
@@ -52,18 +52,11 @@ const MediaViewItem = memo(({ data, selected }: MediaViewItemProps) => {
 });
 
 export default () => {
-	const explorerView = useExplorerViewContext();
-
 	return (
 		<GridList>
-			{(item) => {
-				const isSelected =
-					typeof explorerView.selected === 'object'
-						? explorerView.selected.has(item.item.id)
-						: explorerView.selected === item.item.id;
-
-				return <MediaViewItem data={item} selected={isSelected} />;
-			}}
+			{({ item, selected, cut }) => (
+				<MediaViewItem data={item} selected={selected} cut={cut} />
+			)}
 		</GridList>
 	);
 };

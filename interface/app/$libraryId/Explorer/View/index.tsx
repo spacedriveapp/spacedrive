@@ -132,6 +132,8 @@ export default memo(
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
+		const quickPreviewCtx = useQuickPreviewContext();
+
 		const { layoutMode } = useExplorerStore();
 
 		const ref = useRef<HTMLDivElement>(null);
@@ -145,8 +147,6 @@ export default memo(
 			isRenaming
 		});
 
-		const quickPreviewCtx = useQuickPreviewContext();
-
 		return (
 			<>
 				<div
@@ -154,7 +154,12 @@ export default memo(
 					style={style}
 					className={clsx('min-h-full w-full', className)}
 					onMouseDown={(e) => {
-						if (!contextProps.onSelectedChange || e.button === 2) return;
+						if (
+							!contextProps.onSelectedChange ||
+							e.button === 2 ||
+							(e.button === 0 && e.shiftKey)
+						)
+							return;
 
 						if (typeof contextProps.selected === 'object') {
 							if (contextProps.selected.size > 0) {
@@ -247,7 +252,9 @@ const useKeyDownHandlers = ({
 	const selectedItem = useMemo(
 		() =>
 			items?.find(
-				(item) => item.item.id === (Array.isArray(selected) ? selected[0] : selected)
+				(item) =>
+					item.item.id ===
+					(typeof selected === 'object' ? [...selected.values()][0] : selected)
 			),
 		[items, selected]
 	);

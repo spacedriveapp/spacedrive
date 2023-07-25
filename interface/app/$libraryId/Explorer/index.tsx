@@ -30,7 +30,7 @@ export default function Explorer(props: Props) {
 	const [selectedItems, setSelectedItems] = useState<Set<number>>(() => new Set());
 
 	const selectedItem = useMemo(
-		() => props.items?.find((item) => item.item.id === selectedItems.values().next()?.value),
+		() => props.items?.find((item) => item.item.id === [...selectedItems.values()][0]),
 		[selectedItems, props.items]
 	);
 

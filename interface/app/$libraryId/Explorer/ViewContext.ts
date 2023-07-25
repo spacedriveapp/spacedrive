@@ -20,6 +20,7 @@ export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerV
 	setIsRenaming: (isRenaming: boolean) => void;
 	selectable?: boolean;
 	padding?: number | { x?: number; y?: number };
+	gap?: number | { x?: number; y?: number };
 }
 
 export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends Set<number>
