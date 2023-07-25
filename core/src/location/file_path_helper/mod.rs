@@ -182,9 +182,8 @@ pub async fn create_file_path(
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
 	use crate::util::db::{device_to_db, inode_to_db};
-	use crate::{sync, util::db::uuid_to_bytes};
 
-	use sd_prisma::prisma;
+	use sd_prisma::{prisma, prisma_sync};
 	use sd_sync::OperationFactory;
 	use serde_json::json;
 	use uuid::Uuid;
@@ -203,7 +202,7 @@ pub async fn create_file_path(
 		vec![
 			(
 				location::NAME,
-				json!(sync::location::SyncId {
+				json!(prisma_sync::location::SyncId {
 					pub_id: location.pub_id
 				}),
 			),
@@ -223,14 +222,14 @@ pub async fn create_file_path(
 		]
 	};
 
-	let pub_id = uuid_to_bytes(Uuid::new_v4());
+	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
 
 	let created_path = sync
 		.write_ops(
 			db,
 			(
 				sync.shared_create(
-					sync::file_path::SyncId {
+					prisma_sync::file_path::SyncId {
 						pub_id: pub_id.clone(),
 					},
 					params,
@@ -284,20 +283,32 @@ pub fn filter_existing_file_path_params(
 /// the materialized path
 #[allow(unused)]
 pub fn loose_find_existing_file_path_params(
-	IsolatedFilePathData {
-		materialized_path,
-		location_id,
-		name,
-		extension,
-		..
-	}: &IsolatedFilePathData,
-) -> Vec<file_path::WhereParam> {
-	vec![
-		file_path::location_id::equals(Some(*location_id)),
-		file_path::materialized_path::equals(Some(materialized_path.to_string())),
-		file_path::name::equals(Some(name.to_string())),
-		file_path::extension::equals(Some(extension.to_string())),
-	]
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	full_path: impl AsRef<Path>,
+) -> Result<Vec<file_path::WhereParam>, FilePathError> {
+	let location_path = location_path.as_ref();
+	let full_path = full_path.as_ref();
+
+	let file_iso_file_path =
+		IsolatedFilePathData::new(location_id, location_path, full_path, false)?;
+
+	let dir_iso_file_path = IsolatedFilePathData::new(location_id, location_path, full_path, true)?;
+
+	Ok(vec![
+		file_path::location_id::equals(Some(location_id)),
+		file_path::materialized_path::equals(Some(
+			file_iso_file_path.materialized_path.to_string(),
+		)),
+		file_path::name::in_vec(vec![
+			file_iso_file_path.name.to_string(),
+			dir_iso_file_path.name.to_string(),
+		]),
+		file_path::extension::in_vec(vec![
+			file_iso_file_path.extension.to_string(),
+			dir_iso_file_path.extension.to_string(),
+		]),
+	])
 }
 
 pub async fn ensure_sub_path_is_in_location(
