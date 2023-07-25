@@ -717,7 +717,7 @@ SPEC CHECKSUMS:
   FBReactNativeSpec: 60173e22b99be9ad9ac3842270d319de48e42817
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
   glog: 5b8834f2f3f7d36c1c73e5a9837f53f03cfe84eb
-  hermes-engine: 51d305855e02ee41d1b97d8b179ae88d01239906
+  hermes-engine: 10fbd3f62405c41ea07e71973ea61e1878d07322
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
   lottie-react-native: 8f9d4be452e23f6e5ca0fdc11669dc99ab52be81
