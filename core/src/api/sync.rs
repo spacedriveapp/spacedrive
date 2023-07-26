@@ -1,4 +1,4 @@
-use crate::sync::SyncMessage;
+use sd_core_sync::SyncMessage;
 
 use super::{utils::library, Router, R};
 

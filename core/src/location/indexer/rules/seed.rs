@@ -1,7 +1,6 @@
 use crate::{
 	library::Library,
 	location::indexer::rules::{IndexerRuleError, RulePerKind},
-	util::db::uuid_to_bytes,
 };
 use chrono::Utc;
 use sd_prisma::prisma::indexer_rule;
@@ -29,7 +28,7 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 		.into_iter()
 		.enumerate()
 	{
-		let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
+		let pub_id = sd_utils::uuid_to_bytes(Uuid::from_u128(i as u128));
 		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
 
 		use indexer_rule::*;

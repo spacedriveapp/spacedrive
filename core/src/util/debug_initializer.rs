@@ -3,6 +3,7 @@
 use std::{
 	io,
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -96,7 +97,7 @@ impl InitConfig {
 
 	pub async fn apply(
 		self,
-		library_manager: &LibraryManager,
+		library_manager: &Arc<LibraryManager>,
 		node_cfg: NodeConfig,
 	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);

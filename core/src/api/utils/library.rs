@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rspc::{
 	internal::middleware::{Middleware, SealedMiddleware},
 	unstable::{MwArgMapper, MwArgMapperMiddleware},
@@ -27,7 +29,9 @@ impl MwArgMapper for LibraryArgsLike {
 		(arg.arg, arg.library_id)
 	}
 }
-pub(crate) fn library() -> impl Middleware<Ctx> + SealedMiddleware<Ctx, NewCtx = (Ctx, Library)> {
+
+pub(crate) fn library() -> impl Middleware<Ctx> + SealedMiddleware<Ctx, NewCtx = (Ctx, Arc<Library>)>
+{
 	MwArgMapperMiddleware::<LibraryArgsLike>::new().mount(|mw, ctx: Ctx, library_id| async move {
 		let library = ctx
 			.library_manager

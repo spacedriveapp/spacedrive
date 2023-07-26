@@ -9,7 +9,7 @@ use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
 use tauri::{
 	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin,
-	AppHandle, Manager, RunEvent, Runtime, WindowEvent,
+	AppHandle, Manager, RunEvent, Runtime,
 };
 use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
@@ -51,8 +51,17 @@ async fn reset_spacedrive(app_handle: AppHandle) {
 #[tauri::command(async)]
 #[specta::specta]
 async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
-	opener::open(node.data_dir.join("logs")).ok();
-	Ok(())
+	let logs_path = node.data_dir.join("logs");
+
+	#[cfg(target_os = "linux")]
+	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+
+	#[cfg(not(target_os = "linux"))]
+	let open_result = opener::open(logs_path);
+
+	open_result.map_err(|err| {
+		error!("Failed to open logs dir: {err}");
+	})
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
@@ -75,6 +84,9 @@ macro_rules! tauri_handlers {
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	#[cfg(target_os = "linux")]
+	sd_desktop_linux::normalize_environment();
+
 	#[cfg(target_os = "linux")]
 	let (tx, rx) = tokio::sync::mpsc::channel(1);
 
@@ -122,7 +134,7 @@ async fn main() -> tauri::Result<()> {
 	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
 	#[cfg(target_os = "macos")]
 	let app = app.on_window_event(|event| {
-		if let WindowEvent::CloseRequested { api, .. } = event.event() {
+		if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
 			if event.window().label() == "main" {
 				AppHandle::hide(&event.window().app_handle()).expect("Window should hide on macOS");
 				api.prevent_close();

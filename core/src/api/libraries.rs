@@ -93,6 +93,8 @@ pub(crate) fn mount() -> Router {
 					.create(args.name, None, ctx.config.get().await)
 					.await?;
 
+				debug!("Created library {}", new_library.uuid);
+
 				Ok(new_library)
 			})
 		})
