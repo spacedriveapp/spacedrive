@@ -7293,7 +7293,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "walkdir",
- "zeroize",
 ]
 
 [[package]]

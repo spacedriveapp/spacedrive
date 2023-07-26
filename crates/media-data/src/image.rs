@@ -9,20 +9,18 @@ use crate::{
 	Error, Result,
 };
 
-#[derive(Default, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct MediaDataImage {
 	pub date_taken: ImageTime,
 	pub dimensions: Dimensions,
-	pub location: Option<Location>, // this is the formatted lat/long string to be used by the frontend
+	pub location: Option<Location>,
 	pub camera_data: CameraData,
 	pub artist: Option<String>,
 	pub copyright: Option<String>,
 	pub exif_version: Option<String>,
 }
 
-#[derive(Default, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CameraData {
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
@@ -37,11 +35,10 @@ pub struct CameraData {
 	pub software: Option<String>,
 }
 
-#[derive(Default, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Dimensions {
-	width: i32,
-	height: i32,
+	pub width: i32,
+	pub height: i32,
 }
 
 impl Dimensions {
@@ -57,16 +54,6 @@ impl Dimensions {
 			height: reader.get_tag(Tag::PixelYDimension).unwrap_or_default(),
 		}
 	}
-
-	#[must_use]
-	pub const fn get_width(&self) -> i32 {
-		self.width
-	}
-
-	#[must_use]
-	pub const fn get_height(&self) -> i32 {
-		self.height
-	}
 }
 
 impl Display for Dimensions {
@@ -75,8 +62,7 @@ impl Display for Dimensions {
 	}
 }
 
-#[derive(Default, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 /// This can be either local with no TZ (e.g. `YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset.
 ///
 /// This may also be `undefined`.
@@ -254,8 +240,7 @@ mod tests {
 	}
 }
 
-#[derive(Default, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Location {
 	latitude: f64,
 	longitude: f64,
