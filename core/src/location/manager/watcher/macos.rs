@@ -22,7 +22,7 @@ use crate::{
 	util::error::FileIOError,
 };
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use notify::{
@@ -43,7 +43,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Library,
+	library: &'lib Arc<Library>,
 	recently_created_files: HashMap<PathBuf, Instant>,
 	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
@@ -56,7 +56,7 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
 	where
 		Self: Sized,
 	{

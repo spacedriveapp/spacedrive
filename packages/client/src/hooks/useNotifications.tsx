@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useState } from 'react';
+import { PropsWithChildren, createContext, useState } from 'react';
 import { Notification } from '../core';
 import { useBridgeSubscription } from '../rspc';
 

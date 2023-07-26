@@ -5,10 +5,8 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { workspace = true }
 
-[build-dependencies]
+[target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }

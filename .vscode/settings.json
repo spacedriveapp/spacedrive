@@ -65,7 +65,6 @@
 		"packages/config",
 		"packages/ui"
 	],
-	"eslint.packageManager": "pnpm",
 	"eslint.lintTask.enable": true,
 	"explorer.fileNesting.enabled": true,
 	"explorer.fileNesting.patterns": {

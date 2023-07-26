@@ -80,7 +80,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				ctx.p2p
 					.pairing
 					.clone()
-					.originator(id, ctx.config.get().await)
+					.originator(id, ctx.config.get().await, ctx.library_manager.clone())
 					.await
 			})
 		})

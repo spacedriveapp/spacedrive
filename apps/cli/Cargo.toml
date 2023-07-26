@@ -5,8 +5,6 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 indoc = "1.0.9"
 clap = { version = "4.3.0", features = ["derive"] }
