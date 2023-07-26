@@ -114,17 +114,6 @@ impl P2PManager {
 			spacedrop_progress,
 		});
 
-		// library_manager
-		// 	.subscribe({
-		// 		let this = this.clone();
-		// 		move |event| match event {
-		// 			SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
-		// 				let this = this.clone();
-		// 			}
-		// 		}
-		// 	})
-		// 	.await;
-
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
 			let this = this.clone();
