@@ -195,51 +195,6 @@ impl ExifReader {
 	}
 }
 
-#[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
-mod tests {
-	use std::{ffi::OsStr, time::Instant};
-
-	use walkdir::{DirEntry, WalkDir};
-
-	use crate::MediaDataImage;
-
-	const EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "heif", "tiff"];
-
-	#[test]
-	fn main_test() {
-		let start = Instant::now();
-
-		let all_paths = WalkDir::new("/Users/broken/exif")
-			.into_iter()
-			.collect::<Vec<_>>()
-			.into_iter()
-			.flatten();
-
-		let filtered_image_files = all_paths
-			.into_iter()
-			.filter(|file| {
-				EXTENSIONS
-					.into_iter()
-					.any(|x| file.path().extension().unwrap_or_default() == OsStr::new(x))
-			})
-			.map(DirEntry::into_path);
-
-		let exif_data = filtered_image_files
-			.into_iter()
-			.filter_map(|x| MediaDataImage::from_path(x).ok())
-			.collect::<Vec<_>>();
-
-		println!("{}", serde_json::to_string_pretty(&exif_data).unwrap());
-
-		println!(
-			"{} files in {:.4}s",
-			exif_data.len(),
-			start.elapsed().as_secs_f32()
-		);
-	}
-}
-
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Location {
 	latitude: f64,
