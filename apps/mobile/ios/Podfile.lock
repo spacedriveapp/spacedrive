@@ -426,6 +426,8 @@ PODS:
     - React-RCTImage
   - RNSVG (13.4.0):
     - React-Core
+  - SDCore (0.0.0):
+    - ExpoModulesCore
   - Yoga (1.14.0)
 
 DEPENDENCIES:
@@ -484,6 +486,7 @@ DEPENDENCIES:
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
+  - SDCore (from `../modules/sd-core/ios`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -599,6 +602,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-screens"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
+  SDCore:
+    :path: "../modules/sd-core/ios"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -650,7 +655,7 @@ SPEC CHECKSUMS:
   React-RCTText: 1c41dd57e5d742b1396b4eeb251851ce7ff0fca1
   React-RCTVibration: 5199a180d04873366a83855de55ac33ce60fe4d5
   React-runtimeexecutor: 7bf0dafc7b727d93c8cb94eb00a9d3753c446c3e
-  ReactCommon: 6f65ea5b7d84deb9e386f670dd11ce499ded7b40
+  ReactCommon: 5f9a24e64c1c3e2b719014f07cb2acf628983000
   RNCAsyncStorage: 09fc8595e6d6f6d5abf16b23a56b257d9c6b7c5b
   RNCMaskedView: bc0170f389056201c82a55e242e5d90070e18e5a
   RNFlashList: 7fbca4fc075484a9426f1610d648dbea2de94eb0
@@ -659,8 +664,9 @@ SPEC CHECKSUMS:
   RNReanimated: addc4900bf47882118d0a1b21747fa6705fa8cff
   RNScreens: 218801c16a2782546d30bd2026bb625c0302d70f
   RNSVG: 07dbd870b0dcdecc99b3a202fa37c8ca163caec2
+  SDCore: 82d373dd7d1574489a61ca3dd09d7c5b75452baf
   Yoga: 5ed1699acbba8863755998a4245daa200ff3817b
 
-PODFILE CHECKSUM: 7a4bb50e685f075b59612fa770c28d9a25b9edea
+PODFILE CHECKSUM: a09bdbb6818e9cdeacbf6237b4cd4485dd494d36
 
 COCOAPODS: 1.12.1

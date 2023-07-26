@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 jni = "0.19.0"
 
 # Core mobile handling stuff
-sd-mobile-core = { path = "../core" }
+sd-mobile-core = { path = "../../core" }
 
 # Other
 tracing = "0.1.37"

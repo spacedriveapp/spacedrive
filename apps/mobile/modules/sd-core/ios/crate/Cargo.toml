@@ -15,7 +15,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 # Core mobile handling stuff
-sd-mobile-core = { path = "../core" }
+sd-mobile-core = { path = "../../core" }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 # FFI
@@ -25,3 +25,5 @@ objc-foundation = "0.1.1"
 
 # Other
 tracing = "0.1.37"
+
+tokio = "1" # TODO: Remove

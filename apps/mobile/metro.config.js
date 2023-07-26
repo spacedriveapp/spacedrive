@@ -5,9 +5,6 @@ const path = require('path');
 // Needed for transforming svgs from @sd/assets
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
-const [rspcClientPath, rspcClientExclude] = resolveUniqueModule('@rspc/client');
-const [rspcReactPath, rspcReactExclude] = resolveUniqueModule('@rspc/react');
-
 const { getDefaultConfig } = require('expo/metro-config');
 const expoDefaultConfig = getDefaultConfig(__dirname);
 
@@ -23,7 +20,7 @@ const metroConfig = makeMetroConfig({
 		extraNodeModules: {
 			'react-native-svg': reactSVGPath
 		},
-		blockList: exclusionList([reactSVGExclude, rspcClientExclude, rspcReactExclude]),
+		blockList: exclusionList([reactSVGExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
 		disableHierarchicalLookup: false,
@@ -32,18 +29,6 @@ const metroConfig = makeMetroConfig({
 			path.resolve(workspaceRoot, 'node_modules')
 		],
 		resolveRequest: (context, moduleName, platform) => {
-			// if (moduleName.startsWith('@rspc/client/v2')) {
-			// 	return {
-			// 		filePath: path.resolve(rspcClientPath, 'dist', 'v2.js'),
-			// 		type: 'sourceFile'
-			// 	};
-			// }
-			// if (moduleName.startsWith('@rspc/react/v2')) {
-			// 	return {
-			// 		filePath: path.resolve(rspcReactPath, 'dist', 'v2.js'),
-			// 		type: 'sourceFile'
-			// 	};
-			// }
 			// Optionally, chain to the standard Metro resolver.
 			return context.resolveRequest(context, moduleName, platform);
 		},

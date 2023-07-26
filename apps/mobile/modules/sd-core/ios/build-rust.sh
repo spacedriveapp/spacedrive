@@ -2,8 +2,10 @@
 
 set -e
 
+echo "Building \'sd-mobile-ios\' library..."
+
 __dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-TARGET_DIRECTORY="$(CDPATH='' cd -- "${__dirname}/../../../target" && pwd)"
+TARGET_DIRECTORY="$(CDPATH='' cd -- "${__dirname}/../../../../../target" && pwd)"
 
 if [[ $CONFIGURATION != "Debug" ]]; then
   CARGO_FLAGS=--release

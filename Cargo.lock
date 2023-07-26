@@ -7195,6 +7195,7 @@ dependencies = [
  "objc-foundation",
  "objc_id",
  "sd-mobile-core",
+ "tokio",
  "tracing 0.1.37",
 ]
 

@@ -3,17 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
-		28422E8DCA8CF99CD27EE152 /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B51EE3BD2C384416ED4B40AC /* libPods-Spacedrive.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		5574975428A2496C00851D5A /* SDCore.m in Sources */ = {isa = PBXBuildFile; fileRef = 5574975328A2496C00851D5A /* SDCore.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BD37D6A3F6CAF77ED98C89D6 /* Pods_Spacedrive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 590794695B197A32F6361362 /* Pods_Spacedrive.framework */; };
 		C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
@@ -26,10 +25,8 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		38392C44BCEE00E37027EE7F /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
-		5574975328A2496C00851D5A /* SDCore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SDCore.m; sourceTree = "<group>"; };
-		5574975528A2498000851D5A /* SDCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SDCore.h; sourceTree = "<group>"; };
-		5574975628A24E0D00851D5A /* sdcore-universal-ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "sdcore-universal-ios.a"; path = "../../../target/sdcore-universal-ios.a"; sourceTree = "<group>"; };
 		56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		590794695B197A32F6361362 /* Pods_Spacedrive.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Spacedrive.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
 		B51EE3BD2C384416ED4B40AC /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Expo.plist; path = Supporting/Expo.plist; sourceTree = "<group>"; };
@@ -42,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				28422E8DCA8CF99CD27EE152 /* libPods-Spacedrive.a in Frameworks */,
+				BD37D6A3F6CAF77ED98C89D6 /* Pods_Spacedrive.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,8 +57,6 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				5574975328A2496C00851D5A /* SDCore.m */,
-				5574975528A2498000851D5A /* SDCore.h */,
 			);
 			path = Spacedrive;
 			sourceTree = "<group>";
@@ -77,9 +72,9 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				5574975628A24E0D00851D5A /* sdcore-universal-ios.a */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				B51EE3BD2C384416ED4B40AC /* libPods-Spacedrive.a */,
+				590794695B197A32F6361362 /* Pods_Spacedrive.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -147,7 +142,6 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Spacedrive" */;
 			buildPhases = (
 				BC1F37E21575379C81F561DC /* [CP] Check Pods Manifest.lock */,
-				350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */,
 				FD10A7F022414F080027D42C /* Start Packager */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
@@ -174,7 +168,9 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = XF923AZS22;
 						LastSwiftMigration = 1250;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -223,25 +219,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" $PROJECT_ROOT ios relative | tail -n 1)\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
-		};
-		350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build Spacedrive Core";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/zsh;
-			shellScript = "env -i SPACEDRIVE_CI=$SPACEDRIVE_CI CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ./build-rust.sh\n";
 		};
 		65CB42BC732A49C59CCA544A /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -332,7 +309,6 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */,
-				5574975428A2496C00851D5A /* SDCore.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,10 +336,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Spacedrive;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib/swift",
 					"$(inherited)",
@@ -409,7 +382,6 @@
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/libevent\"",
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/react-native-safe-area-context\"",
 					/usr/lib/swift,
-					../../../target,
 				);
 				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
@@ -421,13 +393,11 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
@@ -457,10 +427,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Spacedrive;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib/swift",
 					"$(inherited)",
@@ -506,7 +473,6 @@
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/libevent\"",
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/react-native-safe-area-context\"",
 					/usr/lib/swift,
-					../../../target,
 				);
 				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
@@ -518,13 +484,11 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
@@ -586,10 +550,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					/usr/lib/swift,
-					"$(inherited)",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -640,10 +601,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					/usr/lib/swift,
-					"$(inherited)",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
