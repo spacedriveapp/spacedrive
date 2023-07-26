@@ -80,6 +80,7 @@ To run the mobile app:
 - Run `./.github/scripts/setup-system.sh mobile`
   - This will set up most of the dependencies required to build the mobile app.
 - Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
+- Navigate to the mobile project directory: `cd apps/mobile`
 - Run the following commands:
   - `pnpm android` (runs on Android Emulator)
   - `pnpm ios` (runs on iOS Emulator)
