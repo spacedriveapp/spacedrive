@@ -19,7 +19,7 @@ const OptionButton = tw(TopBarButton)`w-full gap-1 !px-1.5 !py-1`;
 export default function LocationOptions({ location, path }: { location: Location; path: string }) {
 	const navigate = useNavigate();
 
-	const scanLocation = useLibraryMutation('locations.fullRescan');
+	const scanLocationSubPath = useLibraryMutation('locations.subPathRescan');
 	const regenThumbs = useLibraryMutation('jobs.generateThumbsForLocation');
 
 	const archiveLocation = () => alert('Not implemented');
@@ -73,7 +73,12 @@ export default function LocationOptions({ location, path }: { location: Location
 						</PopoverSection>
 						<PopoverDivider />
 						<PopoverSection>
-							<OptionButton onClick={() => scanLocation.mutate({ location_id: location.id, reidentify_objects: false })}>
+							<OptionButton onClick={() => scanLocationSubPath.mutate(
+								{
+									location_id: location.id,
+									sub_path: path ?? ''
+								}
+							)}>
 								<FolderDotted />
 								Re-index
 							</OptionButton>

@@ -50,8 +50,6 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 	const create = async () => {
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
 		createLibrary.mutate({ name: obStore.newLibraryName });
-
-		return;
 	};
 
 	useEffect(() => {

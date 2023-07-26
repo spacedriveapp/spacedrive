@@ -30,6 +30,7 @@ opener = { version = "0.6.1", features = ["reveal"] }
 specta = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { version = "1.3.3", features = ["serde"] }
+futures = "0.3"
 
 prisma-client-rust = { workspace = true }
 sd-prisma = { path = "../../../crates/prisma" }

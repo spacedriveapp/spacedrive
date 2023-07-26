@@ -6,6 +6,36 @@ use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
 
+pub enum OperationKind<'a> {
+	Create,
+	Update(&'a str),
+	Delete,
+}
+
+impl std::fmt::Display for OperationKind<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			OperationKind::Create => write!(f, "c"),
+			OperationKind::Update(field) => write!(f, "u:{}", field),
+			OperationKind::Delete => write!(f, "d"),
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub struct RelationOperation {
+	pub relation_item: Value,
+	pub relation_group: Value,
+	pub relation: String,
+	pub data: RelationOperationData,
+}
+
+impl RelationOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum RelationOperationData {
 	#[serde(rename = "c")]
@@ -16,12 +46,27 @@ pub enum RelationOperationData {
 	Delete,
 }
 
+impl RelationOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct RelationOperation {
-	pub relation_item: Value,
-	pub relation_group: Value,
-	pub relation: String,
-	pub data: RelationOperationData,
+pub struct SharedOperation {
+	pub record_id: Value,
+	pub model: String,
+	pub data: SharedOperationData,
+}
+
+impl SharedOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
@@ -34,11 +79,14 @@ pub enum SharedOperationData {
 	Delete,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct SharedOperation {
-	pub record_id: Value,
-	pub model: String,
-	pub data: SharedOperationData,
+impl SharedOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
 }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, Type)]
