@@ -32,7 +32,6 @@ use std::{
 use futures::future::join_all;
 use sd_file_ext::extensions::ImageExtension;
 use serde_json::json;
-use thiserror::Error;
 use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
@@ -45,7 +44,7 @@ pub use shallow::*;
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum FileIdentifierJobError {
 	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
