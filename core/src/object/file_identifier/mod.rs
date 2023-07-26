@@ -5,7 +5,7 @@ use crate::{
 		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
-	prisma::{file_path, location, media_data, object, PrismaClient},
+	prisma::{file_path, location, object, PrismaClient},
 	sync,
 	sync::SyncManager,
 	sync::{CRDTOperation, OperationFactory},
@@ -15,9 +15,8 @@ use crate::{
 	},
 };
 
-use chrono::Utc;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_media_data::image;
+use sd_media_data::MediaDataImage;
 
 use once_cell::sync::Lazy;
 use std::{
@@ -285,28 +284,12 @@ async fn identifier_job_step(
 					.filter(|x| fp.extension.clone().unwrap_or_default() == x.to_string());
 
 				let create_media_data_items = create_media_data_items
-					.filter_map(|_| {
-						image::get_data_for_image(location_path.join(&path))
-							.ok()
-							.map(|data| {
-								media_data::create_unchecked(vec![
-									media_data::date_created::set(Some(Utc::now().into())),
-									media_data::date_taken::set(data.timestamp),
-									media_data::pixel_width::set(data.width),
-									media_data::pixel_height::set(data.width),
-									media_data::color_space::set(data.color_space),
-									media_data::device_make::set(data.device_make),
-									media_data::device_model::set(data.device_model),
-									media_data::focal_length::set(data.focal_length),
-									media_data::shutter_speed::set(data.shutter_speed),
-									media_data::flash::set(data.flash),
-									media_data::orientation::set(data.orientation),
-									media_data::copyright::set(data.copyright),
-									media_data::artist::set(data.artist),
-								])
-							})
+					.map(|_| {
+						MediaDataImage::from_path(location_path.join(&path))?
+							.to_query()
+							.map_err(JobError::MediaData)
 					})
-					.collect::<Vec<_>>();
+					.collect::<Result<Vec<_>, JobError>>();
 
 				(
 					(object_creation_args, {
@@ -357,7 +340,7 @@ async fn identifier_job_step(
 
 		let total_created_media_data = db
 			.media_data()
-			.create_many(create_media_data.into_iter().flatten().collect())
+			.create_many(create_media_data.into_iter().flatten().flatten().collect())
 			.exec()
 			.await?;
 

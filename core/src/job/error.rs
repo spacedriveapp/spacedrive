@@ -63,6 +63,8 @@ pub enum JobError {
 	MissingFromDb(&'static str, String),
 	#[error("Thumbnail skipped")]
 	ThumbnailSkipped,
+	#[error("media data error: {0}")]
+	MediaData(#[from] sd_media_data::Error),
 
 	// Not errors
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]

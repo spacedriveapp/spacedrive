@@ -273,22 +273,12 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    date_created  DateTime? // filesystem creation time
-    date_taken    DateTime?
-    pixel_width   Int?
-    pixel_height  Int?
-    color_space   String?
-    longitude     Float?
-    latitude      Float?
-    codecs        String? // eg: "h264,acc"
-    device_make   String? // eg: "Apple"
-    device_model  String? // eg: "iPhone 12"
-    focal_length  Float?
-    shutter_speed Float?
-    orientation   String?
-    flash         Boolean?
+    dimensions  Bytes?
+    image_date  Bytes?
+    location    Bytes?
+    camera_data Bytes?
 
-    // probably not set
+    // possibly not set
     copyright String?
     artist    String?
 
@@ -296,9 +286,7 @@ model MediaData {
     duration Int?
     fps      Int?
     streams  Int?
-
-    // excluding as it varies WILDLY between devices
-    // device_software String? // eg: "12.1.1"
+    codecs   String? // eg: "h264,acc"
 
     object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
