@@ -6,20 +6,18 @@ use crate::{
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
-	sync,
-	sync::SyncManager,
-	sync::{CRDTOperation, OperationFactory},
-	util::{
-		db::{maybe_missing, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use sd_core_sync::SyncManager;
-use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+use sd_file_ext::{
+	extensions::{Extension, ImageExtension},
+	kind::ObjectKind,
+};
 use sd_media_data::MediaDataImage;
 use sd_prisma::prisma_sync;
 use sd_sync::{CRDTOperation, OperationFactory};
+use sd_utils::uuid_to_bytes;
 
 use once_cell::sync::Lazy;
 use std::{
@@ -30,7 +28,6 @@ use std::{
 };
 
 use futures::future::join_all;
-use sd_file_ext::extensions::ImageExtension;
 use serde_json::json;
 use tokio::fs;
 use tracing::{error, trace};
@@ -260,11 +257,6 @@ async fn identifier_job_step(
 				let sync_id = || prisma_sync::object::SyncId {
 					pub_id: sd_utils::uuid_to_bytes(object_pub_id),
 				};
-
-				let object_creation_args = (
-					sync.shared_create(sync_id(), sync_params),
-					object::create_unchecked(sd_utils::uuid_to_bytes(object_pub_id), db_params),
-				);
 
 				let kind = meta.kind as i32;
 
