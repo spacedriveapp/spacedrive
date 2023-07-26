@@ -17,6 +17,22 @@
   - You are about to drop the column `shutter_speed` on the `media_data` table. All the data in the column will be lost.
 
 */
+-- AlterTable
+ALTER TABLE "instance" ADD COLUMN "timestamp" BIGINT;
+
+-- CreateTable
+CREATE TABLE "relation_operation" (
+    "id" BLOB NOT NULL PRIMARY KEY,
+    "timestamp" BIGINT NOT NULL,
+    "relation" TEXT NOT NULL,
+    "item_id" BLOB NOT NULL,
+    "group_id" BLOB NOT NULL,
+    "kind" TEXT NOT NULL,
+    "data" BLOB NOT NULL,
+    "instance_id" INTEGER NOT NULL,
+    CONSTRAINT "relation_operation_instance_id_fkey" FOREIGN KEY ("instance_id") REFERENCES "instance" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
 -- RedefineTables
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_media_data" (
@@ -25,7 +41,6 @@ CREATE TABLE "new_media_data" (
     "image_date" BLOB,
     "location" BLOB,
     "camera_data" BLOB,
-    "software" TEXT,
     "copyright" TEXT,
     "artist" TEXT,
     "duration" INTEGER,
