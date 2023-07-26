@@ -83,7 +83,7 @@ impl StatefulJob for ThumbnailerJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
 

@@ -196,6 +196,17 @@ impl StatefulJob for IndexerJobInit {
 		)
 		.await?;
 		let scan_read_time = scan_start.elapsed();
+		let to_remove = to_remove.collect::<Vec<_>>();
+
+		ctx.library
+			.thumbnail_remover_proxy
+			.remove_cas_ids(
+				to_remove
+					.iter()
+					.filter_map(|file_path| file_path.cas_id.clone())
+					.collect::<Vec<_>>(),
+			)
+			.await;
 
 		let db_delete_start = Instant::now();
 		// TODO pass these uuids to sync system

@@ -15,8 +15,11 @@ use crate::{
 	},
 };
 
+use sd_core_sync::SyncManager;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_media_data::MediaDataImage;
+use sd_prisma::prisma_sync;
+use sd_sync::{CRDTOperation, OperationFactory};
 
 use once_cell::sync::Lazy;
 use std::{
@@ -145,14 +148,14 @@ async fn identifier_job_step(
 			.map(|(pub_id, (meta, _))| {
 				(
 					sync.shared_update(
-						sync::file_path::SyncId {
-							pub_id: uuid_to_bytes(*pub_id),
+						prisma_sync::file_path::SyncId {
+							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
 						json!(&meta.cas_id),
 					),
 					db.file_path().update(
-						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
+						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
 						vec![file_path::cas_id::set(Some(meta.cas_id.clone()))],
 					),
 				)
@@ -255,9 +258,14 @@ async fn identifier_job_step(
 					ext,
 				);
 
-				let sync_id = || sync::object::SyncId {
-					pub_id: uuid_to_bytes(object_pub_id),
+				let sync_id = || prisma_sync::object::SyncId {
+					pub_id: sd_utils::uuid_to_bytes(object_pub_id),
 				};
+
+				let object_creation_args = (
+					sync.shared_create(sync_id(), sync_params),
+					object::create_unchecked(sd_utils::uuid_to_bytes(object_pub_id), db_params),
+				);
 
 				let kind = meta.kind as i32;
 
@@ -367,16 +375,16 @@ fn file_path_object_connect_ops<'db>(
 
 	(
 		sync.shared_update(
-			sync::file_path::SyncId {
-				pub_id: uuid_to_bytes(file_path_id),
+			prisma_sync::file_path::SyncId {
+				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(sync::object::SyncId {
+			json!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),
 		db.file_path().update(
-			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),
+			file_path::pub_id::equals(sd_utils::uuid_to_bytes(file_path_id)),
 			vec![file_path::object::connect(object::pub_id::equals(vec_id))],
 		),
 	)

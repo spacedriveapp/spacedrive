@@ -51,7 +51,7 @@ pub enum WorkerCommand {
 }
 
 pub struct WorkerContext {
-	pub library: Library,
+	pub library: Arc<Library>,
 	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
 
@@ -100,7 +100,7 @@ impl Worker {
 		id: Uuid,
 		mut job: Box<dyn DynJob>,
 		mut report: JobReport,
-		library: Library,
+		library: Arc<Library>,
 		job_manager: Arc<JobManager>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
@@ -294,7 +294,7 @@ impl Worker {
 		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
-		library: Library,
+		library: Arc<Library>,
 	) {
 		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
 

@@ -86,5 +86,5 @@ indent_style = space
 # Swift
 # https://github.com/apple/swift-format/blob/main/Documentation/Configuration.md#example
 [*.swift]
-indent_size = 2
+indent_size = 4
 indent_style = space
