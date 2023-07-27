@@ -38,7 +38,7 @@ impl StatefulJob for FileDeleterJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let steps = get_many_files_datas(
 			db,
@@ -99,7 +99,6 @@ impl StatefulJob for FileDeleterJobInit {
 		invalidate_query!(ctx.library, "search.paths");
 
 		ctx.library.orphan_remover.invoke().await;
-		ctx.library.thumbnail_remover.invoke().await;
 
 		Ok(Some(json!({ "init": init })))
 	}

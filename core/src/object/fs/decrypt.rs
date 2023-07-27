@@ -44,7 +44,7 @@
 // 	}
 
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-// 		let Library { db, .. } = &ctx.library;
+// 		let Library { db, .. } = &*ctx.library;
 
 // 		state.steps = get_many_files_datas(
 // 			db,

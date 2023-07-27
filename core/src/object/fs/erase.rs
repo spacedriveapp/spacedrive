@@ -68,7 +68,7 @@ impl StatefulJob for FileEraserJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
 
