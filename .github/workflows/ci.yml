@@ -113,18 +113,20 @@ jobs:
           args: --workspace --all-features
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # test:
-  #   name: Test (${{ matrix.platform }})
-  #   runs-on: ${{ matrix.platform }}
-  #   strategy:
-  #     matrix:
-  #       platform: [ubuntu-20.04, macos-latest, windows-latest]
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
-  #
-  #     - name: Setup
-  #       uses: ./.github/actions/setup
-  #
-  #     - name: Test
-  #       run: cargo test --workspace --all-features
+   test:
+     name: Test (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+     matrix:
+         platform: [ubuntu-20.04, macos-latest, windows-latest]
+   steps:
+  - name: Checkout repository
+  uses: actions/checkout@v3
+  
+       - name: Setup
+  uses: ./.github/actions/setup
+  
+  - name: Test
+        run: cargo test --workspace --all-features
+        
+          
