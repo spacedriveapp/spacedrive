@@ -1,6 +1,6 @@
 use crate::{
 	library::Library,
-	location::indexer::rules::{IndexerRuleError, RulePerKind},
+	location::indexer::rules::{IndexerRule, IndexerRuleError, RulePerKind},
 };
 use chrono::Utc;
 use sd_prisma::prisma::indexer_rule;
@@ -15,10 +15,23 @@ pub enum SeederError {
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 }
 
-struct SystemIndexerRule {
+pub struct SystemIndexerRule {
 	name: &'static str,
 	rules: Vec<RulePerKind>,
 	default: bool,
+}
+
+impl From<SystemIndexerRule> for IndexerRule {
+	fn from(rule: SystemIndexerRule) -> Self {
+		Self {
+			id: None,
+			name: rule.name.to_string(),
+			default: rule.default,
+			rules: rule.rules,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
+		}
+	}
 }
 
 /// Seeds system indexer rules into a new or existing library,
@@ -56,7 +69,7 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 	Ok(())
 }
 
-fn no_os_protected() -> SystemIndexerRule {
+pub fn no_os_protected() -> SystemIndexerRule {
 	SystemIndexerRule {
         // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
         // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
@@ -160,7 +173,7 @@ fn no_os_protected() -> SystemIndexerRule {
     }
 }
 
-fn no_hidden() -> SystemIndexerRule {
+pub fn no_hidden() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "No Hidden",
 		default: true,

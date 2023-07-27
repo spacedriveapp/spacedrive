@@ -16,13 +16,22 @@ use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 
 use chrono::{DateTime, Utc};
 use rspc::ErrorCode;
+use sd_utils::chain_optional_iter;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, warn};
 
-use super::{file_path_helper::MetadataExt, generate_thumbnail, normalize_path};
+use super::{
+	file_path_helper::MetadataExt,
+	generate_thumbnail,
+	indexer::rules::{
+		seed::{no_hidden, no_os_protected},
+		IndexerRule, RuleKind,
+	},
+	normalize_path,
+};
 
 #[derive(Debug, Error)]
 pub enum NonIndexedLocationError {
@@ -78,6 +87,7 @@ pub struct NonIndexedPathItem {
 
 pub async fn walk(
 	full_path: impl AsRef<Path>,
+	with_hidden_files: bool,
 	library: Arc<Library>,
 ) -> Result<NonIndexedFileSystemEntries, NonIndexedLocationError> {
 	let path = full_path.as_ref();
@@ -88,11 +98,31 @@ pub async fn walk(
 	let mut errors = vec![];
 	let mut entries = vec![];
 
+	let rules = chain_optional_iter(
+		[IndexerRule::from(no_os_protected())],
+		[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+	);
+
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
 		let Ok((entry_path, name)) = normalize_path(entry.path())
 			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into())) else {
 			continue;
 		};
+
+		if let Ok(rule_results) = IndexerRule::apply_all(&rules, &entry_path)
+			.await
+			.map_err(|e| errors.push(e.into()))
+		{
+			// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
+			if rule_results[&RuleKind::RejectFilesByGlob]
+				.iter()
+				.any(|reject| !reject)
+			{
+				continue;
+			}
+		} else {
+			continue;
+		}
 
 		let Ok(metadata) = entry.metadata()
 			.await

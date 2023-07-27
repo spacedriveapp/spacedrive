@@ -1,12 +1,10 @@
-import { FolderNotchOpen } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
 import { ExplorerContext } from './Explorer/Context';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
-import { EmptyNotice } from './Explorer/View';
 import { getExplorerStore, useExplorerStore } from './Explorer/store';
 import { TopBarPortal } from './TopBar/Portal';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
@@ -16,7 +14,7 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	const explorerStore = useExplorerStore();
 
 	const query = useLibraryQuery(
-		['search.ephemeral-paths', { path: path ?? (os === 'windows' ? 'C:\\' : '/') }],
+		['search.ephemeral-paths', { path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true }],
 		{
 			enabled: !!path,
 			onSuccess: () => getExplorerStore().resetNewThumbnails()

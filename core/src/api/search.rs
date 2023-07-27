@@ -274,12 +274,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[serde(rename_all = "camelCase")]
 			struct NonIndexedPath {
 				path: PathBuf,
+				with_hidden_files: bool,
 			}
 
-			R.with2(library())
-				.query(|(_node, library), NonIndexedPath { path }| async move {
-					non_indexed::walk(path, library).await.map_err(Into::into)
-				})
+			R.with2(library()).query(
+				|(_node, library),
+				 NonIndexedPath {
+				     path,
+				     with_hidden_files,
+				 }| async move {
+					non_indexed::walk(path, with_hidden_files, library)
+						.await
+						.map_err(Into::into)
+				},
+			)
 		})
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
