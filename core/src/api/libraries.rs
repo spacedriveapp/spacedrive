@@ -1,12 +1,8 @@
-use crate::{
-	library::{LibraryConfig, LibraryName},
-	prisma::statistics,
-	util::MaybeUndefined,
-	volume::get_volumes,
-};
+use crate::{library::LibraryName, util::MaybeUndefined, volume::get_volumes};
 
 use chrono::Utc;
 use rspc::alpha::AlphaRouter;
+use sd_prisma::prisma::statistics;
 use serde::Deserialize;
 use specta::Type;
 use tracing::debug;
@@ -95,11 +91,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let new_library = ctx
 					.library_manager
-					.create(
-						LibraryConfig::new(args.name, ctx.config.get().await.id),
-						ctx.config.get().await,
-					)
+					.create(args.name, None, ctx.config.get().await)
 					.await?;
+
+				debug!("Created library {}", new_library.uuid);
 
 				Ok(new_library)
 			})

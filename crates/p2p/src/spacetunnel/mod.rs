@@ -1,4 +1,4 @@
-//! A system for creating encrypted tunnels between peers on untrusted connections.
+//! A system for creating encrypted tunnels between peers over untrusted connections.
 
 mod identity;
 mod tunnel;

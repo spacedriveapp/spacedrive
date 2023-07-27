@@ -22,7 +22,7 @@ use crate::{
 	util::error::FileIOError,
 };
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use notify::{
@@ -43,7 +43,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Library,
+	library: &'lib Arc<Library>,
 	recently_created_files: HashMap<PathBuf, Instant>,
 	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
@@ -56,7 +56,7 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
 	where
 		Self: Sized,
 	{
@@ -268,7 +268,7 @@ impl MacOsEventHandler<'_> {
 						);
 
 						// We found a new path for this old path, so we can rename it
-						rename(self.location_id, &path, &old_path, self.library).await?;
+						rename(self.location_id, &path, &old_path, meta, self.library).await?;
 					} else {
 						trace!("No match for new path yet: {}", path.display());
 						self.new_paths_map
@@ -299,7 +299,16 @@ impl MacOsEventHandler<'_> {
 					);
 
 					// We found a new path for this old path, so we can rename it
-					rename(self.location_id, &new_path, &path, self.library).await?;
+					rename(
+						self.location_id,
+						&new_path,
+						&path,
+						fs::metadata(&new_path)
+							.await
+							.map_err(|e| FileIOError::from((&new_path, e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					trace!("No match for old path yet: {}", path.display());
 					// We didn't find a new path for this old path, so we store ir for later

@@ -14,6 +14,7 @@ use crate::{
 use std::{
 	collections::{BTreeMap, HashMap},
 	path::PathBuf,
+	sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -32,7 +33,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct LinuxEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Library,
+	library: &'lib Arc<Library>,
 	last_check_rename: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
 	rename_from_buffer: Vec<(PathBuf, Instant)>,
@@ -42,7 +43,7 @@ pub(super) struct LinuxEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self {
+	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self {
 		Self {
 			location_id,
 			library,
@@ -106,8 +107,19 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 
 			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
 				let from_path = &paths[0];
+				let to_path = &paths[1];
+
 				self.rename_from.remove(from_path);
-				rename(self.location_id, &paths[1], from_path, self.library).await?;
+				rename(
+					self.location_id,
+					to_path,
+					from_path,
+					fs::metadata(to_path)
+						.await
+						.map_err(|e| FileIOError::from((to_path, e)))?,
+					self.library,
+				)
+				.await?;
 				self.recently_renamed_from
 					.insert(paths.swap_remove(0), Instant::now());
 			}

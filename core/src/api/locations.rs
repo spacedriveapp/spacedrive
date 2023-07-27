@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		location_with_indexer_rules, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -14,7 +14,6 @@ use std::path::{Path, PathBuf};
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::info;
 
 use super::{utils::library, Ctx, R};
 
@@ -53,7 +52,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.location()
 					.find_many(vec![])
 					.order_by(location::date_created::order(SortOrder::Desc))
-					.include(location::include!({ node }))
 					.exec()
 					.await?)
 			})
@@ -141,28 +139,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     reidentify_objects,
 				 }| async move {
 					if reidentify_objects {
-						let object_ids = library
+						library
 							.db
 							.file_path()
-							.find_many(vec![
-								file_path::location_id::equals(Some(location_id)),
-								file_path::object_id::not(None),
-							])
-							.select(file_path::select!({ object_id }))
-							.exec()
-							.await?
-							.into_iter()
-							.filter_map(|file_path| file_path.object_id)
-							.collect::<Vec<_>>();
-
-						let count = library
-							.db
-							.object()
-							.delete_many(vec![object::id::in_vec(object_ids)])
+							.update_many(
+								vec![
+									file_path::location_id::equals(Some(location_id)),
+									file_path::object_id::not(None),
+								],
+								vec![file_path::object::disconnect()],
+							)
 							.exec()
 							.await?;
 
-						info!("Deleted {count} objects, to be reidentified");
+						library.orphan_remover.invoke().await;
 					}
 
 					// rescan location
@@ -173,6 +163,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?
 							.ok_or(LocationError::IdNotFound(location_id))?,
+					)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
+		.procedure("subPathRescan", {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct RescanArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: String,
+			}
+
+			R.with2(library()).mutation(
+				|(_, library),
+				 RescanArgs {
+				     location_id,
+				     sub_path,
+				 }: RescanArgs| async move {
+					scan_location_sub_path(
+						&library,
+						find_location(&library, location_id)
+							.include(location_with_indexer_rules::include())
+							.exec()
+							.await?
+							.ok_or(LocationError::IdNotFound(location_id))?,
+						sub_path,
 					)
 					.await
 					.map_err(Into::into)

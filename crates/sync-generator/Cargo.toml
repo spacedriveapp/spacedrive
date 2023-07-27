@@ -5,8 +5,6 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 nom = "7.1.3"
 once_cell = "1.17.2"

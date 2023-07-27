@@ -1,5 +1,6 @@
 use std::{
-	collections::{BTreeSet, HashMap},
+	collections::{BTreeSet, HashMap, HashSet},
+	hash::{Hash, Hasher},
 	sync::Arc,
 };
 
@@ -38,10 +39,17 @@ pub async fn open_file_paths(
 					.into_iter()
 					.map(|(id, maybe_path)| {
 						if let Some(path) = maybe_path {
-							opener::open(path)
+							#[cfg(target_os = "linux")]
+							let open_result = sd_desktop_linux::open_file_path(&path);
+
+							#[cfg(not(target_os = "linux"))]
+							let open_result = opener::open(path);
+
+							open_result
 								.map(|_| OpenFilePathResult::AllGood(id))
-								.unwrap_or_else(|e| {
-									OpenFilePathResult::OpenError(id, e.to_string())
+								.unwrap_or_else(|err| {
+									error!("Failed to open logs dir: {err}");
+									OpenFilePathResult::OpenError(id, err.to_string())
 								})
 						} else {
 							OpenFilePathResult::NoFile(id)
@@ -57,15 +65,25 @@ pub async fn open_file_paths(
 	Ok(res)
 }
 
-#[derive(Serialize, Type)]
+#[derive(Serialize, Type, Debug, Clone)]
 pub struct OpenWithApplication {
-	id: i32,
-	name: String,
-	#[cfg(target_os = "linux")]
-	url: std::path::PathBuf,
-	#[cfg(not(target_os = "linux"))]
 	url: String,
+	name: String,
 }
+
+impl Hash for OpenWithApplication {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.url.hash(state);
+	}
+}
+
+impl PartialEq for OpenWithApplication {
+	fn eq(&self, other: &Self) -> bool {
+		self.url == other.url
+	}
+}
+
+impl Eq for OpenWithApplication {}
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -87,125 +105,110 @@ pub async fn get_file_path_open_with_apps(
 		};
 
 	#[cfg(target_os = "macos")]
-	return Ok(paths
-		.into_iter()
-		.flat_map(|(id, path)| {
-			let Some(path) = path
-				else {
-					error!("File not found in database");
-					return vec![];
-				};
+	return {
+		Ok(paths
+			.into_values()
+			.flat_map(|path| {
+				let Some(path) = path.and_then(|path| path.into_os_string().into_string().ok())
+					else {
+						error!("File not found in database");
+						return None;
+					};
 
-			unsafe { sd_desktop_macos::get_open_with_applications(&path.to_str().unwrap().into()) }
-				.as_slice()
-				.iter()
-				.map(|app| OpenWithApplication {
-					id,
-					name: app.name.to_string(),
-					url: app.url.to_string(),
-				})
-				.collect::<Vec<_>>()
-		})
-		.collect());
+				Some(
+					unsafe { sd_desktop_macos::get_open_with_applications(&path.as_str().into()) }
+						.as_slice()
+						.iter()
+						.map(|app| OpenWithApplication {
+							url: app.url.to_string(),
+							name: app.name.to_string(),
+						})
+						.collect::<HashSet<_>>(),
+				)
+			})
+			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+			.map(|set| set.into_iter().collect())
+			.unwrap_or(vec![]))
+	};
 
 	#[cfg(target_os = "linux")]
 	{
-		use sd_desktop_linux::{DesktopEntry, HandlerType, SystemApps};
+		use futures::future;
+		use sd_desktop_linux::list_apps_associated_with_ext;
 
-		// TODO: cache this, and only update when the underlying XDG desktop apps changes
-		let Ok(system_apps) = SystemApps::populate()
-			.map_err(|e| { error!("{e:#?}"); })
-			else {
-				return Ok(vec![]);
-			};
-
-		return Ok(paths
-			.into_iter()
-			.flat_map(|(id, path)| {
-				let Some(path) = path
+		let apps = future::join_all(paths.into_values().map(|path| async {
+			let Some(path) = path
 					else {
 						error!("File not found in database");
-						return vec![];
+						return None;
 					};
 
-				let Some(name) = path.file_name()
-					.and_then(|name| name.to_str())
-					.map(|name| name.to_string())
-					else {
-						error!("Failed to extract file name");
-						return vec![];
-					};
-
-				system_apps
-					.get_handlers(HandlerType::Ext(name))
-					.map(|handler| {
-						handler
-							.get_path()
-							.map_err(|e| {
-								error!("{e:#?}");
-							})
-							.and_then(|path| {
-								DesktopEntry::try_from(&path)
-									// TODO: Ignore desktop entries that have commands that don't exist/aren't available in path
-									.map(|entry| OpenWithApplication {
-										id,
-										name: entry.name,
-										url: path,
-									})
-									.map_err(|e| {
-										error!("{e:#?}");
-									})
-							})
+			Some(
+				list_apps_associated_with_ext(&path)
+					.await
+					.into_iter()
+					.map(|app| OpenWithApplication {
+						url: app.id,
+						name: app.name,
 					})
-					.collect::<Result<Vec<_>, _>>()
-					.unwrap_or(vec![])
-			})
-			.collect());
+					.collect::<HashSet<_>>(),
+			)
+		}))
+		.await;
+
+		return Ok(apps
+			.into_iter()
+			.flatten()
+			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+			.map(|set| set.into_iter().collect())
+			.unwrap_or(vec![]));
 	}
 
 	#[cfg(windows)]
 	return Ok(paths
-		.into_iter()
-		.flat_map(|(id, path)| {
+		.into_values()
+		.filter_map(|path| {
 			let Some(path) = path
 				else {
 					error!("File not found in database");
-					return vec![];
+					return None;
 				};
 
 			let Some(ext) = path.extension()
 				else {
 					error!("Failed to extract file extension");
-					return vec![];
+					return None;
 				};
 
 			sd_desktop_windows::list_apps_associated_with_ext(ext)
 				.map_err(|e| {
 					error!("{e:#?}");
 				})
-				.map(|handlers| {
-					handlers
-						.iter()
-						.filter_map(|handler| {
-							let (Ok(name), Ok(url)) = (
-							unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-							unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
-								.and_then(|name| unsafe { name.to_string() }
-								.map_err(|e| { error!("{e:#?}");})),
-						) else {
-							error!("Failed to get handler info");
-							return None
-						};
-
-							Some(OpenWithApplication { id, name, url })
-						})
-						.collect::<Vec<_>>()
-				})
-				.unwrap_or(vec![])
+				.ok()
 		})
-		.collect());
+		.map(|handler| {
+			handler
+				.iter()
+				.filter_map(|handler| {
+					let (Ok(name), Ok(url)) = (
+						unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
+							.and_then(|name| unsafe { name.to_string() }
+							.map_err(|e| { error!("{e:#?}");})),
+						unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
+							.and_then(|name| unsafe { name.to_string() }
+							.map_err(|e| { error!("{e:#?}");})),
+					) else {
+						error!("Failed to get handler info");
+						return None
+					};
+
+					Some(OpenWithApplication { name, url })
+				})
+				.collect::<HashSet<_>>()
+		})
+		.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+		.map(|set| set.into_iter().collect())
+		.unwrap_or(vec![]));
 
 	#[allow(unreachable_code)]
 	Ok(vec![])
@@ -252,21 +255,14 @@ pub async fn open_file_path_with(
 
 					#[cfg(target_os = "macos")]
 					return {
-						unsafe {
-							sd_desktop_macos::open_file_path_with(
-								&path.into(),
-								&url.as_str().into(),
-							)
-						};
+						sd_desktop_macos::open_file_paths_with(&[path], url);
 						Ok(())
 					};
 
 					#[cfg(target_os = "linux")]
-					return sd_desktop_linux::Handler::assume_valid(url.into())
-						.open(&[path])
-						.map_err(|e| {
-							error!("{e:#?}");
-						});
+					return sd_desktop_linux::open_files_path_with(&[path], url).map_err(|e| {
+						error!("{e:#?}");
+					});
 
 					#[cfg(windows)]
 					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {
@@ -330,7 +326,8 @@ pub async fn reveal_items(
 				.db
 				.location()
 				.find_many(vec![
-					location::node_id::equals(Some(library.node_local_id)),
+					// TODO(N): This will fall apart with removable media and is making an invalid assumption that the `Node` is fixed for an `Instance`.
+					location::instance_id::equals(Some(library.config.instance_id)),
 					location::id::in_vec(locations),
 				])
 				.select(location::select!({ path }))
@@ -343,7 +340,34 @@ pub async fn reveal_items(
 	}
 
 	for path in paths_to_open {
-		opener::reveal(path).ok();
+		#[cfg(target_os = "linux")]
+		if sd_desktop_linux::is_appimage() {
+			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
+			sd_desktop_linux::open_file_path(
+				&(if path.is_file() {
+					path.parent().unwrap_or(&path)
+				} else {
+					&path
+				}),
+			)
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok()
+		} else {
+			opener::reveal(path)
+				.map_err(|err| {
+					error!("Failed to open logs dir: {err}");
+				})
+				.ok()
+		};
+
+		#[cfg(not(target_os = "linux"))]
+		opener::reveal(path)
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok();
 	}
 
 	Ok(())

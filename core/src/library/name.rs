@@ -54,3 +54,9 @@ impl Deref for LibraryName {
 		&self.0
 	}
 }
+
+impl From<LibraryName> for String {
+	fn from(name: LibraryName) -> Self {
+		name.0
+	}
+}

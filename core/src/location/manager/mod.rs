@@ -42,7 +42,7 @@ enum ManagementMessageAction {
 #[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	action: ManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -59,7 +59,7 @@ enum WatcherManagementMessageAction {
 #[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: location::id::Type,
-	library: Library,
+	library: Arc<Library>,
 	action: WatcherManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -109,11 +109,6 @@ pub enum LocationManagerError {
 	JobManager(#[from] JobManagerError),
 	#[error("missing-field")]
 	MissingField(#[from] MissingFieldError),
-
-	#[error("invalid inode")]
-	InvalidInode,
-	#[error("invalid device")]
-	InvalidDevice,
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
@@ -173,7 +168,7 @@ impl LocationManager {
 	async fn location_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -201,7 +196,7 @@ impl LocationManager {
 	async fn watcher_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -227,7 +222,7 @@ impl LocationManager {
 	pub async fn add(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Add)
 			.await
@@ -236,7 +231,7 @@ impl LocationManager {
 	pub async fn remove(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Remove)
 			.await
@@ -245,7 +240,7 @@ impl LocationManager {
 	pub async fn stop_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(location_id, library, WatcherManagementMessageAction::Stop)
 			.await
@@ -254,7 +249,7 @@ impl LocationManager {
 	pub async fn reinit_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(
 			location_id,
@@ -267,7 +262,7 @@ impl LocationManager {
 	pub async fn temporary_stop(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 	) -> Result<StopWatcherGuard, LocationManagerError> {
 		self.stop_watcher(location_id, library.clone()).await?;
 
@@ -281,7 +276,7 @@ impl LocationManager {
 	pub async fn temporary_ignore_events_for_path(
 		&self,
 		location_id: location::id::Type,
-		library: Library,
+		library: Arc<Library>,
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
 		let path = path.as_ref().to_path_buf();
@@ -452,7 +447,8 @@ impl LocationManager {
 						// The time to check came for an already removed library, so we just ignore it
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
-						if location.node_id == Some(library.node_local_id) {
+						// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
+						if location.instance_id == Some(library.config.instance_id) {
 							let is_online = match check_online(&location, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {
@@ -562,7 +558,7 @@ impl Drop for LocationManager {
 pub struct StopWatcherGuard<'m> {
 	manager: &'m LocationManager,
 	location_id: location::id::Type,
-	library: Option<Library>,
+	library: Option<Arc<Library>>,
 }
 
 impl Drop for StopWatcherGuard<'_> {
@@ -584,7 +580,7 @@ pub struct IgnoreEventsForPathGuard<'m> {
 	manager: &'m LocationManager,
 	path: Option<PathBuf>,
 	location_id: location::id::Type,
-	library: Option<Library>,
+	library: Option<Arc<Library>>,
 }
 
 impl Drop for IgnoreEventsForPathGuard<'_> {

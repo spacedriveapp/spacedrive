@@ -6,16 +6,13 @@ use crate::{
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
-	sync,
-	sync::SyncManager,
-	util::{
-		db::{maybe_missing, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
+use sd_core_sync::SyncManager;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_sync::CRDTOperation;
+use sd_prisma::prisma_sync;
+use sd_sync::{CRDTOperation, OperationFactory};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -140,14 +137,14 @@ async fn identifier_job_step(
 			.map(|(pub_id, (meta, _))| {
 				(
 					sync.shared_update(
-						sync::file_path::SyncId {
-							pub_id: uuid_to_bytes(*pub_id),
+						prisma_sync::file_path::SyncId {
+							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
 						json!(&meta.cas_id),
 					),
 					db.file_path().update(
-						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
+						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
 						vec![file_path::cas_id::set(Some(meta.cas_id.clone()))],
 					),
 				)
@@ -232,8 +229,8 @@ async fn identifier_job_step(
 				.map(|(file_path_pub_id, (meta, fp))| {
 					let object_pub_id = Uuid::new_v4();
 
-					let sync_id = || sync::object::SyncId {
-						pub_id: uuid_to_bytes(object_pub_id),
+					let sync_id = || prisma_sync::object::SyncId {
+						pub_id: sd_utils::uuid_to_bytes(object_pub_id),
 					};
 
 					let kind = meta.kind as i32;
@@ -252,8 +249,8 @@ async fn identifier_job_step(
 					.unzip();
 
 					let object_creation_args = (
-						sync.unique_shared_create(sync_id(), sync_params),
-						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
+						sync.shared_create(sync_id(), sync_params),
+						object::create_unchecked(sd_utils::uuid_to_bytes(object_pub_id), db_params),
 					);
 
 					(object_creation_args, {
@@ -274,7 +271,10 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync, db.object().create_many(db_params))
+				(
+					sync.into_iter().flatten().collect(),
+					db.object().create_many(db_params),
+				)
 			})
 			.await
 			.unwrap_or_else(|e| {
@@ -318,16 +318,16 @@ fn file_path_object_connect_ops<'db>(
 
 	(
 		sync.shared_update(
-			sync::file_path::SyncId {
-				pub_id: uuid_to_bytes(file_path_id),
+			prisma_sync::file_path::SyncId {
+				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(sync::object::SyncId {
+			json!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),
 		db.file_path().update(
-			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),
+			file_path::pub_id::equals(sd_utils::uuid_to_bytes(file_path_id)),
 			vec![file_path::object::connect(object::pub_id::equals(vec_id))],
 		),
 	)

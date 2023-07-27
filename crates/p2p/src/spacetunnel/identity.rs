@@ -7,7 +7,14 @@ use thiserror::Error;
 pub struct IdentityErr(#[from] ed25519_dalek::ed25519::Error);
 
 /// TODO
+#[derive(Debug)]
 pub struct Identity(ed25519_dalek::Keypair);
+
+impl PartialEq for Identity {
+	fn eq(&self, other: &Self) -> bool {
+		self.0.public.eq(&other.0.public)
+	}
+}
 
 impl Default for Identity {
 	fn default() -> Self {

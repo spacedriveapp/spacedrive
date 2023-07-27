@@ -2,23 +2,16 @@ use std::{
 	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
-	str::FromStr,
-	sync::{
-		atomic::{AtomicU16, Ordering},
-		Arc,
-	},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use chrono::Utc;
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
-	spacetime::SpaceTimeStream,
 	spacetunnel::{Identity, Tunnel},
-	Event, Manager, ManagerError, MetadataManager, PeerId,
+	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
-use sd_prisma::prisma::node;
 use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
@@ -32,13 +25,12 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
-	library::{Library, LibraryManager, SubscriberEvent},
-	node::{NodeConfig, NodeConfigManager, Platform},
-	p2p::{NodeInformation, OperatingSystem, SyncRequestError, SPACEDRIVE_APP_ID},
-	sync::SyncMessage,
+	library::LibraryManager,
+	node::{NodeConfig, NodeConfigManager},
+	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
-use super::{Header, PeerMetadata};
+use super::{Header, PairingManager, PairingStatus, PeerMetadata};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -56,7 +48,17 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		name: String,
 	},
-	// TODO: Expire peer + connection/disconnect
+	// Pairing was reuqest has come in.
+	// This will fire on the responder only.
+	PairingRequest {
+		id: u16,
+		name: String,
+		os: OperatingSystem,
+	},
+	PairingProgress {
+		id: u16,
+		status: PairingStatus,
+	}, // TODO: Expire peer + connection/disconnect
 }
 
 pub struct P2PManager {
@@ -65,23 +67,24 @@ pub struct P2PManager {
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
-	pairing_id: AtomicU16,
-	library_manager: Arc<LibraryManager>,
+	pub pairing: Arc<PairingManager>,
 }
 
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-		library_manager: Arc<LibraryManager>,
-	) -> Result<Arc<Self>, ManagerError> {
+	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(Self::config_to_metadata(&config), config.keypair)
+			(
+				Self::config_to_metadata(&config /* , &library_manager */).await,
+				config.keypair,
+			)
 		};
 
 		let metadata_manager = MetadataManager::new(config);
 
-		let (manager, mut stream) =
+		let (manager, stream) =
 			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
 
 		info!(
@@ -96,11 +99,55 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
+		let pairing = PairingManager::new(manager.clone(), tx.clone());
+
+		// TODO: proper shutdown
+		// https://docs.rs/ctrlc/latest/ctrlc/
+		// https://docs.rs/system_shutdown/latest/system_shutdown/
+
+		let this = Arc::new(Self {
+			pairing,
+			events: (tx, rx),
+			manager,
+			spacedrop_pairing_reqs,
+			metadata_manager,
+			spacedrop_progress,
+		});
+
+		// library_manager
+		// 	.subscribe({
+		// 		let this = this.clone();
+		// 		move |event| match event {
+		// 			SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
+		// 				let this = this.clone();
+		// 			}
+		// 		}
+		// 	})
+		// 	.await;
+
+		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
-			let events = tx.clone();
-			let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
-			let spacedrop_progress = spacedrop_progress.clone();
-			let library_manager = library_manager.clone();
+			let this = this.clone();
+			async move {
+				loop {
+					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+					this.ping().await;
+				}
+			}
+		});
+
+		Ok((this, stream))
+	}
+	pub fn start(
+		&self,
+		mut stream: ManagerStream<PeerMetadata>,
+		library_manager: Arc<LibraryManager>,
+	) {
+		tokio::spawn({
+			let events = self.events.0.clone();
+			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
+			let spacedrop_progress = self.spacedrop_progress.clone();
+			let pairing = self.pairing.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -124,28 +171,22 @@ impl P2PManager {
 							// TODO(Spacedrop): Disable Spacedrop for now
 							// event.dial().await;
 						}
-						Event::PeerMessage(mut event) => {
+						Event::PeerMessage(event) => {
 							let events = events.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let library_manager = library_manager.clone();
+							let pairing = pairing.clone();
 
 							tokio::spawn(async move {
-								let header = Header::from_stream(&mut event.stream).await.unwrap();
+								let mut stream = event.stream;
+								let header = Header::from_stream(&mut stream).await.unwrap();
 
 								match header {
 									Header::Ping => {
 										debug!("Received ping from peer '{}'", event.peer_id);
 									}
 									Header::Spacedrop(req) => {
-										let mut stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
 										let id = Uuid::new_v4();
 										let (tx, rx) = oneshot::channel();
 
@@ -201,90 +242,16 @@ impl P2PManager {
 											}
 										};
 									}
-									Header::Pair(library_id) => {
-										let mut stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
-
-										info!(
-											"Starting pairing with '{}' for library '{library_id}'",
-											event.peer_id
-										);
-
-										// TODO: Authentication and security stuff
-
-										let library =
-											library_manager.get_library(library_id).await.unwrap();
-
-										debug!("Waiting for nodeinfo from the remote node");
-										let remote_info = NodeInformation::from_stream(&mut stream)
-											.await
-											.unwrap();
-										debug!(
-											"Received nodeinfo from the remote node: {:?}",
-											remote_info
-										);
-
-										debug!("Creating node in database");
-										node::Create {
-											pub_id: remote_info.pub_id.as_bytes().to_vec(),
-											name: remote_info.name,
-											platform: remote_info.platform as i32,
-											date_created: Utc::now().into(),
-											_params: vec![
-												node::identity::set(Some(
-													remote_info.public_key.to_bytes().to_vec(),
-												)),
-												node::node_peer_id::set(Some(
-													event.peer_id.to_string(),
-												)),
-											],
-										}
-										// TODO: Should this be in a transaction in case it fails?
-										.to_query(&library.db)
-										.exec()
-										.await
-										.unwrap();
-
-										// TODO(@oscar): check if this should be library stuff
-										let info = NodeInformation {
-											pub_id: library.config.node_id,
-											name: library.config.name.to_string(),
-											public_key: library.identity.to_remote_identity(),
-											platform: Platform::current(),
-										};
-
-										debug!("Sending nodeinfo to the remote node");
-										stream.write_all(&info.to_bytes()).await.unwrap();
-
-										info!(
-											"Paired with '{}' for library '{library_id}'",
-											remote_info.pub_id
-										); // TODO: Use hash of identity cert here cause pub_id can be forged
+									Header::Pair => {
+										pairing
+											.responder(event.peer_id, stream, library_manager)
+											.await;
 									}
 									Header::Sync(library_id) => {
-										let stream = match event.stream {
-											SpaceTimeStream::Unicast(stream) => stream,
-											_ => {
-												// TODO: Return an error to the remote client
-												error!("Received Spacedrop request from peer '{}' but it's not a unicast stream!", event.peer_id);
-												return;
-											}
-										};
-
 										let mut stream = Tunnel::from_stream(stream).await.unwrap();
 
 										let mut len = [0; 4];
-										stream
-											.read_exact(&mut len)
-											.await
-											.map_err(SyncRequestError::PayloadLenIoError)
-											.unwrap();
+										stream.read_exact(&mut len).await.unwrap();
 										let len = u32::from_le_bytes(len);
 
 										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
@@ -302,18 +269,19 @@ impl P2PManager {
 										};
 
 										for op in operations {
-											library.sync.ingest_op(op).await.unwrap_or_else(
-												|err| {
-													error!(
-														"error ingesting operation for library '{}': {err:?}",
-														library.id
-													);
-												},
-											);
+											library.sync.apply_op(op).await.unwrap_or_else(|err| {
+												error!(
+													"error ingesting operation for library '{}': {err:?}",
+													library.id
+												);
+											});
 										}
 									}
 								}
 							});
+						}
+						Event::PeerBroadcast(_event) => {
+							// todo!();
 						}
 						Event::Shutdown => {
 							shutdown = true;
@@ -330,68 +298,39 @@ impl P2PManager {
 				}
 			}
 		});
-
-		// TODO: proper shutdown
-		// https://docs.rs/ctrlc/latest/ctrlc/
-		// https://docs.rs/system_shutdown/latest/system_shutdown/
-
-		let this = Arc::new(Self {
-			events: (tx, rx),
-			manager,
-			spacedrop_pairing_reqs,
-			metadata_manager,
-			spacedrop_progress,
-			pairing_id: AtomicU16::new(0),
-			library_manager: library_manager.clone(),
-		});
-
-		library_manager
-			.subscribe({
-				let this = this.clone();
-				move |event| match event {
-					SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
-						let this = this.clone();
-						tokio::spawn(async move {
-							while let Ok(op) = sync_rx.recv().await {
-								let SyncMessage::Created(op) = op else { continue; };
-
-								this.broadcast_sync_events(library_id, &library_identity, vec![op])
-									.await;
-							}
-						});
-					}
-				}
-			})
-			.await;
-
-		// TODO: Probs remove this once connection timeout/keepalive are working correctly
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				loop {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					this.ping().await;
-				}
-			}
-		});
-
-		Ok(this)
 	}
 
-	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
+	async fn config_to_metadata(
+		config: &NodeConfig,
+		// library_manager: &LibraryManager,
+	) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
+			// instances: library_manager
+			// 	.get_all_instances()
+			// 	.await
+			// 	.into_iter()
+			// 	.filter_map(|i| {
+			// 		Identity::from_bytes(&i.identity)
+			// 			.map(|i| hex::encode(i.public_key().to_bytes()))
+			// 			.ok()
+			// 	})
+			// 	.collect(),
 		}
 	}
 
 	#[allow(unused)] // TODO: Should probs be using this
-	pub async fn update_metadata(&self, node_config_manager: &NodeConfigManager) {
+	pub async fn update_metadata(
+		&self,
+		node_config_manager: &NodeConfigManager,
+		library_manager: &LibraryManager,
+	) {
 		self.metadata_manager
-			.update(Self::config_to_metadata(&node_config_manager.get().await));
+			.update(Self::config_to_metadata(&node_config_manager.get().await).await);
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
@@ -410,69 +349,15 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
-	pub fn pair(&self, peer_id: PeerId, lib: Library) -> u16 {
-		let pairing_id = self.pairing_id.fetch_add(1, Ordering::SeqCst);
-
-		let manager = self.manager.clone();
-		tokio::spawn(async move {
-			info!(
-				"Started pairing session '{pairing_id}' with peer '{peer_id}' for library '{}'",
-				lib.id
-			);
-
-			let mut stream = manager.stream(peer_id).await.unwrap();
-
-			let header = Header::Pair(lib.id);
-			stream.write_all(&header.to_bytes()).await.unwrap();
-
-			// TODO: Apply some security here cause this is so open to MITM
-			// TODO: Signing and a SPAKE style pin prompt
-
-			let info = NodeInformation {
-				pub_id: lib.config.node_id,
-				name: lib.config.name.to_string(),
-				public_key: lib.identity.to_remote_identity(),
-				platform: Platform::current(),
-			};
-
-			debug!("Sending nodeinfo to remote node");
-			stream.write_all(&info.to_bytes()).await.unwrap();
-
-			debug!("Waiting for nodeinfo from the remote node");
-			let remote_info = NodeInformation::from_stream(&mut stream).await.unwrap();
-			debug!("Received nodeinfo from the remote node: {:?}", remote_info);
-
-			node::Create {
-				pub_id: remote_info.pub_id.as_bytes().to_vec(),
-				name: remote_info.name,
-				platform: remote_info.platform as i32,
-				date_created: Utc::now().into(),
-				_params: vec![
-					node::identity::set(Some(remote_info.public_key.to_bytes().to_vec())),
-					node::node_peer_id::set(Some(peer_id.to_string())),
-				],
-			}
-			// TODO: Should this be in a transaction in case it fails?
-			.to_query(&lib.db)
-			.exec()
-			.await
-			.unwrap();
-
-			info!(
-				"Paired with '{}' for library '{}'",
-				remote_info.pub_id, lib.id
-			); // TODO: Use hash of identity cert here cause pub_id can be forged
-		});
-
-		pairing_id
-	}
-
 	pub async fn broadcast_sync_events(
 		&self,
 		library_id: Uuid,
 		_identity: &Identity,
 		event: Vec<CRDTOperation>,
+		library_manager: &LibraryManager,
 	) {
+		println!("broadcasting sync events!");
+
 		let mut buf = match rmp_serde::to_vec_named(&event) {
 			Ok(buf) => buf,
 			Err(e) => {
@@ -488,35 +373,38 @@ impl P2PManager {
 
 		// TODO: Establish a connection to them
 
-		let library = self.library_manager.get_library(library_id).await.unwrap();
+		let _library = library_manager.get_library(library_id).await.unwrap();
+
+		todo!();
+
 		// TODO: probs cache this query in memory cause this is gonna be stupid frequent
-		let target_nodes = library
-			.db
-			.node()
-			.find_many(vec![])
-			.exec()
-			.await
-			.unwrap()
-			.into_iter()
-			.map(|n| {
-				PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
-					.unwrap()
-			})
-			.collect::<Vec<_>>();
+		// let target_nodes = library
+		// 	.db
+		// 	.node()
+		// 	.find_many(vec![])
+		// 	.exec()
+		// 	.await
+		// 	.unwrap()
+		// 	.into_iter()
+		// 	.map(|n| {
+		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
+		// 			.unwrap()
+		// 	})
+		// 	.collect::<Vec<_>>();
 
-		info!(
-			"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
-			library_id, target_nodes
-		);
+		// info!(
+		// 	"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
+		// 	library_id, target_nodes
+		// );
 
-		// TODO: Do in parallel
-		for peer_id in target_nodes {
-			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+		// // TODO: Do in parallel
+		// for peer_id in target_nodes {
+		// 	let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
-			let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+		// 	let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
 
-			tunnel.write_all(&head_buf).await.unwrap();
-		}
+		// 	tunnel.write_all(&head_buf).await.unwrap();
+		// }
 	}
 
 	pub async fn ping(&self) {

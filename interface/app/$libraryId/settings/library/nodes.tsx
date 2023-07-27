@@ -1,5 +1,6 @@
-import { useDiscoveredPeers, useFeatureFlag, useLibraryMutation } from '@sd/client';
+import { isEnabled, useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
 import { Button } from '@sd/ui';
+import { startPairing } from '~/app/p2p/pairing';
 import { Heading } from '../Layout';
 
 export const Component = () => {
@@ -11,9 +12,9 @@ export const Component = () => {
 				title="Nodes"
 				description="Manage the nodes connected to this library. A node is an instance of Spacedrive's backend, running on a device or server. Each node carries a copy of the database and synchronizes via peer-to-peer connections in realtime."
 			/>
-
 			{/* TODO: Show paired nodes + unpair button */}
 
+			{/* TODO: Replace with modal */}
 			{isPairingEnabled && <IncorrectP2PPairingPane />}
 		</>
 	);
@@ -22,13 +23,11 @@ export const Component = () => {
 // TODO: This entire component shows a UI which is pairing by node but that is just not how it works.
 function IncorrectP2PPairingPane() {
 	const onlineNodes = useDiscoveredPeers();
-	const p2pPair = useLibraryMutation('p2p.pair', {
+	const p2pPair = useBridgeMutation('p2p.pair', {
 		onSuccess(data) {
 			console.log(data);
 		}
 	});
-
-	console.log(onlineNodes);
 
 	return (
 		<>
@@ -37,7 +36,19 @@ function IncorrectP2PPairingPane() {
 				<div key={id} className="flex space-x-2">
 					<p>{node.name}</p>
 
-					<Button onClick={() => p2pPair.mutate(id)}>Pair</Button>
+					<Button
+						onClick={() => {
+							// TODO: This is not great
+							p2pPair.mutateAsync(id).then((id) =>
+								startPairing(id, {
+									name: node.name,
+									os: node.operating_system
+								})
+							);
+						}}
+					>
+						Pair
+					</Button>
 				</div>
 			))}
 		</>

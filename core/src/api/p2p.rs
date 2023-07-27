@@ -5,9 +5,9 @@ use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::p2p::P2PEvent;
+use crate::p2p::{P2PEvent, PairingDecision};
 
-use super::{utils::library, Ctx, R};
+use super::{Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -67,6 +67,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
+		// TODO: Send this over `p2p.events`
 		.procedure("spacedropProgress", {
 			R.subscription(|ctx, id: Uuid| async move {
 				ctx.p2p.spacedrop_progress(id).await.ok_or_else(|| {
@@ -75,7 +76,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("pair", {
-			R.with2(library())
-				.mutation(|(ctx, lib), id: PeerId| async move { ctx.p2p.pair(id, lib) })
+			R.mutation(|ctx, id: PeerId| async move {
+				ctx.p2p
+					.pairing
+					.clone()
+					.originator(id, ctx.config.get().await, ctx.library_manager.clone())
+					.await
+			})
+		})
+		.procedure("pairingResponse", {
+			R.mutation(|ctx, (pairing_id, decision): (u16, PairingDecision)| {
+				ctx.p2p.pairing.decision(pairing_id, decision);
+			})
 		})
 }
