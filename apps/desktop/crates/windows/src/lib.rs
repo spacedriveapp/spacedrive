@@ -1,25 +1,24 @@
 #![cfg(target_os = "windows")]
 
 use std::{
-	ffi::{c_void, OsStr, OsString},
-	os::windows::ffi::OsStrExt,
+	ffi::{OsStr, OsString},
+	os::windows::{ffi::OsStrExt, prelude::OsStringExt},
 	path::{Path, PathBuf},
-	slice,
 };
 
 use normpath::PathExt;
 use windows::{
-	core::{GUID, HSTRING, PCWSTR, PWSTR},
+	core::{GUID, HSTRING, PCWSTR},
 	Win32::{
 		Foundation::HANDLE,
-		Globalization,
 		System::Com::{
-			CoInitializeEx, CoTaskMemFree, CoUninitialize, IDataObject, COINIT_APARTMENTTHREADED,
+			CoInitializeEx, CoUninitialize, IDataObject, COINIT_APARTMENTTHREADED,
 			COINIT_DISABLE_OLE1DDE,
 		},
 		UI::Shell::{
 			BHID_DataObject, FOLDERID_Profile, IAssocHandler, IShellItem, SHAssocEnumHandlers,
 			SHCreateItemFromParsingName, SHGetKnownFolderPath, ASSOC_FILTER_RECOMMENDED,
+			KNOWN_FOLDER_FLAG,
 		},
 	},
 };
@@ -121,21 +120,14 @@ pub fn open_file_path_with(path: &Path, url: &str) -> Result<()> {
 	Err(Error::OK)
 }
 
-pub fn known_folder(folder_id: GUID) -> Option<PathBuf> {
-	unsafe {
-		let mut path_ptr: PWSTR = std::ptr::null_mut();
-		let result = SHGetKnownFolderPath(&folder_id, 0, HANDLE::default(), &mut path_ptr);
-		if result == 0 {
-			let len = Globalization::lstrlenW(path_ptr) as usize;
-			let path = slice::from_raw_parts(path_ptr, len);
-			let ostr: OsString = OsStringExt::from_wide(path);
-			CoTaskMemFree(path_ptr as *const c_void);
-			Some(PathBuf::from(ostr))
-		} else {
-			CoTaskMemFree(path_ptr as *const c_void);
-			None
-		}
-	}
+pub fn known_folder(id: GUID) -> Option<PathBuf> {
+	let Ok(path) = (unsafe { SHGetKnownFolderPath(&id, KNOWN_FOLDER_FLAG(0), HANDLE::default()) }) else {
+		return None;
+	};
+
+	Some(PathBuf::from(unsafe {
+		OsString::from_wide(path.as_wide())
+	}))
 }
 
 pub fn known_folder_profile() -> Option<PathBuf> {

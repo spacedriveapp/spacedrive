@@ -232,11 +232,20 @@ pub async fn get_volumes() -> Vec<Volume> {
 		});
 
 	future::join_all(sys.disks().iter().map(|disk| async {
-		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
 
+		#[cfg(windows)]
+		let Ok((disk_name, mount_point)) = ({
+			use normpath::PathExt;
+			mount_point.normalize_virtually().map(|p| {
+				(p.localize_name().to_os_string(), p.into_path_buf())
+			})
+		}) else {
+			return None;
+		};
+
 		#[cfg(target_os = "macos")]
-		{
+		let disk_name = {
 			// Ignore mounted DMGs
 			if dmgs
 				.as_ref()
@@ -250,7 +259,9 @@ pub async fn get_volumes() -> Vec<Volume> {
 			{
 				return None;
 			}
-		}
+
+			disk.name()
+		};
 
 		#[allow(unused_mut)] // mut is used in windows
 		let mut total_capacity = disk.total_space();
@@ -301,8 +312,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		}
 
+		let mut name = disk_name.to_string_lossy().to_string();
+		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+			name = "Unknown".to_string()
+		}
+
 		Some(Volume {
-			name: disk_name.to_string_lossy().to_string(),
+			name,
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {

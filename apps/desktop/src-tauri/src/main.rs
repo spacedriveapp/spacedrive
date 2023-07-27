@@ -75,7 +75,7 @@ async fn user_home_dir() -> Option<PathBuf> {
 	#[cfg(target_os = "linux")]
 	return sd_desktop_linux::get_current_user_home();
 
-	#[cfg(target_os = "window")]
+	#[cfg(windows)]
 	return sd_desktop_windows::known_folder_profile();
 }
 
