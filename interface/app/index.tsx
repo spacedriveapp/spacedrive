@@ -75,9 +75,9 @@ const useRawRoutePath = () => {
 	// we grab the last one as it contains all previous route segments.
 	const lastMatchId = useMatches().slice(-1)[0]?.id;
 
-	const rawPath = useMemo(
-		() => {
-			const [rawPath] = lastMatchId
+	const rawPath = useMemo(() => {
+		const [rawPath] =
+			lastMatchId
 				// Gets a list of the index of each route segment
 				?.split('-')
 				?.map((s) => parseInt(s))
@@ -96,12 +96,10 @@ const useRawRoutePath = () => {
 						return [`${rawPath}/${item.path}`, item];
 					},
 					['' as string, { children: routes }] as const
-				) ?? []
+				) ?? [];
 
-			return rawPath ?? "/"
-		},
-		[lastMatchId]
-	);
+		return rawPath ?? '/';
+	}, [lastMatchId]);
 
 	return rawPath;
 };

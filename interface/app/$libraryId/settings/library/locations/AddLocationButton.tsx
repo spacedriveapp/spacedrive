@@ -1,10 +1,15 @@
 import clsx from 'clsx';
+import { FolderSimplePlus } from 'phosphor-react';
 import { Button, ButtonProps, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import { usePlatform } from '~/util/Platform';
 import { AddLocationDialog, openDirectoryPickerDialog } from './AddLocationDialog';
 
-export const AddLocationButton = ({ className, ...props }: ButtonProps) => {
+interface AddLocationButton extends ButtonProps {
+	path?: string;
+}
+
+export const AddLocationButton = ({ path, className, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
 
 	return (
@@ -12,19 +17,34 @@ export const AddLocationButton = ({ className, ...props }: ButtonProps) => {
 			<Button
 				variant="dotted"
 				className={clsx('w-full', className)}
-				onClick={() =>
-					openDirectoryPickerDialog(platform)
-						.then((path) => {
-							if (path !== '')
-								dialogManager.create((dp) => (
-									<AddLocationDialog path={path ?? ''} {...dp} />
-								));
-						})
-						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
-				}
+				onClick={async () => {
+					if (!path) {
+						try {
+							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
+						} catch (error) {
+							showAlertDialog({ title: 'Error', value: String(error) });
+						}
+					}
+					if (path)
+						dialogManager.create((dp) => (
+							<AddLocationDialog path={path ?? ''} {...dp} />
+						));
+				}}
 				{...props}
 			>
-				Add Location
+				{path ? (
+					<div className="flex h-full w-full flex-row items-center">
+						<FolderSimplePlus size={18} className="shrink-0" />
+						<span
+							dir="rtl"
+							className="text-crop shink mx-1 mr-2 flex h-full overflow-hidden whitespace-nowrap text-center font-mono text-xs font-medium text-ink-faint"
+						>
+							{path}
+						</span>
+					</div>
+				) : (
+					'Add Location'
+				)}
 			</Button>
 		</>
 	);

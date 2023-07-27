@@ -3,13 +3,14 @@ import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { HTMLAttributes, useEffect, useState } from 'react';
+import { type HTMLAttributes, useEffect, useState } from 'react';
 import {
-	ExplorerItem,
-	Location,
+	type ExplorerItem,
+	type Location,
 	ObjectKind,
-	Tag,
+	type Tag,
 	byteSize,
+	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
 	isPath,
@@ -46,8 +47,9 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
-
-	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
+	const { isDir, kind } = data
+		? getExplorerItemData(data)
+		: { isDir: false, kind: ObjectKind.Unknown };
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -60,7 +62,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 
 	// this is causing LAG
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
-		enabled: readyToFetch
+		enabled: readyToFetch && data?.type !== 'NonIndexedPath'
 	});
 
 	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
@@ -117,9 +119,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						<Divider />
 						<MetaContainer>
 							<div className="flex flex-wrap gap-1 overflow-hidden">
-								<InfoPill>
-									{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}
-								</InfoPill>
+								<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
 								{filePathData?.extension && (
 									<InfoPill>{filePathData.extension}</InfoPill>
 								)}
@@ -181,7 +181,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaValue>
 								</MetaTextLine>
 							</Tooltip>
-							{filePathData && (
+							{filePathData && 'date_indexed' in filePathData && (
 								<Tooltip
 									label={dayjs(filePathData.date_indexed).format('h:mm:ss a')}
 								>
@@ -189,36 +189,34 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 										<InspectorIcon component={Barcode} />
 										<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
 										<MetaValue>
-											{dayjs(filePathData?.date_indexed).format(
-												'MMM Do YYYY'
-											)}
+											{dayjs(filePathData.date_indexed).format('MMM Do YYYY')}
 										</MetaValue>
 									</MetaTextLine>
 								</Tooltip>
 							)}
 						</MetaContainer>
 
-						{!isDir && objectData && (
+						{!isDir && objectData && filePathData && 'cas_id' in filePathData && (
 							<>
 								<Note data={objectData} />
 								<Divider />
 								<MetaContainer>
-									<Tooltip label={filePathData?.cas_id || ''}>
+									<Tooltip label={filePathData.cas_id || ''}>
 										<MetaTextLine>
 											<InspectorIcon component={Snowflake} />
 											<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
-											<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
+											<MetaValue>{filePathData.cas_id || ''}</MetaValue>
 										</MetaTextLine>
 									</Tooltip>
-									{filePathData?.integrity_checksum && (
-										<Tooltip label={filePathData?.integrity_checksum || ''}>
+									{filePathData.integrity_checksum && (
+										<Tooltip label={filePathData.integrity_checksum || ''}>
 											<MetaTextLine>
 												<InspectorIcon component={CircleWavyCheck} />
 												<MetaKeyName className="mr-1.5">
 													Checksum
 												</MetaKeyName>
 												<MetaValue>
-													{filePathData?.integrity_checksum}
+													{filePathData.integrity_checksum}
 												</MetaValue>
 											</MetaTextLine>
 										</Tooltip>

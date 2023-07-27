@@ -7,6 +7,7 @@ export const TOP_BAR_HEIGHT = 46;
 interface Props {
 	leftRef?: RefObject<HTMLDivElement>;
 	rightRef?: RefObject<HTMLDivElement>;
+	noSearch?: boolean;
 }
 
 const TopBar = (props: Props) => {
@@ -24,7 +25,7 @@ const TopBar = (props: Props) => {
 				<NavigationButtons />
 				<div ref={props.leftRef} />
 			</div>
-			<SearchBar />
+			{props.noSearch || <SearchBar />}
 			<div className="flex-1" ref={props.rightRef} />
 		</div>
 	);

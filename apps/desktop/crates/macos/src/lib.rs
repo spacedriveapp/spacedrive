@@ -31,3 +31,5 @@ pub fn open_file_paths_with(file_urls: &[&str], with_url: &str) {
 	let file_url = file_urls.join("\0");
 	unsafe { open_file_path_with(&file_url.as_str().into(), &with_url.into()) }
 }
+
+swift!(pub fn get_user_home_directory() -> SRString);

@@ -73,12 +73,14 @@ export default function LocationOptions({ location, path }: { location: Location
 						</PopoverSection>
 						<PopoverDivider />
 						<PopoverSection>
-							<OptionButton onClick={() => scanLocationSubPath.mutate(
-								{
-									location_id: location.id,
-									sub_path: path ?? ''
+							<OptionButton
+								onClick={() =>
+									scanLocationSubPath.mutate({
+										location_id: location.id,
+										sub_path: path ?? ''
+									})
 								}
-							)}>
+							>
 								<FolderDotted />
 								Re-index
 							</OptionButton>

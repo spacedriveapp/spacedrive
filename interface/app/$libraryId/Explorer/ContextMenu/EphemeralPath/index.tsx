@@ -17,9 +17,9 @@ export default ({ data }: Props) => {
 
 			<SharedItems.Details />
 
-			<ContextMenu.Separator />
-
-			<SharedItems.RevealInNativeExplorer locationId={location.id} />
+			{/* <ContextMenu.Separator /> */}
+			{/* TODO */}
+			{/* <SharedItems.RevealInNativeExplorer locationId={location.id} /> */}
 
 			<ContextMenu.Separator />
 

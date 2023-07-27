@@ -185,7 +185,12 @@ const EditLocationSettingsScreen = ({
 					<SettingsItem
 						title="Full Reindex"
 						rightArea={
-							<AnimatedButton size="sm" onPress={() => fullRescan.mutate({ location_id: id, reidentify_objects: true })}>
+							<AnimatedButton
+								size="sm"
+								onPress={() =>
+									fullRescan.mutate({ location_id: id, reidentify_objects: true })
+								}
+							>
 								<ArrowsClockwise color="white" size={20} />
 							</AnimatedButton>
 						}

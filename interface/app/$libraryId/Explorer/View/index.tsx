@@ -80,7 +80,6 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			});
 		} else if (data.type === 'NonIndexedPath' && data.item.is_dir) {
 			navigate({
-				pathname: `/${library.uuid}/ephemeral`,
 				search: createSearchParams({ path: data.item.path }).toString()
 			});
 		} else if (

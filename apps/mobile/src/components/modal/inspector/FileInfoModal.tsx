@@ -112,15 +112,15 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							title="Created"
 							value={dayjs(item?.date_created).format('MMM Do YYYY')}
 						/>
-						{/* Indexed */}
-						<MetaItem
-							icon={Barcode}
-							title="Indexed"
-							value={dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-						/>
 
-						{filePathData && (
+						{filePathData && 'cas_id' in filePathData && (
 							<>
+								{/* Indexed */}
+								<MetaItem
+									icon={Barcode}
+									title="Indexed"
+									value={dayjs(filePathData.date_indexed).format('MMM Do YYYY')}
+								/>
 								{/* TODO: Note */}
 								{filePathData.cas_id && (
 									<MetaItem

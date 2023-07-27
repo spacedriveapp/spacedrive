@@ -4,7 +4,7 @@ import { valtioPersist } from '../lib/valito';
 
 export const features = ['spacedrop', 'p2pPairing', 'syncRoute'] as const;
 
-export type FeatureFlag = typeof features[number];
+export type FeatureFlag = (typeof features)[number];
 
 const featureFlagState = valtioPersist('sd-featureFlags', {
 	enabled: [] as FeatureFlag[]

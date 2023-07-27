@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::{ffi::OsString, fmt::Display, path::PathBuf, sync::OnceLock};
+use std::{fmt::Display, path::PathBuf, sync::OnceLock};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -35,7 +35,7 @@ impl Display for DiskType {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
-	pub name: OsString,
+	pub name: String,
 	pub mount_points: Vec<PathBuf>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
@@ -148,7 +148,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
 
 		volumes.push(Volume {
-			name: disk_name.to_os_string(),
+			name: disk_name.to_string_lossy().to_string(),
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
@@ -302,7 +302,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 		}
 
 		Some(Volume {
-			name: disk_name.to_os_string(),
+			name: disk_name.to_string_lossy().to_string(),
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
