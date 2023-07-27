@@ -1,9 +1,8 @@
 use crate::{
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
-	sync,
 	util::{
-		db::{device_to_db, inode_to_db, uuid_to_bytes},
+		db::{device_to_db, inode_to_db},
 		error::FileIOError,
 	},
 };
@@ -12,6 +11,7 @@ use std::path::Path;
 
 use chrono::Utc;
 use rspc::ErrorCode;
+use sd_prisma::prisma_sync;
 use sd_sync::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -19,7 +19,7 @@ use thiserror::Error;
 use tracing::trace;
 
 use super::{
-	file_path_helper::{file_path_just_pub_id, FilePathError, IsolatedFilePathData},
+	file_path_helper::{file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData},
 	location_with_indexer_rules,
 };
 
@@ -87,7 +87,7 @@ async fn execute_indexer_save_step(
 	save_step: &IndexerJobSaveStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
-	let Library { sync, db, .. } = &library;
+	let Library { sync, db, .. } = library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
 		.walked
@@ -103,13 +103,13 @@ async fn execute_indexer_save_step(
 
 			use file_path::*;
 
-			let pub_id = uuid_to_bytes(entry.pub_id);
+			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				(
 					(
 						location::NAME,
-						json!(sync::location::SyncId {
+						json!(prisma_sync::location::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -160,8 +160,8 @@ async fn execute_indexer_save_step(
 
 			(
 				sync.shared_create(
-					sync::file_path::SyncId {
-						pub_id: uuid_to_bytes(entry.pub_id),
+					prisma_sync::file_path::SyncId {
+						pub_id: sd_utils::uuid_to_bytes(entry.pub_id),
 					},
 					sync_params,
 				),
@@ -189,7 +189,7 @@ async fn execute_indexer_update_step(
 	update_step: &IndexerJobUpdateStep,
 	library: &Library,
 ) -> Result<i64, IndexerError> {
-	let Library { sync, db, .. } = &library;
+	let Library { sync, db, .. } = library;
 
 	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
 		.to_update
@@ -199,7 +199,7 @@ async fn execute_indexer_update_step(
 
 			use file_path::*;
 
-			let pub_id = uuid_to_bytes(entry.pub_id);
+			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 				// As this file was updated while Spacedrive was offline, we mark the object_id as null
@@ -243,7 +243,7 @@ async fn execute_indexer_update_step(
 					.into_iter()
 					.map(|(field, value)| {
 						sync.shared_update(
-							sync::file_path::SyncId {
+							prisma_sync::file_path::SyncId {
 								pub_id: pub_id.clone(),
 							},
 							field,
@@ -280,7 +280,7 @@ fn iso_file_path_factory(
 }
 
 async fn remove_non_existing_file_paths(
-	to_remove: impl IntoIterator<Item = file_path_just_pub_id::Data>,
+	to_remove: impl IntoIterator<Item = file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
 ) -> Result<u64, IndexerError> {
 	db.file_path()
@@ -333,6 +333,25 @@ macro_rules! file_paths_db_fetcher_fn {
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $db:expr) => {{
 		|iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
+			struct PubAndCasId {
+				pub_id: ::uuid::Uuid,
+				maybe_cas_id: Option<String>,
+			}
+
+			impl ::std::hash::Hash for PubAndCasId {
+				fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+					self.pub_id.hash(state);
+				}
+			}
+
+			impl ::std::cmp::PartialEq for PubAndCasId {
+				fn eq(&self, other: &Self) -> bool {
+					self.pub_id == other.pub_id
+				}
+			}
+
+			impl ::std::cmp::Eq for PubAndCasId {}
+
 			let iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<'static> =
 				iso_file_path;
 
@@ -354,7 +373,9 @@ macro_rules! to_remove_db_fetcher_fn {
 								::prisma_client_rust::operator::or(unique_params.collect()),
 							]),
 						])
-						.select($crate::location::file_path_helper::file_path_just_pub_id::select())
+						.select(
+							$crate::location::file_path_helper::file_path_pub_and_cas_ids::select(),
+						)
 				})
 				.collect::<::std::vec::Vec<_>>();
 
@@ -367,9 +388,10 @@ macro_rules! to_remove_db_fetcher_fn {
 						.map(|fetched_vec| {
 							fetched_vec
 								.into_iter()
-								.map(|fetched| {
-									::uuid::Uuid::from_slice(&fetched.pub_id)
-										.expect("file_path.pub_id is invalid!")
+								.map(|fetched| PubAndCasId {
+									pub_id: ::uuid::Uuid::from_slice(&fetched.pub_id)
+										.expect("file_path.pub_id is invalid!"),
+									maybe_cas_id: fetched.cas_id,
 								})
 								.collect::<::std::collections::HashSet<_>>()
 						})
@@ -377,19 +399,20 @@ macro_rules! to_remove_db_fetcher_fn {
 
 					let mut intersection = ::std::collections::HashSet::new();
 					while let Some(set) = sets.pop() {
-						for pub_id in set {
+						for pub_and_cas_ids in set {
 							// Remove returns true if the element was present in the set
-							if sets.iter_mut().all(|set| set.remove(&pub_id)) {
-								intersection.insert(pub_id);
+							if sets.iter_mut().all(|set| set.remove(&pub_and_cas_ids)) {
+								intersection.insert(pub_and_cas_ids);
 							}
 						}
 					}
 
 					intersection
 						.into_iter()
-						.map(|pub_id| {
-							$crate::location::file_path_helper::file_path_just_pub_id::Data {
-								pub_id: pub_id.as_bytes().to_vec(),
+						.map(|pub_and_cas_ids| {
+							$crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
+								pub_id: pub_and_cas_ids.pub_id.as_bytes().to_vec(),
+								cas_id: pub_and_cas_ids.maybe_cas_id,
 							}
 						})
 						.collect()

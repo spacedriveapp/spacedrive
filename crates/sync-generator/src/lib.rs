@@ -43,7 +43,7 @@ impl<'a> ModelSyncType<'a> {
 					.field("id")
 					.and_then(|field| match field {
 						AttributeFieldValue::Single(s) => Some(s),
-						AttributeFieldValue::List(l) => None,
+						AttributeFieldValue::List(_) => None,
 					})
 					.and_then(|name| model.fields().find(|f| f.name() == *name))?;
 
@@ -58,20 +58,20 @@ impl<'a> ModelSyncType<'a> {
 					attr.field(name)
 						.and_then(|field| match field {
 							AttributeFieldValue::Single(s) => Some(*s),
-							AttributeFieldValue::List(l) => None,
+							AttributeFieldValue::List(_) => None,
 						})
 						.and_then(|name| {
 							match model
 								.fields()
 								.find(|f| f.name() == name)
-								.expect(&format!("'{name}' field not found"))
+								.unwrap_or_else(|| panic!("'{name}' field not found"))
 								.refine()
 							{
 								RefinedFieldWalker::Relation(r) => Some(r),
 								_ => None,
 							}
 						})
-						.expect(&format!("'{name}' must be a relation field"))
+						.unwrap_or_else(|| panic!("'{name}' must be a relation field"))
 				};
 
 				Self::Relation {
@@ -88,10 +88,9 @@ impl<'a> ModelSyncType<'a> {
 	fn sync_id(&self) -> Vec<FieldWalker> {
 		match self {
 			// Self::Owned { id } => id.clone(),
-			Self::Local { id } => vec![id.clone()],
-			Self::Shared { id } => vec![id.clone()],
+			Self::Local { id } => vec![*id],
+			Self::Shared { id } => vec![*id],
 			Self::Relation { group, item } => vec![(*group).into(), (*item).into()],
-			_ => vec![],
 		}
 	}
 }
