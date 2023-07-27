@@ -19,13 +19,14 @@ use futures_concurrency::{future::TryJoin, stream::Merge};
 use thiserror::Error;
 use tokio::{
 	fs, io,
-	time::{interval, MissedTickBehavior},
+	time::{interval_at, Instant, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
+const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Error, Debug)]
@@ -65,6 +66,7 @@ impl ThumbnailRemoverActorProxy {
 	}
 }
 
+#[derive(Debug)]
 enum DatabaseMessage {
 	Add(Uuid, Arc<PrismaClient>),
 	Remove(Uuid),
@@ -154,12 +156,13 @@ impl ThumbnailRemoverActor {
 		non_indexed_thumbnails_cas_ids_rx: chan::Receiver<String>,
 		cancel_token: CancellationToken,
 	) {
-		let mut check_interval = interval(HALF_HOUR);
+		let mut check_interval = interval_at(Instant::now() + THIRTY_SECS, HALF_HOUR);
 		check_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
 		let mut databases = HashMap::new();
 		let mut non_indexed_thumbnails_cas_ids = HashSet::new();
 
+		#[derive(Debug)]
 		enum StreamMessage {
 			Run,
 			ToDelete(Vec<String>),
@@ -196,8 +199,12 @@ impl ThumbnailRemoverActor {
 					}
 				}
 				StreamMessage::ToDelete(cas_ids) => {
-					if let Err(e) = Self::remove_by_cas_ids(&thumbnails_directory, cas_ids).await {
-						error!("Got an error when trying to remove thumbnails: {e:#?}");
+					if !cas_ids.is_empty() {
+						if let Err(e) =
+							Self::remove_by_cas_ids(&thumbnails_directory, cas_ids).await
+						{
+							error!("Got an error when trying to remove thumbnails: {e:#?}");
+						}
 					}
 				}
 
@@ -317,12 +324,18 @@ impl ThumbnailRemoverActor {
 			}
 
 			if thumbnails_paths_by_cas_id.is_empty() {
+				trace!(
+					"Removing empty thumbnails sharding directory: {}",
+					entry_path.display()
+				);
 				fs::remove_dir(&entry_path)
 					.await
 					.map_err(|e| FileIOError::from((entry_path, e)))?;
 
 				continue;
 			}
+
+			let thumbs_found = thumbnails_paths_by_cas_id.len();
 
 			let mut thumbs_in_db_futs = databases
 				.iter()
@@ -348,6 +361,8 @@ impl ThumbnailRemoverActor {
 			thumbnails_paths_by_cas_id
 				.retain(|cas_id, _| !non_indexed_thumbnails_cas_ids.contains(cas_id));
 
+			let thumbs_to_remove = thumbnails_paths_by_cas_id.len();
+
 			thumbnails_paths_by_cas_id
 				.into_values()
 				.map(|path| async move {
@@ -359,6 +374,18 @@ impl ThumbnailRemoverActor {
 				.collect::<Vec<_>>()
 				.try_join()
 				.await?;
+
+			if thumbs_to_remove == thumbs_found {
+				// if we removed all the thumnails we foumd, it means that the directory is empty
+				// and can be removed...
+				trace!(
+					"Removing empty thumbnails sharding directory: {}",
+					entry_path.display()
+				);
+				fs::remove_dir(&entry_path)
+					.await
+					.map_err(|e| FileIOError::from((entry_path, e)))?;
+			}
 		}
 
 		Ok(())
