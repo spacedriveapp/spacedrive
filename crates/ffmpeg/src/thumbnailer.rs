@@ -1,6 +1,6 @@
 use crate::{film_strip_filter, MovieDecoder, ThumbnailSize, ThumbnailerError, VideoFrame};
 
-use std::{ops::Deref, path::Path};
+use std::{io, ops::Deref, path::Path};
 use tokio::{fs, task::spawn_blocking};
 use tracing::error;
 use webp::Encoder;
@@ -19,6 +19,17 @@ impl Thumbnailer {
 		video_file_path: impl AsRef<Path>,
 		output_thumbnail_path: impl AsRef<Path>,
 	) -> Result<(), ThumbnailerError> {
+		fs::create_dir_all(
+			output_thumbnail_path
+				.as_ref()
+				.parent()
+				.ok_or(io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"Cannot determine parent directory",
+				))?,
+		)
+		.await?;
+
 		fs::write(
 			output_thumbnail_path,
 			&*self.process_to_webp_bytes(video_file_path).await?,

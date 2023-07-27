@@ -1,4 +1,5 @@
 import { ExplorerItem } from '@sd/client';
+import EphemeralPathCM from './EphemeralPath';
 import FilePathCM from './FilePath';
 import LocationCM from './Location';
 import ObjectCM from './Object';
@@ -15,5 +16,7 @@ export default ({ item }: { item: ExplorerItem }) => {
 			return <ObjectCM data={item} />;
 		case 'Location':
 			return <LocationCM data={item} />;
+		case 'NonIndexedPath':
+			return <EphemeralPathCM data={item} />;
 	}
 };

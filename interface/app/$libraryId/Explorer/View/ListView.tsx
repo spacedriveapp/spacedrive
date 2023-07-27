@@ -15,8 +15,9 @@ import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
-	ExplorerItem,
-	FilePath,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem,
 	ObjectKind,
 	byteSize,
 	getExplorerItemData,
@@ -128,7 +129,8 @@ export default () => {
 	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
 	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
-	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
+	const getFileName = (path: FilePath | NonIndexedPathItem) =>
+		`${path.name}${path.extension && `.${path.extension}`}`;
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -226,8 +228,12 @@ export default () => {
 			{
 				id: 'dateIndexed',
 				header: 'Date Indexed',
-				accessorFn: (file) =>
-					dayjs(getItemFilePath(file)?.date_indexed).format('MMM Do YYYY')
+				accessorFn: (file) => {
+					const item = getItemFilePath(file);
+					dayjs((item && 'date_indexed' in item && item.date_indexed) || null).format(
+						'MMM Do YYYY'
+					);
+				}
 			},
 			{
 				id: 'dateAccessed',

@@ -1,9 +1,9 @@
 import clsx from 'clsx';
 import { Columns, GridFour, Icon, MonitorPlay, Rows } from 'phosphor-react';
 import {
-	HTMLAttributes,
-	PropsWithChildren,
-	ReactNode,
+	type HTMLAttributes,
+	type PropsWithChildren,
+	type ReactNode,
 	isValidElement,
 	memo,
 	useCallback,
@@ -14,11 +14,9 @@ import {
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
-	ExplorerItem,
+	type ExplorerItem,
 	getExplorerItemData,
 	getItemFilePath,
-	getItemLocation,
-	isPath,
 	useLibraryContext,
 	useLibraryMutation
 } from '@sd/client';
@@ -54,26 +52,39 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePaths } = usePlatform();
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const filePath = getItemFilePath(data);
-	const location = getItemLocation(data);
 
 	const explorerConfig = useExplorerConfigStore();
 
 	const onDoubleClick = () => {
-		if (location) {
+		if (data.type === 'Location') {
 			navigate({
-				pathname: `/${library.uuid}/location/${location.id}`,
+				pathname: `/${library.uuid}/location/${data.item.id}`,
 				search: createSearchParams({
 					path: `/`
 				}).toString()
 			});
-		} else if (isPath(data) && data.item.is_dir) {
+		} else if (data.type === 'Path' && data.item.is_dir && data.item.location_id) {
+			if (!data.item.name) {
+				showAlertDialog({
+					title: 'Error',
+					value: "Can't open unnamed directory"
+				});
+				return;
+			}
+
 			navigate({
-				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
+				pathname: `/${library.uuid}/location/${data.item.location_id}`,
 				search: createSearchParams({
-					path: `${data.item.materialized_path}${data.item.name}/`
+					path: `${data.item.materialized_path ?? '/'}${data.item.name}/`
 				}).toString()
 			});
+		} else if (data.type === 'NonIndexedPath' && data.item.is_dir) {
+			navigate({
+				pathname: `/${library.uuid}/ephemeral`,
+				search: createSearchParams({ path: data.item.path }).toString()
+			});
 		} else if (
+			data.type !== 'NonIndexedPath' &&
 			openFilePaths &&
 			filePath &&
 			explorerConfig.openOnDoubleClick &&

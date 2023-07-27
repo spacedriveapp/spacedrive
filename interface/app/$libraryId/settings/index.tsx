@@ -19,6 +19,7 @@ export default [
 		path: 'library',
 		children: libraryRoutes
 	},
+	// TODO: ephemeral
 	{
 		path: 'resources',
 		lazy: () => import('./OverviewLayout'),

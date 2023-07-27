@@ -171,7 +171,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 				}
 				break;
 			case ThumbType.Thumbnail:
-				if (casId && thumbnailKey) {
+				if (thumbnailKey) {
 					setSrc(platform.getThumbnailUrlByThumbKey(thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);

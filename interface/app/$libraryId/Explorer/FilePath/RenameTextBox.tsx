@@ -76,13 +76,10 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			if (!ref?.current) return;
 
 			const newName = ref?.current.innerText.trim();
-			if (!newName) return reset();
-
-			if (!locationId) return;
+			if (!(newName && locationId)) return reset();
 
 			const oldName = text;
-
-			if (!oldName || !locationId || newName === oldName) return;
+			if (!oldName || newName === oldName) return;
 
 			await renameHandler(newName);
 		}
@@ -155,15 +152,16 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		});
 
 		useEffect(() => {
+			const elem = ref.current;
 			const scroll = (e: WheelEvent) => {
 				if (allowRename) {
 					e.preventDefault();
-					if (ref.current) ref.current.scrollTop += e.deltaY;
+					if (elem) elem.scrollTop += e.deltaY;
 				}
 			};
 
-			ref.current?.addEventListener('wheel', scroll);
-			return () => ref.current?.removeEventListener('wheel', scroll);
+			elem?.addEventListener('wheel', scroll);
+			return () => elem?.removeEventListener('wheel', scroll);
 		}, [allowRename]);
 
 		return (
@@ -230,7 +228,10 @@ export const RenamePathTextBox = ({
 
 	// Handle renaming
 	async function rename(newName: string) {
-		if (!props.locationId || newName === fileName) return;
+		if (!props.locationId || newName === fileName) {
+			reset();
+			return;
+		}
 		try {
 			await renameFile.mutateAsync({
 				location_id: props.locationId,
@@ -242,6 +243,7 @@ export const RenamePathTextBox = ({
 				}
 			});
 		} catch (e) {
+			reset();
 			showAlertDialog({
 				title: 'Error',
 				value: `Could not rename ${fileName} to ${newName}, due to an error: ${e}`
@@ -270,7 +272,10 @@ export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
 
 	// Handle renaming
 	async function rename(newName: string) {
-		if (!props.locationId) return;
+		if (!props.locationId) {
+			reset();
+			return;
+		}
 		try {
 			await renameLocation.mutateAsync({
 				id: props.locationId,
@@ -281,6 +286,7 @@ export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
 				indexer_rules_ids: []
 			});
 		} catch (e) {
+			reset();
 			showAlertDialog({
 				title: 'Error',
 				value: String(e)

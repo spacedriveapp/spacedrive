@@ -23,7 +23,7 @@ export type Procedures = {
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.non-indexed-paths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
+        { key: "search.ephemeral-paths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
@@ -227,7 +227,7 @@ export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Err
 
 export type NonIndexedPath = { path: string }
 
-export type NonIndexedPathItem = { id: number; path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string }
+export type NonIndexedPathItem = { id: number; path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
 
 /**
  * Represents a single notification.

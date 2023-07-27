@@ -72,6 +72,7 @@ pub struct NonIndexedPathItem {
 	is_dir: bool,
 	date_created: DateTime<Utc>,
 	date_modified: DateTime<Utc>,
+	size_in_bytes_bytes: Vec<u8>,
 }
 
 pub async fn walk(
@@ -154,6 +155,7 @@ pub async fn walk(
 					is_dir: false,
 					date_created: metadata.created_or_now().into(),
 					date_modified: metadata.modified_or_now().into(),
+					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
 				},
 			});
 		}
@@ -201,6 +203,7 @@ pub async fn walk(
 					is_dir: true,
 					date_created: metadata.created_or_now().into(),
 					date_modified: metadata.modified_or_now().into(),
+					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
 				},
 			});
 		}

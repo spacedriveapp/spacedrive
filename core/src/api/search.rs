@@ -270,7 +270,7 @@ impl ObjectFilterArgs {
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
-		.procedure("non-indexed-paths", {
+		.procedure("ephemeral-paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct NonIndexedPath {
