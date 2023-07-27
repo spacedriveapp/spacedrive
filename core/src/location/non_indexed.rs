@@ -131,10 +131,17 @@ pub async fn walk(
 					let thumbnail_key = get_thumb_key(&cas_id);
 					let entry_path = entry_path.clone();
 					let extension = extension.clone();
-					let library = library.clone();
+					let inner_library = Arc::clone(&library);
+					let inner_cas_id = cas_id.clone();
 					tokio::spawn(async move {
-						generate_thumbnail(&extension, &cas_id, entry_path, &library).await;
+						generate_thumbnail(&extension, &inner_cas_id, entry_path, &inner_library)
+							.await;
 					});
+
+					library
+						.thumbnail_remover_proxy
+						.new_non_indexed_thumbnail(cas_id)
+						.await;
 
 					Some(thumbnail_key)
 				} else {
