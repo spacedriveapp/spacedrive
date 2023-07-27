@@ -1,5 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
 
+pub mod ingest;
+
 use sd_prisma::{prisma::*, prisma_sync::ModelSyncData};
 use sd_sync::*;
 use sd_utils::uuid_to_bytes;
@@ -10,7 +12,10 @@ use std::{
 };
 
 use serde_json::to_vec;
-use tokio::sync::broadcast::{self, Receiver, Sender};
+use tokio::sync::{
+	broadcast::{self, Receiver, Sender},
+	mpsc,
+};
 use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
 use uuid::Uuid;
 
@@ -18,8 +23,8 @@ pub use sd_prisma::prisma_sync;
 
 #[derive(Clone)]
 pub enum SyncMessage {
-	Ingested(CRDTOperation),
-	Created(CRDTOperation),
+	Ingested,
+	Created,
 }
 
 pub struct SyncManager {
@@ -28,11 +33,21 @@ pub struct SyncManager {
 	_clocks: HashMap<Uuid, NTP64>,
 	clock: HLC,
 	pub tx: Sender<SyncMessage>,
+	pub ingest: ingest::Actor,
 }
 
 impl SyncManager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> (Self, Receiver<SyncMessage>) {
+	pub fn new(
+		db: &Arc<PrismaClient>,
+		instance: Uuid,
+	) -> (
+		Self,
+		broadcast::Receiver<SyncMessage>,
+		mpsc::Receiver<ingest::Request>,
+	) {
 		let (tx, rx) = broadcast::channel(64);
+
+		let (ingest, ingest_rx) = ingest::Actor::spawn();
 
 		(
 			Self {
@@ -41,8 +56,10 @@ impl SyncManager {
 				clock: HLCBuilder::new().with_id(instance.into()).build(),
 				_clocks: Default::default(),
 				tx,
+				ingest,
 			},
 			rx,
+			ingest_rx,
 		)
 	}
 
@@ -72,9 +89,7 @@ impl SyncManager {
 
 			let (res, _) = tx._batch((queries, (shared, relation))).await?;
 
-			for op in _ops {
-				self.tx.send(SyncMessage::Created(op)).ok();
-			}
+			self.tx.send(SyncMessage::Created).ok();
 
 			res
 		};
@@ -104,7 +119,7 @@ impl SyncManager {
 				CRDTOperationType::Relation(inner) => exec!(relation_op_db, inner),
 			};
 
-			self.tx.send(SyncMessage::Created(op)).ok();
+			self.tx.send(SyncMessage::Created).ok();
 
 			ret
 		};
@@ -229,7 +244,7 @@ impl SyncManager {
 			}
 		}
 
-		self.tx.send(SyncMessage::Ingested(op.clone())).ok();
+		self.tx.send(SyncMessage::Ingested).ok();
 
 		Ok(())
 	}

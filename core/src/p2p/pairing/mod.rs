@@ -138,7 +138,7 @@ impl PairingManager {
 						return;
 					}
 
-					let library_config = library_manager
+					let library = library_manager
 						.create_with_uuid(
 							library_id,
 							LibraryName::new(library_name).unwrap(),
@@ -148,10 +148,8 @@ impl PairingManager {
 						)
 						.await
 						.unwrap();
-					let library = library_manager
-						.get_library(library_config.uuid)
-						.await
-						.unwrap();
+
+					let library = library_manager.get_library(library.id).await.unwrap();
 
 					library
 						.db
@@ -293,11 +291,11 @@ impl PairingManager {
 				pairing_id,
 				PairingStatus::InitialSyncProgress((synced as f32 / total as f32 * 100.0) as u8), // SAFETY: It's a percentage
 			);
-			debug!(
-				"Initial library sync cursor={:?} items={}",
-				cursor,
-				data.len()
-			);
+			// debug!(
+			// 	"Initial library sync cursor={:?} items={}",
+			// 	cursor,
+			// 	data.len()
+			// );
 
 			stream
 				.write_all(&SyncData::Data { total_models, data }.to_bytes().unwrap())

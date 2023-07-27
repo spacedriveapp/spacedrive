@@ -2,11 +2,7 @@ use crate::{
 	invalidate_query,
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::{
-		preview::get_thumbnails_directory,
-		tag,
-		thumbnail_remover::{ThumbnailRemoverActor, ThumbnailRemoverActorProxy},
-	},
+	object::{preview::get_thumbnails_directory, tag, thumbnail_remover::ThumbnailRemoverActor},
 	prisma::location,
 	util::{
 		db::{self, MissingFieldError},
@@ -40,9 +36,9 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Arc<Library>>>,
 	/// node_context holds the context for the node which this library manager is running on.
-	pub node_context: Arc<NodeContext>,
+	pub node: Arc<NodeContext>,
 	/// An actor that removes stale thumbnails from the file system
-	thumbnail_remover: ThumbnailRemoverActor,
+	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
 #[derive(Error, Debug)]
@@ -108,7 +104,7 @@ impl LibraryManager {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
 			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node_context)),
-			node_context,
+			node: node_context,
 		});
 
 		while let Some(entry) = read_dir
@@ -160,17 +156,13 @@ impl LibraryManager {
 		Ok(this)
 	}
 
-	pub fn thumbnail_remover_proxy(&self) -> ThumbnailRemoverActorProxy {
-		self.thumbnail_remover.proxy()
-	}
-
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
 		node_cfg: NodeConfig,
-	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true)
 			.await
 	}
@@ -182,7 +174,7 @@ impl LibraryManager {
 		description: Option<String>,
 		node_cfg: NodeConfig,
 		should_seed: bool,
-	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
@@ -235,7 +227,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		Ok(LibraryConfigWrapped { uuid: id, config })
+		Ok(library)
 	}
 
 	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
@@ -248,15 +240,20 @@ impl LibraryManager {
 			.await
 			.iter()
 			.map(|lib| LibraryConfigWrapped {
-				config: lib.config.clone(),
 				uuid: lib.id,
+				config: lib.config.clone(),
 			})
 			.collect()
 	}
 
-	// pub(crate) async fn get_all_instances(&self) -> Vec<instance::Data> {
-	// 	vec![] // TODO: Cache in memory
-	// }
+	pub(crate) async fn get_all_instance_identities(&self) -> Vec<Arc<Identity>> {
+		self.libraries
+			.read()
+			.await
+			.iter()
+			.map(|lib| lib.identity.clone())
+			.collect()
+	}
 
 	pub(crate) async fn edit(
 		&self,
@@ -301,7 +298,7 @@ impl LibraryManager {
 					vec![]
 				}) {
 				if let Err(e) = self
-					.node_context
+					.node
 					.location_manager
 					.add(location.id, library.clone())
 					.await
@@ -378,7 +375,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = self.node_context.config.get().await;
+		let node_config = self.node.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
@@ -452,7 +449,8 @@ impl LibraryManager {
 			.await?
 		{
 			if let Err(e) = library
-				.node_context
+				.manager
+				.node
 				.location_manager
 				.add(location.id, library.clone())
 				.await
@@ -462,7 +460,8 @@ impl LibraryManager {
 		}
 
 		if let Err(e) = library
-			.node_context
+			.manager
+			.node
 			.job_manager
 			.clone()
 			.cold_resume(&library)

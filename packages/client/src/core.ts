@@ -83,7 +83,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
-        { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
+        { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
 export type BuildInfo = { version: string; commit: string }
@@ -262,7 +262,7 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 
 export type PeerId = string
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null; instances: string[] }
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 

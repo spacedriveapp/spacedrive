@@ -118,7 +118,7 @@ impl InitConfig {
 						.create_with_uuid(lib.id, lib.name, lib.description, node_cfg.clone(), true)
 						.await?;
 
-					match library_manager.get_library(library.uuid).await {
+					match library_manager.get_library(library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(

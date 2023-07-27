@@ -116,7 +116,7 @@ impl Node {
 		}
 
 		let router = api::mount();
-		let node = Node {
+		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			config,
 			library_manager,
@@ -125,10 +125,10 @@ impl Node {
 			p2p,
 			event_bus,
 			notifications,
-		};
+		});
 
 		info!("Spacedrive online.");
-		Ok((Arc::new(node), router))
+		Ok((node, router))
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {

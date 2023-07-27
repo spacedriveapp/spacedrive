@@ -4,7 +4,7 @@ use std::{
 	task::{Context, Poll},
 };
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::spacetime::UnicastStream;
 

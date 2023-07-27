@@ -8,13 +8,10 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::{
-		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
-		thumbnail_remover::ThumbnailRemoverActorProxy,
-	},
+	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
+	p2p,
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
-	NodeContext,
 };
 
 use std::{
@@ -25,10 +22,13 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{SyncManager, SyncMessage};
-use sd_p2p::spacetunnel::Identity;
+use sd_core_sync::{ingest, SyncManager, SyncMessage};
+use sd_p2p::spacetunnel::{Identity, Tunnel};
 use sd_prisma::prisma::notification;
-use tokio::{fs, io};
+use tokio::{
+	fs,
+	io::{self, AsyncWriteExt},
+};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -40,17 +40,15 @@ pub struct Library {
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
+	pub manager: Arc<LibraryManager>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: Arc<NodeContext>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
-	pub thumbnail_remover_proxy: ThumbnailRemoverActorProxy,
 }
 
 impl Debug for Library {
@@ -72,34 +70,60 @@ impl Library {
 		config: LibraryConfig,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
-		library_manager: Arc<LibraryManager>,
+		manager: Arc<LibraryManager>,
 		// node_context: Arc<NodeContext>,
 	) -> Self {
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.node_context.clone();
+		let (sync_manager, mut sync_rx, mut ingest_rx) = SyncManager::new(&db, instance_id);
 
 		let library = Self {
-			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
-			thumbnail_remover_proxy: library_manager.thumbnail_remover_proxy(),
 			id,
-			db,
 			config,
-			node_context,
-			// key_manager,
+			manager: manager.clone(),
+			db: db.clone(),
 			sync: Arc::new(sync_manager),
 			identity: identity.clone(),
+			orphan_remover: OrphanRemoverActor::spawn(db),
 		};
 
 		tokio::spawn({
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
+			let sync = library.sync.clone();
 
-					library_manager
-						.node_context
-						.p2p
-						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
-						.await;
+			async move {
+				loop {
+					tokio::select! {
+						req = ingest_rx.recv() => {
+							use sd_core_sync::ingest::Request;
+
+							let Some(req) = req else { continue; };
+
+							match req {
+								Request::Messages(peer_id, v) => {
+									let stream = manager.node.p2p.manager.stream(peer_id).await.unwrap();
+
+									let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+
+									tunnel.write_all(&p2p::SyncMessage::OperationsRequest(v).to_bytes(id)).await.unwrap();
+									tunnel.flush().await.unwrap();
+
+									let msg = p2p::SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
+
+									 match msg {
+										p2p::SyncMessage::OperationsRequestResponse(byte) => {
+											sync.ingest.events.send(ingest::Event::Messages(byte)).await.ok();
+										},
+										_ => {}
+									};
+								},
+							}
+						},
+						msg = sync_rx.recv() => {
+							if let Ok(op) = msg {
+								let SyncMessage::Created = op else { continue; };
+
+								manager.node.p2p.alert_new_sync_events(id, &manager).await;
+							}
+						},
+					}
 				}
 			}
 		});
@@ -108,17 +132,17 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+		if let Err(e) = self.manager.node.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.node_context.config.clone()
+		self.manager.node.config.clone()
 	}
 
 	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
-		&self.node_context.location_manager
+		&self.manager.node.location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -209,7 +233,8 @@ impl Library {
 			}
 		};
 
-		self.node_context
+		self.manager
+			.node
 			.notifications
 			.0
 			.send(Notification {

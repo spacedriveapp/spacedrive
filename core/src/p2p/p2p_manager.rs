@@ -7,6 +7,7 @@ use std::{
 };
 
 use futures::Stream;
+use sd_core_sync::ingest;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{Identity, Tunnel},
@@ -18,10 +19,10 @@ use specta::Type;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
-	sync::{broadcast, oneshot, Mutex},
+	sync::{broadcast, oneshot, Mutex, RwLock},
 	time::sleep,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -68,6 +69,8 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
+	instances: RwLock<Vec<Arc<Identity>>>,
+	node_config_manager: Arc<NodeConfigManager>,
 }
 
 impl P2PManager {
@@ -76,10 +79,7 @@ impl P2PManager {
 	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(
-				Self::config_to_metadata(&config /* , &library_manager */).await,
-				config.keypair,
-			)
+			(Self::config_to_metadata(&config), config.keypair)
 		};
 
 		let metadata_manager = MetadataManager::new(config);
@@ -112,6 +112,8 @@ impl P2PManager {
 			spacedrop_pairing_reqs,
 			metadata_manager,
 			spacedrop_progress,
+			instances: Default::default(),
+			node_config_manager: node_config,
 		});
 
 		// TODO: Probs remove this once connection timeout/keepalive are working correctly
@@ -237,34 +239,41 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
-										let mut stream = Tunnel::from_stream(stream).await.unwrap();
+										let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
 
-										let mut len = [0; 4];
-										stream.read_exact(&mut len).await.unwrap();
-										let len = u32::from_le_bytes(len);
+										let msg =
+											SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
 
-										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
-										stream.read_exact(&mut buf).await.unwrap();
+										let library =
+											library_manager.get_library(library_id).await.unwrap();
 
-										let mut buf: &[u8] = &buf;
-										let operations: Vec<CRDTOperation> =
-											rmp_serde::from_read(&mut buf).unwrap();
+										dbg!(&msg);
 
-										debug!("ingesting sync events for library '{library_id}': {operations:?}");
+										let ingest = &library.sync.ingest;
 
-										let Some(library) = library_manager.get_library(library_id).await else {
-											warn!("error ingesting sync messages. no library by id '{library_id}' found!");
-											return;
+										match msg {
+											SyncMessage::NewOperations => {
+												ingest.notify(event.peer_id).await;
+											}
+											SyncMessage::OperationsRequest(v) => {
+												tunnel
+													.write_all(
+														&SyncMessage::OperationsRequestResponse(v)
+															.to_bytes(library_id),
+													)
+													.await
+													.unwrap();
+											}
+											SyncMessage::OperationsRequestResponse(v) => {
+												// ingest
+												// 	.events
+												// 	.send(ingest::Event::Messages(v))
+												// 	.await
+												// 	.ok();
+											}
 										};
 
-										for op in operations {
-											library.sync.apply_op(op).await.unwrap_or_else(|err| {
-												error!(
-													"error ingesting operation for library '{}': {err:?}",
-													library.id
-												);
-											});
-										}
+										tunnel.flush().await.unwrap();
 									}
 								}
 							});
@@ -289,37 +298,48 @@ impl P2PManager {
 		});
 	}
 
-	async fn config_to_metadata(
-		config: &NodeConfig,
-		// library_manager: &LibraryManager,
-	) -> PeerMetadata {
+	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
-			// instances: library_manager
-			// 	.get_all_instances()
-			// 	.await
-			// 	.into_iter()
-			// 	.filter_map(|i| {
-			// 		Identity::from_bytes(&i.identity)
-			// 			.map(|i| hex::encode(i.public_key().to_bytes()))
-			// 			.ok()
-			// 	})
-			// 	.collect(),
+			instances: vec![],
 		}
 	}
 
+	pub async fn add_instance(&self, instance: &Arc<Identity>) {
+		let mut instances = self.instances.write().await;
+
+		if !instances.iter().any(|i| Arc::ptr_eq(i, instance)) {
+			instances.push(instance.clone());
+		}
+
+		self.update_metadata().await;
+	}
+
+	pub async fn remove_instance(&self, instance: &Arc<Identity>) {
+		self.instances
+			.write()
+			.await
+			.retain(|i| !Arc::ptr_eq(i, instance));
+
+		self.update_metadata().await;
+	}
+
 	#[allow(unused)] // TODO: Should probs be using this
-	pub async fn update_metadata(
-		&self,
-		node_config_manager: &NodeConfigManager,
-		library_manager: &LibraryManager,
-	) {
-		self.metadata_manager
-			.update(Self::config_to_metadata(&node_config_manager.get().await).await);
+	async fn update_metadata(&self) {
+		self.metadata_manager.update(PeerMetadata {
+			instances: self
+				.instances
+				.read()
+				.await
+				.iter()
+				.map(|i| hex::encode(i.public_key().to_bytes()))
+				.collect(),
+			..Self::config_to_metadata(&self.node_config_manager.get().await)
+		});
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
@@ -394,6 +414,40 @@ impl P2PManager {
 
 		// 	tunnel.write_all(&head_buf).await.unwrap();
 		// }
+	}
+
+	pub async fn alert_new_sync_events(&self, library_id: Uuid, library_manager: &LibraryManager) {
+		// let library = library_manager.get_library(library_id).await.unwrap();
+
+		let peers = self.manager.get_connected_peers().await.unwrap();
+
+		// let instances = self.instances.read().await;
+
+		// let target_nodes = library
+		// 	.db
+		// 	.instance()
+		// 	.find_many(vec![])
+		// 	.exec()
+		// 	.await
+		// 	.unwrap()
+		// 	.into_iter()
+		// 	.map(|n| {
+		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
+		// 			.unwrap()
+		// 	})
+		// 	.collect::<Vec<_>>();
+
+		// // TODO: Do in parallel
+		for peer_id in peers {
+			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+
+			let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+
+			tunnel
+				.write_all(SyncMessage::NewOperations.to_bytes(library_id).as_slice())
+				.await
+				.unwrap();
+		}
 	}
 
 	pub async fn ping(&self) {
@@ -471,5 +525,51 @@ impl P2PManager {
 
 	pub async fn shutdown(&self) {
 		self.manager.shutdown().await;
+	}
+}
+
+#[derive(Debug)]
+#[repr(u8)]
+pub enum SyncMessage {
+	NewOperations,
+	OperationsRequest(u8),
+	OperationsRequestResponse(u8),
+}
+
+impl SyncMessage {
+	pub fn header(&self) -> u8 {
+		match self {
+			Self::NewOperations => b'N',
+			Self::OperationsRequest(_) => b'R',
+			Self::OperationsRequestResponse(_) => b'P',
+		}
+	}
+
+	pub async fn from_tunnel(stream: &mut Tunnel) -> std::io::Result<Self> {
+		match stream.read_u8().await? {
+			b'N' => Ok(Self::NewOperations),
+			b'R' => Ok(Self::OperationsRequest(stream.read_u8().await?)),
+			b'P' => Ok(Self::OperationsRequestResponse(stream.read_u8().await?)),
+			header => Err(std::io::Error::new(
+				std::io::ErrorKind::InvalidData,
+				format!(
+					"Invalid sync message header: {}",
+					(header as char).to_string()
+				),
+			)),
+		}
+	}
+
+	pub fn to_bytes(self, library_id: Uuid) -> Vec<u8> {
+		let mut bytes = Header::Sync(library_id).to_bytes();
+		bytes.push(self.header());
+
+		match self {
+			Self::OperationsRequest(s) => bytes.push(s),
+			Self::OperationsRequestResponse(s) => bytes.push(s),
+			_ => {}
+		}
+
+		bytes
 	}
 }
