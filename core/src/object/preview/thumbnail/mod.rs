@@ -5,6 +5,7 @@ use crate::{
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
+	NodeContext,
 };
 
 use std::{
@@ -41,13 +42,22 @@ pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
 pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
-	library
-		.config()
-		.data_directory()
-		.join(THUMBNAIL_CACHE_DIR_NAME)
-		.join(get_shard_hex(cas_id))
-		.join(cas_id)
-		.with_extension("webp")
+	let mut thumb_path = library.config().data_directory();
+
+	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);
+	thumb_path.push(get_shard_hex(cas_id));
+	thumb_path.push(cas_id);
+	thumb_path.set_extension("webp");
+
+	thumb_path
+}
+
+pub fn get_thumbnails_directory(node_ctx: &NodeContext) -> PathBuf {
+	let mut thumb_path = node_ctx.config.data_directory();
+
+	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);
+
+	thumb_path
 }
 
 // this is used to pass the relevant data to the frontend so it can request the thumbnail

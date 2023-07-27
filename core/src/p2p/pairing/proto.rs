@@ -40,6 +40,7 @@ impl From<Instance> for instance::CreateUnchecked {
 			node_platform: i.node_platform as i32,
 			last_seen: i.last_seen.into(),
 			date_created: i.date_created.into(),
+			// timestamp: Default::default(), // TODO: Source this properly!
 			_params: vec![],
 		}
 	}

@@ -12,14 +12,14 @@ use crate::{
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	sync,
-	util::{db::chain_optional_iter, error::FileIOError},
+	util::error::FileIOError,
 };
 
 use std::{
 	collections::HashSet,
 	path::{Component, Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
 use sd_file_ext::extensions::ImageExtension;
@@ -28,6 +28,7 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
+use sd_prisma::prisma_sync;
 use sd_sync::*;
 use serde::Deserialize;
 use serde_json::json;
@@ -68,7 +69,7 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
-		library: &Library,
+		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
@@ -153,7 +154,7 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
-		library: &Library,
+		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
@@ -231,8 +232,8 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Library) -> Result<(), LocationError> {
-		let Library { sync, db, .. } = &library;
+	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
 			.include(location_with_indexer_rules::include())
@@ -281,7 +282,7 @@ impl LocationUpdateArgs {
 						.into_iter()
 						.map(|p| {
 							sync.shared_update(
-								sync::location::SyncId {
+								prisma_sync::location::SyncId {
 									pub_id: location.pub_id.clone(),
 								},
 								p.0,
@@ -349,10 +350,13 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	Library { db, .. }: &Library,
+	library: &Library,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
-	db.location().find_unique(location::id::equals(location_id))
+	library
+		.db
+		.location()
+		.find_unique(location::id::equals(location_id))
 }
 
 async fn link_location_and_indexer_rules(
@@ -376,7 +380,7 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -406,9 +410,8 @@ pub async fn scan_location(
 	.map_err(Into::into)
 }
 
-#[cfg(feature = "location-watcher")]
 pub async fn scan_location_sub_path(
-	library: &Library,
+	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
@@ -445,7 +448,7 @@ pub async fn scan_location_sub_path(
 }
 
 pub async fn light_scan_location(
-	library: Library,
+	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobError> {
@@ -466,10 +469,10 @@ pub async fn light_scan_location(
 }
 
 pub async fn relink_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let Library { db, id, sync, .. } = &library;
+	let Library { db, id, sync, .. } = &**library;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -487,7 +490,7 @@ pub async fn relink_location(
 	sync.write_op(
 		db,
 		sync.shared_update(
-			sync::location::SyncId {
+			prisma_sync::location::SyncId {
 				pub_id: pub_id.clone(),
 			},
 			location::path::NAME,
@@ -561,13 +564,13 @@ pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, Stri
 }
 
 async fn create_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 	dry_run: bool,
 ) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &library;
+	let Library { db, sync, .. } = &**library;
 
 	let (path, name) = normalize_path(&location_path)
 		.map_err(|_| LocationError::DirectoryNotFound(location_path.as_ref().to_path_buf()))?;
@@ -601,7 +604,7 @@ async fn create_location(
 			db,
 			(
 				sync.shared_create(
-					sync::location::SyncId {
+					prisma_sync::location::SyncId {
 						pub_id: location_pub_id.as_bytes().to_vec(),
 					},
 					[
@@ -610,7 +613,7 @@ async fn create_location(
 						(location::date_created::NAME, json!(date_created)),
 						(
 							location::instance_id::NAME,
-							json!(sync::instance::SyncId {
+							json!(prisma_sync::instance::SyncId {
 								pub_id: vec![],
 								// id: library.config.instance_id,
 							}),
@@ -657,11 +660,9 @@ async fn create_location(
 }
 
 pub async fn delete_location(
-	library: &Library,
+	library: &Arc<Library>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	let Library { db, .. } = library;
-
 	library
 		.location_manager()
 		.remove(location_id, library.clone())
@@ -669,14 +670,17 @@ pub async fn delete_location(
 
 	delete_directory(library, location_id, None).await?;
 
-	db.indexer_rules_in_location()
+	library
+		.db
+		.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
 			location_id,
 		)])
 		.exec()
 		.await?;
 
-	let location = db
+	let location = library
+		.db
 		.location()
 		.delete(location::id::equals(location_id))
 		.exec()
@@ -709,7 +713,7 @@ pub async fn delete_directory(
 ) -> Result<(), QueryError> {
 	let Library { db, .. } = library;
 
-	let children_params = chain_optional_iter(
+	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
 		[parent_iso_file_path.and_then(|parent| {
 			parent
@@ -726,7 +730,7 @@ pub async fn delete_directory(
 	db.file_path().delete_many(children_params).exec().await?;
 
 	library.orphan_remover.invoke().await;
-	library.thumbnail_remover.invoke().await;
+
 	invalidate_query!(library, "search.paths");
 
 	Ok(())

@@ -8,7 +8,7 @@ import {
 	FilmStrip,
 	Planet
 } from 'phosphor-react';
-import { LibraryContextProvider, useClientContext } from '@sd/client';
+import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { SubtleButton } from '~/components/SubtleButton';
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
@@ -34,6 +34,12 @@ export default () => {
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
+				{useFeatureFlag('syncRoute') && (
+					<SidebarLink to="sync">
+						<Icon component={ArrowsClockwise} />
+						Sync
+					</SidebarLink>
+				)}
 			</div>
 			<EphemeralSection />
 			{library && (

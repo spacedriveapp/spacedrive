@@ -9,6 +9,7 @@ use crate::{
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
@@ -77,7 +78,7 @@ pub struct NonIndexedPathItem {
 
 pub async fn walk(
 	full_path: impl AsRef<Path>,
-	library: Library,
+	library: Arc<Library>,
 ) -> Result<NonIndexedFileSystemEntries, NonIndexedLocationError> {
 	let path = full_path.as_ref();
 	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
