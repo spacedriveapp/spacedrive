@@ -77,6 +77,9 @@ async fn user_home_dir() -> Option<PathBuf> {
 
 	#[cfg(windows)]
 	return sd_desktop_windows::known_folder_profile();
+
+	#[allow(unreachable_code)]
+	None
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {

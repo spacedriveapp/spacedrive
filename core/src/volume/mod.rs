@@ -154,8 +154,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 		// Assign volume to disk path
 		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
 
+		let mut name = disk_name.to_string_lossy().to_string();
+		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+			name = "Unknown".to_string()
+		}
+
 		volumes.push(Volume {
-			name: disk_name.to_string_lossy().to_string(),
+			name,
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
@@ -251,8 +256,11 @@ pub async fn get_volumes() -> Vec<Volume> {
 			return None;
 		};
 
+		#[cfg(not(windows))]
+		let disk_name = disk.name();
+
 		#[cfg(target_os = "macos")]
-		let disk_name = {
+		{
 			// Ignore mounted DMGs
 			if dmgs
 				.as_ref()
@@ -266,8 +274,6 @@ pub async fn get_volumes() -> Vec<Volume> {
 			{
 				return None;
 			}
-
-			disk.name()
 		};
 
 		#[allow(unused_mut)] // mut is used in windows
