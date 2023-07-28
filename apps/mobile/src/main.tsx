@@ -3,6 +3,7 @@ import 'event-target-polyfill';
 import * as SplashScreen from 'expo-splash-screen';
 import { Suspense, lazy } from 'react';
 import { Platform } from 'react-native';
+import { Dimensions } from 'react-native';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
 
 // Enable the splash screen
@@ -60,6 +61,32 @@ globalThis.rspcLinks = [
 	// }),
 	reactNativeLink()
 ];
+
+// Polyfill for Plausible to work properly (@sd/client/hooks/usePlausible)
+
+window.location = {
+	// @ts-ignore
+	ancestorOrigins: {},
+	href: 'https://spacedrive.com',
+	origin: 'https://spacedrive.com',
+	protocol: 'https:',
+	host: 'spacedrive.com',
+	hostname: 'spacedrive.com',
+	port: '',
+	pathname: '/',
+	search: '',
+	hash: ''
+};
+// @ts-ignore
+window.document = {};
+
+const { width, height } = Dimensions.get('window');
+
+//@ts-ignore
+window.screen = {
+	width,
+	height
+};
 
 /*
 	https://github.com/facebook/hermes/issues/23

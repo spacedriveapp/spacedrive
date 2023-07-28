@@ -8,6 +8,7 @@ import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useT
  */
 const VERSION = '0.1.0';
 const DOMAIN = 'app.spacedrive.com';
+const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
 const PlausibleProvider = Plausible({
 	trackLocalhost: true,
@@ -190,6 +191,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			debug: debugState.enabled
 		},
 		options: {
+			domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN,
 			deviceWidth: props.screenWidth ?? window.screen.width,
 			referrer: '',
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)

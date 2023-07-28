@@ -2,7 +2,11 @@ use crate::{
 	invalidate_query,
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::tag,
+	object::{
+		preview::get_thumbnails_directory,
+		tag,
+		thumbnail_remover::{ThumbnailRemoverActor, ThumbnailRemoverActorProxy},
+	},
 	prisma::location,
 	util::{
 		db::{self, MissingFieldError},
@@ -37,6 +41,8 @@ pub struct LibraryManager {
 	libraries: RwLock<Vec<Arc<Library>>>,
 	/// node_context holds the context for the node which this library manager is running on.
 	pub node_context: Arc<NodeContext>,
+	/// An actor that removes stale thumbnails from the file system
+	thumbnail_remover: ThumbnailRemoverActor,
 }
 
 #[derive(Error, Debug)]
@@ -101,6 +107,7 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
+			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node_context)),
 			node_context,
 		});
 
@@ -124,7 +131,11 @@ impl LibraryManager {
 				.file_stem()
 				.and_then(|v| v.to_str().map(Uuid::from_str))
 			else {
-				warn!("Attempted to load library from path '{}' but it has an invalid filename. Skipping...", config_path.display());
+				warn!(
+					"Attempted to load library from path '{}' \
+					but it has an invalid filename. Skipping...",
+					config_path.display()
+				);
 					continue;
 			};
 
@@ -147,6 +158,10 @@ impl LibraryManager {
 		}
 
 		Ok(this)
+	}
+
+	pub fn thumbnail_remover_proxy(&self) -> ThumbnailRemoverActorProxy {
+		self.thumbnail_remover.proxy()
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
@@ -300,15 +315,18 @@ impl LibraryManager {
 	}
 
 	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
-		let libraries = self.libraries.read().await;
+		let mut libraries_write_guard = self.libraries.write().await;
 
-		let library = libraries
+		// As we're holding a write lock here, we know that our index can't change before removal.
+		let library_idx = libraries_write_guard
 			.iter()
-			.find(|l| l.id == id)
+			.position(|l| l.id == id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
-		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
+		let library_id = libraries_write_guard[library_idx].id;
+
+		let db_path = self.libraries_dir.join(format!("{}.db", library_id));
+		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library_id));
 
 		try_join!(
 			async {
@@ -323,9 +341,14 @@ impl LibraryManager {
 			},
 		)?;
 
-		invalidate_query!(library, "library.list");
+		self.thumbnail_remover.remove_library(id).await;
 
-		self.libraries.write().await.retain(|l| l.id != id);
+		// We only remove here after files deletion
+		let library = libraries_write_guard.remove(library_idx);
+
+		info!("Removed Library <id='{library_id}'>");
+
+		invalidate_query!(library, "library.list");
 
 		Ok(())
 	}
@@ -417,7 +440,8 @@ impl LibraryManager {
 			self.clone(),
 		));
 
-		self.libraries.write().await.push(library.clone());
+		self.thumbnail_remover.new_library(&library).await;
+		self.libraries.write().await.push(Arc::clone(&library));
 
 		if should_seed {
 			library.orphan_remover.invoke().await;
