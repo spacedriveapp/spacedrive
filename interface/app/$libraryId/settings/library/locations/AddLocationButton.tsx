@@ -1,9 +1,9 @@
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { FolderSimplePlus } from 'phosphor-react';
-import { useLayoutEffect, useRef, useState } from 'react';
-import { Button, ButtonProps, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { useRef, useState } from 'react';
+import { Button, type ButtonProps, dialogManager } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { AddLocationDialog, openDirectoryPickerDialog } from './AddLocationDialog';
@@ -11,8 +11,6 @@ import { AddLocationDialog, openDirectoryPickerDialog } from './AddLocationDialo
 interface AddLocationButton extends ButtonProps {
 	path?: string;
 }
-
-const FOLDER_ADD_ICON_SIZE = 22;
 
 export const AddLocationButton = ({ path, className, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
@@ -58,11 +56,8 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 				{...props}
 			>
 				{path ? (
-					<div
-						style={{ height: FOLDER_ADD_ICON_SIZE }}
-						className="flex w-full flex-row items-end whitespace-nowrap font-mono text-sm text-ink-faint"
-					>
-						<FolderSimplePlus size={FOLDER_ADD_ICON_SIZE} className="shrink-0" />
+					<div className="flex h-full w-full flex-row items-end whitespace-nowrap font-mono text-sm text-ink-faint">
+						<FolderSimplePlus size={22} className="shrink-0" />
 						<div className="ml-1 overflow-hidden">
 							<motion.span
 								ref={overflowRef}

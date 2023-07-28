@@ -244,6 +244,8 @@ pub async fn get_volumes() -> Vec<Volume> {
 		});
 
 	future::join_all(sys.disks().iter().map(|disk| async {
+		#[cfg(not(windows))]
+		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
 
 		#[cfg(windows)]
@@ -255,9 +257,6 @@ pub async fn get_volumes() -> Vec<Volume> {
 		}) else {
 			return None;
 		};
-
-		#[cfg(not(windows))]
-		let disk_name = disk.name();
 
 		#[cfg(target_os = "macos")]
 		{
@@ -274,7 +273,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 			{
 				return None;
 			}
-		};
+		}
 
 		#[allow(unused_mut)] // mut is used in windows
 		let mut total_capacity = disk.total_space();
