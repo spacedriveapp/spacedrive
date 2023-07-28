@@ -261,7 +261,7 @@ impl ThumbnailRemoverActor {
 		// thumbnails/
 		// ├── version.txt
 		//└── <cas_id>[0..2]/ # sharding
-		//    └── <cas_id>[2..].webp
+		//    └── <cas_id>.webp
 
 		let mut read_dir = fs::read_dir(thumbnails_directory)
 			.await
@@ -281,14 +281,6 @@ impl ThumbnailRemoverActor {
 			{
 				continue;
 			}
-
-			let entry_path_name = entry_path
-				.file_name()
-				.ok_or_else(|| {
-					ThumbnailRemoverActorError::MissingFileName(entry.path().into_boxed_path())
-				})?
-				.to_str()
-				.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 
 			let mut thumbnails_paths_by_cas_id = HashMap::new();
 
@@ -319,8 +311,7 @@ impl ThumbnailRemoverActor {
 					.to_str()
 					.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 
-				thumbnails_paths_by_cas_id
-					.insert(format!("{}{}", entry_path_name, thumbnail_name), thumb_path);
+				thumbnails_paths_by_cas_id.insert(thumbnail_name.to_string(), thumb_path);
 			}
 
 			if thumbnails_paths_by_cas_id.is_empty() {
