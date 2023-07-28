@@ -51,6 +51,8 @@ export default ({ data }: Props) => {
 			{object && <ObjectItems.AssignTag object={object} />}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
+				<FilePathItems.CopyAsPath filePath={filePath} />
+
 				<FilePathItems.Crypto filePath={filePath} />
 
 				<FilePathItems.Compress filePath={filePath} />
