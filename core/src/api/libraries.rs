@@ -116,7 +116,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure(
 			"delete",
-			R.mutation(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete(id).await?) }),
+			R.mutation(|ctx, id: Uuid| async move {
+				ctx.library_manager.delete(id).await.map_err(Into::into)
+			}),
 		)
 	// .yolo_merge("peer.guest.", peer_guest_router())
 	// .yolo_merge("peer.host.", peer_host_router())
