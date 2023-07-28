@@ -14,19 +14,20 @@ const TopBar = (props: Props) => {
 	return (
 		<div
 			data-tauri-drag-region
+			style={{ height: TOP_BAR_HEIGHT }}
 			className="
 				duration-250 top-bar-blur absolute left-0 top-0 z-50 flex
-				h-[46px] w-full flex-row items-center justify-center overflow-hidden
+				w-full flex-row items-center justify-between overflow-hidden
 				border-b border-sidebar-divider bg-app/90 px-3.5
 				transition-[background-color,border-color] ease-out
 			"
 		>
-			<div data-tauri-drag-region className="flex flex-1 flex-row items-center">
+			<div data-tauri-drag-region className="flex min-w-0 flex-row items-center">
 				<NavigationButtons />
-				<div ref={props.leftRef} />
+				<div ref={props.leftRef} className="contents" />
 			</div>
 			{props.noSearch || <SearchBar />}
-			<div className="flex-1" ref={props.rightRef} />
+			<div ref={props.rightRef} className="contents" />
 		</div>
 	);
 };

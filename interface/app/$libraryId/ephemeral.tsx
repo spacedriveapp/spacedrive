@@ -38,7 +38,7 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	return (
 		<ExplorerContext.Provider value={{}}>
 			<TopBarPortal
-				left={<AddLocationButton className="max-w-[360px] shrink" path={path} />}
+				left={<AddLocationButton className="w-max min-w-0 shrink" path={path} />}
 				right={<DefaultTopBarOptions />}
 				noSearch={true}
 			/>
