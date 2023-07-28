@@ -41,11 +41,11 @@ model RelationOperation {
     timestamp BigInt
     relation  String
 
-    item_id Bytes
+    item_id  Bytes
     group_id Bytes
 
-    kind      String
-    data      Bytes
+    kind String
+    data Bytes
 
     instance_id Int
     instance    Instance @relation(fields: [instance_id], references: [id])
@@ -84,12 +84,12 @@ model Instance {
     last_seen    DateTime // Time core started for owner, last P2P message for P2P node
     date_created DateTime
 
-	// clock timestamp for sync
+    // clock timestamp for sync
     timestamp BigInt?
 
     // attestation Bytes
 
-    SharedOperation SharedOperation[]
+    SharedOperation   SharedOperation[]
     RelationOperation RelationOperation[]
 
     @@map("instance")
@@ -294,10 +294,10 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    dimensions  Bytes?
-    image_date  Bytes?
+    dimensions  Bytes
+    media_date  Bytes
+    camera_data Bytes
     location    Bytes?
-    camera_data Bytes?
 
     // possibly not set
     copyright String?

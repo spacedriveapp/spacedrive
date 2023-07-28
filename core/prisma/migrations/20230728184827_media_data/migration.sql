@@ -9,6 +9,9 @@
   - You are about to drop the column `longitude` on the `media_data` table. All the data in the column will be lost.
   - You are about to drop the column `pixel_height` on the `media_data` table. All the data in the column will be lost.
   - You are about to drop the column `pixel_width` on the `media_data` table. All the data in the column will be lost.
+  - Added the required column `camera_data` to the `media_data` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `dimensions` to the `media_data` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `media_date` to the `media_data` table without a default value. This is not possible if the table is not empty.
 
 */
 -- AlterTable
@@ -31,10 +34,10 @@ CREATE TABLE "relation_operation" (
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_media_data" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "dimensions" BLOB,
-    "image_date" BLOB,
+    "dimensions" BLOB NOT NULL,
+    "media_date" BLOB NOT NULL,
+    "camera_data" BLOB NOT NULL,
     "location" BLOB,
-    "camera_data" BLOB,
     "copyright" TEXT,
     "artist" TEXT,
     "duration" INTEGER,

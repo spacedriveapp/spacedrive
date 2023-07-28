@@ -21,6 +21,7 @@ use sd_file_ext::extensions::VideoExtension;
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
+use sd_media_data::Orientation;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io, task::block_in_place};
@@ -136,22 +137,30 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			{
 				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
 			} else {
-				image::open(file_path)?
+				image::open(file_path.as_ref())?
 			}
 		};
 
 		#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-		let img = image::open(file_path)?;
+		let img = image::open(file_path.as_ref())?;
+
+		let orientation: Option<Orientation> = Orientation::source_orientation(file_path.as_ref());
 
 		let (w, h) = img.dimensions();
 		// Optionally, resize the existing photo and convert back into DynamicImage
-		let img = DynamicImage::ImageRgba8(imageops::resize(
+		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
 			// FIXME : Think of a better heuristic to get the thumbnail size
 			(w as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
 			(h as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
 			imageops::FilterType::Triangle,
 		));
+
+		// this corrects the rotation/flip of the image based on the available exif data
+		if let Some(x) = orientation {
+			img = x.correct_thumbnail(&img);
+		}
+
 		// Create the WebP encoder for the above image
 		let encoder = Encoder::from_image(&img)?;
 
