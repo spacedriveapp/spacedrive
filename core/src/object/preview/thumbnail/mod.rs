@@ -158,7 +158,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 
 		// this corrects the rotation/flip of the image based on the available exif data
 		if let Some(x) = orientation {
-			img = x.correct_thumbnail(&img);
+			img = x.correct_thumbnail(img);
 		}
 
 		// Create the WebP encoder for the above image

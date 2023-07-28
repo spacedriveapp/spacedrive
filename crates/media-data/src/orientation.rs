@@ -38,9 +38,9 @@ impl Orientation {
 
 	/// This is used to correct thumbnails in the thumbnailer, if we are able to source orientation data for the file at hand.
 	#[must_use]
-	pub fn correct_thumbnail(&self, img: &DynamicImage) -> DynamicImage {
+	pub fn correct_thumbnail(&self, img: DynamicImage) -> DynamicImage {
 		match self {
-			Self::Normal => img.clone(),
+			Self::Normal => img,
 			Self::CW180 => img.rotate180(),
 			Self::CW270 => img.rotate270(),
 			Self::CW90 => img.rotate90(),
