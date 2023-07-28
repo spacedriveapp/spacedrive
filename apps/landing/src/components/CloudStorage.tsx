@@ -3,7 +3,7 @@ import React from 'react';
 
 const CloudStorage = () => {
 	return (
-		<div className="mb-[100px] mt-[200px] md:mb-[100px] md:mt-[300px]">
+		<div className="mt-[200px] md:mt-[250px]">
 			<div className="relative h-auto">
 				<Image
 					width={590}
