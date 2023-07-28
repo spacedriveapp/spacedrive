@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 import { FolderSimplePlus } from 'phosphor-react';
 import { Button, ButtonProps, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
@@ -11,6 +12,12 @@ interface AddLocationButton extends ButtonProps {
 
 export const AddLocationButton = ({ path, className, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
+	const transition = {
+		type: 'keyframes',
+		ease: 'easeInOut',
+		repeat: Infinity,
+		duration: 5
+	};
 
 	return (
 		<>
@@ -33,14 +40,23 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 				{...props}
 			>
 				{path ? (
-					<div className="flex h-full w-full flex-row items-center">
+					<div className="flex h-full w-full flex-row items-center whitespace-nowrap font-mono text-xs text-ink-faint">
 						<FolderSimplePlus size={18} className="shrink-0" />
-						<span
-							dir="rtl"
-							className="text-crop shink mx-1 mr-2 flex h-full overflow-hidden whitespace-nowrap text-center font-mono text-xs font-medium text-ink-faint"
-						>
-							{path}
-						</span>
+						<div className="ml-1 overflow-hidden">
+							<motion.span
+								animate={{ x: ['0%', '100%', '0%'] }}
+								className="inline-block w-full"
+								transition={{ ...transition }}
+							>
+								<motion.span
+									animate={{ x: ['0%', '-100%', '0%'] }}
+									className="inline-block w-auto"
+									transition={{ ...transition }}
+								>
+									{path}
+								</motion.span>
+							</motion.span>
+						</div>
 					</div>
 				) : (
 					'Add Location'

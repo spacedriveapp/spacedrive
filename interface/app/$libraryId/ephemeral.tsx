@@ -1,5 +1,5 @@
-import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
@@ -14,7 +14,10 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	const explorerStore = useExplorerStore();
 
 	const query = useLibraryQuery(
-		['search.ephemeral-paths', { path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true }],
+		[
+			'search.ephemeral-paths',
+			{ path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true }
+		],
 		{
 			enabled: !!path,
 			onSuccess: () => getExplorerStore().resetNewThumbnails()
