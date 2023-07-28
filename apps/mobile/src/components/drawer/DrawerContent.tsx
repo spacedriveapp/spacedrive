@@ -44,6 +44,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 						<Text style={tw`ml-2 text-lg font-bold text-ink`}>Spacedrive</Text>
 					</View>
 					<View style={tw`mt-6`} />
+
 					{/* Library Manager */}
 					<DrawerLibraryManager />
 					{/* Locations */}
