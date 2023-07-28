@@ -126,6 +126,12 @@ pub async fn get_volumes() -> Vec<Volume> {
 			// Update mount point if not already present
 			if volume.mount_points.iter().all(|p| p != &mount_point) {
 				volume.mount_points.push(mount_point);
+				volume.mount_points.retain(|candidate| {
+					!volume
+						.mount_points
+						.iter
+						.any(|path| candidate.starts_with(path) && candidate != path)
+				});
 				if !volume.is_root_filesystem {
 					volume.is_root_filesystem = is_root_filesystem;
 				}

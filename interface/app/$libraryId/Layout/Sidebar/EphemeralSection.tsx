@@ -28,19 +28,27 @@ export const EphemeralSection = () => {
 						<span className="truncate">Home</span>
 					</SidebarLink>
 				)}
-				{volumes?.map((volume, index) => (
-					<SidebarLink
-						to={`ephemeral/${index + 1}?path=${volume.mount_points[0]}`}
-						key={index}
-						className="group relative w-full border border-transparent"
-					>
-						<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-							<Folder size={18} />
-						</div>
+				{volumes?.map((volume, volumeIndex) => {
+					const mountPoints = volume.mount_points;
+					mountPoints.sort((a, b) => a.length - b.length);
+					return mountPoints.map((mountPoint, index) => {
+						const key = `${volumeIndex}-${index}`;
+						const name = index === 0 ? volume.name : mountPoint;
+						return (
+							<SidebarLink
+								to={`ephemeral/${key}?path=${mountPoint}`}
+								key={key}
+								className="group relative w-full border border-transparent"
+							>
+								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+									<Folder size={18} />
+								</div>
 
-						<span className="truncate">{volume.name}</span>
-					</SidebarLink>
-				))}
+								<span className="truncate">{name}</span>
+							</SidebarLink>
+						);
+					});
+				})}
 			</Section>
 		</>
 	);
