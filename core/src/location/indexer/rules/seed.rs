@@ -127,8 +127,10 @@ pub fn no_os_protected() -> SystemIndexerRule {
                     ],
                     #[cfg(target_os = "macos")]
                     vec![
-                        "/{System,Network,Library,Applications}",
+                        "/{System,Network,Library,Applications,.PreviousSystemInformation,.com.apple.templatemigration.boot-install}",
+						"/System/Volumes/Data/{System,Network,Library,Applications,.PreviousSystemInformation,.com.apple.templatemigration.boot-install}",
                         "/Users/*/{Library,Applications}",
+                        "/System/Volumes/Data/Users/*/{Library,Applications}",
                         "**/*.photoslibrary/{database,external,private,resources,scope}",
                         // Files that might appear in the root of a volume
                         "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",

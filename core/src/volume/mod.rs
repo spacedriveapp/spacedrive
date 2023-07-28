@@ -124,12 +124,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 				.expect("Volume index is present so the Volume must be present too");
 
 			// Update mount point if not already present
-			if volume.mount_points.iter().all(|p| p != &mount_point) {
-				volume.mount_points.push(mount_point);
-				volume.mount_points.retain(|candidate| {
-					!volume
-						.mount_points
-						.iter
+			let mount_points = &mut volume.mount_points;
+			if mount_point.iter().all(|p| p != &mount_point) {
+				mount_points.push(mount_point);
+				let mount_points_to_check = mount_points.clone();
+				mount_points.retain(|candidate| {
+					!mount_points_to_check
+						.iter()
 						.any(|path| candidate.starts_with(path) && candidate != path)
 				});
 				if !volume.is_root_filesystem {

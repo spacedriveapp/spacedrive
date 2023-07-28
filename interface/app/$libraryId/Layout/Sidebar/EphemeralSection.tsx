@@ -33,7 +33,10 @@ export const EphemeralSection = () => {
 					mountPoints.sort((a, b) => a.length - b.length);
 					return mountPoints.map((mountPoint, index) => {
 						const key = `${volumeIndex}-${index}`;
-						const name = index === 0 ? volume.name : mountPoint;
+						if (mountPoint == home) return null;
+
+						const name =
+							mountPoint === '/' ? 'Root' : index === 0 ? volume.name : mountPoint;
 						return (
 							<SidebarLink
 								to={`ephemeral/${key}?path=${mountPoint}`}
