@@ -29,11 +29,11 @@ export function Footer() {
 		<footer id="footer" className="relative z-50 w-screen overflow-hidden pt-3 backdrop-blur">
 			<div
 				className="absolute bottom-0 left-0 z-[-1] h-[90px] w-[50%]
-			bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-60 blur-[150px]"
+			bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-60 blur-[120px]"
 			/>
 			<div
-				className="absolute left-[30%] top-[250px] z-[-1] h-[45%] w-full
-			 bg-gradient-to-r from-transparent to-indigo-400 opacity-50 blur-[100px]"
+				className="absolute right-0 top-[250px] z-[-1] h-[45%] w-full
+			 bg-gradient-to-r from-transparent to-indigo-500 opacity-50 blur-[100px]"
 			/>
 			<div className="min-h-64 m-auto grid max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">

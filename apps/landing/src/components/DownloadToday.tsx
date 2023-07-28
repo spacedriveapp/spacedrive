@@ -6,9 +6,9 @@ const DownloadToday = () => {
 	return (
 		<div
 			className="download-today-border-gradient download-today-shadow-inset relative mb-[150px] flex h-[250px] w-full max-w-[1000px] flex-col justify-center
-		overflow-hidden rounded-md bg-gradient-to-b from-transparent to-[#090816] p-2 text-center md:mb-[250px] md:h-[350px]"
+		overflow-hidden rounded-md bg-gradient-to-b from-transparent to-black p-2 text-center md:mb-[250px] md:h-[350px]"
 		>
-			<div className="absolute left-0 top-0 h-full w-full bg-gradient-to-t from-[#090816] to-transparent" />
+			<div className="absolute left-0 top-0 h-full w-full bg-gradient-to-t from-black to-transparent" />
 			<div className="relative z-10">
 				<h1 className="mx-auto w-full max-w-[500px] text-[20px] font-semibold md:text-[30px]">
 					Download Spacedrive today and enjoy the experience of the future

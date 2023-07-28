@@ -1,3 +1,5 @@
+'use client';
+
 /* eslint-disable tailwindcss/enforces-negative-arbitrary-values */
 
 /* eslint-disable tailwindcss/classnames-order */
@@ -6,8 +8,9 @@
 import clsx from 'clsx';
 import Head from 'next/head';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Download } from 'phosphor-react';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { tw } from '@sd/ui';
 import AccessData from '~/components/AccessData';
 import BentoBoxes from '~/components/BentoBoxes';
@@ -22,11 +25,14 @@ const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black le
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
-const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/1 backdrop-blur`;
+const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(1);
-
+	const isWindows = useMemo(() => {
+		if (typeof window === 'undefined') return false;
+		return window.navigator.userAgent.includes('Windows');
+	}, []);
 	useEffect(() => {
 		const fadeStart = 300; // start fading out at 100px
 		const fadeEnd = 1300; // end fading out at 300px
@@ -77,8 +83,8 @@ export default function HomePage() {
 
 			<PageWrapper>
 				<div
-					className="absolute-horizontal-center h-[253px] w-[60%] overflow-hidden
-				rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 opacity-40 blur-[80px] md:blur-[150px]"
+					className="absolute-horizontal-center h-[150px] w-[60%] overflow-hidden
+				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-70 blur-[80px] md:blur-[150px]"
 				/>
 				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
@@ -100,7 +106,15 @@ export default function HomePage() {
 							Designed for creators, hoarders and the painfully disorganized.
 						</span>
 					</p>
-					<HomeCTA icon={<Download />} text="Download on Mac" />
+					<Link
+						target="_blank"
+						href={isWindows ? 'https://www.google.com' : 'https://www.github.com'}
+					>
+						<HomeCTA
+							icon={<Download />}
+							text={isWindows ? 'Download on Windows' : 'Download on Mac'}
+						/>
+					</Link>
 					<p
 						className={clsx(
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
@@ -122,12 +136,14 @@ export default function HomePage() {
 						/>
 						<video
 							className="absolute-horizontal-center pointer-events-none w-[1000px]"
-							src="/images/ball.webm"
 							autoPlay
 							muted
 							playsInline
 							loop
-						/>
+						>
+							<source src="/images/ball.mp4" type="video/mp4" />
+						</video>
+
 						<div
 							className="xl2: z-30 mt-[24%] flex h-[255px] w-full px-6
 						 xs:mt-[170px] sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:mt-[310px] lg:h-[628px]"
@@ -167,12 +183,14 @@ const LineAnimation = memo(() => {
 						animation: `left-line-animation-fade ${
 							3 + Math.random() * 2
 						}s ease-in-out infinite`,
-						animationDelay: `${i * Math.random() + 1 * 2}s`,
-						animationFillMode: 'backwards',
-						width: `${Math.random() * 50 + 50}px`
+						animationDelay: `${Math.floor(i * Math.random() + 1 * 3)}s`,
+						width: `${Math.random() * 50 + 50}px`,
+						height: '1px',
+						top: 0,
+						position: 'absolute',
+						zIndex: 50
 					}}
-					className="absolute top-0 z-[50] h-[1px]
-										 bg-gradient-to-r from-transparent to-fuchsia-300 opacity-0"
+					className="bg-gradient-to-r from-transparent to-white/50 opacity-0"
 				/>
 			))}
 			{[...Array(3)].map((_, i) => (
@@ -182,12 +200,14 @@ const LineAnimation = memo(() => {
 						animation: `top-line-animation-fade ${
 							3 + Math.random() * 2
 						}s ease-in-out infinite`,
-						animationDelay: `${i * Math.random() + 2 * 2}s`,
-						animationFillMode: 'backwards',
-						height: `${Math.random() * 50 + 30}px`
+						animationDelay: `${Math.floor(i * Math.random() + 1 * 3)}s`,
+						height: `${Math.random() * 50 + 30}px`,
+						width: '1px',
+						right: 0,
+						position: 'absolute',
+						zIndex: 50
 					}}
-					className="absolute right-0 top-0 z-[50] w-[1px]
-										 bg-gradient-to-b from-transparent to-fuchsia-300 opacity-0"
+					className="bg-gradient-to-b from-transparent to-white/50 opacity-0"
 				/>
 			))}
 		</>

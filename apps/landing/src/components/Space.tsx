@@ -52,7 +52,7 @@ function ShootingStar() {
 
 const Space: React.FunctionComponent = () => {
 	return (
-		<div className="fixed z-0 h-screen w-screen bg-[#16151d] opacity-50">
+		<div className="fixed z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
 				<ShootingStar />
 				<ShootingStar />

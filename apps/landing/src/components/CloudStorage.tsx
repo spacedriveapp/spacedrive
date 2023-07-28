@@ -3,7 +3,7 @@ import React from 'react';
 
 const CloudStorage = () => {
 	return (
-		<div className="my-[150px] md:my-[250px]">
+		<div className="mb-[100px] mt-[200px] md:mb-[100px] md:mt-[300px]">
 			<div className="relative h-auto">
 				<Image
 					width={590}
@@ -15,7 +15,7 @@ const CloudStorage = () => {
 				/>
 				<div
 					className="absolute-horizontal-center left-0 top-0 h-[150px]
-							 w-[450px] bg-[#BC93FF] opacity-30 blur-[120px]"
+							 w-[450px] bg-violet-500 opacity-30 blur-[120px]"
 				/>
 			</div>
 			<h3

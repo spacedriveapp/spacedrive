@@ -1,5 +1,5 @@
 html {
-	background-color: #16131c;
+	@apply bg-black;
 	-ms-overflow-style: none; /* IE and Edge */
 	scrollbar-width: none; /* Firefox */
 	&::-webkit-scrollbar {
@@ -38,6 +38,7 @@ html {
 
 .contribute-drop-shadow {
 	filter: drop-shadow(0px 0px 20px #34d3997a);
+	-webkit-filter: drop-shadow(0px 0px 20px #34d3997a);
 }
 
 @keyframes fade-in {
@@ -94,21 +95,6 @@ html {
 	transform: translate(-50%, -50%);
 }
 
-.bento-box-border-gradient::before {
-	content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  padding: 1px;
-  background: linear-gradient(90deg, #8b60a558, #3a3a3a14);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-}
-
 .news-banner-glow {
 	filter: drop-shadow(0px 0px 5px #914dff79);
 }
@@ -155,28 +141,12 @@ html {
 }
 
 .bento-radial-gradient-fade {
-background: rgb(18,19,30);
-background: -moz-radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
-background: -webkit-radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
-background: radial-gradient(circle, rgba(18,19,30,0) 0%, #12131e 100%);
+background: rgb(0, 0, 0);
+border-radius: 10px;
+background: -moz-radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
+background: -webkit-radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
+background: radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
 filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endColorstr="#15161f",GradientType=1);
-}
-
-.before-bento-gradient-border::before {
-	content: "";
-	width: 100%;
-	height: 100%;
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  padding: 1px;
-  background: linear-gradient(90deg, #8b60a558, #3a3a3a14);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
 }
 
 .oss-credit-gradient {
@@ -262,16 +232,14 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endCo
 }
 
 .bloom {
+	@apply absolute -mt-[320px] h-[1200px] w-[1200px];
 	will-change: opacity;
 	opacity: 0;
 	will-change: filter opacity;
-	position: absolute;
 	animation-timing-function: ease-in-out;
 	animation-fill-mode: forwards;
 	animation-iteration-count: 1;
 	animation-direction: forwards;
-	width: 1200px;
-	height: 1200px;
 	&.burst {
 		animation-name: bloomBurst;
 		animation-duration: 1s;
@@ -281,19 +249,27 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endCo
 		animation-duration: 3s;
 	}
 	&.bloom-one {
+		@apply left-0 -ml-[200px];
+		top: 100px;
 		background: url('/bloom-one.png') no-repeat center center;
+		filter: hue-rotate(8deg);
+		height: 900px;
 		background-size: contain;
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
+		@apply right-0 -mr-[300px];
+		top: 50px;
 		background: url('/bloom-two.png') no-repeat center center;
 		background-size: contain;
+		height: 900px;
 		animation-delay: 0ms;
 	}
 	&.bloom-three {
 		@apply invisible left-auto right-auto -mt-[250px] ml-24 md:visible;
 		background: url('/bloom-three.png') no-repeat center center;
 		background-size: contain;
+		height: 900px;
 		animation-delay: 800ms;
 	}
 	&.bloom-center {
