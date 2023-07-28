@@ -11,9 +11,9 @@ export const EphemeralSection = () => {
 	const platform = usePlatform();
 	platform.userHomeDir?.().then(setHome);
 
-	const { data: volumes } = useBridgeQuery(['volumes.list']);
+	const volumes = useBridgeQuery(['volumes.list']).data ?? [];
 
-	return (
+	return home == null && volumes.length < 1 ? null : (
 		<>
 			<Section name="Explore" actionArea={<SubtleButton />}>
 				{home && (
@@ -28,7 +28,7 @@ export const EphemeralSection = () => {
 						<span className="truncate">Home</span>
 					</SidebarLink>
 				)}
-				{volumes?.map((volume, volumeIndex) => {
+				{volumes.map((volume, volumeIndex) => {
 					const mountPoints = volume.mount_points;
 					mountPoints.sort((a, b) => a.length - b.length);
 					return mountPoints.map((mountPoint, index) => {
