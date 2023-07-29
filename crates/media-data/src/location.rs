@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Neg};
 
 use exif::Tag;
 
@@ -15,7 +15,32 @@ pub struct MediaLocation {
 	direction: Option<i32>, // the direction that the image was taken in, as a bearing (should always be <= 0 && <= 360)
 }
 
+const LAT_MAX_POS: f64 = 90_f64;
+const LONG_MAX_POS: f64 = 180_f64;
+
 impl MediaLocation {
+	/// This is used to clamp and format coordinates. They are rounded to 8 significant figures after the decimal point.
+	///
+	/// `max` must be a positive float, and it should be the maximum distance allowed (e.g. 90 or 180 degrees)
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sd_media_data::MediaLocation;
+	///
+	/// MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// ```
+	#[must_use]
+	fn format_coordinate(v: f64, max: f64) -> f64 {
+		let mut coord = (v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF;
+
+		if coord < 0_f64 {
+			coord = coord.neg();
+		}
+
+		coord
+	}
+
 	/// Create a new [`MediaLocation`] from a latitude and longitude pair.
 	///
 	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
@@ -25,12 +50,12 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// MediaLocation::new(38.89767633, -77.03656035, Some(32), Some(20));
+	/// MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// ```
 	#[must_use]
 	pub fn new(lat: f64, long: f64, altitude: Option<i32>, direction: Option<i32>) -> Self {
-		let latitude = (lat.clamp(-90.0, 90.0) * DECIMAL_SF).round() / DECIMAL_SF;
-		let longitude = (long.clamp(-180.0, 180.0) * DECIMAL_SF).round() / DECIMAL_SF;
+		let latitude = Self::format_coordinate(lat, LAT_MAX_POS);
+		let longitude = Self::format_coordinate(long, LONG_MAX_POS);
 
 		Self {
 			latitude,
@@ -49,14 +74,16 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// ```
 	pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
 		let res = [lat, long]
 			.into_iter()
 			.map(ToString::to_string)
 			.filter_map(|mut item| {
-				item.retain(|x| x.is_numeric() || x.is_whitespace() || x == '.' || x == '/');
+				item.retain(|x| {
+					x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
+				});
 				let i = item
 					.split_whitespace()
 					.filter_map(|x| x.parse::<f64>().ok());
@@ -68,8 +95,8 @@ impl MediaLocation {
 		(!res.is_empty() && res.len() == 2)
 			.then(|| {
 				Self::new(
-					res[0].clamp(-90.0, 90.0),
-					res[1].clamp(-180.0, 180.0),
+					Self::format_coordinate(res[0], LAT_MAX_POS),
+					Self::format_coordinate(res[1], LONG_MAX_POS),
 					None,
 					None,
 				)
@@ -98,7 +125,9 @@ impl MediaLocation {
 		.into_iter()
 		.filter_map(|item: Option<String>| {
 			let mut item = item.unwrap_or_default();
-			item.retain(|x| x.is_numeric() || x.is_whitespace() || x == '.' || x == '/');
+			item.retain(|x| {
+				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
+			});
 			let i = item
 				.split_whitespace()
 				.filter_map(|x| x.parse::<f64>().ok());
@@ -110,8 +139,8 @@ impl MediaLocation {
 		(!res.is_empty() && res.len() == 2)
 			.then(|| {
 				Self::new(
-					res[0],
-					res[1],
+					Self::format_coordinate(res[0], LAT_MAX_POS),
+					Self::format_coordinate(res[1], LONG_MAX_POS),
 					reader.get_tag(Tag::GPSAltitude),
 					reader
 						.get_tag(Tag::GPSImgDirection)
@@ -127,10 +156,10 @@ impl MediaLocation {
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	/// home.update_latitude(-60.0);
+	/// home.update_latitude(60_f64);
 	/// ```
 	pub fn update_latitude(&mut self, lat: f64) {
-		self.latitude = (lat.clamp(-90.0, 90.0) * DECIMAL_SF).round() / DECIMAL_SF;
+		self.latitude = Self::format_coordinate(lat, LAT_MAX_POS);
 	}
 
 	/// # Examples
@@ -139,10 +168,10 @@ impl MediaLocation {
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	/// home.update_longitude(20.0);
+	/// home.update_longitude(20_f64);
 	/// ```
 	pub fn update_longitude(&mut self, long: f64) {
-		self.longitude = (long.clamp(-180.0, 180.0) * DECIMAL_SF).round() / DECIMAL_SF;
+		self.longitude = Self::format_coordinate(long, LONG_MAX_POS);
 	}
 
 	/// # Examples
@@ -190,8 +219,8 @@ impl TryFrom<String> for MediaLocation {
 		if iter.clone().count() == 2 {
 			let items = iter.collect::<Vec<_>>();
 			Ok(Self::new(
-				items[0].clamp(-90.0, 90.0),
-				items[1].clamp(-180.0, 180.0),
+				Self::format_coordinate(items[0], LAT_MAX_POS),
+				Self::format_coordinate(items[1], LONG_MAX_POS),
 				None,
 				None,
 			))

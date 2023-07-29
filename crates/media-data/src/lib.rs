@@ -21,18 +21,19 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-pub mod consts;
+pub(crate) mod consts;
 mod dimensions;
 mod error;
 mod image;
 mod location;
 mod orientation;
 mod time;
+pub(crate) mod utils;
 
 pub use consts::DMS_DIVISION;
 pub use dimensions::Dimensions;
 pub use error::{Error, Result};
 pub use image::{CameraData, ExifReader, MediaDataImage};
-pub use location::Location;
+pub use location::MediaLocation;
 pub use orientation::Orientation;
 pub use time::MediaTime;

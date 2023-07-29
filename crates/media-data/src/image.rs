@@ -2,13 +2,17 @@ use exif::{Exif, In, Tag};
 use sd_prisma::prisma::media_data;
 use std::{fs::File, io::BufReader, path::Path, str::FromStr};
 
-use crate::{orientation::Orientation, Dimensions, Location, MediaTime, Result};
+use crate::{
+	orientation::Orientation,
+	utils::{from_slice_option_to_option, from_slice_option_to_res, to_slice_option},
+	Dimensions, MediaLocation, MediaTime, Result,
+};
 
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaDataImage {
 	pub date_taken: MediaTime,
 	pub dimensions: Dimensions,
-	pub location: Option<Location>,
+	pub location: Option<MediaLocation>,
 	pub camera_data: CameraData,
 	pub artist: Option<String>,
 	pub copyright: Option<String>,
@@ -21,7 +25,7 @@ pub struct CameraData {
 	pub device_model: Option<String>,
 	pub focal_length: Option<f64>,
 	pub shutter_speed: Option<f64>,
-	pub flash: Option<bool>,
+	pub flash: bool,
 	pub orientation: Orientation,
 	pub lens_make: Option<String>,
 	pub lens_model: Option<String>,
@@ -49,8 +53,9 @@ impl MediaDataImage {
 		data.camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
 
 		data.camera_data.flash = reader
-			.get_tag(Tag::Flash)
-			.map(|x: String| x.contains("fired") || x.contains("on"));
+			.get_tag::<String>(Tag::Flash)
+			.map(|x: String| x.to_lowercase().contains("fired") || x.to_lowercase().contains("on"))
+			.unwrap_or_default();
 
 		data.camera_data.lens_make = reader.get_tag(Tag::LensMake);
 		data.camera_data.lens_model = reader.get_tag(Tag::LensModel);
@@ -69,7 +74,7 @@ impl MediaDataImage {
 		data.copyright = reader.get_tag(Tag::Copyright);
 		data.exif_version = reader.get_tag(Tag::ExifVersion);
 
-		data.location = Location::from_exif_reader(&reader).ok();
+		data.location = MediaLocation::from_exif_reader(&reader).ok();
 
 		Ok(data)
 	}
@@ -77,17 +82,30 @@ impl MediaDataImage {
 	/// This is only here as there's no easy impl from this foreign type to prisma's `CreateUnchecked`
 	pub fn to_query(self) -> Result<sd_prisma::prisma::media_data::CreateUnchecked> {
 		let kc = media_data::CreateUnchecked {
-			dimensions: serde_json::to_vec(&self.dimensions)?,
-			media_date: serde_json::to_vec(&self.date_taken)?,
-			camera_data: serde_json::to_vec(&self.camera_data)?,
 			_params: vec![
-				media_data::location::set(serde_json::to_vec(&self.location).ok()),
-				media_data::copyright::set(self.copyright),
-				media_data::artist::set(self.artist),
+				media_data::dimensions::set(to_slice_option(&self.dimensions)),
+				media_data::media_date::set(to_slice_option(&self.date_taken)),
+				media_data::camera_data::set(to_slice_option(&self.camera_data)),
+				media_data::location::set(to_slice_option(&self.location)),
+				media_data::copyright::set(to_slice_option(&self.copyright)),
+				media_data::artist::set(to_slice_option(&self.artist)),
+				media_data::exif_version::set(to_slice_option(&self.exif_version)),
 			],
 		};
 
 		Ok(kc)
+	}
+
+	pub fn from_prisma_data(data: sd_prisma::prisma::media_data::Data) -> Result<Self> {
+		Ok(Self {
+			dimensions: from_slice_option_to_res(data.dimensions)?,
+			camera_data: from_slice_option_to_res(data.camera_data)?,
+			date_taken: from_slice_option_to_res(data.media_date)?,
+			copyright: from_slice_option_to_option(data.copyright),
+			artist: from_slice_option_to_option(data.artist),
+			location: from_slice_option_to_option(data.location),
+			exif_version: from_slice_option_to_option(data.exif_version),
+		})
 	}
 }
 

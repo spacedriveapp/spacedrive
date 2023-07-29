@@ -11,7 +11,7 @@ pub enum Error {
 	#[error("there was an error while converting between types")]
 	Conversion,
 	#[error("there was an error while parsing the location of an image")]
-	LocationParse,
+	MediaLocationParse,
 	#[error("there was an error while parsing a float")]
 	FloatParse(#[from] ParseFloatError),
 	#[error("there was an error while initializing the exif reader")]

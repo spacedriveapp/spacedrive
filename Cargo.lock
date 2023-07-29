@@ -7288,13 +7288,11 @@ dependencies = [
  "chrono",
  "image",
  "kamadak-exif",
- "rand 0.8.5",
  "sd-prisma",
  "serde",
  "serde_json",
  "specta",
  "thiserror",
- "walkdir",
 ]
 
 [[package]]

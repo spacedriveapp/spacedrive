@@ -22,6 +22,7 @@ use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_media_data::MediaDataImage;
 use serde::Deserialize;
 use specta::Type;
 use tokio::fs;
@@ -29,13 +30,14 @@ use tracing::error;
 
 use super::{Ctx, R};
 
+#[derive(Type, Deserialize)]
+pub struct GetArgs {
+	pub id: i32,
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			#[derive(Type, Deserialize)]
-			pub struct GetArgs {
-				pub id: i32,
-			}
 			R.with2(library())
 				.query(|(_, library), args: GetArgs| async move {
 					Ok(library
@@ -45,6 +47,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object::include!({ file_paths media_data }))
 						.exec()
 						.await?)
+				})
+		})
+		.procedure("getMediaData", {
+			R.with2(library())
+				.query(|(_, library), args: GetArgs| async move {
+					Ok(library
+						.db
+						.object()
+						.find_unique(object::id::equals(args.id))
+						.include(object::include!({ media_data }))
+						.exec()
+						.await?
+						.into_iter()
+						.filter_map(|x| x.media_data)
+						.flat_map(MediaDataImage::from_prisma_data)
+						.collect::<Vec<_>>()
+						.first()
+						.map(MediaDataImage::clone))
 				})
 		})
 		.procedure("setNote", {

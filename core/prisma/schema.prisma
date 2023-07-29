@@ -294,14 +294,13 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    dimensions  Bytes
-    media_date  Bytes
-    camera_data Bytes
-    location    Bytes?
-
-    // possibly not set
-    copyright String?
-    artist    String?
+    dimensions   Bytes?
+    media_date   Bytes?
+    camera_data  Bytes?
+    location     Bytes?
+    exif_version Bytes?
+    copyright    Bytes?
+    artist       Bytes?
 
     // video-specific
     duration Int?

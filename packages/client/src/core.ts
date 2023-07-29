@@ -6,6 +6,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
+        { key: "files.getMediaData", input: LibraryArgs<GetArgs>, result: MediaDataImage | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
@@ -92,6 +93,8 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
+export type CameraData = { device_make: string | null; device_model: string | null; focal_length: number | null; shutter_speed: number | null; flash: boolean; orientation: Orientation; lens_make: string | null; lens_model: string | null; zoom: number | null; iso: number | null; software: string | null }
+
 /**
  * Meow
  */
@@ -100,6 +103,8 @@ export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" 
 export type ChangeNodeNameArgs = { name: string | null }
 
 export type CreateLibraryArgs = { name: LibraryName }
+
+export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -212,7 +217,18 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; dimensions: number[]; media_date: number[]; camera_data: number[]; location: number[] | null; copyright: string | null; artist: string | null; duration: number | null; fps: number | null; streams: number | null; codecs: string | null }
+export type MediaData = { id: number; dimensions: number[] | null; media_date: number[] | null; camera_data: number[] | null; location: number[] | null; exif_version: number[] | null; copyright: number[] | null; artist: number[] | null; duration: number | null; fps: number | null; streams: number | null; codecs: string | null }
+
+export type MediaDataImage = { date_taken: MediaTime; dimensions: Dimensions; location: MediaLocation | null; camera_data: CameraData; artist: string | null; copyright: string | null; exif_version: string | null }
+
+export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
+
+/**
+ * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
+ * 
+ * This may also be `undefined`.
+ */
+export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -250,6 +266,8 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
+
+export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVertical" | "MirroredHorizontalAnd270CW" | "MirroredHorizontalAnd90CW" | "CW180" | "CW270"
 
 /**
  * TODO: P2P event for the frontend
