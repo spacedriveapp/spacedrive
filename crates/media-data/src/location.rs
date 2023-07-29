@@ -8,24 +8,24 @@ use crate::{
 };
 
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct Location {
+pub struct MediaLocation {
 	latitude: f64,
 	longitude: f64,
 	altitude: Option<i32>,
 	direction: Option<i32>, // the direction that the image was taken in, as a bearing (should always be <= 0 && <= 360)
 }
 
-impl Location {
-	/// Create a new [`Location`] from a latitude and longitude pair.
+impl MediaLocation {
+	/// Create a new [`MediaLocation`] from a latitude and longitude pair.
 	///
 	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
 	///
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// Location::new(38.89767633, -77.03656035, Some(32), Some(20));
+	/// MediaLocation::new(38.89767633, -77.03656035, Some(32), Some(20));
 	/// ```
 	#[must_use]
 	pub fn new(lat: f64, long: f64, altitude: Option<i32>, direction: Option<i32>) -> Self {
@@ -40,16 +40,16 @@ impl Location {
 		}
 	}
 
-	/// Create a new [`Location`] from a latitude and longitude pair of EXIF-style strings.
+	/// Create a new [`MediaLocation`] from a latitude and longitude pair of EXIF-style strings.
 	///
 	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
 	///
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// Location::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// ```
 	pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
 		let res = [lat, long]
@@ -74,10 +74,10 @@ impl Location {
 					None,
 				)
 			})
-			.ok_or(Error::LocationParse)
+			.ok_or(Error::MediaLocationParse)
 	}
 
-	/// Create a new [`Location`] from an [`ExifReader`] instance.
+	/// Create a new [`MediaLocation`] from an [`ExifReader`] instance.
 	///
 	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
 	///
@@ -86,9 +86,9 @@ impl Location {
 	/// # Examples
 	///
 	/// ```ignore
-	/// use sd_media_data::{Location, ExifReader};
+	/// use sd_media_data::{MediaLocation, ExifReader};
 	/// let mut reader = ExifReader::new("path").unwrap();
-	/// Location::from_exif_reader(&mut reader).unwrap();
+	/// MediaLocation::from_exif_reader(&mut reader).unwrap();
 	/// ```
 	pub fn from_exif_reader(reader: &ExifReader) -> Result<Self> {
 		let res = [
@@ -118,15 +118,15 @@ impl Location {
 						.map(|x: i32| x.clamp(0, 360)),
 				)
 			})
-			.ok_or(Error::LocationParse)
+			.ok_or(Error::MediaLocationParse)
 	}
 
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// let mut home = Location::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_latitude(-60.0);
 	/// ```
 	pub fn update_latitude(&mut self, lat: f64) {
@@ -136,9 +136,9 @@ impl Location {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// let mut home = Location::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_longitude(20.0);
 	/// ```
 	pub fn update_longitude(&mut self, long: f64) {
@@ -148,9 +148,9 @@ impl Location {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// let mut home = Location::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_altitude(20);
 	/// ```
 	pub fn update_altitude(&mut self, altitude: i32) {
@@ -160,9 +160,9 @@ impl Location {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	///
-	/// let mut home = Location::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_direction(233);
 	/// ```
 	pub fn update_direction(&mut self, bearing: i32) {
@@ -170,17 +170,17 @@ impl Location {
 	}
 }
 
-impl TryFrom<String> for Location {
+impl TryFrom<String> for MediaLocation {
 	type Error = Error;
 
-	/// This tries to parse a standard "34.2493458, -23.4923843" string to a [`Location`]
+	/// This tries to parse a standard "34.2493458, -23.4923843" string to a [`MediaLocation`]
 	///
 	/// # Examples:
 	///
 	/// ```
-	/// use sd_media_data::Location;
+	/// use sd_media_data::MediaLocation;
 	/// let s = String::from("32.47583923, -28.49238495");
-	/// Location::try_from(s).unwrap();
+	/// MediaLocation::try_from(s).unwrap();
 	///
 	/// ```
 	fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
@@ -201,7 +201,7 @@ impl TryFrom<String> for Location {
 	}
 }
 
-impl Display for Location {
+impl Display for MediaLocation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_fmt(format_args!("{}, {}", self.latitude, self.longitude))
 	}
