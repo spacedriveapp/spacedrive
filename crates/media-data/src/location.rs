@@ -32,13 +32,7 @@ impl MediaLocation {
 	/// ```
 	#[must_use]
 	fn format_coordinate(v: f64, max: f64) -> f64 {
-		let mut coord = (v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF;
-
-		if coord < 0_f64 {
-			coord = coord.neg();
-		}
-
-		coord
+		(v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF
 	}
 
 	/// Create a new [`MediaLocation`] from a latitude and longitude pair.
@@ -74,7 +68,8 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let x = MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// panic!("{x}");
 	/// ```
 	pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
 		let res = [lat, long]
