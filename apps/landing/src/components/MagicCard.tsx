@@ -205,7 +205,7 @@ const MagicCard = ({
 	spotlight = true,
 	spotlightColor = 'rgba(86,114,157, 0.01)',
 	isolated = false,
-	background = 'transparent'
+	background = 'rgba(255,255,255,0.03)'
 }: MagicCardProps) => {
 	const spotlightStyles =
 		'before:pointer-events-none before:absolute before:w-full before:h-full before:rounded-[var(--border-radius)] before:top-0 before:left-0 before:duration-500 before:transition-opacity before:bg-[radial-gradient(var(--mask-size)_circle_at_var(--mouse-x)_var(--mouse-y),var(--spotlight-color),transparent_40%)] before:z-[3] before:blur-xs';

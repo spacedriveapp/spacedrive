@@ -116,6 +116,7 @@ const BentoBoxes = () => {
 						alt="Library"
 						width={340}
 						height={300}
+						quality={100}
 						src="/images/bento/library.png"
 					/>
 
