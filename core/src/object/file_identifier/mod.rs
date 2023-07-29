@@ -344,6 +344,8 @@ async fn identifier_job_step(
 		// Maybe a media data job is in order?
 		// ALso I think some media data is being assigned to the wrong file,
 		// or the frontend is reading it from the wrong file (could just be my bad TS)
+		// The creation function only runs against file paths requiring new objects, but I'm not too sure where to move it
+		// We could `Option<MediaDataImage>` it in `FileMetadata` and pull it there, and create it on each usage?
 		let total_created_media_data = db
 			.media_data()
 			.create_many(create_media_data.into_iter().flatten().flatten().collect())
