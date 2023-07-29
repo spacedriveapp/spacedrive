@@ -68,21 +68,21 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 
 #[derive(Serialize, Type, Debug)]
 pub struct NonIndexedFileSystemEntries {
-	entries: Vec<ExplorerItem>,
-	errors: Vec<rspc::Error>,
+	pub entries: Vec<ExplorerItem>,
+	pub errors: Vec<rspc::Error>,
 }
 
 #[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {
-	id: i32,
-	path: String,
-	name: String,
-	extension: String,
-	kind: i32,
-	is_dir: bool,
-	date_created: DateTime<Utc>,
-	date_modified: DateTime<Utc>,
-	size_in_bytes_bytes: Vec<u8>,
+	pub id: i32,
+	pub path: String,
+	pub name: String,
+	pub extension: String,
+	pub kind: i32,
+	pub is_dir: bool,
+	pub date_created: DateTime<Utc>,
+	pub date_modified: DateTime<Utc>,
+	pub size_in_bytes_bytes: Vec<u8>,
 }
 
 pub async fn walk(

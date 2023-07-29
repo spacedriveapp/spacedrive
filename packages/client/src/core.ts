@@ -226,7 +226,7 @@ export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
-export type NonIndexedPath = { path: string; withHiddenFiles: boolean }
+export type NonIndexedPath = { path: string; withHiddenFiles: boolean; order?: FilePathSearchOrdering | null }
 
 export type NonIndexedPathItem = { id: number; path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
 

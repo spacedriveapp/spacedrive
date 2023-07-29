@@ -19,6 +19,7 @@ use prisma_client_rust::{operator, or};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::trace;
 
 use super::{Ctx, R};
 
@@ -275,6 +276,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			struct NonIndexedPath {
 				path: PathBuf,
 				with_hidden_files: bool,
+				#[specta(optional)]
+				order: Option<FilePathSearchOrdering>,
 			}
 
 			R.with2(library()).query(
@@ -282,10 +285,64 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 NonIndexedPath {
 				     path,
 				     with_hidden_files,
+				     order,
 				 }| async move {
-					non_indexed::walk(path, with_hidden_files, library)
-						.await
-						.map_err(Into::into)
+					let mut paths = non_indexed::walk(path, with_hidden_files, library).await?;
+
+					if let Some(order) = order {
+						match order {
+							FilePathSearchOrdering::Name(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2
+											.name()
+											.to_lowercase()
+											.cmp(&path1.name().to_lowercase())
+									} else {
+										path1
+											.name()
+											.to_lowercase()
+											.cmp(&path2.name().to_lowercase())
+									}
+								});
+							}
+							FilePathSearchOrdering::SizeInBytes(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.size_in_bytes().cmp(&path1.size_in_bytes())
+									} else {
+										path1.size_in_bytes().cmp(&path2.size_in_bytes())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateCreated(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.date_created().cmp(&path1.date_created())
+									} else {
+										path1.date_created().cmp(&path2.date_created())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateModified(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.date_modified().cmp(&path1.date_modified())
+									} else {
+										path1.date_modified().cmp(&path2.date_modified())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateIndexed(_) => {
+								trace!("Can't order by indexed date on ephemeral paths route, ignoring...")
+							}
+							FilePathSearchOrdering::Object(_) => {
+								trace!("Receive an Object sort ordeding at ephemeral paths route, ignoring...")
+							}
+						}
+					}
+
+					Ok(paths)
 				},
 			)
 		})

@@ -6,6 +6,7 @@ import Explorer from './Explorer';
 import { ExplorerContext } from './Explorer/Context';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from './Explorer/store';
+import { useExplorerOrder } from './Explorer/util';
 import { TopBarPortal } from './TopBar/Portal';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 
@@ -16,7 +17,7 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	const query = useLibraryQuery(
 		[
 			'search.ephemeral-paths',
-			{ path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true }
+			{ path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true, order: useExplorerOrder(), }
 		],
 		{
 			enabled: !!path,
