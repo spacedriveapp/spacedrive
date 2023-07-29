@@ -337,6 +337,13 @@ async fn identifier_job_step(
 			trace!("Updated file paths with created objects");
 		}
 
+		// TODO(brxken128):
+		// This only works on the very first index, and if the object is brand new to the database
+		// This also does not work for objects added to a location after the initial index
+		// Shallow re-indexes also do not affect this
+		// Maybe a media data job is in order?
+		// ALso I think some media data is being assigned to the wrong file,
+		// or the frontend is reading it from the wrong file (could just be my bad TS)
 		let total_created_media_data = db
 			.media_data()
 			.create_many(create_media_data.into_iter().flatten().flatten().collect())

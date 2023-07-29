@@ -7,6 +7,7 @@ use crate::{
 	Error, ExifReader, Result,
 };
 
+// TODO(brxken128): figure out why rspc isn't displayng negative values as negative
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
 	latitude: f64,
@@ -44,7 +45,7 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
+	/// let x = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// ```
 	#[must_use]
 	pub fn new(lat: f64, long: f64, altitude: Option<i32>, direction: Option<i32>) -> Self {
