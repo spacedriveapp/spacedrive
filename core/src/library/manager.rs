@@ -315,15 +315,18 @@ impl LibraryManager {
 	}
 
 	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
-		let libraries = self.libraries.read().await;
+		let mut libraries_write_guard = self.libraries.write().await;
 
-		let library = libraries
+		// As we're holding a write lock here, we know that our index can't change before removal.
+		let library_idx = libraries_write_guard
 			.iter()
-			.find(|l| l.id == id)
+			.position(|l| l.id == id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
-		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
+		let library_id = libraries_write_guard[library_idx].id;
+
+		let db_path = self.libraries_dir.join(format!("{}.db", library_id));
+		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library_id));
 
 		try_join!(
 			async {
@@ -338,10 +341,14 @@ impl LibraryManager {
 			},
 		)?;
 
-		invalidate_query!(library, "library.list");
-
 		self.thumbnail_remover.remove_library(id).await;
-		self.libraries.write().await.retain(|l| l.id != id);
+
+		// We only remove here after files deletion
+		let library = libraries_write_guard.remove(library_idx);
+
+		info!("Removed Library <id='{library_id}'>");
+
+		invalidate_query!(library, "library.list");
 
 		Ok(())
 	}
