@@ -7,7 +7,6 @@ import { usePlatform } from '~/util/Platform';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
 import OpenWith from './OpenWith';
-import { useExplorerContext } from '../../Context';
 
 export * from './CutCopyItems';
 
@@ -39,14 +38,13 @@ export const Delete = ({ filePath }: FilePathProps) => {
 	);
 };
 
-export const CopyAsPath = (_: FilePathProps) => {
-	const { parent } = useExplorerContext()
+export const CopyAsPath = ({ absoluteFilePath }: { absoluteFilePath: string }) => {
 	return (
 		<ContextMenu.Item
 			label="Copy as path"
 			icon={ClipboardText}
 			onClick={() => {
-				navigator.clipboard.writeText(parent?.type === 'Location' ? `${parent.location.path}${_.filePath.materialized_path}${_.filePath.name}${_.filePath.extension ? `.${_.filePath.extension}` : ''}` : '' as string)
+				navigator.clipboard.writeText(absoluteFilePath)
 			}}
 		/>
 	);
