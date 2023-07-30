@@ -25,6 +25,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt::Debug,
 	path::Path,
+	str::FromStr,
 };
 
 use futures::future::join_all;
@@ -230,7 +231,7 @@ async fn identifier_job_step(
 			new_objects_cas_ids
 		);
 
-		let ((object_create_args, file_path_update_args), create_media_data): (
+		let ((object_create_args, file_path_update_args), create_media_data_futs): (
 			(Vec<_>, Vec<_>),
 			Vec<_>,
 		) = file_paths_requiring_new_object
@@ -244,14 +245,13 @@ async fn identifier_job_step(
 
 				let materialized_path = Cow::Borrowed(mp.as_str());
 				let name = Cow::Borrowed(name.as_str());
-				let ext = Cow::Borrowed(ext.as_str());
 
 				let path = IsolatedFilePathData::from_db_data(
 					location.id,
 					fp.is_dir.unwrap_or_default(),
 					materialized_path,
 					name,
-					ext,
+					Cow::Borrowed(ext.as_str()),
 				);
 
 				let sync_id = || prisma_sync::object::SyncId {
@@ -278,18 +278,6 @@ async fn identifier_job_step(
 					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 				);
 
-				let create_media_data_items = FILTERED_IMAGE_EXTENSIONS
-					.iter()
-					.filter(|x| fp.extension.clone().unwrap_or_default() == x.to_string());
-
-				let create_media_data_items = create_media_data_items
-					.map(|_| {
-						MediaDataImage::from_path(location_path.join(&path))?
-							.to_query()
-							.map_err(JobError::MediaData)
-					})
-					.collect::<Result<Vec<_>, JobError>>();
-
 				(
 					(object_creation_args, {
 						let (crdt_op, db_op) = file_path_object_connect_ops(
@@ -301,7 +289,19 @@ async fn identifier_job_step(
 
 						(crdt_op, db_op.select(file_path::select!({ pub_id })))
 					}),
-					create_media_data_items,
+					ImageExtension::from_str(&ext)
+						.map(|ext| FILTERED_IMAGE_EXTENSIONS.contains(&ext))
+						.unwrap_or(false)
+						.then(|| {
+							let media_path = location_path.join(path);
+
+							async move {
+								MediaDataImage::from_path(media_path)
+									.await?
+									.to_query()
+									.map_err(JobError::MediaData)
+							}
+						}),
 				)
 			})
 			.unzip();
@@ -342,17 +342,38 @@ async fn identifier_job_step(
 		// This also does not work for objects added to a location after the initial index
 		// Shallow re-indexes also do not affect this
 		// Maybe a media data job is in order?
-		// ALso I think some media data is being assigned to the wrong file,
+		// Also I think some media data is being assigned to the wrong file,
 		// or the frontend is reading it from the wrong file (could just be my bad TS)
 		// The creation function only runs against file paths requiring new objects, but I'm not too sure where to move it
 		// We could `Option<MediaDataImage>` it in `FileMetadata` and pull it there, and create it on each usage?
-		let total_created_media_data = db
-			.media_data()
-			.create_many(create_media_data.into_iter().flatten().flatten().collect())
-			.exec()
-			.await?;
+		let media_data_params = join_all(create_media_data_futs.into_iter().flatten())
+			.await
+			.into_iter()
+			.filter_map(|res| {
+				res.map_err(|e| {
+					if let JobError::MediaData(sd_media_data::Error::ExifOnFile(
+						exif::Error::NotFound(_),
+						_,
+					)) = &e
+					{
+						trace!("Could not extract EXIF data from file: {e}")
+					} else {
+						error!("Media data error: {e:#?}");
+					}
+				})
+				.ok()
+			})
+			.collect::<Vec<_>>();
 
-		trace!("Extracted EXIF data for {} files", total_created_media_data);
+		if !media_data_params.is_empty() {
+			let total_created_media_data = db
+				.media_data()
+				.create_many(media_data_params)
+				.exec()
+				.await?;
+
+			tracing::debug!("Extracted EXIF data for {total_created_media_data} files");
+		}
 
 		total_created_files as usize
 	} else {
@@ -419,12 +440,11 @@ async fn process_identifier_file_paths(
 	))
 }
 
-static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<ImageExtension>> = Lazy::new(|| {
 	sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
 		.iter()
 		.map(Clone::clone)
 		.filter(can_generate_media_data_for_image)
-		.map(Extension::Image)
 		.collect()
 });
 

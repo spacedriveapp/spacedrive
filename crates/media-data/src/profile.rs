@@ -16,8 +16,10 @@ pub enum ColorProfile {
 
 impl ColorProfile {
 	/// This is used for quickly sourcing [`ColorProfile`] data from a path, to be later used by one of the modification functions.
-	pub fn source_color_profile<P: AsRef<Path>>(path: P) -> Option<Self> {
-		let reader = ExifReader::from_path(path).ok()?;
+	// https://github.com/rust-lang/rust-clippy/issues/11087
+	#[allow(clippy::future_not_send)]
+	pub async fn source_color_profile<P: AsRef<Path>>(path: P) -> Option<Self> {
+		let reader = ExifReader::from_path(path).await.ok()?;
 		reader
 			.get_color_profile_ints()
 			.map(Self::int_to_color_profile)

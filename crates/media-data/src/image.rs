@@ -1,11 +1,14 @@
-use exif::{Exif, In, Tag};
-use sd_prisma::prisma::media_data;
 use std::{
 	fs::File,
 	io::{BufReader, Cursor},
-	path::Path,
+	path::{Path, PathBuf},
 	str::FromStr,
 };
+
+use sd_prisma::prisma::media_data;
+
+use exif::{Exif, In, Tag};
+use tokio::task::spawn_blocking;
 
 use crate::{
 	orientation::Orientation,
@@ -44,8 +47,10 @@ pub struct CameraData {
 }
 
 impl MediaDataImage {
-	pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-		Self::from_reader(&ExifReader::from_path(path)?)
+	// https://github.com/rust-lang/rust-clippy/issues/11087
+	#[allow(clippy::future_not_send)]
+	pub async fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+		Self::from_reader(&ExifReader::from_path(path).await?)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
@@ -141,13 +146,24 @@ impl MediaDataImage {
 pub struct ExifReader(Exif);
 
 impl ExifReader {
-	pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-		let file = File::open(path)?;
-		let mut reader = BufReader::new(file);
-		Ok(Self(exif::Reader::new().read_from_container(&mut reader)?))
+	// https://github.com/rust-lang/rust-clippy/issues/11087
+	#[allow(clippy::future_not_send)]
+	pub async fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+		fn inner(path: PathBuf) -> Result<ExifReader> {
+			let file = File::open(&path).map_err(|e| (e, path.clone().into_boxed_path()))?;
+			let mut reader = BufReader::new(file);
+			Ok(Self(
+				exif::Reader::new()
+					.read_from_container(&mut reader)
+					.map_err(|e| (e, path.into_boxed_path()))?,
+			))
+		}
+		let p = path.as_ref().to_owned();
+		spawn_blocking(move || inner(p)).await?
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
+		// This one can be sync as we already have the data in memory and no I/O is performed
 		Ok(Self(
 			exif::Reader::new().read_from_container(&mut Cursor::new(slice))?,
 		))

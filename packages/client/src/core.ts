@@ -93,7 +93,7 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
-export type CameraData = { device_make: string | null; device_model: string | null; focal_length: number | null; shutter_speed: number | null; flash: boolean; orientation: Orientation; lens_make: string | null; lens_model: string | null; zoom: number | null; iso: number | null; software: string | null }
+export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null }
 
 /**
  * Meow
@@ -101,6 +101,8 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
 
 export type ChangeNodeNameArgs = { name: string | null }
+
+export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
 export type CreateLibraryArgs = { name: LibraryName }
 
@@ -131,6 +133,8 @@ export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchO
 export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
+
+export type Flash = { enabled: boolean | null; auto: boolean | null; red_eye: boolean | null }
 
 export type FromPattern = { pattern: string; replace_all: boolean }
 

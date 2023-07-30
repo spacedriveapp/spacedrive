@@ -7293,6 +7293,7 @@ dependencies = [
  "serde_json",
  "specta",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
