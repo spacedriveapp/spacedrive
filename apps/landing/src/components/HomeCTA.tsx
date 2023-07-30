@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Download, IconProps } from 'phosphor-react';
+import { IconProps } from 'phosphor-react';
 import { Button } from '@sd/ui';
 
 interface Props {

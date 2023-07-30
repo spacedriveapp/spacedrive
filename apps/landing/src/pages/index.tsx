@@ -1,25 +1,29 @@
-'use client';
-
 /* eslint-disable tailwindcss/enforces-negative-arbitrary-values */
 
 /* eslint-disable tailwindcss/classnames-order */
 
 /* eslint-disable jsx-a11y/alt-text */
 import clsx from 'clsx';
+import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Download } from 'phosphor-react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
 import AccessData from '~/components/AccessData';
 import BentoBoxes from '~/components/BentoBoxes';
 import CloudStorage from '~/components/CloudStorage';
 import DownloadToday from '~/components/DownloadToday';
-import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import Space from '~/components/Space';
+
+const Link = dynamic(() => import('next/link'), {
+	ssr: false
+});
+const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
+	ssr: false
+});
 
 const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
 const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
@@ -29,11 +33,14 @@ const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-lin
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(1);
-	const isWindows = useMemo(() => {
-		if (typeof window === 'undefined') return false;
-		return window.navigator.userAgent.includes('Windows');
-	}, []);
+	const [deviceOs, setDeviceOs] = useState<null | { isWindows: boolean; isMacOs: boolean }>(null);
 	useEffect(() => {
+		(async () => {
+			const os = await import('react-device-detect').then(({ isWindows, isMacOs }) => {
+				return { isWindows, isMacOs };
+			});
+			setDeviceOs({ isWindows: os.isWindows, isMacOs: os.isMacOs });
+		})();
 		const fadeStart = 300; // start fading out at 100px
 		const fadeEnd = 1300; // end fading out at 300px
 
@@ -108,11 +115,15 @@ export default function HomePage() {
 					</p>
 					<Link
 						target="_blank"
-						href={isWindows ? 'https://www.google.com' : 'https://www.github.com'}
+						href={
+							deviceOs?.isWindows
+								? 'https://www.google.com'
+								: 'https://www.github.com'
+						}
 					>
 						<HomeCTA
 							icon={<Download />}
-							text={isWindows ? 'Download on Windows' : 'Download on Mac'}
+							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
 					<p
@@ -141,9 +152,13 @@ export default function HomePage() {
 							playsInline
 							loop
 						>
-							<source src="/images/ball.mp4" type="video/mp4" />
+							{deviceOs?.isWindows && (
+								<source src={'/images/ball.webm'} type={'video/webm'} />
+							)}
+							{deviceOs?.isMacOs && (
+								<source src={'/images/ball.mp4'} type={'video/mp4'} />
+							)}
 						</video>
-
 						<div
 							className="xl2: z-30 mt-[24%] flex h-[255px] w-full px-6
 						 xs:mt-[170px] sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:mt-[310px] lg:h-[628px]"
