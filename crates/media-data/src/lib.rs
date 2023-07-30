@@ -19,21 +19,29 @@
 	clippy::dbg_macro
 )]
 #![forbid(unsafe_code)]
-#![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
+#![allow(
+	clippy::missing_errors_doc,
+	clippy::module_name_repetitions,
+	clippy::field_reassign_with_default
+)]
 
 pub(crate) mod consts;
 mod dimensions;
 mod error;
+mod flash;
 mod image;
 mod location;
 mod orientation;
+mod profile;
 mod time;
 pub(crate) mod utils;
 
 pub use consts::DMS_DIVISION;
 pub use dimensions::Dimensions;
 pub use error::{Error, Result};
+pub use flash::Flash;
 pub use image::{CameraData, ExifReader, MediaDataImage};
 pub use location::MediaLocation;
 pub use orientation::Orientation;
+pub use profile::ColorProfile;
 pub use time::MediaTime;

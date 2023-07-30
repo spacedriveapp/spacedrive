@@ -18,7 +18,7 @@ pub enum Orientation {
 impl Orientation {
 	/// This is used for quickly sourcing [`Orientation`] data from a path, to be later used by one of the modification functions.
 	pub fn source_orientation<P: AsRef<Path>>(path: P) -> Option<Self> {
-		let reader = ExifReader::new(path).ok()?;
+		let reader = ExifReader::from_path(path).ok()?;
 		reader.get_orientation_ints().map(Self::int_to_orientation)
 	}
 

@@ -1,11 +1,16 @@
 use exif::{Exif, In, Tag};
 use sd_prisma::prisma::media_data;
-use std::{fs::File, io::BufReader, path::Path, str::FromStr};
+use std::{
+	fs::File,
+	io::{BufReader, Cursor},
+	path::Path,
+	str::FromStr,
+};
 
 use crate::{
 	orientation::Orientation,
 	utils::{from_slice_option_to_option, from_slice_option_to_res, to_slice_option},
-	Dimensions, MediaLocation, MediaTime, Result,
+	ColorProfile, Dimensions, Flash, MediaLocation, MediaTime, Result,
 };
 
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -23,39 +28,46 @@ pub struct MediaDataImage {
 pub struct CameraData {
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
+	pub color_space: Option<String>,
+	pub color_profile: Option<ColorProfile>,
 	pub focal_length: Option<f64>,
 	pub shutter_speed: Option<f64>,
-	pub flash: bool,
+	pub flash: Option<Flash>,
 	pub orientation: Orientation,
 	pub lens_make: Option<String>,
 	pub lens_model: Option<String>,
+	pub bit_depth: Option<i32>,
+	pub red_eye: Option<bool>,
 	pub zoom: Option<f64>,
 	pub iso: Option<i32>,
 	pub software: Option<String>,
 }
 
 impl MediaDataImage {
-	#[must_use]
-	pub fn new() -> Self {
-		Self::default()
+	pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+		Self::from_reader(&ExifReader::from_path(path)?)
 	}
 
-	pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-		let reader = ExifReader::new(path)?;
-		let mut data = Self::new();
+	pub fn from_slice(slice: &[u8]) -> Result<Self> {
+		Self::from_reader(&ExifReader::from_slice(slice)?)
+	}
 
-		data.date_taken = MediaTime::from_reader(&reader);
-		data.dimensions = Dimensions::from_reader(&reader);
+	pub fn from_reader(reader: &ExifReader) -> Result<Self> {
+		let mut data = Self::default();
+
+		data.date_taken = MediaTime::from_reader(reader);
+		data.dimensions = Dimensions::from_reader(reader);
 
 		data.camera_data.device_make = reader.get_tag(Tag::LensModel);
 		data.camera_data.device_model = reader.get_tag(Tag::LensModel);
 		data.camera_data.focal_length = reader.get_tag(Tag::FocalLength);
 		data.camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
+		data.camera_data.color_space = reader.get_tag(Tag::ColorSpace);
 
-		data.camera_data.flash = reader
-			.get_tag::<String>(Tag::Flash)
-			.map(|x: String| x.to_lowercase().contains("fired") || x.to_lowercase().contains("on"))
-			.unwrap_or_default();
+		// data.camera_data.flash = reader
+		// 	.get_tag::<String>(Tag::Flash)
+		// 	.map(|x: String| x.to_lowercase().contains("fired") || x.to_lowercase().contains("on"))
+		// 	.unwrap_or_default();
 
 		data.camera_data.lens_make = reader.get_tag(Tag::LensMake);
 		data.camera_data.lens_model = reader.get_tag(Tag::LensModel);
@@ -64,6 +76,17 @@ impl MediaDataImage {
 			.get_tag(Tag::DigitalZoomRatio)
 			.map(|x: String| x.replace("unused", "1").parse().ok())
 			.unwrap_or_default();
+
+		data.camera_data.bit_depth = reader.get_tag::<String>(Tag::BitsPerSample).map_or_else(
+			|| {
+				reader
+					.get_tag::<String>(Tag::CompressedBitsPerPixel)
+					.unwrap_or_default()
+					.parse()
+					.ok()
+			},
+			|x| x.parse::<i32>().ok(),
+		);
 
 		data.camera_data.orientation =
 			Orientation::int_to_orientation(reader.get_orientation_ints().unwrap_or_default());
@@ -74,7 +97,7 @@ impl MediaDataImage {
 		data.copyright = reader.get_tag(Tag::Copyright);
 		data.exif_version = reader.get_tag(Tag::ExifVersion);
 
-		data.location = MediaLocation::from_exif_reader(&reader).ok();
+		data.location = MediaLocation::from_exif_reader(reader).ok();
 
 		Ok(data)
 	}
@@ -111,13 +134,23 @@ impl MediaDataImage {
 
 // pub struct MediaDataVideo;
 
+/// An [`ExifReader`]. This can get exif tags from images via files or slices.
+///
+/// If it is constructed from a slice, a temporary file will be created in your system's temp dir ([`std::env::temp_dir()`]).
+/// This will be removed once the [`ExifReader`] has been dropped.
 pub struct ExifReader(Exif);
 
 impl ExifReader {
-	pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
+	pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
 		let file = File::open(path)?;
 		let mut reader = BufReader::new(file);
 		Ok(Self(exif::Reader::new().read_from_container(&mut reader)?))
+	}
+
+	pub fn from_slice(slice: &[u8]) -> Result<Self> {
+		Ok(Self(
+			exif::Reader::new().read_from_container(&mut Cursor::new(slice))?,
+		))
 	}
 
 	/// A helper function which gets the target `Tag` as `T`, provided `T` impls `FromStr`.
@@ -139,5 +172,34 @@ impl ExifReader {
 			.get_field(Tag::Orientation, In::PRIMARY)
 			.map(|x| x.value.get_uint(0))
 			.unwrap_or_default()
+	}
+
+	pub(crate) fn get_flash_ints(&self) -> Option<u32> {
+		self.0
+			.get_field(Tag::Flash, In::PRIMARY)
+			.map(|x| x.value.get_uint(0))
+			.unwrap_or_default()
+	}
+
+	pub(crate) fn get_color_profile_ints(&self) -> Option<u32> {
+		self.0
+			.get_field(Tag::CustomRendered, In::PRIMARY)
+			.map(|x| x.value.get_uint(0))
+			.unwrap_or_default()
+	}
+}
+
+#[cfg(test)]
+
+mod tests {
+	use crate::MediaDataImage;
+
+	const FILE_SLICE: &[u8] = include_bytes!("../test-assets/test.heif");
+
+	#[test]
+	#[should_panic]
+	fn test() {
+		let media_data_image = MediaDataImage::from_slice(FILE_SLICE).unwrap();
+		panic!("{media_data_image:?}");
 	}
 }

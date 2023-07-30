@@ -28,8 +28,12 @@ impl Dimensions {
 	#[must_use]
 	pub fn from_reader(reader: &ExifReader) -> Self {
 		Self {
-			width: reader.get_tag(Tag::PixelXDimension).unwrap_or_default(),
-			height: reader.get_tag(Tag::PixelYDimension).unwrap_or_default(),
+			width: reader
+				.get_tag(Tag::PixelXDimension)
+				.unwrap_or_else(|| reader.get_tag(Tag::XResolution).unwrap_or_default()),
+			height: reader
+				.get_tag(Tag::PixelYDimension)
+				.unwrap_or_else(|| reader.get_tag(Tag::YResolution).unwrap_or_default()),
 		}
 	}
 }
