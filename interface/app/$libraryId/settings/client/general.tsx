@@ -1,4 +1,4 @@
-import { Laptop, Node } from '@sd/assets/icons';
+import { Laptop } from '@sd/assets/icons';
 import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
 import { Button, Card, Input, Switch, tw } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';

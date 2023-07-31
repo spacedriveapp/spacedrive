@@ -1,13 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { Info, Question } from 'phosphor-react';
-import { memo, useCallback, useEffect, useState } from 'react';
-import {
-	JobProgressEvent,
-	JobReport,
-	useLibraryMutation,
-	useLibrarySubscription
-} from '@sd/client';
+import { memo, useEffect, useState } from 'react';
+import { JobProgressEvent, JobReport, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
@@ -20,8 +13,6 @@ interface JobProps {
 }
 
 function Job({ job, className, isChild }: JobProps) {
-	const queryClient = useQueryClient();
-
 	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
 	useLibrarySubscription(['jobs.progress', job.id], {
@@ -43,9 +34,6 @@ function Job({ job, className, isChild }: JobProps) {
 	useEffect(() => {
 		if (isRunning) setRealtimeUpdate(null);
 	}, [isRunning]);
-
-	// dayjs from seconds to time
-	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -102,15 +90,3 @@ function Job({ job, className, isChild }: JobProps) {
 }
 
 export default memo(Job);
-
-function formatEstimatedRemainingTime(end_date: string) {
-	const duration = dayjs.duration(new Date(end_date).getTime() - Date.now());
-
-	if (duration.hours() > 0) {
-		return `${duration.hours()} hour${duration.hours() > 1 ? 's' : ''} remaining`;
-	} else if (duration.minutes() > 0) {
-		return `${duration.minutes()} minute${duration.minutes() > 1 ? 's' : ''} remaining`;
-	} else {
-		return `${duration.seconds()} second${duration.seconds() > 1 ? 's' : ''} remaining`;
-	}
-}

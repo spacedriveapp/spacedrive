@@ -3,17 +3,18 @@ import clsx from 'clsx';
 import React, {
 	HTMLAttributes,
 	PropsWithChildren,
-	ReactNode,
+	RefObject,
 	cloneElement,
 	createContext,
 	useContext,
-	useRef
+	useEffect,
+	useMemo,
+	useRef,
+	useState
 } from 'react';
-import { RefObject, useEffect, useMemo, useState } from 'react';
 import Selecto, { SelectoProps } from 'react-selecto';
-import { useBoundingclientrect, useIntersectionObserverRef, useKey, useKeys } from 'rooks';
+import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { TOP_BAR_HEIGHT } from '~/app/$libraryId/TopBar';
 
 type GridListSelection = number | number[];
 interface GridListDefaults<T extends GridListSelection> {

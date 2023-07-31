@@ -9,7 +9,6 @@ import {
 	PaintBrush,
 	PuzzlePiece,
 	Receipt,
-	ShareNetwork,
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react';
