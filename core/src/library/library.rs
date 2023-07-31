@@ -67,7 +67,6 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		manager: Arc<LibraryManager>,
-		// node_context: Arc<NodeContext>,
 	) -> Self {
 		let (sync_manager, mut sync_rx, mut ingest_rx) = SyncManager::new(&db, instance_id);
 

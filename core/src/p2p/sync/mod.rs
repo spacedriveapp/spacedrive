@@ -84,8 +84,14 @@ impl NetworkedLibraryManager {
 		self.p2p.update_metadata(metadata_instances).await;
 	}
 
-	// TODO: edit_library hook -> Send changes to all connected nodes!
-	// TODO: delete_library hook -> Send delete to all connected nodes!
+	pub async fn edit_library(&self, _library: &Library) {
+		// TODO: Send changes to all connected nodes!
+	}
+
+	pub async fn delete_library(&self, library: &Library) {
+		// TODO: Do proper library delete/unpair procedure.
+		self.libraries.write().await.remove(&library.id);
+	}
 
 	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
 		let pks = event

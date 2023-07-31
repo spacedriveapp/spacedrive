@@ -272,6 +272,8 @@ impl LibraryManager {
 
 		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 
+		self.node.nlm.edit_library(&library).await;
+
 		invalidate_query!(library, "library.list");
 
 		for library in libraries.iter() {
@@ -309,6 +311,8 @@ impl LibraryManager {
 			.iter()
 			.find(|l| l.id == id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
+
+		self.node.nlm.delete_library(&library).await;
 
 		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
 		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
