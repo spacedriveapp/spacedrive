@@ -42,7 +42,7 @@ pub struct Library {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: sd_core_sync::SyncManager,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// holds the node context for the node which this library is running on.
@@ -86,7 +86,7 @@ impl Library {
 			config,
 			ctx: node_context,
 			// key_manager,
-			sync: Arc::new(sync_manager),
+			sync: sync_manager,
 			identity: identity.clone(),
 		};
 
@@ -113,8 +113,8 @@ impl Library {
 		}
 	}
 
-	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.ctx.config.clone()
+	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
+		&self.ctx.config
 	}
 
 	pub(crate) fn location_manager(&self) -> &LocationManager {
