@@ -2,7 +2,7 @@ use crate::library::Category;
 
 use std::str::FromStr;
 
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use strum::VariantNames;
 
 use super::{utils::library, Ctx, R};
@@ -22,12 +22,25 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 				.unzip();
 
-			Ok(library
-				.db
-				._batch(queries)
-				.await?
+			Ok(categories
 				.into_iter()
-				.zip(categories)
+				.zip(
+					library
+						.db
+						._batch(queries)
+						.await?
+						.into_iter()
+						// TODO(@Oscar): rspc bigint support
+						.map(|count| {
+							i32::try_from(count).map_err(|_| {
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"category item count overflowed 'i32'!".into(),
+								)
+							})
+						})
+						.collect::<Result<Vec<_>, _>>()?,
+				)
 				.collect::<Vec<_>>())
 		})
 	})
