@@ -32,7 +32,7 @@ const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Arc<Library>, Box<dyn DynJob>),
-	Shutdown(oneshot::Sender<()>),
+	Shutdown(oneshot::Sender<()>, Arc<JobManager>),
 }
 /// JobManager handles queueing and executing jobs using the `DynJob`
 /// Handling persisting JobReports to the database, pause/resuming, and
@@ -57,19 +57,23 @@ impl JobManager {
 			internal_sender,
 		});
 
-		let this2 = this.clone();
 		tokio::spawn(async move {
 			// FIXME: if this task crashes, the entire application is unusable
 			while let Some(event) = internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
-						this2.clone().dispatch(&library, job).await
+						library
+							.ctx
+							.job_manager
+							.clone()
+							.dispatch(&library, job)
+							.await
 					}
 					// When the app shuts down, we need to gracefully shutdown all
 					// active workers and preserve their state
-					JobManagerEvent::Shutdown(signal_tx) => {
+					JobManagerEvent::Shutdown(signal_tx, this) => {
 						info!("Shutting down job manager");
-						let running_workers = this2.running_workers.read().await;
+						let running_workers = this.running_workers.read().await;
 						join_all(running_workers.values().map(|worker| worker.shutdown())).await;
 
 						signal_tx.send(()).ok();
@@ -177,10 +181,10 @@ impl JobManager {
 	}
 
 	/// Shutdown the job manager, signaled by core on shutdown.
-	pub async fn shutdown(&self) {
+	pub async fn shutdown(self: &Arc<Self>) {
 		let (tx, rx) = oneshot::channel();
 		self.internal_sender
-			.send(JobManagerEvent::Shutdown(tx))
+			.send(JobManagerEvent::Shutdown(tx, self.clone()))
 			.unwrap_or_else(|_| {
 				error!("Failed to send shutdown event to job manager!");
 			});
