@@ -9,7 +9,6 @@ use crate::{
 	},
 	node::NodeConfigManager,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
-	p2p,
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
 };
@@ -22,13 +21,10 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{ingest, SyncManager, SyncMessage};
-use sd_p2p::spacetunnel::{Identity, Tunnel};
+use sd_core_sync::{SyncManager, SyncMessage};
+use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
-use tokio::{
-	fs,
-	io::{self, AsyncWriteExt},
-};
+use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -97,8 +93,8 @@ impl Library {
 							let Some(req) = req else { continue; };
 
 							match req {
-								Request::Messages(peer_id, v) => {
-									manager.node.p2p.emit_sync_ingest_alert(&sync, id.clone(), peer_id, v).await;
+								Request::Messages(tunnel, id) => {
+									manager.node.nlm.emit_sync_ingest_alert(tunnel, id, &sync).await;
 								},
 							}
 						},
@@ -106,7 +102,7 @@ impl Library {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.p2p.alert_new_sync_events(id, &manager).await;
+								manager.node.nlm.alert_new_sync_events(id).await;
 							}
 						},
 					}

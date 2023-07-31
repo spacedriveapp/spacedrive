@@ -8,6 +8,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 use crate::spacetime::UnicastStream;
 
+#[derive(Debug)]
 pub struct Tunnel {
 	stream: UnicastStream,
 }

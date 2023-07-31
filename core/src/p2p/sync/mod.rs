@@ -1,10 +1,15 @@
 use std::{collections::HashMap, sync::Arc};
 
+use futures::future::join_all;
+use sd_core_sync::{ingest, SyncManager};
 use sd_p2p::{
 	spacetunnel::{Identity, RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
 };
-use tokio::{io::AsyncReadExt, sync::RwLock};
+use tokio::{
+	io::{AsyncReadExt, AsyncWriteExt},
+	sync::RwLock,
+};
 use uuid::Uuid;
 
 use crate::library::Library;
@@ -21,12 +26,12 @@ pub struct LibraryData {
 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
 
-pub struct NetworkedSyncManager {
+pub struct NetworkedLibraryManager {
 	p2p: Arc<P2PManager>,
 	libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
 }
 
-impl NetworkedSyncManager {
+impl NetworkedLibraryManager {
 	pub fn new(p2p: Arc<P2PManager>) -> Arc<Self> {
 		Arc::new(Self {
 			p2p,
@@ -149,6 +154,65 @@ impl NetworkedSyncManager {
 			}
 		}
 	}
+
+	// TODO: Error handling
+	pub async fn alert_new_sync_events(&self, library_id: Uuid) {
+		let libraries = self.libraries.read().await;
+
+		join_all(
+			libraries
+				.get(&library_id)
+				.unwrap()
+				.instances
+				.iter()
+				.filter_map(|(_, i)| match i {
+					InstanceState::Connected(peer_id) => Some(peer_id),
+					_ => None,
+				})
+				.map(|peer_id| {
+					let p2p = self.p2p.clone();
+					async move {
+						let mut stream =
+							p2p.manager.stream(*peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+
+						stream
+							.write_all(&Header::Sync(library_id).to_bytes())
+							.await
+							.unwrap();
+
+						let mut tunnel = Tunnel::initiator(stream).await.unwrap();
+
+						tunnel
+							.write_all(&SyncMessage::NewOperations.to_bytes())
+							.await
+							.unwrap();
+					}
+				}),
+		)
+		.await;
+	}
+
+	// `tunnel` must be within a `Tunnel::responder` before being passed in to maintain the correct state
+	pub async fn emit_sync_ingest_alert(&self, mut tunnel: Tunnel, id: u8, sync: &SyncManager) {
+		tunnel
+			.write_all(&SyncMessage::OperationsRequest(id).to_bytes())
+			.await
+			.unwrap();
+		tunnel.flush().await.unwrap();
+
+		let msg = SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
+
+		match msg {
+			SyncMessage::OperationsRequestResponse(id) => {
+				sync.ingest
+					.events
+					.send(ingest::Event::Messages(id))
+					.await
+					.ok();
+			}
+			_ => todo!("unreachable but proper error handling"),
+		};
+	}
 }
 
 #[derive(Debug)]
@@ -182,12 +246,8 @@ impl SyncMessage {
 		}
 	}
 
-	pub fn to_bytes(self, library_id: Uuid) -> Vec<u8> {
-		// Header -> SyncMessage
-		let mut bytes = Header::Sync(library_id).to_bytes();
-
-		bytes.push(self.header());
-
+	pub fn to_bytes(self) -> Vec<u8> {
+		let mut bytes = vec![self.header()];
 		match self {
 			Self::OperationsRequest(s) => bytes.push(s),
 			Self::OperationsRequestResponse(s) => bytes.push(s),

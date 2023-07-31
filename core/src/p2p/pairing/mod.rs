@@ -16,7 +16,7 @@ use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::broadcast,
 };
-use tracing::{debug, info};
+use tracing::info;
 use uuid::Uuid;
 
 mod initial_sync;

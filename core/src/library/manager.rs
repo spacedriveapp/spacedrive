@@ -421,7 +421,7 @@ impl LibraryManager {
 			self.clone(),
 		));
 
-		self.node.nsm.load_library(&library).await;
+		self.node.nlm.load_library(&library).await;
 
 		self.thumbnail_remover.new_library(&library).await;
 		self.libraries.write().await.push(Arc::clone(&library));

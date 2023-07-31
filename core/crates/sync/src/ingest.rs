@@ -1,5 +1,6 @@
 use std::future::Future;
 
+use sd_p2p::spacetunnel::Tunnel;
 use tokio::sync::{mpsc, oneshot};
 
 pub struct Actor {
@@ -52,18 +53,18 @@ impl<TReq, TResp> ReqRes<TReq, TResp> {
 
 #[must_use]
 pub enum Request {
-	Messages(sd_p2p::PeerId, u8),
+	Messages(Tunnel, u8),
 }
 
 pub enum Event {
-	Notification(sd_p2p::PeerId),
+	Notification(Tunnel),
 	Messages(u8),
 }
 
 #[derive(Debug)]
 pub enum State {
 	WaitingForNotification,
-	ExecutingMessagesRequest(sd_p2p::PeerId),
+	ExecutingMessagesRequest,
 	Ingesting,
 }
 
@@ -97,13 +98,13 @@ impl Actor {
 
 				state = match state {
 					State::WaitingForNotification => {
-						let peer_id = wait!(events_rx, Event::Notification(peer_id) => peer_id);
+						let tunnel = wait!(events_rx, Event::Notification(peer_id) => peer_id);
 
-						req_tx.send(Request::Messages(peer_id, 69)).await.ok();
+						req_tx.send(Request::Messages(tunnel, 69)).await.ok();
 
-						State::ExecutingMessagesRequest(peer_id)
+						State::ExecutingMessagesRequest
 					}
-					State::ExecutingMessagesRequest(_peer_id) => {
+					State::ExecutingMessagesRequest => {
 						let data = wait!(events_rx, Event::Messages(data) => data);
 
 						dbg!(&data);
@@ -122,7 +123,7 @@ impl Actor {
 		(Self { events: events_tx }, req_rx)
 	}
 
-	pub async fn notify(&self, peer_id: sd_p2p::PeerId) {
-		self.events.send(Event::Notification(peer_id)).await.ok();
+	pub async fn notify(&self, stream: Tunnel) {
+		self.events.send(Event::Notification(stream)).await.ok();
 	}
 }

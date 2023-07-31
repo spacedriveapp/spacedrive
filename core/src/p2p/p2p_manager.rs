@@ -7,19 +7,17 @@ use std::{
 };
 
 use futures::Stream;
-use sd_core_sync::{ingest, SyncManager};
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
-	spacetunnel::{Identity, Tunnel},
+	spacetunnel::Tunnel,
 	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
-use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncWriteExt, BufReader},
-	sync::{broadcast, oneshot, Mutex, RwLock},
+	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
 use tracing::{debug, error, info};
@@ -32,7 +30,7 @@ use crate::{
 };
 
 use super::{
-	sync::{NetworkedSyncManager, SyncMessage},
+	sync::{NetworkedLibraryManager, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -138,7 +136,7 @@ impl P2PManager {
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
 		library_manager: Arc<LibraryManager>,
-		nsm: Arc<NetworkedSyncManager>,
+		nsm: Arc<NetworkedLibraryManager>,
 	) {
 		tokio::spawn({
 			let events = self.events.0.clone();
@@ -271,27 +269,22 @@ impl P2PManager {
 
 										match msg {
 											SyncMessage::NewOperations => {
-												ingest.notify(event.peer_id).await;
+												ingest.notify(tunnel).await;
 											}
-											SyncMessage::OperationsRequest(v) => {
+											SyncMessage::OperationsRequest(id) => {
 												tunnel
 													.write_all(
-														&SyncMessage::OperationsRequestResponse(v)
-															.to_bytes(library_id),
+														&SyncMessage::OperationsRequestResponse(id)
+															.to_bytes(),
 													)
 													.await
 													.unwrap();
+												tunnel.flush().await.unwrap();
 											}
-											SyncMessage::OperationsRequestResponse(v) => {
-												// ingest
-												// 	.events
-												// 	.send(ingest::Event::Messages(v))
-												// 	.await
-												// 	.ok();
+											SyncMessage::OperationsRequestResponse(_) => {
+												todo!("unreachable but add proper error handling")
 											}
 										};
-
-										tunnel.flush().await.unwrap();
 									}
 								}
 							});
@@ -349,130 +342,6 @@ impl P2PManager {
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
-	}
-
-	pub async fn broadcast_sync_events(
-		&self,
-		library_id: Uuid,
-		_identity: &Identity,
-		event: Vec<CRDTOperation>,
-		library_manager: &LibraryManager,
-	) {
-		println!("broadcasting sync events!");
-
-		let mut buf = match rmp_serde::to_vec_named(&event) {
-			Ok(buf) => buf,
-			Err(e) => {
-				error!("Failed to serialize sync event: {:?}", e);
-				return;
-			}
-		};
-		let mut head_buf = Header::Sync(library_id).to_bytes(); // Max Sync payload is like 4GB
-		head_buf.extend_from_slice(&(buf.len() as u32).to_le_bytes());
-		head_buf.append(&mut buf);
-
-		// TODO: Determine which clients we share that library with
-
-		// TODO: Establish a connection to them
-
-		let _library = library_manager.get_library(library_id).await.unwrap();
-
-		todo!();
-
-		// TODO: probs cache this query in memory cause this is gonna be stupid frequent
-		// let target_nodes = library
-		// 	.db
-		// 	.node()
-		// 	.find_many(vec![])
-		// 	.exec()
-		// 	.await
-		// 	.unwrap()
-		// 	.into_iter()
-		// 	.map(|n| {
-		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
-		// 			.unwrap()
-		// 	})
-		// 	.collect::<Vec<_>>();
-
-		// info!(
-		// 	"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
-		// 	library_id, target_nodes
-		// );
-
-		// // TODO: Do in parallel
-		// for peer_id in target_nodes {
-		// 	let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
-
-		// 	let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
-
-		// 	tunnel.write_all(&head_buf).await.unwrap();
-		// }
-	}
-
-	pub async fn alert_new_sync_events(&self, library_id: Uuid, library_manager: &LibraryManager) {
-		// let library = library_manager.get_library(library_id).await.unwrap();
-
-		let peers = self.manager.get_connected_peers().await.unwrap();
-
-		// let instances = self.instances.read().await;
-
-		// let target_nodes = library
-		// 	.db
-		// 	.instance()
-		// 	.find_many(vec![])
-		// 	.exec()
-		// 	.await
-		// 	.unwrap()
-		// 	.into_iter()
-		// 	.map(|n| {
-		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
-		// 			.unwrap()
-		// 	})
-		// 	.collect::<Vec<_>>();
-
-		// // TODO: Do in parallel
-		for peer_id in peers {
-			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
-
-			let mut tunnel = Tunnel::initiator(stream).await.unwrap();
-
-			tunnel
-				.write_all(SyncMessage::NewOperations.to_bytes(library_id).as_slice())
-				.await
-				.unwrap();
-		}
-	}
-
-	// TODO: Don't take `PeerId` as an argument
-	pub async fn emit_sync_ingest_alert(
-		&self,
-		sync: &Arc<SyncManager>,
-		library_id: Uuid,
-		peer_id: PeerId,
-		v: u8,
-	) {
-		let stream = self.manager.stream(peer_id).await.unwrap();
-
-		let mut tunnel = Tunnel::initiator(stream).await.unwrap();
-
-		tunnel
-			.write_all(&SyncMessage::OperationsRequest(v).to_bytes(library_id))
-			.await
-			.unwrap();
-		tunnel.flush().await.unwrap();
-
-		let msg = SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
-
-		match msg {
-			SyncMessage::OperationsRequestResponse(byte) => {
-				sync.ingest
-					.events
-					.send(ingest::Event::Messages(byte))
-					.await
-					.ok();
-			}
-			_ => {}
-		};
 	}
 
 	pub async fn ping(&self) {
