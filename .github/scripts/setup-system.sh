@@ -193,7 +193,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     # Tauri dependencies
     # openssl is manually declared here as i don't think openssl and openssl-devel are actually dependant on eachother
     # openssl also has a habit of being missing from some of my fresh Fedora installs - i've had to install it at least twice
-    FEDORA_TAURI_DEPS="openssl-devel curl wget libappindicator-gtk3 librsvg2-devel patchelf"
+    FEDORA_TAURI_DEPS="openssl openssl-devel curl wget libappindicator-gtk3 librsvg2-devel patchelf"
 
     # required for building the openssl-sys crate
     FEDORA_OPENSSL_SYS_DEPS="perl-FindBin perl-File-Compare perl-IPC-Cmd perl-File-Copy"
