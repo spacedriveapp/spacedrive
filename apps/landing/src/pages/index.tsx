@@ -167,9 +167,9 @@ export default function HomePage() {
 								<LineAnimation />
 								<AppFrameInner>
 									<Image
+										loading="eager"
 										width={1278}
 										height={626}
-										quality={100}
 										alt="l"
 										className="rounded-lg"
 										src="/images/app.webp"

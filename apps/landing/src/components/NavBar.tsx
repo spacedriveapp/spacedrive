@@ -81,7 +81,11 @@ export default function NavBar() {
 				<div className="flex-1 lg:hidden" />
 				<Dropdown.Root
 					button={
-						<Button className="ml-[140px] hover:!bg-transparent" size="icon">
+						<Button
+							aria-label="mobile-menu"
+							className="ml-[140px] hover:!bg-transparent"
+							size="icon"
+						>
 							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
 						</Button>
 					}
@@ -130,10 +134,16 @@ export default function NavBar() {
 				</Dropdown.Root>
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
-					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
+					<Link
+						aria-label="discord"
+						href="https://discord.gg/gTaF2Z44f5"
+						target="_blank"
+						rel="noreferrer"
+					>
 						<Discord className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 					<Link
+						aria-label="github"
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"

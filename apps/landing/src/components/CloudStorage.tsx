@@ -18,12 +18,12 @@ const CloudStorage = () => {
 							 w-[450px] bg-violet-500 opacity-30 blur-[120px]"
 				/>
 			</div>
-			<h3
+			<h1
 				className="bg-gradient-to-r from-white to-violet-400 bg-clip-text text-center
 						 text-[30px] font-bold text-transparent"
 			>
 				Coming soon
-			</h3>
+			</h1>
 			<h1
 				className="bg-gradient-to-r from-white to-violet-300 bg-clip-text
 						  text-center text-[20px] text-transparent md:text-[40px]"

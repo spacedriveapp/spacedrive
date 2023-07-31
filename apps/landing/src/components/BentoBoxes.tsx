@@ -75,7 +75,6 @@ const BentoBoxes = () => {
 						alt="Powerful tags"
 						width={300}
 						height={230}
-						quality={100}
 						src="/images/bento/tags.png"
 					/>
 					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
@@ -176,7 +175,6 @@ const BentoBoxes = () => {
 						alt="crossplatform"
 						width={460}
 						height={100}
-						quality={100}
 						src="/images/bento/platforms.png"
 					/>
 					<DotPattern className="opacity-30" />

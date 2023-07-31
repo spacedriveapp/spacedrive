@@ -18,6 +18,8 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 			target={props.blank ? '_blank' : ''}
 			className="text-gray-300 duration-300 hover:text-white hover:opacity-50"
 			rel="noreferrer"
+			aria-label="link"
+			{...props}
 		>
 			{props.children}
 		</Link>
@@ -39,34 +41,43 @@ export function Footer() {
 				<div className="col-span-2">
 					<Image alt="Spacedrive logo" src={AppLogo} className="mb-5 h-10 w-10" />
 
-					<h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
+					<h1 className="mb-1 text-xl font-bold">Spacedrive</h1>
 					<p className="text-sm text-gray-350 opacity-50">
 						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 					<div className="mb-10 mt-12 flex flex-row space-x-3">
-						<FooterLink link="https://twitter.com/spacedriveapp">
+						<FooterLink aria-label="twitter" link="https://twitter.com/spacedriveapp">
 							<Twitter className="h-6 w-6" />
 						</FooterLink>
-						<FooterLink link="https://discord.gg/gTaF2Z44f5">
+						<FooterLink aria-label="discord" link="https://discord.gg/gTaF2Z44f5">
 							<Discord className="h-6 w-6" />
 						</FooterLink>
-						<FooterLink link="https://instagram.com/spacedriveapp">
+						<FooterLink
+							aria-label="instagram"
+							link="https://instagram.com/spacedriveapp"
+						>
 							<Instagram className="h-6 w-6" />
 						</FooterLink>
-						<FooterLink link="https://github.com/spacedriveapp">
+						<FooterLink aria-label="github" link="https://github.com/spacedriveapp">
 							<Github className="h-6 w-6" />
 						</FooterLink>
-						<FooterLink link="https://opencollective.com/spacedrive">
+						<FooterLink
+							aria-label="open collective"
+							link="https://opencollective.com/spacedrive"
+						>
 							<Opencollective className="h-6 w-6" />
 						</FooterLink>
-						<FooterLink link="https://twitch.tv/jamiepinelive">
+						<FooterLink
+							aria-label="twitch stream"
+							link="https://twitch.tv/jamiepinelive"
+						>
 							<Twitch className="h-6 w-6" />
 						</FooterLink>
 					</div>
 				</div>
 
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h3 className="mb-1 text-xs font-bold uppercase ">About</h3>
+					<h1 className="mb-1 text-xs font-bold uppercase ">About</h1>
 
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
@@ -75,7 +86,7 @@ export function Footer() {
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
 				<div className="pointer-events-none col-span-1 flex flex-col space-y-2">
-					<h3 className="mb-1 text-xs font-bold uppercase">Downloads</h3>
+					<h1 className="mb-1 text-xs font-bold uppercase">Downloads</h1>
 					<div className="col-span-1 flex flex-col space-y-2 opacity-50">
 						<FooterLink link="#">macOS</FooterLink>
 						<FooterLink link="#">Windows</FooterLink>
@@ -85,7 +96,7 @@ export function Footer() {
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
+					<h1 className="mb-1 text-xs font-bold uppercase ">Developers</h1>
 					<FooterLink link="/docs/product/getting-started/introduction">
 						Documentation
 					</FooterLink>
@@ -103,7 +114,7 @@ export function Footer() {
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h3 className="mb-1 text-xs font-bold uppercase ">Org</h3>
+					<h1 className="mb-1 text-xs font-bold uppercase ">Org</h1>
 					<FooterLink blank link="https://opencollective.com/spacedrive">
 						Open Collective
 					</FooterLink>
