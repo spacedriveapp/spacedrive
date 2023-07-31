@@ -37,11 +37,6 @@ impl Identity {
 		self.0.to_bytes().to_vec()
 	}
 
-	// TODO: Remove this cause it's confusing
-	pub fn public_key(&self) -> PublicKey {
-		self.0.public
-	}
-
 	pub fn to_remote_identity(&self) -> RemoteIdentity {
 		RemoteIdentity(self.0.public)
 	}

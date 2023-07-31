@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::library::Library;
 
-use super::{Header, P2PManager, PeerMetadata};
+use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
 mod proto;
 pub use proto::*;
@@ -53,9 +53,9 @@ impl NetworkedLibraryManager {
 			.iter()
 			.map(|i| {
 				hex::encode(
-					Identity::from_bytes(&i.identity)
+					IdentityOrRemoteIdentity::from_bytes(&i.identity)
 						.unwrap()
-						.to_remote_identity()
+						.remote_identity()
 						.to_bytes(),
 				)
 			})
@@ -70,10 +70,9 @@ impl NetworkedLibraryManager {
 					.map(|i| {
 						(
 							// TODO: Error handling
-							// TODO: Linear issue about the `identity` column -> This will probs fail
-							Identity::from_bytes(&i.identity)
+							IdentityOrRemoteIdentity::from_bytes(&i.identity)
 								.unwrap()
-								.to_remote_identity(),
+								.remote_identity(),
 							InstanceState::Unavailable,
 						)
 					})

@@ -1,5 +1,6 @@
 use crate::{
 	node::{NodeConfig, Platform},
+	p2p::IdentityOrRemoteIdentity,
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
 		db::maybe_missing,
@@ -35,7 +36,7 @@ pub struct LibraryConfig {
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 8;
+	const CURRENT_VERSION: u32 = 9;
 
 	type Ctx = (NodeConfig, Arc<PrismaClient>);
 
@@ -232,6 +233,30 @@ impl Migrate for LibraryConfig {
 				// This should be in 7 but it's added to ensure to hell it runs.
 				config.remove("instance_id");
 				config.insert("instance_id".into(), Value::Number(instance.id.into()));
+			}
+			9 => {
+				db._batch(
+					db.instance()
+						.find_many(vec![])
+						.exec()
+						.await?
+						.into_iter()
+						.map(|i| {
+							db.instance().update(
+								instance::id::equals(i.id),
+								vec![instance::identity::set(
+									// This code is assuming you only have the current node.
+									// If you've paired your node with another node, reset your db.
+									IdentityOrRemoteIdentity::from(
+										Identity::from_bytes(&i.identity).unwrap(),
+									)
+									.to_bytes(),
+								)],
+							)
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await?;
 			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}

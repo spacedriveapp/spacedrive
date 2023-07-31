@@ -3,6 +3,7 @@ use crate::{
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
 	object::{preview::get_thumbnails_directory, tag, thumbnail_remover::ThumbnailRemoverActor},
+	p2p::{IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr},
 	prisma::location,
 	util::{
 		db::{self, MissingFieldError},
@@ -20,7 +21,7 @@ use std::{
 };
 
 use chrono::Utc;
-use sd_p2p::spacetunnel::{Identity, IdentityErr};
+use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
 use thiserror::Error;
 use tokio::{fs, io, sync::RwLock, try_join};
@@ -70,7 +71,9 @@ pub enum LibraryManagerError {
 	#[error("failed to watch locations: {0}")]
 	LocationWatcher(#[from] LocationManagerError),
 	#[error("failed to parse library p2p identity: {0}")]
-	Identity(#[from] IdentityErr),
+	Identity(#[from] IdentityOrRemoteIdentityErr),
+	#[error("failed to load private key for instance p2p identity")]
+	InvalidIdentity,
 	#[error("current instance with id '{0}' was not found in the database")]
 	CurrentInstanceNotFound(String),
 	#[error("missing-field: {0}")]
@@ -383,7 +386,14 @@ impl LibraryManager {
 			.ok_or_else(|| {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
 			})?;
-		let identity = Arc::new(Identity::from_bytes(&instance.identity)?);
+		let identity = Arc::new(
+			match IdentityOrRemoteIdentity::from_bytes(&instance.identity)? {
+				IdentityOrRemoteIdentity::Identity(identity) => identity,
+				IdentityOrRemoteIdentity::RemoteIdentity(_) => {
+					return Err(LibraryManagerError::InvalidIdentity)
+				}
+			},
+		);
 
 		let instance_id = Uuid::from_slice(&instance.pub_id)?;
 		let curr_platform = Platform::current() as i32;

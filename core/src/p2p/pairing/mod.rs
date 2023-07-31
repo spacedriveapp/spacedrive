@@ -10,6 +10,7 @@ use chrono::Utc;
 use futures::channel::oneshot;
 use sd_p2p::{spacetunnel::Identity, Manager, PeerId};
 
+use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
@@ -28,7 +29,7 @@ use proto::*;
 use crate::{
 	library::{LibraryManager, LibraryName},
 	node::{NodeConfig, Platform},
-	p2p::Header,
+	p2p::{Header, IdentityOrRemoteIdentity},
 };
 
 use super::{P2PEvent, PeerMetadata};
@@ -92,9 +93,11 @@ impl PairingManager {
 			// 1. Create new instance for originator and send it to the responder
 			self.emit_progress(pairing_id, PairingStatus::PairingRequested);
 			let now = Utc::now();
+			let identity = Identity::new();
+			let self_instance_id = Uuid::new_v4();
 			let req = PairingRequest(Instance {
-				id: Uuid::new_v4(),
-				identity: Identity::new(), // TODO: Public key only
+				id: self_instance_id,
+				identity: identity.to_remote_identity(),
 				node_id: node_config.id,
 				node_name: node_config.name.clone(),
 				node_platform: Platform::current(),
@@ -151,10 +154,41 @@ impl PairingManager {
 
 					let library = library_manager.get_library(library.id).await.unwrap();
 
+					let mut identity = Some(identity);
+					let instances = instances
+						.into_iter()
+						.map(|i| {
+							instance::CreateUnchecked {
+								pub_id: i.id.as_bytes().to_vec(),
+								// TODO: Validate `i.identity` is the same as `identity` in case something went weird on the remote.
+								identity: match i.id == self_instance_id {
+									true => Into::<IdentityOrRemoteIdentity>::into(
+										identity
+											.take()
+											.expect("Multiple instances returned for self!"),
+									),
+									false => Into::<IdentityOrRemoteIdentity>::into(i.identity),
+								}
+								.to_bytes(),
+								node_id: i.node_id.as_bytes().to_vec(),
+								node_name: i.node_name,
+								node_platform: i.node_platform as i32,
+								last_seen: i.last_seen.into(),
+								date_created: i.date_created.into(),
+								// timestamp: Default::default(), // TODO: Source this properly!
+								_params: vec![],
+							}
+						})
+						.collect::<Vec<_>>();
+
+					if identity.is_some() {
+						todo!("Something went wrong. No instance returned for self!");
+					}
+
 					library
 						.db
 						.instance()
-						.create_many(instances.into_iter().map(|i| i.into()).collect())
+						.create_many(instances)
 						.exec()
 						.await
 						.unwrap();
@@ -214,14 +248,13 @@ impl PairingManager {
 
 		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{peer_id}'");
 
-		// let inner = || async move {
 		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);
 		self.events_tx
 			.send(P2PEvent::PairingRequest {
 				id: pairing_id,
-				name: remote_instance.node_name,
-				os: remote_instance.node_platform.into(),
+				name: remote_instance.node_name.clone(),
+				os: remote_instance.node_platform.clone().into(),
 			})
 			.ok();
 
@@ -241,6 +274,24 @@ impl PairingManager {
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
 		let library = library_manager.get_library(library_id).await.unwrap();
+
+		// TODO: Rollback this on pairing failure
+		instance::Create {
+			pub_id: remote_instance.id.as_bytes().to_vec(),
+			identity: Into::<IdentityOrRemoteIdentity>::into(remote_instance.identity).to_bytes(),
+			node_id: remote_instance.node_id.as_bytes().to_vec(),
+			node_name: remote_instance.node_name,
+			node_platform: remote_instance.node_platform as i32,
+			last_seen: remote_instance.last_seen.into(),
+			date_created: remote_instance.date_created.into(),
+			// timestamp: Default::default(), // TODO: Source this properly!
+			_params: vec![],
+		}
+		.to_query(&library.db)
+		.exec()
+		.await
+		.unwrap();
+
 		stream
 			.write_all(
 				&PairingResponse::Accepted {
@@ -257,8 +308,9 @@ impl PairingManager {
 						.into_iter()
 						.map(|i| Instance {
 							id: Uuid::from_slice(&i.pub_id).unwrap(),
-							// TODO: If `i.identity` contains a public/private keypair replace it with the public key
-							identity: Identity::from_bytes(&i.identity).unwrap(),
+							identity: IdentityOrRemoteIdentity::from_bytes(&i.identity)
+								.unwrap()
+								.remote_identity(),
 							node_id: Uuid::from_slice(&i.node_id).unwrap(),
 							node_name: i.node_name,
 							node_platform: Platform::try_from(i.node_platform as u8)
