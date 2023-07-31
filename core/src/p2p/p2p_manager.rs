@@ -9,7 +9,7 @@ use std::{
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
-	spacetunnel::Tunnel,
+	spacetunnel::{RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
 use serde::Serialize;
@@ -136,7 +136,7 @@ impl P2PManager {
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
 		library_manager: Arc<LibraryManager>,
-		nsm: Arc<NetworkedLibraryManager>,
+		nlm: Arc<NetworkedLibraryManager>,
 	) {
 		tokio::spawn({
 			let events = self.events.0.clone();
@@ -162,19 +162,19 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							nsm.peer_discovered(event).await;
+							nlm.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, metadata } => {
 							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
-							nsm.peer_expired(id).await;
+							nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {
 							debug!("Peer '{}' connected", event.peer_id);
-							nsm.peer_connected(event.peer_id).await;
+							nlm.peer_connected(event.peer_id).await;
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
-							nsm.peer_disconnected(peer_id).await;
+							nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
@@ -182,6 +182,7 @@ impl P2PManager {
 							let spacedrop_progress = spacedrop_progress.clone();
 							let library_manager = library_manager.clone();
 							let pairing = pairing.clone();
+							let nlm = nlm.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -269,17 +270,18 @@ impl P2PManager {
 
 										match msg {
 											SyncMessage::NewOperations => {
-												ingest.notify(tunnel).await;
+												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
+												// TODO: Throw tunnel around like this makes it soooo confusing.
+												ingest.notify(tunnel, event.peer_id).await;
 											}
 											SyncMessage::OperationsRequest(id) => {
-												tunnel
-													.write_all(
-														&SyncMessage::OperationsRequestResponse(id)
-															.to_bytes(),
-													)
-													.await
-													.unwrap();
-												tunnel.flush().await.unwrap();
+												nlm.exchange_sync_ops(
+													tunnel,
+													&event.peer_id,
+													library_id,
+													id,
+												)
+												.await;
 											}
 											SyncMessage::OperationsRequestResponse(_) => {
 												todo!("unreachable but add proper error handling")
@@ -309,7 +311,7 @@ impl P2PManager {
 		});
 	}
 
-	fn config_to_metadata(config: &NodeConfig, instances: Vec<String>) -> PeerMetadata {
+	fn config_to_metadata(config: &NodeConfig, instances: Vec<RemoteIdentity>) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
@@ -321,7 +323,7 @@ impl P2PManager {
 	}
 
 	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
-	pub async fn update_metadata(&self, instances: Vec<String>) {
+	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
 		self.metadata_manager.update(Self::config_to_metadata(
 			&self.node_config_manager.get().await,
 			instances,

@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use sd_p2p::spacetunnel::Tunnel;
+use sd_p2p::{spacetunnel::Tunnel, PeerId};
 use tokio::sync::{mpsc, oneshot};
 
 pub struct Actor {
@@ -53,11 +53,11 @@ impl<TReq, TResp> ReqRes<TReq, TResp> {
 
 #[must_use]
 pub enum Request {
-	Messages(Tunnel, u8),
+	Messages(Tunnel, PeerId, u8),
 }
 
 pub enum Event {
-	Notification(Tunnel),
+	Notification(Tunnel, PeerId),
 	Messages(u8),
 }
 
@@ -98,9 +98,12 @@ impl Actor {
 
 				state = match state {
 					State::WaitingForNotification => {
-						let tunnel = wait!(events_rx, Event::Notification(peer_id) => peer_id);
+						let (tunnel, peer_id) = wait!(events_rx, Event::Notification(tunnel, peer_id) => (tunnel, peer_id));
 
-						req_tx.send(Request::Messages(tunnel, 69)).await.ok();
+						req_tx
+							.send(Request::Messages(tunnel, peer_id, 69))
+							.await
+							.ok();
 
 						State::ExecutingMessagesRequest
 					}
@@ -123,7 +126,10 @@ impl Actor {
 		(Self { events: events_tx }, req_rx)
 	}
 
-	pub async fn notify(&self, stream: Tunnel) {
-		self.events.send(Event::Notification(stream)).await.ok();
+	pub async fn notify(&self, tunnel: Tunnel, peer_id: PeerId) {
+		self.events
+			.send(Event::Notification(tunnel, peer_id))
+			.await
+			.ok();
 	}
 }

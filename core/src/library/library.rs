@@ -60,7 +60,7 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub fn new(
+	pub async fn new(
 		id: Uuid,
 		instance_id: Uuid,
 		config: LibraryConfig,
@@ -80,6 +80,19 @@ impl Library {
 			orphan_remover: OrphanRemoverActor::spawn(db),
 		};
 
+		manager.node.nlm.load_library(&library).await;
+
+		// TODO(@Oscar): Remove this
+		// tokio::spawn({
+		// 	let node = manager.node.clone();
+		// 	async move {
+		// 		loop {
+		// 			node.nlm.alert_new_ops(id.clone()).await;
+		// 			tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+		// 		}
+		// 	}
+		// });
+
 		tokio::spawn({
 			let sync = library.sync.clone();
 
@@ -92,8 +105,8 @@ impl Library {
 							let Some(req) = req else { continue; };
 
 							match req {
-								Request::Messages(tunnel, id) => {
-									manager.node.nlm.emit_sync_ingest_alert(tunnel, id, &sync).await;
+								Request::Messages(tunnel, peer_id, msg_id) => {
+									manager.node.nlm.request_and_ingest_ops(tunnel, peer_id, msg_id, &sync, &id).await;
 								},
 							}
 						},
@@ -101,7 +114,7 @@ impl Library {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.nlm.alert_new_sync_events(id).await;
+								manager.node.nlm.alert_new_ops(id).await;
 							}
 						},
 					}

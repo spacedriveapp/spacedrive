@@ -7,6 +7,7 @@ use sd_p2p::{
 	DiscoveredPeer, PeerId,
 };
 use tokio::{io::AsyncWriteExt, sync::RwLock};
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::library::Library;
@@ -52,12 +53,9 @@ impl NetworkedLibraryManager {
 		let metadata_instances = instances
 			.iter()
 			.map(|i| {
-				hex::encode(
-					IdentityOrRemoteIdentity::from_bytes(&i.identity)
-						.unwrap()
-						.remote_identity()
-						.to_bytes(),
-				)
+				IdentityOrRemoteIdentity::from_bytes(&i.identity)
+					.unwrap()
+					.remote_identity()
 			})
 			.collect();
 
@@ -85,34 +83,30 @@ impl NetworkedLibraryManager {
 
 	pub async fn edit_library(&self, _library: &Library) {
 		// TODO: Send changes to all connected nodes!
+
+		// TODO: Update mdns
 	}
 
 	pub async fn delete_library(&self, library: &Library) {
 		// TODO: Do proper library delete/unpair procedure.
 		self.libraries.write().await.remove(&library.id);
+
+		// TODO: Update mdns
 	}
 
 	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
-		let pks = event
-			.metadata
-			.instances
-			.iter()
-			.filter_map(|pk| hex::decode(pk).ok())
-			.filter_map(|pk| RemoteIdentity::from_bytes(&pk).ok())
-			.collect::<Vec<_>>();
-
 		for lib in self.libraries.write().await.values_mut() {
 			if let Some((_pk, instance)) = lib
 				.instances
 				.iter_mut()
-				.find(|(pk, _)| pks.iter().any(|pk2| *pk2 == **pk))
+				.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
 			{
 				if !matches!(instance, InstanceState::Connected(_)) {
-					let should_connection = matches!(instance, InstanceState::Unavailable);
+					let should_connect = matches!(instance, InstanceState::Unavailable);
 
 					*instance = InstanceState::Discovered(event.peer_id.clone());
 
-					if should_connection {
+					if should_connect {
 						event.dial().await;
 					}
 				}
@@ -161,7 +155,7 @@ impl NetworkedLibraryManager {
 	}
 
 	// TODO: Error handling
-	pub async fn alert_new_sync_events(&self, library_id: Uuid) {
+	pub async fn alert_new_ops(&self, library_id: Uuid) {
 		let libraries = self.libraries.read().await;
 
 		join_all(
@@ -177,6 +171,8 @@ impl NetworkedLibraryManager {
 				.map(|peer_id| {
 					let p2p = self.p2p.clone();
 					async move {
+						debug!("Alerting peer '{peer_id:?}' of new sync events for library '{library_id:?}'");
+
 						let mut stream =
 							p2p.manager.stream(*peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
@@ -191,30 +187,60 @@ impl NetworkedLibraryManager {
 							.write_all(&SyncMessage::NewOperations.to_bytes())
 							.await
 							.unwrap();
+
+						let id = match SyncMessage::from_stream(&mut tunnel).await.unwrap() {
+							SyncMessage::OperationsRequest(resp) => resp,
+							_ => todo!("unreachable but proper error handling"),
+						};
+
+						self.exchange_sync_ops(tunnel, peer_id, library_id, id)
+							.await;
 					}
 				}),
 		)
 		.await;
 	}
 
-	pub async fn emit_sync_ingest_alert(&self, mut tunnel: Tunnel, id: u8, sync: &SyncManager) {
+	// Ask the remote for operations and then ingest them
+	pub async fn request_and_ingest_ops(
+		&self,
+		mut tunnel: Tunnel,
+		peer_id: PeerId,
+		id: u8,
+		sync: &SyncManager,
+		library_id: &Uuid,
+	) {
 		tunnel
 			.write_all(&SyncMessage::OperationsRequest(id).to_bytes())
 			.await
 			.unwrap();
-		tunnel.flush().await.unwrap();
 
-		let msg = SyncMessage::from_stream(&mut tunnel).await.unwrap();
-
-		match msg {
-			SyncMessage::OperationsRequestResponse(id) => {
-				sync.ingest
-					.events
-					.send(ingest::Event::Messages(id))
-					.await
-					.ok();
-			}
-			_ => todo!("unreachable but proper error handling"),
+		let SyncMessage::OperationsRequestResponse(id) = SyncMessage::from_stream(&mut tunnel).await.unwrap() else {
+			todo!("unreachable but proper error handling")
 		};
+
+		debug!("Received sync events response w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
+
+		sync.ingest
+			.events
+			.send(ingest::Event::Messages(id))
+			.await
+			.ok();
+	}
+
+	pub async fn exchange_sync_ops(
+		&self,
+		mut tunnel: Tunnel,
+		peer_id: &PeerId,
+		library_id: Uuid,
+		id: u8,
+	) {
+		debug!("Received sync events request w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
+
+		// TODO: Get operations delta and send back delta
+		tunnel
+			.write_all(&SyncMessage::OperationsRequestResponse(id).to_bytes())
+			.await
+			.unwrap();
 	}
 }

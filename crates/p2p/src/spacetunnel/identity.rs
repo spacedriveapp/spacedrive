@@ -41,7 +41,7 @@ impl Identity {
 		RemoteIdentity(self.0.public)
 	}
 }
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
 
 impl Hash for RemoteIdentity {
