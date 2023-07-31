@@ -7,7 +7,7 @@ use std::{
 };
 
 use futures::Stream;
-use sd_core_sync::ingest;
+use sd_core_sync::{ingest, SyncManager};
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{Identity, Tunnel},
@@ -129,6 +129,7 @@ impl P2PManager {
 
 		Ok((this, stream))
 	}
+
 	pub fn start(
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
@@ -239,7 +240,7 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
-										let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
 											SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
@@ -441,13 +442,45 @@ impl P2PManager {
 		for peer_id in peers {
 			let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
-			let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
+			let mut tunnel = Tunnel::initiator(stream).await.unwrap();
 
 			tunnel
 				.write_all(SyncMessage::NewOperations.to_bytes(library_id).as_slice())
 				.await
 				.unwrap();
 		}
+	}
+
+	// TODO: Don't take `PeerId` as an argument
+	pub async fn emit_sync_ingest_alert(
+		&self,
+		sync: &Arc<SyncManager>,
+		library_id: Uuid,
+		peer_id: PeerId,
+		v: u8,
+	) {
+		let stream = self.manager.stream(peer_id).await.unwrap();
+
+		let mut tunnel = Tunnel::initiator(stream).await.unwrap();
+
+		tunnel
+			.write_all(&SyncMessage::OperationsRequest(v).to_bytes(library_id))
+			.await
+			.unwrap();
+		tunnel.flush().await.unwrap();
+
+		let msg = SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
+
+		match msg {
+			SyncMessage::OperationsRequestResponse(byte) => {
+				sync.ingest
+					.events
+					.send(ingest::Event::Messages(byte))
+					.await
+					.ok();
+			}
+			_ => {}
+		};
 	}
 
 	pub async fn ping(&self) {

@@ -98,21 +98,7 @@ impl Library {
 
 							match req {
 								Request::Messages(peer_id, v) => {
-									let stream = manager.node.p2p.manager.stream(peer_id).await.unwrap();
-
-									let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
-
-									tunnel.write_all(&p2p::SyncMessage::OperationsRequest(v).to_bytes(id)).await.unwrap();
-									tunnel.flush().await.unwrap();
-
-									let msg = p2p::SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
-
-									 match msg {
-										p2p::SyncMessage::OperationsRequestResponse(byte) => {
-											sync.ingest.events.send(ingest::Event::Messages(byte)).await.ok();
-										},
-										_ => {}
-									};
+									manager.node.p2p.emit_sync_ingest_alert(&sync, id.clone(), peer_id, v).await;
 								},
 							}
 						},
