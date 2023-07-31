@@ -221,9 +221,9 @@ if [ "$SYSNAME" = "Linux" ]; then
         'This is likely because the RPM Fusion free repository is not enabled.' \
         'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
     fi
-
-    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
+    
     sudo dnf group install "C Development Tools and Libraries"
+    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
   else
     err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script." \
       'We would welcome a PR or some help adding your OS to this script:' \
