@@ -47,10 +47,10 @@ pub(crate) mod volume;
 pub struct SharedContext {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
-	pub location_manager: Arc<LocationManager>,
-	pub p2p: Arc<P2PManager>,
-	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub notifications: Arc<NotificationManager>,
+	pub location_manager: LocationManager,
+	pub p2p: P2PManager,
+	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub notifications: NotificationManager,
 }
 
 /// Represents a single running instance of the Spacedrive core.
@@ -58,8 +58,6 @@ pub struct Node {
 	pub data_dir: PathBuf,
 	pub library_manager: Arc<LibraryManager>,
 	ctx: Arc<SharedContext>,
-	// TODO: ?
-	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 }
 
 // This isn't idiomatic but it will work for now
@@ -95,7 +93,7 @@ impl Node {
 			job_manager: JobManager::new(),
 			location_manager: LocationManager::new(),
 			p2p,
-			event_bus_tx: event_bus.0.clone(),
+			event_bus: event_bus,
 			notifications: NotificationManager::new(),
 		});
 
@@ -116,7 +114,6 @@ impl Node {
 			data_dir: data_dir.to_path_buf(),
 			ctx,
 			library_manager,
-			event_bus,
 		};
 
 		info!("Spacedrive online.");
@@ -236,9 +233,9 @@ pub struct NotificationManager(
 );
 
 impl NotificationManager {
-	pub fn new() -> Arc<Self> {
+	pub fn new() -> Self {
 		let (tx, _) = broadcast::channel(30);
-		Arc::new(Self(tx, AtomicU32::new(0)))
+		Self(tx, AtomicU32::new(0))
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<Notification> {

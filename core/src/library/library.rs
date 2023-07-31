@@ -108,7 +108,7 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+		if let Err(e) = self.node_context.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
@@ -117,7 +117,7 @@ impl Library {
 		self.node_context.config.clone()
 	}
 
-	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
+	pub(crate) fn location_manager(&self) -> &LocationManager {
 		&self.node_context.location_manager
 	}
 

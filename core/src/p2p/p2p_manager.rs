@@ -73,7 +73,7 @@ pub struct P2PManager {
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<NodeConfigManager>,
-	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
+	) -> Result<(P2PManager, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 			(
@@ -105,44 +105,34 @@ impl P2PManager {
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
-		let this = Arc::new(Self {
-			pairing,
-			events: (tx, rx),
-			manager,
-			spacedrop_pairing_reqs,
-			metadata_manager,
-			spacedrop_progress,
-		});
-
-		// library_manager
-		// 	.subscribe({
-		// 		let this = this.clone();
-		// 		move |event| match event {
-		// 			SubscriberEvent::Load(library_id, library_identity, mut sync_rx) => {
-		// 				let this = this.clone();
-		// 			}
-		// 		}
-		// 	})
-		// 	.await;
-
-		// TODO: Probs remove this once connection timeout/keepalive are working correctly
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				loop {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					this.ping().await;
-				}
-			}
-		});
-
-		Ok((this, stream))
+		Ok((
+			Self {
+				pairing,
+				events: (tx, rx),
+				manager,
+				spacedrop_pairing_reqs,
+				metadata_manager,
+				spacedrop_progress,
+			},
+			stream,
+		))
 	}
 	pub fn start(
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
 		library_manager: Arc<LibraryManager>,
 	) {
+		// TODO: Probs remove this once connection timeout/keepalive are working correctly
+		// tokio::spawn({
+		// 	let this = this.clone();
+		// 	async move {
+		// 		loop {
+		// 			tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+		// 			this.ping().await;
+		// 		}
+		// 	}
+		// });
+
 		tokio::spawn({
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
