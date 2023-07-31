@@ -76,7 +76,7 @@ impl Library {
 		// node_context: Arc<NodeContext>,
 	) -> Self {
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.node_context.clone();
+		let node_context = library_manager.ctx.clone();
 
 		let library = Self {
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
@@ -96,7 +96,7 @@ impl Library {
 					let SyncMessage::Created(op) = op else { continue; };
 
 					library_manager
-						.node_context
+						.ctx
 						.p2p
 						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
 						.await;

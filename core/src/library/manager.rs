@@ -39,8 +39,8 @@ pub struct LibraryManager {
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Arc<Library>>>,
-	/// node_context holds the context for the node which this library manager is running on.
-	pub node_context: Arc<SharedContext>,
+	/// holds the context for the node which this library manager is running on.
+	pub ctx: Arc<SharedContext>,
 	/// An actor that removes stale thumbnails from the file system
 	thumbnail_remover: ThumbnailRemoverActor,
 }
@@ -94,7 +94,7 @@ impl From<LibraryManagerError> for rspc::Error {
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
-		node_context: Arc<SharedContext>,
+		ctx: Arc<SharedContext>,
 	) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -107,8 +107,8 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
-			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node_context)),
-			node_context,
+			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&ctx)),
+			ctx,
 		});
 
 		while let Some(entry) = read_dir
@@ -301,7 +301,7 @@ impl LibraryManager {
 					vec![]
 				}) {
 				if let Err(e) = self
-					.node_context
+					.ctx
 					.location_manager
 					.add(location.id, library.clone())
 					.await
@@ -385,7 +385,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = self.node_context.config.get().await;
+		let node_config = self.ctx.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;

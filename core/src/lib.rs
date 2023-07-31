@@ -24,7 +24,7 @@ use std::{
 
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
@@ -57,7 +57,6 @@ pub struct SharedContext {
 pub struct Node {
 	pub data_dir: PathBuf,
 	pub library_manager: Arc<LibraryManager>,
-	ctx: Arc<SharedContext>,
 }
 
 // This isn't idiomatic but it will work for now
@@ -65,7 +64,7 @@ impl Deref for Node {
 	type Target = SharedContext;
 
 	fn deref(&self) -> &Self::Target {
-		&self.ctx
+		&self.library_manager.ctx
 	}
 }
 
@@ -97,27 +96,26 @@ impl Node {
 			notifications: NotificationManager::new(),
 		});
 
-		let library_manager = LibraryManager::new(data_dir.join("libraries"), ctx.clone()).await?;
-		debug!("Initialised 'LibraryManager'...");
+		let library_manager = LibraryManager::new(data_dir.join("libraries"), ctx).await?;
 
-		ctx.p2p.start(p2p_stream, library_manager.clone());
+		let node = Arc::new(Node {
+			data_dir: data_dir.to_path_buf(),
+			library_manager,
+		});
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
 			init_data
-				.apply(&library_manager, ctx.config.get().await)
+				.apply(&node.library_manager, node.config.get().await)
 				.await?;
 		}
 
-		let router = api::mount();
-		let node = Node {
-			data_dir: data_dir.to_path_buf(),
-			ctx,
-			library_manager,
-		};
+		node.p2p.start(p2p_stream, node.clone());
 
+		let router = api::mount();
 		info!("Spacedrive online.");
-		Ok((Arc::new(node), router))
+
+		Ok((node, router))
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
