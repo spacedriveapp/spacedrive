@@ -205,7 +205,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     FEDORA_VIDEO_DEPS="gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good gstreamer1-plugins-good-gtk gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-devel gstreamer1-plugins-bad-free-extras"
 
     # Bindgen dependencies - it's used by a dependency of Spacedrive
-    FEDORA_BINDGEN_DEPS="clang"
+    FEDORA_BINDGEN_DEPS="clang clang-devel"
 
     # Protobuf compiler
     FEDORA_LIBP2P_DEPS="protobuf-compiler"
