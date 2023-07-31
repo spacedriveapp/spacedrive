@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 pub use sd_prisma::*;
 
 use std::{
+	ops::Deref,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -42,7 +43,8 @@ pub(crate) mod preferences;
 pub(crate) mod util;
 pub(crate) mod volume;
 
-pub struct NodeContext {
+/// Context that is shared between [crate::Node] and [crate::library::LibraryManager].
+pub struct SharedContext {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
@@ -51,15 +53,22 @@ pub struct NodeContext {
 	pub notifications: Arc<NotificationManager>,
 }
 
+/// Represents a single running instance of the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
-	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
-	location_manager: Arc<LocationManager>,
-	job_manager: Arc<JobManager>,
-	p2p: Arc<P2PManager>,
+	ctx: Arc<SharedContext>,
+	// TODO: ?
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	notifications: Arc<NotificationManager>,
+}
+
+// This isn't idiomatic but it will work for now
+impl Deref for Node {
+	type Target = SharedContext;
+
+	fn deref(&self) -> &Self::Target {
+		&self.ctx
+	}
 }
 
 impl Node {
@@ -92,18 +101,16 @@ impl Node {
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
 		debug!("Initialised 'P2PManager'...");
 
-		let library_manager = LibraryManager::new(
-			data_dir.join("libraries"),
-			Arc::new(NodeContext {
-				config: config.clone(),
-				job_manager: job_manager.clone(),
-				location_manager: location_manager.clone(),
-				p2p: p2p.clone(),
-				event_bus_tx: event_bus.0.clone(),
-				notifications: notifications.clone(),
-			}),
-		)
-		.await?;
+		let ctx = Arc::new(SharedContext {
+			config: config.clone(),
+			job_manager: job_manager.clone(),
+			location_manager: location_manager.clone(),
+			p2p: p2p.clone(),
+			event_bus_tx: event_bus.0.clone(),
+			notifications: notifications.clone(),
+		});
+
+		let library_manager = LibraryManager::new(data_dir.join("libraries"), ctx.clone()).await?;
 		debug!("Initialised 'LibraryManager'...");
 
 		p2p.start(p2p_stream, library_manager.clone());
@@ -118,13 +125,9 @@ impl Node {
 		let router = api::mount();
 		let node = Node {
 			data_dir: data_dir.to_path_buf(),
-			config,
+			ctx,
 			library_manager,
-			location_manager,
-			job_manager,
-			p2p,
 			event_bus,
-			notifications,
 		};
 
 		info!("Spacedrive online.");
