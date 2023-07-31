@@ -87,38 +87,27 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
-		debug!("Initialised 'NodeConfigManager'...");
-
-		let job_manager = JobManager::new();
-		debug!("Initialised 'JobManager'...");
-
-		let notifications = NotificationManager::new();
-		debug!("Initialised 'NotificationManager'...");
-
-		let location_manager = LocationManager::new();
-		debug!("Initialised 'LocationManager'...");
 
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
-		debug!("Initialised 'P2PManager'...");
 
 		let ctx = Arc::new(SharedContext {
-			config: config.clone(),
-			job_manager: job_manager.clone(),
-			location_manager: location_manager.clone(),
-			p2p: p2p.clone(),
+			config,
+			job_manager: JobManager::new(),
+			location_manager: LocationManager::new(),
+			p2p,
 			event_bus_tx: event_bus.0.clone(),
-			notifications: notifications.clone(),
+			notifications: NotificationManager::new(),
 		});
 
 		let library_manager = LibraryManager::new(data_dir.join("libraries"), ctx.clone()).await?;
 		debug!("Initialised 'LibraryManager'...");
 
-		p2p.start(p2p_stream, library_manager.clone());
+		ctx.p2p.start(p2p_stream, library_manager.clone());
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
 			init_data
-				.apply(&library_manager, config.get().await)
+				.apply(&library_manager, ctx.config.get().await)
 				.await?;
 		}
 
