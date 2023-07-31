@@ -31,7 +31,7 @@ use crate::{
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
-use super::{Header, PairingManager, PairingStatus, PeerMetadata};
+use super::{sync::SyncMessage, Header, PairingManager, PairingStatus, PeerMetadata};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -240,6 +240,8 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
+										// Header -> Tunnel -> SyncMessage
+
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
@@ -558,51 +560,5 @@ impl P2PManager {
 
 	pub async fn shutdown(&self) {
 		self.manager.shutdown().await;
-	}
-}
-
-#[derive(Debug)]
-#[repr(u8)]
-pub enum SyncMessage {
-	NewOperations,
-	OperationsRequest(u8),
-	OperationsRequestResponse(u8),
-}
-
-impl SyncMessage {
-	pub fn header(&self) -> u8 {
-		match self {
-			Self::NewOperations => b'N',
-			Self::OperationsRequest(_) => b'R',
-			Self::OperationsRequestResponse(_) => b'P',
-		}
-	}
-
-	pub async fn from_tunnel(stream: &mut Tunnel) -> std::io::Result<Self> {
-		match stream.read_u8().await? {
-			b'N' => Ok(Self::NewOperations),
-			b'R' => Ok(Self::OperationsRequest(stream.read_u8().await?)),
-			b'P' => Ok(Self::OperationsRequestResponse(stream.read_u8().await?)),
-			header => Err(std::io::Error::new(
-				std::io::ErrorKind::InvalidData,
-				format!(
-					"Invalid sync message header: {}",
-					(header as char).to_string()
-				),
-			)),
-		}
-	}
-
-	pub fn to_bytes(self, library_id: Uuid) -> Vec<u8> {
-		let mut bytes = Header::Sync(library_id).to_bytes();
-		bytes.push(self.header());
-
-		match self {
-			Self::OperationsRequest(s) => bytes.push(s),
-			Self::OperationsRequestResponse(s) => bytes.push(s),
-			_ => {}
-		}
-
-		bytes
 	}
 }

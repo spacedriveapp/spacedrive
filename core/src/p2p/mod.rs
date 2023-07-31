@@ -5,6 +5,7 @@ mod p2p_manager;
 mod pairing;
 mod peer_metadata;
 mod protocol;
+pub mod sync;
 
 pub use p2p_manager::*;
 pub use pairing::*;
