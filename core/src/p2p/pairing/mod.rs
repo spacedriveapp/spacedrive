@@ -17,7 +17,7 @@ use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::broadcast,
 };
-use tracing::info;
+use tracing::{error, info};
 use uuid::Uuid;
 
 mod initial_sync;
@@ -207,7 +207,15 @@ impl PairingManager {
 								}
 								synced += data.len();
 
-								data.insert(&library.db).await.unwrap();
+								let model_name = data.model_name();
+								match data.insert(&library.db).await {
+									Ok(_) => {}
+									Err(e) => {
+										error!("Error inserting '{model_name}' data: {:?}", e);
+
+										// TODO: Handle error
+									}
+								}
 
 								// Prevent divide by zero
 								if total != 0 {

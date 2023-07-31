@@ -207,7 +207,7 @@ impl LibraryManager {
 				config_path,
 				Some(instance::Create {
 					pub_id: Uuid::new_v4().as_bytes().to_vec(),
-					identity: Identity::new().to_bytes(),
+					identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
 					node_id: node_cfg.id.as_bytes().to_vec(),
 					node_name: node_cfg.name.clone(),
 					node_platform: Platform::current() as i32,

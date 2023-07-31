@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::future::join_all;
 use sd_core_sync::{ingest, SyncManager};
 use sd_p2p::{
-	spacetunnel::{Identity, RemoteIdentity, Tunnel},
+	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
 };
 use tokio::{io::AsyncWriteExt, sync::RwLock};
