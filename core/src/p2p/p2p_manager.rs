@@ -31,7 +31,10 @@ use crate::{
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
-use super::{sync::SyncMessage, Header, PairingManager, PairingStatus, PeerMetadata};
+use super::{
+	sync::{NetworkedSyncManager, SyncMessage},
+	Header, PairingManager, PairingStatus, PeerMetadata,
+};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -69,7 +72,6 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	instances: RwLock<Vec<Arc<Identity>>>,
 	node_config_manager: Arc<NodeConfigManager>,
 }
 
@@ -79,9 +81,12 @@ impl P2PManager {
 	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(Self::config_to_metadata(&config), config.keypair)
+
+			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
+			(Self::config_to_metadata(&config, vec![]), config.keypair)
 		};
 
+		// TODO: Delay building this until the libraries are loaded
 		let metadata_manager = MetadataManager::new(config);
 
 		let (manager, stream) =
@@ -112,7 +117,6 @@ impl P2PManager {
 			spacedrop_pairing_reqs,
 			metadata_manager,
 			spacedrop_progress,
-			instances: Default::default(),
 			node_config_manager: node_config,
 		});
 
@@ -134,6 +138,7 @@ impl P2PManager {
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
 		library_manager: Arc<LibraryManager>,
+		nsm: Arc<NetworkedSyncManager>,
 	) {
 		tokio::spawn({
 			let events = self.events.0.clone();
@@ -159,9 +164,19 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
-							// TODO(Spacedrop): Disable Spacedrop for now
-							// event.dial().await;
+							nsm.peer_discovered(event).await;
+						}
+						Event::PeerExpired { id, metadata } => {
+							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
+							nsm.peer_expired(id).await;
+						}
+						Event::PeerConnected(event) => {
+							debug!("Peer '{}' connected", event.peer_id);
+							nsm.peer_connected(event.peer_id).await;
+						}
+						Event::PeerDisconnected(peer_id) => {
+							debug!("Peer '{}' disconnected", peer_id);
+							nsm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
@@ -301,48 +316,23 @@ impl P2PManager {
 		});
 	}
 
-	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
+	fn config_to_metadata(config: &NodeConfig, instances: Vec<String>) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
-			instances: vec![],
+			instances,
 		}
 	}
 
-	pub async fn add_instance(&self, instance: &Arc<Identity>) {
-		let mut instances = self.instances.write().await;
-
-		if !instances.iter().any(|i| Arc::ptr_eq(i, instance)) {
-			instances.push(instance.clone());
-		}
-
-		self.update_metadata().await;
-	}
-
-	pub async fn remove_instance(&self, instance: &Arc<Identity>) {
-		self.instances
-			.write()
-			.await
-			.retain(|i| !Arc::ptr_eq(i, instance));
-
-		self.update_metadata().await;
-	}
-
-	#[allow(unused)] // TODO: Should probs be using this
-	async fn update_metadata(&self) {
-		self.metadata_manager.update(PeerMetadata {
-			instances: self
-				.instances
-				.read()
-				.await
-				.iter()
-				.map(|i| hex::encode(i.public_key().to_bytes()))
-				.collect(),
-			..Self::config_to_metadata(&self.node_config_manager.get().await)
-		});
+	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
+	pub async fn update_metadata(&self, instances: Vec<String>) {
+		self.metadata_manager.update(Self::config_to_metadata(
+			&self.node_config_manager.get().await,
+			instances,
+		));
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {

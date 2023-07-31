@@ -246,15 +246,6 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_instance_identities(&self) -> Vec<Arc<Identity>> {
-		self.libraries
-			.read()
-			.await
-			.iter()
-			.map(|lib| lib.identity.clone())
-			.collect()
-	}
-
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
@@ -429,6 +420,8 @@ impl LibraryManager {
 			db,
 			self.clone(),
 		));
+
+		self.node.nsm.load_library(&library).await;
 
 		self.thumbnail_remover.new_library(&library).await;
 		self.libraries.write().await.push(Arc::clone(&library));

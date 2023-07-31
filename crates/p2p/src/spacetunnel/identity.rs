@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use ed25519_dalek::PublicKey;
 use rand_core::OsRng;
 use thiserror::Error;
@@ -35,6 +37,7 @@ impl Identity {
 		self.0.to_bytes().to_vec()
 	}
 
+	// TODO: Remove this cause it's confusing
 	pub fn public_key(&self) -> PublicKey {
 		self.0.public
 	}
@@ -45,6 +48,12 @@ impl Identity {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
+
+impl Hash for RemoteIdentity {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.0.as_bytes().hash(state);
+	}
+}
 
 impl RemoteIdentity {
 	pub fn from_bytes(bytes: &[u8]) -> Result<Self, IdentityErr> {

@@ -13,6 +13,7 @@ pub struct PeerMetadata {
 	pub(super) version: Option<String>,
 	pub(super) email: Option<String>,
 	pub(super) img_url: Option<String>,
+	// TODO: Max vec length to prevent it being used to spam??
 	pub(super) instances: Vec<String>,
 }
 

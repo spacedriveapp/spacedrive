@@ -6,7 +6,7 @@ use crate::{
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
-	p2p::P2PManager,
+	p2p::{sync::NetworkedSyncManager, P2PManager},
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};
@@ -49,6 +49,7 @@ pub struct NodeContext {
 	pub p2p: Arc<P2PManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 	pub notifications: Arc<NotificationManager>,
+	pub nsm: Arc<NetworkedSyncManager>,
 }
 
 pub struct Node {
@@ -92,6 +93,9 @@ impl Node {
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
 		debug!("Initialised 'P2PManager'...");
 
+		let nsm = NetworkedSyncManager::new(p2p.clone());
+		debug!("Initialised 'NetworkedSyncManager'...");
+
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			Arc::new(NodeContext {
@@ -101,12 +105,13 @@ impl Node {
 				p2p: p2p.clone(),
 				event_bus_tx: event_bus.0.clone(),
 				notifications: notifications.clone(),
+				nsm: nsm.clone(),
 			}),
 		)
 		.await?;
 		debug!("Initialised 'LibraryManager'...");
 
-		p2p.start(p2p_stream, library_manager.clone());
+		p2p.start(p2p_stream, library_manager.clone(), nsm);
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
