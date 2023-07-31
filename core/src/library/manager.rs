@@ -459,7 +459,7 @@ impl LibraryManager {
 			.await?
 		{
 			if let Err(e) = library
-				.node_context
+				.ctx
 				.location_manager
 				.add(location.id, library.clone())
 				.await
@@ -468,13 +468,7 @@ impl LibraryManager {
 			};
 		}
 
-		if let Err(e) = library
-			.node_context
-			.job_manager
-			.clone()
-			.cold_resume(&library)
-			.await
-		{
+		if let Err(e) = library.ctx.job_manager.clone().cold_resume(&library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 

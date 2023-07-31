@@ -45,8 +45,8 @@ pub struct Library {
 	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: Arc<SharedContext>,
+	/// holds the node context for the node which this library is running on.
+	pub ctx: Arc<SharedContext>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -84,7 +84,7 @@ impl Library {
 			id,
 			db,
 			config,
-			node_context,
+			ctx: node_context,
 			// key_manager,
 			sync: Arc::new(sync_manager),
 			identity: identity.clone(),
@@ -108,17 +108,17 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node_context.event_bus.0.send(event) {
+		if let Err(e) = self.ctx.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.node_context.config.clone()
+		self.ctx.config.clone()
 	}
 
 	pub(crate) fn location_manager(&self) -> &LocationManager {
-		&self.node_context.location_manager
+		&self.ctx.location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -209,7 +209,7 @@ impl Library {
 			}
 		};
 
-		self.node_context
+		self.ctx
 			.notifications
 			.0
 			.send(Notification {
