@@ -16,7 +16,7 @@ use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
@@ -102,7 +102,7 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
-		let pairing = PairingManager::new(manager.clone(), tx.clone());
+		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
 
 		// TODO: proper shutdown
 		// https://docs.rs/ctrlc/latest/ctrlc/
@@ -175,27 +175,12 @@ impl P2PManager {
 							nlm.peer_connected(event.peer_id).await;
 
 							if event.establisher {
-								let instances = metadata_manager.get().instances;
 								let manager = manager.clone();
 								let nlm = nlm.clone();
+								let instances = metadata_manager.get().instances;
 								tokio::spawn(async move {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
-
-									// TODO: Make this encrypted using node to node auth so it can't be messed with in transport
-
-									stream
-										.write_all(&Header::Connected(instances).to_bytes())
-										.await
-										.unwrap();
-
-									let Header::Connected(identities) =
-									Header::from_stream(&mut stream).await.unwrap() else {
-										panic!("unreachable but error handling")
-									};
-
-									for identity in identities {
-										nlm.peer_connected2(identity, event.peer_id.clone()).await;
-									}
+									Self::resync(nlm, &mut stream, event.peer_id, instances).await;
 								});
 							}
 						}
@@ -318,20 +303,14 @@ impl P2PManager {
 										};
 									}
 									Header::Connected(identities) => {
-										for identity in identities {
-											nlm.peer_connected2(identity, event.peer_id.clone())
-												.await;
-										}
-
-										stream
-											.write_all(
-												&Header::Connected(
-													metadata_manager.get().instances,
-												)
-												.to_bytes(),
-											)
-											.await
-											.unwrap();
+										Self::resync_handler(
+											nlm,
+											&mut stream,
+											event.peer_id,
+											metadata_manager.get().instances,
+											identities,
+										)
+										.await
 									}
 								}
 							});
@@ -373,6 +352,46 @@ impl P2PManager {
 			&self.node_config_manager.get().await,
 			instances,
 		));
+	}
+
+	pub async fn resync(
+		nlm: Arc<NetworkedLibraryManager>,
+		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
+		peer_id: PeerId,
+		instances: Vec<RemoteIdentity>,
+	) {
+		// TODO: Make this encrypted using node to node auth so it can't be messed with in transport
+
+		stream
+			.write_all(&Header::Connected(instances).to_bytes())
+			.await
+			.unwrap();
+
+		let Header::Connected(identities) =
+			Header::from_stream(stream).await.unwrap() else {
+				panic!("unreachable but error handling")
+			};
+
+		for identity in identities {
+			nlm.peer_connected2(identity, peer_id.clone()).await;
+		}
+	}
+
+	pub async fn resync_handler(
+		nlm: Arc<NetworkedLibraryManager>,
+		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
+		peer_id: PeerId,
+		local_identities: Vec<RemoteIdentity>,
+		remote_identities: Vec<RemoteIdentity>,
+	) {
+		for identity in remote_identities {
+			nlm.peer_connected2(identity, peer_id.clone()).await;
+		}
+
+		stream
+			.write_all(&Header::Connected(local_identities).to_bytes())
+			.await
+			.unwrap();
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {

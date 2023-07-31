@@ -1,11 +1,10 @@
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
 use sd_p2p::{
 	proto::{decode, encode},
 	spaceblock::{SpaceblockRequest, SpacedropRequestError},
-	spacetime::UnicastStream,
 	spacetunnel::RemoteIdentity,
 };
 
@@ -35,7 +34,7 @@ pub enum HeaderError {
 }
 
 impl Header {
-	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, HeaderError> {
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> Result<Self, HeaderError> {
 		let discriminator = stream
 			.read_u8()
 			.await
