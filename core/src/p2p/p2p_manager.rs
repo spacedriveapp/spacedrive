@@ -139,6 +139,8 @@ impl P2PManager {
 		nlm: Arc<NetworkedLibraryManager>,
 	) {
 		tokio::spawn({
+			let manager = self.manager.clone();
+			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = self.spacedrop_progress.clone();
@@ -171,6 +173,31 @@ impl P2PManager {
 						Event::PeerConnected(event) => {
 							debug!("Peer '{}' connected", event.peer_id);
 							nlm.peer_connected(event.peer_id).await;
+
+							if event.establisher {
+								let instances = metadata_manager.get().instances;
+								let manager = manager.clone();
+								let nlm = nlm.clone();
+								tokio::spawn(async move {
+									let mut stream = manager.stream(event.peer_id).await.unwrap();
+
+									// TODO: Make this encrypted using node to node auth so it can't be messed with in transport
+
+									stream
+										.write_all(&Header::Connected(instances).to_bytes())
+										.await
+										.unwrap();
+
+									let Header::Connected(identities) =
+									Header::from_stream(&mut stream).await.unwrap() else {
+										panic!("unreachable but error handling")
+									};
+
+									for identity in identities {
+										nlm.peer_connected2(identity, event.peer_id.clone()).await;
+									}
+								});
+							}
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
@@ -178,6 +205,7 @@ impl P2PManager {
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
+							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let library_manager = library_manager.clone();
@@ -280,13 +308,30 @@ impl P2PManager {
 													&event.peer_id,
 													library_id,
 													id,
+													&library.sync,
 												)
 												.await;
 											}
-											SyncMessage::OperationsRequestResponse(_) => {
+											SyncMessage::OperationsRequestResponse(_, _) => {
 												todo!("unreachable but add proper error handling")
 											}
 										};
+									}
+									Header::Connected(identities) => {
+										for identity in identities {
+											nlm.peer_connected2(identity, event.peer_id.clone())
+												.await;
+										}
+
+										stream
+											.write_all(
+												&Header::Connected(
+													metadata_manager.get().instances,
+												)
+												.to_bytes(),
+											)
+											.await
+											.unwrap();
 									}
 								}
 							});

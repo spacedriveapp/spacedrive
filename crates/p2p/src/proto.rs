@@ -61,21 +61,19 @@ pub mod encode {
 
 	/// Serialize string as it's u16 length and data.
 	pub fn string(buf: &mut Vec<u8>, s: &str) {
-		let len_buf = (s.len() as u16).to_le_bytes();
 		if s.len() > u16::MAX as usize {
 			panic!("String is too long!"); // TODO: Chunk this so it will never error
 		}
-		buf.extend_from_slice(&len_buf);
+		buf.extend_from_slice(&(s.len() as u16).to_le_bytes());
 		buf.extend(s.as_bytes());
 	}
 
 	/// Serialize buf as it's u16 length and data.
 	pub fn buf(buf: &mut Vec<u8>, b: &[u8]) {
-		let len_buf = (b.len() as u32).to_le_bytes();
 		if b.len() > u32::MAX as usize {
 			panic!("Buf is too long!"); // TODO: Chunk this so it will never error
 		}
-		buf.extend_from_slice(&len_buf);
+		buf.extend_from_slice(&(b.len() as u32).to_le_bytes());
 		buf.extend(b);
 	}
 }

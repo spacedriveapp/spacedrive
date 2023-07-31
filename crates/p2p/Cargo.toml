@@ -36,6 +36,7 @@ p384 = { version = "0.13.0", feature = ["ecdh"] }
 ed25519-dalek = { version = "1.0.1", features = ["rand"] }
 rand_core = { version = "0.5.1", feature = ["getrandom"] }
 uuid = "1.4.0"
+hex = "0.4.3"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

@@ -1,18 +1,25 @@
+use sd_p2p::proto::{decode, encode};
+use sd_sync::CRDTOperation;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyncMessage {
 	NewOperations,
 	OperationsRequest(u8),
-	OperationsRequestResponse(u8),
+	OperationsRequestResponse(u8, Vec<CRDTOperation>),
 }
 
 impl SyncMessage {
+	// TODO: Per field errors for better error handling
 	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
 		match stream.read_u8().await? {
 			b'N' => Ok(Self::NewOperations),
 			b'R' => Ok(Self::OperationsRequest(stream.read_u8().await?)),
-			b'P' => Ok(Self::OperationsRequestResponse(stream.read_u8().await?)),
+			b'P' => Ok(Self::OperationsRequestResponse(
+				stream.read_u8().await?,
+				// TODO: Error handling
+				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
+			)),
 			header => Err(std::io::Error::new(
 				std::io::ErrorKind::InvalidData,
 				format!(
@@ -27,13 +34,23 @@ impl SyncMessage {
 		match self {
 			Self::NewOperations => vec![b'N'],
 			Self::OperationsRequest(s) => vec![b'R', *s],
-			Self::OperationsRequestResponse(s) => vec![b'P', *s],
+			Self::OperationsRequestResponse(s, ops) => {
+				let mut buf = vec![b'P', *s];
+				// TODO: Error handling
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
+				buf
+			}
 		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
+	use sd_core_sync::NTP64;
+	use sd_sync::SharedOperation;
+	use serde_json::Value;
+	use uuid::Uuid;
+
 	use super::*;
 
 	#[tokio::test]
@@ -55,7 +72,27 @@ mod tests {
 		}
 
 		{
-			let original = SyncMessage::OperationsRequestResponse(2);
+			let original = SyncMessage::OperationsRequestResponse(2, vec![]);
+
+			let mut cursor = std::io::Cursor::new(original.to_bytes());
+			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();
+			assert_eq!(original, result);
+		}
+
+		{
+			let original = SyncMessage::OperationsRequestResponse(
+				2,
+				vec![CRDTOperation {
+					instance: Uuid::new_v4(),
+					timestamp: NTP64(0),
+					id: Uuid::new_v4(),
+					typ: sd_sync::CRDTOperationType::Shared(SharedOperation {
+						record_id: Value::Null,
+						model: "name".to_string(),
+						data: sd_sync::SharedOperationData::Create,
+					}),
+				}],
+			);
 
 			let mut cursor = std::io::Cursor::new(original.to_bytes());
 			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();

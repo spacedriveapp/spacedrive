@@ -166,7 +166,7 @@ impl LibraryManager {
 		description: Option<String>,
 		node_cfg: NodeConfig,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true)
+		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true, None)
 			.await
 	}
 
@@ -177,6 +177,8 @@ impl LibraryManager {
 		description: Option<String>,
 		node_cfg: NodeConfig,
 		should_seed: bool,
+		// `None` will fallback to default as library must be created with at least one instance
+		instance: Option<instance::Create>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -187,7 +189,8 @@ impl LibraryManager {
 		let config = LibraryConfig {
 			name,
 			description,
-			instance_id: 0, // First instance will always be zero
+			// First instance will be zero
+			instance_id: 0,
 		};
 
 		let config_path = self.libraries_dir.join(format!("{id}.sdlibrary"));
@@ -205,16 +208,20 @@ impl LibraryManager {
 				id,
 				self.libraries_dir.join(format!("{id}.db")),
 				config_path,
-				Some(instance::Create {
-					pub_id: Uuid::new_v4().as_bytes().to_vec(),
-					identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
-					node_id: node_cfg.id.as_bytes().to_vec(),
-					node_name: node_cfg.name.clone(),
-					node_platform: Platform::current() as i32,
-					last_seen: now,
-					date_created: now,
-					// timestamp: Default::default(), // TODO: Source this properly!
-					_params: vec![instance::id::set(config.instance_id)],
+				Some({
+					let mut create = instance.unwrap_or_else(|| instance::Create {
+						pub_id: Uuid::new_v4().as_bytes().to_vec(),
+						identity: IdentityOrRemoteIdentity::Identity(Identity::new()).to_bytes(),
+						node_id: node_cfg.id.as_bytes().to_vec(),
+						node_name: node_cfg.name.clone(),
+						node_platform: Platform::current() as i32,
+						last_seen: now,
+						date_created: now,
+						// timestamp: Default::default(), // TODO: Source this properly!
+						_params: vec![],
+					});
+					create._params.push(instance::id::set(config.instance_id));
+					create
 				}),
 				should_seed,
 			)

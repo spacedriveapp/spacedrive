@@ -41,12 +41,20 @@ impl Identity {
 		RemoteIdentity(self.0.public)
 	}
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
 
 impl Hash for RemoteIdentity {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.0.as_bytes().hash(state);
+	}
+}
+
+impl std::fmt::Debug for RemoteIdentity {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_tuple("RemoteIdentity")
+			.field(&hex::encode(self.0.as_bytes()))
+			.finish()
 	}
 }
 

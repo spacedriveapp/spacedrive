@@ -12,11 +12,12 @@ use std::{
 };
 
 use serde_json::to_vec;
-use tokio::sync::{broadcast, mpsc};
-use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
+use tokio::sync::{broadcast, mpsc, Mutex};
+use uhlc::{HLCBuilder, Timestamp, HLC};
 use uuid::Uuid;
 
 pub use sd_prisma::prisma_sync;
+pub use uhlc::NTP64;
 
 #[derive(Clone)]
 pub enum SyncMessage {
@@ -27,7 +28,8 @@ pub enum SyncMessage {
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
 	instance: Uuid,
-	_clocks: HashMap<Uuid, NTP64>,
+	// TODO: Remove `Mutex` and store this on `ingest` actor
+	_clocks: Mutex<HashMap<Uuid, NTP64>>,
 	clock: HLC,
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Actor,
@@ -293,15 +295,13 @@ impl SyncManager {
 			.unwrap_or_default()
 	}
 
-	pub async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
+	pub async fn receive_crdt_operation(&self, op: CRDTOperation) {
 		self.clock
 			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
 			.ok();
 
-		let timestamp = self
-			._clocks
-			.entry(op.instance)
-			.or_insert_with(|| op.timestamp);
+		let mut clocks = self._clocks.lock().await;
+		let timestamp = clocks.entry(op.instance).or_insert_with(|| op.timestamp);
 
 		if *timestamp < op.timestamp {
 			*timestamp = op.timestamp;

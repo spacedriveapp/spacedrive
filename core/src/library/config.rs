@@ -247,7 +247,7 @@ impl Migrate for LibraryConfig {
 								vec![instance::identity::set(
 									// This code is assuming you only have the current node.
 									// If you've paired your node with another node, reset your db.
-									IdentityOrRemoteIdentity::from(
+									IdentityOrRemoteIdentity::Identity(
 										Identity::from_bytes(&i.identity).unwrap(),
 									)
 									.to_bytes(),

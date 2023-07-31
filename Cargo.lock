@@ -7286,6 +7286,7 @@ dependencies = [
  "arc-swap",
  "ed25519-dalek",
  "flume",
+ "hex",
  "if-watch",
  "libp2p",
  "libp2p-quic",

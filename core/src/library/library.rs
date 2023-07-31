@@ -82,17 +82,6 @@ impl Library {
 
 		manager.node.nlm.load_library(&library).await;
 
-		// TODO(@Oscar): Remove this
-		// tokio::spawn({
-		// 	let node = manager.node.clone();
-		// 	async move {
-		// 		loop {
-		// 			node.nlm.alert_new_ops(id.clone()).await;
-		// 			tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-		// 		}
-		// 	}
-		// });
-
 		tokio::spawn({
 			let sync = library.sync.clone();
 
@@ -108,13 +97,18 @@ impl Library {
 								Request::Messages(tunnel, peer_id, msg_id) => {
 									manager.node.nlm.request_and_ingest_ops(tunnel, peer_id, msg_id, &sync, &id).await;
 								},
+								Request::Ingest(ops) => {
+									for op in ops.into_iter() {
+										sync.receive_crdt_operation(op).await;
+									}
+								}
 							}
 						},
 						msg = sync_rx.recv() => {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.nlm.alert_new_ops(id).await;
+								manager.node.nlm.alert_new_ops(id, &sync).await;
 							}
 						},
 					}

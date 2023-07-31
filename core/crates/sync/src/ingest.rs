@@ -1,6 +1,7 @@
 use std::future::Future;
 
 use sd_p2p::{spacetunnel::Tunnel, PeerId};
+use sd_sync::CRDTOperation;
 use tokio::sync::{mpsc, oneshot};
 
 pub struct Actor {
@@ -54,11 +55,12 @@ impl<TReq, TResp> ReqRes<TReq, TResp> {
 #[must_use]
 pub enum Request {
 	Messages(Tunnel, PeerId, u8),
+	Ingest(Vec<CRDTOperation>),
 }
 
 pub enum Event {
 	Notification(Tunnel, PeerId),
-	Messages(u8),
+	Messages(u8, Vec<CRDTOperation>),
 }
 
 #[derive(Debug)]
@@ -108,7 +110,10 @@ impl Actor {
 						State::ExecutingMessagesRequest
 					}
 					State::ExecutingMessagesRequest => {
-						let data = wait!(events_rx, Event::Messages(data) => data);
+						let (data, ops) =
+							wait!(events_rx, Event::Messages(data, ops) => (data, ops));
+
+						req_tx.send(Request::Ingest(ops)).await.ok();
 
 						dbg!(&data);
 

@@ -17,18 +17,6 @@ pub enum IdentityOrRemoteIdentity {
 	RemoteIdentity(RemoteIdentity),
 }
 
-impl From<Identity> for IdentityOrRemoteIdentity {
-	fn from(value: Identity) -> Self {
-		Self::Identity(value)
-	}
-}
-
-impl From<RemoteIdentity> for IdentityOrRemoteIdentity {
-	fn from(value: RemoteIdentity) -> Self {
-		Self::RemoteIdentity(value)
-	}
-}
-
 impl IdentityOrRemoteIdentity {
 	pub fn remote_identity(&self) -> RemoteIdentity {
 		match self {

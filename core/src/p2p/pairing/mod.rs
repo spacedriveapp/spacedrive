@@ -141,6 +141,18 @@ impl PairingManager {
 						return;
 					}
 
+					let (this, instances): (Vec<_>, Vec<_>) = instances
+						.into_iter()
+						.partition(|i| i.id == self_instance_id);
+
+					if this.len() != 1 {
+						todo!("error handling");
+					}
+					let this = this.first().expect("unreachable");
+					if this.identity != identity.to_remote_identity() {
+						todo!("error handling. Something went really wrong!");
+					}
+
 					let library = library_manager
 						.create_with_uuid(
 							library_id,
@@ -148,47 +160,47 @@ impl PairingManager {
 							library_description,
 							node_config,
 							false, // We will sync everything which will conflict with the seeded stuff
+							Some(instance::Create {
+								pub_id: this.id.as_bytes().to_vec(),
+								identity: IdentityOrRemoteIdentity::Identity(identity).to_bytes(),
+								node_id: this.node_id.as_bytes().to_vec(),
+								node_name: this.node_name.clone(), // TODO: Remove `clone`
+								node_platform: this.node_platform as i32,
+								last_seen: this.last_seen.into(),
+								date_created: this.date_created.into(),
+								// timestamp: Default::default(), // TODO: Source this properly!
+								_params: vec![],
+							}),
 						)
 						.await
 						.unwrap();
 
 					let library = library_manager.get_library(library.id).await.unwrap();
 
-					let mut identity = Some(identity);
-					let instances = instances
-						.into_iter()
-						.map(|i| {
-							instance::CreateUnchecked {
-								pub_id: i.id.as_bytes().to_vec(),
-								// TODO: Validate `i.identity` is the same as `identity` in case something went weird on the remote.
-								identity: match i.id == self_instance_id {
-									true => Into::<IdentityOrRemoteIdentity>::into(
-										identity
-											.take()
-											.expect("Multiple instances returned for self!"),
-									),
-									false => Into::<IdentityOrRemoteIdentity>::into(i.identity),
-								}
-								.to_bytes(),
-								node_id: i.node_id.as_bytes().to_vec(),
-								node_name: i.node_name,
-								node_platform: i.node_platform as i32,
-								last_seen: i.last_seen.into(),
-								date_created: i.date_created.into(),
-								// timestamp: Default::default(), // TODO: Source this properly!
-								_params: vec![],
-							}
-						})
-						.collect::<Vec<_>>();
-
-					if identity.is_some() {
-						todo!("Something went wrong. No instance returned for self!");
-					}
-
 					library
 						.db
 						.instance()
-						.create_many(instances)
+						.create_many(
+							instances
+								.into_iter()
+								.map(|i| {
+									instance::CreateUnchecked {
+										pub_id: i.id.as_bytes().to_vec(),
+										identity: IdentityOrRemoteIdentity::RemoteIdentity(
+											i.identity,
+										)
+										.to_bytes(),
+										node_id: i.node_id.as_bytes().to_vec(),
+										node_name: i.node_name,
+										node_platform: i.node_platform as i32,
+										last_seen: i.last_seen.into(),
+										date_created: i.date_created.into(),
+										// timestamp: Default::default(), // TODO: Source this properly!
+										_params: vec![],
+									}
+								})
+								.collect(),
+						)
 						.exec()
 						.await
 						.unwrap();
@@ -286,7 +298,7 @@ impl PairingManager {
 		// TODO: Rollback this on pairing failure
 		instance::Create {
 			pub_id: remote_instance.id.as_bytes().to_vec(),
-			identity: Into::<IdentityOrRemoteIdentity>::into(remote_instance.identity).to_bytes(),
+			identity: IdentityOrRemoteIdentity::RemoteIdentity(remote_instance.identity).to_bytes(),
 			node_id: remote_instance.node_id.as_bytes().to_vec(),
 			node_name: remote_instance.node_name,
 			node_platform: remote_instance.node_platform as i32,

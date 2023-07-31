@@ -65,14 +65,15 @@ impl NetworkedLibraryManager {
 			LibraryData {
 				instances: instances
 					.into_iter()
-					.map(|i| {
-						(
-							// TODO: Error handling
-							IdentityOrRemoteIdentity::from_bytes(&i.identity)
-								.unwrap()
-								.remote_identity(),
-							InstanceState::Unavailable,
-						)
+					.filter_map(|i| {
+						// TODO: Error handling
+						match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
+							IdentityOrRemoteIdentity::Identity(identity) => {
+								Some((identity.to_remote_identity(), InstanceState::Unavailable))
+							}
+							// We don't own it so don't advertise it
+							IdentityOrRemoteIdentity::RemoteIdentity(_) => None,
+						}
 					})
 					.collect(),
 			},
@@ -130,6 +131,7 @@ impl NetworkedLibraryManager {
 
 	pub async fn peer_connected(&self, peer_id: PeerId) {
 		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
+		// TODO: Hence part of the need for `Self::peer_connected2`
 		for lib in self.libraries.write().await.values_mut() {
 			for instance in lib.instances.values_mut() {
 				if let InstanceState::Discovered(id) = instance {
@@ -142,12 +144,23 @@ impl NetworkedLibraryManager {
 		}
 	}
 
+	// TODO: Remove need for this cause it's weird
+	pub async fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
+		for lib in self.libraries.write().await.values_mut() {
+			if let Some(instance) = lib.instances.get_mut(&instance_id) {
+				*instance = InstanceState::Connected(peer_id.clone());
+				return; // Will only exist once so we short circuit
+			}
+		}
+	}
+
 	pub async fn peer_disconnected(&self, peer_id: PeerId) {
 		for lib in self.libraries.write().await.values_mut() {
 			for instance in lib.instances.values_mut() {
 				if let InstanceState::Connected(id) = instance {
 					if *id == peer_id {
 						*instance = InstanceState::Unavailable;
+						return; // Will only exist once so we short circuit
 					}
 				}
 			}
@@ -155,11 +168,13 @@ impl NetworkedLibraryManager {
 	}
 
 	// TODO: Error handling
-	pub async fn alert_new_ops(&self, library_id: Uuid) {
-		let libraries = self.libraries.read().await;
+	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<SyncManager>) {
+		debug!("NetworkedLibraryManager::alert_new_ops({library_id})");
 
 		join_all(
-			libraries
+			self.libraries
+				.read()
+				.await
 				.get(&library_id)
 				.unwrap()
 				.instances
@@ -168,6 +183,7 @@ impl NetworkedLibraryManager {
 					InstanceState::Connected(peer_id) => Some(peer_id),
 					_ => None,
 				})
+				// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
 				.map(|peer_id| {
 					let p2p = self.p2p.clone();
 					async move {
@@ -187,13 +203,14 @@ impl NetworkedLibraryManager {
 							.write_all(&SyncMessage::NewOperations.to_bytes())
 							.await
 							.unwrap();
+						tunnel.flush().await.unwrap();
 
 						let id = match SyncMessage::from_stream(&mut tunnel).await.unwrap() {
 							SyncMessage::OperationsRequest(resp) => resp,
 							_ => todo!("unreachable but proper error handling"),
 						};
 
-						self.exchange_sync_ops(tunnel, peer_id, library_id, id)
+						self.exchange_sync_ops(tunnel, peer_id, library_id, id, sync)
 							.await;
 					}
 				}),
@@ -214,8 +231,9 @@ impl NetworkedLibraryManager {
 			.write_all(&SyncMessage::OperationsRequest(id).to_bytes())
 			.await
 			.unwrap();
+		tunnel.flush().await.unwrap();
 
-		let SyncMessage::OperationsRequestResponse(id) = SyncMessage::from_stream(&mut tunnel).await.unwrap() else {
+		let SyncMessage::OperationsRequestResponse(id, ops) = SyncMessage::from_stream(&mut tunnel).await.unwrap() else {
 			todo!("unreachable but proper error handling")
 		};
 
@@ -223,23 +241,27 @@ impl NetworkedLibraryManager {
 
 		sync.ingest
 			.events
-			.send(ingest::Event::Messages(id))
+			.send(ingest::Event::Messages(id, ops))
 			.await
-			.ok();
+			.map_err(|_| "TODO: Handle ingest channel closed, so we don't loose ops")
+			.unwrap();
 	}
 
+	// TODO: Error handling
 	pub async fn exchange_sync_ops(
 		&self,
 		mut tunnel: Tunnel,
 		peer_id: &PeerId,
 		library_id: Uuid,
 		id: u8,
+		sync: &Arc<SyncManager>,
 	) {
-		debug!("Received sync events request w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
+		let ops = sync.get_ops().await.unwrap();
 
-		// TODO: Get operations delta and send back delta
+		debug!("Sending '{}' sync ops w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'", ops.len());
+
 		tunnel
-			.write_all(&SyncMessage::OperationsRequestResponse(id).to_bytes())
+			.write_all(&SyncMessage::OperationsRequestResponse(id, ops).to_bytes())
 			.await
 			.unwrap();
 	}
