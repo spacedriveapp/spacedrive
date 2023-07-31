@@ -258,7 +258,7 @@ impl P2PManager {
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
-											SyncMessage::from_tunnel(&mut tunnel).await.unwrap();
+											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
 										let library =
 											library_manager.get_library(library_id).await.unwrap();

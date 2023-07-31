@@ -12,10 +12,7 @@ use std::{
 };
 
 use serde_json::to_vec;
-use tokio::sync::{
-	broadcast::{self, Receiver, Sender},
-	mpsc,
-};
+use tokio::sync::{broadcast, mpsc};
 use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
 use uuid::Uuid;
 
@@ -32,7 +29,7 @@ pub struct SyncManager {
 	instance: Uuid,
 	_clocks: HashMap<Uuid, NTP64>,
 	clock: HLC,
-	pub tx: Sender<SyncMessage>,
+	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Actor,
 }
 
