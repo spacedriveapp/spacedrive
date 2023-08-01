@@ -1,6 +1,7 @@
 import { Copy, Fingerprint, Folder, Image, Scissors, Trash } from 'phosphor-react';
-import { JobProgressEvent, JobReport, formatNumber } from '@sd/client';
-import { TextItems } from './JobContainer';
+import { TextItems } from '.';
+import { formatNumber } from '../..';
+import { JobProgressEvent, JobReport } from '../../core';
 
 interface JobNiceData {
 	name: string;
@@ -8,7 +9,7 @@ interface JobNiceData {
 	textItems: TextItems;
 }
 
-export default function useJobInfo(
+export function useJobInfo(
 	job: JobReport,
 	realtimeUpdate: JobProgressEvent | null
 ): Record<string, JobNiceData> {

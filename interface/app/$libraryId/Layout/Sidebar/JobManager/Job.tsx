@@ -1,10 +1,9 @@
 import { Info, Question } from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
-import { JobProgressEvent, JobReport, useLibrarySubscription } from '@sd/client';
+import { JobProgressEvent, JobReport, useJobInfo, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
-import useJobInfo from './useJobInfo';
 
 interface JobProps {
 	job: JobReport;

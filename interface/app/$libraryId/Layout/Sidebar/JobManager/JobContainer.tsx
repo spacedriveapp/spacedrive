@@ -1,4 +1,3 @@
-/* eslint-disable tailwindcss/classnames-order */
 import clsx from 'clsx';
 import { ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode, forwardRef } from 'react';
 import { Tooltip, tw } from '@sd/ui';

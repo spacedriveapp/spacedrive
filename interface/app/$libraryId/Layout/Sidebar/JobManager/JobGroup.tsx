@@ -1,4 +1,3 @@
-/* eslint-disable no-case-declarations */
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
@@ -7,14 +6,15 @@ import { Fragment, useEffect, useState } from 'react';
 import {
 	JobGroup as IJobGroup,
 	JobProgressEvent,
-	JobReport,
+	getJobniceActionName,
+	getTotalTasks,
 	useLibraryMutation,
-	useLibrarySubscription
+	useLibrarySubscription,
+	useTotalElapsedTimeText
 } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
-import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 
 interface JobGroupProps {
 	data: IJobGroup;
@@ -50,7 +50,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 		}
 	}, [data.status]);
 
-	const tasks = totalTasks(jobs);
+	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
 	if (!jobs.length) return <></>;
@@ -125,7 +125,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
 						iconImg={Folder}
-						name={niceActionName(
+						name={getJobniceActionName(
 							data.action ?? '',
 							data.status === 'Completed',
 							jobs[0]
@@ -178,31 +178,6 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 			)}
 		</ul>
 	);
-}
-
-function totalTasks(jobs: JobReport[]) {
-	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
-
-	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
-		tasks.total += task_count;
-		tasks.completed += status === 'Completed' ? task_count : completed_task_count;
-		if (status === 'Completed') {
-			tasks.timeOfLastFinishedJob = completed_at || '';
-		}
-	});
-
-	return tasks;
-}
-
-function niceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = job?.metadata?.location?.name || 'Unknown';
-	switch (action) {
-		case 'scan_location':
-			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
-		case 'scan_location_sub_path':
-			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
-	}
-	return action;
 }
 
 export default JobGroup;
