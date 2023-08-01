@@ -45,7 +45,11 @@ export default function HomePage() {
 					return { isWindows, isMacOs, isMobile };
 				}
 			);
-			setDeviceOs({ isWindows: os.isWindows, isMacOs: os.isMacOs, isMobile: os.isMobile });
+			setDeviceOs({
+				isWindows: os.isWindows,
+				isMacOs: os.isMacOs,
+				isMobile: os.isMobile
+			});
 		})();
 		const fadeStart = 300; // start fading out at 100px
 		const fadeEnd = 1300; // end fading out at 300px
@@ -161,10 +165,7 @@ export default function HomePage() {
 							{deviceOs?.isWindows && (
 								<source src={'/images/ball.webm'} type={'video/webm'} />
 							)}
-							{deviceOs?.isMacOs && (
-								<source src={'/images/ball.mp4'} type={'video/mp4'} />
-							)}
-							{deviceOs?.isMobile && (
+							{(deviceOs?.isMacOs || deviceOs?.isMobile) && (
 								<source src={'/images/ball.mp4'} type={'video/mp4'} />
 							)}
 						</video>
