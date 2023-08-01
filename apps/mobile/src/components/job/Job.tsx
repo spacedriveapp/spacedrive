@@ -21,8 +21,8 @@ function Job({ job }: JobProps) {
 	const isRunning = job.status === 'Running';
 	const isPaused = job.status === 'Paused';
 
-	const task_count = realtimeUpdate?.task_count || job.task_count;
-	const completed_task_count = realtimeUpdate?.completed_task_count || job.completed_task_count;
+	const taskCount = realtimeUpdate?.task_count || job.task_count;
+	const completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count;
 
 	// clear stale realtime state when job is done
 	useEffect(() => {

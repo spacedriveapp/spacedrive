@@ -30,7 +30,7 @@ export function getTotalTasks(jobs: JobReport[]) {
 	return tasks;
 }
 
-export function getJobniceActionName(action: string, completed: boolean, job?: JobReport) {
+export function getJobNiceActionName(action: string, completed: boolean, job?: JobReport) {
 	const name = job?.metadata?.location?.name || 'Unknown';
 	switch (action) {
 		case 'scan_location':

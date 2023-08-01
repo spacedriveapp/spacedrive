@@ -6,7 +6,7 @@ import { Fragment, useEffect, useState } from 'react';
 import {
 	JobGroup as IJobGroup,
 	JobProgressEvent,
-	getJobniceActionName,
+	getJobNiceActionName,
 	getTotalTasks,
 	useLibraryMutation,
 	useLibrarySubscription,
@@ -125,7 +125,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
 						iconImg={Folder}
-						name={getJobniceActionName(
+						name={getJobNiceActionName(
 							data.action ?? '',
 							data.status === 'Completed',
 							jobs[0]
