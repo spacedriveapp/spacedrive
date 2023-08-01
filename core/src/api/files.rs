@@ -47,6 +47,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
+		.procedure("locationIdToPathQuery", {
+			#[derive(Type, Deserialize)]
+			pub struct GetLocationArgs {
+				pub location_id: i32,
+			}
+			R.with2(library())
+				.query(|(_, library), args: GetLocationArgs| async move {
+					let location_path = find_location(&library, args.location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(args.location_id))?
+						.path
+						.ok_or(LocationError::MissingPath(args.location_id))?;
+					Ok(location_path)
+				})
+		})
 		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
 			pub struct SetNoteArgs {
