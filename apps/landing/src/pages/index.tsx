@@ -33,13 +33,19 @@ const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-lin
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(1);
-	const [deviceOs, setDeviceOs] = useState<null | { isWindows: boolean; isMacOs: boolean }>(null);
+	const [deviceOs, setDeviceOs] = useState<null | {
+		isWindows: boolean;
+		isMacOs: boolean;
+		isMobile: boolean;
+	}>(null);
 	useEffect(() => {
 		(async () => {
-			const os = await import('react-device-detect').then(({ isWindows, isMacOs }) => {
-				return { isWindows, isMacOs };
-			});
-			setDeviceOs({ isWindows: os.isWindows, isMacOs: os.isMacOs });
+			const os = await import('react-device-detect').then(
+				({ isWindows, isMacOs, isMobile }) => {
+					return { isWindows, isMacOs, isMobile };
+				}
+			);
+			setDeviceOs({ isWindows: os.isWindows, isMacOs: os.isMacOs, isMobile: os.isMobile });
 		})();
 		const fadeStart = 300; // start fading out at 100px
 		const fadeEnd = 1300; // end fading out at 300px
@@ -93,7 +99,7 @@ export default function HomePage() {
 					className="absolute-horizontal-center h-[150px] w-[60%] overflow-hidden
 				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-70 blur-[80px] md:blur-[150px]"
 				/>
-				<div className="flex flex-col items-center w-full px-4">
+				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -102,10 +108,10 @@ export default function HomePage() {
 						link="Read post"
 					/>
 
-					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
+					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -156,6 +162,9 @@ export default function HomePage() {
 								<source src={'/images/ball.webm'} type={'video/webm'} />
 							)}
 							{deviceOs?.isMacOs && (
+								<source src={'/images/ball.mp4'} type={'video/mp4'} />
+							)}
+							{deviceOs?.isMobile && (
 								<source src={'/images/ball.mp4'} type={'video/mp4'} />
 							)}
 						</video>
@@ -219,7 +228,7 @@ const LineAnimation = memo(() => {
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="opacity-0 left-line bg-gradient-to-r from-transparent to-white/50"
+					className="left-line bg-gradient-to-r from-transparent to-white/50 opacity-0"
 				/>
 			))}
 			{[...Array(numberOfLines)].map((_, i) => (
@@ -238,7 +247,7 @@ const LineAnimation = memo(() => {
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="opacity-0 bg-gradient-to-b from-transparent to-white/50"
+					className="bg-gradient-to-b from-transparent to-white/50 opacity-0"
 				/>
 			))}
 		</>
