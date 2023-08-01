@@ -93,7 +93,7 @@ export default function HomePage() {
 					className="absolute-horizontal-center h-[150px] w-[60%] overflow-hidden
 				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-70 blur-[80px] md:blur-[150px]"
 				/>
-				<div className="flex w-full flex-col items-center px-4">
+				<div className="flex flex-col items-center w-full px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -102,10 +102,10 @@ export default function HomePage() {
 						link="Read post"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
+					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -160,8 +160,8 @@ export default function HomePage() {
 							)}
 						</video>
 						<div
-							className="xl2: z-30 mt-[24%] flex h-[255px] w-full px-6
-						 xs:mt-[170px] sm:mt-20 sm:h-[428px] md:mt-[250px] md:h-[428px] lg:mt-[310px] lg:h-[628px]"
+							className="xl2: z-30 mt-[60px] flex h-[255px] w-full px-6
+						 xs:mt-[170px] sm:mt-[110px] sm:h-[428px] md:mt-[180px] md:h-[428px] lg:mt-[280px] lg:h-[628px]"
 						>
 							<AppFrameOuter className="relative overflow-hidden">
 								<LineAnimation />
@@ -189,40 +189,56 @@ export default function HomePage() {
 }
 
 const LineAnimation = memo(() => {
+	const [numberOfLines, setNumberOfLines] = useState(1);
+	const [isMounted, setIsMounted] = useState(false);
+	useEffect(() => {
+		setIsMounted(true);
+		const randomlySetNumberOfLines = () => {
+			return setInterval(() => {
+				setNumberOfLines(Math.floor(Math.random() * 3));
+			}, 5000);
+		};
+		randomlySetNumberOfLines();
+		return () => clearInterval(randomlySetNumberOfLines());
+	}, []);
 	return (
 		<>
-			{[...Array(3)].map((_, i) => (
+			{[...Array(numberOfLines)].map((_, i) => (
 				<div
 					key={i}
 					style={{
-						animation: `left-line-animation-fade ${
-							3 + Math.random() * 2
-						}s ease-in-out infinite`,
-						animationDelay: `${Math.floor(i * Math.random() + 1 * 3)}s`,
-						width: `${Math.random() * 50 + 50}px`,
+						animation: isMounted
+							? `left-line-animation-fade ${Math.floor(
+									Math.random() + Math.floor(Math.random() * 2) + 2
+							  )}s ease-in-out infinite`
+							: '',
+						animationDelay: `${Math.floor(Math.random() * 3)}s`,
+						width: `${isMounted && Math.floor(Math.random() * 50) + 50}px`,
 						height: '1px',
 						top: 0,
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="bg-gradient-to-r from-transparent to-white/50 opacity-0"
+					className="opacity-0 left-line bg-gradient-to-r from-transparent to-white/50"
 				/>
 			))}
-			{[...Array(3)].map((_, i) => (
+			{[...Array(numberOfLines)].map((_, i) => (
 				<div
 					key={i}
 					style={{
-						animation: `top-line-animation-fade ${
-							3 + Math.random() * 2
-						}s ease-in-out infinite`,
-						animationDelay: `${Math.floor(i * Math.random() + 1 * 3)}s`,
-						height: `${Math.random() * 50 + 30}px`,
+						animation: isMounted
+							? `top-line-animation-fade ${Math.floor(
+									Math.random() + Math.floor(Math.random() * 2) + 2
+							  )}s ease-in-out infinite`
+							: '',
+						animationDelay: `${Math.floor(Math.random() * 3)}s`,
+						height: `${isMounted && Math.floor(Math.random() * 2) + 30}px`,
 						width: '1px',
 						right: 0,
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="bg-gradient-to-b from-transparent to-white/50 opacity-0"
+					className="opacity-0 bg-gradient-to-b from-transparent to-white/50"
 				/>
 			))}
 		</>
