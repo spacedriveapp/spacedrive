@@ -16,6 +16,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import Accordion from '~/components/Accordion';
 import { useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
@@ -62,7 +63,9 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
 		enabled: readyToFetch
 	});
-
+	const mediaData = useLibraryQuery(['files.getMediaData', { id: objectData?.id || -1 }], {
+		enabled: readyToFetch && objectData?.id !== undefined
+	});
 	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
 		enabled: readyToFetch && objectData?.id !== undefined
 	});
@@ -82,7 +85,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+						<h3 className="px-3 pt-2 pb-1 text-base font-bold truncate">
 							{filePathData?.name}
 							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
@@ -164,9 +167,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 								<MetaTextLine>
 									<InspectorIcon component={Clock} />
 									<span className="mr-1.5">Duration</span>
-									<MetaValue>
-										{fullObjectData.data.media_data.duration}
-									</MetaValue>
+									<MetaValue>{fullObjectData.data.media_data.duration}</MetaValue>
 								</MetaTextLine>
 							)}
 						</MetaContainer>
@@ -196,6 +197,9 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaTextLine>
 								</Tooltip>
 							)}
+							<Accordion className="mt-2" title="More details">
+								<p className="text-xs">data here</p>
+							</Accordion>
 						</MetaContainer>
 
 						{!isDir && objectData && (
@@ -240,7 +244,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 					</div>
 				</>
 			) : (
-				<div className="flex w-full flex-col items-center justify-center">
+				<div className="flex flex-col items-center justify-center w-full">
 					<img src={isDark ? Image : Image_Light} />
 					<div
 						className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center

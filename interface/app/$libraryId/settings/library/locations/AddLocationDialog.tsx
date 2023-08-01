@@ -12,6 +12,7 @@ import {
 } from '@sd/client';
 import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
 import IndexerRuleEditor from './IndexerRuleEditor';
@@ -67,7 +68,6 @@ export const AddLocationDialog = ({
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
-	const [toggleSettings, setToggleSettings] = useState(false);
 
 	// This is required because indexRules is undefined on first render
 	const indexerRulesIds = useMemo(
@@ -216,7 +216,7 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
 
 			<InputField
 				size="md"
@@ -233,37 +233,21 @@ export const AddLocationDialog = ({
 
 			<input type="hidden" {...form.register('method')} />
 
-			<div className="rounded-md border border-app-line bg-app-darkBox">
-				<div
-					onClick={() => setToggleSettings((t) => !t)}
-					className="flex items-center justify-between px-3 py-2"
-				>
-					<p className="text-sm">Advanced settings</p>
-					<CaretDown
-						className={clsx(
-							toggleSettings && 'rotate-180',
-							'transition-all duration-200'
-						)}
-					/>
-				</div>
-				{toggleSettings && (
-					<div className="rounded-b-md border-t border-app-line bg-app-box p-3 pt-2">
-						<Controller
-							name="indexerRulesIds"
-							render={({ field }) => (
-								<IndexerRuleEditor
-									field={field}
-									label="File indexing rules:"
-									className="relative flex flex-col"
-									rulesContainerClass="grid grid-cols-2 gap-1"
-									ruleButtonClass="w-full"
-								/>
-							)}
-							control={form.control}
+			<Accordion title="Advanced settings">
+				<Controller
+					name="indexerRulesIds"
+					render={({ field }) => (
+						<IndexerRuleEditor
+							field={field}
+							label="File indexing rules:"
+							className="relative flex flex-col"
+							rulesContainerClass="grid grid-cols-2 gap-1"
+							ruleButtonClass="w-full"
 						/>
-					</div>
-				)}
-			</div>
+					)}
+					control={form.control}
+				/>
+			</Accordion>
 		</Dialog>
 	);
 };
