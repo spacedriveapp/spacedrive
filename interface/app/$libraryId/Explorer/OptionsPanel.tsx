@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { type SortOrder, SortOrderSchema } from '~/app/route-schemas';
 import { getExplorerConfigStore, useExplorerConfigStore } from './config';
@@ -5,17 +6,21 @@ import { FilePathSearchOrderingKeys, getExplorerStore, useExplorerStore } from '
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-export const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
-	'none': 'None',
-	'name': 'Name',
-	'sizeInBytes': 'Size',
-	'dateCreated': 'Date created',
-	'dateModified': 'Date modified',
+export const sortOptions = {
+	none: 'None',
+	name: 'Name',
+	sizeInBytes: 'Size',
+	dateCreated: 'Date created',
+	dateModified: 'Date modified'
+};
+
+export const indexedSortOptions = {
 	'dateIndexed': 'Date indexed',
 	'object.dateAccessed': 'Date accessed'
 };
 
 export default () => {
+	const location = useLocation();
 	const explorerStore = useExplorerStore();
 	const explorerConfig = useExplorerConfigStore();
 
@@ -66,6 +71,13 @@ export default () => {
 									{text}
 								</SelectOption>
 							))}
+
+							{location.pathname.includes('/ephemeral/') ||
+								Object.entries(indexedSortOptions).map(([value, text]) => (
+									<SelectOption key={value} value={value}>
+										{text}
+									</SelectOption>
+								))}
 						</Select>
 					</div>
 

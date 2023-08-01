@@ -1,5 +1,5 @@
 // An array of Object kinds.
-// Note: The order of this enum should never change, and always be kept in sync with `crates/file_ext/src/kind.rs`
+// Note: The order of this enum should never change, and always be kept in sync with `crates/file-ext/src/kind.rs`
 export enum ObjectKind {
 	Unknown,
 	Document,

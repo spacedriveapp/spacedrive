@@ -15,7 +15,7 @@ export const EphemeralSection = () => {
 
 	return home == null && volumes.length < 1 ? null : (
 		<>
-			<Section name="Explore" actionArea={<SubtleButton />}>
+			<Section name="Explore">
 				{home && (
 					<SidebarLink
 						to={`ephemeral/0?path=${home}`}
