@@ -12,7 +12,7 @@ export default ({ data }: Props) => {
 	const object = data.item;
 	const filePath = data.item.file_paths[0];
 
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPathQuery', { location_id: filePath?.location_id || -1 }])
+	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: filePath?.location_id || -1 }])
 	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}` : null
 
 	return (
