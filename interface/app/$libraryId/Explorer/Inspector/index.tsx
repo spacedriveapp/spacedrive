@@ -3,7 +3,7 @@ import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
-import { type HTMLAttributes, ReactNode, useEffect, useState } from 'react';
+import { type HTMLAttributes, type ReactNode, useEffect, useState } from 'react';
 import {
 	type ExplorerItem,
 	type Location,

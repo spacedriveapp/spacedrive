@@ -1,5 +1,6 @@
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 import { PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
@@ -43,7 +44,14 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	return (
 		<ExplorerContext.Provider value={{}}>
 			<TopBarPortal
-				left={<AddLocationButton className="w-max min-w-0 shrink" path={path} />}
+				left={
+					<Tooltip
+						label="Add path as an indexed location"
+						className="w-max min-w-0 shrink"
+					>
+						<AddLocationButton path={path} />
+					</Tooltip>
+				}
 				right={<DefaultTopBarOptions />}
 				noSearch={true}
 			/>
