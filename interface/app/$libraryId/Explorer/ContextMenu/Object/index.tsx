@@ -12,16 +12,8 @@ export default ({ data }: Props) => {
 	const object = data.item;
 	const filePath = data.item.file_paths[0];
 
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true })
-	function getPathByLocationId(locationId: number, locationsArray: any) {
-		for (const location of locationsArray) {
-			if (location.id === locationId) {
-				return `${location.path}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`
-			}
-		}
-		return null;
-	}
-	const absoluteFilePath = getPathByLocationId(filePath.location_id, locationsQuery.data)
+	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPathQuery', { location_id: filePath?.location_id || -1 }])
+	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}` : null
 
 	return (
 		<>

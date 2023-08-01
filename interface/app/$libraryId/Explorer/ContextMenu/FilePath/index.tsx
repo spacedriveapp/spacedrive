@@ -15,16 +15,8 @@ export default ({ data }: Props) => {
 
 	const { parent } = useExplorerContext();
 
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true })
-	function getPathByLocationId(locationId: number, locationsArray: any) {
-		for (const location of locationsArray) {
-			if (location.id === locationId) {
-				return `${location.path}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`
-			}
-		}
-		return null;
-	}
-	const absoluteFilePath = getPathByLocationId(filePath.location_id, locationsQuery.data)
+	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPathQuery', { location_id: filePath?.location_id || -1 }])
+	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}` : null
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
