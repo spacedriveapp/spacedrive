@@ -47,7 +47,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-		.procedure("locationIdToPathQuery", {
+		.procedure("locationIdToPath", {
 			#[derive(Type, Deserialize)]
 			pub struct GetLocationArgs {
 				pub location_id: i32,

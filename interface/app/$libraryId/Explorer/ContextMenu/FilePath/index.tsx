@@ -15,7 +15,7 @@ export default ({ data }: Props) => {
 
 	const { parent } = useExplorerContext();
 
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPathQuery', { location_id: filePath?.location_id || -1 }])
+	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: filePath?.location_id || -1 }])
 	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}` : null
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
