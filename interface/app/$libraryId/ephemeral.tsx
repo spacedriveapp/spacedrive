@@ -17,7 +17,11 @@ const EphemeralExplorer = memo(({ args: { path } }: { args: PathParams }) => {
 	const query = useLibraryQuery(
 		[
 			'search.ephemeral-paths',
-			{ path: path ?? (os === 'windows' ? 'C:\\' : '/'), withHiddenFiles: true, order: useExplorerOrder(), }
+			{
+				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
+				withHiddenFiles: true,
+				order: useExplorerOrder()
+			}
 		],
 		{
 			enabled: !!path,
