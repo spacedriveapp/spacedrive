@@ -94,7 +94,9 @@ impl MediaDataImage {
 		);
 
 		data.camera_data.orientation =
-			Orientation::int_to_orientation(reader.get_orientation_ints().unwrap_or_default());
+			Orientation::int_to_orientation(reader.get_orientation_int().unwrap_or_default());
+
+		data.camera_data.flash = Flash::from_reader(reader);
 
 		data.camera_data.software = reader.get_tag(Tag::Software);
 
@@ -183,14 +185,14 @@ impl ExifReader {
 			.map(|x| x.parse::<T>().ok())?
 	}
 
-	pub(crate) fn get_orientation_ints(&self) -> Option<u32> {
+	pub(crate) fn get_orientation_int(&self) -> Option<u32> {
 		self.0
 			.get_field(Tag::Orientation, In::PRIMARY)
 			.map(|x| x.value.get_uint(0))
 			.unwrap_or_default()
 	}
 
-	pub(crate) fn get_flash_ints(&self) -> Option<u32> {
+	pub(crate) fn get_flash_int(&self) -> Option<u32> {
 		self.0
 			.get_field(Tag::Flash, In::PRIMARY)
 			.map(|x| x.value.get_uint(0))
