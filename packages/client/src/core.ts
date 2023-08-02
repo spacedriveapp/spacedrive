@@ -103,6 +103,8 @@ export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
+export type DoubleClickAction = "OpenFile" | "QuickPreview"
+
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
@@ -134,6 +136,8 @@ export type FullRescanArgs = { location_id: number; reidentify_objects: boolean 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type GetArgs = { id: number }
+
+export type GridViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "asc" | "desc"; double_click_action: DoubleClickAction | null; show_object_size: boolean | null }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -179,6 +183,8 @@ export type LibraryPreferences = { location?: { [key: string]: LocationPreferenc
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
+export type ListViewSettings = { double_click_action: DoubleClickAction | null }
+
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
@@ -188,7 +194,7 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
-export type LocationPreferences = { view?: LocationViewSettings | null }
+export type LocationPreferences = { view?: LocationViewSettings | null; list?: ListViewSettings | null; media?: MediaViewSettings | null; grid?: GridViewSettings | null }
 
 /**
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
@@ -200,7 +206,7 @@ export type LocationPreferences = { view?: LocationViewSettings | null }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type LocationViewSettings = { layout: ExplorerLayout }
+export type LocationViewSettings = { layout: ExplorerLayout | null }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
@@ -209,6 +215,8 @@ export type MaybeNot<T> = T | { not: T }
 export type MaybeUndefined<T> = null | null | T
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+
+export type MediaViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "asc" | "desc"; double_click_action: DoubleClickAction | null; show_square_thumbnails: boolean | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -301,5 +309,7 @@ export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: bo
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type ViewSortBy = "None" | "Name" | "Size" | "DateCreated" | "DateModified" | "DateIndexed" | "DateAccessed"
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }
