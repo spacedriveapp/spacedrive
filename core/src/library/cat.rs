@@ -1,9 +1,9 @@
-use crate::prisma::{object, PrismaClient};
+use crate::prisma::object;
 use prisma_client_rust::not;
 use sd_file_ext::kind::ObjectKind;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{sync::Arc, vec};
+use std::vec;
 
 use strum_macros::{EnumString, EnumVariantNames};
 
@@ -73,12 +73,4 @@ impl Category {
 			_ => object::id::equals(-1),
 		}
 	}
-}
-
-pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	db.object()
-		.count(vec![category.to_where_param()])
-		.exec()
-		.await
-		.unwrap_or(0) as i32
 }
