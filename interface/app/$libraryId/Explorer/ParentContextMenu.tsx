@@ -105,14 +105,14 @@ export default (props: PropsWithChildren) => {
 					<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
 
 					<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
+						<CM.Item
 							onClick={() => {
 								navigator.clipboard.writeText(`${parent.location.path}${(currentPath ?? '')}`)
 							}}
 							label="Copy as path"
 							icon={ClipboardText}
 						/>
-						
+
 						<CM.Item
 							onClick={async () => {
 								try {
