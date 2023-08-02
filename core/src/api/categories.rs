@@ -1,6 +1,6 @@
 use crate::library::Category;
 
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use strum::VariantNames;
@@ -41,7 +41,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.collect::<Result<Vec<_>, _>>()?,
 				)
-				.collect::<Vec<_>>())
+				.collect::<BTreeMap<_, _>>())
 		})
 	})
 }
