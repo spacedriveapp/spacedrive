@@ -11,7 +11,7 @@ use crate::{
 		migrator::{Migrate, MigratorError},
 		MaybeUndefined,
 	},
-	NodeContext,
+	NodeServices,
 };
 
 use std::{
@@ -36,8 +36,8 @@ pub struct LibraryManager {
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Arc<Library>>>,
-	/// node_context holds the context for the node which this library manager is running on.
-	pub node: Arc<NodeContext>,
+	/// holds the context for the node which this library manager is running on.
+	pub node: Arc<NodeServices>,
 	/// An actor that removes stale thumbnails from the file system
 	pub thumbnail_remover: ThumbnailRemoverActor,
 }
@@ -93,7 +93,7 @@ impl From<LibraryManagerError> for rspc::Error {
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
-		node_context: Arc<NodeContext>,
+		node: Arc<NodeServices>,
 	) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -106,8 +106,8 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
-			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node_context)),
-			node: node_context,
+			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node)),
+			node,
 		});
 
 		while let Some(entry) = read_dir
@@ -469,7 +469,6 @@ impl LibraryManager {
 			.await?
 		{
 			if let Err(e) = library
-				.manager
 				.node
 				.location_manager
 				.add(location.id, library.clone())
@@ -479,14 +478,7 @@ impl LibraryManager {
 			};
 		}
 
-		if let Err(e) = library
-			.manager
-			.node
-			.job_manager
-			.clone()
-			.cold_resume(&library)
-			.await
-		{
+		if let Err(e) = library.node.job_manager.clone().cold_resume(&library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 

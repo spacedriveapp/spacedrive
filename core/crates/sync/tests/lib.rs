@@ -16,7 +16,7 @@ fn db_path(id: Uuid) -> String {
 #[derive(Clone)]
 struct Instance {
 	id: Uuid,
-	peer_id: sd_p2p::PeerId,
+	_peer_id: sd_p2p::PeerId,
 	db: Arc<prisma::PrismaClient>,
 	sync: Arc<SyncManager>,
 }
@@ -60,7 +60,7 @@ impl Instance {
 			Arc::new(Self {
 				id,
 				db,
-				peer_id: sd_p2p::PeerId::random(),
+				_peer_id: sd_p2p::PeerId::random(),
 				sync: Arc::new(sync.manager),
 			}),
 			sync.rx,
@@ -119,7 +119,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 	Instance::pair(&instance1, &instance2).await;
 
 	tokio::spawn({
-		let instance1 = instance1.clone();
+		let _instance1 = instance1.clone();
 		let instance2 = instance2.clone();
 
 		async move {
@@ -147,7 +147,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 		async move {
 			while let Some(msg) = ingest_rx2.recv().await {
 				match msg {
-					ingest::Request::Messages { tunnel, timestamps } => {
+					ingest::Request::Messages { timestamps, .. } => {
 						let messages = instance1
 							.sync
 							.get_ops(GetOpsArgs {

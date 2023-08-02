@@ -162,7 +162,7 @@ impl Actor {
 		(Self { events: events_tx }, req_rx)
 	}
 
-	pub async fn notify(&self, tunnel: Tunnel, peer_id: PeerId) {
+	pub async fn notify(&self, tunnel: Tunnel, _peer_id: PeerId) {
 		self.events
 			.send(Event::Notification(NotificationEvent { tunnel }))
 			.await

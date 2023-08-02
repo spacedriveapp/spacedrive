@@ -255,7 +255,7 @@ impl NetworkedLibraryManager {
 		mut tunnel: Tunnel,
 		peer_id: &PeerId,
 		library_id: Uuid,
-		sync: &Arc<SyncManager>,
+		sync: &SyncManager,
 	) {
 		let ops = sync
 			.get_ops(sd_core_sync::GetOpsArgs {

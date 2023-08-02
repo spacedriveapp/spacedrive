@@ -272,7 +272,7 @@ impl PairingManager {
 		self: Arc<Self>,
 		peer_id: PeerId,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
-		library_manager: Arc<LibraryManager>,
+		library_manager: &LibraryManager,
 	) {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);

@@ -108,28 +108,18 @@ impl P2PManager {
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
-		let this = Arc::new(Self {
-			pairing,
-			events: (tx, rx),
-			manager,
-			spacedrop_pairing_reqs,
-			metadata_manager,
-			spacedrop_progress,
-			node_config_manager: node_config,
-		});
-
-		// TODO: Probs remove this once connection timeout/keepalive are working correctly
-		tokio::spawn({
-			let this = this.clone();
-			async move {
-				loop {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					this.ping().await;
-				}
-			}
-		});
-
-		Ok((this, stream))
+		Ok((
+			Arc::new(Self {
+				pairing,
+				events: (tx, rx),
+				manager,
+				spacedrop_pairing_reqs,
+				metadata_manager,
+				spacedrop_progress,
+				node_config_manager: node_config,
+			}),
+			stream,
+		))
 	}
 
 	pub fn start(
@@ -193,8 +183,9 @@ impl P2PManager {
 							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
-							let library_manager = library_manager.clone();
 							let pairing = pairing.clone();
+
+							let library_manager = library_manager.clone();
 							let nlm = nlm.clone();
 
 							tokio::spawn(async move {
@@ -263,7 +254,7 @@ impl P2PManager {
 									}
 									Header::Pair => {
 										pairing
-											.responder(event.peer_id, stream, library_manager)
+											.responder(event.peer_id, stream, &library_manager)
 											.await;
 									}
 									Header::Sync(library_id) => {

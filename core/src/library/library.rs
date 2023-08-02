@@ -11,6 +11,7 @@ use crate::{
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
+	NodeServices,
 };
 
 use std::{
@@ -42,6 +43,8 @@ pub struct Library {
 	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
+	/// holds the node context for the node which this library is running on.
+	pub node: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -76,6 +79,8 @@ impl Library {
 			manager: manager.clone(),
 			db: db.clone(),
 			sync: Arc::new(sync.manager),
+			node: manager.node.clone(),
+			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 		});
@@ -125,17 +130,17 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.manager.node.event_bus_tx.send(event) {
+		if let Err(e) = self.node.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
-	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.manager.node.config.clone()
+	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
+		&self.node.config
 	}
 
-	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
-		&self.manager.node.location_manager
+	pub(crate) fn location_manager(&self) -> &LocationManager {
+		&self.node.location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -226,8 +231,7 @@ impl Library {
 			}
 		};
 
-		self.manager
-			.node
+		self.node
 			.notifications
 			.0
 			.send(Notification {

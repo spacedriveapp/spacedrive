@@ -221,7 +221,6 @@ impl<SJob: StatefulJob> Job<SJob> {
 
 	pub async fn spawn(self, library: &Arc<Library>) -> Result<(), JobManagerError> {
 		library
-			.manager
 			.node
 			.job_manager
 			.clone()

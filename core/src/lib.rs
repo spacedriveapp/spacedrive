@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 pub use sd_prisma::*;
 
 use std::{
+	ops::Deref,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -23,7 +24,7 @@ use std::{
 
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
@@ -42,25 +43,31 @@ pub(crate) mod preferences;
 pub(crate) mod util;
 pub(crate) mod volume;
 
-pub struct NodeContext {
+/// Holds references to all the services that make up the Spacedrive core.
+/// This can easily be passed around as a context to the rest of the core.
+pub struct NodeServices {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
-	pub location_manager: Arc<LocationManager>,
+	pub location_manager: LocationManager,
 	pub p2p: Arc<P2PManager>,
-	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub notifications: Arc<NotificationManager>,
+	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub notifications: NotificationManager,
 	pub nlm: Arc<NetworkedLibraryManager>,
 }
 
+/// Represents a single running instance of the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
-	config: Arc<NodeConfigManager>,
 	pub library_manager: Arc<LibraryManager>,
-	location_manager: Arc<LocationManager>,
-	job_manager: Arc<JobManager>,
-	p2p: Arc<P2PManager>,
-	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	notifications: Arc<NotificationManager>,
+}
+
+// This isn't idiomatic but it will work for now
+impl Deref for Node {
+	type Target = NodeServices;
+
+	fn deref(&self) -> &Self::Target {
+		&self.library_manager.node
+	}
 }
 
 impl Node {
@@ -79,60 +86,37 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
-		debug!("Initialised 'NodeConfigManager'...");
-
-		let job_manager = JobManager::new();
-		debug!("Initialised 'JobManager'...");
-
-		let notifications = NotificationManager::new();
-		debug!("Initialised 'NotificationManager'...");
-
-		let location_manager = LocationManager::new();
-		debug!("Initialised 'LocationManager'...");
 
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
-		debug!("Initialised 'P2PManager'...");
 
-		let nlm = NetworkedLibraryManager::new(p2p.clone());
-		debug!("Initialised 'NetworkedSyncManager'...");
+		let services = Arc::new(NodeServices {
+			job_manager: JobManager::new(),
+			location_manager: LocationManager::new(),
+			nlm: NetworkedLibraryManager::new(p2p.clone()),
+			notifications: NotificationManager::new(),
+			p2p,
+			config,
+			event_bus,
+		});
 
-		let library_manager = LibraryManager::new(
-			data_dir.join("libraries"),
-			Arc::new(NodeContext {
-				config: config.clone(),
-				job_manager: job_manager.clone(),
-				location_manager: location_manager.clone(),
-				p2p: p2p.clone(),
-				event_bus_tx: event_bus.0.clone(),
-				notifications: notifications.clone(),
-				nlm: nlm.clone(),
-			}),
-		)
-		.await?;
-		debug!("Initialised 'LibraryManager'...");
-
-		p2p.start(p2p_stream, library_manager.clone(), nlm);
+		let node = Arc::new(Node {
+			data_dir: data_dir.to_path_buf(),
+			library_manager: LibraryManager::new(data_dir.join("libraries"), services).await?,
+		});
 
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
 			init_data
-				.apply(&library_manager, config.get().await)
+				.apply(&node.library_manager, node.config.get().await)
 				.await?;
 		}
 
-		let router = api::mount();
-		let node = Arc::new(Node {
-			data_dir: data_dir.to_path_buf(),
-			config,
-			library_manager,
-			location_manager,
-			job_manager,
-			p2p,
-			event_bus,
-			notifications,
-		});
+		node.p2p
+			.start(p2p_stream, node.library_manager.clone(), node.nlm.clone());
 
+		let router = api::mount();
 		info!("Spacedrive online.");
+
 		Ok((node, router))
 	}
 
@@ -249,9 +233,9 @@ pub struct NotificationManager(
 );
 
 impl NotificationManager {
-	pub fn new() -> Arc<Self> {
+	pub fn new() -> Self {
 		let (tx, _) = broadcast::channel(30);
-		Arc::new(Self(tx, AtomicU32::new(0)))
+		Self(tx, AtomicU32::new(0))
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<Notification> {
