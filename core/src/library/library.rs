@@ -46,7 +46,7 @@ pub struct Library {
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// holds the node context for the node which this library is running on.
-	pub ctx: Arc<NodeServices>,
+	pub node: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -76,7 +76,7 @@ impl Library {
 		// node_context: Arc<NodeContext>,
 	) -> Self {
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.ctx.clone();
+		let node_context = library_manager.node.clone();
 
 		let library = Self {
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
@@ -84,7 +84,7 @@ impl Library {
 			id,
 			db,
 			config,
-			ctx: node_context,
+			node: node_context,
 			// key_manager,
 			sync: sync_manager,
 			identity: identity.clone(),
@@ -96,7 +96,7 @@ impl Library {
 					let SyncMessage::Created(op) = op else { continue; };
 
 					library_manager
-						.ctx
+						.node
 						.p2p
 						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
 						.await;
@@ -108,17 +108,17 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.ctx.event_bus.0.send(event) {
+		if let Err(e) = self.node.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
 	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
-		&self.ctx.config
+		&self.node.config
 	}
 
 	pub(crate) fn location_manager(&self) -> &LocationManager {
-		&self.ctx.location_manager
+		&self.node.location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -209,7 +209,7 @@ impl Library {
 			}
 		};
 
-		self.ctx
+		self.node
 			.notifications
 			.0
 			.send(Notification {

@@ -40,7 +40,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Arc<Library>>>,
 	/// holds the context for the node which this library manager is running on.
-	pub ctx: Arc<NodeServices>,
+	pub node: Arc<NodeServices>,
 	/// An actor that removes stale thumbnails from the file system
 	thumbnail_remover: ThumbnailRemoverActor,
 }
@@ -94,7 +94,7 @@ impl From<LibraryManagerError> for rspc::Error {
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
-		ctx: Arc<NodeServices>,
+		node: Arc<NodeServices>,
 	) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -107,8 +107,8 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
-			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&ctx)),
-			ctx,
+			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node)),
+			node,
 		});
 
 		while let Some(entry) = read_dir
@@ -301,7 +301,7 @@ impl LibraryManager {
 					vec![]
 				}) {
 				if let Err(e) = self
-					.ctx
+					.node
 					.location_manager
 					.add(location.id, library.clone())
 					.await
@@ -385,7 +385,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = self.ctx.config.get().await;
+		let node_config = self.node.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
@@ -459,7 +459,7 @@ impl LibraryManager {
 			.await?
 		{
 			if let Err(e) = library
-				.ctx
+				.node
 				.location_manager
 				.add(location.id, library.clone())
 				.await
@@ -468,7 +468,7 @@ impl LibraryManager {
 			};
 		}
 
-		if let Err(e) = library.ctx.job_manager.clone().cold_resume(&library).await {
+		if let Err(e) = library.node.job_manager.clone().cold_resume(&library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 

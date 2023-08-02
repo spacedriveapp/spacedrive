@@ -65,7 +65,7 @@ impl Deref for Node {
 	type Target = NodeServices;
 
 	fn deref(&self) -> &Self::Target {
-		&self.library_manager.ctx
+		&self.library_manager.node
 	}
 }
 
