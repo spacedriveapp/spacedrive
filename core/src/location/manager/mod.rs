@@ -128,7 +128,7 @@ pub struct LocationManager {
 }
 
 impl LocationManager {
-	pub fn new() -> Arc<Self> {
+	pub fn new() -> Self {
 		let online_tx = broadcast::channel(16).0;
 
 		#[cfg(feature = "location-watcher")]
@@ -143,23 +143,23 @@ impl LocationManager {
 				stop_rx,
 			));
 
-			Arc::new(Self {
+			Self {
 				online_locations: Default::default(),
 				online_tx,
 				location_management_tx,
 				watcher_management_tx,
 				stop_tx: Some(stop_tx),
-			})
+			}
 		}
 
 		#[cfg(not(feature = "location-watcher"))]
 		{
 			tracing::warn!("Location watcher is disabled, locations will not be checked");
-			Arc::new(Self {
+			Self {
 				online_tx,
 				online_locations: Default::default(),
 				stop_tx: None,
-			})
+			}
 		}
 	}
 

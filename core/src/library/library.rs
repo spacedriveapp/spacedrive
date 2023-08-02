@@ -14,7 +14,7 @@ use crate::{
 	},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
-	NodeContext,
+	NodeServices,
 };
 
 use std::{
@@ -42,11 +42,11 @@ pub struct Library {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: sd_core_sync::SyncManager,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: Arc<NodeContext>,
+	/// holds the node context for the node which this library is running on.
+	pub node: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -76,7 +76,7 @@ impl Library {
 		// node_context: Arc<NodeContext>,
 	) -> Self {
 		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.node_context.clone();
+		let node_context = library_manager.node.clone();
 
 		let library = Self {
 			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
@@ -84,9 +84,9 @@ impl Library {
 			id,
 			db,
 			config,
-			node_context,
+			node: node_context,
 			// key_manager,
-			sync: Arc::new(sync_manager),
+			sync: sync_manager,
 			identity: identity.clone(),
 		};
 
@@ -96,7 +96,7 @@ impl Library {
 					let SyncMessage::Created(op) = op else { continue; };
 
 					library_manager
-						.node_context
+						.node
 						.p2p
 						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
 						.await;
@@ -108,17 +108,17 @@ impl Library {
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+		if let Err(e) = self.node.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
-	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.node_context.config.clone()
+	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
+		&self.node.config
 	}
 
-	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
-		&self.node_context.location_manager
+	pub(crate) fn location_manager(&self) -> &LocationManager {
+		&self.node.location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -209,7 +209,7 @@ impl Library {
 			}
 		};
 
-		self.node_context
+		self.node
 			.notifications
 			.0
 			.send(Notification {
