@@ -60,6 +60,10 @@ export default () => {
 						<Icon component={KeyReturn} />
 						Keybinds
 					</SidebarLink>
+					<SidebarLink to="client/shortcuts">
+						<Icon component={KeyReturn} />
+						Shortcuts
+					</SidebarLink>
 					<SidebarLink to="client/extensions" disabled>
 						<Icon component={PuzzlePiece} />
 						Extensions
