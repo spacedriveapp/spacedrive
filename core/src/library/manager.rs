@@ -14,7 +14,7 @@ use crate::{
 		migrator::{Migrate, MigratorError},
 		MaybeUndefined,
 	},
-	SharedContext,
+	NodeServices,
 };
 
 use std::{
@@ -40,7 +40,7 @@ pub struct LibraryManager {
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<Vec<Arc<Library>>>,
 	/// holds the context for the node which this library manager is running on.
-	pub ctx: Arc<SharedContext>,
+	pub ctx: Arc<NodeServices>,
 	/// An actor that removes stale thumbnails from the file system
 	thumbnail_remover: ThumbnailRemoverActor,
 }
@@ -94,7 +94,7 @@ impl From<LibraryManagerError> for rspc::Error {
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
-		ctx: Arc<SharedContext>,
+		ctx: Arc<NodeServices>,
 	) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await

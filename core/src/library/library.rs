@@ -14,7 +14,7 @@ use crate::{
 	},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
-	SharedContext,
+	NodeServices,
 };
 
 use std::{
@@ -46,7 +46,7 @@ pub struct Library {
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// holds the node context for the node which this library is running on.
-	pub ctx: Arc<SharedContext>,
+	pub ctx: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,

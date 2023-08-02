@@ -43,8 +43,9 @@ pub(crate) mod preferences;
 pub(crate) mod util;
 pub(crate) mod volume;
 
-/// Context that is shared between [crate::Node] and [crate::library::LibraryManager].
-pub struct SharedContext {
+/// Holds references to all the services that make up the Spacedrive core.
+/// This can easily be passed around as a context to the rest of the core.
+pub struct NodeServices {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: LocationManager,
@@ -61,7 +62,7 @@ pub struct Node {
 
 // This isn't idiomatic but it will work for now
 impl Deref for Node {
-	type Target = SharedContext;
+	type Target = NodeServices;
 
 	fn deref(&self) -> &Self::Target {
 		&self.library_manager.ctx
@@ -87,7 +88,7 @@ impl Node {
 
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
 
-		let ctx = Arc::new(SharedContext {
+		let ctx = Arc::new(NodeServices {
 			config,
 			job_manager: JobManager::new(),
 			location_manager: LocationManager::new(),
