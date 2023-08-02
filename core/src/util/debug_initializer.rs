@@ -115,10 +115,17 @@ impl InitConfig {
 				Some(lib) => lib,
 				None => {
 					let library = library_manager
-						.create_with_uuid(lib.id, lib.name, lib.description, node_cfg.clone(), true)
+						.create_with_uuid(
+							lib.id,
+							lib.name,
+							lib.description,
+							node_cfg.clone(),
+							true,
+							None,
+						)
 						.await?;
 
-					match library_manager.get_library(library.uuid).await {
+					match library_manager.get_library(library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(

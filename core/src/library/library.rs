@@ -8,10 +8,7 @@ use crate::{
 		LocationManager,
 	},
 	node::NodeConfigManager,
-	object::{
-		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
-		thumbnail_remover::ThumbnailRemoverActorProxy,
-	},
+	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
 	NodeServices,
@@ -40,9 +37,10 @@ pub struct Library {
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
+	pub manager: Arc<LibraryManager>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: sd_core_sync::SyncManager,
+	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// holds the node context for the node which this library is running on.
@@ -50,7 +48,6 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
-	pub thumbnail_remover_proxy: ThumbnailRemoverActorProxy,
 }
 
 impl Debug for Library {
@@ -66,40 +63,65 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub fn new(
+	pub async fn new(
 		id: Uuid,
 		instance_id: Uuid,
 		config: LibraryConfig,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
-		library_manager: Arc<LibraryManager>,
-		// node_context: Arc<NodeContext>,
-	) -> Self {
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.node.clone();
+		manager: Arc<LibraryManager>,
+	) -> Arc<Self> {
+		let mut sync = SyncManager::new(&db, instance_id);
 
-		let library = Self {
-			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
-			thumbnail_remover_proxy: library_manager.thumbnail_remover_proxy(),
+		let library = Arc::new(Self {
 			id,
-			db,
 			config,
-			node: node_context,
+			manager: manager.clone(),
+			db: db.clone(),
+			sync: Arc::new(sync.manager),
+			node: manager.node.clone(),
 			// key_manager,
-			sync: sync_manager,
 			identity: identity.clone(),
-		};
+			orphan_remover: OrphanRemoverActor::spawn(db),
+		});
+
+		manager.node.nlm.load_library(&library).await;
 
 		tokio::spawn({
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
+			let library = library.clone();
 
-					library_manager
-						.node
-						.p2p
-						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
-						.await;
+			async move {
+				loop {
+					tokio::select! {
+						req = sync.ingest_rx.recv() => {
+							use sd_core_sync::ingest::Request;
+
+							let Some(req) = req else { continue; };
+
+							match req {
+								Request::Messages { tunnel, timestamps } => {
+									manager.node.nlm.request_and_ingest_ops(
+										tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
+										&library.sync,
+										library.id
+									).await;
+								},
+								Request::Ingest(ops) => {
+									for op in ops.into_iter() {
+										library.sync.receive_crdt_operation(op).await;
+									}
+								}
+							}
+						},
+						msg = sync.rx.recv() => {
+							if let Ok(op) = msg {
+								let SyncMessage::Created = op else { continue; };
+
+								manager.node.nlm.alert_new_ops(id, &library.sync).await;
+							}
+						},
+					}
 				}
 			}
 		});
