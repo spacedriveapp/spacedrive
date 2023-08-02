@@ -1,3 +1,4 @@
+use sd_core_sync::GetOpsArgs;
 use sd_p2p::proto::{decode, encode};
 use sd_sync::CRDTOperation;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -5,8 +6,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyncMessage {
 	NewOperations,
-	OperationsRequest(u8),
-	OperationsRequestResponse(u8, Vec<CRDTOperation>),
+	OperationsRequest(GetOpsArgs),
+	OperationsRequestResponse(Vec<CRDTOperation>),
 }
 
 impl SyncMessage {
@@ -14,9 +15,10 @@ impl SyncMessage {
 	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
 		match stream.read_u8().await? {
 			b'N' => Ok(Self::NewOperations),
-			b'R' => Ok(Self::OperationsRequest(stream.read_u8().await?)),
+			b'R' => Ok(Self::OperationsRequest(
+				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
+			)),
 			b'P' => Ok(Self::OperationsRequestResponse(
-				stream.read_u8().await?,
 				// TODO: Error handling
 				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
 			)),
@@ -33,9 +35,16 @@ impl SyncMessage {
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
 			Self::NewOperations => vec![b'N'],
-			Self::OperationsRequest(s) => vec![b'R', *s],
-			Self::OperationsRequestResponse(s, ops) => {
-				let mut buf = vec![b'P', *s];
+			Self::OperationsRequest(args) => {
+				let mut buf = vec![b'R'];
+
+				// TODO: Error handling
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&args).unwrap());
+				buf
+			}
+			Self::OperationsRequestResponse(ops) => {
+				let mut buf = vec![b'P'];
+
 				// TODO: Error handling
 				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
 				buf
@@ -64,7 +73,10 @@ mod tests {
 		}
 
 		{
-			let original = SyncMessage::OperationsRequest(1);
+			let original = SyncMessage::OperationsRequest(GetOpsArgs {
+				clocks: vec![],
+				count: 0,
+			});
 
 			let mut cursor = std::io::Cursor::new(original.to_bytes());
 			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();
@@ -72,7 +84,7 @@ mod tests {
 		}
 
 		{
-			let original = SyncMessage::OperationsRequestResponse(2, vec![]);
+			let original = SyncMessage::OperationsRequestResponse(vec![]);
 
 			let mut cursor = std::io::Cursor::new(original.to_bytes());
 			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();
@@ -80,19 +92,16 @@ mod tests {
 		}
 
 		{
-			let original = SyncMessage::OperationsRequestResponse(
-				2,
-				vec![CRDTOperation {
-					instance: Uuid::new_v4(),
-					timestamp: NTP64(0),
-					id: Uuid::new_v4(),
-					typ: sd_sync::CRDTOperationType::Shared(SharedOperation {
-						record_id: Value::Null,
-						model: "name".to_string(),
-						data: sd_sync::SharedOperationData::Create,
-					}),
-				}],
-			);
+			let original = SyncMessage::OperationsRequestResponse(vec![CRDTOperation {
+				instance: Uuid::new_v4(),
+				timestamp: NTP64(0),
+				id: Uuid::new_v4(),
+				typ: sd_sync::CRDTOperationType::Shared(SharedOperation {
+					record_id: Value::Null,
+					model: "name".to_string(),
+					data: sd_sync::SharedOperationData::Create,
+				}),
+			}]);
 
 			let mut cursor = std::io::Cursor::new(original.to_bytes());
 			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();

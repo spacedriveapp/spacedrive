@@ -1,4 +1,5 @@
 use rspc::alpha::AlphaRouter;
+use sd_core_sync::GetOpsArgs;
 
 use super::{utils::library, Ctx, R};
 
@@ -20,7 +21,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("messages", {
-			R.with2(library())
-				.query(|(_, library), _: ()| async move { Ok(library.sync.get_ops().await?) })
+			R.with2(library()).query(|(_, library), _: ()| async move {
+				Ok(library
+					.sync
+					.get_ops(GetOpsArgs {
+						clocks: vec![],
+						count: 1000,
+					})
+					.await?)
+			})
 		})
 }

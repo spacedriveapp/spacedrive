@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::future::join_all;
-use sd_core_sync::{ingest, SyncManager};
+use sd_core_sync::{ingest, GetOpsArgs, SyncManager};
 use sd_p2p::{
 	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
@@ -210,7 +210,7 @@ impl NetworkedLibraryManager {
 							_ => todo!("unreachable but proper error handling"),
 						};
 
-						self.exchange_sync_ops(tunnel, peer_id, library_id, id, sync)
+						self.exchange_sync_ops(tunnel, peer_id, library_id, sync)
 							.await;
 					}
 				}),
@@ -222,26 +222,28 @@ impl NetworkedLibraryManager {
 	pub async fn request_and_ingest_ops(
 		&self,
 		mut tunnel: Tunnel,
-		peer_id: PeerId,
-		id: u8,
+		args: GetOpsArgs,
 		sync: &SyncManager,
-		library_id: &Uuid,
+		library_id: Uuid,
 	) {
 		tunnel
-			.write_all(&SyncMessage::OperationsRequest(id).to_bytes())
+			.write_all(&SyncMessage::OperationsRequest(args).to_bytes())
 			.await
 			.unwrap();
 		tunnel.flush().await.unwrap();
 
-		let SyncMessage::OperationsRequestResponse(id, ops) = SyncMessage::from_stream(&mut tunnel).await.unwrap() else {
+		let SyncMessage::OperationsRequestResponse(ops) = SyncMessage::from_stream(&mut tunnel).await.unwrap() else {
 			todo!("unreachable but proper error handling")
 		};
 
-		debug!("Received sync events response w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
+		// debug!("Received sync events response w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
 
 		sync.ingest
 			.events
-			.send(ingest::Event::Messages(id, ops))
+			.send(ingest::Event::Messages(ingest::MessagesEvent {
+				instance_id: sync.instance,
+				messages: ops,
+			}))
 			.await
 			.map_err(|_| "TODO: Handle ingest channel closed, so we don't loose ops")
 			.unwrap();
@@ -253,15 +255,23 @@ impl NetworkedLibraryManager {
 		mut tunnel: Tunnel,
 		peer_id: &PeerId,
 		library_id: Uuid,
-		id: u8,
 		sync: &Arc<SyncManager>,
 	) {
-		let ops = sync.get_ops().await.unwrap();
+		let ops = sync
+			.get_ops(sd_core_sync::GetOpsArgs {
+				clocks: vec![],
+				count: 100,
+			})
+			.await
+			.unwrap();
 
-		debug!("Sending '{}' sync ops w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'", ops.len());
+		debug!(
+			"Sending '{}' sync ops from peer '{peer_id:?}' for library '{library_id:?}'",
+			ops.len()
+		);
 
 		tunnel
-			.write_all(&SyncMessage::OperationsRequestResponse(id, ops).to_bytes())
+			.write_all(&SyncMessage::OperationsRequestResponse(ops).to_bytes())
 			.await
 			.unwrap();
 	}

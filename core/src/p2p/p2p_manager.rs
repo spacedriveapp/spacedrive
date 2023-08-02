@@ -292,12 +292,11 @@ impl P2PManager {
 													tunnel,
 													&event.peer_id,
 													library_id,
-													id,
 													&library.sync,
 												)
 												.await;
 											}
-											SyncMessage::OperationsRequestResponse(_, _) => {
+											SyncMessage::OperationsRequestResponse(_) => {
 												todo!("unreachable but add proper error handling")
 											}
 										};

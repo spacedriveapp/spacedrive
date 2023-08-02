@@ -67,48 +67,53 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		manager: Arc<LibraryManager>,
-	) -> Self {
-		let (sync_manager, mut sync_rx, mut ingest_rx) = SyncManager::new(&db, instance_id);
+	) -> Arc<Self> {
+		let mut sync = SyncManager::new(&db, instance_id);
 
-		let library = Self {
+		let library = Arc::new(Self {
 			id,
 			config,
 			manager: manager.clone(),
 			db: db.clone(),
-			sync: Arc::new(sync_manager),
+			sync: Arc::new(sync.manager),
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
-		};
+		});
 
 		manager.node.nlm.load_library(&library).await;
 
 		tokio::spawn({
-			let sync = library.sync.clone();
+			let library = library.clone();
 
 			async move {
 				loop {
 					tokio::select! {
-						req = ingest_rx.recv() => {
+						req = sync.ingest_rx.recv() => {
 							use sd_core_sync::ingest::Request;
 
 							let Some(req) = req else { continue; };
 
 							match req {
-								Request::Messages(tunnel, peer_id, msg_id) => {
-									manager.node.nlm.request_and_ingest_ops(tunnel, peer_id, msg_id, &sync, &id).await;
+								Request::Messages { tunnel, timestamps } => {
+									manager.node.nlm.request_and_ingest_ops(
+										tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
+										&library.sync,
+										library.id
+									).await;
 								},
 								Request::Ingest(ops) => {
 									for op in ops.into_iter() {
-										sync.receive_crdt_operation(op).await;
+										library.sync.receive_crdt_operation(op).await;
 									}
 								}
 							}
 						},
-						msg = sync_rx.recv() => {
+						msg = sync.rx.recv() => {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.nlm.alert_new_ops(id, &sync).await;
+								manager.node.nlm.alert_new_ops(id, &library.sync).await;
 							}
 						},
 					}

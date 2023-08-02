@@ -439,18 +439,16 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let library = Arc::new(
-			Library::new(
-				id,
-				instance_id,
-				config,
-				identity,
-				// key_manager,
-				db,
-				self.clone(),
-			)
-			.await,
-		);
+		let library = Library::new(
+			id,
+			instance_id,
+			config,
+			identity,
+			// key_manager,
+			db,
+			self.clone(),
+		)
+		.await;
 
 		self.thumbnail_remover.new_library(&library).await;
 		self.libraries.write().await.push(Arc::clone(&library));

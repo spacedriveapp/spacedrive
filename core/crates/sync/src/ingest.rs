@@ -3,6 +3,10 @@ use std::future::Future;
 use sd_p2p::{spacetunnel::Tunnel, PeerId};
 use sd_sync::CRDTOperation;
 use tokio::sync::{mpsc, oneshot};
+use uhlc::NTP64;
+use uuid::Uuid;
+
+use crate::Timestamps;
 
 pub struct Actor {
 	pub events: mpsc::Sender<Event>,
@@ -54,13 +58,28 @@ impl<TReq, TResp> ReqRes<TReq, TResp> {
 
 #[must_use]
 pub enum Request {
-	Messages(Tunnel, PeerId, u8),
+	Messages {
+		tunnel: Tunnel,
+		timestamps: Vec<(Uuid, NTP64)>,
+	},
 	Ingest(Vec<CRDTOperation>),
 }
 
+#[derive(Debug)]
 pub enum Event {
-	Notification(Tunnel, PeerId),
-	Messages(u8, Vec<CRDTOperation>),
+	Notification(NotificationEvent),
+	Messages(MessagesEvent),
+}
+
+#[derive(Debug)]
+pub struct MessagesEvent {
+	pub instance_id: Uuid,
+	pub messages: Vec<CRDTOperation>,
+}
+
+#[derive(Debug)]
+pub struct NotificationEvent {
+	pub tunnel: Tunnel,
 }
 
 #[derive(Debug)]
@@ -70,12 +89,7 @@ pub enum State {
 	Ingesting,
 }
 
-macro_rules! assert_state {
-	($pattern:pat, $expr:expr) => {
-		let $pattern = $expr else { return; };
-	};
-}
-
+#[macro_export]
 macro_rules! wait {
 	($rx:ident, $pattern:pat $(=> $expr:expr)?) => {
 		loop {
@@ -88,7 +102,7 @@ macro_rules! wait {
 }
 
 impl Actor {
-	pub fn spawn() -> (Self, mpsc::Receiver<Request>) {
+	pub fn spawn(timestamps: Timestamps) -> (Self, mpsc::Receiver<Request>) {
 		let (req_tx, req_rx) = mpsc::channel(4);
 		let (events_tx, mut events_rx) = mpsc::channel(4);
 
@@ -100,22 +114,39 @@ impl Actor {
 
 				state = match state {
 					State::WaitingForNotification => {
-						let (tunnel, peer_id) = wait!(events_rx, Event::Notification(tunnel, peer_id) => (tunnel, peer_id));
+						let notification = wait!(events_rx, Event::Notification(n) => n);
+
+						// req_tx.send(Request::Messages(tunnel, peer_id, 69));
+
+						// let notification = wait!(
+						// 	events_rx,
+						// 	Incoming::Notification(notification) => notification
+						// );
 
 						req_tx
-							.send(Request::Messages(tunnel, peer_id, 69))
+							.send(Request::Messages {
+								tunnel: notification.tunnel,
+								timestamps: timestamps
+									.read()
+									.await
+									.iter()
+									.map(|(&k, &v)| (k, v))
+									.collect(),
+							})
 							.await
 							.ok();
 
 						State::ExecutingMessagesRequest
 					}
 					State::ExecutingMessagesRequest => {
-						let (data, ops) =
-							wait!(events_rx, Event::Messages(data, ops) => (data, ops));
+						let event = wait!(events_rx, Event::Messages(event) => event);
 
-						req_tx.send(Request::Ingest(ops)).await.ok();
+						req_tx
+							.send(Request::Ingest(event.messages.clone()))
+							.await
+							.ok();
 
-						dbg!(&data);
+						dbg!(&event.messages);
 
 						State::Ingesting
 					}
@@ -133,7 +164,7 @@ impl Actor {
 
 	pub async fn notify(&self, tunnel: Tunnel, peer_id: PeerId) {
 		self.events
-			.send(Event::Notification(tunnel, peer_id))
+			.send(Event::Notification(NotificationEvent { tunnel }))
 			.await
 			.ok();
 	}
