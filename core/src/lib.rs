@@ -88,7 +88,7 @@ impl Node {
 
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
 
-		let ctx = Arc::new(NodeServices {
+		let services = Arc::new(NodeServices {
 			config,
 			job_manager: JobManager::new(),
 			location_manager: LocationManager::new(),
@@ -97,7 +97,7 @@ impl Node {
 			notifications: NotificationManager::new(),
 		});
 
-		let library_manager = LibraryManager::new(data_dir.join("libraries"), ctx).await?;
+		let library_manager = LibraryManager::new(data_dir.join("libraries"), services).await?;
 
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
