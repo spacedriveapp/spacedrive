@@ -30,7 +30,6 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 		const overflow = overflowRef.current;
 
 		if (!(text && overflow)) return;
-		console.log(text.scrollWidth > overflow.clientWidth);
 
 		setIsOverflowing(text.scrollWidth > overflow.clientWidth);
 	}, [overflowRef, textRef]);

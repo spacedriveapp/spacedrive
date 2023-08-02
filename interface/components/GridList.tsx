@@ -142,9 +142,10 @@ export const GridList = <T extends ExplorerViewSelection>({
 		setScrollOptions({
 			container: props.scrollRef.current!,
 			getScrollPosition: () => {
-				// FIXME: Eslint is right here.
-				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-				return [props.scrollRef.current?.scrollLeft!, props.scrollRef.current?.scrollTop!];
+				return [
+					props.scrollRef.current?.scrollLeft ?? 0,
+					props.scrollRef.current?.scrollTop ?? 0
+				];
 			},
 			throttleTime: 30,
 			threshold: 0

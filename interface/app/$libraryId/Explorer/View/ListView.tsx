@@ -518,9 +518,7 @@ export default () => {
 								explorerView.onSelectedChange([...newSet]);
 								setRanges([
 									...ranges.slice(0, ranges.length - 1),
-									// FIXME: Eslint is right here.
-									// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-									[ranges[ranges.length - 1]?.[0]!, nextRow.index]
+									[ranges[ranges.length - 1]?.[0] ?? nextRow.index, nextRow.index]
 								]);
 							} else {
 								explorerView.onSelectedChange(
