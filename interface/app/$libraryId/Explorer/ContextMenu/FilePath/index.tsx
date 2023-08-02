@@ -3,7 +3,6 @@ import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { useExplorerContext } from '../../Context';
 import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
-import { useLibraryQuery } from '../../../../../../packages/client/src';
 
 interface Props {
 	data: Extract<ExplorerItem, { type: 'Path' }>;
@@ -14,9 +13,6 @@ export default ({ data }: Props) => {
 	const { object } = filePath;
 
 	const { parent } = useExplorerContext();
-
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: filePath?.location_id || -1 }])
-	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath.materialized_path}${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}` : null
 
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
@@ -55,8 +51,6 @@ export default ({ data }: Props) => {
 			{object && <ObjectItems.AssignTag object={object} />}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-				{absoluteFilePath && <FilePathItems.CopyAsPath absoluteFilePath={absoluteFilePath} />}
-
 				<FilePathItems.Crypto filePath={filePath} />
 
 				<FilePathItems.Compress filePath={filePath} />
