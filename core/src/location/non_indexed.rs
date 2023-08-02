@@ -167,7 +167,8 @@ pub async fn walk(
 					});
 
 					library
-						.thumbnail_remover_proxy
+						.manager
+						.thumbnail_remover
 						.new_non_indexed_thumbnail(cas_id)
 						.await;
 

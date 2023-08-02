@@ -6,7 +6,7 @@ use crate::{
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
-	p2p::P2PManager,
+	p2p::{sync::NetworkedLibraryManager, P2PManager},
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};
@@ -49,9 +49,10 @@ pub struct NodeServices {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: LocationManager,
-	pub p2p: P2PManager,
+	pub p2p: Arc<P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: NotificationManager,
+	pub nlm: Arc<NetworkedLibraryManager>,
 }
 
 /// Represents a single running instance of the Spacedrive core.
@@ -89,19 +90,18 @@ impl Node {
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
 
 		let services = Arc::new(NodeServices {
-			config,
 			job_manager: JobManager::new(),
 			location_manager: LocationManager::new(),
-			p2p,
-			event_bus: event_bus,
+			nlm: NetworkedLibraryManager::new(p2p.clone()),
 			notifications: NotificationManager::new(),
+			p2p,
+			config,
+			event_bus,
 		});
-
-		let library_manager = LibraryManager::new(data_dir.join("libraries"), services).await?;
 
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
-			library_manager,
+			library_manager: LibraryManager::new(data_dir.join("libraries"), services).await?,
 		});
 
 		#[cfg(debug_assertions)]
@@ -111,7 +111,8 @@ impl Node {
 				.await?;
 		}
 
-		node.p2p.start(p2p_stream, node.clone());
+		node.p2p
+			.start(p2p_stream, node.library_manager.clone(), node.nlm.clone());
 
 		let router = api::mount();
 		info!("Spacedrive online.");

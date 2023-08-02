@@ -1,4 +1,8 @@
-use crate::{library::LibraryName, util::MaybeUndefined, volume::get_volumes};
+use crate::{
+	library::{LibraryConfigWrapped, LibraryName},
+	util::MaybeUndefined,
+	volume::get_volumes,
+};
 
 use chrono::Utc;
 use rspc::alpha::AlphaRouter;
@@ -89,14 +93,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
-				let new_library = ctx
+				let library = ctx
 					.library_manager
 					.create(args.name, None, ctx.config.get().await)
 					.await?;
 
-				debug!("Created library {}", new_library.uuid);
+				debug!("Created library {}", library.id);
 
-				Ok(new_library)
+				Ok(LibraryConfigWrapped {
+					uuid: library.id,
+					config: library.config.clone(),
+				})
 			})
 		})
 		.procedure("edit", {

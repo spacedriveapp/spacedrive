@@ -86,6 +86,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 						e.stopPropagation();
 					}}
 					ref={ref}
+					autoComplete={props.autoComplete || "off"}
 					{...props}
 				/>
 			</div>
