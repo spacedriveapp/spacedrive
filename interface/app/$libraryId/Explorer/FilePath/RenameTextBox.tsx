@@ -16,7 +16,7 @@ import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
 type Props = ComponentProps<'div'> & {
-	itemId: number;
+	itemId?: null | number;
 	locationId: number | null;
 	text: string | null;
 	activeClassName?: string;
@@ -228,7 +228,8 @@ export const RenamePathTextBox = ({
 
 	// Handle renaming
 	async function rename(newName: string) {
-		if (!props.locationId || newName === fileName) {
+		// TODO: Warn user on rename fails
+		if (!props.locationId || !props.itemId || newName === fileName) {
 			reset();
 			return;
 		}

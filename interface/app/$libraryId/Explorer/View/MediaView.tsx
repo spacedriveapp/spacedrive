@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { ArrowsOutSimple } from 'phosphor-react';
 import { memo } from 'react';
+import * as uuid from 'uuid';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { GridList } from '~/components';
@@ -8,6 +9,7 @@ import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
+import { uniqueId } from '../util';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
@@ -73,7 +75,7 @@ export default () => {
 			{({ index, item: Item }) => {
 				if (!explorerView.items) {
 					return (
-						<Item className="!p-px">
+						<Item id={uuid.v4()} className="!p-px">
 							<div className="h-full animate-pulse bg-app-box" />
 						</Item>
 					);
@@ -82,12 +84,13 @@ export default () => {
 				const item = explorerView.items[index];
 				if (!item) return null;
 
+				const id = uniqueId(item);
 				const isSelected = Array.isArray(explorerView.selected)
-					? explorerView.selected.includes(item.item.id)
-					: explorerView.selected === item.item.id;
+					? explorerView.selected.includes(id)
+					: explorerView.selected === id;
 
 				return (
-					<Item selectable selected={isSelected} index={index} id={item.item.id}>
+					<Item selectable selected={isSelected} index={index} id={id}>
 						<MediaViewItem data={item} index={index} selected={isSelected} />
 					</Item>
 				);

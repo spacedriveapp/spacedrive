@@ -1,7 +1,7 @@
-import { ReactNode, RefObject, createContext, useContext } from 'react';
-import { ExplorerItem } from '@sd/client';
+import { type ReactNode, type RefObject, createContext, useContext } from 'react';
+import { type ExplorerItem } from '@sd/client';
 
-export type ExplorerViewSelection = number | number[];
+export type ExplorerViewSelection = string | string[];
 
 export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerViewSelection> {
 	items: ExplorerItem[] | null;
@@ -21,9 +21,9 @@ export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerV
 	padding?: number | { x?: number; y?: number };
 }
 
-export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends number[]
-	? number[]
-	: number | undefined;
+export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends string[]
+	? string[]
+	: string | undefined;
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);
 

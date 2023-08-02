@@ -10,7 +10,7 @@ import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
-import { useExplorerSearchParams } from './util';
+import { uniqueId, useExplorerSearchParams } from './util';
 
 interface Props {
 	items: ExplorerItem[] | null;
@@ -27,12 +27,12 @@ export default function Explorer(props: Props) {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	const [selectedItemId, setSelectedItemId] = useState<number>();
+	const [selectedItemId, setSelectedItemId] = useState<string>();
 
 	const selectedItem = useMemo(
 		() =>
 			selectedItemId
-				? props.items?.find((item) => item.item.id === selectedItemId)
+				? props.items?.find((item) => uniqueId(item) === selectedItemId)
 				: undefined,
 		[selectedItemId, props.items]
 	);

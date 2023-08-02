@@ -47,3 +47,19 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		return itemData;
 	}, [explorerItem, newThumbnail]);
 }
+
+export const pubIdToString = (pub_id: number[]) =>
+	pub_id.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
+	if ('pub_id' in item) return pubIdToString(item.pub_id);
+
+	const { type } = item;
+
+	switch (type) {
+		case 'NonIndexedPath':
+			return item.item.path;
+		default:
+			return pubIdToString(item.item.pub_id);
+	}
+};

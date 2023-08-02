@@ -74,7 +74,6 @@ pub struct NonIndexedFileSystemEntries {
 
 #[derive(Serialize, Type, Debug)]
 pub struct NonIndexedPathItem {
-	pub id: i32,
 	pub path: String,
 	pub name: String,
 	pub extension: String,
@@ -93,7 +92,6 @@ pub async fn walk(
 	let path = full_path.as_ref();
 	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;
 
-	let mut id = 1;
 	let mut directories = vec![];
 	let mut errors = vec![];
 	let mut entries = vec![];
@@ -132,7 +130,7 @@ pub async fn walk(
 		};
 
 		if metadata.is_dir() {
-			directories.push((entry_path, id, name, metadata));
+			directories.push((entry_path, name, metadata));
 		} else {
 			let path = Path::new(&entry_path);
 
@@ -185,7 +183,6 @@ pub async fn walk(
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
-					id,
 					path: entry_path,
 					name,
 					extension,
@@ -197,8 +194,6 @@ pub async fn walk(
 				},
 			});
 		}
-
-		id += 1;
 	}
 
 	let mut locations = library
@@ -207,7 +202,7 @@ pub async fn walk(
 		.find_many(vec![location::path::in_vec(
 			directories
 				.iter()
-				.map(|(path, _, _, _)| path.clone())
+				.map(|(path, _, _)| path.clone())
 				.collect(),
 		)])
 		.exec()
@@ -221,7 +216,7 @@ pub async fn walk(
 		})
 		.collect::<HashMap<_, _>>();
 
-	for (directory, id, name, metadata) in directories {
+	for (directory, name, metadata) in directories {
 		if let Some(location) = locations.remove(&directory) {
 			entries.push(ExplorerItem::Location {
 				has_local_thumbnail: false,
@@ -233,7 +228,6 @@ pub async fn walk(
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
-					id,
 					path: directory,
 					name,
 					extension: "".to_string(),

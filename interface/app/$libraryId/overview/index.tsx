@@ -8,6 +8,7 @@ import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
 import { useExplorerStore } from '../Explorer/store';
+import { uniqueId } from '../Explorer/util';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
@@ -22,10 +23,11 @@ export const Component = () => {
 
 	const { items, query, loadMore } = useItems(selectedCategory);
 
-	const [selectedItemId, setSelectedItemId] = useState<number>();
+	const [selectedItemId, setSelectedItemId] = useState<string>();
 
 	const selectedItem = useMemo(
-		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
+		() =>
+			selectedItemId ? items?.find((item) => uniqueId(item) === selectedItemId) : undefined,
 		[selectedItemId, items]
 	);
 

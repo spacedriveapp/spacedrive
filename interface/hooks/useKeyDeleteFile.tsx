@@ -7,7 +7,7 @@ export const useKeyDeleteFile = (selectedItem: ExplorerItem | null, location_id:
 	return useKey('Delete', (e) => {
 		e.preventDefault();
 
-		if (!selectedItem || !location_id) return;
+		if (!selectedItem || !location_id || selectedItem.type === 'NonIndexedPath') return;
 
 		dialogManager.create((dp) => (
 			<DeleteDialog {...dp} location_id={location_id} path_id={selectedItem.item.id} />

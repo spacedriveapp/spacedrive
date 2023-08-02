@@ -4,7 +4,7 @@ import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { getExplorerStore } from '../../store';
-import { useExplorerSearchParams } from '../../util';
+import { uniqueId, useExplorerSearchParams } from '../../util';
 
 interface Props {
 	locationId: number;

@@ -34,13 +34,16 @@ export default function RenamableItemText(props: {
 		);
 	} else {
 		const filePathData =
-			(((item.type === 'Path' || item.type === 'NonIndexedPath') && item.item) ||
-				(item.type === 'Object' && item.item.file_paths[0])) ??
-			null;
+			item.type === 'Path' || item.type === 'NonIndexedPath'
+				? item.item
+				: item.type === 'Object'
+				? item.item.file_paths[0]
+				: null;
+
 		if (filePathData) {
 			return (
 				<RenamePathTextBox
-					itemId={filePathData.id}
+					itemId={'id' in filePathData ? filePathData.id : null}
 					text={filePathData.name}
 					extension={filePathData.extension}
 					isDir={filePathData.is_dir || false}

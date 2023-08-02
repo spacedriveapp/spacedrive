@@ -65,7 +65,9 @@ const Explorer = ({ items }: ExplorerProps) => {
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
 					data={items}
-					keyExtractor={(item) => item.item.id.toString()}
+					keyExtractor={(item) =>
+						item.type === 'NonIndexedPath' ? item.item.path : item.item.id.toString()
+					}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
 							{layoutMode === 'grid' ? (

@@ -228,7 +228,7 @@ export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Err
 
 export type NonIndexedPath = { path: string; withHiddenFiles: boolean; order?: FilePathSearchOrdering | null }
 
-export type NonIndexedPathItem = { id: number; path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
+export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
 
 /**
  * Represents a single notification.

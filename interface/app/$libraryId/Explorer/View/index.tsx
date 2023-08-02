@@ -36,6 +36,7 @@ import {
 } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
 import { getExplorerStore, useExplorerStore } from '../store';
+import { uniqueId } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -86,6 +87,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			data.type !== 'NonIndexedPath' &&
 			openFilePaths &&
 			filePath &&
+			'id' in filePath &&
 			explorerConfig.openOnDoubleClick &&
 			!explorerView.isRenaming
 		) {
@@ -236,7 +238,7 @@ const useKeyDownHandlers = ({
 	const selectedItem = useMemo(
 		() =>
 			items?.find(
-				(item) => item.item.id === (Array.isArray(selected) ? selected[0] : selected)
+				(item) => uniqueId(item) === (Array.isArray(selected) ? selected[0] : selected)
 			),
 		[items, selected]
 	);
@@ -247,6 +249,7 @@ const useKeyDownHandlers = ({
 		async (event: KeyboardEvent) => {
 			if (
 				itemPath == null ||
+				!('id' in itemPath) ||
 				event.key.toUpperCase() !== 'N' ||
 				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
 			)
@@ -268,6 +271,10 @@ const useKeyDownHandlers = ({
 				return;
 
 			try {
+				if (!('id' in itemPath)) {
+					throw new Error('Ephemeral path not supported yet');
+				}
+
 				await openFilePaths(library.uuid, [itemPath.id]);
 			} catch (error) {
 				showAlertDialog({

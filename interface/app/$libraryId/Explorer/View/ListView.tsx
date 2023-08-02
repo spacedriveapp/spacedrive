@@ -10,7 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
@@ -34,6 +34,7 @@ import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
 import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
+import { uniqueId } from '../util';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
@@ -114,14 +115,14 @@ export default () => {
 	);
 
 	const paddingX =
-		(typeof explorerView.padding === 'object'
-			? explorerView.padding.x
-			: explorerView.padding) || 16;
+		(typeof explorerView.padding === 'number'
+			? explorerView.padding
+			: explorerView.padding?.x) || 16;
 
 	const paddingY =
-		(typeof explorerView.padding === 'object'
-			? explorerView.padding.y
-			: explorerView.padding) || 12;
+		(typeof explorerView.padding === 'number'
+			? explorerView.padding
+			: explorerView.padding?.y) || 12;
 
 	const scrollBarWidth = 8;
 	const rowHeight = 45;
@@ -151,13 +152,11 @@ export default () => {
 				cell: (cell) => {
 					const file = cell.row.original;
 
-					const selectedId = Array.isArray(explorerView.selected)
-						? explorerView.selected[0]
-						: explorerView.selected;
-
-					const selected = selectedId === cell.row.original.item.id;
-
-					const cut = isCut(file.item.id);
+					const id = uniqueId(file);
+					const cut = isCut(file, explorerStore.cutCopyState);
+					const selected = Array.isArray(explorerView.selected)
+						? explorerView.selected.includes(id)
+						: id === explorerView.selected;
 
 					return (
 						<div className="relative flex items-center">
@@ -255,27 +254,30 @@ export default () => {
 				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
-		[explorerView.selected, explorerStore.cutCopyState.sourcePathId]
+		[explorerView.selected, explorerStore.cutCopyState]
 	);
 
 	const table = useReactTable({
-		data: explorerView.items || [],
+		data: explorerView.items ?? [],
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
 		state: { columnSizing },
 		onColumnSizingChange: setColumnSizing,
 		columnResizeMode: 'onChange',
-		getCoreRowModel: getCoreRowModel(),
-		getRowId: (row) => String(row.item.id)
+		getCoreRowModel: useMemo(() => getCoreRowModel(), []),
+		getRowId: uniqueId
 	});
 
+	const rows = table.getRowModel().rows;
 	const tableLength = table.getTotalSize();
-	const rows = useMemo(() => table.getRowModel().rows, [explorerView.items]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: explorerView.items ? rows.length : 100,
-		getScrollElement: () => explorerView.scrollRef.current,
-		estimateSize: () => rowHeight,
+		getScrollElement: useCallback(
+			() => explorerView.scrollRef.current,
+			[explorerView.scrollRef]
+		),
+		estimateSize: useCallback(() => rowHeight, []),
 		paddingStart: paddingY + (isScrolled ? 35 : 0),
 		paddingEnd: paddingY,
 		scrollMargin: listOffset
@@ -291,31 +293,6 @@ export default () => {
 			: explorerView.selected;
 	}, [explorerView.selected]);
 
-	function handleResize() {
-		if (locked && Object.keys(columnSizing).length > 0) {
-			table.setColumnSizing((sizing) => {
-				const nameSize = sizing.name;
-				const nameColumnMinSize = table.getColumn('name')?.columnDef.minSize;
-				const newNameSize =
-					(nameSize || 0) + tableWidth - paddingX * 2 - scrollBarWidth - tableLength;
-
-				return {
-					...sizing,
-					...(nameSize !== undefined && nameColumnMinSize !== undefined
-						? {
-								name:
-									newNameSize >= nameColumnMinSize
-										? newNameSize
-										: nameColumnMinSize
-						  }
-						: {})
-				};
-			});
-		} else if (Math.abs(tableWidth - (tableLength + paddingX * 2 + scrollBarWidth)) < 15) {
-			setLocked(true);
-		}
-	}
-
 	function handleRowClick(
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
 		row: Row<ExplorerItem>
@@ -323,7 +300,6 @@ export default () => {
 		if (!explorerView.onSelectedChange || e.button !== 0) return;
 
 		const rowIndex = row.index;
-		const itemId = row.original.item.id;
 
 		if (e.shiftKey && Array.isArray(explorerView.selected)) {
 			const range = ranges[ranges.length - 1];
@@ -346,29 +322,23 @@ export default () => {
 
 			const isCurrentHigher = currentRowIndex > rangeEndItem.index;
 
-			const indexes = isCurrentHigher
-				? Array.from(
-						{
-							length:
-								currentRowIndex -
-								rangeEndItem.index +
-								(rangeEndItem.index === 0 ? 1 : 0)
-						},
-						(_, i) => rangeStartRow.index + i + 1
-				  )
-				: Array.from(
-						{ length: rangeEndItem.index - currentRowIndex },
-						(_, i) => rangeStartRow.index - (i + 1)
-				  );
-
-			const updated = new Set(explorerView.selected);
-			if (isCurrentHigher) {
-				indexes.forEach((i) => {
-					updated.add(Number(rows[i]?.id));
-				});
-			} else {
-				indexes.forEach((i) => updated.add(Number(rows[i]?.id)));
-			}
+			const updated = new Set([
+				...explorerView.selected,
+				...(isCurrentHigher
+					? Array.from(
+							{
+								length:
+									currentRowIndex -
+									rangeEndItem.index +
+									(rangeEndItem.index === 0 ? 1 : 0)
+							},
+							(_, i) => rows[rangeStartRow.index + i + 1]?.id
+					  )
+					: Array.from(
+							{ length: rangeEndItem.index - currentRowIndex },
+							(_, i) => rows[rangeStartRow.index - (i + 1)]?.id
+					  ))
+			]);
 
 			if (lastDirection !== currentDirection) {
 				const sorted = Math.abs(rangeStartRow.index - rangeEndItem.index);
@@ -379,48 +349,75 @@ export default () => {
 						: rangeStartRow.index - (i + 1)
 				);
 
-				indexes.forEach(
-					(i) => i !== rangeStartRow.index && updated.delete(Number(rows[i]?.id))
-				);
+				indexes.forEach((i) => i !== rangeStartRow.index && updated.delete(rows[i]?.id));
 			}
-			explorerView.onSelectedChange?.([...updated]);
-			setRanges([...ranges.slice(0, ranges.length - 1), [rangeStartId, itemId]]);
+
+			explorerView.onSelectedChange?.(Array.from(updated).filter(Boolean) as string[]);
+
+			setRanges([...ranges.slice(0, ranges.length - 1), [rangeStartId, rowIndex]]);
 		} else if (e.metaKey && Array.isArray(explorerView.selected)) {
 			const updated = new Set(explorerView.selected);
-			if (updated.has(itemId)) {
-				updated.delete(itemId);
+			if (updated.has(row.id)) {
+				updated.delete(row.id);
 				setRanges(ranges.filter((range) => range[0] !== rowIndex));
 			} else {
-				setRanges([...ranges.slice(0, ranges.length - 1), [itemId, itemId]]);
+				setRanges([...ranges.slice(0, ranges.length - 1), [rowIndex, rowIndex]]);
 			}
 
 			explorerView.onSelectedChange?.([...updated]);
 		} else {
-			explorerView.onSelectedChange(explorerView.multiSelect ? [itemId] : itemId);
-			setRanges([[itemId, itemId]]);
+			explorerView.onSelectedChange(explorerView.multiSelect ? [row.id] : row.id);
+			setRanges([[rowIndex, rowIndex]]);
 		}
 	}
 
 	function handleRowContextMenu(row: Row<ExplorerItem>) {
 		if (!explorerView.onSelectedChange || explorerView.contextMenu === undefined) return;
 
-		const itemId = row.original.item.id;
-
 		if (
 			!selectedItems ||
-			(typeof selectedItems === 'object' && !selectedItems.has(itemId)) ||
-			(typeof selectedItems === 'number' && selectedItems !== itemId)
+			(typeof selectedItems === 'string'
+				? selectedItems !== row.id
+				: !selectedItems.has(row.id))
 		) {
-			explorerView.onSelectedChange(typeof selectedItems === 'object' ? [itemId] : itemId);
-			setRanges([[itemId, itemId]]);
+			explorerView.onSelectedChange(typeof selectedItems === 'string' ? row.id : [row.id]);
+			setRanges([[row.index, row.index]]);
 		}
 	}
 
-	function isSelected(id: number) {
-		return typeof selectedItems === 'object' ? !!selectedItems.has(id) : selectedItems === id;
+	function isSelected(id: string) {
+		return typeof selectedItems === 'string'
+			? selectedItems === id
+			: selectedItems?.has(id) ?? false;
 	}
 
-	useEffect(() => handleResize(), [tableWidth]);
+	useEffect(() => {
+		if (locked && Object.keys(columnSizing).length > 0) {
+			table.setColumnSizing((sizing) => {
+				const nameSize = sizing.name;
+				const nameColumnMinSize = table.getColumn('name')?.columnDef.minSize;
+				const newNameSize =
+					(nameSize || 0) + tableWidth - paddingX * 2 - scrollBarWidth - tableLength;
+
+				return {
+					...sizing,
+					...(nameSize !== undefined && nameColumnMinSize !== undefined
+						? {
+								name:
+									newNameSize >= nameColumnMinSize
+										? newNameSize
+										: nameColumnMinSize
+						  }
+						: {})
+				};
+			});
+		} else if (Math.abs(tableWidth - (tableLength + paddingX * 2 + scrollBarWidth)) < 15) {
+			setLocked(true);
+		}
+		// TODO: This should only depends on tableWidth, the lock logic should be behind a useEffectEvent (experimental)
+		// https://react.dev/learn/separating-events-from-effects#declaring-an-effect-event
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tableWidth]);
 
 	// TODO: Improve this
 	useEffect(() => {
@@ -428,39 +425,41 @@ export default () => {
 	}, [rect]);
 
 	// Measure initial column widths
-	useEffect(() => {
-		if (tableRef.current) {
-			const columns = table.getAllColumns();
-			const sizings = columns.reduce(
-				(sizings, column) => ({ ...sizings, [column.id]: column.getSize() }),
-				{} as ColumnSizingState
-			);
-			const scrollWidth = tableRef.current.offsetWidth;
-			const sizingsSum = Object.values(sizings).reduce((a, b) => a + b, 0);
+	useLayoutEffect(() => {
+		if (!tableRef.current || sized) return;
 
-			if (sizingsSum < scrollWidth) {
-				const nameColSize = sizings.name;
-				const nameWidth =
-					scrollWidth - paddingX * 2 - scrollBarWidth - (sizingsSum - (nameColSize || 0));
+		const columns = table.getAllColumns();
+		const sizings = columns.reduce(
+			(sizings, column) => ({ ...sizings, [column.id]: column.getSize() }),
+			{} as ColumnSizingState
+		);
+		const scrollWidth = tableRef.current.offsetWidth;
+		const sizingsSum = Object.values(sizings).reduce((a, b) => a + b, 0);
 
-				table.setColumnSizing({ ...sizings, name: nameWidth });
-				setLocked(true);
-			} else table.setColumnSizing(sizings);
+		if (sizingsSum < scrollWidth) {
+			const nameColSize = sizings.name;
+			const nameWidth =
+				scrollWidth - paddingX * 2 - scrollBarWidth - (sizingsSum - (nameColSize || 0));
 
-			setSized(true);
-		}
-	}, []);
+			table.setColumnSizing({ ...sizings, name: nameWidth });
+			setLocked(true);
+		} else table.setColumnSizing(sizings);
+
+		setSized(true);
+	}, [sized, table, paddingX]);
 
 	// initialize ranges
 	useEffect(() => {
-		if (ranges.length === 0 && explorerView.selected) {
-			const id = Array.isArray(explorerView.selected)
-				? explorerView.selected[explorerView.selected.length - 1]
-				: explorerView.selected;
-
-			if (id) setRanges([[id, id]]);
-		}
-	}, []);
+		if (rows.length === 0 || ranges.length > 0 || !explorerView.selected) return;
+		setRanges(
+			(Array.isArray(explorerView.selected) ? explorerView.selected : [explorerView.selected])
+				.map((id) => {
+					const row = rows.find((row) => row.id === id);
+					return row ? [row.index, row.index] : null;
+				})
+				.filter(Boolean) as [number, number][]
+		);
+	}, [rows, ranges.length, explorerView.selected]);
 
 	// Load more items
 	useEffect(() => {
@@ -478,7 +477,7 @@ export default () => {
 				if (lastRow.index === loadMoreOnIndex) explorerView.onLoadMore();
 			}
 		}
-	}, [virtualRows, rows.length, explorerView.rowsBeforeLoadMore, explorerView.onLoadMore]);
+	}, [virtualRows, rows.length, explorerView]);
 
 	useKey(
 		['ArrowUp', 'ArrowDown'],
@@ -504,16 +503,16 @@ export default () => {
 							];
 
 						if (nextRow) {
-							if (e.shiftKey && typeof selectedItems === 'object') {
+							if (e.shiftKey && typeof selectedItems !== 'string') {
 								const newSet = new Set(selectedItems);
 
 								if (
-									selectedItems?.has(Number(nextRow.id)) &&
-									selectedItems?.has(Number(lastSelectedRow.id))
+									selectedItems?.has(nextRow.id) &&
+									selectedItems?.has(lastSelectedRow.id)
 								) {
-									newSet.delete(Number(lastSelectedRow.id));
+									newSet.delete(lastSelectedRow.id);
 								} else {
-									newSet.add(Number(nextRow.id));
+									newSet.add(nextRow.id);
 								}
 
 								explorerView.onSelectedChange([...newSet]);
@@ -521,15 +520,13 @@ export default () => {
 									...ranges.slice(0, ranges.length - 1),
 									// FIXME: Eslint is right here.
 									// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-									[ranges[ranges.length - 1]?.[0]!, Number(nextRow.id)]
+									[ranges[ranges.length - 1]?.[0]!, nextRow.index]
 								]);
 							} else {
 								explorerView.onSelectedChange(
-									explorerView.multiSelect
-										? [Number(nextRow.id)]
-										: Number(nextRow.id)
+									explorerView.multiSelect ? [nextRow.id] : nextRow.id
 								);
-								setRanges([[Number(nextRow.id), Number(nextRow.id)]]);
+								setRanges([[nextRow.index, nextRow.index]]);
 							}
 
 							if (explorerView.scrollRef.current) {
@@ -751,17 +748,19 @@ export default () => {
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 
-										const selected = isSelected(row.original.item.id);
+										const id = uniqueId(row.original);
+										const selected = isSelected(id);
 
 										const previousRow = rows[virtualRow.index - 1];
 										const selectedPrior =
-											previousRow && isSelected(previousRow.original.item.id);
+											previousRow &&
+											isSelected(uniqueId(previousRow.original));
 
 										const nextRow = rows[virtualRow.index + 1];
 										const selectedNext =
-											nextRow && isSelected(nextRow.original.item.id);
+											nextRow && isSelected(uniqueId(nextRow.original));
 
-										const cut = isCut(row.original.item.id);
+										const cut = isCut(row.original, explorerStore.cutCopyState);
 
 										return (
 											<div

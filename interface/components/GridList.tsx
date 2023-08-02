@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import React, {
 	HTMLAttributes,
 	PropsWithChildren,
-	ReactNode,
 	cloneElement,
 	createContext,
 	useContext,
@@ -11,12 +10,14 @@ import React, {
 } from 'react';
 import { RefObject, useEffect, useMemo, useState } from 'react';
 import Selecto, { SelectoProps } from 'react-selecto';
-import { useBoundingclientrect, useIntersectionObserverRef, useKey, useKeys } from 'rooks';
+import { useBoundingclientrect, useKey } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { TOP_BAR_HEIGHT } from '~/app/$libraryId/TopBar';
+import {
+	type ExplorerViewContext,
+	type ExplorerViewSelection
+} from '~/app/$libraryId/Explorer/ViewContext';
 
-type GridListSelection = number | number[];
-interface GridListDefaults<T extends GridListSelection> {
+interface GridListDefaults<T extends ExplorerViewSelection = ExplorerViewSelection> {
 	count: number;
 	scrollRef: RefObject<HTMLElement>;
 	padding?: number | { x?: number; y?: number };
@@ -26,7 +27,7 @@ interface GridListDefaults<T extends GridListSelection> {
 		item: (props: GridListItemProps) => JSX.Element;
 	}) => JSX.Element | null;
 	selected?: T;
-	onSelectedChange?: (change: T) => void;
+	onSelectedChange?: ExplorerViewContext['onSelectedChange'];
 	selectable?: boolean;
 	onSelect?: (index: number) => void;
 	onDeselect?: (index: number) => void;
@@ -37,17 +38,17 @@ interface GridListDefaults<T extends GridListSelection> {
 	preventSelection?: boolean;
 	preventContextMenuSelection?: boolean;
 }
-interface WrapProps<T extends GridListSelection> extends GridListDefaults<T> {
+interface WrapProps<T extends ExplorerViewSelection> extends GridListDefaults<T> {
 	size: number | { width: number; height: number };
 }
 
-interface ResizeProps<T extends GridListSelection> extends GridListDefaults<T> {
+interface ResizeProps<T extends ExplorerViewSelection> extends GridListDefaults<T> {
 	columns: number;
 }
 
-type GridListProps<T extends GridListSelection> = WrapProps<T> | ResizeProps<T>;
+type GridListProps<T extends ExplorerViewSelection> = WrapProps<T> | ResizeProps<T>;
 
-export const GridList = <T extends GridListSelection>({
+export const GridList = <T extends ExplorerViewSelection>({
 	selectable = true,
 	...props
 }: GridListProps<T>) => {
@@ -201,8 +202,9 @@ export const GridList = <T extends GridListSelection>({
 
 			if (newSelectedItem) {
 				if (!multiSelect) {
-					const id = Number(newSelectedItem.getAttribute('data-selectable-id'));
-					props.onSelectedChange(id as T);
+					props.onSelectedChange(
+						newSelectedItem.getAttribute('data-selectable-id') ?? undefined
+					);
 				} else {
 					const addToGridListSelection = e.shiftKey;
 
@@ -213,7 +215,7 @@ export const GridList = <T extends GridListSelection>({
 
 					props.onSelectedChange(
 						[...(addToGridListSelection ? selectedItems : []), newSelectedItem].map(
-							(el) => Number(el.getAttribute('data-selectable-id'))
+							(el) => el.getAttribute('data-selectable-id')
 						) as T
 					);
 				}
@@ -303,15 +305,17 @@ export const GridList = <T extends GridListSelection>({
 						);
 					}}
 					onSelect={(e) => {
-						const set = new Set(props.selected as number[]);
+						const set = new Set(props.selected);
 
-						e.removed.forEach((el) => {
-							set.delete(Number(el.getAttribute('data-selectable-id')));
-						});
+						for (const el of e.removed) {
+							const id = el.getAttribute('data-selectable-id');
+							if (id) set.delete(id);
+						}
 
-						e.added.forEach((el) => {
-							set.add(Number(el.getAttribute('data-selectable-id')));
-						});
+						for (const el of e.added) {
+							const id = el.getAttribute('data-selectable-id');
+							if (id) set.add(id);
+						}
 
 						props.onSelectedChange?.([...set] as T);
 					}}
@@ -350,12 +354,12 @@ export const GridList = <T extends GridListSelection>({
 											index,
 											style: { width: itemWidth },
 											onMouseDown: (id) => {
-												!multiSelect && props.onSelectedChange?.(id as T);
+												!multiSelect && props.onSelectedChange?.(id);
 											},
 											onContextMenu: (id) => {
 												!props.preventContextMenuSelection &&
 													!multiSelect &&
-													props.onSelectedChange?.(id as T);
+													props.onSelectedChange?.(id);
 											}
 										})}
 									</div>
@@ -378,9 +382,9 @@ interface GridListItemProps
 	selectable?: boolean;
 	index?: number;
 	selected?: boolean;
-	id?: number;
-	onMouseDown?: (id: number) => void;
-	onContextMenu?: (id: number) => void;
+	id: string;
+	onMouseDown?: (id: string) => void;
+	onContextMenu?: (id: string) => void;
 }
 
 const GridListItem = ({ className, children, style, ...props }: GridListItemProps) => {
@@ -402,7 +406,7 @@ const GridListItem = ({ className, children, style, ...props }: GridListItemProp
 	const selectableProps = props.selectable
 		? {
 				'data-selectable': '',
-				'data-selectable-id': props.id || props.index,
+				'data-selectable-id': props.id,
 				'data-selectable-index': props.index,
 				'data-selected': props.selected
 		  }
@@ -417,14 +421,12 @@ const GridListItem = ({ className, children, style, ...props }: GridListItemProp
 			onMouseDown={(e) => {
 				e.stopPropagation();
 				if (e.button === 0 && props.onMouseDown && props.selectable) {
-					const id = props.id || props.index;
-					if (id) props.onMouseDown(id);
+					props.onMouseDown(props.id);
 				}
 			}}
 			onContextMenu={() => {
 				if (props.onContextMenu && props.selectable) {
-					const id = props.id || props.index;
-					if (id) props.onContextMenu(id);
+					props.onContextMenu(props.id);
 				}
 			}}
 		>

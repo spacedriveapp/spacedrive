@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import exp from 'constants';
 import { memo } from 'react';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { GridList } from '~/components';
@@ -6,6 +7,7 @@ import { ViewItem } from '.';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { isCut, useExplorerStore } from '../store';
+import { uniqueId } from '../util';
 import RenamableItemText from './RenamableItemText';
 
 interface GridViewItemProps {
@@ -85,14 +87,14 @@ export default () => {
 				const item = explorerView.items?.[index];
 				if (!item) return null;
 
+				const id = uniqueId(item);
+				const cut = isCut(item, explorerStore.cutCopyState);
 				const isSelected = Array.isArray(explorerView.selected)
-					? explorerView.selected.includes(item.item.id)
-					: explorerView.selected === item.item.id;
-
-				const cut = isCut(item.item.id);
+					? explorerView.selected.includes(id)
+					: explorerView.selected === id;
 
 				return (
-					<Item selected={isSelected} id={item.item.id}>
+					<Item selected={isSelected} id={id}>
 						<GridViewItem data={item} selected={isSelected} index={index} cut={cut} />
 					</Item>
 				);

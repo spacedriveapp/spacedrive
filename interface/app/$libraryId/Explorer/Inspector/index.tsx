@@ -18,6 +18,7 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
+import { uniqueId } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -35,7 +36,11 @@ const InspectorIcon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
 );
 
-const ContainerWithDivider = ({ children, ...props }: Parameters<typeof MetaContainer>[0]) => {
+const ContainerWithDivider = ({
+	children,
+	before = false,
+	...props
+}: Parameters<typeof MetaContainer>[0] & { before?: boolean }) => {
 	if (Array.isArray(children)) {
 		const childrens = children.filter(Boolean) as ReactNode[];
 		children = childrens.length === 0 ? null : childrens;
@@ -43,9 +48,11 @@ const ContainerWithDivider = ({ children, ...props }: Parameters<typeof MetaCont
 
 	return children ? (
 		<>
+			{before && <Divider />}
+
 			<MetaContainer {...props}>{children}</MetaContainer>
 
-			<Divider />
+			{before || <Divider />}
 		</>
 	) : null;
 };
@@ -57,6 +64,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 export const Inspector = ({ data, context, showThumbnail = true, ...props }: Props) => {
+	const dataId = data ? uniqueId(data) : null;
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -67,7 +75,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 			setReadyToFetch(true);
 		}, 350);
 		return () => clearTimeout(timeout);
-	}, [data?.item.id]);
+	}, [dataId]);
 
 	// this is causing LAG
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
@@ -93,30 +101,9 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 			</div>
 		);
 
-	// const objectData = data ? getItemObject(data) : null;
-	// const filePathData = data ? getItemFilePath(data) : null;
-	// const { isDir, kind } = data
-	// 	? getExplorerItemData(data)
-	// 	: { isDir: false, kind: ObjectKind.Unknown };
-
-	// // this is causing LAG
-	// const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
-	// 	enabled: readyToFetch && objectData?.id !== undefined && data?.type !== 'NonIndexedPath'
-	// });
-
-	// const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
-	// 	enabled: readyToFetch && objectData?.id !== undefined
-	// });
-
-	// const item = data?.item;
-
-	// // map array of numbers into string
-	// const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
-
 	const { name, isDir, kind, size, casId, dateCreated, dateIndexed } = getExplorerItemData(data);
 
-	const pubId = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
-
+	const pubId = fullObjectData?.data ? uniqueId(fullObjectData?.data) : null;
 	const mediaData = fullObjectData?.data?.media_data;
 
 	let extension, integrityChecksum;
@@ -248,9 +235,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 					<>
 						{objectData && <Note data={objectData} />}
 
-						<Divider />
-
-						<MetaContainer>
+						<ContainerWithDivider before={true}>
 							{casId && (
 								<Tooltip label={casId}>
 									<MetaTextLine>
@@ -280,7 +265,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaTextLine>
 								</Tooltip>
 							)}
-						</MetaContainer>
+						</ContainerWithDivider>
 					</>
 				)}
 			</div>
