@@ -4,6 +4,7 @@ pub use kv::*;
 use specta::Type;
 
 use crate::prisma::PrismaClient;
+use crate::prisma::SortOrder;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -57,19 +58,42 @@ pub struct LocationPreferences {
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct LocationViewSettings {
 	layout: ExplorerLayout,
-	list: ListViewSettings,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
 pub struct ListViewSettings {
-	columns: HashMap<String, ListViewColumnSettings>,
-	sort_col: Option<String>,
+	double_click_action: Option<DoubleClickAction>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
-pub struct ListViewColumnSettings {
-	hide: bool,
-	size: Option<i32>,
+pub struct MediaViewSettings {
+	item_size: Option<i32>,
+	sort_by: Option<ViewSortBy>,
+	direction: Option<SortOrder>,
+	show_square_thumbnails: Option<bool>,
+	double_click_action: Option<DoubleClickAction>,
+}
+
+pub struct GridViewSettings {
+	item_size: Option<i32>,
+	sort_by: Option<ViewSortBy>,
+	direction: Option<SortOrder>,
+	show_object_size: Option<bool>,
+	double_click_action: Option<DoubleClickAction>,
+}
+
+#[derive(Debug, Clone, Type, Serialize, Deserialize)]
+pub enum DoubleClickAction {
+	OpenFile,
+	QuickPreview,
+}
+pub enum ViewSortBy {
+	None,
+	Name,
+	Size,
+	DateCreated,
+	DateModified,
+	DateIndexed,
+	DateAccessed,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]

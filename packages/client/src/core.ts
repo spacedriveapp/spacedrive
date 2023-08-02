@@ -179,10 +179,6 @@ export type LibraryPreferences = { location?: { [key: string]: LocationPreferenc
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListViewColumnSettings = { hide: boolean; size: number | null }
-
-export type ListViewSettings = { columns: { [key: string]: ListViewColumnSettings }; sort_col: string | null }
-
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
@@ -204,7 +200,7 @@ export type LocationPreferences = { view?: LocationViewSettings | null }
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
 
-export type LocationViewSettings = { layout: ExplorerLayout; list: ListViewSettings }
+export type LocationViewSettings = { layout: ExplorerLayout }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
