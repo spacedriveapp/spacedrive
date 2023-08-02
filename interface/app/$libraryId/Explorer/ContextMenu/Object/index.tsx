@@ -1,5 +1,5 @@
 import { Plus } from 'phosphor-react';
-import { ExplorerItem, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { FilePathItems, ObjectItems, SharedItems } from '..';
 
@@ -11,8 +11,7 @@ export default ({ data }: Props) => {
 	const object = data.item;
 	const filePath = data.item.file_paths[0];
 
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: filePath?.location_id || -1 }])
-	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath?.materialized_path}${filePath?.name}${filePath?.extension ? `.${filePath?.extension}` : ''}` : null
+	const getAbsolutePath = useLibraryMutation('files.locationIdToPath');
 
 	return (
 		<>
@@ -40,7 +39,17 @@ export default ({ data }: Props) => {
 
 			{filePath && (
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-					{absoluteFilePath && <FilePathItems.CopyAsPath absoluteFilePath={absoluteFilePath} />}
+					<FilePathItems.CopyAsPath
+						onClick={async () => {
+							navigator.clipboard.writeText(
+								`${await getAbsolutePath.mutateAsync({
+									location_id: filePath?.location_id || -1
+								})}${filePath?.materialized_path}${filePath?.name}${
+									filePath?.extension ? `.${filePath?.extension}` : ''
+								}`
+							);
+						}}
+					/>
 					<FilePathItems.Crypto filePath={filePath} />
 					<FilePathItems.Compress filePath={filePath} />
 					<ObjectItems.ConvertObject filePath={filePath} object={object} />

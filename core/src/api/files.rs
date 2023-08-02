@@ -52,9 +52,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct GetLocationArgs {
 				pub location_id: i32,
 			}
+
 			R.with2(library())
-				.query(|(_, library), args: GetLocationArgs| async move {
-					let location_path = find_location(&library, args.location_id)
+				.mutation(|(_, library), args: GetLocationArgs| async move {
+					let location_path: String = find_location(&library, args.location_id)
 						.select(location::select!({ path }))
 						.exec()
 						.await?

@@ -1,5 +1,5 @@
 import { Plus } from 'phosphor-react';
-import { ExplorerItem, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { useExplorerContext } from '../../Context';
 import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
@@ -14,9 +14,7 @@ export default ({ data }: Props) => {
 
 	const { parent } = useExplorerContext();
 
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: filePath?.location_id || -1 }])
-	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${filePath?.materialized_path}${filePath?.name}${filePath?.extension ? `.${filePath?.extension}` : ''}` : null
-
+	const getAbsolutePath = useLibraryMutation('files.locationIdToPath');
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
 	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
@@ -54,7 +52,17 @@ export default ({ data }: Props) => {
 			{object && <ObjectItems.AssignTag object={object} />}
 
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-				{absoluteFilePath && <FilePathItems.CopyAsPath absoluteFilePath={absoluteFilePath} />}
+				<FilePathItems.CopyAsPath
+					onClick={async () => {
+						navigator.clipboard.writeText(
+							`${await getAbsolutePath.mutateAsync({
+								location_id: filePath?.location_id || -1
+							})}${filePath?.materialized_path}${filePath?.name}${
+								filePath?.extension ? `.${filePath?.extension}` : ''
+							}`
+						);
+					}}
+				/>
 
 				<FilePathItems.Crypto filePath={filePath} />
 

@@ -38,16 +38,8 @@ export const Delete = ({ filePath }: FilePathProps) => {
 	);
 };
 
-export const CopyAsPath = ({ absoluteFilePath }: { absoluteFilePath: string }) => {
-	return (
-		<ContextMenu.Item
-			label="Copy as path"
-			icon={ClipboardText}
-			onClick={() => {
-				navigator.clipboard.writeText(absoluteFilePath)
-			}}
-		/>
-	);
+export const CopyAsPath = ({ onClick }: { onClick: any }) => {
+	return <ContextMenu.Item label="Copy as path" icon={ClipboardText} onClick={onClick} />;
 };
 
 export const Compress = (_: FilePathProps) => {
