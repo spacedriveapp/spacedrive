@@ -1,4 +1,4 @@
-import { ClipboardText, Image, Package, Trash, TrashSimple } from 'phosphor-react';
+import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
 import { FilePath, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
@@ -35,18 +35,6 @@ export const Delete = ({ filePath }: FilePathProps) => {
 				/>
 			)}
 		</>
-	);
-};
-
-export const CopyAsPath = ({ absoluteFilePath }: { absoluteFilePath: string }) => {
-	return (
-		<ContextMenu.Item
-			label="Copy as path"
-			icon={ClipboardText}
-			onClick={() => {
-				navigator.clipboard.writeText(absoluteFilePath)
-			}}
-		/>
 	);
 };
 
