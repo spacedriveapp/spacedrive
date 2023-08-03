@@ -21,7 +21,7 @@ pub enum Request {
 	Ingested,
 }
 
-/// Stuff that the actor produces
+/// Stuff that the actor consumes
 #[derive(Debug)]
 pub enum Event {
 	Notification(NotificationEvent),
