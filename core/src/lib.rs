@@ -43,6 +43,8 @@ pub(crate) mod preferences;
 pub(crate) mod util;
 pub(crate) mod volume;
 
+pub(crate) use sd_core_sync as sync;
+
 /// Holds references to all the services that make up the Spacedrive core.
 /// This can easily be passed around as a context to the rest of the core.
 pub struct NodeServices {

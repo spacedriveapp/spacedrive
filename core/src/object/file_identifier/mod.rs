@@ -9,7 +9,6 @@ use crate::{
 	util::{db::maybe_missing, error::FileIOError},
 };
 
-use sd_core_sync::SyncManager;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma_sync;
 use sd_sync::{CRDTOperation, OperationFactory};
@@ -308,7 +307,7 @@ async fn identifier_job_step(
 fn file_path_object_connect_ops<'db>(
 	file_path_id: Uuid,
 	object_id: Uuid,
-	sync: &SyncManager,
+	sync: &crate::sync::Manager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	#[cfg(debug_assertions)]

@@ -259,6 +259,7 @@ impl P2PManager {
 									}
 									Header::Sync(library_id) => {
 										// Header -> Tunnel -> SyncMessage
+										use sd_core_sync::ingest;
 
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
@@ -276,7 +277,12 @@ impl P2PManager {
 											SyncMessage::NewOperations => {
 												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
 												// TODO: Throw tunnel around like this makes it soooo confusing.
-												ingest.notify(tunnel, event.peer_id).await;
+												ingest
+													.event_tx
+													.send(ingest::Event::Notification(
+														ingest::NotificationEvent { tunnel },
+													))
+													.await;
 											}
 											SyncMessage::OperationsRequest(id) => {
 												nlm.exchange_sync_ops(

@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::future::join_all;
-use sd_core_sync::{ingest, GetOpsArgs, SyncManager};
 use sd_p2p::{
 	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
@@ -10,7 +9,10 @@ use tokio::{io::AsyncWriteExt, sync::RwLock};
 use tracing::debug;
 use uuid::Uuid;
 
-use crate::library::Library;
+use crate::{
+	library::Library,
+	sync::{self, GetOpsArgs},
+};
 
 use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
@@ -168,7 +170,7 @@ impl NetworkedLibraryManager {
 	}
 
 	// TODO: Error handling
-	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<SyncManager>) {
+	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<sync::Manager>) {
 		debug!("NetworkedLibraryManager::alert_new_ops({library_id})");
 
 		join_all(
@@ -223,9 +225,9 @@ impl NetworkedLibraryManager {
 		&self,
 		mut tunnel: Tunnel,
 		args: GetOpsArgs,
-		sync: &SyncManager,
+		sync: &sync::Manager,
 		library_id: Uuid,
-	) {
+	) -> Vec<sd_sync::CRDTOperation> {
 		tunnel
 			.write_all(&SyncMessage::OperationsRequest(args).to_bytes())
 			.await
@@ -238,15 +240,7 @@ impl NetworkedLibraryManager {
 
 		// debug!("Received sync events response w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
 
-		sync.ingest
-			.events
-			.send(ingest::Event::Messages(ingest::MessagesEvent {
-				instance_id: sync.instance,
-				messages: ops,
-			}))
-			.await
-			.map_err(|_| "TODO: Handle ingest channel closed, so we don't loose ops")
-			.unwrap();
+		ops
 	}
 
 	// TODO: Error handling
@@ -255,7 +249,7 @@ impl NetworkedLibraryManager {
 		mut tunnel: Tunnel,
 		peer_id: &PeerId,
 		library_id: Uuid,
-		sync: &SyncManager,
+		sync: &sync::Manager,
 	) {
 		let ops = sync
 			.get_ops(sd_core_sync::GetOpsArgs {
