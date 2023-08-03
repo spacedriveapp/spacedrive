@@ -180,7 +180,6 @@ export default memo(
 							value={
 								{
 									...contextProps,
-									multiSelect: Array.isArray(contextProps.selected),
 									selectable: !isContextMenuOpen && !isRenaming,
 									setIsContextMenuOpen,
 									isRenaming,

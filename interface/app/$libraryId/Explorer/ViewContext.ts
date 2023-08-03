@@ -13,7 +13,6 @@ export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerV
 	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
 	top?: number;
-	multiSelect?: boolean;
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
