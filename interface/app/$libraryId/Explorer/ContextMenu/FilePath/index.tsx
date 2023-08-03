@@ -1,6 +1,7 @@
 import { Plus } from 'phosphor-react';
-import { ExplorerItem, useLibraryMutation } from '@sd/client';
+import { ExplorerItem, libraryClient } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { useExplorerContext } from '../../Context';
 import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
 
@@ -14,7 +15,6 @@ export default ({ data }: Props) => {
 
 	const { parent } = useExplorerContext();
 
-	const getAbsolutePath = useLibraryMutation('files.locationIdToPath');
 	// const keyManagerUnlocked = useLibraryQuery(['keys.isUnlocked']).data ?? false;
 	// const mountedKeys = useLibraryQuery(['keys.listMounted']);
 	// const hasMountedKeys = mountedKeys.data?.length ?? 0 > 0;
@@ -54,13 +54,24 @@ export default ({ data }: Props) => {
 			<ContextMenu.SubMenu label="More actions..." icon={Plus}>
 				<FilePathItems.CopyAsPath
 					onClick={async () => {
-						navigator.clipboard.writeText(
-							`${await getAbsolutePath.mutateAsync({
-								location_id: filePath?.location_id || -1
-							})}${filePath?.materialized_path}${filePath?.name}${
-								filePath?.extension ? `.${filePath?.extension}` : ''
-							}`
-						);
+						let fileFullPath;
+
+						try {
+							fileFullPath = await libraryClient.query([
+								'files.getPath',
+								filePath.id
+							]);
+
+							if (fileFullPath == null) throw new Error('No file path available');
+						} catch (error) {
+							showAlertDialog({
+								title: 'Error',
+								value: `Failed to copy file path: ${error}`
+							});
+							return;
+						}
+
+						navigator.clipboard.writeText(fileFullPath);
 					}}
 				/>
 

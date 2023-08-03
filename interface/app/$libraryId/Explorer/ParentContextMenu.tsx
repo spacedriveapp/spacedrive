@@ -1,4 +1,13 @@
-import { Clipboard, ClipboardText, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
+import {
+	Clipboard,
+	ClipboardText,
+	FileX,
+	Image,
+	Plus,
+	Repeat,
+	Share,
+	ShieldCheck
+} from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
@@ -107,7 +116,9 @@ export default (props: PropsWithChildren) => {
 					<CM.SubMenu label="More actions..." icon={Plus}>
 						<CM.Item
 							onClick={() => {
-								navigator.clipboard.writeText(`${parent.location.path}${(currentPath ?? '')}`)
+								navigator.clipboard.writeText(
+									`${parent.location.path}${currentPath ?? ''}`
+								);
 							}}
 							label="Copy as path"
 							icon={ClipboardText}
