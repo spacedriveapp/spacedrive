@@ -26,8 +26,6 @@ runs:
         save-if: ${{ inputs.save-cache }}
         prefix-key: 'v0'
         shared-key: rust-deps
-        # Windows is having disk related problems with target caching
-        cache-targets: ${{ runner.os != 'Windows' }}
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore
