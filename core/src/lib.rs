@@ -11,7 +11,7 @@ use crate::{
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
-use sd_p2p::trustedhosts::{TrustedHostError, TrustedHostRegistry};
+use sd_p2p::trustedhosts::TrustedHostError;
 pub use sd_prisma::*;
 
 use std::{
