@@ -1,13 +1,4 @@
-import {
-	Clipboard,
-	ClipboardText,
-	FileX,
-	Image,
-	Plus,
-	Repeat,
-	Share,
-	ShieldCheck
-} from 'phosphor-react';
+import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys } from '@sd/ui';

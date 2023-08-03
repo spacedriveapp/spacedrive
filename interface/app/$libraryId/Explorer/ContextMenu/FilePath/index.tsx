@@ -1,7 +1,6 @@
 import { Plus } from 'phosphor-react';
-import { ExplorerItem, libraryClient } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { showAlertDialog } from '~/components';
 import { useExplorerContext } from '../../Context';
 import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
 
