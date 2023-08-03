@@ -73,7 +73,7 @@ model Node {
 model Instance {
     id       Int   @id @default(autoincrement()) // This is is NOT globally unique
     pub_id   Bytes @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
-    // Enum: sd_p2p::identity::Identity
+    // Enum: sd_core::p2p::IdentityOrRemoteIdentity
     identity Bytes
 
     node_id       Bytes
@@ -163,7 +163,7 @@ model FilePath {
 
     // location that owns this path
     location_id Int?
-    location    Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location    Location? @relation(fields: [location_id], references: [id], onDelete: SetNull)
 
     // the path of the file relative to its location
     materialized_path String?
@@ -180,7 +180,7 @@ model FilePath {
 
     // the unique Object for this file path
     object_id Int?
-    object    Object? @relation(fields: [object_id], references: [id], onDelete: Restrict)
+    object    Object? @relation(fields: [object_id], references: [id], onDelete: SetNull)
 
     key_id Int? // replacement for encryption
     // permissions       String?
@@ -308,7 +308,7 @@ model MediaData {
     streams  Int?
     codecs   String? // eg: "h264,acc"
 
-    object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    object Object? @relation(fields: [id], references: [id], onDelete: Cascade)
 
     @@map("media_data")
 }
@@ -336,10 +336,10 @@ model Tag {
 /// @relation(item: tag, group: object)
 model TagOnObject {
     tag_id Int
-    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: Restrict)
 
     object_id Int
-    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
     @@id([tag_id, object_id])
     @@map("tag_on_object")
@@ -363,10 +363,10 @@ model LabelOnObject {
     date_created DateTime @default(now())
 
     label_id Int
-    label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
     object_id Int
-    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
     @@id([label_id, object_id])
     @@map("label_on_object")
@@ -389,10 +389,10 @@ model Space {
 
 model ObjectInSpace {
     space_id Int
-    space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    space    Space @relation(fields: [space_id], references: [id], onDelete: Restrict)
 
     object_id Int
-    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Restrict)
 
     @@id([space_id, object_id])
     @@map("object_in_space")
@@ -425,7 +425,7 @@ model Job {
     date_started   DateTime? // Started execution
     date_completed DateTime? // Finished execution
 
-    parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    parent   Job?  @relation("jobs_dependency", fields: [parent_id], references: [id], onDelete: SetNull)
     children Job[] @relation("jobs_dependency")
 
     @@map("job")
@@ -451,10 +451,10 @@ model Job {
 //     date_created DateTime @default(now())
 
 //     album_id Int
-//     album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+//     album    Album @relation(fields: [album_id], references: [id], onDelete: SetNull)
 
 //     object_id Int
-//     object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+//     object    Object @relation(fields: [object_id], references: [id], onDelete: SetNull)
 
 //     @@id([album_id, object_id])
 //     @@map("object_in_album")
@@ -493,10 +493,10 @@ model IndexerRule {
 
 model IndexerRulesInLocation {
     location_id Int
-    location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    location    Location @relation(fields: [location_id], references: [id], onDelete: Restrict)
 
     indexer_rule_id Int
-    indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: Restrict)
 
     @@id([location_id, indexer_rule_id])
     @@map("indexer_rule_in_location")

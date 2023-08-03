@@ -81,7 +81,8 @@ pub async fn shallow(
 	};
 
 	library
-		.thumbnail_remover_proxy
+		.manager
+		.thumbnail_remover
 		.remove_cas_ids(
 			to_remove
 				.iter()

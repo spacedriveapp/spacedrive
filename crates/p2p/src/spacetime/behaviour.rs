@@ -118,6 +118,10 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 						self.pending_events.push_back(ToSwarm::GenerateEvent(
 							ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
 								peer_id,
+								establisher: match endpoint {
+									ConnectedPoint::Dialer { .. } => true,
+									ConnectedPoint::Listener { .. } => false,
+								},
 							})),
 						));
 					}
