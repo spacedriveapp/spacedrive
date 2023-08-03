@@ -11,7 +11,7 @@
 
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		file_path_helper::{
 			check_file_path_exists, get_inode_and_device, FilePathError, IsolatedFilePathData,
@@ -43,7 +43,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Arc<Library>,
+	library: &'lib Arc<LoadedLibrary>,
 	recently_created_files: HashMap<PathBuf, Instant>,
 	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
@@ -56,7 +56,7 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
+	fn new(location_id: location::id::Type, library: &'lib Arc<LoadedLibrary>) -> Self
 	where
 		Self: Sized,
 	{

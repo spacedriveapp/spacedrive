@@ -10,7 +10,7 @@ use tokio::{io::AsyncWriteExt, sync::RwLock};
 use tracing::debug;
 use uuid::Uuid;
 
-use crate::library::Library;
+use crate::library::LoadedLibrary;
 
 use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
@@ -40,7 +40,7 @@ impl NetworkedLibraryManager {
 		})
 	}
 
-	pub async fn load_library(&self, library: &Library) {
+	pub async fn load_library(&self, library: &LoadedLibrary) {
 		// TODO: Error handling
 		let instances = library
 			.db
@@ -82,13 +82,13 @@ impl NetworkedLibraryManager {
 		self.p2p.update_metadata(metadata_instances).await;
 	}
 
-	pub async fn edit_library(&self, _library: &Library) {
+	pub async fn edit_library(&self, _library: &LoadedLibrary) {
 		// TODO: Send changes to all connected nodes!
 
 		// TODO: Update mdns
 	}
 
-	pub async fn delete_library(&self, library: &Library) {
+	pub async fn delete_library(&self, library: &LoadedLibrary) {
 		// TODO: Do proper library delete/unpair procedure.
 		self.libraries.write().await.remove(&library.id);
 

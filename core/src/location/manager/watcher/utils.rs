@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		delete_directory,
 		file_path_helper::{
@@ -69,7 +69,7 @@ pub(super) async fn create_dir(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let location = find_location(library, location_id)
 		.include(location_with_indexer_rules::include())
@@ -146,7 +146,7 @@ pub(super) async fn create_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	inner_create_file(
 		location_id,
@@ -163,7 +163,7 @@ async fn inner_create_file(
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
 	let location_path = location_path.as_ref();
@@ -326,7 +326,7 @@ async fn inner_create_file(
 pub(super) async fn create_dir_or_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<Metadata, LocationManagerError> {
 	let path = path.as_ref();
 	let metadata = fs::metadata(path)
@@ -344,7 +344,7 @@ pub(super) async fn create_dir_or_file(
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
@@ -380,7 +380,7 @@ async fn inner_update_file(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
-	library @ Library { db, sync, .. }: &Library,
+	library @ LoadedLibrary { db, sync, .. }: &LoadedLibrary,
 	maybe_new_inode_and_device: Option<INodeAndDevice>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
@@ -572,12 +572,12 @@ pub(super) async fn rename(
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
 	new_path_metadata: Metadata,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	let location_path = extract_location_path(location_id, library).await?;
 	let old_path = old_path.as_ref();
 	let new_path = new_path.as_ref();
-	let Library { db, .. } = library;
+	let LoadedLibrary { db, .. } = library;
 
 	let old_path_materialized_str =
 		extract_normalized_materialized_path_str(location_id, &location_path, old_path)?;
@@ -659,7 +659,7 @@ pub(super) async fn rename(
 pub(super) async fn remove(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
@@ -682,7 +682,7 @@ pub(super) async fn remove_by_file_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	file_path: &file_path::Data,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	// check file still exists on disk
 	match fs::metadata(path.as_ref()).await {
@@ -732,7 +732,7 @@ async fn generate_thumbnail(
 	extension: &str,
 	cas_id: &str,
 	path: impl AsRef<Path>,
-	library: &Library,
+	library: &LoadedLibrary,
 ) {
 	let path = path.as_ref();
 	let output_path = get_thumbnail_path(library, cas_id);
@@ -778,7 +778,7 @@ async fn generate_thumbnail(
 pub(super) async fn extract_inode_and_device_from_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<INodeAndDevice, LocationManagerError> {
 	let path = path.as_ref();
 	let location = find_location(library, location_id)
@@ -817,7 +817,7 @@ pub(super) async fn extract_inode_and_device_from_path(
 
 pub(super) async fn extract_location_path(
 	location_id: location::id::Type,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<PathBuf, LocationManagerError> {
 	find_location(library, location_id)
 		.select(location::select!({ path }))

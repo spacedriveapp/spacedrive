@@ -1,4 +1,4 @@
-use crate::library::Library;
+use crate::library::LoadedLibrary;
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
@@ -111,9 +111,9 @@ pub trait DynJob: Send + Sync {
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
-	async fn register_children(&mut self, library: &Library) -> Result<(), JobError>;
-	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError>;
-	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
+	async fn register_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError>;
+	async fn pause_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError>;
+	async fn cancel_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError>;
 }
 
 pub struct JobBuilder<SJob: StatefulJob> {
@@ -219,7 +219,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 		}))
 	}
 
-	pub async fn spawn(self, library: &Arc<Library>) -> Result<(), JobManagerError> {
+	pub async fn spawn(self, library: &Arc<LoadedLibrary>) -> Result<(), JobManagerError> {
 		library
 			.node
 			.job_manager
@@ -867,7 +867,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		rmp_serde::to_vec_named(&self.state).map_err(Into::into)
 	}
 
-	async fn register_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn register_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			if let Some(next_job_report) = next_job.report_mut() {
 				if next_job_report.created_at.is_none() {
@@ -884,7 +884,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		Ok(())
 	}
 
-	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn pause_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
 			if let Some(next_job_report) = next_job.report_mut() {
@@ -902,7 +902,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		Ok(())
 	}
 
-	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn cancel_children(&mut self, library: &LoadedLibrary) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
 			if let Some(next_job_report) = next_job.report_mut() {

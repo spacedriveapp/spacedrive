@@ -28,14 +28,14 @@ use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{Library, LibraryConfig, LibraryConfigWrapped, LibraryName};
+use super::{LibraryConfig, LibraryConfigWrapped, LibraryName, LoadedLibrary};
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<Vec<Arc<Library>>>,
+	libraries: RwLock<Vec<Arc<LoadedLibrary>>>,
 	/// holds the context for the node which this library manager is running on.
 	pub node: Arc<NodeServices>,
 	/// An actor that removes stale thumbnails from the file system
@@ -165,7 +165,7 @@ impl LibraryManager {
 		name: LibraryName,
 		description: Option<String>,
 		node_cfg: NodeConfig,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
 		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true, None)
 			.await
 	}
@@ -179,7 +179,7 @@ impl LibraryManager {
 		should_seed: bool,
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
@@ -240,7 +240,7 @@ impl LibraryManager {
 		Ok(library)
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
+	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<LoadedLibrary>> {
 		self.libraries.read().await.clone()
 	}
 
@@ -356,7 +356,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: Uuid) -> Option<Arc<Library>> {
+	pub async fn get_library(&self, library_id: Uuid) -> Option<Arc<LoadedLibrary>> {
 		self.libraries
 			.read()
 			.await
@@ -373,7 +373,7 @@ impl LibraryManager {
 		config_path: PathBuf,
 		create: Option<instance::Create>,
 		should_seed: bool,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
@@ -439,7 +439,7 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let library = Library::new(
+		let library = LoadedLibrary::new(
 			id,
 			instance_id,
 			config,

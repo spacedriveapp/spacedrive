@@ -4,7 +4,7 @@ use super::{
 use crate::{
 	invalidate_query,
 	job::JobError,
-	library::Library,
+	library::LoadedLibrary,
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_thumbnailer, IsolatedFilePathData,
@@ -25,9 +25,9 @@ use super::FILTERED_VIDEO_EXTENSIONS;
 pub async fn shallow_thumbnailer(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = library;
+	let LoadedLibrary { db, .. } = library;
 
 	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
 

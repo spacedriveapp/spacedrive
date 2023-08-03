@@ -3,7 +3,7 @@ use crate::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
 		utils::library,
 	},
-	library::{Category, Library},
+	library::{Category, LoadedLibrary},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		LocationError,
@@ -291,7 +291,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     cursor,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = library.as_ref();
+					let LoadedLibrary { db, .. } = library.as_ref();
 
 					let take = take.unwrap_or(100);
 
@@ -367,7 +367,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     cursor,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = library.as_ref();
+					let LoadedLibrary { db, .. } = library.as_ref();
 
 					let take = take.unwrap_or(100);
 

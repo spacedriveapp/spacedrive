@@ -1,6 +1,6 @@
 use crate::{
 	job::{worker::Worker, DynJob, Job, JobError},
-	library::Library,
+	library::LoadedLibrary,
 	location::indexer::indexer_job::IndexerJobInit,
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -31,7 +31,7 @@ use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
-	IngestJob(Arc<Library>, Box<dyn DynJob>),
+	IngestJob(Arc<LoadedLibrary>, Box<dyn DynJob>),
 	Shutdown(oneshot::Sender<()>, Arc<JobManager>),
 }
 /// JobManager handles queueing and executing jobs using the `DynJob`
@@ -89,7 +89,7 @@ impl JobManager {
 	/// Ingests a new job and dispatches it if possible, queues it otherwise.
 	pub async fn ingest(
 		self: Arc<Self>,
-		library: &Arc<Library>,
+		library: &Arc<LoadedLibrary>,
 		job: Box<Job<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
@@ -113,7 +113,7 @@ impl JobManager {
 	}
 
 	/// Dispatches a job to a worker if under MAX_WORKERS limit, queues it otherwise.
-	async fn dispatch(self: Arc<Self>, library: &Arc<Library>, mut job: Box<dyn DynJob>) {
+	async fn dispatch(self: Arc<Self>, library: &Arc<LoadedLibrary>, mut job: Box<dyn DynJob>) {
 		let mut running_workers = self.running_workers.write().await;
 		let mut job_report = job
 			.report_mut()
@@ -155,7 +155,7 @@ impl JobManager {
 
 	pub async fn complete(
 		self: Arc<Self>,
-		library: &Arc<Library>,
+		library: &Arc<LoadedLibrary>,
 		worker_id: Uuid,
 		job_hash: u64,
 		next_job: Option<Box<dyn DynJob>>,
@@ -244,7 +244,7 @@ impl JobManager {
 	/// - Prevents jobs from being stuck in a paused/running state
 	pub async fn cold_resume(
 		self: Arc<Self>,
-		library: &Arc<Library>,
+		library: &Arc<LoadedLibrary>,
 	) -> Result<(), JobManagerError> {
 		// Include the Queued status in the initial find condition
 		let find_condition = vec![or(vec![

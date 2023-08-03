@@ -31,8 +31,13 @@ use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryManager, LibraryManagerError};
 
-/// LibraryContext holds context for a library which can be passed around the application.
-pub struct Library {
+pub enum LibraryNew {
+	InitialSync,
+	Encrypted,
+	Loaded(LoadedLibrary),
+}
+
+pub struct LoadedLibrary {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
@@ -50,7 +55,7 @@ pub struct Library {
 	pub orphan_remover: OrphanRemoverActor,
 }
 
-impl Debug for Library {
+impl Debug for LoadedLibrary {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
@@ -62,7 +67,7 @@ impl Debug for Library {
 	}
 }
 
-impl Library {
+impl LoadedLibrary {
 	pub async fn new(
 		id: Uuid,
 		instance_id: Uuid,

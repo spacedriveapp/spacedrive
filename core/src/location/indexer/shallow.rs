@@ -1,7 +1,7 @@
 use crate::{
 	file_paths_db_fetcher_fn, invalidate_query,
 	job::JobError,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		file_path_helper::{
 			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -30,7 +30,7 @@ const BATCH_SIZE: usize = 1000;
 pub async fn shallow(
 	location: &location_with_indexer_rules::Data,
 	sub_path: &PathBuf,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
 	let Some(location_path) = location.path.as_ref().map(PathBuf::from) else {

@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::LoadedLibrary,
 	prisma::{file_path, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
@@ -95,7 +95,7 @@ impl ThumbnailRemoverActor {
 		}
 	}
 
-	pub async fn new_library(&self, Library { id, db, .. }: &Library) {
+	pub async fn new_library(&self, LoadedLibrary { id, db, .. }: &LoadedLibrary) {
 		if self
 			.databases_tx
 			.send(DatabaseMessage::Add(*id, db.clone()))

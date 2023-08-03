@@ -4,7 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobResult, JobRunErrors, JobStepOutput, StatefulJob,
 		WorkerContext,
 	},
-	library::Library,
+	library::LoadedLibrary,
 	location::file_path_helper::{join_location_relative_path, IsolatedFilePathData},
 	prisma::{file_path, location},
 	util::{
@@ -60,7 +60,7 @@ impl StatefulJob for FileCopierJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &*ctx.library;
+		let LoadedLibrary { db, .. } = &*ctx.library;
 
 		let (sources_location_path, targets_location_path) =
 			fetch_source_and_target_location_paths(
