@@ -41,31 +41,6 @@ enum ThumbnailRemoverActorError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 }
 
-#[derive(Clone)]
-pub struct ThumbnailRemoverActorProxy {
-	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
-	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
-}
-
-impl ThumbnailRemoverActorProxy {
-	pub async fn new_non_indexed_thumbnail(&self, cas_id: String) {
-		if self
-			.non_indexed_thumbnails_cas_ids_tx
-			.send(cas_id)
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead");
-		}
-	}
-
-	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
-		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
-			error!("Thumbnail remover actor is dead");
-		}
-	}
-}
-
 #[derive(Debug)]
 enum DatabaseMessage {
 	Add(Uuid, Arc<PrismaClient>),
@@ -123,7 +98,7 @@ impl ThumbnailRemoverActor {
 	pub async fn new_library(&self, Library { id, db, .. }: &Library) {
 		if self
 			.databases_tx
-			.send(DatabaseMessage::Add(*id, Arc::clone(db)))
+			.send(DatabaseMessage::Add(*id, db.clone()))
 			.await
 			.is_err()
 		{
@@ -139,13 +114,6 @@ impl ThumbnailRemoverActor {
 			.is_err()
 		{
 			error!("Thumbnail remover actor is dead")
-		}
-	}
-
-	pub fn proxy(&self) -> ThumbnailRemoverActorProxy {
-		ThumbnailRemoverActorProxy {
-			cas_ids_to_delete_tx: self.cas_ids_to_delete_tx.clone(),
-			non_indexed_thumbnails_cas_ids_tx: self.non_indexed_thumbnails_cas_ids_tx.clone(),
 		}
 	}
 
@@ -380,5 +348,22 @@ impl ThumbnailRemoverActor {
 		}
 
 		Ok(())
+	}
+
+	pub async fn new_non_indexed_thumbnail(&self, cas_id: String) {
+		if self
+			.non_indexed_thumbnails_cas_ids_tx
+			.send(cas_id)
+			.await
+			.is_err()
+		{
+			error!("Thumbnail remover actor is dead");
+		}
+	}
+
+	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
+		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
+			error!("Thumbnail remover actor is dead");
+		}
 	}
 }
