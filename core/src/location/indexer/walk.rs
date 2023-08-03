@@ -1,11 +1,11 @@
 use crate::{
 	location::file_path_helper::{
-		file_path_just_pub_id, file_path_walker, FilePathMetadata, IsolatedFilePathData,
+		file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 		MetadataExt,
 	},
 	prisma::file_path,
 	util::{
-		db::{device_from_db, from_bytes_to_uuid, inode_from_db},
+		db::{device_from_db, inode_from_db},
 		error::FileIOError,
 	},
 };
@@ -109,7 +109,7 @@ pub struct WalkResult<Walked, ToUpdate, ToRemove>
 where
 	Walked: Iterator<Item = WalkedEntry>,
 	ToUpdate: Iterator<Item = WalkedEntry>,
-	ToRemove: Iterator<Item = file_path_just_pub_id::Data>,
+	ToRemove: Iterator<Item = file_path_pub_and_cas_ids::Data>,
 {
 	pub walked: Walked,
 	pub to_update: ToUpdate,
@@ -136,13 +136,14 @@ pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
 		impl Iterator<Item = WalkedEntry>,
-		impl Iterator<Item = file_path_just_pub_id::Data>,
+		impl Iterator<Item = file_path_pub_and_cas_ids::Data>,
 	>,
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut:
+		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
 
@@ -204,13 +205,14 @@ pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	WalkResult<
 		impl Iterator<Item = WalkedEntry>,
 		impl Iterator<Item = WalkedEntry>,
-		impl Iterator<Item = file_path_just_pub_id::Data>,
+		impl Iterator<Item = file_path_pub_and_cas_ids::Data>,
 	>,
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut:
+		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let mut to_keep_walking = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
@@ -259,14 +261,15 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 	(
 		impl Iterator<Item = WalkedEntry>,
 		impl Iterator<Item = WalkedEntry>,
-		Vec<file_path_just_pub_id::Data>,
+		Vec<file_path_pub_and_cas_ids::Data>,
 		Vec<IndexerError>,
 	),
 	IndexerError,
 >
 where
 	FilePathDBFetcherFut: Future<Output = Result<Vec<file_path_walker::Data>, IndexerError>>,
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut:
+		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let root = root.as_ref();
 
@@ -385,7 +388,9 @@ where
 						) - *date_modified
 							> Duration::milliseconds(1)
 						{
-							to_update.push((from_bytes_to_uuid(&file_path.pub_id), entry).into());
+							to_update.push(
+								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
+							);
 						}
 					}
 
@@ -426,9 +431,10 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		mut maybe_to_walk,
 		errors,
 	}: WorkingTable<'_>,
-) -> Vec<file_path_just_pub_id::Data>
+) -> Vec<file_path_pub_and_cas_ids::Data>
 where
-	ToRemoveDbFetcherFut: Future<Output = Result<Vec<file_path_just_pub_id::Data>, IndexerError>>,
+	ToRemoveDbFetcherFut:
+		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let Ok(iso_file_path_to_walk) = iso_file_path_factory(path, true).map_err(|e| errors.push(e))
 	else {

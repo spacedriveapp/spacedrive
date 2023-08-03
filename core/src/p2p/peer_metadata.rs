@@ -1,7 +1,7 @@
 use std::{collections::HashMap, env, str::FromStr};
 
 use itertools::Itertools;
-use sd_p2p::Metadata;
+use sd_p2p::{spacetunnel::RemoteIdentity, Metadata};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -14,7 +14,9 @@ pub struct PeerMetadata {
 	pub(super) version: Option<String>,
 	pub(super) email: Option<String>,
 	pub(super) img_url: Option<String>,
-	pub(super) instances: Vec<String>,
+	// TODO: Max vec length to prevent it being used to spam??
+	#[serde(skip)]
+	pub(super) instances: Vec<RemoteIdentity>,
 }
 
 impl Metadata for PeerMetadata {
@@ -33,7 +35,22 @@ impl Metadata for PeerMetadata {
 		if let Some(img_url) = self.img_url {
 			map.insert("img_url".to_owned(), img_url);
 		}
-		map.insert("instances".to_owned(), self.instances.into_iter().join(","));
+
+		// This is not pretty but a DNS record has a max of 255 characters so we use multiple records. Be aware the MDNS library adds `i_{i}=` to the start so it counts towards the 255 length.
+		self.instances
+			.into_iter()
+			.map(|i| hex::encode(i.to_bytes()))
+			.collect::<Vec<_>>()
+			.join(",")
+			.chars()
+			.chunks(249 /* 3 (`i_=`) + 3 (`100`) */)
+			.into_iter()
+			.map(|c| c.collect::<String>())
+			.enumerate()
+			.for_each(|(i, s)| {
+				map.insert(format!("i_{}", i), s);
+			});
+
 		map
 	}
 
@@ -56,15 +73,33 @@ impl Metadata for PeerMetadata {
 			version: data.get("version").map(|v| v.to_owned()),
 			email: data.get("email").map(|v| v.to_owned()),
 			img_url: data.get("img_url").map(|v| v.to_owned()),
-			instances: data
-				.get("instances")
-				.ok_or_else(|| {
-					"DNS record for field 'instances' missing. Unable to decode 'PeerMetadata'!"
-						.to_owned()
-				})?
-				.split(',')
-				.map(|s| s.parse().map_err(|_| "Unable to parse instance 'Uuid'!"))
-				.collect::<Result<Vec<_>, _>>()?,
+			instances: {
+				let mut i = 0;
+				let mut instances = String::new();
+				loop {
+					if let Some(s) = data.get(&format!("i_{}", i)) {
+						instances.push_str(&*s);
+						i += 1;
+					} else {
+						break;
+					}
+				}
+
+				if instances.is_empty() {
+					return Err("DNS record for field 'instances' missing. Unable to decode 'PeerMetadata'!"
+					.to_owned());
+				}
+
+				instances
+					.split(',')
+					.map(|s| {
+						RemoteIdentity::from_bytes(
+							&hex::decode(s).map_err(|_| "Unable to decode instance!")?,
+						)
+						.map_err(|_| "Unable to parse instance!")
+					})
+					.collect::<Result<Vec<_>, _>>()?
+			},
 		})
 	}
 }

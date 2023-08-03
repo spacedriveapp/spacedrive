@@ -27,7 +27,7 @@ pub async fn shallow_thumbnailer(
 	sub_path: &PathBuf,
 	library: &Library,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = &library;
+	let Library { db, .. } = library;
 
 	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
 

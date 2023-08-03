@@ -219,9 +219,9 @@ impl<SJob: StatefulJob> Job<SJob> {
 		}))
 	}
 
-	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
+	pub async fn spawn(self, library: &Arc<Library>) -> Result<(), JobManagerError> {
 		library
-			.node_context
+			.node
 			.job_manager
 			.clone()
 			.ingest(library, Box::new(self))

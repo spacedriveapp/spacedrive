@@ -2,8 +2,8 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		location_with_indexer_rules, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -169,6 +169,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("subPathRescan", {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct RescanArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: String,
+			}
+
+			R.with2(library()).mutation(
+				|(_, library),
+				 RescanArgs {
+				     location_id,
+				     sub_path,
+				 }: RescanArgs| async move {
+					scan_location_sub_path(
+						&library,
+						find_location(&library, location_id)
+							.include(location_with_indexer_rules::include())
+							.exec()
+							.await?
+							.ok_or(LocationError::IdNotFound(location_id))?,
+						sub_path,
+					)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
 		.procedure("quickRescan", {
 			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 			pub struct LightScanArgs {
@@ -193,12 +220,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"online",
 			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.location_manager.clone();
-
-				let mut rx = location_manager.online_rx();
+				let mut rx = ctx.location_manager.online_rx();
 
 				async_stream::stream! {
-					let online = location_manager.get_online().await;
+					let online = ctx.location_manager.get_online().await;
 
 					yield online;
 

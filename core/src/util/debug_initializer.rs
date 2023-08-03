@@ -3,6 +3,7 @@
 use std::{
 	io,
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -96,7 +97,7 @@ impl InitConfig {
 
 	pub async fn apply(
 		self,
-		library_manager: &LibraryManager,
+		library_manager: &Arc<LibraryManager>,
 		node_cfg: NodeConfig,
 	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);
@@ -114,10 +115,17 @@ impl InitConfig {
 				Some(lib) => lib,
 				None => {
 					let library = library_manager
-						.create_with_uuid(lib.id, lib.name, lib.description, node_cfg.clone(), true)
+						.create_with_uuid(
+							lib.id,
+							lib.name,
+							lib.description,
+							node_cfg.clone(),
+							true,
+							None,
+						)
 						.await?;
 
-					match library_manager.get_library(library.uuid).await {
+					match library_manager.get_library(library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(

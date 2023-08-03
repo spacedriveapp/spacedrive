@@ -1,7 +1,9 @@
-use std::str::FromStr;
-
 use ed25519_dalek::PublicKey;
 use rand_core::OsRng;
+use std::{
+	hash::{Hash, Hasher},
+	str::FromStr,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -37,16 +39,27 @@ impl Identity {
 		self.0.to_bytes().to_vec()
 	}
 
-	pub fn public_key(&self) -> PublicKey {
-		self.0.public
-	}
-
 	pub fn to_remote_identity(&self) -> RemoteIdentity {
 		RemoteIdentity(self.0.public)
 	}
 }
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::PublicKey);
+
+impl Hash for RemoteIdentity {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.0.as_bytes().hash(state);
+	}
+}
+
+impl std::fmt::Debug for RemoteIdentity {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_tuple("RemoteIdentity")
+			.field(&hex::encode(self.0.as_bytes()))
+			.finish()
+	}
+}
 
 impl RemoteIdentity {
 	pub fn from_bytes(bytes: &[u8]) -> Result<Self, IdentityErr> {

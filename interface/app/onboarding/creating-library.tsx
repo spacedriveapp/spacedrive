@@ -51,11 +51,10 @@ export default function OnboardingCreatingLibrary() {
 		// it feels more fitting to configure it here (once)
 		telemetryStore.shareTelemetry = obStore.shareTelemetry;
 
+		console.log('creating');
 		createLibrary.mutate({
 			name: obStore.newLibraryName
 		});
-
-		return;
 	};
 
 	const created = useRef(false);

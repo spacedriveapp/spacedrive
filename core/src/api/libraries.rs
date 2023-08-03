@@ -1,4 +1,8 @@
-use crate::{library::LibraryName, util::MaybeUndefined, volume::get_volumes};
+use crate::{
+	library::{LibraryConfigWrapped, LibraryName},
+	util::MaybeUndefined,
+	volume::get_volumes,
+};
 
 use chrono::Utc;
 use rspc::alpha::AlphaRouter;
@@ -89,12 +93,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
-				let new_library = ctx
+				let library = ctx
 					.library_manager
 					.create(args.name, None, ctx.config.get().await)
 					.await?;
 
-				Ok(new_library)
+				debug!("Created library {}", library.id);
+
+				Ok(LibraryConfigWrapped {
+					uuid: library.id,
+					config: library.config.clone(),
+				})
 			})
 		})
 		.procedure("edit", {
@@ -114,41 +123,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure(
 			"delete",
-			R.mutation(|ctx, id: Uuid| async move { Ok(ctx.library_manager.delete(id).await?) }),
+			R.mutation(|ctx, id: Uuid| async move {
+				ctx.library_manager.delete(id).await.map_err(Into::into)
+			}),
 		)
-	// .yolo_merge("peer.guest.", peer_guest_router())
-	// .yolo_merge("peer.host.", peer_host_router())
 }
-
-// pub(crate) fn peer_guest_router() -> RouterBuilder {
-// 	<RouterBuilder>::new()
-// 		.subscription("request_peering", |t| {
-// 			t(|node, peer_id: String| {
-// 				async_stream::stream! {
-//                     let mut rx = node.begin_guest_peer_request(peer_id).await.unwrap();
-
-// 					while let Some(state) = rx.recv().await {
-// 						yield state;
-// 					}
-// 				}
-// 			})
-// 		})
-// 		.mutation("submit_password", |t| {
-// 			t(|node, password: String| async move {
-// 				let request = node.peer_request.lock().await;
-// 				let Some(peer_request::PeerRequest::Guest(request)) = &*request else {
-//                     return
-//                 };
-
-//                 request.submit_password(password).await;
-// 			})
-// 		})
-// }
-
-// pub(crate) fn peer_host_router() -> RouterBuilder {
-// 	<RouterBuilder>::new()
-// 		.subscription("request", |t| {
-// 			t(|node, _: ()| async_stream::stream! { yield (); })
-// 		})
-// 		.mutation("accept", |t| t(|node, _: ()| Ok(())))
-// }

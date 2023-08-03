@@ -31,8 +31,8 @@ use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
-	IngestJob(Library, Box<dyn DynJob>),
-	Shutdown(oneshot::Sender<()>),
+	IngestJob(Arc<Library>, Box<dyn DynJob>),
+	Shutdown(oneshot::Sender<()>, Arc<JobManager>),
 }
 /// JobManager handles queueing and executing jobs using the `DynJob`
 /// Handling persisting JobReports to the database, pause/resuming, and
@@ -57,19 +57,23 @@ impl JobManager {
 			internal_sender,
 		});
 
-		let this2 = this.clone();
 		tokio::spawn(async move {
 			// FIXME: if this task crashes, the entire application is unusable
 			while let Some(event) = internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
-						this2.clone().dispatch(&library, job).await
+						library
+							.node
+							.job_manager
+							.clone()
+							.dispatch(&library, job)
+							.await
 					}
 					// When the app shuts down, we need to gracefully shutdown all
 					// active workers and preserve their state
-					JobManagerEvent::Shutdown(signal_tx) => {
+					JobManagerEvent::Shutdown(signal_tx, this) => {
 						info!("Shutting down job manager");
-						let running_workers = this2.running_workers.read().await;
+						let running_workers = this.running_workers.read().await;
 						join_all(running_workers.values().map(|worker| worker.shutdown())).await;
 
 						signal_tx.send(()).ok();
@@ -85,7 +89,7 @@ impl JobManager {
 	/// Ingests a new job and dispatches it if possible, queues it otherwise.
 	pub async fn ingest(
 		self: Arc<Self>,
-		library: &Library,
+		library: &Arc<Library>,
 		job: Box<Job<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
@@ -109,7 +113,7 @@ impl JobManager {
 	}
 
 	/// Dispatches a job to a worker if under MAX_WORKERS limit, queues it otherwise.
-	async fn dispatch(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
+	async fn dispatch(self: Arc<Self>, library: &Arc<Library>, mut job: Box<dyn DynJob>) {
 		let mut running_workers = self.running_workers.write().await;
 		let mut job_report = job
 			.report_mut()
@@ -151,7 +155,7 @@ impl JobManager {
 
 	pub async fn complete(
 		self: Arc<Self>,
-		library: &Library,
+		library: &Arc<Library>,
 		worker_id: Uuid,
 		job_hash: u64,
 		next_job: Option<Box<dyn DynJob>>,
@@ -177,10 +181,10 @@ impl JobManager {
 	}
 
 	/// Shutdown the job manager, signaled by core on shutdown.
-	pub async fn shutdown(&self) {
+	pub async fn shutdown(self: &Arc<Self>) {
 		let (tx, rx) = oneshot::channel();
 		self.internal_sender
-			.send(JobManagerEvent::Shutdown(tx))
+			.send(JobManagerEvent::Shutdown(tx, self.clone()))
 			.unwrap_or_else(|_| {
 				error!("Failed to send shutdown event to job manager!");
 			});
@@ -238,7 +242,10 @@ impl JobManager {
 	/// when the core was shut down.
 	/// - It will resume jobs that contain data and cancel jobs that do not.
 	/// - Prevents jobs from being stuck in a paused/running state
-	pub async fn cold_resume(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+	pub async fn cold_resume(
+		self: Arc<Self>,
+		library: &Arc<Library>,
+	) -> Result<(), JobManagerError> {
 		// Include the Queued status in the initial find condition
 		let find_condition = vec![or(vec![
 			job::status::equals(Some(JobStatus::Paused as i32)),

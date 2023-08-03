@@ -8,7 +8,6 @@ authors = [
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 serde = { version = "1.0.163", features = ["derive"] }

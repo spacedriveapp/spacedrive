@@ -80,6 +80,17 @@ pub async fn shallow(
 		.await?
 	};
 
+	library
+		.manager
+		.thumbnail_remover
+		.remove_cas_ids(
+			to_remove
+				.iter()
+				.filter_map(|file_path| file_path.cas_id.clone())
+				.collect::<Vec<_>>(),
+		)
+		.await;
+
 	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system

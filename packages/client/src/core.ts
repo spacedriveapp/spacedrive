@@ -60,6 +60,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "notifications.test", input: never, result: null } | 
@@ -82,7 +83,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
-        { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
+        { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
 export type BuildInfo = { version: string; commit: string }
@@ -261,7 +262,7 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 
 export type PeerId = string
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null; instances: string[] }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 
@@ -274,6 +275,8 @@ export type RenameKind = { One: RenameOne } | { Many: RenameMany }
 export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_file_path_ids: number[] }
 
 export type RenameOne = { from_file_path_id: number; to: string }
+
+export type RescanArgs = { location_id: number; sub_path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 

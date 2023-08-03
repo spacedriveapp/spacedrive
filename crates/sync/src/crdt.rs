@@ -6,7 +6,37 @@ use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub enum OperationKind<'a> {
+	Create,
+	Update(&'a str),
+	Delete,
+}
+
+impl std::fmt::Display for OperationKind<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			OperationKind::Create => write!(f, "c"),
+			OperationKind::Update(field) => write!(f, "u:{}", field),
+			OperationKind::Delete => write!(f, "d"),
+		}
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+pub struct RelationOperation {
+	pub relation_item: Value,
+	pub relation_group: Value,
+	pub relation: String,
+	pub data: RelationOperationData,
+}
+
+impl RelationOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum RelationOperationData {
 	#[serde(rename = "c")]
 	Create,
@@ -16,15 +46,30 @@ pub enum RelationOperationData {
 	Delete,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct RelationOperation {
-	pub relation_item: Value,
-	pub relation_group: Value,
-	pub relation: String,
-	pub data: RelationOperationData,
+impl RelationOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+pub struct SharedOperation {
+	pub record_id: Value,
+	pub model: String,
+	pub data: SharedOperationData,
+}
+
+impl SharedOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum SharedOperationData {
 	#[serde(rename = "c")]
 	Create,
@@ -34,11 +79,14 @@ pub enum SharedOperationData {
 	Delete,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub struct SharedOperation {
-	pub record_id: Value,
-	pub model: String,
-	pub data: SharedOperationData,
+impl SharedOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
 }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, Type)]
@@ -64,7 +112,7 @@ pub struct SharedOperation {
 // 	pub items: Vec<OwnedOperationItem>,
 // }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(untagged)]
 pub enum CRDTOperationType {
 	Shared(SharedOperation),
@@ -72,7 +120,7 @@ pub enum CRDTOperationType {
 	// Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]
