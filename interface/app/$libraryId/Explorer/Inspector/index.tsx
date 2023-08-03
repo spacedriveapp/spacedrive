@@ -69,8 +69,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 
 	const item = data?.item;
 
-	const locationIdToPathQuery = useLibraryQuery(['files.locationIdToPath', { location_id: item?.location_id || -1 }])
-	const absoluteFilePath = locationIdToPathQuery.data ? `${locationIdToPathQuery.data}${item.materialized_path}${item.name}${item.extension ? `.${item.extension}` : ''}` : null
+	const { data: fileFullPath } = useLibraryQuery(['files.getPath', item?.id || -1]);
 
 	// map array of numbers into string
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
@@ -199,13 +198,13 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									</MetaTextLine>
 								</Tooltip>
 							)}
-							{absoluteFilePath && (
-								<Tooltip label={absoluteFilePath}>
+							{fileFullPath && (
+								<Tooltip label={fileFullPath}>
 									<MetaTextLine>
 										<InspectorIcon component={Path} />
 										<MetaKeyName className="mr-1.5">Path</MetaKeyName>
 										<MetaValue>
-											{absoluteFilePath}
+											{fileFullPath}
 										</MetaValue>
 									</MetaTextLine>
 								</Tooltip>
