@@ -83,7 +83,7 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "p2p.spacedropProgress", input: string, result: number } | 
-        { key: "sync.newMessage", input: LibraryArgs<null>, result: CRDTOperation }
+        { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
 export type BuildInfo = { version: string; commit: string }

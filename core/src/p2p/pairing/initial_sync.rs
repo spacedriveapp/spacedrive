@@ -57,6 +57,14 @@ macro_rules! impl_for_models {
 
 				Ok(())
 			}
+
+			pub fn model_name(&self) -> &'static str {
+				match self {
+					$(
+						Self::$variant(_) => stringify!($model),
+					)*
+				}
+			}
 		}
 
 		/// This exists to determine the next model to sync.

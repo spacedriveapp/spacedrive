@@ -38,4 +38,6 @@ impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
 pub struct ConnectedPeer {
 	/// get the peer id of the discovered peer
 	pub peer_id: PeerId,
+	/// Did I open the connection?
+	pub establisher: bool,
 }
