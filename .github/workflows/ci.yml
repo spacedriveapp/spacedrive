@@ -105,7 +105,7 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          mklink /j target C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
       - name: Setup System and Rust
         if: steps.filter.outputs.changes == 'true'
