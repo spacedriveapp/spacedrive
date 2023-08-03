@@ -1,6 +1,7 @@
 import { Plus } from 'phosphor-react';
-import { ExplorerItem, useLibraryMutation } from '@sd/client';
+import { ExplorerItem, libraryClient } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
+import { showAlertDialog } from '~/components';
 import { FilePathItems, ObjectItems, SharedItems } from '..';
 
 interface Props {
@@ -10,8 +11,6 @@ interface Props {
 export default ({ data }: Props) => {
 	const object = data.item;
 	const filePath = data.item.file_paths[0];
-
-	const getAbsolutePath = useLibraryMutation('files.locationIdToPath');
 
 	return (
 		<>
@@ -41,13 +40,24 @@ export default ({ data }: Props) => {
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
 					<FilePathItems.CopyAsPath
 						onClick={async () => {
-							navigator.clipboard.writeText(
-								`${await getAbsolutePath.mutateAsync({
-									location_id: filePath?.location_id || -1
-								})}${filePath?.materialized_path}${filePath?.name}${
-									filePath?.extension ? `.${filePath?.extension}` : ''
-								}`
-							);
+							let fileFullPath;
+
+							try {
+								fileFullPath = await libraryClient.query([
+									'files.getPath',
+									filePath.id
+								]);
+
+								if (fileFullPath == null) throw new Error('No file path available');
+							} catch (error) {
+								showAlertDialog({
+									title: 'Error',
+									value: `Failed to copy file path: ${error}`
+								});
+								return;
+							}
+
+							navigator.clipboard.writeText(fileFullPath);
 						}}
 					/>
 					<FilePathItems.Crypto filePath={filePath} />
