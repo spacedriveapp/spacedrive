@@ -16,6 +16,7 @@ import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { useExplorerContext } from './Context';
 import { SharedItems } from './ContextMenu';
+import { CopyAsPath } from './ContextMenu/FilePath/Items';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
@@ -114,15 +115,7 @@ export default (props: PropsWithChildren) => {
 					<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
 
 					<CM.SubMenu label="More actions..." icon={Plus}>
-						<CM.Item
-							onClick={() => {
-								navigator.clipboard.writeText(
-									`${parent.location.path}${currentPath ?? ''}`
-								);
-							}}
-							label="Copy as path"
-							icon={ClipboardText}
-						/>
+						<CopyAsPath pathOrId={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
 							onClick={async () => {

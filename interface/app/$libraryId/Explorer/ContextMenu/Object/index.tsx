@@ -38,28 +38,7 @@ export default ({ data }: Props) => {
 
 			{filePath && (
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
-					<FilePathItems.CopyAsPath
-						onClick={async () => {
-							let fileFullPath;
-
-							try {
-								fileFullPath = await libraryClient.query([
-									'files.getPath',
-									filePath.id
-								]);
-
-								if (fileFullPath == null) throw new Error('No file path available');
-							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to copy file path: ${error}`
-								});
-								return;
-							}
-
-							navigator.clipboard.writeText(fileFullPath);
-						}}
-					/>
+					<FilePathItems.CopyAsPath pathOrId={filePath.id} />
 					<FilePathItems.Crypto filePath={filePath} />
 					<FilePathItems.Compress filePath={filePath} />
 					<ObjectItems.ConvertObject filePath={filePath} object={object} />
