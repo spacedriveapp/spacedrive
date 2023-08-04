@@ -191,7 +191,7 @@ impl LocationWatcher {
 		event: Event,
 		event_handler: &mut impl EventHandler<'lib>,
 		node: &'lib Node,
-		library: &'lib LoadedLibrary,
+		_library: &'lib LoadedLibrary,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		if !check_event(&event, ignore_paths) {

@@ -131,41 +131,46 @@ impl LocationManagerActor {
 	pub fn start(self, node: Arc<Node>) {
 		tokio::spawn({
 			let node = node.clone();
+			let rx = node.library_manager.rx.clone();
 			async move {
-				if let Err(err) = node
-					.library_manager
-					.rx
-					.subscribe(|event| async move {
-						match event {
-							LibraryManagerEvent::Load(library) => {
-								for location in library
-									.db
-									.location()
-									.find_many(vec![])
-									.exec()
-									.await
-									.unwrap_or_else(|e| {
-										error!(
-												"Failed to get locations from database for location manager: {:#?}",
+				if let Err(err) = rx
+					.subscribe(|event| {
+						let node = node.clone();
+						async move {
+							match event {
+								LibraryManagerEvent::Load(library) => {
+									for location in library
+										.db
+										.location()
+										.find_many(vec![])
+										.exec()
+										.await
+										.unwrap_or_else(|e| {
+											error!(
+													"Failed to get locations from database for location manager: {:#?}",
+													e
+												);
+											vec![]
+										}) {
+										if let Err(e) = node
+											.location_manager
+											.add(location.id, library.clone())
+											.await
+										{
+											error!(
+												"Failed to add location to location manager: {:#?}",
 												e
 											);
-										vec![]
-									}) {
-									if let Err(e) = node
-										.location_manager
-										.add(location.id, library.clone())
-										.await
-									{
-										error!(
-											"Failed to add location to location manager: {:#?}",
-											e
-										);
+										}
 									}
 								}
-							}
-							LibraryManagerEvent::Edit(_) => {}
-							LibraryManagerEvent::Delete(library) => {
-								debug_assert!(true, "TODO: Remove locations from location manager"); // TODO
+								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::Delete(_) => {
+									debug_assert!(
+										true,
+										"TODO: Remove locations from location manager"
+									); // TODO
+								}
 							}
 						}
 					})

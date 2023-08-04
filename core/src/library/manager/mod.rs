@@ -242,7 +242,9 @@ impl LibraryManager {
 
 		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 
-		self.tx.emit(LibraryManagerEvent::Edit(library.clone()));
+		self.tx
+			.emit(LibraryManagerEvent::Edit(library.clone()))
+			.await;
 		invalidate_query!(library, "library.list");
 
 		Ok(())

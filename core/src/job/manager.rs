@@ -83,7 +83,7 @@ impl JobManager {
 	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
 	pub fn new() -> (Arc<Self>, JobManagerActor) {
 		// allow the job manager to control its workers
-		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
+		let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
 			current_jobs_hashes: RwLock::new(HashSet::new()),
 			job_queue: RwLock::new(VecDeque::new()),
