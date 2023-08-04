@@ -133,7 +133,9 @@ export default ({ children }: { children: RenderItem }) => {
 		columns: explorerStore.layoutMode === 'media' ? explorerStore.mediaColumns : undefined,
 		getItemId: (index) => explorerView.items?.[index]?.item.id,
 		padding: explorerView.padding || explorerStore.layoutMode === 'grid' ? 12 : undefined,
-		gap: explorerView.gap || explorerStore.layoutMode === 'grid' ? 24 : undefined,
+		gap:
+			explorerView.gap ||
+			(explorerStore.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
 		overscan: explorerView.overscan,
 		onLoadMore: explorerView.onLoadMore,
 		rowsBeforeLoadMore: explorerView.rowsBeforeLoadMore,

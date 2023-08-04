@@ -49,6 +49,22 @@ export default () => {
 					)}
 				</div>
 			)}
+
+			{explorerStore.layoutMode === 'grid' && (
+				<div>
+					<Subheading>Gap</Subheading>
+					<Slider
+						onValueChange={([val]) => {
+							if (val) getExplorerStore().gridGap = val;
+						}}
+						defaultValue={[explorerStore.gridGap]}
+						max={24}
+						min={8}
+						step={8}
+					/>
+				</div>
+			)}
+
 			{(explorerStore.layoutMode === 'grid' || explorerStore.layoutMode === 'media') && (
 				<div className="grid grid-cols-2 gap-2">
 					<div className="flex flex-col">

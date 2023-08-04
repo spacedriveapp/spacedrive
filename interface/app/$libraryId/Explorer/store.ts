@@ -49,7 +49,8 @@ const state = {
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none',
-	isDragging: false
+	isDragging: false,
+	gridGap: 16
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
