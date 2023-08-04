@@ -47,6 +47,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
+		.procedure("getPath", {
+			R.with2(library())
+				.query(|(_, library), id: i32| async move {
+					let isolated_path = IsolatedFilePathData::try_from(
+						library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(id))
+							.select(file_path_to_isolate::select())
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
+					)
+					.map_err(LocationError::MissingField)?;
+
+					let location_id = isolated_path.location_id();
+					let location_path = find_location(&library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?
+						.path
+						.ok_or(LocationError::MissingPath(location_id))?;
+
+					Ok(Path::new(&location_path)
+						.join(&isolated_path)
+						.to_str()
+						.map(|str| str.to_string()))
+				})
+		})
 		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
 			pub struct SetNoteArgs {
