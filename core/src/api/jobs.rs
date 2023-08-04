@@ -237,7 +237,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(_, library), args: GenerateThumbsForLocationArgs| async move {
+				|(node, library), args: GenerateThumbsForLocationArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
@@ -246,7 +246,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						location,
 						sub_path: Some(args.path),
 					})
-					.spawn(&library)
+					.spawn(&node, &library)
 					.await
 					.map_err(Into::into)
 				},
@@ -260,7 +260,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: ObjectValidatorArgs| async move {
+				.mutation(|(node, library), args: ObjectValidatorArgs| async move {
 					let Some(location) =  find_location(&library, args.id)
 						.exec()
 						.await?
@@ -272,7 +272,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						location,
 						sub_path: Some(args.path),
 					})
-					.spawn(&library)
+					.spawn(&node, &library)
 					.await
 					.map_err(Into::into)
 				})
@@ -284,8 +284,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub path: PathBuf,
 			}
 
-			R.with2(library())
-				.mutation(|(_, library), args: IdentifyUniqueFilesArgs| async move {
+			R.with2(library()).mutation(
+				|(node, library), args: IdentifyUniqueFilesArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
@@ -294,10 +294,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						location,
 						sub_path: Some(args.path),
 					})
-					.spawn(&library)
+					.spawn(&node, &library)
 					.await
 					.map_err(Into::into)
-				})
+				},
+			)
 		})
 		.procedure("newThumbnail", {
 			R.with2(library())

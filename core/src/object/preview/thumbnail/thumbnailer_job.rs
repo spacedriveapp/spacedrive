@@ -85,7 +85,7 @@ impl StatefulJob for ThumbnailerJobInit {
 		let init = self;
 		let LoadedLibrary { db, .. } = &*ctx.library;
 
-		let thumbnail_dir = init_thumbnail_dir(ctx.library.config().data_directory()).await?;
+		let thumbnail_dir = init_thumbnail_dir(ctx.node.config.data_directory()).await?;
 
 		let location_id = init.location.id;
 		let location_path =

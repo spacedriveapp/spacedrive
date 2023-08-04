@@ -133,44 +133,59 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		// .procedure("encryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileEncryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		// .procedure("decryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileDecryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileDeleterJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileDeleterJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileEraserJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileEraserJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCutterJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCutterJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("renameFile", {

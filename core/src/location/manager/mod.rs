@@ -1,8 +1,9 @@
 use crate::{
 	job::JobManagerError,
-	library::LoadedLibrary,
+	library::{LibraryManagerEvent, LoadedLibrary},
 	prisma::location,
 	util::{db::MissingFieldError, error::FileIOError},
+	Node,
 };
 
 use std::{
@@ -116,7 +117,78 @@ pub enum LocationManagerError {
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
 
-#[derive(Debug)]
+#[must_use = "'LocationManagerActor::start' must be used to start the actor"]
+pub struct LocationManagerActor {
+	#[cfg(feature = "location-watcher")]
+	location_management_rx: mpsc::Receiver<LocationManagementMessage>,
+	#[cfg(feature = "location-watcher")]
+	watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
+	#[cfg(feature = "location-watcher")]
+	stop_rx: oneshot::Receiver<()>,
+}
+
+impl LocationManagerActor {
+	pub fn start(self, node: Arc<Node>) {
+		tokio::spawn({
+			let node = node.clone();
+			async move {
+				if let Err(err) = node
+					.library_manager
+					.rx
+					.subscribe(|event| async move {
+						match event {
+							LibraryManagerEvent::Load(library) => {
+								for location in library
+									.db
+									.location()
+									.find_many(vec![])
+									.exec()
+									.await
+									.unwrap_or_else(|e| {
+										error!(
+												"Failed to get locations from database for location manager: {:#?}",
+												e
+											);
+										vec![]
+									}) {
+									if let Err(e) = node
+										.location_manager
+										.add(location.id, library.clone())
+										.await
+									{
+										error!(
+											"Failed to add location to location manager: {:#?}",
+											e
+										);
+									}
+								}
+							}
+							LibraryManagerEvent::Edit(_) => {}
+							LibraryManagerEvent::Delete(library) => {
+								debug_assert!(true, "TODO: Remove locations from location manager"); // TODO
+							}
+						}
+					})
+					.await
+				{
+					error!("Core may become unstable! LocationManager's library manager subscription aborted with error: {err:?}");
+				}
+			}
+		});
+
+		#[cfg(feature = "location-watcher")]
+		tokio::spawn(LocationManager::run_locations_checker(
+			self.location_management_rx,
+			self.watcher_management_rx,
+			self.stop_rx,
+			node,
+		));
+
+		#[cfg(not(feature = "location-watcher"))]
+		tracing::warn!("Location watcher is disabled, locations will not be checked");
+	}
+}
+
 pub struct LocationManager {
 	online_locations: RwLock<OnlineLocations>,
 	pub online_tx: broadcast::Sender<OnlineLocations>,
@@ -128,7 +200,7 @@ pub struct LocationManager {
 }
 
 impl LocationManager {
-	pub fn new() -> Self {
+	pub fn new() -> (Self, LocationManagerActor) {
 		let online_tx = broadcast::channel(16).0;
 
 		#[cfg(feature = "location-watcher")]
@@ -137,29 +209,33 @@ impl LocationManager {
 			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
 			let (stop_tx, stop_rx) = oneshot::channel();
 
-			tokio::spawn(Self::run_locations_checker(
-				location_management_rx,
-				watcher_management_rx,
-				stop_rx,
-			));
-
-			Self {
-				online_locations: Default::default(),
-				online_tx,
-				location_management_tx,
-				watcher_management_tx,
-				stop_tx: Some(stop_tx),
-			}
+			(
+				Self {
+					online_locations: Default::default(),
+					online_tx,
+					location_management_tx,
+					watcher_management_tx,
+					stop_tx: Some(stop_tx),
+				},
+				LocationManagerActor {
+					location_management_rx,
+					watcher_management_rx,
+					stop_rx,
+				},
+			)
 		}
 
 		#[cfg(not(feature = "location-watcher"))]
 		{
 			tracing::warn!("Location watcher is disabled, locations will not be checked");
-			Self {
-				online_tx,
-				online_locations: Default::default(),
-				stop_tx: None,
-			}
+			(
+				Self {
+					online_tx,
+					online_locations: Default::default(),
+					stop_tx: None,
+				},
+				LocationManagerActor {},
+			)
 		}
 	}
 
@@ -304,6 +380,7 @@ impl LocationManager {
 		mut location_management_rx: mpsc::Receiver<LocationManagementMessage>,
 		mut watcher_management_rx: mpsc::Receiver<WatcherManagementMessage>,
 		mut stop_rx: oneshot::Receiver<()>,
+		node: Arc<Node>,
 	) -> Result<(), LocationManagerError> {
 		use std::collections::{HashMap, HashSet};
 
@@ -339,10 +416,10 @@ impl LocationManager {
 						ManagementMessageAction::Add => {
 							response_tx.send(
 							if let Some(location) = get_location(location_id, &library).await {
-								match check_online(&location, &library).await {
+								match check_online(&location, &node, &library).await {
 									Ok(is_online) => {
 
-										LocationWatcher::new(location, library.clone())
+										LocationWatcher::new(location, library.clone(), node.clone())
 										.await
 										.map(|mut watcher| {
 											if is_online {
@@ -449,7 +526,7 @@ impl LocationManager {
 					} else if let Some(location) = get_location(location_id, &library).await {
 						// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 						if location.instance_id == Some(library.config.instance_id) {
-							let is_online = match check_online(&location, &library).await {
+							let is_online = match check_online(&location, &node, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {
 									error!("Error while checking online status of location {location_id}: {e}");

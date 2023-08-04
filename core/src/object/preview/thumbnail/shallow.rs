@@ -12,6 +12,7 @@ use crate::{
 	object::preview::thumbnail,
 	prisma::{file_path, location, PrismaClient},
 	util::error::FileIOError,
+	Node,
 };
 use sd_file_ext::extensions::Extension;
 use std::path::{Path, PathBuf};
@@ -26,10 +27,11 @@ pub async fn shallow_thumbnailer(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library: &LoadedLibrary,
+	node: &Node,
 ) -> Result<(), JobError> {
 	let LoadedLibrary { db, .. } = library;
 
-	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
+	let thumbnail_dir = init_thumbnail_dir(node.services.config.data_directory()).await?;
 
 	let location_id = location.id;
 	let location_path = match &location.path {

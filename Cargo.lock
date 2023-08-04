@@ -7057,7 +7057,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core-sync"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "prisma-client-rust",
  "sd-p2p",

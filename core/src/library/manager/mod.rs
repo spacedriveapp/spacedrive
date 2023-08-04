@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	location::indexer,
-	node::{NodeConfig, Platform},
+	node::Platform,
 	object::tag,
 	p2p::IdentityOrRemoteIdentity,
 	prisma::location,
@@ -11,7 +11,7 @@ use crate::{
 		migrator::Migrate,
 		mpscrr, MaybeUndefined,
 	},
-	NodeServices,
+	Node,
 };
 
 use std::{
@@ -38,10 +38,8 @@ pub use error::*;
 #[derive(Debug, Clone)]
 pub enum LibraryManagerEvent {
 	Load(Arc<LoadedLibrary>),
-	// TODO
-	// Edit,
-	// TODO
-	// Delete,
+	Edit(Arc<LoadedLibrary>),
+	Delete(Arc<LoadedLibrary>),
 }
 
 /// LibraryManager is a singleton that manages all libraries for a node.
@@ -50,8 +48,6 @@ pub struct LibraryManager {
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
-	/// holds the context for the node which this library manager is running on.
-	pub node: Arc<NodeServices>,
 	// TODO: Remove `pub(super)`
 	// Transmit side of `self.rx` channel
 	pub(super) tx: mpscrr::Sender<LibraryManagerEvent, ()>,
@@ -60,31 +56,32 @@ pub struct LibraryManager {
 }
 
 impl LibraryManager {
-	pub(crate) async fn new(
-		libraries_dir: PathBuf,
-		node: Arc<NodeServices>,
-	) -> Result<Arc<Self>, LibraryManagerError> {
+	pub(crate) async fn new(libraries_dir: PathBuf) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
-		let mut read_dir = fs::read_dir(&libraries_dir)
-			.await
-			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
-
 		let (tx, rx) = mpscrr::unbounded_channel();
-		let this = Arc::new(Self {
-			libraries_dir: libraries_dir.clone(),
+		Ok(Arc::new(Self {
+			libraries_dir: libraries_dir,
 			libraries: Default::default(),
-			node,
 			tx,
 			rx,
-		});
+		}))
+	}
+
+	/// Loads the initial libraries from disk.
+	///
+	/// `Arc<LibraryManager>` is constructed and passed to other managers for them to subscribe (`self.rx.subscribe`) then this method is run to load the initial libraries and trigger the subscriptions.
+	pub async fn init(self: &Arc<Self>, node: &Arc<Node>) -> Result<(), LibraryManagerError> {
+		let mut read_dir = fs::read_dir(&self.libraries_dir)
+			.await
+			.map_err(|e| FileIOError::from((&self.libraries_dir, e)))?;
 
 		while let Some(entry) = read_dir
 			.next_entry()
 			.await
-			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
+			.map_err(|e| FileIOError::from((&self.libraries_dir, e)))?
 		{
 			let config_path = entry.path();
 			if config_path
@@ -113,21 +110,18 @@ impl LibraryManager {
 				match fs::metadata(&db_path).await {
 					Ok(_) => {}
 					Err(e) if e.kind() == io::ErrorKind::NotFound => {
-						warn!(
-					"Found library '{}' but no matching database file was found. Skipping...",
-						config_path.display()
-					);
+						warn!("Found library '{}' but no matching database file was found. Skipping...", config_path.display());
 						continue;
 					}
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				this.load(library_id, &db_path, config_path, None, true)
+				self.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 			}
 		}
 
-		Ok(this)
+		Ok(())
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
@@ -135,9 +129,9 @@ impl LibraryManager {
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
-		node_cfg: NodeConfig,
+		node: &Arc<Node>,
 	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true, None)
+		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
 			.await
 	}
 
@@ -146,10 +140,10 @@ impl LibraryManager {
 		id: Uuid,
 		name: LibraryName,
 		description: Option<String>,
-		node_cfg: NodeConfig,
 		should_seed: bool,
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
+		node: &Arc<Node>,
 	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -173,6 +167,7 @@ impl LibraryManager {
 			config_path.display()
 		);
 
+		let node_cfg = node.services.config.get().await;
 		let now = Utc::now().fixed_offset();
 		let library = self
 			.load(
@@ -195,6 +190,7 @@ impl LibraryManager {
 					create
 				}),
 				should_seed,
+				node,
 			)
 			.await?;
 
@@ -246,34 +242,8 @@ impl LibraryManager {
 
 		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 
-		self.node.nlm.edit_library(&library).await;
-
+		self.tx.emit(LibraryManagerEvent::Edit(library.clone()));
 		invalidate_query!(library, "library.list");
-
-		for (_, library) in libraries.iter() {
-			for location in library
-				.db
-				.location()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap_or_else(|e| {
-					error!(
-						"Failed to get locations from database for location manager: {:#?}",
-						e
-					);
-					vec![]
-				}) {
-				if let Err(e) = self
-					.node
-					.location_manager
-					.add(location.id, library.clone())
-					.await
-				{
-					error!("Failed to add location to location manager: {:#?}", e);
-				}
-			}
-		}
 
 		Ok(())
 	}
@@ -282,13 +252,15 @@ impl LibraryManager {
 		// As we're holding a write lock here, we know nothing will change during this function
 		let mut libraries_write_guard = self.libraries.write().await;
 
-		// TODO: Deletion state too!
+		// TODO: Library go into "deletion" state until it's finished!
 
 		let library = &*libraries_write_guard
 			.get(id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		self.node.nlm.delete_library(library).await;
+		self.tx
+			.emit(LibraryManagerEvent::Delete(library.clone()))
+			.await;
 
 		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
 		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
@@ -305,8 +277,6 @@ impl LibraryManager {
 					.map_err(|e| LibraryManagerError::FileIO(FileIOError::from((sd_lib_path, e))))
 			},
 		)?;
-
-		self.node.thumbnail_remover.remove_library(library.id).await;
 
 		// We only remove here after files deletion
 		let library = libraries_write_guard
@@ -338,6 +308,7 @@ impl LibraryManager {
 		config_path: PathBuf,
 		create: Option<instance::Create>,
 		should_seed: bool,
+		node: &Arc<Node>,
 	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -352,7 +323,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = self.node.config.get().await;
+		let node_config = node.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
@@ -412,10 +383,10 @@ impl LibraryManager {
 			// key_manager,
 			db,
 			self.clone(),
+			node,
 		)
 		.await;
 
-		self.node.thumbnail_remover.new_library(&library).await;
 		self.libraries
 			.write()
 			.await
@@ -436,8 +407,8 @@ impl LibraryManager {
 			.exec()
 			.await?
 		{
-			if let Err(e) = library
-				.node
+			if let Err(e) = node
+				.services
 				.location_manager
 				.add(location.id, library.clone())
 				.await
@@ -446,7 +417,13 @@ impl LibraryManager {
 			};
 		}
 
-		if let Err(e) = library.node.job_manager.clone().cold_resume(&library).await {
+		if let Err(e) = node
+			.services
+			.job_manager
+			.clone()
+			.cold_resume(&node, &library)
+			.await
+		{
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 

@@ -8,6 +8,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{BTreeMap, HashMap},
+	fmt,
 	sync::Arc,
 };
 
@@ -38,6 +39,12 @@ pub struct SyncManager {
 	clock: HLC,
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Actor,
+}
+
+impl fmt::Debug for SyncManager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
 }
 
 pub struct SyncManagerNew {

@@ -9,6 +9,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::error::FileIOError,
+	Node,
 };
 
 use std::{
@@ -61,6 +62,7 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
+		node: &Node,
 		library: &Arc<LoadedLibrary>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
@@ -125,14 +127,14 @@ impl LocationCreateArgs {
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
-				Ok(library
-					.location_manager()
+				Ok(node
+					.location_manager
 					.add(location.data.id, library.clone())
 					.await?)
 			})
 			.await
 			{
-				delete_location(library, location.data.id).await?;
+				delete_location(node, library, location.data.id).await?;
 				Err(err)?;
 			}
 
@@ -146,6 +148,7 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
+		node: &Node,
 		library: &Arc<LoadedLibrary>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
@@ -190,8 +193,7 @@ impl LocationCreateArgs {
 				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
-			library
-				.location_manager()
+			node.location_manager
 				.add(location.data.id, library.clone())
 				.await?;
 
@@ -372,6 +374,7 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
+	node: &Arc<Node>,
 	library: &Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
@@ -397,12 +400,13 @@ pub async fn scan_location(
 		location: location_base_data,
 		sub_path: None,
 	})
-	.spawn(library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn scan_location_sub_path(
+	node: &Arc<Node>,
 	library: &Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
@@ -434,12 +438,13 @@ pub async fn scan_location_sub_path(
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
-	.spawn(library)
+	.spawn(&node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(
+	node: Arc<Node>,
 	library: Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
@@ -453,9 +458,9 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::shallow(&location, &sub_path, &library).await?;
+	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
+	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }
@@ -643,11 +648,11 @@ async fn create_location(
 }
 
 pub async fn delete_location(
+	node: &Node,
 	library: &Arc<LoadedLibrary>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	library
-		.location_manager()
+	node.location_manager
 		.remove(location_id, library.clone())
 		.await?;
 
