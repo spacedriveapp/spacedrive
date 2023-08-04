@@ -40,7 +40,6 @@ pub struct LoadedLibrary {
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
-	pub manager: Arc<LibraryManager>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sd_core_sync::SyncManager>,
@@ -84,7 +83,6 @@ impl LoadedLibrary {
 		let library = Arc::new(Self {
 			id,
 			config,
-			manager: manager.clone(),
 			db: db.clone(),
 			sync: Arc::new(sync.manager),
 			// key_manager,
