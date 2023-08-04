@@ -96,10 +96,17 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 		enabled: !!objectData && readyToFetch
 	});
 
-	const { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
-		enabled: !!objectData && readyToFetch,
-		initialData: { data: data && data.type === 'NonIndexedPath' ? data.item.path : null }
+	let { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
+		enabled: !!objectData && readyToFetch
 	});
+
+	if (fileFullPath == null && data) {
+		switch (data.type) {
+			case 'Location':
+			case 'NonIndexedPath':
+				fileFullPath = data.item.path;
+		}
+	}
 
 	if (!data)
 		return (
