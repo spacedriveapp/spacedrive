@@ -16,25 +16,25 @@ import { useItems } from './data';
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();
-	const page = usePageLayoutContext();
+	const { ref: pageRef } = usePageLayoutContext();
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
 	const { items, query, loadMore } = useItems(selectedCategory);
 
-	const [selectedItemId, setSelectedItemId] = useState<number>();
+	const [selectedItems, setSelectedItems] = useState<Set<number>>(() => new Set());
 
 	const selectedItem = useMemo(
-		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
-		[selectedItemId, items]
+		() => items?.find((item) => item.item.id === [...selectedItems.values()][0]),
+		[selectedItems, items]
 	);
 
 	useEffect(() => {
-		if (page?.ref.current) {
-			const { scrollTop } = page.ref.current;
-			if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
+		if (pageRef.current) {
+			const { scrollTop } = pageRef.current;
+			if (scrollTop > 100) pageRef.current.scrollTo({ top: 100 });
 		}
-	}, [selectedCategory, page?.ref]);
+	}, [selectedCategory, pageRef]);
 
 	return (
 		<ExplorerContext.Provider value={{}}>
@@ -48,12 +48,11 @@ export const Component = () => {
 				<div className="flex">
 					<View
 						items={query.isLoading ? null : items || []}
-						// TODO: Fix this type here.
-						scrollRef={page?.ref as any}
+						scrollRef={pageRef}
 						onLoadMore={loadMore}
 						rowsBeforeLoadMore={5}
-						selected={selectedItemId}
-						onSelectedChange={setSelectedItemId}
+						selected={selectedItems}
+						onSelectedChange={setSelectedItems}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
 						contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
