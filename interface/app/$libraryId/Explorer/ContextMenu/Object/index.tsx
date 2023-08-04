@@ -37,6 +37,7 @@ export default ({ data }: Props) => {
 
 			{filePath && (
 				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
+					<FilePathItems.CopyAsPath pathOrId={filePath.id} />
 					<FilePathItems.Crypto filePath={filePath} />
 					<FilePathItems.Compress filePath={filePath} />
 					<ObjectItems.ConvertObject filePath={filePath} object={object} />
