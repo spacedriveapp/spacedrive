@@ -9,7 +9,7 @@ use crate::{
 		db,
 		error::{FileIOError, NonUtf8PathError},
 		migrator::Migrate,
-		MaybeUndefined,
+		mpscrr, MaybeUndefined,
 	},
 	NodeServices,
 };
@@ -34,6 +34,16 @@ mod error;
 
 pub use error::*;
 
+/// Event that is emitted to subscribers of the library manager.
+#[derive(Debug, Clone)]
+pub enum LibraryManagerEvent {
+	Load(Arc<LoadedLibrary>),
+	// TODO
+	// Edit,
+	// TODO
+	// Delete,
+}
+
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
@@ -42,6 +52,11 @@ pub struct LibraryManager {
 	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
 	/// holds the context for the node which this library manager is running on.
 	pub node: Arc<NodeServices>,
+	// TODO: Remove `pub(super)`
+	// Transmit side of `self.rx` channel
+	pub(super) tx: mpscrr::Sender<LibraryManagerEvent, ()>,
+	/// A channel for receiving events from the library manager.
+	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
 
 impl LibraryManager {
@@ -57,10 +72,13 @@ impl LibraryManager {
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
+		let (tx, rx) = mpscrr::unbounded_channel();
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
 			node,
+			tx,
+			rx,
 		});
 
 		while let Some(entry) = read_dir

@@ -29,7 +29,7 @@ use tokio::{fs, io};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManager, LibraryManagerError};
+use super::{LibraryConfig, LibraryManager, LibraryManagerError, LibraryManagerEvent};
 
 pub enum LibraryNew {
 	InitialSync,
@@ -89,6 +89,11 @@ impl LoadedLibrary {
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 		});
+
+		manager
+			.tx
+			.emit(LibraryManagerEvent::Load(library.clone()))
+			.await;
 
 		manager.node.nlm.load_library(&library).await;
 
