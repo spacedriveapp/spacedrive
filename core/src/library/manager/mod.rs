@@ -15,6 +15,7 @@ use crate::{
 };
 
 use std::{
+	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -38,7 +39,7 @@ pub struct LibraryManager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<Vec<Arc<LoadedLibrary>>>,
+	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
 	/// holds the context for the node which this library manager is running on.
 	pub node: Arc<NodeServices>,
 }
@@ -192,16 +193,13 @@ impl LibraryManager {
 		Ok(library)
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<LoadedLibrary>> {
-		self.libraries.read().await.clone()
-	}
-
-	pub(crate) async fn get_all_libraries_config(&self) -> Vec<(Uuid, LibraryConfig)> {
+	/// `LoadedLibrary.id` can be used to get the library's id.
+	pub async fn get_all_libraries(&self) -> Vec<Arc<LoadedLibrary>> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.map(|lib| (lib.id, lib.config.clone()))
+			.map(|v| v.1.clone())
 			.collect()
 	}
 
@@ -212,10 +210,9 @@ impl LibraryManager {
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
-		let mut libraries = self.libraries.write().await;
+		let libraries = self.libraries.write().await;
 		let library = libraries
-			.iter_mut()
-			.find(|lib| lib.id == id)
+			.get(&id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
@@ -235,7 +232,7 @@ impl LibraryManager {
 
 		invalidate_query!(library, "library.list");
 
-		for library in libraries.iter() {
+		for (_, library) in libraries.iter() {
 			for location in library
 				.db
 				.location()
@@ -263,16 +260,15 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
+	pub async fn delete(&self, id: &Uuid) -> Result<(), LibraryManagerError> {
+		// As we're holding a write lock here, we know nothing will change during this function
 		let mut libraries_write_guard = self.libraries.write().await;
 
-		// As we're holding a write lock here, we know that our index can't change before removal.
-		let library_idx = libraries_write_guard
-			.iter()
-			.position(|l| l.id == id)
-			.ok_or(LibraryManagerError::LibraryNotFound)?;
+		// TODO: Deletion state too!
 
-		let library = &*libraries_write_guard[library_idx];
+		let library = &*libraries_write_guard
+			.get(id)
+			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		self.node.nlm.delete_library(library).await;
 
@@ -292,10 +288,12 @@ impl LibraryManager {
 			},
 		)?;
 
-		self.node.thumbnail_remover.remove_library(id).await;
+		self.node.thumbnail_remover.remove_library(library.id).await;
 
 		// We only remove here after files deletion
-		let library = libraries_write_guard.remove(library_idx);
+		let library = libraries_write_guard
+			.remove(&id)
+			.expect("we have exclusive access and checked it exists!");
 
 		info!("Removed Library <id='{}'>", library.id);
 
@@ -305,13 +303,13 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: Uuid) -> Option<Arc<LoadedLibrary>> {
-		self.libraries
-			.read()
-			.await
-			.iter()
-			.find(|lib| lib.id == library_id)
-			.map(Clone::clone)
+	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<LoadedLibrary>> {
+		self.libraries.read().await.get(library_id).cloned()
+	}
+
+	// get_ctx will return the library context for the given library id.
+	pub async fn hash_library(&self, library_id: &Uuid) -> bool {
+		self.libraries.read().await.get(library_id).is_some()
 	}
 
 	/// load the library from a given path
@@ -400,7 +398,10 @@ impl LibraryManager {
 		.await;
 
 		self.node.thumbnail_remover.new_library(&library).await;
-		self.libraries.write().await.push(Arc::clone(&library));
+		self.libraries
+			.write()
+			.await
+			.insert(library.id, Arc::clone(&library));
 
 		if should_seed {
 			library.orphan_remover.invoke().await;

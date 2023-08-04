@@ -36,7 +36,7 @@ pub(crate) fn library() -> impl MwV3<Ctx, NewCtx = (Ctx, Arc<LoadedLibrary>)> {
 	MwArgMapperMiddleware::<LibraryArgsLike>::new().mount(|mw, ctx: Ctx, library_id| async move {
 		let library = ctx
 			.library_manager
-			.get_library(library_id)
+			.get_library(&library_id)
 			.await
 			.ok_or_else(|| {
 				rspc::Error::new(

@@ -127,13 +127,7 @@ impl PairingManager {
 					// TODO: Future - Library in pairing state
 					// TODO: Create library
 
-					if library_manager
-						.get_all_libraries()
-						.await
-						.into_iter()
-						.find(|i| i.id == library_id)
-						.is_some()
-					{
+					if library_manager.hash_library(&library_id).await {
 						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
 
 						// TODO: Properly handle this at a protocol level so the error is on both sides
@@ -175,7 +169,7 @@ impl PairingManager {
 						.await
 						.unwrap();
 
-					let library = library_manager.get_library(library.id).await.unwrap();
+					let library = library_manager.get_library(&library.id).await.unwrap();
 
 					library
 						.db
@@ -304,7 +298,7 @@ impl PairingManager {
     		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
-		let library = library_manager.get_library(library_id).await.unwrap();
+		let library = library_manager.get_library(&library_id).await.unwrap();
 
 		// TODO: Rollback this on pairing failure
 		instance::Create {

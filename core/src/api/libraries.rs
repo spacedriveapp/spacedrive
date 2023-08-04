@@ -29,10 +29,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("list", {
 			R.query(|ctx, _: ()| async move {
 				ctx.library_manager
-					.get_all_libraries_config()
+					.get_all_libraries()
 					.await
 					.into_iter()
-					.map(|(uuid, config)| LibraryConfigWrapped { uuid, config })
+					.map(|lib| LibraryConfigWrapped {
+						uuid: lib.id,
+						config: lib.config,
+					})
 					.collect::<Vec<_>>()
 			})
 		})
@@ -136,7 +139,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"delete",
 			R.mutation(|ctx, id: Uuid| async move {
-				ctx.library_manager.delete(id).await.map_err(Into::into)
+				ctx.library_manager.delete(&id).await.map_err(Into::into)
 			}),
 		)
 }

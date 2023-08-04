@@ -111,7 +111,7 @@ impl InitConfig {
 				}
 			}));
 
-			let library = match library_manager.get_library(lib.id).await {
+			let library = match library_manager.get_library(&lib.id).await {
 				Some(lib) => lib,
 				None => {
 					let library = library_manager
@@ -125,7 +125,7 @@ impl InitConfig {
 						)
 						.await?;
 
-					match library_manager.get_library(library.id).await {
+					match library_manager.get_library(&library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(

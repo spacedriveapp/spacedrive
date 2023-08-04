@@ -266,7 +266,7 @@ impl P2PManager {
 											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
 										let library =
-											library_manager.get_library(library_id).await.unwrap();
+											library_manager.get_library(&library_id).await.unwrap();
 
 										dbg!(&msg);
 
