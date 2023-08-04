@@ -1,6 +1,6 @@
-//! A multi-producer single-consumer channel (mpsc) with a strongly consistent send method.
+//! A multi-producer single-consumer channel (mpsc) with a strongly consistent emit method.
 //!
-//! What does this mean? Well, any call to [Sender::send] will not resolve it's future until all active [Receiver]'s have received the value and returned from their callback.
+//! What does this mean? Well, any call to [Sender::emit] will not resolve it's future until all active [Receiver]'s have received the value and returned from their callback.
 //!
 //! Why would you want this? U want to emit a message on a channel and ensure it has been processed by the subscribers before continuing.
 //!
@@ -300,7 +300,7 @@ mod tests {
 			}
 		});
 
-		// Test unsubscribed receiver doesn't cause `.send` to hang
+		// Test unsubscribed receiver doesn't cause `.emit` to hang
 		let rx3 = rx;
 
 		tokio::time::sleep(Duration::from_millis(200)).await; // Wait for Tokio to spawn the tasks
