@@ -44,25 +44,21 @@ export const CopyAsPath = ({ pathOrId }: { pathOrId: number | string }) => {
 			label="Copy as path"
 			icon={ClipboardText}
 			onClick={async () => {
-				let fileFullPath;
+				try {
+					const path =
+						typeof pathOrId === 'string'
+							? pathOrId
+							: await libraryClient.query(['files.getPath', pathOrId]);
 
-				if (typeof pathOrId === 'string') {
-					fileFullPath = pathOrId;
-				} else {
-					try {
-						fileFullPath = await libraryClient.query(['files.getPath', pathOrId]);
+					if (path == null) throw new Error('No file path available');
 
-						if (fileFullPath == null) throw new Error('No file path available');
-					} catch (error) {
-						showAlertDialog({
-							title: 'Error',
-							value: `Failed to copy file path: ${error}`
-						});
-						return;
-					}
+					navigator.clipboard.writeText(path);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: `Failed to copy file path: ${error}`
+					});
 				}
-
-				navigator.clipboard.writeText(fileFullPath);
 			}}
 		/>
 	);
