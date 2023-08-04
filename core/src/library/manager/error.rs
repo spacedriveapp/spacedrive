@@ -1,34 +1,15 @@
 use crate::{
-	invalidate_query,
 	location::{indexer, LocationManagerError},
-	node::{NodeConfig, Platform},
-	object::tag,
-	p2p::{IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr},
-	prisma::location,
+	p2p::IdentityOrRemoteIdentityErr,
 	util::{
 		db::{self, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
-		migrator::{Migrate, MigratorError},
-		MaybeUndefined,
+		migrator::MigratorError,
 	},
-	NodeServices,
 };
 
-use std::{
-	path::{Path, PathBuf},
-	str::FromStr,
-	sync::Arc,
-};
-
-use chrono::Utc;
-use sd_p2p::spacetunnel::Identity;
-use sd_prisma::prisma::instance;
 use thiserror::Error;
-use tokio::{fs, io, sync::RwLock, try_join};
-use tracing::{debug, error, info, warn};
-use uuid::Uuid;
-
-use super::{LibraryConfig, LibraryConfigWrapped, LibraryName, LoadedLibrary};
+use tracing::error;
 
 #[derive(Error, Debug)]
 pub enum LibraryManagerError {

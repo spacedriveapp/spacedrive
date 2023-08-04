@@ -1,14 +1,14 @@
 use crate::{
 	invalidate_query,
-	location::{indexer, LocationManagerError},
+	location::indexer,
 	node::{NodeConfig, Platform},
 	object::tag,
-	p2p::{IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr},
+	p2p::IdentityOrRemoteIdentity,
 	prisma::location,
 	util::{
-		db::{self, MissingFieldError},
+		db,
 		error::{FileIOError, NonUtf8PathError},
-		migrator::{Migrate, MigratorError},
+		migrator::Migrate,
 		MaybeUndefined,
 	},
 	NodeServices,
@@ -23,7 +23,6 @@ use std::{
 use chrono::Utc;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
-use thiserror::Error;
 use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
