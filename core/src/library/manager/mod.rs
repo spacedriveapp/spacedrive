@@ -81,14 +81,14 @@ impl LibraryManager {
 				let Some(Ok(library_id)) = config_path
 				.file_stem()
 				.and_then(|v| v.to_str().map(Uuid::from_str))
-			else {
-				warn!(
-					"Attempted to load library from path '{}' \
-					but it has an invalid filename. Skipping...",
-					config_path.display()
-				);
-					continue;
-			};
+				else {
+					warn!(
+						"Attempted to load library from path '{}' \
+						but it has an invalid filename. Skipping...",
+						config_path.display()
+					);
+						continue;
+				};
 
 				let db_path = config_path.with_extension("db");
 				match fs::metadata(&db_path).await {
@@ -196,15 +196,12 @@ impl LibraryManager {
 		self.libraries.read().await.clone()
 	}
 
-	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
+	pub(crate) async fn get_all_libraries_config(&self) -> Vec<(Uuid, LibraryConfig)> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.map(|lib| LibraryConfigWrapped {
-				uuid: lib.id,
-				config: lib.config.clone(),
-			})
+			.map(|lib| (lib.id, lib.config.clone()))
 			.collect()
 	}
 

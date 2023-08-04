@@ -264,10 +264,3 @@ impl Migrate for LibraryConfig {
 		Ok(())
 	}
 }
-
-// used to return to the frontend with uuid context
-#[derive(Serialize, Deserialize, Debug, Type)]
-pub struct LibraryConfigWrapped {
-	pub uuid: Uuid,
-	pub config: LibraryConfig,
-}

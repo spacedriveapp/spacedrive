@@ -1,5 +1,5 @@
 use crate::{
-	library::{LibraryConfigWrapped, LibraryName},
+	library::{LibraryConfig, LibraryName},
 	util::MaybeUndefined,
 	volume::get_volumes,
 };
@@ -7,7 +7,7 @@ use crate::{
 use chrono::Utc;
 use rspc::alpha::AlphaRouter;
 use sd_prisma::prisma::statistics;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::debug;
 use uuid::Uuid;
@@ -20,9 +20,21 @@ use super::{
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.query(
-				|ctx, _: ()| async move { ctx.library_manager.get_all_libraries_config().await },
-			)
+			// TODO(@Oscar): Replace with `specta::json`
+			#[derive(Serialize, Deserialize, Type)]
+			pub struct LibraryConfigWrapped {
+				pub uuid: Uuid,
+				pub config: LibraryConfig,
+			}
+
+			R.query(|ctx, _: ()| async move {
+				ctx.library_manager
+					.get_all_libraries_config()
+					.await
+					.into_iter()
+					.map(|(uuid, config)| LibraryConfigWrapped { uuid, config })
+					.collect::<Vec<_>>()
+			})
 		})
 		.procedure("statistics", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
