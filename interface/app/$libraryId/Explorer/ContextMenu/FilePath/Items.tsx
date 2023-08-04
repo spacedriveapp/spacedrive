@@ -1,5 +1,5 @@
-import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
-import { FilePath, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { ClipboardText, Image, Package, Trash, TrashSimple } from 'phosphor-react';
+import { FilePath, libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -35,6 +35,32 @@ export const Delete = ({ filePath }: FilePathProps) => {
 				/>
 			)}
 		</>
+	);
+};
+
+export const CopyAsPath = ({ pathOrId }: { pathOrId: number | string }) => {
+	return (
+		<ContextMenu.Item
+			label="Copy as path"
+			icon={ClipboardText}
+			onClick={async () => {
+				try {
+					const path =
+						typeof pathOrId === 'string'
+							? pathOrId
+							: await libraryClient.query(['files.getPath', pathOrId]);
+
+					if (path == null) throw new Error('No file path available');
+
+					navigator.clipboard.writeText(path);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: `Failed to copy file path: ${error}`
+					});
+				}
+			}}
+		/>
 	);
 };
 

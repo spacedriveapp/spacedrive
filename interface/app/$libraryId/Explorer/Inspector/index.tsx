@@ -2,7 +2,17 @@
 import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
+import {
+	Barcode,
+	CircleWavyCheck,
+	Clock,
+	Cube,
+	Hash,
+	Link,
+	Lock,
+	Path,
+	Snowflake
+} from 'phosphor-react';
 import { type HTMLAttributes, type ReactNode, useEffect, useState } from 'react';
 import {
 	type ExplorerItem,
@@ -78,12 +88,17 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	}, [dataId]);
 
 	// this is causing LAG
-	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
+	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: !!objectData && readyToFetch
 	});
 
-	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
+	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id ?? -1 }], {
 		enabled: !!objectData && readyToFetch
+	});
+
+	const { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
+		enabled: !!objectData && readyToFetch,
+		initialData: { data: data && data.type === 'NonIndexedPath' ? data.item.path : null }
 	});
 
 	if (!data)
@@ -226,6 +241,16 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 								<InspectorIcon component={Barcode} />
 								<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
 								<MetaValue>{dayjs(dateIndexed).format('MMM Do YYYY')}</MetaValue>
+							</MetaTextLine>
+						</Tooltip>
+					)}
+
+					{fileFullPath && (
+						<Tooltip label={fileFullPath}>
+							<MetaTextLine>
+								<InspectorIcon component={Path} />
+								<MetaKeyName className="mr-1.5">Path</MetaKeyName>
+								<MetaValue>{fileFullPath}</MetaValue>
 							</MetaTextLine>
 						</Tooltip>
 					)}
