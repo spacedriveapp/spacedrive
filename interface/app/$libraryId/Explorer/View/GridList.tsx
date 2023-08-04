@@ -112,12 +112,16 @@ const GridListItem = (props: {
 export default ({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
 
+	const isChrome = /Chrome/.test(navigator.userAgent);
+
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<number>>(new Set());
 	const selectoLastColumn = useRef<number | undefined>();
+
+	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
 
 	const itemDetailsHeight =
 		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
@@ -325,33 +329,39 @@ export default ({ children }: { children: RenderItem }) => {
 				<Selecto
 					ref={selecto}
 					boundContainer={
-						explorerView.viewRef.current && {
-							element: explorerView.viewRef.current,
-							top: false,
-							bottom: false
-						}
+						explorerView.viewRef.current
+							? {
+									element: explorerView.viewRef.current,
+									top: false,
+									bottom: false
+							  }
+							: undefined
 					}
 					selectableTargets={['[data-selectable]']}
 					toggleContinueSelect="shift"
 					hitRate={0}
 					// selectFromInside={explorerStore.layoutMode === 'media'}
-					onDragStart={() => {
+					onDragStart={(e) => {
 						getExplorerStore().isDragging = true;
+						if ((e.inputEvent as MouseEvent).target instanceof HTMLImageElement) {
+							setDragFromThumbnail(true);
+						}
 					}}
 					onDragEnd={() => {
 						getExplorerStore().isDragging = false;
 						selectoLastColumn.current = undefined;
+						setDragFromThumbnail(false);
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
 						explorerView.scrollRef.current?.scrollBy(
-							direction[0]! * 10,
-							direction[1]! * 10
+							(direction[0] || 0) * 10,
+							(direction[1] || 0) * 10
 						);
 					}}
 					scrollOptions={{
 						container: explorerView.scrollRef.current!,
-						throttleTime: 10000
+						throttleTime: isChrome || dragFromThumbnail ? 30 : 10000
 					}}
 					onSelect={(e) => {
 						explorerView.onSelectedChange?.((selected) => {
