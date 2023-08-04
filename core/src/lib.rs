@@ -41,7 +41,8 @@ pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod preferences;
-pub(crate) mod util;
+#[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
+pub mod util;
 pub(crate) mod volume;
 
 /// Holds references to all the services that make up the Spacedrive core.

@@ -1,14 +1,19 @@
-//! A multi-producer single-consumer channel (mpsc) with a strongly consistent receive.
+//! A multi-producer single-consumer channel (mpsc) with a strongly consistent send method.
 //!
-//! What does this mean. Well, any call to [Sender::send] will not resolve it's future until all active [Receiver]s have received the value and returned from their callback.
+//! What does this mean? Well, any call to [Sender::send] will not resolve it's future until all active [Receiver]'s have received the value and returned from their callback.
 //!
-//! Edge cases:
-//!  - Receiver's are lazily registered. Eg. `let rx2 = rx.clone();` will only be required to receive values if [Receiver::subscribe_one] or [Receiver::subscribe] is called on `rx2`.
+//! Why would you want this? U want to emit a message on a channel and ensure it has been processed by the subscribers before continuing.
+//!
+//! Things to be aware of:
+//!  - Receiver's are lazily registered. Eg. `let rx2 = rx.clone();` will only be required to receive values if [Receiver::subscribe_one] or [Receiver::subscribe] is called on it.
 //!  - Panic in a receiver will cause the sender to ignore that receiver. It will not infinitely block on it.
 //!
 //! ## Example
 //!
 //! ```rust
+//! use sd_core::util::mpscrr;
+//!
+//! # tokio::runtime::Runtime::new().unwrap().block_on(async {
 //! let (tx, mut rx) = mpscrr::unbounded_channel::<i32, i32>();
 //!
 //! tokio::spawn(async move {
@@ -22,10 +27,11 @@
 //! });
 //!
 //! // Wait for Tokio to spawn the tasks
-//! tokio::time::sleep(Duration::from_millis(200)).await;
+//! tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 //!
-//! let result: Vec<String> = tx.emit(42).await;
+//! let result: Vec<i32> = tx.emit(42).await;
 //! assert_eq!(result, vec![1]);
+//! # });
 //! ```
 //!
 
@@ -77,7 +83,6 @@ impl<T: Clone, U> Sender<T, U> {
 				.unwrap_or_else(PoisonError::into_inner)
 				.iter()
 				.filter_map(|(key, (sender, active))| {
-					// TODO: Can it become inactive between this and the `send` and that cause problems? -> Maybe use `Mutex<bool>` but does that actually solve the problem with the `.send` being inactive?
 					if !active.load(Ordering::Relaxed) {
 						// The receiver has no callback registered so we ignore it.
 						return None;
