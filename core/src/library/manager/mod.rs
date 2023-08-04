@@ -27,7 +27,7 @@ use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryConfigWrapped, LibraryName, LoadedLibrary};
+use super::{LibraryConfig, LibraryName, LoadedLibrary};
 
 mod error;
 

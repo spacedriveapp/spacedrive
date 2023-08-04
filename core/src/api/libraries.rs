@@ -17,16 +17,16 @@ use super::{
 	Ctx, R,
 };
 
+// TODO(@Oscar): Replace with `specta::json`
+#[derive(Serialize, Deserialize, Type)]
+pub struct LibraryConfigWrapped {
+	pub uuid: Uuid,
+	pub config: LibraryConfig,
+}
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			// TODO(@Oscar): Replace with `specta::json`
-			#[derive(Serialize, Deserialize, Type)]
-			pub struct LibraryConfigWrapped {
-				pub uuid: Uuid,
-				pub config: LibraryConfig,
-			}
-
 			R.query(|ctx, _: ()| async move {
 				ctx.library_manager
 					.get_all_libraries_config()
