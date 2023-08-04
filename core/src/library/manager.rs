@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	location::{indexer, LocationManagerError},
 	node::{NodeConfig, Platform},
-	object::{preview::get_thumbnails_directory, tag, thumbnail_remover::ThumbnailRemoverActor},
+	object::tag,
 	p2p::{IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr},
 	prisma::location,
 	util::{
@@ -38,8 +38,6 @@ pub struct LibraryManager {
 	libraries: RwLock<Vec<Arc<LoadedLibrary>>>,
 	/// holds the context for the node which this library manager is running on.
 	pub node: Arc<NodeServices>,
-	/// An actor that removes stale thumbnails from the file system
-	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
 #[derive(Error, Debug)]
@@ -106,7 +104,6 @@ impl LibraryManager {
 		let this = Arc::new(Self {
 			libraries_dir: libraries_dir.clone(),
 			libraries: Default::default(),
-			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node)),
 			node,
 		});
 
@@ -343,7 +340,7 @@ impl LibraryManager {
 			},
 		)?;
 
-		self.thumbnail_remover.remove_library(id).await;
+		self.node.thumbnail_remover.remove_library(id).await;
 
 		// We only remove here after files deletion
 		let library = libraries_write_guard.remove(library_idx);
@@ -450,7 +447,7 @@ impl LibraryManager {
 		)
 		.await;
 
-		self.thumbnail_remover.new_library(&library).await;
+		self.node.thumbnail_remover.new_library(&library).await;
 		self.libraries.write().await.push(Arc::clone(&library));
 
 		if should_seed {

@@ -199,7 +199,7 @@ impl StatefulJob for IndexerJobInit {
 		let to_remove = to_remove.collect::<Vec<_>>();
 
 		ctx.library
-			.manager
+			.node
 			.thumbnail_remover
 			.remove_cas_ids(
 				to_remove

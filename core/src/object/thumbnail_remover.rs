@@ -26,6 +26,8 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
+use super::preview::THUMBNAIL_CACHE_DIR_NAME;
+
 const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
@@ -55,8 +57,10 @@ pub struct ThumbnailRemoverActor {
 }
 
 impl ThumbnailRemoverActor {
-	pub fn new(thumbnails_directory: impl AsRef<Path>) -> Self {
-		let thumbnails_directory = thumbnails_directory.as_ref().to_path_buf();
+	pub fn new(data_dir: PathBuf) -> Self {
+		let mut thumbnails_directory = data_dir;
+		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
+
 		let (databases_tx, databases_rx) = chan::bounded(4);
 		let (non_indexed_thumbnails_cas_ids_tx, non_indexed_thumbnails_cas_ids_rx) =
 			chan::unbounded();

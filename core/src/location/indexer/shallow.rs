@@ -82,6 +82,7 @@ pub async fn shallow(
 
 	library
 		.manager
+		.node
 		.thumbnail_remover
 		.remove_cas_ids(
 			to_remove

@@ -5,7 +5,6 @@ use crate::{
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
-	NodeServices,
 };
 
 use std::{
@@ -48,14 +47,6 @@ pub fn get_thumbnail_path(library: &LoadedLibrary, cas_id: &str) -> PathBuf {
 	thumb_path.push(get_shard_hex(cas_id));
 	thumb_path.push(cas_id);
 	thumb_path.set_extension("webp");
-
-	thumb_path
-}
-
-pub fn get_thumbnails_directory(node_ctx: &NodeServices) -> PathBuf {
-	let mut thumb_path = node_ctx.config.data_directory();
-
-	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);
 
 	thumb_path
 }

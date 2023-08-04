@@ -11,6 +11,7 @@ use crate::{
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
+use object::thumbnail_remover::ThumbnailRemoverActor;
 pub use sd_prisma::*;
 
 use std::{
@@ -53,6 +54,7 @@ pub struct NodeServices {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: NotificationManager,
 	pub nlm: Arc<NetworkedLibraryManager>,
+	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
 /// Represents a single running instance of the Spacedrive core.
@@ -97,6 +99,7 @@ impl Node {
 			p2p,
 			config,
 			event_bus,
+			thumbnail_remover: ThumbnailRemoverActor::new(data_dir.to_path_buf()),
 		});
 
 		let node = Arc::new(Node {
