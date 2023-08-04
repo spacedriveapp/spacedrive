@@ -34,7 +34,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {
 						uuid: lib.id,
-						config: lib.config,
+						config: lib.config.clone(),
 					})
 					.collect::<Vec<_>>()
 			})
