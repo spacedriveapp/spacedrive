@@ -51,6 +51,8 @@ use futures::future::join_all;
 use slotmap::{DefaultKey, SlotMap};
 use tokio::sync::{mpsc, oneshot};
 
+pub type Pair<T, U> = (Sender<T, U>, Receiver<T, U>);
+
 type MpscInnerTy<T, U> = (T, oneshot::Sender<U>);
 
 type Slots<T, U> =
@@ -77,31 +79,34 @@ pub struct Sender<T, U>(Slots<T, U>);
 
 impl<T: Clone, U> Sender<T, U> {
 	pub async fn emit(&self, value: T) -> Vec<U> {
-		join_all(
-			self.0
-				.read()
-				.unwrap_or_else(PoisonError::into_inner)
-				.iter()
-				.filter_map(|(key, (sender, active))| {
-					if !active.load(Ordering::Relaxed) {
-						// The receiver has no callback registered so we ignore it.
-						return None;
-					}
+		// This is annoying AF but holding a mutex guard over await boundary is `!Sync` which will break code using this.
+		let map = self
+			.0
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+			.map(|(k, v)| (k.clone(), v.clone()))
+			.collect::<Vec<_>>();
 
-					let value = value.clone();
-					Some(async move {
-						let (tx, rx) = oneshot::channel();
-						if let Err(_) = sender.send((value, tx)) {
-							// The receiver was dropped so we remove it from the map
-							Err(SenderError::Finished(key))
-						} else {
-							// If oneshot was dropped we ignore this subscriber as something went wrong with it.
-							// It is assumed the mpsc is fine and if it's not it will be cleared up by it's `Drop` or the next `emit`.
-							rx.await.map_err(|_| SenderError::Ignored)
-						}
-					})
-				}),
-		)
+		join_all(map.into_iter().filter_map(|(key, (sender, active))| {
+			if !active.load(Ordering::Relaxed) {
+				// The receiver has no callback registered so we ignore it.
+				return None;
+			}
+
+			let value = value.clone();
+			Some(async move {
+				let (tx, rx) = oneshot::channel();
+				if let Err(_) = sender.send((value, tx)) {
+					// The receiver was dropped so we remove it from the map
+					Err(SenderError::Finished(key))
+				} else {
+					// If oneshot was dropped we ignore this subscriber as something went wrong with it.
+					// It is assumed the mpsc is fine and if it's not it will be cleared up by it's `Drop` or the next `emit`.
+					rx.await.map_err(|_| SenderError::Ignored)
+				}
+			})
+		}))
 		.await
 		.into_iter()
 		.filter_map(|x| {
