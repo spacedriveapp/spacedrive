@@ -224,7 +224,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 		switch (e.key) {
 			case 'ArrowUp':
-				newIndex += -grid.columnCount;
+				newIndex -= grid.columnCount;
 				break;
 			case 'ArrowDown':
 				newIndex += grid.columnCount;
@@ -235,17 +235,15 @@ export default ({ children }: { children: RenderItem }) => {
 				break;
 			case 'ArrowLeft':
 				if (currentIndex % grid.columnCount === 0) return;
-				newIndex += -1;
+				newIndex -= 1;
 				break;
 		}
 
 		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem) return;
 
-		if (!explorer.allowMultiSelect) {
-			explorer.resetSelectedItems();
-			explorer.addSelectedItem(newSelectedItem.data);
-		} else {
+		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
+		else {
 			const addToGridListSelection = e.shiftKey;
 
 			const selectedItemDom = document.querySelector(
@@ -254,11 +252,11 @@ export default ({ children }: { children: RenderItem }) => {
 
 			if (addToGridListSelection) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
+					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([
 						...(selecto.current?.getSelectedTargets() || []),
 						selectedItemDom
 					]);
-					explorer.addSelectedItem(newSelectedItem.data);
 				}
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
