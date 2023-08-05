@@ -22,7 +22,7 @@ impl Orientation {
 	pub async fn source_orientation<P: AsRef<Path>>(path: P) -> Option<Self> {
 		// TODO: We should have some error logging here
 		let reader = ExifReader::from_path(path).await.ok()?;
-		reader.get_orientation_ints().map(Self::int_to_orientation)
+		reader.get_orientation_int().map(Self::int_to_orientation)
 	}
 
 	/// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value

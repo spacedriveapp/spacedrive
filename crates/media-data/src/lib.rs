@@ -39,7 +39,7 @@ pub(crate) mod utils;
 pub use consts::DMS_DIVISION;
 pub use dimensions::Dimensions;
 pub use error::{Error, Result};
-pub use flash::Flash;
+pub use flash::{FireMode, Flash, FlashValue};
 pub use image::{CameraData, ExifReader, MediaDataImage};
 pub use location::MediaLocation;
 pub use orientation::Orientation;

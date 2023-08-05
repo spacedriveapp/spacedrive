@@ -1,5 +1,6 @@
 pub(self) mod consts;
-mod flash_data;
+mod data;
 mod values;
 
-pub use flash_data::{FireMode, Flash};
+pub use data::{FireMode, Flash};
+pub use values::FlashValue;
