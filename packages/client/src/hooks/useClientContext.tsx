@@ -52,7 +52,13 @@ export const ClientContextProvider = ({
 	currentLibraryCache.id = currentLibraryId;
 
 	return (
-		<ClientContext.Provider value={{ currentLibraryId, libraries, library }}>
+		<ClientContext.Provider
+			value={{
+				currentLibraryId,
+				libraries,
+				library
+			}}
+		>
 			{children}
 		</ClientContext.Provider>
 	);

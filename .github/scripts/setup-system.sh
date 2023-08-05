@@ -193,7 +193,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     # Tauri dependencies
     # openssl is manually declared here as i don't think openssl and openssl-devel are actually dependant on eachother
     # openssl also has a habit of being missing from some of my fresh Fedora installs - i've had to install it at least twice
-    FEDORA_TAURI_DEPS="openssl-devel curl wget libappindicator-gtk3 librsvg2-devel patchelf"
+    FEDORA_TAURI_DEPS="openssl openssl-devel curl wget libappindicator-gtk3 librsvg2-devel patchelf"
 
     # required for building the openssl-sys crate
     FEDORA_OPENSSL_SYS_DEPS="perl-FindBin perl-File-Compare perl-IPC-Cmd perl-File-Copy"
@@ -205,7 +205,7 @@ if [ "$SYSNAME" = "Linux" ]; then
     FEDORA_VIDEO_DEPS="gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good gstreamer1-plugins-good-gtk gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-devel gstreamer1-plugins-bad-free-extras"
 
     # Bindgen dependencies - it's used by a dependency of Spacedrive
-    FEDORA_BINDGEN_DEPS="clang"
+    FEDORA_BINDGEN_DEPS="clang clang-devel"
 
     # Protobuf compiler
     FEDORA_LIBP2P_DEPS="protobuf-compiler"
@@ -221,9 +221,9 @@ if [ "$SYSNAME" = "Linux" ]; then
         'This is likely because the RPM Fusion free repository is not enabled.' \
         'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
     fi
-
-    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
+    
     sudo dnf group install "C Development Tools and Libraries"
+    sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
   else
     err "Your Linux distro '$(lsb_release -s -d)' is not supported by this script." \
       'We would welcome a PR or some help adding your OS to this script:' \

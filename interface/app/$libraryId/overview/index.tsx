@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { ExplorerContext } from '../Explorer/Context';
-import ContextMenu from '../Explorer/ContextMenu';
-// import ContextMenu from '../Explorer/FilePath/ContextMenu';
+import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
@@ -55,7 +54,20 @@ export const Component = () => {
 						onSelectedChange={setSelectedItems}
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
+						contextMenu={
+							selectedItem ? (
+								<ContextMenu
+									item={selectedItem}
+									extra={({ object }) => (
+										<>
+											{object && (
+												<ObjectItems.RemoveFromRecents object={object} />
+											)}
+										</>
+									)}
+								/>
+							) : null
+						}
 					/>
 
 					{explorerStore.showInspector && (
