@@ -1,9 +1,9 @@
 use super::TagCreateArgs;
-use crate::library::Library;
+use crate::library::LoadedLibrary;
 
 /// Seeds tags in a new library.
 /// Shouldn't be called more than once!
-pub async fn new_library(library: &Library) -> prisma_client_rust::Result<()> {
+pub async fn new_library(library: &LoadedLibrary) -> prisma_client_rust::Result<()> {
 	// remove type after tags are added
 
 	let tags = [

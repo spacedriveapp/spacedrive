@@ -241,10 +241,8 @@ impl SyncData {
 					0 => None,
 					n => Some(n),
 				},
-				data: rmp_serde::from_slice(
-					&decode::buf(stream).await.map_err(|e| ("data", e.into()))?,
-				)
-				.unwrap(), // TODO: Error handling
+				data: rmp_serde::from_slice(&decode::buf(stream).await.map_err(|e| ("data", e))?)
+					.unwrap(), // TODO: Error handling
 			}),
 			1 => Ok(Self::Finished),
 			_ => todo!(), // TODO: Error handling

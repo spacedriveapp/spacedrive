@@ -31,7 +31,7 @@ pub async fn open_file_paths(
 	ids: Vec<i32>,
 	node: tauri::State<'_, Arc<Node>>,
 ) -> Result<Vec<OpenFilePathResult>, ()> {
-	let res = if let Some(library) = node.library_manager.get_library(library).await {
+	let res = if let Some(library) = node.library_manager.get_library(&library).await {
 		library.get_file_paths(ids).await.map_or_else(
 			|e| vec![OpenFilePathResult::Internal(e.to_string())],
 			|paths| {
@@ -92,7 +92,7 @@ pub async fn get_file_path_open_with_apps(
 	ids: Vec<i32>,
 	node: NodeState<'_>,
 ) -> Result<Vec<OpenWithApplication>, ()> {
-	let Some(library) = node.library_manager.get_library(library).await
+	let Some(library) = node.library_manager.get_library(&library).await
 		else {
 			return Ok(vec![]);
 		};
@@ -223,7 +223,7 @@ pub async fn open_file_path_with(
 	file_ids_and_urls: Vec<FileIdAndUrl>,
 	node: NodeState<'_>,
 ) -> Result<(), ()> {
-	let Some(library) = node.library_manager.get_library(library).await
+	let Some(library) = node.library_manager.get_library(&library).await
 		else {
 			return Err(())
 		};
@@ -290,7 +290,7 @@ pub async fn reveal_items(
 	items: Vec<RevealItem>,
 	node: NodeState<'_>,
 ) -> Result<(), ()> {
-	let Some(library) = node.library_manager.get_library(library).await
+	let Some(library) = node.library_manager.get_library(&library).await
 		else {
 			return Err(())
 		};

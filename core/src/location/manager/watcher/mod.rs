@@ -1,4 +1,4 @@
-use crate::{library::Library, prisma::location, util::db::maybe_missing};
+use crate::{library::LoadedLibrary, prisma::location, util::db::maybe_missing, Node};
 
 use std::{
 	collections::HashSet,
@@ -48,7 +48,11 @@ const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 #[async_trait]
 trait EventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
+	fn new(
+		location_id: location::id::Type,
+		library: &'lib Arc<LoadedLibrary>,
+		node: &'lib Arc<Node>,
+	) -> Self
 	where
 		Self: Sized;
 
@@ -73,7 +77,8 @@ pub(super) struct LocationWatcher {
 impl LocationWatcher {
 	pub(super) async fn new(
 		location: location::Data,
-		library: Arc<Library>,
+		library: Arc<LoadedLibrary>,
+		node: Arc<Node>,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
 		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
@@ -101,6 +106,7 @@ impl LocationWatcher {
 		let handle = tokio::spawn(Self::handle_watch_events(
 			location.id,
 			Uuid::from_slice(&location.pub_id)?,
+			node,
 			library,
 			events_rx,
 			ignore_path_rx,
@@ -120,12 +126,13 @@ impl LocationWatcher {
 	async fn handle_watch_events(
 		location_id: location::id::Type,
 		location_pub_id: Uuid,
-		library: Arc<Library>,
+		node: Arc<Node>,
+		library: Arc<LoadedLibrary>,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
-		let mut event_handler = Handler::new(location_id, &library);
+		let mut event_handler = Handler::new(location_id, &library, &node);
 
 		let mut paths_to_ignore = HashSet::new();
 
@@ -143,6 +150,7 @@ impl LocationWatcher {
 								location_pub_id,
 								event,
 								&mut event_handler,
+								&node,
 								&library,
 								&paths_to_ignore,
 							).await {
@@ -182,7 +190,8 @@ impl LocationWatcher {
 		location_pub_id: Uuid,
 		event: Event,
 		event_handler: &mut impl EventHandler<'lib>,
-		library: &'lib Library,
+		node: &'lib Node,
+		_library: &'lib LoadedLibrary,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		if !check_event(&event, ignore_paths) {
@@ -198,7 +207,7 @@ impl LocationWatcher {
 		//     return Ok(());
 		// };
 
-		if !library.location_manager().is_online(&location_pub_id).await {
+		if !node.location_manager.is_online(&location_pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());
 		}
