@@ -1,11 +1,11 @@
 use crate::{
 	api::CoreEvent,
 	job::JobError,
-	library::Library,
+	library::LoadedLibrary,
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
-	NodeServices,
+	Node,
 };
 
 use std::{
@@ -41,21 +41,13 @@ const THUMBNAIL_QUALITY: f32 = 30.0;
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
-pub fn get_thumbnail_path(library: &Library, cas_id: &str) -> PathBuf {
-	let mut thumb_path = library.config().data_directory();
+pub fn get_thumbnail_path(node: &Node, cas_id: &str) -> PathBuf {
+	let mut thumb_path = node.config.data_directory();
 
 	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);
 	thumb_path.push(get_shard_hex(cas_id));
 	thumb_path.push(cas_id);
 	thumb_path.set_extension("webp");
-
-	thumb_path
-}
-
-pub fn get_thumbnails_directory(node_ctx: &NodeServices) -> PathBuf {
-	let mut thumb_path = node_ctx.config.data_directory();
-
-	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);
 
 	thumb_path
 }
@@ -205,7 +197,7 @@ pub async fn inner_process_step(
 	location_path: impl AsRef<Path>,
 	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<bool, JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
 	let location_path = location_path.as_ref();

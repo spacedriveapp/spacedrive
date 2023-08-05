@@ -95,7 +95,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				match id {
 					NotificationId::Library(library_id, id) => {
 						ctx.library_manager
-							.get_library(library_id)
+							.get_library(&library_id)
 							.await
 							.ok_or_else(|| {
 								rspc::Error::new(ErrorCode::NotFound, "Library not found".into())

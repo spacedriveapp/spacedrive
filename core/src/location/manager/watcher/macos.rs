@@ -11,7 +11,7 @@
 
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		file_path_helper::{
 			check_file_path_exists, get_inode_and_device, FilePathError, IsolatedFilePathData,
@@ -20,6 +20,7 @@ use crate::{
 	},
 	prisma::location,
 	util::error::FileIOError,
+	Node,
 };
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
@@ -43,7 +44,8 @@ use super::{
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Arc<Library>,
+	library: &'lib Arc<LoadedLibrary>,
+	node: &'lib Arc<Node>,
 	recently_created_files: HashMap<PathBuf, Instant>,
 	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
@@ -56,13 +58,18 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
+	fn new(
+		location_id: location::id::Type,
+		library: &'lib Arc<LoadedLibrary>,
+		node: &'lib Arc<Node>,
+	) -> Self
 	where
 		Self: Sized,
 	{
 		Self {
 			location_id,
 			library,
+			node,
 			recently_created_files: HashMap::new(),
 			recently_created_files_buffer: Vec::new(),
 			last_check_created_files: Instant::now(),
@@ -100,6 +107,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 					&fs::metadata(path)
 						.await
 						.map_err(|e| FileIOError::from((path, e)))?,
+					self.node,
 					self.library,
 				)
 				.await?;
@@ -114,7 +122,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				// when a file is created. So we need to check if the file was recently
 				// created to avoid unecessary updates
 				if !self.recently_created_files.contains_key(&paths[0]) {
-					update_file(self.location_id, &paths[0], self.library).await?;
+					update_file(self.location_id, &paths[0], self.node, self.library).await?;
 				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
@@ -170,6 +178,7 @@ impl MacOsEventHandler<'_> {
 					&fs::metadata(&path)
 						.await
 						.map_err(|e| FileIOError::from((&path, e)))?,
+					self.node,
 					self.library,
 				)
 				.await?;
@@ -194,7 +203,7 @@ impl MacOsEventHandler<'_> {
 
 		for (inode_and_device, (instant, path)) in self.new_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				create_dir_or_file(self.location_id, &path, self.library).await?;
+				create_dir_or_file(self.location_id, &path, self.node, self.library).await?;
 				trace!("Created file_path due timeout: {}", path.display());
 				should_invalidate = true;
 			} else {

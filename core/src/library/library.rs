@@ -3,15 +3,11 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
-	location::{
-		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
-		LocationManager,
-	},
-	node::NodeConfigManager,
+	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
-	NodeServices,
+	Node, NotificationManager,
 };
 
 use std::{
@@ -25,32 +21,42 @@ use chrono::{DateTime, Utc};
 use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
-use tokio::{fs, io};
+use tokio::{fs, io, sync::broadcast};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManager, LibraryManagerError};
+use super::{LibraryConfig, LibraryManager, LibraryManagerError, LibraryManagerEvent};
 
-/// LibraryContext holds context for a library which can be passed around the application.
-pub struct Library {
+// TODO: Finish this
+// pub enum LibraryNew {
+// 	InitialSync,
+// 	Encrypted,
+// 	Loaded(LoadedLibrary),
+//  Deleting,
+// }
+
+pub struct LoadedLibrary {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
-	pub manager: Arc<LibraryManager>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sd_core_sync::SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// holds the node context for the node which this library is running on.
-	pub node: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
+
+	notifications: NotificationManager,
+
+	// Look, I think this shouldn't be here but our current invalidation system needs it.
+	// TODO(@Oscar): Get rid of this with the new invalidation system.
+	event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
-impl Debug for Library {
+impl Debug for LoadedLibrary {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
@@ -62,7 +68,7 @@ impl Debug for Library {
 	}
 }
 
-impl Library {
+impl LoadedLibrary {
 	pub async fn new(
 		id: Uuid,
 		instance_id: Uuid,
@@ -70,25 +76,31 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		manager: Arc<LibraryManager>,
+		node: &Arc<Node>,
 	) -> Arc<Self> {
 		let mut sync = SyncManager::new(&db, instance_id);
 
 		let library = Arc::new(Self {
 			id,
 			config,
-			manager: manager.clone(),
 			db: db.clone(),
 			sync: Arc::new(sync.manager),
-			node: manager.node.clone(),
 			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
+			notifications: node.notifications.clone(),
+			event_bus_tx: node.event_bus.0.clone(),
 		});
 
-		manager.node.nlm.load_library(&library).await;
+		manager
+			.tx
+			.emit(LibraryManagerEvent::Load(library.clone()))
+			.await;
 
+		// TODO: move this outta here. Can't go in `SyncManager` tho cause that would cause a circular dependency
 		tokio::spawn({
 			let library = library.clone();
+			let node = node.clone();
 
 			async move {
 				loop {
@@ -100,7 +112,7 @@ impl Library {
 
 							match req {
 								Request::Messages { tunnel, timestamps } => {
-									manager.node.nlm.request_and_ingest_ops(
+									node.nlm.request_and_ingest_ops(
 										tunnel,
 										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
 										&library.sync,
@@ -118,7 +130,7 @@ impl Library {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.nlm.alert_new_ops(id, &library.sync).await;
+								node.nlm.alert_new_ops(id, &library.sync).await;
 							}
 						},
 					}
@@ -129,22 +141,15 @@ impl Library {
 		library
 	}
 
+	// TODO: Remove this once we replace the old invalidation system
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node.event_bus.0.send(event) {
+		if let Err(e) = self.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
-	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
-		&self.node.config
-	}
-
-	pub(crate) fn location_manager(&self) -> &LocationManager {
-		&self.node.location_manager
-	}
-
-	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_thumbnail_path(self, cas_id);
+	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
+		let thumb_path = get_thumbnail_path(node, cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
@@ -231,8 +236,7 @@ impl Library {
 			}
 		};
 
-		self.node
-			.notifications
+		self.notifications
 			.0
 			.send(Notification {
 				id: NotificationId::Library(self.id, result.id as u32),

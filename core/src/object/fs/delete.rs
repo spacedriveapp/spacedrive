@@ -3,7 +3,7 @@ use crate::{
 	job::{
 		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
-	library::Library,
+	library::LoadedLibrary,
 	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
 };
@@ -38,7 +38,7 @@ impl StatefulJob for FileDeleterJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &*ctx.library;
+		let LoadedLibrary { db, .. } = &*ctx.library;
 
 		let steps = get_many_files_datas(
 			db,

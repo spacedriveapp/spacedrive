@@ -9,7 +9,7 @@ use serde_json::json;
 
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::LoadedLibrary,
 	object::tag::TagCreateArgs,
 	prisma::{object, tag, tag_on_object},
 };
@@ -67,7 +67,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
-					let Library { db, sync, .. } = library.as_ref();
+					let LoadedLibrary { db, sync, .. } = library.as_ref();
 
 					let (tag, objects) = db
 						._batch((
@@ -151,7 +151,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagUpdateArgs| async move {
-					let Library { sync, db, .. } = library.as_ref();
+					let LoadedLibrary { sync, db, .. } = library.as_ref();
 
 					let tag = db
 						.tag()

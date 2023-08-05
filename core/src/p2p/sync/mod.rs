@@ -7,10 +7,10 @@ use sd_p2p::{
 	DiscoveredPeer, PeerId,
 };
 use tokio::{io::AsyncWriteExt, sync::RwLock};
-use tracing::debug;
+use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::library::Library;
+use crate::library::{LibraryManager, LibraryManagerEvent, LoadedLibrary};
 
 use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
@@ -33,15 +33,46 @@ pub struct NetworkedLibraryManager {
 }
 
 impl NetworkedLibraryManager {
-	pub fn new(p2p: Arc<P2PManager>) -> Arc<Self> {
-		Arc::new(Self {
+	pub fn new(p2p: Arc<P2PManager>, lm: &LibraryManager) -> Arc<Self> {
+		let this = Arc::new(Self {
 			p2p,
 			libraries: Default::default(),
-		})
+		});
+
+		tokio::spawn({
+			let this = this.clone();
+			let rx = lm.rx.clone();
+
+			async move {
+				if let Err(err) = rx
+					.subscribe(|msg| {
+						let this = this.clone();
+						async move {
+							match msg {
+								LibraryManagerEvent::Load(library) => {
+									Self::load_library(&this, &library).await;
+								}
+								LibraryManagerEvent::Edit(library) => {
+									Self::edit_library(&this, &library).await;
+								}
+								LibraryManagerEvent::Delete(library) => {
+									Self::delete_library(&this, &library).await;
+								}
+							}
+						}
+					})
+					.await
+				{
+					error!("Core may become unstable! NetworkedLibraryManager's library manager subscription aborted with error: {err:?}");
+				}
+			}
+		});
+
+		this
 	}
 
-	pub async fn load_library(&self, library: &Library) {
-		// TODO: Error handling
+	// TODO: Error handling
+	async fn load_library(self: &Arc<Self>, library: &LoadedLibrary) {
 		let instances = library
 			.db
 			.instance()
@@ -82,18 +113,20 @@ impl NetworkedLibraryManager {
 		self.p2p.update_metadata(metadata_instances).await;
 	}
 
-	pub async fn edit_library(&self, _library: &Library) {
+	async fn edit_library(&self, _library: &LoadedLibrary) {
 		// TODO: Send changes to all connected nodes!
 
 		// TODO: Update mdns
 	}
 
-	pub async fn delete_library(&self, library: &Library) {
+	async fn delete_library(&self, library: &LoadedLibrary) {
 		// TODO: Do proper library delete/unpair procedure.
 		self.libraries.write().await.remove(&library.id);
 
 		// TODO: Update mdns
 	}
+
+	// TODO: Replace all these follow events with a pub/sub system????
 
 	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
 		for lib in self.libraries.write().await.values_mut() {
@@ -105,7 +138,7 @@ impl NetworkedLibraryManager {
 				if !matches!(instance, InstanceState::Connected(_)) {
 					let should_connect = matches!(instance, InstanceState::Unavailable);
 
-					*instance = InstanceState::Discovered(event.peer_id.clone());
+					*instance = InstanceState::Discovered(event.peer_id);
 
 					if should_connect {
 						event.dial().await;
@@ -136,7 +169,7 @@ impl NetworkedLibraryManager {
 			for instance in lib.instances.values_mut() {
 				if let InstanceState::Discovered(id) = instance {
 					if *id == peer_id {
-						*instance = InstanceState::Connected(peer_id.clone());
+						*instance = InstanceState::Connected(peer_id);
 						return; // Will only exist once so we short circuit
 					}
 				}
@@ -148,7 +181,7 @@ impl NetworkedLibraryManager {
 	pub async fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
 		for lib in self.libraries.write().await.values_mut() {
 			if let Some(instance) = lib.instances.get_mut(&instance_id) {
-				*instance = InstanceState::Connected(peer_id.clone());
+				*instance = InstanceState::Connected(peer_id);
 				return; // Will only exist once so we short circuit
 			}
 		}

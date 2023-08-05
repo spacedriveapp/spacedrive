@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Remove once this is fully stablised
 #![allow(dead_code)] // TODO: Remove once protocol is finished
+#![allow(clippy::unnecessary_cast)] // Yeah they aren't necessary on this arch, but they are on others
 
 mod identity_or_remote_identity;
 mod p2p_manager;
