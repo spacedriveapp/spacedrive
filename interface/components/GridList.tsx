@@ -9,11 +9,11 @@ type ItemId = string | number | undefined;
 
 export interface GridListItem<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	index: number;
-	id: IdT extends undefined ? number : IdT;
+	id: IdT;
 	row: number;
 	column: number;
 	rect: Omit<DOMRect, 'toJSON'>;
-	data?: DataT;
+	data: DataT;
 }
 
 export interface UseGridListProps<IdT extends ItemId = number, DataT extends ItemData = undefined> {
@@ -25,8 +25,8 @@ export interface UseGridListProps<IdT extends ItemId = number, DataT extends Ite
 	top?: number;
 	rowsBeforeLoadMore?: number;
 	onLoadMore?: () => void;
-	getItemId?: (index: number) => IdT;
-	getItemData?: (index: number) => DataT;
+	getItemId: (index: number) => IdT | undefined;
+	getItemData: (index: number) => DataT | undefined;
 	size?: number | { width: number; height: number };
 	columns?: number;
 }
@@ -74,7 +74,10 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 			if (index < 0 || index >= props.count) return;
 
 			const data = getItemData?.(index);
-			const id = getItemId?.(index) || index;
+			if (data === undefined) return;
+
+			const id = getItemId?.(index);
+			if (id === undefined) return;
 
 			const column = index % columnCount;
 			const row = Math.floor(index / columnCount);
@@ -86,7 +89,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 
 			const item: GridListItem<typeof id, DataT> = {
 				index,
-				id: id as number | (NonNullable<IdT> extends undefined ? number : NonNullable<IdT>),
+				id,
 				data,
 				row,
 				column,

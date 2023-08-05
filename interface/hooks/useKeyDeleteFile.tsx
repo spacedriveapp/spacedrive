@@ -3,14 +3,20 @@ import { ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 
-export const useKeyDeleteFile = (selectedItem: ExplorerItem | null, location_id: number | null) => {
+export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {
 	return useKey('Delete', (e) => {
 		e.preventDefault();
 
-		if (!selectedItem || !location_id) return;
+		if (!locationId) return;
+
+		const pathIds: number[] = [];
+
+		for (const item of selectedItems) {
+			if (item.type === 'Path') pathIds.push(item.item.id);
+		}
 
 		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} location_id={location_id} path_id={selectedItem.item.id} />
+			<DeleteDialog {...dp} locationId={locationId} pathIds={pathIds} />
 		));
 	});
 };

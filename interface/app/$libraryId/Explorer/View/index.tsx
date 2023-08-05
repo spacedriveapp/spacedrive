@@ -8,7 +8,6 @@ import {
 	memo,
 	useCallback,
 	useEffect,
-	useMemo,
 	useRef,
 	useState
 } from 'react';
@@ -28,12 +27,12 @@ import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
+import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import {
 	ExplorerViewContext,
 	ExplorerViewSelection,
-	ExplorerViewSelectionChange,
 	ViewContext,
 	useExplorerViewContext
 } from '../ViewContext';
@@ -110,107 +109,73 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	);
 };
 
-export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
+export interface ExplorerViewProps
 	extends Omit<
-		ExplorerViewContext<T>,
-		| 'multiSelect'
-		| 'selectable'
-		| 'isRenaming'
-		| 'setIsRenaming'
-		| 'setIsContextMenuOpen'
-		| 'viewRef'
+		ExplorerViewContext,
+		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
 }
 
-export default memo(
-	<T extends ExplorerViewSelection>({
-		className,
-		style,
-		emptyNotice,
-		...contextProps
-	}: ExplorerViewProps<T>) => {
-		const quickPreviewCtx = useQuickPreviewContext();
+export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
+	const explorer = useExplorerContext();
 
-		const { layoutMode } = useExplorerStore();
+	const quickPreviewCtx = useQuickPreviewContext();
 
-		const ref = useRef<HTMLDivElement>(null);
+	const { layoutMode } = useExplorerStore();
 
-		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
-		const [isRenaming, setIsRenaming] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
 
-		useKeyDownHandlers({
-			items: contextProps.items,
-			selected: contextProps.selected,
-			isRenaming
-		});
+	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+	const [isRenaming, setIsRenaming] = useState(false);
 
-		return (
-			<>
-				<div
-					ref={ref}
-					style={style}
-					className={clsx('min-h-full w-full', className)}
-					onMouseDown={(e) => {
-						if (
-							!contextProps.onSelectedChange ||
-							e.button === 2 ||
-							(e.button === 0 && e.shiftKey)
-						)
-							return;
+	useKeyDownHandlers({
+		isRenaming
+	});
 
-						if (typeof contextProps.selected === 'object') {
-							if (contextProps.selected.size > 0) {
-								contextProps.onSelectedChange(
-									new Set() as ExplorerViewSelectionChange<T>
-								);
-							}
-						} else {
-							contextProps.onSelectedChange(
-								undefined as ExplorerViewSelectionChange<T>
-							);
+	return (
+		<>
+			<div
+				ref={ref}
+				style={style}
+				className={clsx('min-h-full w-full', className)}
+				onMouseDown={(e) => {
+					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+
+					explorer.resetSelectedItems();
+				}}
+			>
+				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
+					<ViewContext.Provider
+						value={
+							{
+								...contextProps,
+								selectable: !isContextMenuOpen && !isRenaming,
+								setIsContextMenuOpen,
+								isRenaming,
+								setIsRenaming,
+								ref: ref
+							} as ExplorerViewContext
 						}
-					}}
-				>
-					{contextProps.items === null ||
-					(contextProps.items && contextProps.items.length > 0) ? (
-						<ViewContext.Provider
-							value={
-								{
-									...contextProps,
-									selectable: !isContextMenuOpen && !isRenaming,
-									setIsContextMenuOpen,
-									isRenaming,
-									setIsRenaming,
-									viewRef: ref
-								} as ExplorerViewContext
-							}
-						>
-							{layoutMode === 'grid' && <GridView />}
-							{layoutMode === 'rows' && <ListView />}
-							{layoutMode === 'media' && <MediaView />}
-						</ViewContext.Provider>
-					) : (
-						emptyNotice
-					)}
-				</div>
+					>
+						{layoutMode === 'grid' && <GridView />}
+						{layoutMode === 'rows' && <ListView />}
+						{layoutMode === 'media' && <MediaView />}
+					</ViewContext.Provider>
+				) : (
+					emptyNotice
+				)}
+			</div>
 
-				{quickPreviewCtx.ref.current &&
-					createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
-			</>
-		);
-	}
-) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;
+			{quickPreviewCtx.ref.current &&
+				createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
+		</>
+	);
+});
 
-export const EmptyNotice = ({
-	icon,
-	message
-}: {
-	icon?: Icon | ReactNode;
-	message?: ReactNode;
-}) => {
+export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
 	const { layoutMode } = useExplorerStore();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -228,35 +193,28 @@ export const EmptyNotice = ({
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-			{icon
-				? isValidElement(icon)
-					? icon
-					: emptyNoticeIcon(icon as Icon)
+			{props.icon
+				? isValidElement(props.icon)
+					? props.icon
+					: emptyNoticeIcon(props.icon as Icon)
 				: emptyNoticeIcon()}
 
-			<p className="mt-5 text-xs">{message !== undefined ? message : 'This list is empty'}</p>
+			<p className="mt-5 text-xs">
+				{props.message !== undefined ? props.message : 'This list is empty'}
+			</p>
 		</div>
 	);
 };
 
-const useKeyDownHandlers = ({
-	items,
-	selected,
-	isRenaming
-}: Pick<ExplorerViewProps, 'items' | 'selected'> & { isRenaming: boolean }) => {
+const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
+	const explorer = useExplorerContext();
+
 	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
 
-	const selectedItem = useMemo(
-		() =>
-			items?.find(
-				(item) =>
-					item.item.id ===
-					(typeof selected === 'object' ? [...selected.values()][0] : selected)
-			),
-		[items, selected]
-	);
+	/// TODO: This ain't right!
+	const selectedItem = [...explorer.selectedItems][0];
 
 	const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
 

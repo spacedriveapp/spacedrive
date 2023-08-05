@@ -29,7 +29,7 @@ export const Delete = ({ filePath }: FilePathProps) => {
 					keybind={keybind([ModifierKeys.Control], ['Delete'])}
 					onClick={() =>
 						dialogManager.create((dp) => (
-							<DeleteDialog {...dp} location_id={locationId} path_id={filePath.id} />
+							<DeleteDialog {...dp} locationId={locationId} pathIds={[filePath.id]} />
 						))
 					}
 				/>
