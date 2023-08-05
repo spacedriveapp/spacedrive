@@ -19,8 +19,8 @@ export default ({ item, extra }: { item: ExplorerItem; extra?: ExtraFn }) => {
 		case 'Path':
 			return <FilePathCM data={item} extra={extra} />;
 		case 'Object':
-			return <ObjectCM data={item} />;
+			return <ObjectCM data={item} extra={extra} />;
 		case 'Location':
-			return <LocationCM data={item} />;
+			return <LocationCM data={item} extra={extra} />;
 	}
 };
