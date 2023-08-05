@@ -16,9 +16,7 @@ import {
 import { HTMLAttributes, ReactNode, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
-	Location,
 	ObjectKind,
-	Tag,
 	byteSize,
 	getItemFilePath,
 	getItemObject,
@@ -71,9 +69,9 @@ export const Inspector = (props: Props) => {
 			</div>
 		);
 	} else if (explorer.selectedItems.size === 1) {
-		return <SingleItem {...props} item={[...explorer.selectedItems][0]!} />;
+		item = <SingleItem {...props} item={[...explorer.selectedItems][0]!} />;
 	} else {
-		return <p>Multiple items selected</p>;
+		item = <p>Multiple items selected</p>;
 	}
 
 	return <div {...props}>{item}</div>;

@@ -253,14 +253,11 @@ export default ({ children }: { children: RenderItem }) => {
 			) as HTMLElement;
 
 			if (addToGridListSelection) {
-				explorer.resetSelectedItems();
 				explorer.addSelectedItem(newSelectedItem.data);
 				selecto.current?.setSelectedTargets([selectedItemDom]);
 				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
 			} else {
-				if (explorer.selectedItems.has(newSelectedItem.data)) return;
-
-				explorer.addSelectedItem(newSelectedItem.data);
+				explorer.resetSelectedItems([newSelectedItem.data]);
 				selecto.current?.setSelectedTargets([
 					...(selecto.current?.getSelectedTargets() || []),
 					selectedItemDom

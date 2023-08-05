@@ -258,7 +258,7 @@ export default () => {
 		onColumnSizingChange: setColumnSizing,
 		columnResizeMode: 'onChange',
 		getCoreRowModel: getCoreRowModel(),
-		getRowId: (row) => String(row.item.id)
+		getRowId: (item) => explorerItemHash(item)
 	});
 
 	const tableLength = table.getTotalSize();
@@ -493,8 +493,8 @@ export default () => {
 								? index < range.start.index
 								: index > range.start.index))
 					) {
-						explorer.addSelectedItem(row.original);
-					} else explorer.removeSelectedItem(row.original);
+						explorer.addSelectedItem(item);
+					} else explorer.removeSelectedItem(item);
 				});
 
 				let newRangeEnd = item;
