@@ -81,8 +81,13 @@ export default function Explorer(props: Props) {
 							selected={selectedItemId}
 							onSelectedChange={setSelectedItemId}
 							contextMenu={
-								props.contextMenu ??
-								(selectedItem ? <ContextMenu item={selectedItem} /> : null)
+								selectedItem ? (
+									props.contextMenu ? (
+										props.contextMenu(selectedItem)
+									) : (
+										<ContextMenu item={selectedItem} />
+									)
+								) : null
 							}
 							emptyNotice={
 								props.emptyNotice || (
