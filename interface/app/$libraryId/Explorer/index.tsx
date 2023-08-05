@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ExplorerItem, useLibrarySubscription } from '@sd/client';
 import { useKeyDeleteFile } from '~/hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
@@ -16,6 +16,7 @@ interface Props {
 	items: ExplorerItem[] | null;
 	onLoadMore?(): void;
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
+	contextMenu?: (item: ExplorerItem) => ReactNode;
 }
 
 export default function Explorer(props: Props) {
@@ -79,7 +80,15 @@ export default function Explorer(props: Props) {
 							rowsBeforeLoadMore={5}
 							selected={selectedItemId}
 							onSelectedChange={setSelectedItemId}
-							contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
+							contextMenu={
+								selectedItem ? (
+									props.contextMenu ? (
+										props.contextMenu(selectedItem)
+									) : (
+										<ContextMenu item={selectedItem} />
+									)
+								) : null
+							}
 							emptyNotice={
 								props.emptyNotice || (
 									<EmptyNotice
