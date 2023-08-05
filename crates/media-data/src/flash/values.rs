@@ -3,12 +3,9 @@ use std::fmt::Display;
 use crate::{Error, Result};
 
 // https://exiftool.org/TagNames/EXIF.html scroll to bottom to get codds
-#[derive(
-	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 #[repr(u32)]
 pub enum FlashValue {
-	#[default]
 	NoFire = 0x00,
 	Fired = 0x01,
 	FiredNoReturn = 0x05,

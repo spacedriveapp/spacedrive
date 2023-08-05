@@ -1,23 +1,21 @@
 use super::FlashValue;
-use crate::{
-	flash::consts::{
-		DIDNT_FIRE, DIDNT_RETURN, FIRED, FLASH_MODES, NO_FLASH_FUNCTIONALITY, RER_ENABLED, RETURNED,
-	},
-	ExifReader,
-};
+use crate::{flash::consts::FLASH_MODES, ExifReader};
 
 #[derive(
-	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+	Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize, specta::Type,
 )]
 pub struct Flash {
-	/// Specifies how flash was used
-	pub mode: FireMode,
+	/// Specifies how flash was used (on, auto, off, forced, onvalid)
+	///
+	/// [`FlashMode::Invalid`] isn't a valid EXIF state, but it's included as the default,
+	///  just in case we're unable to correctly match it to a known state.
+	///
+	/// This type should only ever be evaluated if flash EXIF data is present, so having this as a non-option shouldn't be an issue.
+	pub mode: FlashMode,
 	/// Did the flash actually fire?
 	pub fired: Option<bool>,
 	/// Did flash return to the camera? (Unsure of the meaning)
 	pub returned: Option<bool>,
-	// /// Was flash set to auto?
-	// pub auto: Option<bool>,
 	/// Was red eye reduction used?
 	pub red_eye_reduction: Option<bool>,
 }
@@ -30,27 +28,24 @@ impl Flash {
 	}
 }
 
-// I'm unsure whether we should have these^^^ (and some others) as non-options,
-// but not all features are available on all devices and we can't know which have them or not.
-
 #[derive(
 	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
 )]
-pub enum FireMode {
+pub enum FlashMode {
+	#[default]
+	Invalid,
 	On,
 	Off,
 	Auto,
 	Forced,
-	#[default]
-	Unknown,
 }
 
-impl From<u32> for FireMode {
+impl From<u32> for FlashMode {
 	fn from(value: u32) -> Self {
 		FLASH_MODES
 			.into_iter()
 			.find_map(|(mode, slice)| slice.contains(&value).then_some(mode))
-			.unwrap_or_default()
+			.unwrap_or(Self::Invalid)
 	}
 }
 
@@ -60,7 +55,11 @@ impl From<FlashValue> for Option<Flash> {
 	// or to see if red eye reduction was enabled, `(value & 64) != 0`
 	// May not be worth it as some states may be invalid according to `https://www.awaresystems.be/imaging/tiff/tifftags/privateifd/exif/flash.html`
 	fn from(value: FlashValue) -> Self {
-		let mut data = Flash::default();
+		#[allow(clippy::as_conversions)]
+		let mut data = Flash {
+			mode: FlashMode::from(value as u32),
+			..Default::default()
+		};
 
 		#[allow(clippy::match_same_arms)]
 		match value {
@@ -152,16 +151,11 @@ impl From<FlashValue> for Option<Flash> {
 			}
 		}
 
-		#[allow(clippy::as_conversions)]
-		{
-			data.mode = FireMode::from(value as u32);
-		}
-
 		// this means it had a value of Flash::NoFlashFunctionality
-		if data != Flash::default() {
-			Some(data)
-		} else {
+		if data == Flash::default() {
 			None
+		} else {
+			Some(data)
 		}
 	}
 }
