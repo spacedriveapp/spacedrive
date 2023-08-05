@@ -6,14 +6,17 @@ use crate::{
 	library::LibraryManager,
 	location::{LocationManager, LocationManagerError},
 	node::NodeConfigManager,
-	p2p::P2PManager,
+	p2p::{sync::NetworkedLibraryManager, P2PManager},
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
+use object::thumbnail_remover::ThumbnailRemoverActor;
 pub use sd_prisma::*;
 
 use std::{
+	fmt,
+	ops::Deref,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -23,12 +26,12 @@ use std::{
 
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt as tracing_fmt, prelude::*, EnvFilter};
 
 pub mod api;
 pub mod custom_uri;
@@ -39,27 +42,46 @@ pub(crate) mod node;
 pub(crate) mod object;
 pub(crate) mod p2p;
 pub(crate) mod preferences;
-pub(crate) mod util;
+#[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
+pub mod util;
 pub(crate) mod volume;
 
-pub struct NodeContext {
+/// Holds references to all the services that make up the Spacedrive core.
+/// This can easily be passed around as a context to the rest of the core.
+pub struct NodeServices {
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
-	pub location_manager: Arc<LocationManager>,
+	pub location_manager: LocationManager,
 	pub p2p: Arc<P2PManager>,
-	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub notifications: Arc<NotificationManager>,
+	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub notifications: NotificationManager,
+	pub nlm: Arc<NetworkedLibraryManager>,
+	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
+/// Represents a single running instance of the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
-	config: Arc<NodeConfigManager>,
+	// TODO: Merge content onto this struct
+	pub services: NodeServices,
 	pub library_manager: Arc<LibraryManager>,
-	location_manager: Arc<LocationManager>,
-	job_manager: Arc<JobManager>,
-	p2p: Arc<P2PManager>,
-	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	notifications: Arc<NotificationManager>,
+}
+
+impl fmt::Debug for Node {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("Node")
+			.field("data_dir", &self.data_dir)
+			.finish()
+	}
+}
+
+// This isn't idiomatic but it will work for now
+impl Deref for Node {
+	type Target = NodeServices;
+
+	fn deref(&self) -> &Self::Target {
+		&self.services
+	}
 }
 
 impl Node {
@@ -78,57 +100,47 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
-		debug!("Initialised 'NodeConfigManager'...");
-
-		let job_manager = JobManager::new();
-		debug!("Initialised 'JobManager'...");
-
-		let notifications = NotificationManager::new();
-		debug!("Initialised 'NotificationManager'...");
-
-		let location_manager = LocationManager::new();
-		debug!("Initialised 'LocationManager'...");
 
 		let (p2p, p2p_stream) = P2PManager::new(config.clone()).await?;
-		debug!("Initialised 'P2PManager'...");
 
-		let library_manager = LibraryManager::new(
-			data_dir.join("libraries"),
-			Arc::new(NodeContext {
-				config: config.clone(),
-				job_manager: job_manager.clone(),
-				location_manager: location_manager.clone(),
-				p2p: p2p.clone(),
-				event_bus_tx: event_bus.0.clone(),
-				notifications: notifications.clone(),
-			}),
-		)
-		.await?;
-		debug!("Initialised 'LibraryManager'...");
+		let (location_manager, location_manager_actor) = LocationManager::new();
+		let (job_manager, job_manager_actor) = JobManager::new();
+		let library_manager = LibraryManager::new(data_dir.join("libraries")).await?;
+		let node = Arc::new(Node {
+			data_dir: data_dir.to_path_buf(),
+			services: NodeServices {
+				job_manager,
+				location_manager,
+				nlm: NetworkedLibraryManager::new(p2p.clone(), &library_manager),
+				notifications: NotificationManager::new(),
+				p2p,
+				config,
+				event_bus,
+				thumbnail_remover: ThumbnailRemoverActor::new(
+					data_dir.to_path_buf(),
+					library_manager.clone(),
+				),
+			},
+			library_manager,
+		});
 
-		p2p.start(p2p_stream, library_manager.clone());
-
+		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data
-				.apply(&library_manager, config.get().await)
-				.await?;
+			init_data.apply(&node.library_manager, &node).await?;
 		}
 
-		let router = api::mount();
-		let node = Node {
-			data_dir: data_dir.to_path_buf(),
-			config,
-			library_manager,
-			location_manager,
-			job_manager,
-			p2p,
-			event_bus,
-			notifications,
-		};
+		location_manager_actor.start(node.clone());
+		job_manager_actor.start(node.clone());
+		node.p2p
+			.start(p2p_stream, node.library_manager.clone(), node.nlm.clone());
 
+		// Finally load the libraries from disk into the library manager
+		node.library_manager.init(&node).await?;
+
+		let router = api::mount();
 		info!("Spacedrive online.");
-		Ok((Arc::new(node), router))
+		Ok((node, router))
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
@@ -142,9 +154,13 @@ impl Node {
 		);
 
 		let collector = tracing_subscriber::registry()
-			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
 			.with(
-				fmt::Subscriber::new()
+				tracing_fmt::Subscriber::new()
+					.with_ansi(false)
+					.with_writer(logfile),
+			)
+			.with(
+				tracing_fmt::Subscriber::new()
 					.with_writer(std::io::stdout)
 					.with_filter(if cfg!(debug_assertions) {
 						EnvFilter::from_default_env()
@@ -236,17 +252,19 @@ impl Node {
 	}
 }
 
+#[derive(Clone)]
 pub struct NotificationManager(
 	// Keep this private and use `Node::emit_notification` or `Library::emit_notification` instead.
 	broadcast::Sender<Notification>,
 	// Counter for `NotificationId::Node(_)`. NotificationId::Library(_, _)` is autogenerated by the DB.
-	AtomicU32,
+	Arc<AtomicU32>,
 );
 
 impl NotificationManager {
-	pub fn new() -> Arc<Self> {
+	#[allow(clippy::new_without_default)]
+	pub fn new() -> Self {
 		let (tx, _) = broadcast::channel(30);
-		Arc::new(Self(tx, AtomicU32::new(0)))
+		Self(tx, Arc::new(AtomicU32::new(0)))
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<Notification> {

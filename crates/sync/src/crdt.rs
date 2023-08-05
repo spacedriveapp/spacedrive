@@ -22,7 +22,7 @@ impl std::fmt::Display for OperationKind<'_> {
 	}
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub struct RelationOperation {
 	pub relation_item: Value,
 	pub relation_group: Value,
@@ -36,7 +36,7 @@ impl RelationOperation {
 	}
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum RelationOperationData {
 	#[serde(rename = "c")]
 	Create,
@@ -56,7 +56,7 @@ impl RelationOperationData {
 	}
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub struct SharedOperation {
 	pub record_id: Value,
 	pub model: String,
@@ -69,7 +69,7 @@ impl SharedOperation {
 	}
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum SharedOperationData {
 	#[serde(rename = "c")]
 	Create,
@@ -112,7 +112,7 @@ impl SharedOperationData {
 // 	pub items: Vec<OwnedOperationItem>,
 // }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(untagged)]
 pub enum CRDTOperationType {
 	Shared(SharedOperation),
@@ -120,7 +120,7 @@ pub enum CRDTOperationType {
 	// Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]

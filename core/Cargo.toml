@@ -100,6 +100,8 @@ tokio-stream = "0.1.14"
 futures-concurrency = "7.3"
 async-channel = "1.9"
 tokio-util = "0.7"
+slotmap = "1.0.6"
+aovec = "1.1.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

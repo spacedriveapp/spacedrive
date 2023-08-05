@@ -3,9 +3,8 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use sd_p2p::{
 	proto::{decode, encode},
-	spacetunnel::Identity,
+	spacetunnel::RemoteIdentity,
 };
-use sd_prisma::prisma::*;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
@@ -22,28 +21,12 @@ use super::ModelData;
 #[derive(Debug, PartialEq)]
 pub struct Instance {
 	pub id: Uuid,
-	pub identity: Identity,
+	pub identity: RemoteIdentity,
 	pub node_id: Uuid,
 	pub node_name: String,
 	pub node_platform: Platform,
 	pub last_seen: DateTime<Utc>,
 	pub date_created: DateTime<Utc>,
-}
-
-impl From<Instance> for instance::CreateUnchecked {
-	fn from(i: Instance) -> Self {
-		Self {
-			pub_id: i.id.as_bytes().to_vec(),
-			identity: i.identity.to_bytes(),
-			node_id: i.node_id.as_bytes().to_vec(),
-			node_name: i.node_name,
-			node_platform: i.node_platform as i32,
-			last_seen: i.last_seen.into(),
-			date_created: i.date_created.into(),
-			// timestamp: Default::default(), // TODO: Source this properly!
-			_params: vec![],
-		}
-	}
 }
 
 /// 1. Request for pairing to a library that is owned and will be selected by the responder.
@@ -98,7 +81,7 @@ impl Instance {
 	) -> Result<Self, (&'static str, decode::Error)> {
 		Ok(Self {
 			id: decode::uuid(stream).await.map_err(|e| ("id", e))?,
-			identity: Identity::from_bytes(
+			identity: RemoteIdentity::from_bytes(
 				&decode::buf(stream).await.map_err(|e| ("identity", e))?,
 			)
 			.unwrap(), // TODO: Error handling
@@ -258,10 +241,8 @@ impl SyncData {
 					0 => None,
 					n => Some(n),
 				},
-				data: rmp_serde::from_slice(
-					&decode::buf(stream).await.map_err(|e| ("data", e.into()))?,
-				)
-				.unwrap(), // TODO: Error handling
+				data: rmp_serde::from_slice(&decode::buf(stream).await.map_err(|e| ("data", e))?)
+					.unwrap(), // TODO: Error handling
 			}),
 			1 => Ok(Self::Finished),
 			_ => todo!(), // TODO: Error handling
@@ -287,13 +268,16 @@ impl SyncData {
 
 #[cfg(test)]
 mod tests {
+	use sd_p2p::spacetunnel::Identity;
+
 	use super::*;
 
 	#[tokio::test]
 	async fn test_types() {
+		let identity = Identity::new();
 		let instance = || Instance {
 			id: Uuid::new_v4(),
-			identity: Identity::new(),
+			identity: identity.to_remote_identity(),
 			node_id: Uuid::new_v4(),
 			node_name: "Node Name".into(),
 			node_platform: Platform::current(),

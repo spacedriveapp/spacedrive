@@ -81,9 +81,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("create", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					if let Some(location) = args.create(&library).await? {
-						scan_location(&library, location).await?;
+				.mutation(|(node, library), args: LocationCreateArgs| async move {
+					if let Some(location) = args.create(&node, &library).await? {
+						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
 					}
 
@@ -100,8 +100,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("delete", {
 			R.with2(library()).mutation(
-				|(_, library), location_id: location::id::Type| async move {
-					delete_location(&library, location_id).await?;
+				|(node, library), location_id: location::id::Type| async move {
+					delete_location(&node, &library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
 				},
@@ -117,9 +117,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("addLibrary", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					if let Some(location) = args.add_library(&library).await? {
-						scan_location(&library, location).await?;
+				.mutation(|(node, library), args: LocationCreateArgs| async move {
+					if let Some(location) = args.add_library(&node, &library).await? {
+						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
 					}
 					Ok(())
@@ -133,7 +133,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(_, library),
+				|(node, library),
 				 FullRescanArgs {
 				     location_id,
 				     reidentify_objects,
@@ -157,6 +157,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					// rescan location
 					scan_location(
+						&node,
 						&library,
 						find_location(&library, location_id)
 							.include(location_with_indexer_rules::include())
@@ -177,12 +178,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(_, library),
+				|(node, library),
 				 RescanArgs {
 				     location_id,
 				     sub_path,
 				 }: RescanArgs| async move {
 					scan_location_sub_path(
+						&node,
 						&library,
 						find_location(&library, location_id)
 							.include(location_with_indexer_rules::include())
@@ -204,7 +206,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.subscription(|(_, library), args: LightScanArgs| async move {
+				.subscription(|(node, library), args: LightScanArgs| async move {
 					let location = find_location(&library, args.location_id)
 						.include(location_with_indexer_rules::include())
 						.exec()
@@ -212,7 +214,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
 					let handle =
-						tokio::spawn(light_scan_location(library, location, args.sub_path));
+						tokio::spawn(light_scan_location(node, library, location, args.sub_path));
 
 					Ok(AbortOnDrop(handle))
 				})
@@ -220,12 +222,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"online",
 			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.location_manager.clone();
-
-				let mut rx = location_manager.online_rx();
+				let mut rx = ctx.location_manager.online_rx();
 
 				async_stream::stream! {
-					let online = location_manager.get_online().await;
+					let online = ctx.location_manager.get_online().await;
 
 					yield online;
 

@@ -1,11 +1,11 @@
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
 use sd_p2p::{
 	proto::{decode, encode},
 	spaceblock::{SpaceblockRequest, SpacedropRequestError},
-	spacetime::UnicastStream,
+	spacetunnel::RemoteIdentity,
 };
 
 /// TODO
@@ -16,6 +16,9 @@ pub enum Header {
 	Spacedrop(SpaceblockRequest),
 	Pair,
 	Sync(Uuid),
+
+	// TODO: Remove need for this
+	Connected(Vec<RemoteIdentity>),
 }
 
 #[derive(Debug, Error)]
@@ -31,7 +34,7 @@ pub enum HeaderError {
 }
 
 impl Header {
-	pub async fn from_stream(stream: &mut UnicastStream) -> Result<Self, HeaderError> {
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> Result<Self, HeaderError> {
 		let discriminator = stream
 			.read_u8()
 			.await
@@ -48,6 +51,17 @@ impl Header {
 					.await
 					.map_err(HeaderError::SyncRequest)?,
 			)),
+			// TODO: Error handling
+			255 => Ok(Self::Connected({
+				let len = stream.read_u16_le().await.unwrap();
+				let mut identities = Vec::with_capacity(len as usize);
+				for _ in 0..len {
+					identities.push(
+						RemoteIdentity::from_bytes(&decode::buf(stream).await.unwrap()).unwrap(),
+					);
+				}
+				identities
+			})),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -64,6 +78,17 @@ impl Header {
 			Self::Sync(uuid) => {
 				let mut bytes = vec![3];
 				encode::uuid(&mut bytes, uuid);
+				bytes
+			}
+			Self::Connected(remote_identities) => {
+				let mut bytes = vec![255];
+				if remote_identities.len() > u16::MAX as usize {
+					panic!("Buf is too long!"); // TODO: Chunk this so it will never error
+				}
+				bytes.extend((remote_identities.len() as u16).to_le_bytes());
+				for identity in remote_identities {
+					encode::buf(&mut bytes, &identity.to_bytes());
+				}
 				bytes
 			}
 		}

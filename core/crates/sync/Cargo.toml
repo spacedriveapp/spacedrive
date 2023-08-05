@@ -1,17 +1,17 @@
 [package]
 name = "sd-core-sync"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = []
+default = ["emit-messages"]
 emit-messages = []
 
 [dependencies]
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-utils = { path = "../../../crates/utils" }
+sd-p2p = { path = "../../../crates/p2p" }
 
 prisma-client-rust = { workspace = true }
 serde = { workspace = true }

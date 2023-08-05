@@ -1,49 +1,79 @@
 #![allow(clippy::unwrap_used, clippy::panic)] // TODO: Brendan remove this once you've got error handling here
 
+pub mod ingest;
+
 use sd_prisma::{prisma::*, prisma_sync::ModelSyncData};
 use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{BTreeMap, HashMap},
+	fmt,
 	sync::Arc,
 };
 
 use serde_json::to_vec;
-use tokio::sync::broadcast::{self, Receiver, Sender};
-use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
+use tokio::sync::{
+	broadcast::{self},
+	mpsc, RwLock,
+};
+use uhlc::{HLCBuilder, Timestamp, HLC};
 use uuid::Uuid;
 
 pub use sd_prisma::prisma_sync;
+pub use uhlc::NTP64;
 
 #[derive(Clone)]
 pub enum SyncMessage {
-	Ingested(CRDTOperation),
-	Created(CRDTOperation),
+	Ingested,
+	Created,
 }
+
+pub type Timestamps = Arc<RwLock<HashMap<Uuid, NTP64>>>;
 
 pub struct SyncManager {
 	db: Arc<PrismaClient>,
-	instance: Uuid,
-	_clocks: HashMap<Uuid, NTP64>,
+	pub instance: Uuid,
+	// TODO: Remove `Mutex` and store this on `ingest` actor
+	timestamps: Timestamps,
 	clock: HLC,
-	pub tx: Sender<SyncMessage>,
+	pub tx: broadcast::Sender<SyncMessage>,
+	pub ingest: ingest::Actor,
+}
+
+impl fmt::Debug for SyncManager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
+}
+
+pub struct SyncManagerNew {
+	pub manager: SyncManager,
+	pub rx: broadcast::Receiver<SyncMessage>,
+	pub ingest_rx: mpsc::Receiver<ingest::Request>,
 }
 
 impl SyncManager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> (Self, Receiver<SyncMessage>) {
+	#[allow(clippy::new_ret_no_self)]
+	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> SyncManagerNew {
 		let (tx, rx) = broadcast::channel(64);
 
-		(
-			Self {
+		let timestamps: Timestamps = Default::default();
+
+		let (ingest, ingest_rx) = ingest::Actor::spawn(timestamps.clone());
+
+		SyncManagerNew {
+			manager: Self {
 				db: db.clone(),
 				instance,
 				clock: HLCBuilder::new().with_id(instance.into()).build(),
-				_clocks: Default::default(),
+				timestamps,
 				tx,
+				ingest,
 			},
 			rx,
-		)
+			ingest_rx,
+		}
 	}
 
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
@@ -72,9 +102,7 @@ impl SyncManager {
 
 			let (res, _) = tx._batch((queries, (shared, relation))).await?;
 
-			for op in _ops {
-				self.tx.send(SyncMessage::Created(op)).ok();
-			}
+			self.tx.send(SyncMessage::Created).ok();
 
 			res
 		};
@@ -104,7 +132,7 @@ impl SyncManager {
 				CRDTOperationType::Relation(inner) => exec!(relation_op_db, inner),
 			};
 
-			self.tx.send(SyncMessage::Created(op)).ok();
+			self.tx.send(SyncMessage::Created).ok();
 
 			ret
 		};
@@ -114,7 +142,10 @@ impl SyncManager {
 		Ok(ret)
 	}
 
-	pub async fn get_ops(&self) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
+	pub async fn get_ops(
+		&self,
+		args: GetOpsArgs,
+	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
 		let Self { db, .. } = self;
 
 		shared_operation::include!(shared_include {
@@ -175,13 +206,33 @@ impl SyncManager {
 			}
 		}
 
+		macro_rules! db_args {
+			($op:ident) => {
+				vec![prisma_client_rust::operator::or(
+					args.clocks
+						.iter()
+						.map(|(instance_id, timestamp)| {
+							prisma_client_rust::and![
+								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
+									*instance_id
+								))]),
+								$op::timestamp::gte(timestamp.as_u64() as i64)
+							]
+						})
+						.collect(),
+				)]
+			};
+		}
+
 		let (shared, relation) = db
 			._batch((
 				db.shared_operation()
-					.find_many(vec![])
+					.find_many(db_args!(shared_operation))
+					.take(args.count as i64)
 					.include(shared_include::include()),
 				db.relation_operation()
-					.find_many(vec![])
+					.find_many(db_args!(relation_operation))
+					.take(args.count as i64)
 					.include(relation_include::include()),
 			))
 			.await?;
@@ -203,8 +254,9 @@ impl SyncManager {
 
 		Ok(ops
 			.into_values()
-			.map(DbOperation::into_operation)
 			.rev()
+			.take(args.count as usize)
+			.map(DbOperation::into_operation)
 			.collect())
 	}
 
@@ -229,7 +281,7 @@ impl SyncManager {
 			}
 		}
 
-		self.tx.send(SyncMessage::Ingested(op.clone())).ok();
+		self.tx.send(SyncMessage::Ingested).ok();
 
 		Ok(())
 	}
@@ -281,15 +333,13 @@ impl SyncManager {
 			.unwrap_or_default()
 	}
 
-	pub async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
+	pub async fn receive_crdt_operation(&self, op: CRDTOperation) {
 		self.clock
 			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
 			.ok();
 
-		let timestamp = self
-			._clocks
-			.entry(op.instance)
-			.or_insert_with(|| op.timestamp);
+		let mut clocks = self.timestamps.write().await;
+		let timestamp = clocks.entry(op.instance).or_insert_with(|| op.timestamp);
 
 		if *timestamp < op.timestamp {
 			*timestamp = op.timestamp;
@@ -314,6 +364,16 @@ impl SyncManager {
 			.await
 			.ok();
 	}
+
+	pub async fn register_instance(&self, instance_id: Uuid) {
+		self.timestamps.write().await.insert(instance_id, NTP64(0));
+	}
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
+pub struct GetOpsArgs {
+	pub clocks: Vec<(Uuid, NTP64)>,
+	pub count: u32,
 }
 
 fn shared_op_db(op: &CRDTOperation, shared_op: &SharedOperation) -> shared_operation::Create {
