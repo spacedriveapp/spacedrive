@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::{LibraryManager, LibraryManagerEvent},
 	prisma::{file_path, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
@@ -26,6 +26,8 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
+use super::preview::THUMBNAIL_CACHE_DIR_NAME;
+
 const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
@@ -48,15 +50,16 @@ enum DatabaseMessage {
 }
 
 pub struct ThumbnailRemoverActor {
-	databases_tx: chan::Sender<DatabaseMessage>,
 	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
 	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
 	_cancel_loop: DropGuard,
 }
 
 impl ThumbnailRemoverActor {
-	pub fn new(thumbnails_directory: impl AsRef<Path>) -> Self {
-		let thumbnails_directory = thumbnails_directory.as_ref().to_path_buf();
+	pub fn new(data_dir: PathBuf, lm: Arc<LibraryManager>) -> Self {
+		let mut thumbnails_directory = data_dir;
+		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
+
 		let (databases_tx, databases_rx) = chan::bounded(4);
 		let (non_indexed_thumbnails_cas_ids_tx, non_indexed_thumbnails_cas_ids_rx) =
 			chan::unbounded();
@@ -87,33 +90,48 @@ impl ThumbnailRemoverActor {
 			}
 		});
 
+		tokio::spawn({
+			let rx = lm.rx.clone();
+			async move {
+				if let Err(err) = rx
+					.subscribe(move |event| {
+						let databases_tx = databases_tx.clone();
+
+						async move {
+							match event {
+								LibraryManagerEvent::Load(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Add(library.id, library.db.clone()))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
+								}
+								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::Delete(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Remove(library.id))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
+								}
+							}
+						}
+					})
+					.await
+				{
+					error!("Thumbnail remover actor has crashed with error: {err:?}")
+				}
+			}
+		});
+
 		Self {
-			databases_tx,
 			cas_ids_to_delete_tx,
 			non_indexed_thumbnails_cas_ids_tx,
 			_cancel_loop: cancel_token.drop_guard(),
-		}
-	}
-
-	pub async fn new_library(&self, Library { id, db, .. }: &Library) {
-		if self
-			.databases_tx
-			.send(DatabaseMessage::Add(*id, db.clone()))
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead")
-		}
-	}
-
-	pub async fn remove_library(&self, library_id: Uuid) {
-		if self
-			.databases_tx
-			.send(DatabaseMessage::Remove(library_id))
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead")
 		}
 	}
 

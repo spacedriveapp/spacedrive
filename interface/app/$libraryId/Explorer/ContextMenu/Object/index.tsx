@@ -1,13 +1,14 @@
 import { Plus } from 'phosphor-react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { FilePathItems, ObjectItems, SharedItems } from '..';
+import { ExtraFn, FilePathItems, ObjectItems, SharedItems } from '..';
 
 interface Props {
 	data: Extract<ExplorerItem, { type: 'Object' }>;
+	extra?: ExtraFn;
 }
 
-export default ({ data }: Props) => {
+export default ({ data, extra }: Props) => {
 	const object = data.item;
 	const filePath = data.item.file_paths[0];
 
@@ -26,6 +27,11 @@ export default ({ data }: Props) => {
 			{filePath && <SharedItems.RevealInNativeExplorer filePath={filePath} />}
 
 			<SharedItems.Rename />
+
+			{extra?.({
+				object: object,
+				filePath: filePath
+			})}
 
 			<ContextMenu.Separator />
 

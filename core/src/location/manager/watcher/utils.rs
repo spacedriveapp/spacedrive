@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		delete_directory,
 		file_path_helper::{
@@ -24,6 +24,7 @@ use crate::{
 		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
 		error::FileIOError,
 	},
+	Node,
 };
 
 #[cfg(target_family = "unix")]
@@ -69,7 +70,8 @@ pub(super) async fn create_dir(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let location = find_location(library, location_id)
 		.include(location_with_indexer_rules::include())
@@ -135,7 +137,7 @@ pub(super) async fn create_dir(
 	.await?;
 
 	// scan the new directory
-	scan_location_sub_path(library, location, &children_materialized_path).await?;
+	scan_location_sub_path(node, library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
 
@@ -146,13 +148,15 @@ pub(super) async fn create_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	inner_create_file(
 		location_id,
 		extract_location_path(location_id, library).await?,
 		path,
 		metadata,
+		node,
 		library,
 	)
 	.await
@@ -163,7 +167,8 @@ async fn inner_create_file(
 	location_path: impl AsRef<Path>,
 	path: impl AsRef<Path>,
 	metadata: &Metadata,
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let path = path.as_ref();
 	let location_path = location_path.as_ref();
@@ -210,7 +215,7 @@ async fn inner_create_file(
 			"File already exists with that inode and device: {}",
 			iso_file_path
 		);
-		return inner_update_file(location_path, &file_path, path, library, None).await;
+		return inner_update_file(location_path, &file_path, path, node, library, None).await;
 
 	// If we can't find an existing file with the same inode and device, we check if there is a file with the same path
 	} else if let Some(file_path) = db
@@ -233,6 +238,7 @@ async fn inner_create_file(
 			location_path,
 			&file_path,
 			path,
+			node,
 			library,
 			Some((inode, device)),
 		)
@@ -311,10 +317,10 @@ async fn inner_create_file(
 	if !extension.is_empty() {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 		let path = path.to_path_buf();
-		let library = library.clone();
+		let node = node.clone();
 
 		tokio::spawn(async move {
-			generate_thumbnail(&extension, &cas_id, path, &library).await;
+			generate_thumbnail(&extension, &cas_id, path, &node).await;
 		});
 	}
 
@@ -326,7 +332,8 @@ async fn inner_create_file(
 pub(super) async fn create_dir_or_file(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<Metadata, LocationManagerError> {
 	let path = path.as_ref();
 	let metadata = fs::metadata(path)
@@ -334,9 +341,9 @@ pub(super) async fn create_dir_or_file(
 		.map_err(|e| FileIOError::from((path, e)))?;
 
 	if metadata.is_dir() {
-		create_dir(location_id, path, &metadata, library).await
+		create_dir(location_id, path, &metadata, node, library).await
 	} else {
-		create_file(location_id, path, &metadata, library).await
+		create_file(location_id, path, &metadata, node, library).await
 	}
 	.map(|_| metadata)
 }
@@ -344,7 +351,8 @@ pub(super) async fn create_dir_or_file(
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
@@ -360,7 +368,7 @@ pub(super) async fn update_file(
 		.exec()
 		.await?
 	{
-		inner_update_file(location_path, file_path, full_path, library, None).await
+		inner_update_file(location_path, file_path, full_path, node, library, None).await
 	} else {
 		inner_create_file(
 			location_id,
@@ -369,6 +377,7 @@ pub(super) async fn update_file(
 			&fs::metadata(full_path)
 				.await
 				.map_err(|e| FileIOError::from((full_path, e)))?,
+			node,
 			library,
 		)
 		.await
@@ -380,7 +389,8 @@ async fn inner_update_file(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path_with_object::Data,
 	full_path: impl AsRef<Path>,
-	library @ Library { db, sync, .. }: &Library,
+	node: &Arc<Node>,
+	library @ LoadedLibrary { db, sync, .. }: &LoadedLibrary,
 	maybe_new_inode_and_device: Option<INodeAndDevice>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
@@ -527,12 +537,12 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if library.thumbnail_exists(old_cas_id).await? {
+				if library.thumbnail_exists(node, old_cas_id).await? {
 					if let Some(ext) = &file_path.extension {
-						generate_thumbnail(ext, &cas_id, full_path, library).await;
+						generate_thumbnail(ext, &cas_id, full_path, node).await;
 
 						// remove the old thumbnail as we're generating a new one
-						let thumb_path = get_thumbnail_path(library, old_cas_id);
+						let thumb_path = get_thumbnail_path(node, old_cas_id);
 						fs::remove_file(&thumb_path)
 							.await
 							.map_err(|e| FileIOError::from((thumb_path, e)))?;
@@ -572,12 +582,12 @@ pub(super) async fn rename(
 	new_path: impl AsRef<Path>,
 	old_path: impl AsRef<Path>,
 	new_path_metadata: Metadata,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	let location_path = extract_location_path(location_id, library).await?;
 	let old_path = old_path.as_ref();
 	let new_path = new_path.as_ref();
-	let Library { db, .. } = library;
+	let LoadedLibrary { db, .. } = library;
 
 	let old_path_materialized_str =
 		extract_normalized_materialized_path_str(location_id, &location_path, old_path)?;
@@ -659,7 +669,7 @@ pub(super) async fn rename(
 pub(super) async fn remove(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = extract_location_path(location_id, library).await?;
@@ -682,7 +692,7 @@ pub(super) async fn remove_by_file_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	file_path: &file_path::Data,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<(), LocationManagerError> {
 	// check file still exists on disk
 	match fs::metadata(path.as_ref()).await {
@@ -732,10 +742,10 @@ async fn generate_thumbnail(
 	extension: &str,
 	cas_id: &str,
 	path: impl AsRef<Path>,
-	library: &Library,
+	node: &Arc<Node>,
 ) {
 	let path = path.as_ref();
-	let output_path = get_thumbnail_path(library, cas_id);
+	let output_path = get_thumbnail_path(node, cas_id);
 
 	if let Err(e) = fs::metadata(&output_path).await {
 		if e.kind() != ErrorKind::NotFound {
@@ -778,7 +788,7 @@ async fn generate_thumbnail(
 pub(super) async fn extract_inode_and_device_from_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<INodeAndDevice, LocationManagerError> {
 	let path = path.as_ref();
 	let location = find_location(library, location_id)
@@ -817,7 +827,7 @@ pub(super) async fn extract_inode_and_device_from_path(
 
 pub(super) async fn extract_location_path(
 	location_id: location::id::Type,
-	library: &Library,
+	library: &LoadedLibrary,
 ) -> Result<PathBuf, LocationManagerError> {
 	find_location(library, location_id)
 		.select(location::select!({ path }))

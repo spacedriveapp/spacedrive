@@ -248,7 +248,9 @@ impl Migrate for LibraryConfig {
 									// This code is assuming you only have the current node.
 									// If you've paired your node with another node, reset your db.
 									IdentityOrRemoteIdentity::Identity(
-										Identity::from_bytes(&i.identity).unwrap(),
+										Identity::from_bytes(&i.identity).expect(
+											"Invalid identity detected in DB during migrations",
+										),
 									)
 									.to_bytes(),
 								)],
@@ -263,11 +265,4 @@ impl Migrate for LibraryConfig {
 
 		Ok(())
 	}
-}
-
-// used to return to the frontend with uuid context
-#[derive(Serialize, Deserialize, Debug, Type)]
-pub struct LibraryConfigWrapped {
-	pub uuid: Uuid,
-	pub config: LibraryConfig,
 }

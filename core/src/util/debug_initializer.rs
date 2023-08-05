@@ -13,9 +13,9 @@ use crate::{
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
-	node::NodeConfig,
 	prisma::location,
 	util::AbortOnDrop,
+	Node,
 };
 use prisma_client_rust::QueryError;
 use serde::Deserialize;
@@ -98,7 +98,7 @@ impl InitConfig {
 	pub async fn apply(
 		self,
 		library_manager: &Arc<LibraryManager>,
-		node_cfg: NodeConfig,
+		node: &Arc<Node>,
 	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);
 
@@ -111,21 +111,14 @@ impl InitConfig {
 				}
 			}));
 
-			let library = match library_manager.get_library(lib.id).await {
+			let library = match library_manager.get_library(&lib.id).await {
 				Some(lib) => lib,
 				None => {
 					let library = library_manager
-						.create_with_uuid(
-							lib.id,
-							lib.name,
-							lib.description,
-							node_cfg.clone(),
-							true,
-							None,
-						)
+						.create_with_uuid(lib.id, lib.name, lib.description, true, None, node)
 						.await?;
 
-					match library_manager.get_library(library.id).await {
+					match library_manager.get_library(&library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(
@@ -143,7 +136,7 @@ impl InitConfig {
 
 				for location in locations {
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 			}
 
@@ -156,7 +149,7 @@ impl InitConfig {
 					.await?
 				{
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 
 				let sd_file = PathBuf::from(&loc.path).join(".spacedrive");
@@ -169,11 +162,11 @@ impl InitConfig {
 					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
-				.create(&library)
+				.create(node, &library)
 				.await?;
 				match location {
 					Some(location) => {
-						scan_location(&library, location).await?;
+						scan_location(node, &library, location).await?;
 					}
 					None => {
 						warn!(

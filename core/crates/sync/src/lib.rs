@@ -8,6 +8,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{BTreeMap, HashMap},
+	fmt,
 	sync::Arc,
 };
 
@@ -40,6 +41,12 @@ pub struct SyncManager {
 	pub ingest: ingest::Actor,
 }
 
+impl fmt::Debug for SyncManager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
+}
+
 pub struct SyncManagerNew {
 	pub manager: SyncManager,
 	pub rx: broadcast::Receiver<SyncMessage>,
@@ -47,6 +54,7 @@ pub struct SyncManagerNew {
 }
 
 impl SyncManager {
+	#[allow(clippy::new_ret_no_self)]
 	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> SyncManagerNew {
 		let (tx, rx) = broadcast::channel(64);
 
