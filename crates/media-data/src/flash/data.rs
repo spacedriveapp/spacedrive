@@ -26,22 +26,7 @@ impl Flash {
 	#[must_use]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
 		let value = reader.get_flash_int()?;
-		let flash_value = FlashValue::try_from(value).ok()?;
-		// let mut data: OPtion = Flash::from(flash_value);
-		flash_value.into()
-		// // data.mode = FireMode::new(value);
-		// // data.flash = FlashValue::new(value);
-		// data.fired = FIRED
-		// 	.contains(&value)
-		// 	.then_some(true)
-		// 	.map_or_else(|| DIDNT_FIRE.contains(&value).then_some(false), Some);
-
-		// data.red_eye_reduction = RER_ENABLED.contains(&value).then_some(true);
-
-		// data.returned = RETURNED.contains(&value).then_some(true); // if this is `None` then flash can't have fired (except in 0x14?)
-		// data.returned = DIDNT_RETURN.contains(&value).then_some(false); // if this is `None` then flash can't have fired (except in 0x14?)
-
-		// todo!()
+		FlashValue::try_from(value).ok()?.into()
 	}
 }
 
@@ -59,15 +44,6 @@ pub enum FireMode {
 	#[default]
 	Unknown,
 }
-// impl FireMode {
-// 	#[must_use]
-// 	pub fn new(value: u32) -> Self {
-// 		FLASH_MODES
-// 			.into_iter()
-// 			.find_map(|(mode, slice)| slice.contains(&value).then_some(mode))
-// 			.unwrap_or_default()
-// 	}
-// }
 
 impl From<u32> for FireMode {
 	fn from(value: u32) -> Self {
@@ -182,10 +158,10 @@ impl From<FlashValue> for Option<Flash> {
 		}
 
 		// this means it had a value of Flash::NoFlashFunctionality
-		if data == Flash::default() {
-			None
-		} else {
+		if data != Flash::default() {
 			Some(data)
+		} else {
+			None
 		}
 	}
 }
