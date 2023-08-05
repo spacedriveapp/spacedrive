@@ -7,9 +7,9 @@ inputs:
   save-cache:
     description: Whether to save the Rust cache
     required: false
-    default: 'false'
+    default: "false"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Rust
       id: toolchain
@@ -23,7 +23,7 @@ runs:
       uses: Swatinem/rust-cache@v2
       with:
         save-if: ${{ inputs.save-cache }}
-        prefix-key: 'v0-rust-deps'
+        prefix-key: "v0-rust-deps"
         shared-key: ${{ inputs.targets }}
 
     - name: Restore cached Prisma codegen
