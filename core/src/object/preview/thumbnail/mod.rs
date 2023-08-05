@@ -41,7 +41,7 @@ const THUMBNAIL_QUALITY: f32 = 30.0;
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
-pub fn get_thumbnail_path(node: &Node, library: &LoadedLibrary, cas_id: &str) -> PathBuf {
+pub fn get_thumbnail_path(node: &Node, cas_id: &str) -> PathBuf {
 	let mut thumb_path = node.config.data_directory();
 
 	thumb_path.push(THUMBNAIL_CACHE_DIR_NAME);

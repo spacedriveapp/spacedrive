@@ -138,7 +138,7 @@ impl NetworkedLibraryManager {
 				if !matches!(instance, InstanceState::Connected(_)) {
 					let should_connect = matches!(instance, InstanceState::Unavailable);
 
-					*instance = InstanceState::Discovered(event.peer_id.clone());
+					*instance = InstanceState::Discovered(event.peer_id);
 
 					if should_connect {
 						event.dial().await;
@@ -169,7 +169,7 @@ impl NetworkedLibraryManager {
 			for instance in lib.instances.values_mut() {
 				if let InstanceState::Discovered(id) = instance {
 					if *id == peer_id {
-						*instance = InstanceState::Connected(peer_id.clone());
+						*instance = InstanceState::Connected(peer_id);
 						return; // Will only exist once so we short circuit
 					}
 				}
@@ -181,7 +181,7 @@ impl NetworkedLibraryManager {
 	pub async fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
 		for lib in self.libraries.write().await.values_mut() {
 			if let Some(instance) = lib.instances.get_mut(&instance_id) {
-				*instance = InstanceState::Connected(peer_id.clone());
+				*instance = InstanceState::Connected(peer_id);
 				return; // Will only exist once so we short circuit
 			}
 		}

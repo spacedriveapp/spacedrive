@@ -261,6 +261,7 @@ pub struct NotificationManager(
 );
 
 impl NotificationManager {
+	#[allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		let (tx, _) = broadcast::channel(30);
 		Self(tx, Arc::new(AtomicU32::new(0)))

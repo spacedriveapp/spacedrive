@@ -136,7 +136,7 @@ impl InitConfig {
 
 				for location in locations {
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&node, &library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 			}
 
@@ -149,7 +149,7 @@ impl InitConfig {
 					.await?
 				{
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&node, &library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 
 				let sd_file = PathBuf::from(&loc.path).join(".spacedrive");
@@ -162,11 +162,11 @@ impl InitConfig {
 					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
-				.create(&node, &library)
+				.create(node, &library)
 				.await?;
 				match location {
 					Some(location) => {
-						scan_location(&node, &library, location).await?;
+						scan_location(node, &library, location).await?;
 					}
 					None => {
 						warn!(

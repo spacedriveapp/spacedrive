@@ -438,7 +438,7 @@ pub async fn scan_location_sub_path(
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
-	.spawn(&node, library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }

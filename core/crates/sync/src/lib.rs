@@ -54,6 +54,7 @@ pub struct SyncManagerNew {
 }
 
 impl SyncManager {
+	#[allow(clippy::new_ret_no_self)]
 	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> SyncManagerNew {
 		let (tx, rx) = broadcast::channel(64);
 

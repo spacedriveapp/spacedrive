@@ -137,7 +137,7 @@ pub(super) async fn create_dir(
 	.await?;
 
 	// scan the new directory
-	scan_location_sub_path(&node, library, location, &children_materialized_path).await?;
+	scan_location_sub_path(node, library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
 
@@ -318,10 +318,9 @@ async fn inner_create_file(
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 		let path = path.to_path_buf();
 		let node = node.clone();
-		let library = library.clone();
 
 		tokio::spawn(async move {
-			generate_thumbnail(&extension, &cas_id, path, &node, &library).await;
+			generate_thumbnail(&extension, &cas_id, path, &node).await;
 		});
 	}
 
@@ -538,12 +537,12 @@ async fn inner_update_file(
 
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if library.thumbnail_exists(&node, old_cas_id).await? {
+				if library.thumbnail_exists(node, old_cas_id).await? {
 					if let Some(ext) = &file_path.extension {
-						generate_thumbnail(ext, &cas_id, full_path, node, library).await;
+						generate_thumbnail(ext, &cas_id, full_path, node).await;
 
 						// remove the old thumbnail as we're generating a new one
-						let thumb_path = get_thumbnail_path(node, library, old_cas_id);
+						let thumb_path = get_thumbnail_path(node, old_cas_id);
 						fs::remove_file(&thumb_path)
 							.await
 							.map_err(|e| FileIOError::from((thumb_path, e)))?;
@@ -744,10 +743,9 @@ async fn generate_thumbnail(
 	cas_id: &str,
 	path: impl AsRef<Path>,
 	node: &Arc<Node>,
-	library: &LoadedLibrary,
 ) {
 	let path = path.as_ref();
-	let output_path = get_thumbnail_path(node, library, cas_id);
+	let output_path = get_thumbnail_path(node, cas_id);
 
 	if let Err(e) = fs::metadata(&output_path).await {
 		if e.kind() != ErrorKind::NotFound {

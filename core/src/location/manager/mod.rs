@@ -166,10 +166,8 @@ impl LocationManagerActor {
 								}
 								LibraryManagerEvent::Edit(_) => {}
 								LibraryManagerEvent::Delete(_) => {
-									debug_assert!(
-										true,
-										"TODO: Remove locations from location manager"
-									); // TODO
+									#[cfg(debug_assertions)]
+									todo!("TODO: Remove locations from location manager"); // TODO
 								}
 							}
 						}

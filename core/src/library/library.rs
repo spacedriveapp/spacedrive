@@ -149,7 +149,7 @@ impl LoadedLibrary {
 	}
 
 	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_thumbnail_path(node, self, cas_id);
+		let thumb_path = get_thumbnail_path(node, cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),

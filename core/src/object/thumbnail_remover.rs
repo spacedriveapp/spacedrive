@@ -93,36 +93,38 @@ impl ThumbnailRemoverActor {
 		tokio::spawn({
 			let rx = lm.rx.clone();
 			async move {
-				rx.subscribe(move |event| {
-					let databases_tx = databases_tx.clone();
+				if let Err(err) = rx
+					.subscribe(move |event| {
+						let databases_tx = databases_tx.clone();
 
-					async move {
-						match event {
-							LibraryManagerEvent::Load(library) => {
-								if databases_tx
-									.send(DatabaseMessage::Add(
-										library.id.clone(),
-										library.db.clone(),
-									))
-									.await
-									.is_err()
-								{
-									error!("Thumbnail remover actor is dead")
+						async move {
+							match event {
+								LibraryManagerEvent::Load(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Add(library.id, library.db.clone()))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
 								}
-							}
-							LibraryManagerEvent::Edit(_) => {}
-							LibraryManagerEvent::Delete(library) => {
-								if databases_tx
-									.send(DatabaseMessage::Remove(library.id.clone()))
-									.await
-									.is_err()
-								{
-									error!("Thumbnail remover actor is dead")
+								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::Delete(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Remove(library.id))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
 								}
 							}
 						}
-					}
-				})
+					})
+					.await
+				{
+					error!("Thumbnail remover actor has crashed with error: {err:?}")
+				}
 			}
 		});
 

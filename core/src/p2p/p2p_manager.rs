@@ -278,7 +278,7 @@ impl P2PManager {
 												// TODO: Throw tunnel around like this makes it soooo confusing.
 												ingest.notify(tunnel, event.peer_id).await;
 											}
-											SyncMessage::OperationsRequest(id) => {
+											SyncMessage::OperationsRequest(_) => {
 												nlm.exchange_sync_ops(
 													tunnel,
 													&event.peer_id,
@@ -363,7 +363,7 @@ impl P2PManager {
 			};
 
 		for identity in identities {
-			nlm.peer_connected2(identity, peer_id.clone()).await;
+			nlm.peer_connected2(identity, peer_id).await;
 		}
 	}
 
@@ -375,7 +375,7 @@ impl P2PManager {
 		remote_identities: Vec<RemoteIdentity>,
 	) {
 		for identity in remote_identities {
-			nlm.peer_connected2(identity, peer_id.clone()).await;
+			nlm.peer_connected2(identity, peer_id).await;
 		}
 
 		stream

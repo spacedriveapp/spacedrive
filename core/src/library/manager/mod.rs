@@ -63,7 +63,7 @@ impl LibraryManager {
 
 		let (tx, rx) = mpscrr::unbounded_channel();
 		Ok(Arc::new(Self {
-			libraries_dir: libraries_dir,
+			libraries_dir,
 			libraries: Default::default(),
 			tx,
 			rx,
@@ -256,7 +256,7 @@ impl LibraryManager {
 
 		// TODO: Library go into "deletion" state until it's finished!
 
-		let library = &*libraries_write_guard
+		let library = libraries_write_guard
 			.get(id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
@@ -282,7 +282,7 @@ impl LibraryManager {
 
 		// We only remove here after files deletion
 		let library = libraries_write_guard
-			.remove(&id)
+			.remove(id)
 			.expect("we have exclusive access and checked it exists!");
 
 		info!("Removed Library <id='{}'>", library.id);
@@ -423,7 +423,7 @@ impl LibraryManager {
 			.services
 			.job_manager
 			.clone()
-			.cold_resume(&node, &library)
+			.cold_resume(node, &library)
 			.await
 		{
 			error!("Failed to resume jobs for library. {:#?}", e);

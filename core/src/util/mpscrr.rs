@@ -17,13 +17,13 @@
 //! let (tx, mut rx) = mpscrr::unbounded_channel::<i32, i32>();
 //!
 //! tokio::spawn(async move {
-//! 	rx.subscribe(|value| async move {
-//! 		assert_eq!(value, 42);
+//!     rx.subscribe(|value| async move {
+//!          assert_eq!(value, 42);
 //!
-//! 		1
-//! 	})
-//! 	.await
-//! 	.unwrap();
+//!          1
+//!     })
+//!     .await
+//!     .unwrap();
 //! });
 //!
 //! // Wait for Tokio to spawn the tasks
@@ -85,7 +85,7 @@ impl<T: Clone, U> Sender<T, U> {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.iter()
-			.map(|(k, v)| (k.clone(), v.clone()))
+			.map(|(k, v)| (k, v.clone()))
 			.collect::<Vec<_>>();
 
 		join_all(map.into_iter().filter_map(|(key, (sender, active))| {
@@ -97,7 +97,7 @@ impl<T: Clone, U> Sender<T, U> {
 			let value = value.clone();
 			Some(async move {
 				let (tx, rx) = oneshot::channel();
-				if let Err(_) = sender.send((value, tx)) {
+				if sender.send((value, tx)).is_err() {
 					// The receiver was dropped so we remove it from the map
 					Err(SenderError::Finished(key))
 				} else {
@@ -110,18 +110,14 @@ impl<T: Clone, U> Sender<T, U> {
 		.await
 		.into_iter()
 		.filter_map(|x| {
-			x.map_err(|err| {
-				match err {
-					SenderError::Finished(key) => {
-						self.0
-							.write()
-							.unwrap_or_else(PoisonError::into_inner)
-							.remove(key);
-					}
-					SenderError::Ignored => {}
+			x.map_err(|err| match err {
+				SenderError::Finished(key) => {
+					self.0
+						.write()
+						.unwrap_or_else(PoisonError::into_inner)
+						.remove(key);
 				}
-
-				()
+				SenderError::Ignored => {}
 			})
 			.ok()
 		})
