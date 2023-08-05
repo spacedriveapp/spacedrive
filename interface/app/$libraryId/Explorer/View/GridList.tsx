@@ -253,15 +253,17 @@ export default ({ children }: { children: RenderItem }) => {
 			) as HTMLElement;
 
 			if (addToGridListSelection) {
-				explorer.addSelectedItem(newSelectedItem.data);
-				selecto.current?.setSelectedTargets([selectedItemDom]);
-				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
+				if (!explorer.selectedItems.has(newSelectedItem.data)) {
+					selecto.current?.setSelectedTargets([
+						...(selecto.current?.getSelectedTargets() || []),
+						selectedItemDom
+					]);
+					explorer.addSelectedItem(newSelectedItem.data);
+				}
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
-				selecto.current?.setSelectedTargets([
-					...(selecto.current?.getSelectedTargets() || []),
-					selectedItemDom
-				]);
+				selecto.current?.setSelectedTargets([selectedItemDom]);
+				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
 			}
 		}
 
