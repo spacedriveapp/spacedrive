@@ -8,7 +8,7 @@ pub struct Flash {
 	/// Specifies how flash was used (on, auto, off, forced, onvalid)
 	///
 	/// [`FlashMode::Invalid`] isn't a valid EXIF state, but it's included as the default,
-	///  just in case we're unable to correctly match it to a known state.
+	///  just in case we're unable to correctly match it to a known (valid) state.
 	///
 	/// This type should only ever be evaluated if flash EXIF data is present, so having this as a non-option shouldn't be an issue.
 	pub mode: FlashMode,
