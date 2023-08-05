@@ -22,10 +22,9 @@ runs:
     - name: Cache Rust Dependencies
       uses: Swatinem/rust-cache@v2
       with:
-        key: ${{ inputs.targets }}
         save-if: ${{ inputs.save-cache }}
-        prefix-key: 'v0'
-        shared-key: rust-deps
+        prefix-key: 'v0-rust-deps'
+        shared-key: ${{ inputs.targets }}
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore

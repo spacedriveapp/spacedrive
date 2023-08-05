@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: ./.github/actions/checkout
 
       - name: Remove 32-bit libs
         if: ${{ runner.os == 'Linux' }}

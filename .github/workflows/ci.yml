@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: ./.github/actions/checkout
 
       - uses: dorny/paths-filter@v2
         id: filter
@@ -82,7 +82,7 @@ jobs:
         platform: [ubuntu-20.04, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: ./.github/actions/checkout
 
       - uses: dorny/paths-filter@v2
         id: filter
