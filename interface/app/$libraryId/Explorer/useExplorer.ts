@@ -30,11 +30,11 @@ export interface UseExplorerProps {
 	 * @defaultValue `5`
 	 */
 	rowsBeforeLoadMore?: number;
+	overscan?: number;
 	/**
 	 * @defaultValue `true`
 	 */
 	selectable?: boolean;
-	overscan?: number;
 }
 
 export type ExplorerItemMeta = {
@@ -44,6 +44,10 @@ export type ExplorerItemMeta = {
 
 export type ExplorerItemHash = `${ExplorerItemMeta['type']}:${ExplorerItemMeta['id']}`;
 
+/**
+ * Controls top-level config and state for the explorer.
+ * View- and inspector-specific state is not handled here.
+ */
 export function useExplorer(props: UseExplorerProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 

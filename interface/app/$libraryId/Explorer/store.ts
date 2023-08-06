@@ -34,7 +34,6 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	mediaPlayerVolume: 0.7,
-	multiSelectIndexes: [] as number[],
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: {
 		sourceParentPath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
