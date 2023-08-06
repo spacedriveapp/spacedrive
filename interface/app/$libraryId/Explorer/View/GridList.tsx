@@ -204,9 +204,10 @@ export default ({ children }: { children: RenderItem }) => {
 		selectoUnSelected.current = new Set();
 	}, [explorer.selectedItems]);
 
-	// The item that further selection will move from (shift + arrow for example)
+	// The item that further selection will move from (shift + arrow for example).
 	// This used to be calculated from the last item of selectedItems,
-	// but Set ordering isn't reliable
+	// but Set ordering isn't reliable.
+	// Ref bc we never actually render this.
 	const activeItem = useRef<ExplorerItem | null>(null);
 	if (explorer.selectedItems.size === 0) activeItem.current = null;
 
