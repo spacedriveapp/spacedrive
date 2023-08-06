@@ -30,6 +30,11 @@ export interface UseExplorerProps {
 	 * @defaultValue `5`
 	 */
 	rowsBeforeLoadMore?: number;
+	/**
+	 * @defaultValue `true`
+	 */
+	selectable?: boolean;
+	overscan?: number;
 }
 
 export type ExplorerItemMeta = {
@@ -46,6 +51,7 @@ export function useExplorer(props: UseExplorerProps) {
 		// Default values
 		allowMultiSelect: true,
 		rowsBeforeLoadMore: 5,
+		selectable: true,
 		scrollRef,
 		// Provided values
 		...props,

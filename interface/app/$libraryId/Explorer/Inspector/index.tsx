@@ -49,7 +49,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	showThumbnail?: boolean;
 }
 
-export const Inspector = (props: Props) => {
+export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 	const explorer = useExplorerContext();
 
 	const isDark = useIsDark();
@@ -69,7 +69,13 @@ export const Inspector = (props: Props) => {
 			</div>
 		);
 	} else if (explorer.selectedItems.size === 1) {
-		item = <SingleItem {...props} item={[...explorer.selectedItems][0]!} />;
+		item = (
+			<SingleItem
+				{...props}
+				showThumbnail={showThumbnail}
+				item={[...explorer.selectedItems][0]!}
+			/>
+		);
 	} else {
 		item = <p>Multiple items selected</p>;
 	}

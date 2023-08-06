@@ -103,10 +103,12 @@ const GridListItem = (props: {
 	);
 };
 
+const CHROME_REGEX = /Chrome/;
+
 export default ({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
 
-	const isChrome = /Chrome/.test(navigator.userAgent);
+	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
@@ -125,6 +127,9 @@ export default ({ children }: { children: RenderItem }) => {
 	const grid = useGridList({
 		ref: explorerView.ref,
 		count: explorer.items?.length ?? 0,
+		overscan: explorer.overscan,
+		onLoadMore: explorer.loadMore,
+		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		size:
 			explorerStore.layoutMode === 'grid'
 				? { width: explorerStore.gridItemSize, height: itemHeight }
@@ -134,47 +139,46 @@ export default ({ children }: { children: RenderItem }) => {
 			const item = explorer.items?.[index];
 			return item ? explorerItemHash(item) : undefined;
 		},
-		getItemData: (index) => {
-			return explorer.items?.[index];
-		},
+		getItemData: (index) => explorer.items?.[index],
 		padding: explorerView.padding || explorerStore.layoutMode === 'grid' ? 12 : undefined,
 		gap:
 			explorerView.gap ||
 			(explorerStore.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
-		overscan: explorerView.overscan,
-		onLoadMore: explorer.loadMore,
-		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		top: explorerView.top
 	});
 
-	function getItemId(item: Element) {
-		return item.getAttribute('data-selectable-id') as ExplorerItemHash | null;
+	function getElementId(element: Element) {
+		return element.getAttribute('data-selectable-id') as ExplorerItemHash | null;
 	}
 
-	function getItemIndex(item: Element) {
-		const index = item.getAttribute('data-selectable-index');
+	function getElementIndex(element: Element) {
+		const index = element.getAttribute('data-selectable-index');
 		return index ? Number(index) : null;
 	}
 
-	function getItem(element: Element) {
-		const index = getItemIndex(element);
+	function getElementItem(element: Element) {
+		const index = getElementIndex(element);
 		if (index === null) return null;
 
 		return grid.getItem(index) ?? null;
 	}
 
-	useEffect(() => {
-		const element = explorer.scrollRef.current;
-		if (!element) return;
+	useEffect(
+		() => {
+			const element = explorer.scrollRef.current;
+			if (!element) return;
 
-		const handleScroll = () => {
-			selecto.current?.checkScroll();
-			selecto.current?.findSelectableTargets();
-		};
+			const handleScroll = () => {
+				selecto.current?.checkScroll();
+				selecto.current?.findSelectableTargets();
+			};
 
-		element.addEventListener('scroll', handleScroll);
-		return () => element.removeEventListener('scroll', handleScroll);
-	}, [explorer.scrollRef]);
+			element.addEventListener('scroll', handleScroll);
+			return () => element.removeEventListener('scroll', handleScroll);
+		},
+		// explorer.scrollRef is a stable reference so this only actually runs once
+		[explorer.scrollRef]
+	);
 
 	useEffect(() => {
 		if (!selecto.current) return;
@@ -183,7 +187,7 @@ export default ({ children }: { children: RenderItem }) => {
 		if (set.size === 0) return;
 
 		const items = [...document.querySelectorAll('[data-selectable]')].filter((item) => {
-			const id = getItemId(item);
+			const id = getElementId(item);
 			if (id === null) return;
 
 			const selected = set.has(id);
@@ -208,13 +212,14 @@ export default ({ children }: { children: RenderItem }) => {
 		if (explorer.selectedItems.size !== 0) return;
 
 		selectoUnSelected.current = new Set();
+		// Accessing refs during render is bad
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
-		if (!explorerView.selectable) return;
+		if (!explorer.selectable) return;
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;
@@ -347,13 +352,13 @@ export default ({ children }: { children: RenderItem }) => {
 						// Might seem kinda weird but it's the same behaviour as Finder.
 						activeItem.current =
 							allSelected.reduce((least, current) => {
-								const currentItem = getItem(current);
+								const currentItem = getElementItem(current);
 								if (!currentItem) return least;
 
 								if (!least) return currentItem;
 
 								return currentItem.index < least.index ? currentItem : least;
-							}, null as ReturnType<typeof getItem>)?.data ?? null;
+							}, null as ReturnType<typeof getElementItem>)?.data ?? null;
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
@@ -376,7 +381,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 							if (!el) return;
 
-							const item = getItem(el);
+							const item = getElementItem(el);
 
 							if (!item) return;
 
@@ -405,13 +410,13 @@ export default ({ children }: { children: RenderItem }) => {
 							const unselectedItems: ExplorerItemHash[] = [];
 
 							e.added.forEach((el) => {
-								const item = getItem(el);
+								const item = getElementItem(el);
 								if (!item) return;
 								explorer.addSelectedItem(item.data);
 							});
 
 							e.removed.forEach((el) => {
-								const item = getItem(el);
+								const item = getElementItem(el);
 								if (!item) return;
 
 								if (document.contains(el)) explorer.removeSelectedItem(item.data);
@@ -435,13 +440,13 @@ export default ({ children }: { children: RenderItem }) => {
 							const elements = [...e.added, ...e.removed];
 
 							const items = elements.reduce((items, el) => {
-								const item = el && getItem(el);
+								const item = el && getElementItem(el);
 
 								if (!item) return items;
 
 								columns.add(item.column);
 								return [...items, item];
-							}, [] as NonNullable<ReturnType<typeof getItem>>[]);
+							}, [] as NonNullable<ReturnType<typeof getElementItem>>[]);
 
 							if (columns.size > 1 && selectoLastColumn.current === undefined) {
 								items.sort((a, b) => a.column - b.column);
