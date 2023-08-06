@@ -198,18 +198,18 @@ export default ({ children }: { children: RenderItem }) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [grid.columnCount, explorer.items]);
 
-	useEffect(() => {
-		if (explorer.selectedItems.size !== 0) return;
-
-		selectoUnSelected.current = new Set();
-	}, [explorer.selectedItems]);
-
 	// The item that further selection will move from (shift + arrow for example).
 	// This used to be calculated from the last item of selectedItems,
 	// but Set ordering isn't reliable.
 	// Ref bc we never actually render this.
 	const activeItem = useRef<ExplorerItem | null>(null);
-	if (explorer.selectedItems.size === 0) activeItem.current = null;
+
+	useEffect(() => {
+		if (explorer.selectedItems.size !== 0) return;
+
+		selectoUnSelected.current = new Set();
+		activeItem.current = null;
+	}, [explorer.selectedItems]);
 
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
 		if (explorer.selectedItems.size > 0) e.preventDefault();
