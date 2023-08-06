@@ -158,8 +158,9 @@ export default ({ children }: { children: RenderItem }) => {
 
 	function getItem(element: Element) {
 		const index = getItemIndex(element);
-		const item = index !== null ? grid.getItem(index) : undefined;
-		return item;
+		if (index === null) return null;
+
+		return grid.getItem(index) ?? null;
 	}
 
 	useEffect(() => {
@@ -203,14 +204,18 @@ export default ({ children }: { children: RenderItem }) => {
 		selectoUnSelected.current = new Set();
 	}, [explorer.selectedItems]);
 
+	// The item that further selection will move from (shift + arrow for example)
+	// This used to be calculated from the last item of selectedItems,
+	// but Set ordering isn't reliable
+	const activeItem = useRef<ExplorerItem | null>(null);
+	if (explorer.selectedItems.size === 0) activeItem.current = null;
+
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		if (explorer.selectedItems.size > 0) {
-			e.preventDefault();
-		}
+		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		if (!explorerView.selectable) return;
 
-		const lastItem = [...explorer.selectedItems][explorer.selectedItems.size - 1];
+		const lastItem = activeItem.current;
 		if (!lastItem) return;
 
 		const lastItemIndex = explorer.items?.findIndex((item) => item === lastItem);
@@ -264,6 +269,8 @@ export default ({ children }: { children: RenderItem }) => {
 				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
 			}
 		}
+
+		activeItem.current = newSelectedItem.data;
 
 		if (
 			explorer.scrollRef.current &&
@@ -332,6 +339,20 @@ export default ({ children }: { children: RenderItem }) => {
 						getExplorerStore().isDragging = false;
 						selectoLastColumn.current = undefined;
 						setDragFromThumbnail(false);
+
+						const allSelected = selecto.current?.getSelectedTargets() ?? [];
+
+						// Sets active item to selected item with least index.
+						// Might seem kinda weird but it's the same behaviour as Finder.
+						activeItem.current =
+							allSelected.reduce((least, current) => {
+								const currentItem = getItem(current);
+								if (!currentItem) return least;
+
+								if (!least) return currentItem;
+
+								return currentItem.index < least.index ? currentItem : least;
+							}, null as ReturnType<typeof getItem>)?.data ?? null;
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
@@ -547,7 +568,11 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							onMouseDown={() => {
 								const item = grid.getItem(index);
-								if (item) selectoLastColumn.current = item.column;
+
+								if (!item) return;
+
+								selectoLastColumn.current = item.column;
+								activeItem.current = item.data;
 							}}
 						>
 							{children}
