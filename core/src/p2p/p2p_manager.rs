@@ -24,7 +24,6 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::Libraries,
 	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
