@@ -110,7 +110,7 @@ async fn execute_indexer_save_step(
 					(
 						location::NAME,
 						json!(prisma_sync::location::SyncId {
-							pub_id: pub_id.clone()
+							pub_id: location.pub_id.clone()
 						}),
 					),
 					location_id::set(Some(location.id)),

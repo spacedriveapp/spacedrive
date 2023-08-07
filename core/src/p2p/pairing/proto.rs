@@ -10,8 +10,6 @@ use uuid::Uuid;
 
 use crate::node::Platform;
 
-use super::ModelData;
-
 /// Terminology:
 /// Instance - DB model which represents a single `.db` file.
 /// Originator - begins the pairing process and is asking to join a library that will be selected by the responder.
@@ -60,19 +58,6 @@ pub enum PairingResponse {
 pub enum PairingConfirmation {
 	Ok,
 	Error,
-}
-
-/// 4. Sync the data in the database with the originator.
-/// Sent `Responder` -> `Originator`.
-#[derive(Debug, PartialEq)]
-pub enum SyncData {
-	Data {
-		/// Only included in first request and is an **estimate** of how many models will be sent.
-		/// It will likely be wrong so should be constrained to being used for UI purposes only.
-		total_models: Option<i64>,
-		data: ModelData,
-	},
-	Finished,
 }
 
 impl Instance {
@@ -222,50 +207,6 @@ impl PairingConfirmation {
 	}
 }
 
-impl SyncData {
-	pub async fn from_stream(
-		stream: &mut (impl AsyncRead + Unpin),
-	) -> Result<Self, (&'static str, decode::Error)> {
-		let discriminator = stream
-			.read_u8()
-			.await
-			.map_err(|e| ("discriminator", e.into()))?;
-
-		match discriminator {
-			0 => Ok(Self::Data {
-				total_models: match stream
-					.read_i64_le()
-					.await
-					.map_err(|e| ("total_models", e.into()))?
-				{
-					0 => None,
-					n => Some(n),
-				},
-				data: rmp_serde::from_slice(&decode::buf(stream).await.map_err(|e| ("data", e))?)
-					.unwrap(), // TODO: Error handling
-			}),
-			1 => Ok(Self::Finished),
-			_ => todo!(), // TODO: Error handling
-		}
-	}
-
-	pub fn to_bytes(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
-		let mut buf = Vec::new();
-		match self {
-			Self::Data { total_models, data } => {
-				buf.push(0);
-				buf.extend((total_models.unwrap_or(0) as i64).to_le_bytes());
-				encode::buf(&mut buf, &rmp_serde::to_vec_named(data)?);
-			}
-			Self::Finished => {
-				buf.push(1);
-			}
-		}
-
-		Ok(buf)
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use sd_p2p::spacetunnel::Identity;
@@ -340,25 +281,6 @@ mod tests {
 
 			let mut cursor = std::io::Cursor::new(original.to_bytes());
 			let result = PairingConfirmation::from_stream(&mut cursor).await.unwrap();
-			assert_eq!(original, result);
-		}
-
-		{
-			let original = SyncData::Data {
-				total_models: Some(123),
-				data: ModelData::Location(vec![]),
-			};
-
-			let mut cursor = std::io::Cursor::new(original.to_bytes().unwrap());
-			let result = SyncData::from_stream(&mut cursor).await.unwrap();
-			assert_eq!(original, result);
-		}
-
-		{
-			let original = SyncData::Finished;
-
-			let mut cursor = std::io::Cursor::new(original.to_bytes().unwrap());
-			let result = SyncData::from_stream(&mut cursor).await.unwrap();
 			assert_eq!(original, result);
 		}
 	}
