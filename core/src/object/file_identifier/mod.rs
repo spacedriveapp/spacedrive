@@ -1,6 +1,6 @@
 use crate::{
 	job::JobError,
-	library::LoadedLibrary,
+	library::Library,
 	location::file_path_helper::{
 		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
 	},
@@ -9,7 +9,6 @@ use crate::{
 	util::{db::maybe_missing, error::FileIOError},
 };
 
-use sd_core_sync::SyncManager;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma_sync;
 use sd_sync::{CRDTOperation, OperationFactory};
@@ -91,7 +90,7 @@ impl FileMetadata {
 }
 
 async fn identifier_job_step(
-	LoadedLibrary { db, sync, .. }: &LoadedLibrary,
+	Library { db, sync, .. }: &Library,
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
@@ -308,7 +307,7 @@ async fn identifier_job_step(
 fn file_path_object_connect_ops<'db>(
 	file_path_id: Uuid,
 	object_id: Uuid,
-	sync: &SyncManager,
+	sync: &crate::sync::Manager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	#[cfg(debug_assertions)]
@@ -338,7 +337,7 @@ async fn process_identifier_file_paths(
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
 	cursor: file_path::id::Type,
-	library: &LoadedLibrary,
+	library: &Library,
 	orphan_count: usize,
 ) -> Result<(usize, usize, file_path::id::Type), JobError> {
 	trace!(

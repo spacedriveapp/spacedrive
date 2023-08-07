@@ -117,7 +117,7 @@ impl InvalidRequests {
 #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
-		let ctx: &crate::library::LoadedLibrary = &$ctx; // Assert the context is the correct type
+		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
@@ -145,7 +145,7 @@ macro_rules! invalidate_query {
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::LoadedLibrary = &$ctx; // Assert the context is the correct type
+		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
@@ -182,7 +182,7 @@ macro_rules! invalidate_query {
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr, $result_ty:ty: $result:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::LoadedLibrary = &$ctx; // Assert the context is the correct type
+		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{

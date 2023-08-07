@@ -24,13 +24,13 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::LibraryManager,
-	node::{NodeConfig, NodeConfigManager},
+	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	Node,
 };
 
 use super::{
-	sync::{NetworkedLibraryManager, SyncMessage},
+	sync::{NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -70,12 +70,12 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	node_config_manager: Arc<NodeConfigManager>,
+	node_config_manager: Arc<config::Manager>,
 }
 
 impl P2PManager {
 	pub async fn new(
-		node_config: Arc<NodeConfigManager>,
+		node_config: Arc<config::Manager>,
 	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
@@ -122,12 +122,7 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(
-		&self,
-		mut stream: ManagerStream<PeerMetadata>,
-		library_manager: Arc<LibraryManager>,
-		nlm: Arc<NetworkedLibraryManager>,
-	) {
+	pub fn start(&self, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
 		tokio::spawn({
 			let manager = self.manager.clone();
 			let metadata_manager = self.metadata_manager.clone();
@@ -135,6 +130,7 @@ impl P2PManager {
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = self.spacedrop_progress.clone();
 			let pairing = self.pairing.clone();
+			let node = node.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -154,19 +150,19 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							nlm.peer_discovered(event).await;
+							node.nlm.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, metadata } => {
 							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
-							nlm.peer_expired(id).await;
+							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {
 							debug!("Peer '{}' connected", event.peer_id);
-							nlm.peer_connected(event.peer_id).await;
+							node.nlm.peer_connected(event.peer_id).await;
 
 							if event.establisher {
 								let manager = manager.clone();
-								let nlm = nlm.clone();
+								let nlm = node.nlm.clone();
 								let instances = metadata_manager.get().instances;
 								tokio::spawn(async move {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
@@ -176,7 +172,7 @@ impl P2PManager {
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
-							nlm.peer_disconnected(peer_id).await;
+							node.nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
@@ -184,9 +180,7 @@ impl P2PManager {
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
-
-							let library_manager = library_manager.clone();
-							let nlm = nlm.clone();
+							let node = node.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -254,11 +248,17 @@ impl P2PManager {
 									}
 									Header::Pair => {
 										pairing
-											.responder(event.peer_id, stream, &library_manager)
+											.responder(
+												event.peer_id,
+												stream,
+												&node.libraries,
+												node.clone(),
+											)
 											.await;
 									}
 									Header::Sync(library_id) => {
 										// Header -> Tunnel -> SyncMessage
+										use sd_core_sync::ingest;
 
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
@@ -266,7 +266,7 @@ impl P2PManager {
 											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
 										let library =
-											library_manager.get_library(&library_id).await.unwrap();
+											node.libraries.get_library(&library_id).await.unwrap();
 
 										dbg!(&msg);
 
@@ -276,16 +276,16 @@ impl P2PManager {
 											SyncMessage::NewOperations => {
 												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
 												// TODO: Throw tunnel around like this makes it soooo confusing.
-												ingest.notify(tunnel, event.peer_id).await;
+												ingest
+													.event_tx
+													.send(ingest::Event::Notification(
+														ingest::NotificationEvent { tunnel },
+													))
+													.await
+													.ok();
 											}
 											SyncMessage::OperationsRequest(_) => {
-												nlm.exchange_sync_ops(
-													tunnel,
-													&event.peer_id,
-													library_id,
-													&library.sync,
-												)
-												.await;
+												todo!("this should be received somewhere else!");
 											}
 											SyncMessage::OperationsRequestResponse(_) => {
 												todo!("unreachable but add proper error handling")
@@ -294,7 +294,7 @@ impl P2PManager {
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											nlm,
+											node.nlm.clone(),
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,
@@ -345,7 +345,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync(
-		nlm: Arc<NetworkedLibraryManager>,
+		nlm: Arc<NetworkedLibraries>,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		instances: Vec<RemoteIdentity>,
@@ -368,7 +368,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync_handler(
-		nlm: Arc<NetworkedLibraryManager>,
+		nlm: Arc<NetworkedLibraries>,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,

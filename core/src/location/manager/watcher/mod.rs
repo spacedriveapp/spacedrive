@@ -1,4 +1,4 @@
-use crate::{library::LoadedLibrary, prisma::location, util::db::maybe_missing, Node};
+use crate::{library::Library, prisma::location, util::db::maybe_missing, Node};
 
 use std::{
 	collections::HashSet,
@@ -50,7 +50,7 @@ const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 trait EventHandler<'lib> {
 	fn new(
 		location_id: location::id::Type,
-		library: &'lib Arc<LoadedLibrary>,
+		library: &'lib Arc<Library>,
 		node: &'lib Arc<Node>,
 	) -> Self
 	where
@@ -77,7 +77,7 @@ pub(super) struct LocationWatcher {
 impl LocationWatcher {
 	pub(super) async fn new(
 		location: location::Data,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		node: Arc<Node>,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
@@ -127,7 +127,7 @@ impl LocationWatcher {
 		location_id: location::id::Type,
 		location_pub_id: Uuid,
 		node: Arc<Node>,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
 		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
@@ -191,7 +191,7 @@ impl LocationWatcher {
 		event: Event,
 		event_handler: &mut impl EventHandler<'lib>,
 		node: &'lib Node,
-		_library: &'lib LoadedLibrary,
+		_library: &'lib Library,
 		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
 		if !check_event(&event, ignore_paths) {
@@ -207,7 +207,7 @@ impl LocationWatcher {
 		//     return Ok(());
 		// };
 
-		if !node.location_manager.is_online(&location_pub_id).await {
+		if !node.locations.is_online(&location_pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());
 		}
