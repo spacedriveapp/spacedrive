@@ -253,6 +253,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											childClassName,
 											props.className
 										)}
+										scrolling={!props.mediaControls ? 'no' : 'yes'}
 										draggable={false}
 									/>
 								);
