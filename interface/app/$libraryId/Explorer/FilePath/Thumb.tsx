@@ -242,6 +242,20 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 									/>
 								);
+							case 'Text':
+								return (
+									<iframe
+										src={src}
+										onLoad={onLoad}
+										onError={onError}
+										className={clsx(
+											'h-full w-full border-0 bg-white',
+											childClassName,
+											props.className
+										)}
+										draggable={false}
+									/>
+								);
 							case 'Video':
 								return (
 									<video
