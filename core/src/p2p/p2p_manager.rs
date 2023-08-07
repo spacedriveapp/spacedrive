@@ -130,6 +130,7 @@ impl P2PManager {
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = self.spacedrop_progress.clone();
 			let pairing = self.pairing.clone();
+			let node = node.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -179,9 +180,7 @@ impl P2PManager {
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
-
-							let libraries = node.libraries.clone();
-							let nlm = node.nlm.clone();
+							let node = node.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -249,7 +248,12 @@ impl P2PManager {
 									}
 									Header::Pair => {
 										pairing
-											.responder(event.peer_id, stream, &libraries, node)
+											.responder(
+												event.peer_id,
+												stream,
+												&node.libraries,
+												node.clone(),
+											)
 											.await;
 									}
 									Header::Sync(library_id) => {
@@ -262,7 +266,7 @@ impl P2PManager {
 											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
 										let library =
-											libraries.get_library(&library_id).await.unwrap();
+											node.libraries.get_library(&library_id).await.unwrap();
 
 										dbg!(&msg);
 
@@ -290,7 +294,7 @@ impl P2PManager {
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											nlm,
+											node.nlm.clone(),
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,

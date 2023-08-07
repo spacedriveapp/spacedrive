@@ -109,6 +109,7 @@ impl ThumbnailRemoverActor {
 									}
 								}
 								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::InstancesModified(_) => {}
 								LibraryManagerEvent::Delete(library) => {
 									if databases_tx
 										.send(DatabaseMessage::Remove(library.id))
