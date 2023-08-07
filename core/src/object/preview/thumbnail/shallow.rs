@@ -31,7 +31,7 @@ pub async fn shallow_thumbnailer(
 ) -> Result<(), JobError> {
 	let LoadedLibrary { db, .. } = library;
 
-	let thumbnail_dir = init_thumbnail_dir(node.services.config.data_directory()).await?;
+	let thumbnail_dir = init_thumbnail_dir(node.config.data_directory()).await?;
 
 	let location_id = location.id;
 	let location_path = match &location.path {

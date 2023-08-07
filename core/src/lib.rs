@@ -16,7 +16,6 @@ pub use sd_prisma::*;
 
 use std::{
 	fmt,
-	ops::Deref,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -46,9 +45,10 @@ pub(crate) mod preferences;
 pub mod util;
 pub(crate) mod volume;
 
+/// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
-/// This can easily be passed around as a context to the rest of the core.
-pub struct NodeServices {
+pub struct Node {
+	pub data_dir: PathBuf,
 	pub config: Arc<NodeConfigManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: LocationManager,
@@ -57,13 +57,6 @@ pub struct NodeServices {
 	pub notifications: NotificationManager,
 	pub nlm: Arc<NetworkedLibraryManager>,
 	pub thumbnail_remover: ThumbnailRemoverActor,
-}
-
-/// Represents a single running instance of the Spacedrive core.
-pub struct Node {
-	pub data_dir: PathBuf,
-	// TODO: Merge content onto this struct
-	pub services: NodeServices,
 	pub library_manager: Arc<LibraryManager>,
 }
 
@@ -72,15 +65,6 @@ impl fmt::Debug for Node {
 		f.debug_struct("Node")
 			.field("data_dir", &self.data_dir)
 			.finish()
-	}
-}
-
-// This isn't idiomatic but it will work for now
-impl Deref for Node {
-	type Target = NodeServices;
-
-	fn deref(&self) -> &Self::Target {
-		&self.services
 	}
 }
 
@@ -108,19 +92,17 @@ impl Node {
 		let library_manager = LibraryManager::new(data_dir.join("libraries")).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
-			services: NodeServices {
-				job_manager,
-				location_manager,
-				nlm: NetworkedLibraryManager::new(p2p.clone(), &library_manager),
-				notifications: NotificationManager::new(),
-				p2p,
-				config,
-				event_bus,
-				thumbnail_remover: ThumbnailRemoverActor::new(
-					data_dir.to_path_buf(),
-					library_manager.clone(),
-				),
-			},
+			job_manager,
+			location_manager,
+			nlm: NetworkedLibraryManager::new(p2p.clone(), &library_manager),
+			notifications: NotificationManager::new(),
+			p2p,
+			config,
+			event_bus,
+			thumbnail_remover: ThumbnailRemoverActor::new(
+				data_dir.to_path_buf(),
+				library_manager.clone(),
+			),
 			library_manager,
 		});
 

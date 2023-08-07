@@ -167,7 +167,7 @@ impl LibraryManager {
 			config_path.display()
 		);
 
-		let node_cfg = node.services.config.get().await;
+		let node_cfg = node.config.get().await;
 		let now = Utc::now().fixed_offset();
 		let library = self
 			.load(
@@ -410,7 +410,6 @@ impl LibraryManager {
 			.await?
 		{
 			if let Err(e) = node
-				.services
 				.location_manager
 				.add(location.id, library.clone())
 				.await
@@ -419,13 +418,7 @@ impl LibraryManager {
 			};
 		}
 
-		if let Err(e) = node
-			.services
-			.job_manager
-			.clone()
-			.cold_resume(node, &library)
-			.await
-		{
+		if let Err(e) = node.job_manager.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
