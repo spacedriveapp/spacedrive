@@ -76,13 +76,13 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
-		sync_manager: sync::Manager,
+		sync: Arc<sync::Manager>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,
 			config,
+			sync,
 			db: db.clone(),
-			sync: Arc::new(sync_manager),
 			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),

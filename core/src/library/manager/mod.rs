@@ -388,7 +388,7 @@ impl Libraries {
 			// key_manager,
 			db,
 			&node,
-			sync.manager,
+			Arc::new(sync.manager),
 		)
 		.await;
 
