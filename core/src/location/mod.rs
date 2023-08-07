@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
-	library::Library,
+	library::LoadedLibrary,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -9,6 +9,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::error::FileIOError,
+	Node,
 };
 
 use std::{
@@ -62,7 +63,8 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
-		library: &Arc<Library>,
+		node: &Node,
+		library: &Arc<LoadedLibrary>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
@@ -126,14 +128,14 @@ impl LocationCreateArgs {
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
-				Ok(library
-					.location_manager()
+				Ok(node
+					.location_manager
 					.add(location.data.id, library.clone())
 					.await?)
 			})
 			.await
 			{
-				delete_location(library, location.data.id).await?;
+				delete_location(node, library, location.data.id).await?;
 				Err(err)?;
 			}
 
@@ -147,7 +149,8 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
-		library: &Arc<Library>,
+		node: &Node,
+		library: &Arc<LoadedLibrary>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
@@ -191,8 +194,7 @@ impl LocationCreateArgs {
 				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
-			library
-				.location_manager()
+			node.location_manager
 				.add(location.data.id, library.clone())
 				.await?;
 
@@ -225,8 +227,8 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
-		let Library { sync, db, .. } = &**library;
+	pub async fn update(self, library: &Arc<LoadedLibrary>) -> Result<(), LocationError> {
+		let LoadedLibrary { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
 			.include(location_with_indexer_rules::include())
@@ -343,7 +345,7 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	library: &Library,
+	library: &LoadedLibrary,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
 	library
@@ -353,7 +355,7 @@ pub fn find_location(
 }
 
 async fn link_location_and_indexer_rules(
-	library: &Library,
+	library: &LoadedLibrary,
 	location_id: location::id::Type,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
@@ -373,7 +375,8 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -398,13 +401,14 @@ pub async fn scan_location(
 		location: location_base_data,
 		sub_path: None,
 	})
-	.spawn(library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn scan_location_sub_path(
-	library: &Arc<Library>,
+	node: &Arc<Node>,
+	library: &Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
@@ -435,13 +439,14 @@ pub async fn scan_location_sub_path(
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
-	.spawn(library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(
-	library: Arc<Library>,
+	node: Arc<Node>,
+	library: Arc<LoadedLibrary>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobError> {
@@ -454,18 +459,18 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::shallow(&location, &sub_path, &library).await?;
+	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
+	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }
 
 pub async fn relink_location(
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let Library { db, id, sync, .. } = &**library;
+	let LoadedLibrary { db, id, sync, .. } = &**library;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -506,13 +511,13 @@ pub struct CreatedLocationResult {
 }
 
 async fn create_location(
-	library: &Arc<Library>,
+	library: &Arc<LoadedLibrary>,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 	dry_run: bool,
 ) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &**library;
+	let LoadedLibrary { db, sync, .. } = &**library;
 
 	let mut path = location_path.as_ref().to_path_buf();
 
@@ -643,11 +648,11 @@ async fn create_location(
 }
 
 pub async fn delete_location(
-	library: &Arc<Library>,
+	node: &Node,
+	library: &Arc<LoadedLibrary>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	library
-		.location_manager()
+	node.location_manager
 		.remove(location_id, library.clone())
 		.await?;
 
@@ -690,11 +695,11 @@ pub async fn delete_location(
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
-	library: &Library,
+	library: &LoadedLibrary,
 	location_id: location::id::Type,
 	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Result<(), QueryError> {
-	let Library { db, .. } = library;
+	let LoadedLibrary { db, .. } = library;
 
 	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],

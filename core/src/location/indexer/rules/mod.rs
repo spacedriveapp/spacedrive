@@ -1,7 +1,7 @@
 pub mod seed;
 
 use crate::{
-	library::Library,
+	library::LoadedLibrary,
 	prisma::indexer_rule,
 	util::{
 		db::{maybe_missing, MissingFieldError},
@@ -84,7 +84,7 @@ pub struct IndexerRuleCreateArgs {
 impl IndexerRuleCreateArgs {
 	pub async fn create(
 		self,
-		library: &Library,
+		library: &LoadedLibrary,
 	) -> Result<Option<indexer_rule::Data>, IndexerRuleError> {
 		debug!(
 			"{} a new indexer rule (name = {}, params = {:?})",

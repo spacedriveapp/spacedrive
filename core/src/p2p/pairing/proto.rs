@@ -60,19 +60,6 @@ pub enum PairingConfirmation {
 	Error,
 }
 
-/// 4. Sync the data in the database with the originator.
-/// Sent `Responder` -> `Originator`.
-// #[derive(Debug, PartialEq)]
-// pub enum SyncData {
-// 	Data {
-// 		/// Only included in first request and is an **estimate** of how many models will be sent.
-// 		/// It will likely be wrong so should be constrained to being used for UI purposes only.
-// 		total_models: Option<i64>,
-// 		data: ModelData,
-// 	},
-// 	Finished,
-// }
-
 impl Instance {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
@@ -219,52 +206,6 @@ impl PairingConfirmation {
 		}
 	}
 }
-
-// impl SyncData {
-// 	pub async fn from_stream(
-// 		stream: &mut (impl AsyncRead + Unpin),
-// 	) -> Result<Self, (&'static str, decode::Error)> {
-// 		let discriminator = stream
-// 			.read_u8()
-// 			.await
-// 			.map_err(|e| ("discriminator", e.into()))?;
-
-// 		match discriminator {
-// 			0 => Ok(Self::Data {
-// 				total_models: match stream
-// 					.read_i64_le()
-// 					.await
-// 					.map_err(|e| ("total_models", e.into()))?
-// 				{
-// 					0 => None,
-// 					n => Some(n),
-// 				},
-// 				data: rmp_serde::from_slice(
-// 					&decode::buf(stream).await.map_err(|e| ("data", e.into()))?,
-// 				)
-// 				.unwrap(), // TODO: Error handling
-// 			}),
-// 			1 => Ok(Self::Finished),
-// 			_ => todo!(), // TODO: Error handling
-// 		}
-// 	}
-
-// 	pub fn to_bytes(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
-// 		let mut buf = Vec::new();
-// 		match self {
-// 			Self::Data { total_models, data } => {
-// 				buf.push(0);
-// 				buf.extend((total_models.unwrap_or(0) as i64).to_le_bytes());
-// 				encode::buf(&mut buf, &rmp_serde::to_vec_named(data)?);
-// 			}
-// 			Self::Finished => {
-// 				buf.push(1);
-// 			}
-// 		}
-
-// 		Ok(buf)
-// 	}
-// }
 
 #[cfg(test)]
 mod tests {

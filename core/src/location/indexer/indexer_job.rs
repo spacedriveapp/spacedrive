@@ -198,8 +198,7 @@ impl StatefulJob for IndexerJobInit {
 		let scan_read_time = scan_start.elapsed();
 		let to_remove = to_remove.collect::<Vec<_>>();
 
-		ctx.library
-			.manager
+		ctx.node
 			.thumbnail_remover
 			.remove_cas_ids(
 				to_remove

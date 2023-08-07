@@ -1,3 +1,5 @@
+#![allow(dead_code, unused)] // TODO: Remove once sorted outs
+
 use std::{
 	collections::HashMap,
 	sync::{
@@ -173,7 +175,7 @@ impl PairingManager {
 						.await
 						.unwrap();
 
-					let library = library_manager.get_library(library.id).await.unwrap();
+					let library = library_manager.get_library(&library.id).await.unwrap();
 
 					library
 						.db
@@ -264,7 +266,7 @@ impl PairingManager {
     		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
-		let library = library_manager.get_library(library_id).await.unwrap();
+		let library = library_manager.get_library(&library_id).await.unwrap();
 
 		// TODO: Rollback this on pairing failure
 		instance::Create {

@@ -4,7 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
 		StatefulJob, WorkerContext,
 	},
-	library::Library,
+	library::LoadedLibrary,
 	location::file_path_helper::IsolatedFilePathData,
 	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
@@ -68,7 +68,7 @@ impl StatefulJob for FileEraserJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &*ctx.library;
+		let LoadedLibrary { db, .. } = &*ctx.library;
 
 		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
 

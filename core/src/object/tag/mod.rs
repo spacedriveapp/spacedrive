@@ -9,7 +9,7 @@ use specta::Type;
 
 use uuid::Uuid;
 
-use crate::{library::Library, prisma::tag};
+use crate::{library::LoadedLibrary, prisma::tag};
 
 #[derive(Type, Deserialize, Clone)]
 pub struct TagCreateArgs {
@@ -20,7 +20,7 @@ pub struct TagCreateArgs {
 impl TagCreateArgs {
 	pub async fn exec(
 		self,
-		Library { db, sync, .. }: &Library,
+		LoadedLibrary { db, sync, .. }: &LoadedLibrary,
 	) -> prisma_client_rust::Result<tag::Data> {
 		let pub_id = Uuid::new_v4().as_bytes().to_vec();
 		let date_created: DateTime<FixedOffset> = Utc::now().into();

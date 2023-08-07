@@ -2,7 +2,7 @@
 import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
+import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Path, Snowflake } from 'phosphor-react';
 import { HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
@@ -68,6 +68,8 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	});
 
 	const item = data?.item;
+
+	const { data: fileFullPath } = useLibraryQuery(['files.getPath', item?.id || -1]);
 
 	// map array of numbers into string
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
@@ -192,6 +194,17 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 											{dayjs(filePathData?.date_indexed).format(
 												'MMM Do YYYY'
 											)}
+										</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
+							{fileFullPath && (
+								<Tooltip label={fileFullPath}>
+									<MetaTextLine>
+										<InspectorIcon component={Path} />
+										<MetaKeyName className="mr-1.5">Path</MetaKeyName>
+										<MetaValue>
+											{fileFullPath}
 										</MetaValue>
 									</MetaTextLine>
 								</Tooltip>

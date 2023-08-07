@@ -2,7 +2,7 @@ use crate::{
 	api::utils::library,
 	invalidate_query,
 	job::Job,
-	library::Library,
+	library::LoadedLibrary,
 	location::{
 		file_path_helper::{
 			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
@@ -45,6 +45,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object::include!({ file_paths media_data }))
 						.exec()
 						.await?)
+				})
+		})
+		.procedure("getPath", {
+			R.with2(library())
+				.query(|(_, library), id: i32| async move {
+					let isolated_path = IsolatedFilePathData::try_from(
+						library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(id))
+							.select(file_path_to_isolate::select())
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
+					)
+					.map_err(LocationError::MissingField)?;
+
+					let location_id = isolated_path.location_id();
+					let location_path = find_location(&library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?
+						.path
+						.ok_or(LocationError::MissingPath(location_id))?;
+
+					Ok(Path::new(&location_path)
+						.join(&isolated_path)
+						.to_str()
+						.map(|str| str.to_string()))
 				})
 		})
 		.procedure("setNote", {
@@ -133,44 +163,59 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		// .procedure("encryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileEncryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		// .procedure("decryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-		// 			Job::new(args).spawn(&library).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileDecryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileDeleterJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileDeleterJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileEraserJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileEraserJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCutterJobInit| async move {
-					Job::new(args).spawn(&library).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCutterJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("renameFile", {
@@ -212,7 +257,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						to,
 					}: RenameOne,
 					location_path: impl AsRef<Path>,
-					library: &Library,
+					library: &LoadedLibrary,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
 					let iso_file_path = IsolatedFilePathData::try_from(
@@ -282,7 +327,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						from_file_path_ids,
 					}: RenameMany,
 					location_path: impl AsRef<Path>,
-					library: &Library,
+					library: &LoadedLibrary,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
 
