@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::JobError,
-	library::LoadedLibrary,
+	library::Library,
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, IsolatedFilePathData,
@@ -26,9 +26,9 @@ pub struct ShallowFileIdentifierJobState {
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library: &LoadedLibrary,
+	library: &Library,
 ) -> Result<(), JobError> {
-	let LoadedLibrary { db, .. } = library;
+	let Library { db, .. } = library;
 
 	debug!("Identifying orphan File Paths...");
 

@@ -8,11 +8,7 @@ mod manager;
 use sd_prisma::prisma::*;
 use sd_sync::*;
 
-use std::{
-	collections::{BTreeMap, HashMap},
-	fmt,
-	sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 pub use ingest::*;
 pub use manager::*;

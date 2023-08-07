@@ -11,7 +11,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::{api::Ctx, library::LoadedLibrary};
+use crate::{api::Ctx, library::Library};
 
 /// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
 #[derive(Clone, Serialize, Deserialize, Type)]
@@ -32,10 +32,10 @@ impl MwArgMapper for LibraryArgsLike {
 	}
 }
 
-pub(crate) fn library() -> impl MwV3<Ctx, NewCtx = (Ctx, Arc<LoadedLibrary>)> {
+pub(crate) fn library() -> impl MwV3<Ctx, NewCtx = (Ctx, Arc<Library>)> {
 	MwArgMapperMiddleware::<LibraryArgsLike>::new().mount(|mw, ctx: Ctx, library_id| async move {
 		let library = ctx
-			.library_manager
+			.libraries
 			.get_library(&library_id)
 			.await
 			.ok_or_else(|| {
