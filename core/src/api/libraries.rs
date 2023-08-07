@@ -29,7 +29,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("list", {
 			R.query(|ctx, _: ()| async move {
 				ctx.libraries
-					.get_all_libraries()
+					.get_all()
 					.await
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {

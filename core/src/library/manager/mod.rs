@@ -210,7 +210,7 @@ impl Libraries {
 	}
 
 	/// `LoadedLibrary.id` can be used to get the library's id.
-	pub async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
+	pub async fn get_all(&self) -> Vec<Arc<Library>> {
 		self.libraries
 			.read()
 			.await

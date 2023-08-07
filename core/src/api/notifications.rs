@@ -41,45 +41,44 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("get", {
 			R.query(|ctx, _: ()| async move {
 				let mut notifications = ctx.config.get().await.notifications;
-				for lib_notifications in
-					join_all(ctx.libraries.get_all_libraries().await.into_iter().map(
-						|library| async move {
-							library
-								.db
-								.notification()
-								.find_many(vec![])
-								.exec()
-								.await
-								.map_err(|err| {
-									rspc::Error::new(
-										ErrorCode::InternalServerError,
-										format!(
-											"Failed to get notifications for library '{}': {}",
-											library.id, err
-										),
-									)
-								})?
-								.into_iter()
-								.map(|n| {
-									Ok(Notification {
-										id: NotificationId::Library(library.id, n.id as u32),
-										data: rmp_serde::from_slice(&n.data).map_err(|err| {
-											rspc::Error::new(
-												ErrorCode::InternalServerError,
-												format!(
+				for lib_notifications in join_all(ctx.libraries.get_all().await.into_iter().map(
+					|library| async move {
+						library
+							.db
+							.notification()
+							.find_many(vec![])
+							.exec()
+							.await
+							.map_err(|err| {
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									format!(
+										"Failed to get notifications for library '{}': {}",
+										library.id, err
+									),
+								)
+							})?
+							.into_iter()
+							.map(|n| {
+								Ok(Notification {
+									id: NotificationId::Library(library.id, n.id as u32),
+									data: rmp_serde::from_slice(&n.data).map_err(|err| {
+										rspc::Error::new(
+											ErrorCode::InternalServerError,
+											format!(
 												"Failed to get notifications for library '{}': {}",
 												library.id, err
 											),
-											)
-										})?,
-										read: false,
-										expires: n.expires_at.map(Into::into),
-									})
+										)
+									})?,
+									read: false,
+									expires: n.expires_at.map(Into::into),
 								})
-								.collect::<Result<Vec<Notification>, rspc::Error>>()
-						},
-					))
-					.await
+							})
+							.collect::<Result<Vec<Notification>, rspc::Error>>()
+					},
+				))
+				.await
 				{
 					notifications.extend(lib_notifications?);
 				}
@@ -133,9 +132,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
 					})?;
 
-				join_all(ctx.libraries.get_all_libraries().await.into_iter().map(
-					|library| async move { library.db.notification().delete_many(vec![]).exec().await },
-				))
+				join_all(
+					ctx.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|library| async move {
+							library.db.notification().delete_many(vec![]).exec().await
+						}),
+				)
 				.await
 				.into_iter()
 				.collect::<Result<Vec<_>, _>>()?;

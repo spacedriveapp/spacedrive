@@ -126,7 +126,7 @@ impl PairingManager {
 
 					if node
 						.libraries
-						.get_all_libraries()
+						.get_all()
 						.await
 						.into_iter()
 						.find(|i| i.id == library_id)
