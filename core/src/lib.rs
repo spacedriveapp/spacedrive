@@ -113,8 +113,7 @@ impl Node {
 
 		location_manager_actor.start(node.clone());
 		job_manager_actor.start(node.clone());
-		node.p2p
-			.start(p2p_stream, node.libraries.clone(), node.nlm.clone());
+		node.p2p.start(p2p_stream, node.clone());
 
 		// Finally load the libraries from disk into the library manager
 		node.libraries.init(&node).await?;

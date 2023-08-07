@@ -58,6 +58,9 @@ impl NetworkedLibraries {
 								LibraryManagerEvent::Edit(library) => {
 									Self::edit_library(&this, &library).await;
 								}
+								LibraryManagerEvent::InstancesModified(library) => {
+									Self::load_library(&this, &library).await;
+								}
 								LibraryManagerEvent::Delete(library) => {
 									Self::delete_library(&this, &library).await;
 								}
@@ -204,7 +207,7 @@ impl NetworkedLibraries {
 	}
 
 	// TODO: Error handling
-	pub async fn alert_new_ops(&self, library_id: Uuid, sync: Arc<sync::Manager>) {
+	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<sync::Manager>) {
 		debug!("NetworkedLibraryManager::alert_new_ops({library_id})");
 
 		let libraries = self.libraries.read().await;

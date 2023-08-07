@@ -27,6 +27,7 @@ use crate::{
 	library::Libraries,
 	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	Node,
 };
 
 use super::{
@@ -122,12 +123,7 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(
-		&self,
-		mut stream: ManagerStream<PeerMetadata>,
-		library_manager: Arc<Libraries>,
-		nlm: Arc<NetworkedLibraries>,
-	) {
+	pub fn start(&self, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
 		tokio::spawn({
 			let manager = self.manager.clone();
 			let metadata_manager = self.metadata_manager.clone();
@@ -154,19 +150,19 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							nlm.peer_discovered(event).await;
+							node.nlm.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, metadata } => {
 							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
-							nlm.peer_expired(id).await;
+							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {
 							debug!("Peer '{}' connected", event.peer_id);
-							nlm.peer_connected(event.peer_id).await;
+							node.nlm.peer_connected(event.peer_id).await;
 
 							if event.establisher {
 								let manager = manager.clone();
-								let nlm = nlm.clone();
+								let nlm = node.nlm.clone();
 								let instances = metadata_manager.get().instances;
 								tokio::spawn(async move {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
@@ -176,7 +172,7 @@ impl P2PManager {
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
-							nlm.peer_disconnected(peer_id).await;
+							node.nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
@@ -185,8 +181,8 @@ impl P2PManager {
 							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
 
-							let library_manager = library_manager.clone();
-							let nlm = nlm.clone();
+							let libraries = node.libraries.clone();
+							let nlm = node.nlm.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -254,7 +250,7 @@ impl P2PManager {
 									}
 									Header::Pair => {
 										pairing
-											.responder(event.peer_id, stream, &library_manager)
+											.responder(event.peer_id, stream, &libraries, node)
 											.await;
 									}
 									Header::Sync(library_id) => {
@@ -267,7 +263,7 @@ impl P2PManager {
 											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
 										let library =
-											library_manager.get_library(&library_id).await.unwrap();
+											libraries.get_library(&library_id).await.unwrap();
 
 										dbg!(&msg);
 

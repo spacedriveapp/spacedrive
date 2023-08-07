@@ -30,6 +30,7 @@ use crate::{
 	library::{Libraries, LibraryName},
 	node::{self, config::NodeConfig, Platform},
 	p2p::{Header, IdentityOrRemoteIdentity, P2PManager},
+	Node,
 };
 
 use super::{P2PEvent, PeerMetadata};
@@ -71,12 +72,7 @@ impl PairingManager {
 
 	// TODO: Error handling
 
-	pub async fn originator(
-		self: Arc<Self>,
-		peer_id: PeerId,
-		node_config: NodeConfig,
-		library_manager: Arc<Libraries>,
-	) -> u16 {
+	pub async fn originator(self: Arc<Self>, peer_id: PeerId, node: Arc<Node>) -> u16 {
 		// TODO: Timeout for max number of pairings in a time period
 
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
@@ -92,6 +88,7 @@ impl PairingManager {
 
 			// 1. Create new instance for originator and send it to the responder
 			self.emit_progress(pairing_id, PairingStatus::PairingRequested);
+			let node_config = node.config.get().await;
 			let now = Utc::now();
 			let identity = Identity::new();
 			let self_instance_id = Uuid::new_v4();
@@ -127,7 +124,8 @@ impl PairingManager {
 					// TODO: Future - Library in pairing state
 					// TODO: Create library
 
-					if library_manager
+					if node
+						.libraries
 						.get_all_libraries()
 						.await
 						.into_iter()
@@ -153,12 +151,12 @@ impl PairingManager {
 						todo!("error handling. Something went really wrong!");
 					}
 
-					let library = library_manager
+					let library = node
+						.libraries
 						.create_with_uuid(
 							library_id,
 							LibraryName::new(library_name).unwrap(),
 							library_description,
-							node_config,
 							false, // We will sync everything which will conflict with the seeded stuff
 							Some(instance::Create {
 								pub_id: this.id.as_bytes().to_vec(),
@@ -170,11 +168,12 @@ impl PairingManager {
 								date_created: this.date_created.into(),
 								_params: vec![],
 							}),
+							&node,
 						)
 						.await
 						.unwrap();
 
-					let library = library_manager.get_library(&library.id).await.unwrap();
+					let library = node.libraries.get_library(&library.id).await.unwrap();
 
 					library
 						.db
@@ -205,10 +204,10 @@ impl PairingManager {
 						.unwrap();
 
 					// Called again so the new instances are picked up
-					library_manager.node.nlm.load_library(&library).await;
+					node.libraries.update_instances(library);
 
 					P2PManager::resync(
-						library_manager.node.nlm.clone(),
+						node.nlm.clone(),
 						&mut stream,
 						peer_id,
 						self.metadata_manager.get().instances,
@@ -234,6 +233,7 @@ impl PairingManager {
 		peer_id: PeerId,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
 		library_manager: &Libraries,
+		node: Arc<Node>,
 	) {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
@@ -321,14 +321,15 @@ impl PairingManager {
 		// TODO: Pairing confirmation + rollback
 
 		// Called again so the new instances are picked up
-		library_manager.node.nlm.load_library(&library).await;
+		// node.re
+		// library_manager.node.nlm.load_library(&library).await;
 
 		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap() else {
 			todo!("unreachable; todo error handling");
 		};
 
 		P2PManager::resync_handler(
-			library_manager.node.nlm.clone(),
+			node.nlm.clone(),
 			&mut stream,
 			peer_id,
 			self.metadata_manager.get().instances,
@@ -338,10 +339,8 @@ impl PairingManager {
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 
-		library_manager
-			.node
-			.nlm
-			.alert_new_ops(library_id, library.sync.clone())
+		node.nlm
+			.alert_new_ops(library_id, &library.sync.clone())
 			.await;
 
 		stream.flush().await.unwrap();

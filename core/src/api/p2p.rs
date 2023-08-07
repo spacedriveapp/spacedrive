@@ -76,12 +76,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("pair", {
-			R.mutation(|ctx, id: PeerId| async move {
-				ctx.p2p
-					.pairing
-					.clone()
-					.originator(id, ctx.config.get().await, ctx.libraries.clone())
-					.await
+			R.mutation(|node, id: PeerId| async move {
+				node.p2p.pairing.clone().originator(id, node).await
 			})
 		})
 		.procedure("pairingResponse", {

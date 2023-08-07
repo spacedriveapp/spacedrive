@@ -41,6 +41,8 @@ pub use error::*;
 pub enum LibraryManagerEvent {
 	Load(Arc<Library>),
 	Edit(Arc<Library>),
+	// TODO(@Oscar): Replace this with pairing -> ready state transitions
+	InstancesModified(Arc<Library>),
 	Delete(Arc<Library>),
 }
 
@@ -472,5 +474,11 @@ impl Libraries {
 		}
 
 		Ok(library)
+	}
+
+	pub async fn update_instances(&self, library: Arc<Library>) {
+		self.tx
+			.emit(LibraryManagerEvent::InstancesModified(library))
+			.await;
 	}
 }
