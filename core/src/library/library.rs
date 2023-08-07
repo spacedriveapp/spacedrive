@@ -7,6 +7,7 @@ use crate::{
 	notifications,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
+	sync,
 	util::{db::maybe_missing, error::FileIOError},
 	Node,
 };
@@ -19,7 +20,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::SyncManager;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io, sync::broadcast};
@@ -43,7 +43,7 @@ pub struct LoadedLibrary {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: Arc<sync::Manager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
@@ -76,7 +76,7 @@ impl LoadedLibrary {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
-		sync_manager: SyncManager,
+		sync_manager: sync::Manager,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,

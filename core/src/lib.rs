@@ -42,6 +42,8 @@ pub(crate) mod preferences;
 pub mod util;
 pub(crate) mod volume;
 
+pub(crate) use sd_core_sync as sync;
+
 /// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
 pub struct Node {
