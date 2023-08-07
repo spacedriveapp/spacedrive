@@ -18,7 +18,7 @@ httpz = { workspace = true, features = [
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
 	"location-watcher",
-	# "heif",
+	"heif",
 ] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.1"
