@@ -34,16 +34,12 @@ impl MwArgMapper for LibraryArgsLike {
 
 pub(crate) fn library() -> impl MwV3<Ctx, NewCtx = (Ctx, Arc<LoadedLibrary>)> {
 	MwArgMapperMiddleware::<LibraryArgsLike>::new().mount(|mw, ctx: Ctx, library_id| async move {
-		let library = ctx
-			.library_manager
-			.get_library(&library_id)
-			.await
-			.ok_or_else(|| {
-				rspc::Error::new(
-					ErrorCode::BadRequest,
-					"You must specify a valid library to use this operation.".to_string(),
-				)
-			})?;
+		let library = ctx.library.get_library(&library_id).await.ok_or_else(|| {
+			rspc::Error::new(
+				ErrorCode::BadRequest,
+				"You must specify a valid library to use this operation.".to_string(),
+			)
+		})?;
 
 		Ok(mw.next((ctx, library)))
 	})

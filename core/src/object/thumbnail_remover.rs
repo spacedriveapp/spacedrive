@@ -1,5 +1,5 @@
 use crate::{
-	library::{LibraryManager, LibraryManagerEvent},
+	library::{LibraryManagerEvent, Manager},
 	prisma::{file_path, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
@@ -56,7 +56,7 @@ pub struct ThumbnailRemoverActor {
 }
 
 impl ThumbnailRemoverActor {
-	pub fn new(data_dir: PathBuf, lm: Arc<LibraryManager>) -> Self {
+	pub fn new(data_dir: PathBuf, lm: Arc<Manager>) -> Self {
 		let mut thumbnails_directory = data_dir;
 		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
 

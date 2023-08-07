@@ -224,10 +224,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 		node: &Arc<Node>,
 		library: &Arc<LoadedLibrary>,
 	) -> Result<(), JobManagerError> {
-		node.job_manager
-			.clone()
-			.ingest(node, library, Box::new(self))
-			.await
+		node.job.clone().ingest(node, library, Box::new(self)).await
 	}
 }
 

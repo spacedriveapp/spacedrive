@@ -28,7 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.query(|ctx, _: ()| async move {
-				ctx.library_manager
+				ctx.library
 					.get_all_libraries()
 					.await
 					.into_iter()
@@ -108,7 +108,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|ctx, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
-				let library = ctx.library_manager.create(args.name, None, &ctx).await?;
+				let library = ctx.library.create(args.name, None, &ctx).await?;
 
 				debug!("Created library {}", library.id);
 
@@ -128,15 +128,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.mutation(|ctx, args: EditLibraryArgs| async move {
 				Ok(ctx
-					.library_manager
+					.library
 					.edit(args.id, args.name, args.description)
 					.await?)
 			})
 		})
 		.procedure(
 			"delete",
-			R.mutation(|ctx, id: Uuid| async move {
-				ctx.library_manager.delete(&id).await.map_err(Into::into)
-			}),
+			R.mutation(
+				|ctx, id: Uuid| async move { ctx.library.delete(&id).await.map_err(Into::into) },
+			),
 		)
 }

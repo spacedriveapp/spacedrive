@@ -31,11 +31,11 @@ pub(super) async fn check_online(
 	if location.instance_id == Some(library.config.instance_id) {
 		match fs::metadata(&location_path).await {
 			Ok(_) => {
-				node.location_manager.add_online(pub_id).await;
+				node.location.add_online(pub_id).await;
 				Ok(true)
 			}
 			Err(e) if e.kind() == ErrorKind::NotFound => {
-				node.location_manager.remove_online(&pub_id).await;
+				node.location.remove_online(&pub_id).await;
 				Ok(false)
 			}
 			Err(e) => {
@@ -45,7 +45,7 @@ pub(super) async fn check_online(
 		}
 	} else {
 		// In this case, we don't have a `local_path`, but this location was marked as online
-		node.location_manager.remove_online(&pub_id).await;
+		node.location.remove_online(&pub_id).await;
 		Err(LocationManagerError::NonLocalLocation(location.id))
 	}
 }

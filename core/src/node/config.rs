@@ -121,9 +121,9 @@ impl Default for NodeConfig {
 	}
 }
 
-pub struct NodeConfigManager(RwLock<NodeConfig>, PathBuf);
+pub struct Manager(RwLock<NodeConfig>, PathBuf);
 
-impl NodeConfigManager {
+impl Manager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
 	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(

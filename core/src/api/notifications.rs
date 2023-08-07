@@ -41,12 +41,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("get", {
 			R.query(|ctx, _: ()| async move {
 				let mut notifications = ctx.config.get().await.notifications;
-				for lib_notifications in join_all(
-					ctx.library_manager
-						.get_all_libraries()
-						.await
-						.into_iter()
-						.map(|library| async move {
+				for lib_notifications in
+					join_all(ctx.library.get_all_libraries().await.into_iter().map(
+						|library| async move {
 							library
 								.db
 								.notification()
@@ -80,9 +77,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									})
 								})
 								.collect::<Result<Vec<Notification>, rspc::Error>>()
-						}),
-				)
-				.await
+						},
+					))
+					.await
 				{
 					notifications.extend(lib_notifications?);
 				}
@@ -94,7 +91,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.query(|ctx, id: NotificationId| async move {
 				match id {
 					NotificationId::Library(library_id, id) => {
-						ctx.library_manager
+						ctx.library
 							.get_library(&library_id)
 							.await
 							.ok_or_else(|| {
@@ -136,15 +133,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
 					})?;
 
-				join_all(
-					ctx.library_manager
-						.get_all_libraries()
-						.await
-						.into_iter()
-						.map(|library| async move {
-							library.db.notification().delete_many(vec![]).exec().await
-						}),
-				)
+				join_all(ctx.library.get_all_libraries().await.into_iter().map(
+					|library| async move { library.db.notification().delete_many(vec![]).exec().await },
+				))
 				.await
 				.into_iter()
 				.collect::<Result<Vec<_>, _>>()?;

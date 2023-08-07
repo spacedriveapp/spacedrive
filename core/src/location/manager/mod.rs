@@ -131,7 +131,7 @@ impl LocationManagerActor {
 	pub fn start(self, node: Arc<Node>) {
 		tokio::spawn({
 			let node = node.clone();
-			let rx = node.library_manager.rx.clone();
+			let rx = node.library.rx.clone();
 			async move {
 				if let Err(err) = rx
 					.subscribe(|event| {
@@ -152,10 +152,8 @@ impl LocationManagerActor {
 												);
 											vec![]
 										}) {
-										if let Err(e) = node
-											.location_manager
-											.add(location.id, library.clone())
-											.await
+										if let Err(e) =
+											node.location.add(location.id, library.clone()).await
 										{
 											error!(
 												"Failed to add location to location manager: {:#?}",
@@ -180,7 +178,7 @@ impl LocationManagerActor {
 		});
 
 		#[cfg(feature = "location-watcher")]
-		tokio::spawn(LocationManager::run_locations_checker(
+		tokio::spawn(Manager::run_locations_checker(
 			self.location_management_rx,
 			self.watcher_management_rx,
 			self.stop_rx,
@@ -192,7 +190,7 @@ impl LocationManagerActor {
 	}
 }
 
-pub struct LocationManager {
+pub struct Manager {
 	online_locations: RwLock<OnlineLocations>,
 	pub online_tx: broadcast::Sender<OnlineLocations>,
 	#[cfg(feature = "location-watcher")]
@@ -202,7 +200,7 @@ pub struct LocationManager {
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
-impl LocationManager {
+impl Manager {
 	pub fn new() -> (Self, LocationManagerActor) {
 		let online_tx = broadcast::channel(16).0;
 
@@ -624,7 +622,7 @@ impl LocationManager {
 	}
 }
 
-impl Drop for LocationManager {
+impl Drop for Manager {
 	fn drop(&mut self) {
 		if let Some(stop_tx) = self.stop_tx.take() {
 			if stop_tx.send(()).is_err() {
@@ -636,7 +634,7 @@ impl Drop for LocationManager {
 
 #[must_use = "this `StopWatcherGuard` must be held for some time, so the watcher is stopped"]
 pub struct StopWatcherGuard<'m> {
-	manager: &'m LocationManager,
+	manager: &'m Manager,
 	location_id: location::id::Type,
 	library: Option<Arc<LoadedLibrary>>,
 }
@@ -657,7 +655,7 @@ impl Drop for StopWatcherGuard<'_> {
 
 #[must_use = "this `IgnoreEventsForPathGuard` must be held for some time, so the watcher can ignore events for the desired path"]
 pub struct IgnoreEventsForPathGuard<'m> {
-	manager: &'m LocationManager,
+	manager: &'m Manager,
 	path: Option<PathBuf>,
 	location_id: location::id::Type,
 	library: Option<Arc<LoadedLibrary>>,

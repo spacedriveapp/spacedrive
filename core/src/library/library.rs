@@ -4,10 +4,11 @@ use crate::{
 		CoreEvent,
 	},
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+	notifications,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
 	util::{db::maybe_missing, error::FileIOError},
-	Node, NotificationManager,
+	Node,
 };
 
 use std::{
@@ -49,7 +50,7 @@ pub struct LoadedLibrary {
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
 
-	notifications: NotificationManager,
+	notifications: notifications::Manager,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
@@ -186,8 +187,7 @@ impl LoadedLibrary {
 		};
 
 		self.notifications
-			.0
-			.send(Notification {
+			._internal_send(Notification {
 				id: NotificationId::Library(self.id, result.id as u32),
 				data,
 				read: false,

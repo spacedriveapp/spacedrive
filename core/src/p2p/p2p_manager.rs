@@ -24,8 +24,8 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::LibraryManager,
-	node::{NodeConfig, NodeConfigManager},
+	library::Manager,
+	node::{Manager, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
@@ -63,20 +63,20 @@ pub enum P2PEvent {
 	}, // TODO: Expire peer + connection/disconnect
 }
 
-pub struct P2PManager {
+pub struct Manager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	node_config_manager: Arc<NodeConfigManager>,
+	node_config_manager: Arc<Manager>,
 }
 
-impl P2PManager {
+impl Manager {
 	pub async fn new(
-		node_config: Arc<NodeConfigManager>,
-	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
+		node_config: Arc<Manager>,
+	) -> Result<(Arc<Manager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 
@@ -125,7 +125,7 @@ impl P2PManager {
 	pub fn start(
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
-		library_manager: Arc<LibraryManager>,
+		library_manager: Arc<Manager>,
 		nlm: Arc<NetworkedLibraryManager>,
 	) {
 		tokio::spawn({

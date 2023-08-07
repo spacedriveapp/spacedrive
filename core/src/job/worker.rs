@@ -22,7 +22,7 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus,
+	DynJob, JobError, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus, Manager,
 };
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -103,7 +103,7 @@ impl Worker {
 		mut report: JobReport,
 		library: Arc<LoadedLibrary>,
 		node: Arc<Node>,
-		job_manager: Arc<JobManager>,
+		job_manager: Arc<Manager>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
 
@@ -521,7 +521,7 @@ impl Worker {
 
 struct JobWorkTable {
 	job: Box<dyn DynJob>,
-	manager: Arc<JobManager>,
+	manager: Arc<Manager>,
 	hash: u64,
 	report: JobReport,
 }

@@ -207,7 +207,7 @@ impl LocationWatcher {
 		//     return Ok(());
 		// };
 
-		if !node.location_manager.is_online(&location_pub_id).await {
+		if !node.location.is_online(&location_pub_id).await {
 			warn!("Tried to handle event for offline location: <id='{location_id}'>");
 			return Ok(());
 		}

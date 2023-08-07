@@ -39,7 +39,7 @@ mod metadata;
 
 pub use error::LocationError;
 use indexer::IndexerJobInit;
-pub use manager::{LocationManager, LocationManagerError};
+pub use manager::{LocationManagerError, Manager};
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
@@ -127,10 +127,7 @@ impl LocationCreateArgs {
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
-				Ok(node
-					.location_manager
-					.add(location.data.id, library.clone())
-					.await?)
+				Ok(node.location.add(location.data.id, library.clone()).await?)
 			})
 			.await
 			{
@@ -193,9 +190,7 @@ impl LocationCreateArgs {
 				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
-			node.location_manager
-				.add(location.data.id, library.clone())
-				.await?;
+			node.location.add(location.data.id, library.clone()).await?;
 
 			info!(
 				"Added library (library_id = {}) to location: {:?}",
@@ -652,9 +647,7 @@ pub async fn delete_location(
 	library: &Arc<LoadedLibrary>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	node.location_manager
-		.remove(location_id, library.clone())
-		.await?;
+	node.location.remove(location_id, library.clone()).await?;
 
 	delete_directory(library, location_id, None).await?;
 

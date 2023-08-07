@@ -43,8 +43,8 @@ pub enum LibraryManagerEvent {
 	Delete(Arc<LoadedLibrary>),
 }
 
-/// LibraryManager is a singleton that manages all libraries for a node.
-pub struct LibraryManager {
+/// is a singleton that manages all libraries for a node.
+pub struct Manager {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
@@ -55,7 +55,7 @@ pub struct LibraryManager {
 	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
 
-impl LibraryManager {
+impl Manager {
 	pub(crate) async fn new(libraries_dir: PathBuf) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -454,16 +454,12 @@ impl LibraryManager {
 			.exec()
 			.await?
 		{
-			if let Err(e) = node
-				.location_manager
-				.add(location.id, library.clone())
-				.await
-			{
+			if let Err(e) = node.location.add(location.id, library.clone()).await {
 				error!("Failed to watch location on startup: {e}");
 			};
 		}
 
-		if let Err(e) = node.job_manager.clone().cold_resume(node, &library).await {
+		if let Err(e) = node.job.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
