@@ -50,6 +50,7 @@ pub(crate) mod volume;
 pub struct Node {
 	pub data_dir: PathBuf,
 	pub config: Arc<NodeConfigManager>,
+	pub library_manager: Arc<LibraryManager>,
 	pub job_manager: Arc<JobManager>,
 	pub location_manager: LocationManager,
 	pub p2p: Arc<P2PManager>,
@@ -57,7 +58,6 @@ pub struct Node {
 	pub notifications: NotificationManager,
 	pub nlm: Arc<NetworkedLibraryManager>,
 	pub thumbnail_remover: ThumbnailRemoverActor,
-	pub library_manager: Arc<LibraryManager>,
 }
 
 impl fmt::Debug for Node {

@@ -18,14 +18,14 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{SyncManager, SyncMessage};
+use sd_core_sync::SyncManager;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io, sync::broadcast};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManager, LibraryManagerError, LibraryManagerEvent};
+use super::{LibraryConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -71,74 +71,23 @@ impl Debug for LoadedLibrary {
 impl LoadedLibrary {
 	pub async fn new(
 		id: Uuid,
-		instance_id: Uuid,
 		config: LibraryConfig,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
-		manager: Arc<LibraryManager>,
 		node: &Arc<Node>,
+		sync_manager: SyncManager,
 	) -> Arc<Self> {
-		let mut sync = SyncManager::new(&db, instance_id);
-
-		let library = Arc::new(Self {
+		Arc::new(Self {
 			id,
 			config,
 			db: db.clone(),
-			sync: Arc::new(sync.manager),
+			sync: Arc::new(sync_manager),
 			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
-		});
-
-		manager
-			.tx
-			.emit(LibraryManagerEvent::Load(library.clone()))
-			.await;
-
-		// TODO: move this outta here. Can't go in `SyncManager` tho cause that would cause a circular dependency
-		tokio::spawn({
-			let library = library.clone();
-			let node = node.clone();
-
-			async move {
-				loop {
-					tokio::select! {
-						req = sync.ingest_rx.recv() => {
-							use sd_core_sync::ingest::Request;
-
-							let Some(req) = req else { continue; };
-
-							match req {
-								Request::Messages { tunnel, timestamps } => {
-									node.nlm.request_and_ingest_ops(
-										tunnel,
-										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
-										&library.sync,
-										library.id
-									).await;
-								},
-								Request::Ingest(ops) => {
-									for op in ops.into_iter() {
-										library.sync.receive_crdt_operation(op).await;
-									}
-								}
-							}
-						},
-						msg = sync.rx.recv() => {
-							if let Ok(op) = msg {
-								let SyncMessage::Created = op else { continue; };
-
-								node.nlm.alert_new_ops(id, &library.sync).await;
-							}
-						},
-					}
-				}
-			}
-		});
-
-		library
+		})
 	}
 
 	// TODO: Remove this once we replace the old invalidation system

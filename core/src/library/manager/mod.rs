@@ -22,6 +22,7 @@ use std::{
 };
 
 use chrono::Utc;
+use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
 use tokio::{fs, io, sync::RwLock, try_join};
@@ -48,9 +49,8 @@ pub struct LibraryManager {
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
-	// TODO: Remove `pub(super)`
 	// Transmit side of `self.rx` channel
-	pub(super) tx: mpscrr::Sender<LibraryManagerEvent, ()>,
+	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
 	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
@@ -183,7 +183,6 @@ impl LibraryManager {
 						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						// timestamp: Default::default(), // TODO: Source this properly!
 						_params: vec![],
 					});
 					create._params.push(instance::id::set(config.instance_id));
@@ -377,17 +376,64 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
+		let mut sync = SyncManager::new(&db, instance_id);
+
 		let library = LoadedLibrary::new(
 			id,
-			instance_id,
 			config,
 			identity,
 			// key_manager,
 			db,
 			self.clone(),
 			node,
+			sync.manager,
 		)
 		.await;
+
+		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
+		tokio::spawn({
+			let library = library.clone();
+			let node = node.clone();
+
+			async move {
+				loop {
+					tokio::select! {
+						req = sync.ingest_rx.recv() => {
+							use sd_core_sync::ingest::Request;
+
+							let Some(req) = req else { continue; };
+
+							match req {
+								Request::Messages { tunnel, timestamps } => {
+									node.nlm.request_and_ingest_ops(
+										tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
+										&library.sync,
+										library.id
+									).await;
+								},
+								Request::Ingest(ops) => {
+									for op in ops.into_iter() {
+										library.sync.receive_crdt_operation(op).await;
+									}
+								}
+							}
+						},
+						msg = sync.rx.recv() => {
+							if let Ok(op) = msg {
+								let SyncMessage::Created = op else { continue; };
+
+								node.nlm.alert_new_ops(id, &library.sync).await;
+							}
+						},
+					}
+				}
+			}
+		});
+
+		self.tx
+			.emit(LibraryManagerEvent::Load(library.clone()))
+			.await;
 
 		self.libraries
 			.write()
