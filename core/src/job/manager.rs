@@ -36,23 +36,20 @@ pub enum JobManagerEvent {
 	Shutdown(oneshot::Sender<()>, Arc<Jobs>),
 }
 
-#[must_use = "'JobManagerActor::start' must be called to start the actor"]
-pub struct JobManagerActor {
-	job_manager: Arc<Jobs>,
+#[must_use = "'job::manager::Actor::start' must be called to start the actor"]
+pub struct Actor {
+	jobs: Arc<Jobs>,
 	internal_receiver: mpsc::UnboundedReceiver<JobManagerEvent>,
 }
 
-impl JobManagerActor {
+impl Actor {
 	pub fn start(mut self, node: Arc<Node>) {
 		tokio::spawn(async move {
 			// FIXME: if this task crashes, the entire application is unusable
 			while let Some(event) = self.internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
-						self.job_manager
-							.clone()
-							.dispatch(&node, &library, job)
-							.await
+						self.jobs.clone().dispatch(&node, &library, job).await
 					}
 					// When the app shuts down, we need to gracefully shutdown all
 					// active workers and preserve their state
@@ -81,7 +78,7 @@ pub struct Jobs {
 
 impl Jobs {
 	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
-	pub fn new() -> (Arc<Self>, JobManagerActor) {
+	pub fn new() -> (Arc<Self>, Actor) {
 		// allow the job manager to control its workers
 		let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
@@ -93,8 +90,8 @@ impl Jobs {
 
 		(
 			this.clone(),
-			JobManagerActor {
-				job_manager: this,
+			Actor {
+				jobs: this,
 				internal_receiver,
 			},
 		)
