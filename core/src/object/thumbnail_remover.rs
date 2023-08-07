@@ -32,7 +32,7 @@ const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Error, Debug)]
-enum ThumbnailRemoverActorError {
+enum Error {
 	#[error("database error")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("missing file name: {}", .0.display())]
@@ -49,13 +49,13 @@ enum DatabaseMessage {
 	Remove(Uuid),
 }
 
-pub struct ThumbnailRemoverActor {
+pub struct Actor {
 	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
 	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
 	_cancel_loop: DropGuard,
 }
 
-impl ThumbnailRemoverActor {
+impl Actor {
 	pub fn new(data_dir: PathBuf, lm: Arc<Libraries>) -> Self {
 		let mut thumbnails_directory = data_dir;
 		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
@@ -215,7 +215,7 @@ impl ThumbnailRemoverActor {
 	async fn remove_by_cas_ids(
 		thumbnails_directory: &Path,
 		cas_ids: Vec<String>,
-	) -> Result<(), ThumbnailRemoverActorError> {
+	) -> Result<(), Error> {
 		cas_ids
 			.into_iter()
 			.map(|cas_id| async move {
@@ -241,7 +241,7 @@ impl ThumbnailRemoverActor {
 		thumbnails_directory: &Path,
 		databases: impl Iterator<Item = &Arc<PrismaClient>>,
 		non_indexed_thumbnails_cas_ids: &HashSet<String>,
-	) -> Result<(), ThumbnailRemoverActorError> {
+	) -> Result<(), Error> {
 		let databases = databases.collect::<Vec<_>>();
 
 		// Thumbnails directory have the following structure:
@@ -292,9 +292,7 @@ impl ThumbnailRemoverActor {
 
 				let thumbnail_name = thumb_path
 					.file_stem()
-					.ok_or_else(|| {
-						ThumbnailRemoverActorError::MissingFileName(entry.path().into_boxed_path())
-					})?
+					.ok_or_else(|| Error::MissingFileName(entry.path().into_boxed_path()))?
 					.to_str()
 					.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 

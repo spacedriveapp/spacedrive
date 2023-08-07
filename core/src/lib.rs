@@ -3,6 +3,7 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
+	object::thumbnail_remover,
 	p2p::sync::NetworkedLibraries,
 };
 
@@ -10,7 +11,6 @@ use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
-use object::thumbnail_remover::ThumbnailRemoverActor;
 pub use sd_prisma::*;
 
 use std::{
@@ -56,7 +56,7 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
-	pub thumbnail_remover: ThumbnailRemoverActor,
+	pub thumbnail_remover: Actor,
 }
 
 impl fmt::Debug for Node {
@@ -86,23 +86,23 @@ impl Node {
 
 		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone()).await?;
 
-		let (location_manager, location_manager_actor) = location::Locations::new();
-		let (job_manager, job_manager_actor) = job::Jobs::new();
-		let library_manager = library::Libraries::new(data_dir.join("libraries")).await?;
+		let (locations, locations_actor) = location::Locations::new();
+		let (jobs, jobs_actor) = job::Jobs::new();
+		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
-			jobs: job_manager,
-			locations: location_manager,
-			nlm: NetworkedLibraries::new(p2p.clone(), &library_manager),
+			jobs,
+			locations,
+			nlm: NetworkedLibraries::new(p2p.clone(), &libraries),
 			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
 			event_bus,
-			thumbnail_remover: ThumbnailRemoverActor::new(
+			thumbnail_remover: thumbnail_remover::Actor::new(
 				data_dir.to_path_buf(),
-				library_manager.clone(),
+				libraries.clone(),
 			),
-			libraries: library_manager,
+			libraries,
 		});
 
 		// Setup start actors that depend on the `Node`
@@ -111,8 +111,8 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
-		location_manager_actor.start(node.clone());
-		job_manager_actor.start(node.clone());
+		locations_actor.start(node.clone());
+		jobs_actor.start(node.clone());
 		node.p2p.start(p2p_stream, node.clone());
 
 		// Finally load the libraries from disk into the library manager
