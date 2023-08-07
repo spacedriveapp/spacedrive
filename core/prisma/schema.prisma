@@ -142,7 +142,6 @@ model Location {
     date_created           DateTime?
 
     instance_id Int?
-    // TODO: Enabling this breaks migration 7's `update_many` in `library/config.rs`
     instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
     file_paths    FilePath[]
