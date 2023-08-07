@@ -56,7 +56,7 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
-	pub thumbnail_remover: Actor,
+	pub thumbnail_remover: thumbnail_remover::Actor,
 }
 
 impl fmt::Debug for Node {
