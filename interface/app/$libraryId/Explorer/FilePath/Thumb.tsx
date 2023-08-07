@@ -109,6 +109,7 @@ export interface ThumbProps {
 	className?: string;
 	loadOriginal?: boolean;
 	mediaControls?: boolean;
+	paused?: boolean;
 }
 
 function FileThumb({ size, cover, ...props }: ThumbProps) {
@@ -122,6 +123,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
 	const { parent } = useExplorerContext();
+	const video = useRef<HTMLVideoElement>(null);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -194,6 +196,12 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		parent
 	]);
 
+	useEffect(() => {
+		if (video.current) {
+			props.paused ? video.current.pause() : video.current.play();
+		}
+	}, [props.paused]);
+
 	const onLoad = () => setLoaded(true);
 
 	const onError = () => {
@@ -247,9 +255,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									<video
 										// Order matter for crossOrigin attr
 										crossOrigin="anonymous"
+										ref={video}
 										src={src}
 										onError={onError}
-										autoPlay
+										autoPlay={!props.paused}
 										onVolumeChange={(e) => {
 											const video = e.target as HTMLVideoElement;
 											getExplorerStore().mediaPlayerVolume = video.volume;
