@@ -221,11 +221,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure(
 			"online",
-			R.subscription(|ctx, _: ()| async move {
-				let mut rx = ctx.location_manager.online_rx();
+			R.subscription(|node, _: ()| async move {
+				let mut rx = node.locations.online_rx();
 
 				async_stream::stream! {
-					let online = ctx.location_manager.get_online().await;
+					let online = node.locations.get_online().await;
 
 					yield online;
 

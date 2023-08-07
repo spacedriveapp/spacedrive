@@ -5,6 +5,7 @@ use crate::{
 	object::tag,
 	p2p::IdentityOrRemoteIdentity,
 	prisma::location,
+	sync,
 	util::{
 		db,
 		error::{FileIOError, NonUtf8PathError},
@@ -22,13 +23,14 @@ use std::{
 };
 
 use chrono::Utc;
+use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
 use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryName, LoadedLibrary};
+use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
 
@@ -37,25 +39,26 @@ pub use error::*;
 /// Event that is emitted to subscribers of the library manager.
 #[derive(Debug, Clone)]
 pub enum LibraryManagerEvent {
-	Load(Arc<LoadedLibrary>),
-	Edit(Arc<LoadedLibrary>),
-	Delete(Arc<LoadedLibrary>),
+	Load(Arc<Library>),
+	Edit(Arc<Library>),
+	// TODO(@Oscar): Replace this with pairing -> ready state transitions
+	InstancesModified(Arc<Library>),
+	Delete(Arc<Library>),
 }
 
-/// LibraryManager is a singleton that manages all libraries for a node.
-pub struct LibraryManager {
+/// is a singleton that manages all libraries for a node.
+pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
-	// TODO: Remove `pub(super)`
+	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
 	// Transmit side of `self.rx` channel
-	pub(super) tx: mpscrr::Sender<LibraryManagerEvent, ()>,
+	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
 	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
 
-impl LibraryManager {
+impl Libraries {
 	pub(crate) async fn new(libraries_dir: PathBuf) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
@@ -130,7 +133,7 @@ impl LibraryManager {
 		name: LibraryName,
 		description: Option<String>,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
 			.await
 	}
@@ -144,7 +147,7 @@ impl LibraryManager {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
@@ -167,7 +170,7 @@ impl LibraryManager {
 			config_path.display()
 		);
 
-		let node_cfg = node.services.config.get().await;
+		let node_cfg = node.config.get().await;
 		let now = Utc::now().fixed_offset();
 		let library = self
 			.load(
@@ -183,7 +186,6 @@ impl LibraryManager {
 						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						// timestamp: Default::default(), // TODO: Source this properly!
 						_params: vec![],
 					});
 					create._params.push(instance::id::set(config.instance_id));
@@ -208,7 +210,7 @@ impl LibraryManager {
 	}
 
 	/// `LoadedLibrary.id` can be used to get the library's id.
-	pub async fn get_all_libraries(&self) -> Vec<Arc<LoadedLibrary>> {
+	pub async fn get_all(&self) -> Vec<Arc<Library>> {
 		self.libraries
 			.read()
 			.await
@@ -293,7 +295,7 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<LoadedLibrary>> {
+	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Library>> {
 		self.libraries.read().await.get(library_id).cloned()
 	}
 
@@ -311,7 +313,7 @@ impl LibraryManager {
 		create: Option<instance::Create>,
 		should_seed: bool,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
@@ -377,17 +379,70 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let library = LoadedLibrary::new(
+		let mut sync = sync::Manager::new(&db, instance_id);
+
+		let library = Library::new(
 			id,
-			instance_id,
 			config,
 			identity,
 			// key_manager,
 			db,
-			self.clone(),
-			node,
+			&node,
+			Arc::new(sync.manager),
 		)
 		.await;
+
+		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
+		tokio::spawn({
+			let library = library.clone();
+			let node = node.clone();
+
+			async move {
+				loop {
+					tokio::select! {
+						req = sync.ingest_rx.recv() => {
+							use sd_core_sync::ingest;
+
+							let Some(req) = req else { continue; };
+
+							const OPS_PER_REQUEST: u32 = 100;
+
+							match req {
+								ingest::Request::Messages { mut tunnel, timestamps } => {
+									let ops = node.nlm.request_ops(
+										&mut tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: OPS_PER_REQUEST },
+									).await;
+
+									library.sync.ingest
+										.event_tx
+										.send(ingest::Event::Messages(ingest::MessagesEvent {
+											tunnel,
+											instance_id: library.sync.instance,
+											has_more: ops.len() == OPS_PER_REQUEST as usize,
+											messages: ops,
+										}))
+										.await
+										.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+								},
+								_ => {}
+							}
+						},
+						msg = sync.rx.recv() => {
+							if let Ok(op) = msg {
+								let SyncMessage::Created = op else { continue; };
+
+								node.nlm.alert_new_ops(id, &library.sync).await;
+							}
+						},
+					}
+				}
+			}
+		});
+
+		self.tx
+			.emit(LibraryManagerEvent::Load(library.clone()))
+			.await;
 
 		self.libraries
 			.write()
@@ -409,26 +464,21 @@ impl LibraryManager {
 			.exec()
 			.await?
 		{
-			if let Err(e) = node
-				.services
-				.location_manager
-				.add(location.id, library.clone())
-				.await
-			{
+			if let Err(e) = node.locations.add(location.id, library.clone()).await {
 				error!("Failed to watch location on startup: {e}");
 			};
 		}
 
-		if let Err(e) = node
-			.services
-			.job_manager
-			.clone()
-			.cold_resume(node, &library)
-			.await
-		{
+		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
 		Ok(library)
+	}
+
+	pub async fn update_instances(&self, library: Arc<Library>) {
+		self.tx
+			.emit(LibraryManagerEvent::InstancesModified(library))
+			.await;
 	}
 }

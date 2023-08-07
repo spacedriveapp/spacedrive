@@ -4,11 +4,15 @@ use sd_p2p::{
 	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
 };
+use sync::GetOpsArgs;
 use tokio::{io::AsyncWriteExt, sync::RwLock};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::library::{LibraryManager, LibraryManagerEvent, LoadedLibrary};
+use crate::{
+	library::{Libraries, Library, LibraryManagerEvent},
+	sync,
+};
 
 use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
@@ -26,13 +30,13 @@ pub struct LibraryData {
 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
 
-pub struct NetworkedLibraryManager {
+pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
 	libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
 }
 
-impl NetworkedLibraryManager {
-	pub fn new(p2p: Arc<P2PManager>, lm: &LibraryManager) -> Arc<Self> {
+impl NetworkedLibraries {
+	pub fn new(p2p: Arc<P2PManager>, lm: &Libraries) -> Arc<Self> {
 		let this = Arc::new(Self {
 			p2p,
 			libraries: Default::default(),
@@ -54,6 +58,9 @@ impl NetworkedLibraryManager {
 								LibraryManagerEvent::Edit(library) => {
 									Self::edit_library(&this, &library).await;
 								}
+								LibraryManagerEvent::InstancesModified(library) => {
+									Self::load_library(&this, &library).await;
+								}
 								LibraryManagerEvent::Delete(library) => {
 									Self::delete_library(&this, &library).await;
 								}
@@ -71,7 +78,7 @@ impl NetworkedLibraryManager {
 	}
 
 	// TODO: Error handling
-	async fn load_library(self: &Arc<Self>, library: &LoadedLibrary) {
+	async fn load_library(self: &Arc<Self>, library: &Library) {
 		let instances = library
 			.db
 			.instance()
@@ -112,13 +119,13 @@ impl NetworkedLibraryManager {
 		self.p2p.update_metadata(metadata_instances).await;
 	}
 
-	async fn edit_library(&self, _library: &LoadedLibrary) {
+	async fn edit_library(&self, _library: &Library) {
 		// TODO: Send changes to all connected nodes!
 
 		// TODO: Update mdns
 	}
 
-	async fn delete_library(&self, library: &LoadedLibrary) {
+	async fn delete_library(&self, library: &Library) {
 		// TODO: Do proper library delete/unpair procedure.
 		self.libraries.write().await.remove(&library.id);
 
@@ -200,7 +207,7 @@ impl NetworkedLibraryManager {
 	}
 
 	// TODO: Error handling
-	pub async fn alert_new_ops(&self, library_id: Uuid, sync: Arc<sync::Manager>) {
+	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<sync::Manager>) {
 		debug!("NetworkedLibraryManager::alert_new_ops({library_id})");
 
 		let libraries = self.libraries.read().await;

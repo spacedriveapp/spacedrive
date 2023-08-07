@@ -1,6 +1,6 @@
 use crate::{
 	job::JobManagerError,
-	library::{LibraryManagerEvent, LoadedLibrary},
+	library::{Library, LibraryManagerEvent},
 	prisma::location,
 	util::{db::MissingFieldError, error::FileIOError},
 	Node,
@@ -43,7 +43,7 @@ enum ManagementMessageAction {
 #[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: location::id::Type,
-	library: Arc<LoadedLibrary>,
+	library: Arc<Library>,
 	action: ManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -60,7 +60,7 @@ enum WatcherManagementMessageAction {
 #[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: location::id::Type,
-	library: Arc<LoadedLibrary>,
+	library: Arc<Library>,
 	action: WatcherManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -131,7 +131,7 @@ impl LocationManagerActor {
 	pub fn start(self, node: Arc<Node>) {
 		tokio::spawn({
 			let node = node.clone();
-			let rx = node.library_manager.rx.clone();
+			let rx = node.libraries.rx.clone();
 			async move {
 				if let Err(err) = rx
 					.subscribe(|event| {
@@ -152,10 +152,8 @@ impl LocationManagerActor {
 												);
 											vec![]
 										}) {
-										if let Err(e) = node
-											.location_manager
-											.add(location.id, library.clone())
-											.await
+										if let Err(e) =
+											node.locations.add(location.id, library.clone()).await
 										{
 											error!(
 												"Failed to add location to location manager: {:#?}",
@@ -165,6 +163,7 @@ impl LocationManagerActor {
 									}
 								}
 								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::InstancesModified(_) => {}
 								LibraryManagerEvent::Delete(_) => {
 									#[cfg(debug_assertions)]
 									todo!("TODO: Remove locations from location manager"); // TODO
@@ -180,7 +179,7 @@ impl LocationManagerActor {
 		});
 
 		#[cfg(feature = "location-watcher")]
-		tokio::spawn(LocationManager::run_locations_checker(
+		tokio::spawn(Locations::run_locations_checker(
 			self.location_management_rx,
 			self.watcher_management_rx,
 			self.stop_rx,
@@ -192,7 +191,7 @@ impl LocationManagerActor {
 	}
 }
 
-pub struct LocationManager {
+pub struct Locations {
 	online_locations: RwLock<OnlineLocations>,
 	pub online_tx: broadcast::Sender<OnlineLocations>,
 	#[cfg(feature = "location-watcher")]
@@ -202,7 +201,7 @@ pub struct LocationManager {
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
-impl LocationManager {
+impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
 		let online_tx = broadcast::channel(16).0;
 
@@ -247,7 +246,7 @@ impl LocationManager {
 	async fn location_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -275,7 +274,7 @@ impl LocationManager {
 	async fn watcher_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -301,7 +300,7 @@ impl LocationManager {
 	pub async fn add(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Add)
 			.await
@@ -310,7 +309,7 @@ impl LocationManager {
 	pub async fn remove(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Remove)
 			.await
@@ -319,7 +318,7 @@ impl LocationManager {
 	pub async fn stop_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(location_id, library, WatcherManagementMessageAction::Stop)
 			.await
@@ -328,7 +327,7 @@ impl LocationManager {
 	pub async fn reinit_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(
 			location_id,
@@ -341,7 +340,7 @@ impl LocationManager {
 	pub async fn temporary_stop(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 	) -> Result<StopWatcherGuard, LocationManagerError> {
 		self.stop_watcher(location_id, library.clone()).await?;
 
@@ -355,7 +354,7 @@ impl LocationManager {
 	pub async fn temporary_ignore_events_for_path(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
 		let path = path.as_ref().to_path_buf();
@@ -624,7 +623,7 @@ impl LocationManager {
 	}
 }
 
-impl Drop for LocationManager {
+impl Drop for Locations {
 	fn drop(&mut self) {
 		if let Some(stop_tx) = self.stop_tx.take() {
 			if stop_tx.send(()).is_err() {
@@ -636,9 +635,9 @@ impl Drop for LocationManager {
 
 #[must_use = "this `StopWatcherGuard` must be held for some time, so the watcher is stopped"]
 pub struct StopWatcherGuard<'m> {
-	manager: &'m LocationManager,
+	manager: &'m Locations,
 	location_id: location::id::Type,
-	library: Option<Arc<LoadedLibrary>>,
+	library: Option<Arc<Library>>,
 }
 
 impl Drop for StopWatcherGuard<'_> {
@@ -657,10 +656,10 @@ impl Drop for StopWatcherGuard<'_> {
 
 #[must_use = "this `IgnoreEventsForPathGuard` must be held for some time, so the watcher can ignore events for the desired path"]
 pub struct IgnoreEventsForPathGuard<'m> {
-	manager: &'m LocationManager,
+	manager: &'m Locations,
 	path: Option<PathBuf>,
 	location_id: location::id::Type,
-	library: Option<Arc<LoadedLibrary>>,
+	library: Option<Arc<Library>>,
 }
 
 impl Drop for IgnoreEventsForPathGuard<'_> {
