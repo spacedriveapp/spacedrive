@@ -30,7 +30,7 @@ use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryName, LoadedLibrary};
+use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
 
@@ -39,9 +39,9 @@ pub use error::*;
 /// Event that is emitted to subscribers of the library manager.
 #[derive(Debug, Clone)]
 pub enum LibraryManagerEvent {
-	Load(Arc<LoadedLibrary>),
-	Edit(Arc<LoadedLibrary>),
-	Delete(Arc<LoadedLibrary>),
+	Load(Arc<Library>),
+	Edit(Arc<Library>),
+	Delete(Arc<Library>),
 }
 
 /// is a singleton that manages all libraries for a node.
@@ -49,7 +49,7 @@ pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<HashMap<Uuid, Arc<LoadedLibrary>>>,
+	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
 	// Transmit side of `self.rx` channel
 	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
@@ -131,7 +131,7 @@ impl Libraries {
 		name: LibraryName,
 		description: Option<String>,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
 			.await
 	}
@@ -145,7 +145,7 @@ impl Libraries {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
@@ -208,7 +208,7 @@ impl Libraries {
 	}
 
 	/// `LoadedLibrary.id` can be used to get the library's id.
-	pub async fn get_all_libraries(&self) -> Vec<Arc<LoadedLibrary>> {
+	pub async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
 		self.libraries
 			.read()
 			.await
@@ -293,7 +293,7 @@ impl Libraries {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<LoadedLibrary>> {
+	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Library>> {
 		self.libraries.read().await.get(library_id).cloned()
 	}
 
@@ -311,7 +311,7 @@ impl Libraries {
 		create: Option<instance::Create>,
 		should_seed: bool,
 		node: &Arc<Node>,
-	) -> Result<Arc<LoadedLibrary>, LibraryManagerError> {
+	) -> Result<Arc<Library>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
@@ -379,7 +379,7 @@ impl Libraries {
 
 		let mut sync = sync::Manager::new(&db, instance_id);
 
-		let library = LoadedLibrary::new(
+		let library = Library::new(
 			id,
 			config,
 			identity,

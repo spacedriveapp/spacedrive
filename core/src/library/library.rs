@@ -36,7 +36,7 @@ use super::{LibraryConfig, LibraryManagerError};
 //  Deleting,
 // }
 
-pub struct LoadedLibrary {
+pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
@@ -57,7 +57,7 @@ pub struct LoadedLibrary {
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
-impl Debug for LoadedLibrary {
+impl Debug for Library {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
@@ -69,7 +69,7 @@ impl Debug for LoadedLibrary {
 	}
 }
 
-impl LoadedLibrary {
+impl Library {
 	pub async fn new(
 		id: Uuid,
 		config: LibraryConfig,

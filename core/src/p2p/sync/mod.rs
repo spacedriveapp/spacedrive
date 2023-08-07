@@ -10,7 +10,7 @@ use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::{
-	library::{Libraries, LibraryManagerEvent, LoadedLibrary},
+	library::{Libraries, Library, LibraryManagerEvent},
 	sync,
 };
 
@@ -75,7 +75,7 @@ impl NetworkedLibraries {
 	}
 
 	// TODO: Error handling
-	async fn load_library(self: &Arc<Self>, library: &LoadedLibrary) {
+	async fn load_library(self: &Arc<Self>, library: &Library) {
 		let instances = library
 			.db
 			.instance()
@@ -116,13 +116,13 @@ impl NetworkedLibraries {
 		self.p2p.update_metadata(metadata_instances).await;
 	}
 
-	async fn edit_library(&self, _library: &LoadedLibrary) {
+	async fn edit_library(&self, _library: &Library) {
 		// TODO: Send changes to all connected nodes!
 
 		// TODO: Update mdns
 	}
 
-	async fn delete_library(&self, library: &LoadedLibrary) {
+	async fn delete_library(&self, library: &Library) {
 		// TODO: Do proper library delete/unpair procedure.
 		self.libraries.write().await.remove(&library.id);
 

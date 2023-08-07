@@ -9,7 +9,7 @@
 
 use crate::{
 	invalidate_query,
-	library::LoadedLibrary,
+	library::Library,
 	location::{file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError},
 	prisma::location,
 	util::error::FileIOError,
@@ -39,7 +39,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct WindowsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Arc<LoadedLibrary>,
+	library: &'lib Arc<Library>,
 	node: &'lib Arc<Node>,
 	last_check_recently_files: Instant,
 	recently_created_files: BTreeMap<PathBuf, Instant>,
@@ -54,7 +54,7 @@ pub(super) struct WindowsEventHandler<'lib> {
 impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 	fn new(
 		location_id: location::id::Type,
-		library: &'lib Arc<LoadedLibrary>,
+		library: &'lib Arc<Library>,
 		node: &'lib Arc<Node>,
 	) -> Self
 	where

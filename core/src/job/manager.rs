@@ -1,6 +1,6 @@
 use crate::{
 	job::{worker::Worker, DynJob, Job, JobError},
-	library::LoadedLibrary,
+	library::Library,
 	location::indexer::indexer_job::IndexerJobInit,
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -32,7 +32,7 @@ use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
-	IngestJob(Arc<LoadedLibrary>, Box<dyn DynJob>),
+	IngestJob(Arc<Library>, Box<dyn DynJob>),
 	Shutdown(oneshot::Sender<()>, Arc<Jobs>),
 }
 
@@ -104,7 +104,7 @@ impl Jobs {
 	pub async fn ingest(
 		self: Arc<Self>,
 		node: &Arc<Node>,
-		library: &Arc<LoadedLibrary>,
+		library: &Arc<Library>,
 		job: Box<Job<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
@@ -131,7 +131,7 @@ impl Jobs {
 	async fn dispatch(
 		self: Arc<Self>,
 		node: &Arc<Node>,
-		library: &Arc<LoadedLibrary>,
+		library: &Arc<Library>,
 		mut job: Box<dyn DynJob>,
 	) {
 		let mut running_workers = self.running_workers.write().await;
@@ -182,7 +182,7 @@ impl Jobs {
 
 	pub async fn complete(
 		self: Arc<Self>,
-		library: &Arc<LoadedLibrary>,
+		library: &Arc<Library>,
 		worker_id: Uuid,
 		job_hash: u64,
 		next_job: Option<Box<dyn DynJob>>,
@@ -272,7 +272,7 @@ impl Jobs {
 	pub async fn cold_resume(
 		self: Arc<Self>,
 		node: &Arc<Node>,
-		library: &Arc<LoadedLibrary>,
+		library: &Arc<Library>,
 	) -> Result<(), JobManagerError> {
 		// Include the Queued status in the initial find condition
 		let find_condition = vec![or(vec![

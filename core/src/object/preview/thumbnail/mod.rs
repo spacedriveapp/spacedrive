@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	job::JobError,
-	library::LoadedLibrary,
+	library::Library,
 	location::file_path_helper::{file_path_for_thumbnailer, FilePathError, IsolatedFilePathData},
 	prisma::location,
 	util::{db::maybe_missing, error::FileIOError, version_manager::VersionManagerError},
@@ -197,7 +197,7 @@ pub async fn inner_process_step(
 	location_path: impl AsRef<Path>,
 	thumbnail_dir: impl AsRef<Path>,
 	location: &location::Data,
-	library: &LoadedLibrary,
+	library: &Library,
 ) -> Result<bool, JobError> {
 	let ThumbnailerJobStep { file_path, kind } = step;
 	let location_path = location_path.as_ref();
