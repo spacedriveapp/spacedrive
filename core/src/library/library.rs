@@ -50,7 +50,7 @@ pub struct LoadedLibrary {
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
 
-	notifications: notifications::Manager,
+	notifications: notifications::Notifications,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
@@ -186,13 +186,11 @@ impl LoadedLibrary {
 			}
 		};
 
-		self.notifications
-			._internal_send(Notification {
-				id: NotificationId::Library(self.id, result.id as u32),
-				data,
-				read: false,
-				expires,
-			})
-			.ok();
+		self.notifications._internal_send(Notification {
+			id: NotificationId::Library(self.id, result.id as u32),
+			data,
+			read: false,
+			expires,
+		});
 	}
 }

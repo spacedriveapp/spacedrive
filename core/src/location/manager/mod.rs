@@ -131,7 +131,7 @@ impl LocationManagerActor {
 	pub fn start(self, node: Arc<Node>) {
 		tokio::spawn({
 			let node = node.clone();
-			let rx = node.library.rx.clone();
+			let rx = node.libraries.rx.clone();
 			async move {
 				if let Err(err) = rx
 					.subscribe(|event| {
@@ -153,7 +153,7 @@ impl LocationManagerActor {
 											vec![]
 										}) {
 										if let Err(e) =
-											node.location.add(location.id, library.clone()).await
+											node.locations.add(location.id, library.clone()).await
 										{
 											error!(
 												"Failed to add location to location manager: {:#?}",
@@ -178,7 +178,7 @@ impl LocationManagerActor {
 		});
 
 		#[cfg(feature = "location-watcher")]
-		tokio::spawn(Manager::run_locations_checker(
+		tokio::spawn(Locations::run_locations_checker(
 			self.location_management_rx,
 			self.watcher_management_rx,
 			self.stop_rx,
@@ -190,7 +190,7 @@ impl LocationManagerActor {
 	}
 }
 
-pub struct Manager {
+pub struct Locations {
 	online_locations: RwLock<OnlineLocations>,
 	pub online_tx: broadcast::Sender<OnlineLocations>,
 	#[cfg(feature = "location-watcher")]
@@ -200,7 +200,7 @@ pub struct Manager {
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
-impl Manager {
+impl Locations {
 	pub fn new() -> (Self, LocationManagerActor) {
 		let online_tx = broadcast::channel(16).0;
 
@@ -622,7 +622,7 @@ impl Manager {
 	}
 }
 
-impl Drop for Manager {
+impl Drop for Locations {
 	fn drop(&mut self) {
 		if let Some(stop_tx) = self.stop_tx.take() {
 			if stop_tx.send(()).is_err() {
@@ -634,7 +634,7 @@ impl Drop for Manager {
 
 #[must_use = "this `StopWatcherGuard` must be held for some time, so the watcher is stopped"]
 pub struct StopWatcherGuard<'m> {
-	manager: &'m Manager,
+	manager: &'m Locations,
 	location_id: location::id::Type,
 	library: Option<Arc<LoadedLibrary>>,
 }
@@ -655,7 +655,7 @@ impl Drop for StopWatcherGuard<'_> {
 
 #[must_use = "this `IgnoreEventsForPathGuard` must be held for some time, so the watcher can ignore events for the desired path"]
 pub struct IgnoreEventsForPathGuard<'m> {
-	manager: &'m Manager,
+	manager: &'m Locations,
 	path: Option<PathBuf>,
 	location_id: location::id::Type,
 	library: Option<Arc<LoadedLibrary>>,

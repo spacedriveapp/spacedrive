@@ -33,12 +33,12 @@ const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
 	IngestJob(Arc<LoadedLibrary>, Box<dyn DynJob>),
-	Shutdown(oneshot::Sender<()>, Arc<Manager>),
+	Shutdown(oneshot::Sender<()>, Arc<Jobs>),
 }
 
 #[must_use = "'JobManagerActor::start' must be called to start the actor"]
 pub struct JobManagerActor {
-	job_manager: Arc<Manager>,
+	job_manager: Arc<Jobs>,
 	internal_receiver: mpsc::UnboundedReceiver<JobManagerEvent>,
 }
 
@@ -72,14 +72,14 @@ impl JobManagerActor {
 /// JobManager handles queueing and executing jobs using the `DynJob`
 /// Handling persisting JobReports to the database, pause/resuming, and
 ///
-pub struct Manager {
+pub struct Jobs {
 	current_jobs_hashes: RwLock<HashSet<u64>>,
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
 	running_workers: RwLock<HashMap<Uuid, Worker>>,
 	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
 }
 
-impl Manager {
+impl Jobs {
 	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
 	pub fn new() -> (Arc<Self>, JobManagerActor) {
 		// allow the job manager to control its workers

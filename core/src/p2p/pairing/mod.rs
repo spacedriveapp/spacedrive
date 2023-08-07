@@ -29,9 +29,9 @@ pub use initial_sync::*;
 use proto::*;
 
 use crate::{
-	library::{LibraryName, Manager},
-	node::{NodeConfig, Platform},
-	p2p::{Header, IdentityOrRemoteIdentity, Manager},
+	library::{Libraries, LibraryName},
+	node::{self, config::NodeConfig, Platform},
+	p2p::{Header, IdentityOrRemoteIdentity, P2PManager},
 };
 
 use super::{P2PEvent, PeerMetadata};
@@ -77,7 +77,7 @@ impl PairingManager {
 		self: Arc<Self>,
 		peer_id: PeerId,
 		node_config: NodeConfig,
-		library_manager: Arc<Manager>,
+		library_manager: Arc<Libraries>,
 	) -> u16 {
 		todo!();
 	}
@@ -86,7 +86,7 @@ impl PairingManager {
 		self: Arc<Self>,
 		peer_id: PeerId,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
-		library_manager: &Manager,
+		library_manager: &Libraries,
 	) {
 		todo!();
 	}

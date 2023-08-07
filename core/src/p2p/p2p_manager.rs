@@ -24,13 +24,13 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::Manager,
-	node::{Manager, NodeConfig},
+	library::Libraries,
+	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
 use super::{
-	sync::{NetworkedLibraryManager, SyncMessage},
+	sync::{NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -63,20 +63,20 @@ pub enum P2PEvent {
 	}, // TODO: Expire peer + connection/disconnect
 }
 
-pub struct Manager {
+pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	node_config_manager: Arc<Manager>,
+	node_config_manager: Arc<config::Manager>,
 }
 
-impl Manager {
+impl P2PManager {
 	pub async fn new(
-		node_config: Arc<Manager>,
-	) -> Result<(Arc<Manager>, ManagerStream<PeerMetadata>), ManagerError> {
+		node_config: Arc<config::Manager>,
+	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
 
@@ -125,8 +125,8 @@ impl Manager {
 	pub fn start(
 		&self,
 		mut stream: ManagerStream<PeerMetadata>,
-		library_manager: Arc<Manager>,
-		nlm: Arc<NetworkedLibraryManager>,
+		library_manager: Arc<Libraries>,
+		nlm: Arc<NetworkedLibraries>,
 	) {
 		tokio::spawn({
 			let manager = self.manager.clone();
@@ -345,7 +345,7 @@ impl Manager {
 	}
 
 	pub async fn resync(
-		nlm: Arc<NetworkedLibraryManager>,
+		nlm: Arc<NetworkedLibraries>,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		instances: Vec<RemoteIdentity>,
@@ -368,7 +368,7 @@ impl Manager {
 	}
 
 	pub async fn resync_handler(
-		nlm: Arc<NetworkedLibraryManager>,
+		nlm: Arc<NetworkedLibraries>,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,

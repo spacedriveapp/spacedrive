@@ -3,11 +3,13 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	p2p::sync::NetworkedLibraryManager,
+	p2p::sync::NetworkedLibraries,
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
+use node::config;
+use notifications::Notifications;
 use object::thumbnail_remover::ThumbnailRemoverActor;
 pub use sd_prisma::*;
 
@@ -44,14 +46,14 @@ pub(crate) mod volume;
 /// Holds references to all the services that make up the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
-	pub config: Arc<node::Manager>,
-	pub library: Arc<library::Manager>,
-	pub job: Arc<job::Manager>,
-	pub location: location::Manager,
-	pub p2p: Arc<p2p::Manager>,
+	pub config: Arc<config::Manager>,
+	pub libraries: Arc<library::Libraries>,
+	pub jobs: Arc<job::Jobs>,
+	pub locations: location::Locations,
+	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	pub notifications: notifications::Manager,
-	pub nlm: Arc<NetworkedLibraryManager>,
+	pub notifications: Notifications,
+	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnail_remover: ThumbnailRemoverActor,
 }
 
@@ -76,21 +78,21 @@ impl Node {
 		let _ = fs::create_dir_all(&data_dir).await;
 
 		let event_bus = broadcast::channel(1024);
-		let config = node::Manager::new(data_dir.to_path_buf())
+		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		let (p2p, p2p_stream) = p2p::Manager::new(config.clone()).await?;
+		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone()).await?;
 
-		let (location_manager, location_manager_actor) = location::Manager::new();
-		let (job_manager, job_manager_actor) = job::Manager::new();
-		let library_manager = library::Manager::new(data_dir.join("libraries")).await?;
+		let (location_manager, location_manager_actor) = location::Locations::new();
+		let (job_manager, job_manager_actor) = job::Jobs::new();
+		let library_manager = library::Libraries::new(data_dir.join("libraries")).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
-			job: job_manager,
-			location: location_manager,
-			nlm: NetworkedLibraryManager::new(p2p.clone(), &library_manager),
-			notifications: notifications::Manager::new(),
+			jobs: job_manager,
+			locations: location_manager,
+			nlm: NetworkedLibraries::new(p2p.clone(), &library_manager),
+			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
 			event_bus,
@@ -98,22 +100,22 @@ impl Node {
 				data_dir.to_path_buf(),
 				library_manager.clone(),
 			),
-			library: library_manager,
+			libraries: library_manager,
 		});
 
 		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data.apply(&node.library, &node).await?;
+			init_data.apply(&node.libraries, &node).await?;
 		}
 
 		location_manager_actor.start(node.clone());
 		job_manager_actor.start(node.clone());
 		node.p2p
-			.start(p2p_stream, node.library.clone(), node.nlm.clone());
+			.start(p2p_stream, node.libraries.clone(), node.nlm.clone());
 
 		// Finally load the libraries from disk into the library manager
-		node.library.init(&node).await?;
+		node.libraries.init(&node).await?;
 
 		let router = api::mount();
 		info!("Spacedrive online.");
@@ -201,7 +203,7 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.job.shutdown().await;
+		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
@@ -220,7 +222,7 @@ impl Node {
 			.await
 		{
 			Ok(_) => {
-				self.notifications._internal_send(notification).ok();
+				self.notifications._internal_send(notification);
 			}
 			Err(err) => {
 				error!("Error saving notification to config: {:?}", err);

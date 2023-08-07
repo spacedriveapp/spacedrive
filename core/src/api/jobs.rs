@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	job::{job_without_data, Job, JobReport, JobStatus, Manager},
+	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -95,7 +95,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(JobReport::try_from)
 						.collect();
 
-					let active_reports_by_id = ctx.job.get_active_reports_with_id().await;
+					let active_reports_by_id = ctx.jobs.get_active_reports_with_id().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
@@ -161,7 +161,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("isActive", {
 			R.with2(library())
-				.query(|(ctx, _), _: ()| async move { Ok(ctx.job.has_active_workers().await) })
+				.query(|(ctx, _), _: ()| async move { Ok(ctx.jobs.has_active_workers().await) })
 		})
 		.procedure("clear", {
 			R.with2(library())
@@ -201,7 +201,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("pause", {
 			R.with2(library())
 				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Manager::pause(&ctx.job, id).await.map_err(Into::into);
+					let ret = Jobs::pause(&ctx.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -209,7 +209,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("resume", {
 			R.with2(library())
 				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Manager::resume(&ctx.job, id).await.map_err(Into::into);
+					let ret = Jobs::resume(&ctx.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -217,7 +217,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("cancel", {
 			R.with2(library())
 				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Manager::cancel(&ctx.job, id).await.map_err(Into::into);
+					let ret = Jobs::cancel(&ctx.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})

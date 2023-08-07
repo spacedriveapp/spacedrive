@@ -1,5 +1,5 @@
 use crate::{
-	node::{NodeConfig, Platform},
+	node::{config::NodeConfig, Platform},
 	p2p::IdentityOrRemoteIdentity,
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{

@@ -10,9 +10,9 @@ use tokio::{io::AsyncWriteExt, sync::RwLock};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::library::{LibraryManagerEvent, LoadedLibrary, Manager};
+use crate::library::{Libraries, LibraryManagerEvent, LoadedLibrary};
 
-use super::{Header, IdentityOrRemoteIdentity, Manager, PeerMetadata};
+use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
 mod proto;
 pub use proto::*;
@@ -27,13 +27,13 @@ pub struct LibraryData {
 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
 
-pub struct NetworkedLibraryManager {
-	p2p: Arc<Manager>,
+pub struct NetworkedLibraries {
+	p2p: Arc<P2PManager>,
 	libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
 }
 
-impl NetworkedLibraryManager {
-	pub fn new(p2p: Arc<Manager>, lm: &Manager) -> Arc<Self> {
+impl NetworkedLibraries {
+	pub fn new(p2p: Arc<P2PManager>, lm: &Libraries) -> Arc<Self> {
 		let this = Arc::new(Self {
 			p2p,
 			libraries: Default::default(),
