@@ -63,7 +63,7 @@ impl JobManager {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
 						library
-							.node
+							.node()
 							.job_manager
 							.clone()
 							.dispatch(&library, job)

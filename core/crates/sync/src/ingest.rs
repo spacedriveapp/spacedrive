@@ -32,7 +32,7 @@ pub enum Event {
 pub enum State {
 	#[default]
 	WaitingForNotification,
-	ExecutingMessagesRequest,
+	RetrievingMessages(Tunnel),
 	Ingesting(MessagesEvent),
 }
 
@@ -48,9 +48,12 @@ impl Actor {
 			State::WaitingForNotification => {
 				let notification = wait!(self.io.event_rx, Event::Notification(n) => n);
 
+				State::RetrievingMessages(notification.tunnel)
+			}
+			State::RetrievingMessages(tunnel) => {
 				self.io
 					.send(Request::Messages {
-						tunnel: notification.tunnel,
+						tunnel,
 						timestamps: self
 							.timestamps
 							.read()
@@ -62,19 +65,24 @@ impl Actor {
 					.await
 					.ok();
 
-				State::ExecutingMessagesRequest
-			}
-			State::ExecutingMessagesRequest => {
 				State::Ingesting(wait!(self.io.event_rx, Event::Messages(event) => event))
 			}
 			State::Ingesting(event) => {
+				let count = event.messages.len();
+
+				dbg!(&event.messages);
+
 				for op in event.messages {
-					self.receive_crdt_operation(op).await;
+					let fut = self.receive_crdt_operation(op);
+					fut.await;
 				}
 
-				println!("Ingested!");
+				println!("Ingested {count} messages!");
 
-				State::WaitingForNotification
+				match event.has_more {
+					true => State::RetrievingMessages(event.tunnel),
+					false => State::WaitingForNotification,
+				}
 			}
 		};
 
@@ -105,19 +113,23 @@ impl Actor {
 		handler_io.split()
 	}
 
-	async fn receive_crdt_operation(&self, op: CRDTOperation) {
+	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
 		self.clock
 			.update_with_timestamp(&Timestamp::new(op.timestamp, op.instance.into()))
 			.ok();
 
-		let mut clocks = self.timestamps.write().await;
-		let timestamp = clocks.entry(op.instance).or_insert_with(|| op.timestamp);
+		let mut timestamp = {
+			let mut clocks = self.timestamps.write().await;
+			clocks
+				.entry(op.instance)
+				.or_insert_with(|| op.timestamp)
+				.clone()
+		};
 
-		if *timestamp < op.timestamp {
-			*timestamp = op.timestamp;
+		if timestamp < op.timestamp {
+			timestamp = op.timestamp;
 		}
 
-		let op_timestamp = op.timestamp;
 		let op_instance = op.instance;
 
 		let is_old = self.compare_message(&op).await;
@@ -127,17 +139,32 @@ impl Actor {
 		}
 
 		self.db
-			.instance()
-			.update(
-				instance::pub_id::equals(uuid_to_bytes(op_instance)),
-				vec![instance::timestamp::set(Some(op_timestamp.as_u64() as i64))],
-			)
-			.exec()
+			._transaction()
+			.run({
+				let timestamps = self.timestamps.clone();
+				|db| async move {
+					match db
+						.instance()
+						.update(
+							instance::pub_id::equals(uuid_to_bytes(op_instance)),
+							vec![instance::timestamp::set(Some(timestamp.as_u64() as i64))],
+						)
+						.exec()
+						.await
+					{
+						Ok(_) => {
+							timestamps.write().await.insert(op_instance, timestamp);
+							Ok(())
+						}
+						Err(e) => Err(e),
+					}
+				}
+			})
 			.await
-			.ok();
+			.unwrap();
 	}
 
-	async fn apply_op(&self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
+	async fn apply_op(&mut self, op: CRDTOperation) -> prisma_client_rust::Result<()> {
 		ModelSyncData::from_op(op.typ.clone())
 			.unwrap()
 			.exec(&self.db)
@@ -163,7 +190,7 @@ impl Actor {
 		Ok(())
 	}
 
-	async fn compare_message(&self, op: &CRDTOperation) -> bool {
+	async fn compare_message(&mut self, op: &CRDTOperation) -> bool {
 		let old_timestamp = match &op.typ {
 			CRDTOperationType::Shared(shared_op) => {
 				let newer_op = self
@@ -227,6 +254,8 @@ pub struct Handler {
 pub struct MessagesEvent {
 	pub instance_id: Uuid,
 	pub messages: Vec<CRDTOperation>,
+	pub has_more: bool,
+	pub tunnel: Tunnel,
 }
 
 #[derive(Debug)]

@@ -20,10 +20,8 @@ use tokio::{
 use tracing::{error, info};
 use uuid::Uuid;
 
-mod initial_sync;
 mod proto;
 
-pub use initial_sync::*;
 use proto::*;
 
 use crate::{
@@ -205,44 +203,6 @@ impl PairingManager {
 						.await
 						.unwrap();
 
-					// 3.
-					// TODO: Either rollback or update library out of pairing state
-
-					// TODO: This should timeout if taking too long so it can't be used as a DOS style thing???
-					let mut total = 0;
-					let mut synced = 0;
-					loop {
-						match SyncData::from_stream(&mut stream).await.unwrap() {
-							SyncData::Data { total_models, data } => {
-								if let Some(total_models) = total_models {
-									total = total_models;
-								}
-								synced += data.len();
-
-								let model_name = data.model_name();
-								match data.insert(&library.db).await {
-									Ok(_) => {}
-									Err(e) => {
-										error!("Error inserting '{model_name}' data: {:?}", e);
-
-										// TODO: Handle error
-									}
-								}
-
-								// Prevent divide by zero
-								if total != 0 {
-									self.emit_progress(
-										pairing_id,
-										PairingStatus::InitialSyncProgress(
-											((synced as f32 / total as f32) * 100.0) as u8,
-										),
-									);
-								}
-							}
-							SyncData::Finished => break,
-						}
-					}
-
 					// Called again so the new instances are picked up
 					library_manager.node.nlm.load_library(&library).await;
 
@@ -359,39 +319,6 @@ impl PairingManager {
 
 		// TODO: Pairing confirmation + rollback
 
-		let total = ModelData::total_count(&library.db).await.unwrap();
-		let mut synced = 0;
-		info!("Starting sync of {} rows", total);
-
-		let mut cursor = ModelSyncCursor::new();
-		while let Some(data) = cursor.next(&library.db).await {
-			let data = data.unwrap();
-			let total_models = match synced {
-				0 => Some(total),
-				_ => None,
-			};
-			synced += data.len();
-			self.emit_progress(
-				pairing_id,
-				PairingStatus::InitialSyncProgress((synced as f32 / total as f32 * 100.0) as u8), // SAFETY: It's a percentage
-			);
-			// debug!(
-			// 	"Initial library sync cursor={:?} items={}",
-			// 	cursor,
-			// 	data.len()
-			// );
-
-			stream
-				.write_all(&SyncData::Data { total_models, data }.to_bytes().unwrap())
-				.await
-				.unwrap();
-		}
-
-		stream
-			.write_all(&SyncData::Finished.to_bytes().unwrap())
-			.await
-			.unwrap();
-
 		// Called again so the new instances are picked up
 		library_manager.node.nlm.load_library(&library).await;
 
@@ -409,6 +336,13 @@ impl PairingManager {
 		.await;
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
+
+		library_manager
+			.node
+			.nlm
+			.alert_new_ops(library_id, library.sync.clone())
+			.await;
+
 		stream.flush().await.unwrap();
 	}
 }

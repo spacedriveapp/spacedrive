@@ -282,16 +282,11 @@ impl P2PManager {
 													.send(ingest::Event::Notification(
 														ingest::NotificationEvent { tunnel },
 													))
-													.await;
+													.await
+													.ok();
 											}
-											SyncMessage::OperationsRequest(id) => {
-												nlm.exchange_sync_ops(
-													tunnel,
-													&event.peer_id,
-													library_id,
-													&library.sync,
-												)
-												.await;
+											SyncMessage::OperationsRequest(_) => {
+												todo!("this should be received somewhere else!");
 											}
 											SyncMessage::OperationsRequestResponse(_) => {
 												todo!("unreachable but add proper error handling")

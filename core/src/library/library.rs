@@ -45,7 +45,7 @@ pub struct Library {
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// holds the node context for the node which this library is running on.
-	pub node: Arc<NodeServices>,
+	// pub node: Arc<NodeServices>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
@@ -77,16 +77,15 @@ impl Library {
 		let library = Arc::new(Self {
 			id,
 			config,
-			manager: manager.clone(),
+			manager,
 			db: db.clone(),
 			sync: Arc::new(sync.manager),
-			node: manager.node.clone(),
 			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 		});
 
-		manager.node.nlm.load_library(&library).await;
+		library.node().nlm.load_library(&library).await;
 
 		tokio::spawn({
 			let library = library.clone();
@@ -99,19 +98,21 @@ impl Library {
 
 							let Some(req) = req else { continue; };
 
+							const OPS_PER_REQUEST: u32 = 100;
+
 							match req {
-								ingest::Request::Messages { tunnel, timestamps } => {
-									let ops = manager.node.nlm.request_and_ingest_ops(
-										tunnel,
-										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
-										&library.sync,
-										library.id
+								ingest::Request::Messages { mut tunnel, timestamps } => {
+									let ops = library.node().nlm.request_ops(
+										&mut tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: OPS_PER_REQUEST },
 									).await;
 
 									library.sync.ingest
 										.event_tx
 										.send(ingest::Event::Messages(ingest::MessagesEvent {
+											tunnel,
 											instance_id: library.sync.instance,
+											has_more: ops.len() == OPS_PER_REQUEST as usize,
 											messages: ops,
 										}))
 										.await
@@ -124,7 +125,7 @@ impl Library {
 							if let Ok(op) = msg {
 								let SyncMessage::Created = op else { continue; };
 
-								manager.node.nlm.alert_new_ops(id, &library.sync).await;
+								library.node().nlm.alert_new_ops(id, library.sync.clone()).await;
 							}
 						},
 					}
@@ -135,18 +136,22 @@ impl Library {
 		library
 	}
 
+	pub fn node(&self) -> &NodeServices {
+		&self.manager.node
+	}
+
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node.event_bus.0.send(event) {
+		if let Err(e) = self.node().event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
 	pub(crate) fn config(&self) -> &Arc<NodeConfigManager> {
-		&self.node.config
+		&self.node().config
 	}
 
 	pub(crate) fn location_manager(&self) -> &LocationManager {
-		&self.node.location_manager
+		&self.node().location_manager
 	}
 
 	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
@@ -237,7 +242,7 @@ impl Library {
 			}
 		};
 
-		self.node
+		self.node()
 			.notifications
 			.0
 			.send(Notification {

@@ -3,7 +3,7 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
-use std::{collections::BTreeMap, ops::Deref, sync::Arc};
+use std::{cmp::Ordering, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, mpsc};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
@@ -132,9 +132,22 @@ impl Manager {
 								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
 									*instance_id
 								))]),
-								$op::timestamp::gte(timestamp.as_u64() as i64)
+								$op::timestamp::gt(timestamp.as_u64() as i64)
 							]
 						})
+						.chain([
+							$op::instance::is_not(vec![
+								instance::pub_id::in_vec(
+									$args
+										.clocks
+										.iter()
+										.map(|(instance_id, _)| {
+											uuid_to_bytes(*instance_id)
+										})
+										.collect()
+								)
+							])
+						])
 						.collect(),
 				)]
 			};
@@ -145,32 +158,29 @@ impl Manager {
 				db.shared_operation()
 					.find_many(db_args!(args, shared_operation))
 					.take(args.count as i64)
+					.order_by(shared_operation::timestamp::order(SortOrder::Asc))
 					.include(shared_include::include()),
 				db.relation_operation()
 					.find_many(db_args!(args, relation_operation))
 					.take(args.count as i64)
+					.order_by(relation_operation::timestamp::order(SortOrder::Asc))
 					.include(relation_include::include()),
 			))
 			.await?;
 
-		let mut ops = BTreeMap::new();
+		let mut ops: Vec<_> = []
+			.into_iter()
+			.chain(shared.into_iter().map(DbOperation::Shared))
+			.chain(relation.into_iter().map(DbOperation::Relation))
+			.collect();
 
-		ops.extend(
-			shared
-				.into_iter()
-				.map(DbOperation::Shared)
-				.map(|op| (op.timestamp(), op)),
-		);
-		ops.extend(
-			relation
-				.into_iter()
-				.map(DbOperation::Relation)
-				.map(|op| (op.timestamp(), op)),
-		);
+		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
+			Ordering::Equal => a.instance().cmp(&b.instance()),
+			o => o,
+		});
 
 		Ok(ops
-			.into_values()
-			.rev()
+			.into_iter()
 			.take(args.count as usize)
 			.map(DbOperation::into_operation)
 			.collect())

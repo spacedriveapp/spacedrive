@@ -153,7 +153,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 							.ingest
 							.event_tx
 							.send(ingest::Event::Messages(ingest::MessagesEvent {
+								tunnel: todo!(),
 								messages,
+								has_more: false,
 								instance_id: instance1.id,
 							}))
 							.await

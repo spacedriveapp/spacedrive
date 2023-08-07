@@ -1,9 +1,9 @@
 [package]
-name = "spacedrive"
+name = "sd-desktop"
 version = "0.1.0"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc."]
-default-run = "spacedrive"
+default-run = "sd-desktop"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -18,7 +18,7 @@ httpz = { workspace = true, features = [
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
 	"location-watcher",
-	"heif",
+	# "heif",
 ] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.1"

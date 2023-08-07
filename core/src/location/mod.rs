@@ -23,6 +23,7 @@ use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use sd_prisma::prisma_sync;
 use sd_sync::*;
+use sd_utils::uuid_to_bytes;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -595,10 +596,9 @@ async fn create_location(
 						(location::path::NAME, json!(&location_path)),
 						(location::date_created::NAME, json!(date_created)),
 						(
-							location::instance_id::NAME,
+							location::instance::NAME,
 							json!(prisma_sync::instance::SyncId {
-								pub_id: vec![],
-								// id: library.config.instance_id,
+								pub_id: uuid_to_bytes(library.sync.instance)
 							}),
 						),
 					],
@@ -736,7 +736,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			// instance: None,
+			instance: None,
 		}
 	}
 }
@@ -758,7 +758,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			// instance: None,
+			instance: None,
 		}
 	}
 }

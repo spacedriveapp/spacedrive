@@ -1,5 +1,5 @@
 [package]
-name = "server"
+name = "sd-server"
 version = "0.1.0"
 license = { workspace = true }
 repository = { workspace = true }
@@ -12,7 +12,7 @@ assets = []
 sd-core = { path = "../../core", features = [
 	"ffmpeg",
 	"location-watcher",
-	"heif",
+	# "heif",
 ] }
 rspc = { workspace = true, features = ["axum"] }
 httpz = { workspace = true, features = ["axum"] }
