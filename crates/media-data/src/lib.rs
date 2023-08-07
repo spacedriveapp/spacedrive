@@ -19,11 +19,7 @@
 	clippy::dbg_macro
 )]
 #![forbid(unsafe_code)]
-#![allow(
-	clippy::missing_errors_doc,
-	clippy::module_name_repetitions,
-	clippy::field_reassign_with_default
-)]
+#![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 pub(crate) mod consts;
 mod dimensions;

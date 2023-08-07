@@ -47,9 +47,7 @@ pub struct CameraData {
 }
 
 impl MediaDataImage {
-	// https://github.com/rust-lang/rust-clippy/issues/11087
-	#[allow(clippy::future_not_send)]
-	pub async fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+	pub async fn from_path<P: AsRef<Path> + Send>(path: P) -> Result<Self> {
 		Self::from_reader(&ExifReader::from_path(path).await?)
 	}
 
@@ -57,6 +55,7 @@ impl MediaDataImage {
 		Self::from_reader(&ExifReader::from_slice(slice)?)
 	}
 
+	#[allow(clippy::field_reassign_with_default)]
 	pub fn from_reader(reader: &ExifReader) -> Result<Self> {
 		let mut data = Self::default();
 

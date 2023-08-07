@@ -17,10 +17,7 @@ pub enum Orientation {
 
 impl Orientation {
 	/// This is used for quickly sourcing [`Orientation`] data from a path, to be later used by one of the modification functions.
-	// https://github.com/rust-lang/rust-clippy/issues/11087
-	#[allow(clippy::future_not_send)]
-	pub async fn source_orientation<P: AsRef<Path>>(path: P) -> Option<Self> {
-		// TODO: We should have some error logging here
+	pub async fn source_orientation<P: AsRef<Path> + Send>(path: P) -> Option<Self> {
 		let reader = ExifReader::from_path(path).await.ok()?;
 		reader.get_orientation_int().map(Self::int_to_orientation)
 	}
