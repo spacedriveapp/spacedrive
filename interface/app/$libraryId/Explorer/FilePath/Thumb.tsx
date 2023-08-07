@@ -249,7 +249,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full border-0 bg-white',
+											'h-full w-full border-0 rounded bg-white',
 											childClassName,
 											props.className
 										)}
