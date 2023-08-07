@@ -6,7 +6,7 @@ datasource db {
 generator client {
     provider      = "cargo prisma"
     output        = "../../crates/prisma/src/prisma"
-    module_path   = "sd_prisma::prisma"
+    module_path   = "prisma"
     client_format = "folder"
 }
 
@@ -91,6 +91,7 @@ model Instance {
 
     SharedOperation   SharedOperation[]
     RelationOperation RelationOperation[]
+    locations Location[]
 
     @@map("instance")
 }
@@ -141,7 +142,7 @@ model Location {
     date_created           DateTime?
 
     instance_id Int?
-    // instance    Instance? @relation(fields: [instance_id], references: [id]) // TODO: Enabling this breaks migration 7's `update_many` in `library/config.rs`
+    instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
     file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]

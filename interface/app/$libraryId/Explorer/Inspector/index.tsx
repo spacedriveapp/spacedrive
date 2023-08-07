@@ -2,7 +2,17 @@
 import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Snowflake } from 'phosphor-react';
+import {
+	Barcode,
+	CircleWavyCheck,
+	Clock,
+	Cube,
+	Hash,
+	Link,
+	Lock,
+	Path,
+	Snowflake
+} from 'phosphor-react';
 import { HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
@@ -72,6 +82,8 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 
 	const item = data?.item;
 
+	const { data: fileFullPath } = useLibraryQuery(['files.getPath', item?.id || -1]);
+
 	// map array of numbers into string
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
 
@@ -85,7 +97,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-						<h3 className="px-3 pt-2 pb-1 text-base font-bold truncate">
+						<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
 							{filePathData?.name}
 							{filePathData?.extension && `.${filePathData.extension}`}
 						</h3>
@@ -200,6 +212,15 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 							<Accordion className="mt-2" title="More details">
 								<p className="text-xs">data here</p>
 							</Accordion>
+							{fileFullPath && (
+								<Tooltip label={fileFullPath}>
+									<MetaTextLine>
+										<InspectorIcon component={Path} />
+										<MetaKeyName className="mr-1.5">Path</MetaKeyName>
+										<MetaValue>{fileFullPath}</MetaValue>
+									</MetaTextLine>
+								</Tooltip>
+							)}
 						</MetaContainer>
 
 						{!isDir && objectData && (
@@ -244,7 +265,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 					</div>
 				</>
 			) : (
-				<div className="flex flex-col items-center justify-center w-full">
+				<div className="flex w-full flex-col items-center justify-center">
 					<img src={isDark ? Image : Image_Light} />
 					<div
 						className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center

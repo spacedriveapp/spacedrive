@@ -1,4 +1,4 @@
-use crate::library::Library;
+use crate::{library::Library, Node};
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
@@ -219,12 +219,14 @@ impl<SJob: StatefulJob> Job<SJob> {
 		}))
 	}
 
-	pub async fn spawn(self, library: &Arc<Library>) -> Result<(), JobManagerError> {
-		library
-			.node
-			.job_manager
+	pub async fn spawn(
+		self,
+		node: &Arc<Node>,
+		library: &Arc<Library>,
+	) -> Result<(), JobManagerError> {
+		node.jobs
 			.clone()
-			.ingest(library, Box::new(self))
+			.ingest(node, library, Box::new(self))
 			.await
 	}
 }

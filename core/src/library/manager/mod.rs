@@ -1,119 +1,90 @@
 use crate::{
 	invalidate_query,
-	location::{indexer, LocationManagerError},
-	node::{NodeConfig, Platform},
-	object::{preview::get_thumbnails_directory, tag, thumbnail_remover::ThumbnailRemoverActor},
-	p2p::{IdentityOrRemoteIdentity, IdentityOrRemoteIdentityErr},
+	location::indexer,
+	node::Platform,
+	object::tag,
+	p2p::IdentityOrRemoteIdentity,
 	prisma::location,
+	sync,
 	util::{
-		db::{self, MissingFieldError},
+		db,
 		error::{FileIOError, NonUtf8PathError},
-		migrator::{Migrate, MigratorError},
-		MaybeUndefined,
+		migrator::Migrate,
+		mpscrr, MaybeUndefined,
 	},
-	NodeServices,
+	Node,
 };
 
 use std::{
+	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
 
 use chrono::Utc;
+use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
-use thiserror::Error;
 use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{Library, LibraryConfig, LibraryConfigWrapped, LibraryName};
+use super::{Library, LibraryConfig, LibraryName};
 
-/// LibraryManager is a singleton that manages all libraries for a node.
-pub struct LibraryManager {
+mod error;
+
+pub use error::*;
+
+/// Event that is emitted to subscribers of the library manager.
+#[derive(Debug, Clone)]
+pub enum LibraryManagerEvent {
+	Load(Arc<Library>),
+	Edit(Arc<Library>),
+	// TODO(@Oscar): Replace this with pairing -> ready state transitions
+	InstancesModified(Arc<Library>),
+	Delete(Arc<Library>),
+}
+
+/// is a singleton that manages all libraries for a node.
+pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<Vec<Arc<Library>>>,
-	/// holds the context for the node which this library manager is running on.
-	pub node: Arc<NodeServices>,
-	/// An actor that removes stale thumbnails from the file system
-	pub thumbnail_remover: ThumbnailRemoverActor,
+	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
+	// Transmit side of `self.rx` channel
+	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
+	/// A channel for receiving events from the library manager.
+	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
 
-#[derive(Error, Debug)]
-pub enum LibraryManagerError {
-	#[error(transparent)]
-	FileIO(#[from] FileIOError),
-	#[error("error serializing or deserializing the JSON in the config file: {0}")]
-	Json(#[from] serde_json::Error),
-	#[error("database error: {0}")]
-	Database(#[from] prisma_client_rust::QueryError),
-	#[error("library not found error")]
-	LibraryNotFound,
-	#[error("error migrating the config file: {0}")]
-	Migration(String),
-	#[error("failed to parse uuid: {0}")]
-	Uuid(#[from] uuid::Error),
-	#[error("failed to run indexer rules seeder: {0}")]
-	IndexerRulesSeeder(#[from] indexer::rules::seed::SeederError),
-	// #[error("failed to initialise the key manager: {0}")]
-	// KeyManager(#[from] sd_crypto::Error),
-	#[error("failed to run library migrations: {0}")]
-	MigratorError(#[from] MigratorError),
-	#[error("error migrating the library: {0}")]
-	MigrationError(#[from] db::MigrationError),
-	#[error("invalid library configuration: {0}")]
-	InvalidConfig(String),
-	#[error(transparent)]
-	NonUtf8Path(#[from] NonUtf8PathError),
-	#[error("failed to watch locations: {0}")]
-	LocationWatcher(#[from] LocationManagerError),
-	#[error("failed to parse library p2p identity: {0}")]
-	Identity(#[from] IdentityOrRemoteIdentityErr),
-	#[error("failed to load private key for instance p2p identity")]
-	InvalidIdentity,
-	#[error("current instance with id '{0}' was not found in the database")]
-	CurrentInstanceNotFound(String),
-	#[error("missing-field: {0}")]
-	MissingField(#[from] MissingFieldError),
-}
-
-impl From<LibraryManagerError> for rspc::Error {
-	fn from(error: LibraryManagerError) -> Self {
-		rspc::Error::with_cause(
-			rspc::ErrorCode::InternalServerError,
-			error.to_string(),
-			error,
-		)
-	}
-}
-
-impl LibraryManager {
-	pub(crate) async fn new(
-		libraries_dir: PathBuf,
-		node: Arc<NodeServices>,
-	) -> Result<Arc<Self>, LibraryManagerError> {
+impl Libraries {
+	pub(crate) async fn new(libraries_dir: PathBuf) -> Result<Arc<Self>, LibraryManagerError> {
 		fs::create_dir_all(&libraries_dir)
 			.await
 			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
 
-		let mut read_dir = fs::read_dir(&libraries_dir)
-			.await
-			.map_err(|e| FileIOError::from((&libraries_dir, e)))?;
-
-		let this = Arc::new(Self {
-			libraries_dir: libraries_dir.clone(),
+		let (tx, rx) = mpscrr::unbounded_channel();
+		Ok(Arc::new(Self {
+			libraries_dir,
 			libraries: Default::default(),
-			thumbnail_remover: ThumbnailRemoverActor::new(get_thumbnails_directory(&node)),
-			node,
-		});
+			tx,
+			rx,
+		}))
+	}
+
+	/// Loads the initial libraries from disk.
+	///
+	/// `Arc<LibraryManager>` is constructed and passed to other managers for them to subscribe (`self.rx.subscribe`) then this method is run to load the initial libraries and trigger the subscriptions.
+	pub async fn init(self: &Arc<Self>, node: &Arc<Node>) -> Result<(), LibraryManagerError> {
+		let mut read_dir = fs::read_dir(&self.libraries_dir)
+			.await
+			.map_err(|e| FileIOError::from((&self.libraries_dir, e)))?;
 
 		while let Some(entry) = read_dir
 			.next_entry()
 			.await
-			.map_err(|e| FileIOError::from((&libraries_dir, e)))?
+			.map_err(|e| FileIOError::from((&self.libraries_dir, e)))?
 		{
 			let config_path = entry.path();
 			if config_path
@@ -129,34 +100,31 @@ impl LibraryManager {
 				let Some(Ok(library_id)) = config_path
 				.file_stem()
 				.and_then(|v| v.to_str().map(Uuid::from_str))
-			else {
-				warn!(
-					"Attempted to load library from path '{}' \
-					but it has an invalid filename. Skipping...",
-					config_path.display()
-				);
-					continue;
-			};
+				else {
+					warn!(
+						"Attempted to load library from path '{}' \
+						but it has an invalid filename. Skipping...",
+						config_path.display()
+					);
+						continue;
+				};
 
 				let db_path = config_path.with_extension("db");
 				match fs::metadata(&db_path).await {
 					Ok(_) => {}
 					Err(e) if e.kind() == io::ErrorKind::NotFound => {
-						warn!(
-					"Found library '{}' but no matching database file was found. Skipping...",
-						config_path.display()
-					);
+						warn!("Found library '{}' but no matching database file was found. Skipping...", config_path.display());
 						continue;
 					}
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				this.load(library_id, &db_path, config_path, None, true)
+				self.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
 			}
 		}
 
-		Ok(this)
+		Ok(())
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
@@ -164,9 +132,9 @@ impl LibraryManager {
 		self: &Arc<Self>,
 		name: LibraryName,
 		description: Option<String>,
-		node_cfg: NodeConfig,
+		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, node_cfg, true, None)
+		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
 			.await
 	}
 
@@ -175,10 +143,10 @@ impl LibraryManager {
 		id: Uuid,
 		name: LibraryName,
 		description: Option<String>,
-		node_cfg: NodeConfig,
 		should_seed: bool,
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
+		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -202,6 +170,7 @@ impl LibraryManager {
 			config_path.display()
 		);
 
+		let node_cfg = node.config.get().await;
 		let now = Utc::now().fixed_offset();
 		let library = self
 			.load(
@@ -217,13 +186,13 @@ impl LibraryManager {
 						node_platform: Platform::current() as i32,
 						last_seen: now,
 						date_created: now,
-						// timestamp: Default::default(), // TODO: Source this properly!
 						_params: vec![],
 					});
 					create._params.push(instance::id::set(config.instance_id));
 					create
 				}),
 				should_seed,
+				node,
 			)
 			.await?;
 
@@ -240,19 +209,13 @@ impl LibraryManager {
 		Ok(library)
 	}
 
-	pub(crate) async fn get_all_libraries(&self) -> Vec<Arc<Library>> {
-		self.libraries.read().await.clone()
-	}
-
-	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
+	/// `LoadedLibrary.id` can be used to get the library's id.
+	pub async fn get_all(&self) -> Vec<Arc<Library>> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.map(|lib| LibraryConfigWrapped {
-				uuid: lib.id,
-				config: lib.config.clone(),
-			})
+			.map(|v| v.1.clone())
 			.collect()
 	}
 
@@ -263,10 +226,9 @@ impl LibraryManager {
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
-		let mut libraries = self.libraries.write().await;
+		let libraries = self.libraries.write().await;
 		let library = libraries
-			.iter_mut()
-			.find(|lib| lib.id == id)
+			.get(&id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
@@ -282,50 +244,27 @@ impl LibraryManager {
 
 		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 
-		self.node.nlm.edit_library(&library).await;
-
+		self.tx
+			.emit(LibraryManagerEvent::Edit(library.clone()))
+			.await;
 		invalidate_query!(library, "library.list");
-
-		for library in libraries.iter() {
-			for location in library
-				.db
-				.location()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap_or_else(|e| {
-					error!(
-						"Failed to get locations from database for location manager: {:#?}",
-						e
-					);
-					vec![]
-				}) {
-				if let Err(e) = self
-					.node
-					.location_manager
-					.add(location.id, library.clone())
-					.await
-				{
-					error!("Failed to add location to location manager: {:#?}", e);
-				}
-			}
-		}
 
 		Ok(())
 	}
 
-	pub async fn delete(&self, id: Uuid) -> Result<(), LibraryManagerError> {
+	pub async fn delete(&self, id: &Uuid) -> Result<(), LibraryManagerError> {
+		// As we're holding a write lock here, we know nothing will change during this function
 		let mut libraries_write_guard = self.libraries.write().await;
 
-		// As we're holding a write lock here, we know that our index can't change before removal.
-		let library_idx = libraries_write_guard
-			.iter()
-			.position(|l| l.id == id)
+		// TODO: Library go into "deletion" state until it's finished!
+
+		let library = libraries_write_guard
+			.get(id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		let library = &*libraries_write_guard[library_idx];
-
-		self.node.nlm.delete_library(library).await;
+		self.tx
+			.emit(LibraryManagerEvent::Delete(library.clone()))
+			.await;
 
 		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
 		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
@@ -343,10 +282,10 @@ impl LibraryManager {
 			},
 		)?;
 
-		self.thumbnail_remover.remove_library(id).await;
-
 		// We only remove here after files deletion
-		let library = libraries_write_guard.remove(library_idx);
+		let library = libraries_write_guard
+			.remove(id)
+			.expect("we have exclusive access and checked it exists!");
 
 		info!("Removed Library <id='{}'>", library.id);
 
@@ -356,13 +295,13 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: Uuid) -> Option<Arc<Library>> {
-		self.libraries
-			.read()
-			.await
-			.iter()
-			.find(|lib| lib.id == library_id)
-			.map(Clone::clone)
+	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Library>> {
+		self.libraries.read().await.get(library_id).cloned()
+	}
+
+	// get_ctx will return the library context for the given library id.
+	pub async fn hash_library(&self, library_id: &Uuid) -> bool {
+		self.libraries.read().await.get(library_id).is_some()
 	}
 
 	/// load the library from a given path
@@ -373,6 +312,7 @@ impl LibraryManager {
 		config_path: PathBuf,
 		create: Option<instance::Create>,
 		should_seed: bool,
+		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
@@ -387,7 +327,7 @@ impl LibraryManager {
 			create.to_query(&db).exec().await?;
 		}
 
-		let node_config = self.node.config.get().await;
+		let node_config = node.config.get().await;
 		let config =
 			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
@@ -439,19 +379,75 @@ impl LibraryManager {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
+		let mut sync = sync::Manager::new(&db, instance_id);
+
 		let library = Library::new(
 			id,
-			instance_id,
 			config,
 			identity,
 			// key_manager,
 			db,
-			self.clone(),
+			&node,
+			Arc::new(sync.manager),
 		)
 		.await;
 
-		self.thumbnail_remover.new_library(&library).await;
-		self.libraries.write().await.push(Arc::clone(&library));
+		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
+		tokio::spawn({
+			let library = library.clone();
+			let node = node.clone();
+
+			async move {
+				loop {
+					tokio::select! {
+						req = sync.ingest_rx.recv() => {
+							use sd_core_sync::ingest;
+
+							let Some(req) = req else { continue; };
+
+							const OPS_PER_REQUEST: u32 = 100;
+
+							match req {
+								ingest::Request::Messages { mut tunnel, timestamps } => {
+									let ops = node.nlm.request_ops(
+										&mut tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: OPS_PER_REQUEST },
+									).await;
+
+									library.sync.ingest
+										.event_tx
+										.send(ingest::Event::Messages(ingest::MessagesEvent {
+											tunnel,
+											instance_id: library.sync.instance,
+											has_more: ops.len() == OPS_PER_REQUEST as usize,
+											messages: ops,
+										}))
+										.await
+										.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+								},
+								_ => {}
+							}
+						},
+						msg = sync.rx.recv() => {
+							if let Ok(op) = msg {
+								let SyncMessage::Created = op else { continue; };
+
+								node.nlm.alert_new_ops(id, &library.sync).await;
+							}
+						},
+					}
+				}
+			}
+		});
+
+		self.tx
+			.emit(LibraryManagerEvent::Load(library.clone()))
+			.await;
+
+		self.libraries
+			.write()
+			.await
+			.insert(library.id, Arc::clone(&library));
 
 		if should_seed {
 			library.orphan_remover.invoke().await;
@@ -468,20 +464,21 @@ impl LibraryManager {
 			.exec()
 			.await?
 		{
-			if let Err(e) = library
-				.node
-				.location_manager
-				.add(location.id, library.clone())
-				.await
-			{
+			if let Err(e) = node.locations.add(location.id, library.clone()).await {
 				error!("Failed to watch location on startup: {e}");
 			};
 		}
 
-		if let Err(e) = library.node.job_manager.clone().cold_resume(&library).await {
+		if let Err(e) = node.jobs.clone().cold_resume(node, &library).await {
 			error!("Failed to resume jobs for library. {:#?}", e);
 		}
 
 		Ok(library)
+	}
+
+	pub async fn update_instances(&self, library: Arc<Library>) {
+		self.tx
+			.emit(LibraryManagerEvent::InstancesModified(library))
+			.await;
 	}
 }
