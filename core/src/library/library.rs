@@ -6,6 +6,7 @@ use crate::{
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
+	sync,
 	util::{db::maybe_missing, error::FileIOError},
 	Node, NotificationManager,
 };
@@ -18,7 +19,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{SyncManager, SyncMessage};
+use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io, sync::broadcast};
@@ -42,7 +43,7 @@ pub struct LoadedLibrary {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: Arc<sync::Manager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
@@ -78,7 +79,7 @@ impl LoadedLibrary {
 		manager: Arc<LibraryManager>,
 		node: &Arc<Node>,
 	) -> Arc<Self> {
-		let mut sync = SyncManager::new(&db, instance_id);
+		let mut sync = sync::Manager::new(&db, instance_id);
 
 		let library = Arc::new(Self {
 			id,
@@ -106,24 +107,31 @@ impl LoadedLibrary {
 				loop {
 					tokio::select! {
 						req = sync.ingest_rx.recv() => {
-							use sd_core_sync::ingest::Request;
+							use sd_core_sync::ingest;
 
 							let Some(req) = req else { continue; };
 
+							const OPS_PER_REQUEST: u32 = 100;
+
 							match req {
-								Request::Messages { tunnel, timestamps } => {
-									node.nlm.request_and_ingest_ops(
-										tunnel,
-										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
-										&library.sync,
-										library.id
+								ingest::Request::Messages { mut tunnel, timestamps } => {
+									let ops = library.node().nlm.request_ops(
+										&mut tunnel,
+										sd_core_sync::GetOpsArgs { clocks: timestamps, count: OPS_PER_REQUEST },
 									).await;
+
+									library.sync.ingest
+										.event_tx
+										.send(ingest::Event::Messages(ingest::MessagesEvent {
+											tunnel,
+											instance_id: library.sync.instance,
+											has_more: ops.len() == OPS_PER_REQUEST as usize,
+											messages: ops,
+										}))
+										.await
+										.expect("TODO: Handle ingest channel closed, so we don't loose ops");
 								},
-								Request::Ingest(ops) => {
-									for op in ops.into_iter() {
-										library.sync.receive_crdt_operation(op).await;
-									}
-								}
+								_ => {}
 							}
 						},
 						msg = sync.rx.recv() => {
