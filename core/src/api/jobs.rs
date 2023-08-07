@@ -34,8 +34,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - the client replaces its local copy of the JobReport using the index provided by the reports procedure
 			// - this should be used with the ephemeral sync engine
 			R.with2(library())
-				.subscription(|(ctx, _), job_uuid: Uuid| async move {
-					let mut event_bus_rx = ctx.event_bus.0.subscribe();
+				.subscription(|(node, _), job_uuid: Uuid| async move {
+					let mut event_bus_rx = node.event_bus.0.subscribe();
 					let mut tick = interval(Duration::from_secs_f64(1.0 / 30.0));
 
 					async_stream::stream! {
@@ -79,7 +79,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.query(|(ctx, library), _: ()| async move {
+				.query(|(node, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
 					let job_reports: Vec<JobReport> = library
@@ -95,7 +95,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(JobReport::try_from)
 						.collect();
 
-					let active_reports_by_id = ctx.jobs.get_active_reports_with_id().await;
+					let active_reports_by_id = node.jobs.get_active_reports_with_id().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
@@ -161,7 +161,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("isActive", {
 			R.with2(library())
-				.query(|(ctx, _), _: ()| async move { Ok(ctx.jobs.has_active_workers().await) })
+				.query(|(node, _), _: ()| async move { Ok(node.jobs.has_active_workers().await) })
 		})
 		.procedure("clear", {
 			R.with2(library())
@@ -200,24 +200,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Jobs::pause(&ctx.jobs, id).await.map_err(Into::into);
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::pause(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
-				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Jobs::resume(&ctx.jobs, id).await.map_err(Into::into);
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::resume(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
 		})
 		.procedure("cancel", {
 			R.with2(library())
-				.mutation(|(ctx, library), id: Uuid| async move {
-					let ret = Jobs::cancel(&ctx.jobs, id).await.map_err(Into::into);
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::cancel(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
 					ret
 				})
@@ -295,10 +295,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("newThumbnail", {
 			R.with2(library())
-				.subscription(|(ctx, _), _: ()| async move {
+				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
 
-					let mut event_bus_rx = ctx.event_bus.0.subscribe();
+					let mut event_bus_rx = node.event_bus.0.subscribe();
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {

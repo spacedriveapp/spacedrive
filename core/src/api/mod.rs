@@ -86,11 +86,11 @@ pub(crate) fn mount() -> Arc<Router> {
 			})
 		})
 		.procedure("nodeState", {
-			R.query(|ctx, _: ()| async move {
+			R.query(|node, _: ()| async move {
 				Ok(NodeState {
-					config: ctx.config.get().await.into(),
+					config: node.config.get().await.into(),
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
-					data_path: ctx
+					data_path: node
 						.config
 						.data_directory()
 						.to_str()

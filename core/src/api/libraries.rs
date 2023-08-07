@@ -27,8 +27,8 @@ pub struct LibraryConfigWrapped {
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.query(|ctx, _: ()| async move {
-				ctx.libraries
+			R.query(|node, _: ()| async move {
+				node.libraries
 					.get_all()
 					.await
 					.into_iter()
@@ -105,10 +105,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				name: LibraryName,
 			}
 
-			R.mutation(|ctx, args: CreateLibraryArgs| async move {
+			R.mutation(|node, args: CreateLibraryArgs| async move {
 				debug!("Creating library");
 
-				let library = ctx.libraries.create(args.name, None, &ctx).await?;
+				let library = node.libraries.create(args.name, None, &node).await?;
 
 				debug!("Created library {}", library.id);
 
@@ -126,8 +126,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub description: MaybeUndefined<String>,
 			}
 
-			R.mutation(|ctx, args: EditLibraryArgs| async move {
-				Ok(ctx
+			R.mutation(|node, args: EditLibraryArgs| async move {
+				Ok(node
 					.libraries
 					.edit(args.id, args.name, args.description)
 					.await?)
@@ -135,8 +135,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure(
 			"delete",
-			R.mutation(|ctx, id: Uuid| async move {
-				ctx.libraries.delete(&id).await.map_err(Into::into)
+			R.mutation(|node, id: Uuid| async move {
+				node.libraries.delete(&id).await.map_err(Into::into)
 			}),
 		)
 }

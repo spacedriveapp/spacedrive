@@ -39,9 +39,9 @@ pub enum NotificationData {
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			R.query(|ctx, _: ()| async move {
-				let mut notifications = ctx.config.get().await.notifications;
-				for lib_notifications in join_all(ctx.libraries.get_all().await.into_iter().map(
+			R.query(|node, _: ()| async move {
+				let mut notifications = node.config.get().await.notifications;
+				for lib_notifications in join_all(node.libraries.get_all().await.into_iter().map(
 					|library| async move {
 						library
 							.db
@@ -87,10 +87,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("dismiss", {
-			R.query(|ctx, id: NotificationId| async move {
+			R.query(|node, id: NotificationId| async move {
 				match id {
 					NotificationId::Library(library_id, id) => {
-						ctx.libraries
+						node.libraries
 							.get_library(&library_id)
 							.await
 							.ok_or_else(|| {
@@ -106,7 +106,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							})?;
 					}
 					NotificationId::Node(id) => {
-						ctx.config
+						node.config
 							.write(|mut cfg| {
 								cfg.notifications
 									.retain(|n| n.id != NotificationId::Node(id));
@@ -122,8 +122,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("dismissAll", {
-			R.query(|ctx, _: ()| async move {
-				ctx.config
+			R.query(|node, _: ()| async move {
+				node.config
 					.write(|mut cfg| {
 						cfg.notifications = vec![];
 					})
@@ -133,7 +133,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})?;
 
 				join_all(
-					ctx.libraries
+					node.libraries
 						.get_all()
 						.await
 						.into_iter()
@@ -149,8 +149,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("listen", {
-			R.subscription(|ctx, _: ()| async move {
-				let mut sub = ctx.notifications.subscribe();
+			R.subscription(|node, _: ()| async move {
+				let mut sub = node.notifications.subscribe();
 
 				stream! {
 					while let Ok(notification) = sub.recv().await {
@@ -160,8 +160,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("test", {
-			R.mutation(|ctx, _: ()| async move {
-				ctx.emit_notification(NotificationData::Test, None).await;
+			R.mutation(|node, _: ()| async move {
+				node.emit_notification(NotificationData::Test, None).await;
 			})
 		})
 		.procedure("testLibrary", {
