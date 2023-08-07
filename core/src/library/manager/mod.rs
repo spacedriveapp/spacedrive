@@ -384,8 +384,7 @@ impl LibraryManager {
 			identity,
 			// key_manager,
 			db,
-			self.clone(),
-			node,
+			&node,
 			sync.manager,
 		)
 		.await;
