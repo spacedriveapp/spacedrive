@@ -141,8 +141,6 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				onMouseDown={(e) => {
 					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
 
-					console.log('bruh');
-
 					explorer.resetSelectedItems();
 				}}
 			>
