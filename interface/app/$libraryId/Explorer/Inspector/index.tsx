@@ -24,9 +24,9 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
-import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -175,14 +175,14 @@ const SingleItem = ({ item, showThumbnail }: Props & { item: ExplorerItem }) => 
 								</InfoPill>
 							</Tooltip>
 						))}
-						{objectData?.id && (
+						{objectData && (
 							<DropdownMenu.Root
 								trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
 								side="left"
 								sideOffset={5}
 								alignOffset={-10}
 							>
-								<AssignTagMenuItems objectId={objectData.id} />
+								<AssignTagMenuItems objects={[objectData]} />
 							</DropdownMenu.Root>
 						)}
 					</div>

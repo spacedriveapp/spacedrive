@@ -1,21 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
-import { FilePath, useLibraryContext } from '@sd/client';
+import { useLibraryContext } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { Platform, usePlatform } from '~/util/Platform';
+import { ConditionalItem } from '../ConditionalItem';
+import { useContextMenuContext } from '../context';
 
-export default (props: { filePath: FilePath }) => {
-	const { getFilePathOpenWithApps, openFilePathWith } = usePlatform();
+export default new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		const { getFilePathOpenWithApps, openFilePathWith } = usePlatform();
 
-	if (!getFilePathOpenWithApps || !openFilePathWith) return null;
-	if (props.filePath.is_dir) return null;
+		if (!getFilePathOpenWithApps || !openFilePathWith) return null;
+		if (selectedFilePaths.some((p) => p.is_dir)) return null;
 
-	return (
+		return { getFilePathOpenWithApps, openFilePathWith };
+	},
+	Component: ({ getFilePathOpenWithApps, openFilePathWith }) => (
 		<ContextMenu.SubMenu label="Open with">
 			<Suspense>
 				<Items
-					filePath={props.filePath}
 					actions={{
 						getFilePathOpenWithApps,
 						openFilePathWith
@@ -23,21 +28,23 @@ export default (props: { filePath: FilePath }) => {
 				/>
 			</Suspense>
 		</ContextMenu.SubMenu>
-	);
-};
+	)
+});
 
 const Items = ({
-	filePath,
 	actions
 }: {
-	filePath: FilePath;
 	actions: Required<Pick<Platform, 'getFilePathOpenWithApps' | 'openFilePathWith'>>;
 }) => {
+	const { selectedFilePaths } = useContextMenuContext();
+
 	const { library } = useLibraryContext();
 
+	const ids = selectedFilePaths.map((obj) => obj.id);
+
 	const items = useQuery<unknown>(
-		['openWith', filePath.id],
-		() => actions.getFilePathOpenWithApps(library.uuid, [filePath.id]),
+		['openWith', ids],
+		() => actions.getFilePathOpenWithApps(library.uuid, ids),
 		{ suspense: true }
 	);
 
@@ -49,9 +56,10 @@ const Items = ({
 						key={id}
 						onClick={async () => {
 							try {
-								await actions.openFilePathWith(library.uuid, [
-									[filePath.id, data.url]
-								]);
+								await actions.openFilePathWith(
+									library.uuid,
+									ids.map((id) => [id, data.url])
+								);
 							} catch (e) {
 								console.error(e);
 								showAlertDialog({
