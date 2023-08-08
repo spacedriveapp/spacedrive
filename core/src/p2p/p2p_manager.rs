@@ -9,29 +9,30 @@ use std::{
 use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
-	spacetunnel::{Identity, Tunnel},
+	spacetunnel::{RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
-use sd_sync::CRDTOperation;
 use serde::Serialize;
 use specta::Type;
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::LibraryManager,
-	node::{NodeConfig, NodeConfigManager},
+	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
 };
 
-use super::{Header, PairingManager, PairingStatus, PeerMetadata};
+use super::{
+	sync::{NetworkedLibraries, SyncMessage},
+	Header, PairingManager, PairingStatus, PeerMetadata,
+};
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -69,20 +70,21 @@ pub struct P2PManager {
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
+	node_config_manager: Arc<config::Manager>,
 }
 
 impl P2PManager {
 	pub async fn new(
-		node_config: Arc<NodeConfigManager>,
-	) -> Result<(P2PManager, ManagerStream<PeerMetadata>), ManagerError> {
+		node_config: Arc<config::Manager>,
+	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
 		let (config, keypair) = {
 			let config = node_config.get().await;
-			(
-				Self::config_to_metadata(&config /* , &library_manager */).await,
-				config.keypair,
-			)
+
+			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
+			(Self::config_to_metadata(&config, vec![]), config.keypair)
 		};
 
+		// TODO: Delay building this until the libraries are loaded
 		let metadata_manager = MetadataManager::new(config);
 
 		let (manager, stream) =
@@ -100,41 +102,35 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
-		let pairing = PairingManager::new(manager.clone(), tx.clone());
+		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
 
 		// TODO: proper shutdown
 		// https://docs.rs/ctrlc/latest/ctrlc/
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 		Ok((
-			Self {
+			Arc::new(Self {
 				pairing,
 				events: (tx, rx),
 				manager,
 				spacedrop_pairing_reqs,
 				metadata_manager,
 				spacedrop_progress,
-			},
+				node_config_manager: node_config,
+			}),
 			stream,
 		))
 	}
+
 	pub fn start(&self, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
-		// TODO: Probs remove this once connection timeout/keepalive are working correctly
 		tokio::spawn({
 			let manager = self.manager.clone();
-			async move {
-				loop {
-					tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-					manager.broadcast(Header::Ping.to_bytes()).await;
-				}
-			}
-		});
-
-		tokio::spawn({
+			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = self.spacedrop_progress.clone();
 			let pairing = self.pairing.clone();
+			let node = node.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -154,12 +150,33 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							// TODO: Don't just connect to everyone when we find them. We should only do it if we know them.
-							// TODO(Spacedrop): Disable Spacedrop for now
-							// event.dial().await;
+							node.nlm.peer_discovered(event).await;
+						}
+						Event::PeerExpired { id, metadata } => {
+							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
+							node.nlm.peer_expired(id).await;
+						}
+						Event::PeerConnected(event) => {
+							debug!("Peer '{}' connected", event.peer_id);
+							node.nlm.peer_connected(event.peer_id).await;
+
+							if event.establisher {
+								let manager = manager.clone();
+								let nlm = node.nlm.clone();
+								let instances = metadata_manager.get().instances;
+								tokio::spawn(async move {
+									let mut stream = manager.stream(event.peer_id).await.unwrap();
+									Self::resync(nlm, &mut stream, event.peer_id, instances).await;
+								});
+							}
+						}
+						Event::PeerDisconnected(peer_id) => {
+							debug!("Peer '{}' disconnected", peer_id);
+							node.nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
+							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
@@ -231,38 +248,59 @@ impl P2PManager {
 									}
 									Header::Pair => {
 										pairing
-											.responder(event.peer_id, stream, &node.library_manager)
+											.responder(
+												event.peer_id,
+												stream,
+												&node.libraries,
+												node.clone(),
+											)
 											.await;
 									}
 									Header::Sync(library_id) => {
-										let mut stream = Tunnel::from_stream(stream).await.unwrap();
+										// Header -> Tunnel -> SyncMessage
+										use sd_core_sync::ingest;
 
-										let mut len = [0; 4];
-										stream.read_exact(&mut len).await.unwrap();
-										let len = u32::from_le_bytes(len);
+										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
-										let mut buf = vec![0; len as usize]; // TODO: Designed for easily being able to be DOS the current Node
-										stream.read_exact(&mut buf).await.unwrap();
+										let msg =
+											SyncMessage::from_stream(&mut tunnel).await.unwrap();
 
-										let mut buf: &[u8] = &buf;
-										let operations: Vec<CRDTOperation> =
-											rmp_serde::from_read(&mut buf).unwrap();
+										let library =
+											node.libraries.get_library(&library_id).await.unwrap();
 
-										debug!("ingesting sync events for library '{library_id}': {operations:?}");
+										dbg!(&msg);
 
-										let Some(library) = node.library_manager.get_library(library_id).await else {
-											warn!("error ingesting sync messages. no library by id '{library_id}' found!");
-											return;
+										let ingest = &library.sync.ingest;
+
+										match msg {
+											SyncMessage::NewOperations => {
+												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
+												// TODO: Throw tunnel around like this makes it soooo confusing.
+												ingest
+													.event_tx
+													.send(ingest::Event::Notification(
+														ingest::NotificationEvent { tunnel },
+													))
+													.await
+													.ok();
+											}
+											SyncMessage::OperationsRequest(_) => {
+												todo!("this should be received somewhere else!");
+											}
+											SyncMessage::OperationsRequestResponse(_) => {
+												todo!("unreachable but add proper error handling")
+											}
 										};
-
-										for op in operations {
-											library.sync.apply_op(op).await.unwrap_or_else(|err| {
-												error!(
-													"error ingesting operation for library '{}': {err:?}",
-													library.id
-												);
-											});
-										}
+									}
+									Header::Connected(identities) => {
+										Self::resync_handler(
+											node.nlm.clone(),
+											&mut stream,
+											event.peer_id,
+											metadata_manager.get().instances,
+											identities,
+										)
+										.await
 									}
 								}
 							});
@@ -287,37 +325,63 @@ impl P2PManager {
 		});
 	}
 
-	async fn config_to_metadata(
-		config: &NodeConfig,
-		// library_manager: &LibraryManager,
-	) -> PeerMetadata {
+	fn config_to_metadata(config: &NodeConfig, instances: Vec<RemoteIdentity>) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			email: config.p2p_email.clone(),
 			img_url: config.p2p_img_url.clone(),
-			// instances: library_manager
-			// 	.get_all_instances()
-			// 	.await
-			// 	.into_iter()
-			// 	.filter_map(|i| {
-			// 		Identity::from_bytes(&i.identity)
-			// 			.map(|i| hex::encode(i.public_key().to_bytes()))
-			// 			.ok()
-			// 	})
-			// 	.collect(),
+			instances,
 		}
 	}
 
-	#[allow(unused)] // TODO: Should probs be using this
-	pub async fn update_metadata(
-		&self,
-		node_config_manager: &NodeConfigManager,
-		library_manager: &LibraryManager,
+	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
+	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
+		self.metadata_manager.update(Self::config_to_metadata(
+			&self.node_config_manager.get().await,
+			instances,
+		));
+	}
+
+	pub async fn resync(
+		nlm: Arc<NetworkedLibraries>,
+		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
+		peer_id: PeerId,
+		instances: Vec<RemoteIdentity>,
 	) {
-		self.metadata_manager
-			.update(Self::config_to_metadata(&node_config_manager.get().await).await);
+		// TODO: Make this encrypted using node to node auth so it can't be messed with in transport
+
+		stream
+			.write_all(&Header::Connected(instances).to_bytes())
+			.await
+			.unwrap();
+
+		let Header::Connected(identities) =
+			Header::from_stream(stream).await.unwrap() else {
+				panic!("unreachable but error handling")
+			};
+
+		for identity in identities {
+			nlm.peer_connected2(identity, peer_id).await;
+		}
+	}
+
+	pub async fn resync_handler(
+		nlm: Arc<NetworkedLibraries>,
+		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
+		peer_id: PeerId,
+		local_identities: Vec<RemoteIdentity>,
+		remote_identities: Vec<RemoteIdentity>,
+	) {
+		for identity in remote_identities {
+			nlm.peer_connected2(identity, peer_id).await;
+		}
+
+		stream
+			.write_all(&Header::Connected(local_identities).to_bytes())
+			.await
+			.unwrap();
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
@@ -336,62 +400,8 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
-	pub async fn broadcast_sync_events(
-		&self,
-		library_id: Uuid,
-		_identity: &Identity,
-		event: Vec<CRDTOperation>,
-		library_manager: &LibraryManager,
-	) {
-		println!("broadcasting sync events!");
-
-		let mut buf = match rmp_serde::to_vec_named(&event) {
-			Ok(buf) => buf,
-			Err(e) => {
-				error!("Failed to serialize sync event: {:?}", e);
-				return;
-			}
-		};
-		let mut head_buf = Header::Sync(library_id).to_bytes(); // Max Sync payload is like 4GB
-		head_buf.extend_from_slice(&(buf.len() as u32).to_le_bytes());
-		head_buf.append(&mut buf);
-
-		// TODO: Determine which clients we share that library with
-
-		// TODO: Establish a connection to them
-
-		let _library = library_manager.get_library(library_id).await.unwrap();
-
-		todo!();
-
-		// TODO: probs cache this query in memory cause this is gonna be stupid frequent
-		// let target_nodes = library
-		// 	.db
-		// 	.node()
-		// 	.find_many(vec![])
-		// 	.exec()
-		// 	.await
-		// 	.unwrap()
-		// 	.into_iter()
-		// 	.map(|n| {
-		// 		PeerId::from_str(&n.node_peer_id.expect("Node was missing 'node_peer_id'!"))
-		// 			.unwrap()
-		// 	})
-		// 	.collect::<Vec<_>>();
-
-		// info!(
-		// 	"Sending sync messages for library '{}' to nodes with peer id's '{:?}'",
-		// 	library_id, target_nodes
-		// );
-
-		// // TODO: Do in parallel
-		// for peer_id in target_nodes {
-		// 	let stream = self.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
-
-		// 	let mut tunnel = Tunnel::from_stream(stream).await.unwrap();
-
-		// 	tunnel.write_all(&head_buf).await.unwrap();
-		// }
+	pub async fn ping(&self) {
+		self.manager.broadcast(Header::Ping.to_bytes()).await;
 	}
 
 	// TODO: Proper error handling
