@@ -109,6 +109,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<ExplorerItemHash>>(new Set());
+	const selectoFirstColumn = useRef<number | undefined>();
 	const selectoLastColumn = useRef<number | undefined>();
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
@@ -336,6 +337,7 @@ export default ({ children }: { children: RenderItem }) => {
 					}}
 					onDragEnd={() => {
 						getExplorerStore().isDragging = false;
+						selectoFirstColumn.current = undefined;
 						selectoLastColumn.current = undefined;
 						setDragFromThumbnail(false);
 
@@ -377,8 +379,6 @@ export default ({ children }: { children: RenderItem }) => {
 							const item = getElementItem(el);
 
 							if (!item?.data) return;
-
-							selectoLastColumn.current = item.column;
 
 							if (!inputEvent.shiftKey) {
 								// TODO: Uncomment when implementing dnd
@@ -423,7 +423,7 @@ export default ({ children }: { children: RenderItem }) => {
 							const dragDirection = {
 								x: inputEvent.x === e.rect.left ? 'left' : 'right',
 								y: inputEvent.y === e.rect.bottom ? 'down' : 'up'
-							};
+							} as const;
 
 							const dragStart = {
 								x: dragDirection.x === 'right' ? e.rect.left : e.rect.right,
@@ -445,15 +445,23 @@ export default ({ children }: { children: RenderItem }) => {
 								return [...items, item];
 							}, [] as NonNullable<ReturnType<typeof getElementItem>>[]);
 
-							if (columns.size > 1 && selectoLastColumn.current === undefined) {
+							if (columns.size > 1) {
 								items.sort((a, b) => a.column - b.column);
+
+								const firstItem =
+									dragDirection.x === 'right'
+										? items[0]
+										: items[items.length - 1];
 
 								const lastItem =
 									dragDirection.x === 'right'
 										? items[items.length - 1]
 										: items[0];
 
-								if (lastItem) selectoLastColumn.current = lastItem.column;
+								if (firstItem && lastItem) {
+									selectoFirstColumn.current = firstItem.column;
+									selectoLastColumn.current = lastItem.column;
+								}
 							} else if (columns.size === 1) {
 								const column = [...columns.values()][0];
 
@@ -477,7 +485,12 @@ export default ({ children }: { children: RenderItem }) => {
 												? items[0]
 												: items[items.length - 1];
 
-										if (firstItem) {
+										if (
+											firstItem &&
+											(dragDirection.y === 'down'
+												? dragStart.y < firstItem.rect.top
+												: dragStart.y > firstItem.rect.bottom)
+										) {
 											const viewRect =
 												explorerView.ref.current?.getBoundingClientRect();
 
@@ -536,13 +549,14 @@ export default ({ children }: { children: RenderItem }) => {
 											});
 										}
 
-										if (
-											!inDragArea &&
-											(column === 0 || column === grid.columnCount - 1)
-										) {
+										if (!inDragArea && column === selectoFirstColumn.current) {
+											selectoFirstColumn.current = undefined;
 											selectoLastColumn.current = undefined;
 										} else {
 											selectoLastColumn.current = column;
+											if (selectoFirstColumn.current === undefined) {
+												selectoFirstColumn.current = column;
+											}
 										}
 									}
 								}
@@ -580,7 +594,10 @@ export default ({ children }: { children: RenderItem }) => {
 
 								if (!explorer.allowMultiSelect) {
 									explorer.resetSelectedItems([item.data]);
-								} else selectoLastColumn.current = item.column;
+								} else {
+									selectoFirstColumn.current = item.column;
+									selectoLastColumn.current = item.column;
+								}
 
 								activeItem.current = item.data;
 							}}
