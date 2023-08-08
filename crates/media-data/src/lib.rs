@@ -41,3 +41,9 @@ pub use location::MediaLocation;
 pub use orientation::Orientation;
 pub use profile::ColorProfile;
 pub use time::MediaTime;
+
+pub trait MediaData {
+	type Value;
+
+	fn from_path(path: impl AsRef<std::path::Path> + Send) -> Self;
+}

@@ -47,7 +47,7 @@ pub struct CameraData {
 }
 
 impl MediaDataImage {
-	pub async fn from_path<P: AsRef<Path> + Send>(path: P) -> Result<Self> {
+	pub async fn from_path(path: impl AsRef<Path> + Send) -> Result<Self> {
 		Self::from_reader(&ExifReader::from_path(path).await?)
 	}
 
@@ -67,11 +67,7 @@ impl MediaDataImage {
 		data.camera_data.focal_length = reader.get_tag(Tag::FocalLength);
 		data.camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
 		data.camera_data.color_space = reader.get_tag(Tag::ColorSpace);
-
-		// data.camera_data.flash = reader
-		// 	.get_tag::<String>(Tag::Flash)
-		// 	.map(|x: String| x.to_lowercase().contains("fired") || x.to_lowercase().contains("on"))
-		// 	.unwrap_or_default();
+		data.camera_data.color_profile = ColorProfile::from_reader(reader);
 
 		data.camera_data.lens_make = reader.get_tag(Tag::LensMake);
 		data.camera_data.lens_model = reader.get_tag(Tag::LensModel);
@@ -147,9 +143,7 @@ impl MediaDataImage {
 pub struct ExifReader(Exif);
 
 impl ExifReader {
-	// https://github.com/rust-lang/rust-clippy/issues/11087
-	#[allow(clippy::future_not_send)]
-	pub async fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+	pub async fn from_path(path: impl AsRef<Path> + Send) -> Result<Self> {
 		fn inner(path: PathBuf) -> Result<ExifReader> {
 			let file = File::open(&path).map_err(|e| (e, path.clone().into_boxed_path()))?;
 			let mut reader = BufReader::new(file);
@@ -198,7 +192,7 @@ impl ExifReader {
 			.unwrap_or_default()
 	}
 
-	pub(crate) fn get_color_profile_ints(&self) -> Option<u32> {
+	pub(crate) fn get_color_profile_int(&self) -> Option<u32> {
 		self.0
 			.get_field(Tag::CustomRendered, In::PRIMARY)
 			.map(|x| x.value.get_uint(0))
@@ -209,14 +203,35 @@ impl ExifReader {
 #[cfg(test)]
 
 mod tests {
-	use crate::MediaDataImage;
 
-	const FILE_SLICE: &[u8] = include_bytes!("../test-assets/test.heif");
+	use exif::Tag;
+
+	use crate::{ExifReader, MediaDataImage, MediaLocation};
+
+	const FILE_SLICE: &[u8] = include_bytes!("../test-assets/img.jpg");
+
+	// #[test]
+	// #[should_panic]
+	// fn test() {
+	// 	let media_data_image = MediaDataImage::from_slice(FILE_SLICE).unwrap();
+	// 	panic!("{:?}", media_data_image);
+	// 	// panic!("{media_data_image:?}");
+	// }
 
 	#[test]
 	#[should_panic]
 	fn test() {
-		let media_data_image = MediaDataImage::from_slice(FILE_SLICE).unwrap();
-		panic!("{media_data_image:?}");
+		let reader = ExifReader::from_slice(FILE_SLICE).unwrap();
+
+		panic!("{:?}", reader.get_tag::<String>(Tag::GPSLatitudeRef));
+		// panic!("{media_data_image:?}");
 	}
+
+	// #[test]
+	// #[should_panic]
+	// fn test() {
+	// 	let x = MediaLocation::new(38.483940593, -12.42940594, None, None);
+	// 	panic!("{x}");
+	// 	// panic!("{media_data_image:?}");
+	// }
 }

@@ -70,7 +70,6 @@ impl MediaLocation {
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let x = MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	/// panic!("{x}");
 	/// ```
 	pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
 		let res = [lat, long]
@@ -110,7 +109,8 @@ impl MediaLocation {
 	///
 	/// ```ignore
 	/// use sd_media_data::{MediaLocation, ExifReader};
-	/// let mut reader = ExifReader::new("path").unwrap();
+	///
+	/// let mut reader = ExifReader::from_path("path").unwrap();
 	/// MediaLocation::from_exif_reader(&mut reader).unwrap();
 	/// ```
 	pub fn from_exif_reader(reader: &ExifReader) -> Result<Self> {
@@ -204,6 +204,7 @@ impl TryFrom<String> for MediaLocation {
 	///
 	/// ```
 	/// use sd_media_data::MediaLocation;
+	///
 	/// let s = String::from("32.47583923, -28.49238495");
 	/// MediaLocation::try_from(s).unwrap();
 	///
