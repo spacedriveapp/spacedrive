@@ -15,14 +15,6 @@ const SelectoContext = createContext<{
 	selectoUnSelected: React.MutableRefObject<Set<ExplorerItemHash>>;
 } | null>(null);
 
-const useSelectoContext = () => {
-	const ctx = useContext(SelectoContext);
-
-	if (!ctx) throw new Error('Selecto context not found');
-
-	return ctx;
-};
-
 type RenderItem = (item: { item: ExplorerItem; selected: boolean; cut: boolean }) => ReactNode;
 
 const GridListItem = (props: {
@@ -34,7 +26,7 @@ const GridListItem = (props: {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
 
-	const selecto = useSelectoContext();
+	const selecto = useContext(SelectoContext);
 
 	const cut = isCut(props.item.item.id);
 
@@ -48,7 +40,7 @@ const GridListItem = (props: {
 	const hash = explorerItemHash(props.item);
 
 	useEffect(() => {
-		if (!selecto.selecto.current || !selecto.selectoUnSelected.current.has(hash)) return;
+		if (!selecto?.selecto.current || !selecto.selectoUnSelected.current.has(hash)) return;
 
 		if (!selected) {
 			selecto.selectoUnSelected.current.delete(hash);
@@ -69,6 +61,8 @@ const GridListItem = (props: {
 	}, []);
 
 	useEffect(() => {
+		if (!selecto) return;
+
 		return () => {
 			const element = document.querySelector(`[data-selectable-id="${hash}"]`);
 			if (selected && !element) selecto.selectoUnSelected.current.add(hash);
@@ -313,7 +307,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	return (
 		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>
-			{explorerView.selectable && explorer.allowMultiSelect && (
+			{explorer.allowMultiSelect && (
 				<Selecto
 					ref={selecto}
 					boundContainer={
