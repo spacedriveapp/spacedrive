@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { ExplorerContext } from '../Explorer/Context';
+import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
+import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
@@ -47,6 +49,11 @@ export const Component = () => {
 					<View
 						top={68}
 						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
+						contextMenu={
+							<ContextMenu>
+								{() => <Conditional items={[ObjectItems.RemoveFromRecents]} />}
+							</ContextMenu>
+						}
 					/>
 
 					{explorerStore.showInspector && (
@@ -60,18 +67,3 @@ export const Component = () => {
 		</ExplorerContext.Provider>
 	);
 };
-
-// contextMenu={
-// 	selectedItem ? (
-// 		<ContextMenu
-// 			item={selectedItem}
-// 			extra={({ object }) => (
-// 				<>
-// 					{object && (
-// 						<ObjectItems.RemoveFromRecents object={object} />
-// 					)}
-// 					</>
-// 			)}
-// 			/>
-// 	) : null
-// }

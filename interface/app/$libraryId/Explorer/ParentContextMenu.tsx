@@ -6,8 +6,8 @@ import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { useExplorerContext } from './Context';
-import { SharedItems } from './ContextMenu';
-import { CopyAsPath } from './ContextMenu/FilePath/Items';
+import { CopyAsPathBase } from './CopyAsPath';
+import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
@@ -103,10 +103,11 @@ export default (props: PropsWithChildren) => {
 
 			{parent?.type === 'Location' && (
 				<>
-					<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
-
+					<RevealInNativeExplorerBase
+						items={[{ Location: { id: parent.location.id } }]}
+					/>
 					<CM.SubMenu label="More actions..." icon={Plus}>
-						<CopyAsPath pathOrId={`${parent.location.path}${currentPath ?? ''}`} />
+						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
 
 						<CM.Item
 							onClick={async () => {

@@ -29,6 +29,7 @@ export type Procedures = {
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
+        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: number[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
