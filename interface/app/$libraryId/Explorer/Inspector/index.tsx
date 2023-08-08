@@ -93,7 +93,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 					{showThumbnail && (
 						<div className="mb-2 aspect-square">
 							<FileThumb
-								paused={!!explorerStore.quickViewObject}
+								pauseVideo={!!explorerStore.quickViewObject}
 								loadOriginal
 								size={null}
 								data={data}

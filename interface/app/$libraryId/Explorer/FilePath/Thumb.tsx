@@ -109,7 +109,7 @@ export interface ThumbProps {
 	className?: string;
 	loadOriginal?: boolean;
 	mediaControls?: boolean;
-	paused?: boolean;
+	pauseVideo?: boolean;
 }
 
 function FileThumb({ size, cover, ...props }: ThumbProps) {
@@ -198,9 +198,9 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 
 	useEffect(() => {
 		if (video.current) {
-			props.paused ? video.current.pause() : video.current.play();
+			props.pauseVideo ? video.current.pause() : video.current.play();
 		}
-	}, [props.paused]);
+	}, [props.pauseVideo]);
 
 	const onLoad = () => setLoaded(true);
 
@@ -258,7 +258,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										ref={video}
 										src={src}
 										onError={onError}
-										autoPlay={!props.paused}
+										autoPlay={!props.pauseVideo}
 										onVolumeChange={(e) => {
 											const video = e.target as HTMLVideoElement;
 											getExplorerStore().mediaPlayerVolume = video.volume;
