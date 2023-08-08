@@ -55,8 +55,13 @@ To quickly run only the desktop app after `prep`, you can use:
 
 To run the web app:
 
-- `cargo run -p server` (runs the server)
-- `pnpm web dev` (runs the web embed server)
+- `pnpm dev:web`
+
+This will start both the server and web interface.
+You can launch these individually if you'd prefer:
+
+- `cargo run -p sd-server` (server)
+- `pnpm web dev` (web interface)
 
 To run the landing page:
 
