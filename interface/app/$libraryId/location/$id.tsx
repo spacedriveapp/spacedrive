@@ -23,21 +23,13 @@ export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
-	const preferences = useLibraryQuery(['preferences.get'], {
+	useLibraryQuery(['preferences.get'], {
 		onSuccess: (data) => {
 			getExplorerStore().viewLocationPreferences = data;
 		},
 		refetchOnMount: true,
 		refetchOnWindowFocus: false
 	});
-	useEffect(() => {
-		if (!location.data) return;
-		getExplorerStore().locationUuid = stringify(location.data?.pub_id);
-		//we clear the locationUuid so pages like overview are not affected by preferences
-		return () => {
-			getExplorerStore().locationUuid = null;
-		};
-	}, [location.data]);
 
 	useLibrarySubscription(
 		[

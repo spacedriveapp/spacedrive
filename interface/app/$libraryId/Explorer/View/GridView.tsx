@@ -1,9 +1,10 @@
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { stringify } from 'uuid';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { GridList } from '~/components';
 import { ViewItem } from '.';
+import { useExplorerContext } from '../Context';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { isCut, useExplorerStore } from '../store';
@@ -21,7 +22,11 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const locationUuid = explorerStore.locationUuid ?? '';
+	const explorerContext = useExplorerContext();
+	const locationUuid =
+		explorerContext.parent?.type === 'Location'
+			? stringify(explorerContext.parent.location.pub_id)
+			: '';
 	const locationPreferences =
 		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.grid;
 	const item_size = locationPreferences?.item_size ?? explorerStore.gridItemSize;
@@ -65,7 +70,11 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const locationUuid = explorerStore.locationUuid ?? '';
+	const explorerContext = useExplorerContext();
+	const locationUuid =
+		explorerContext.parent?.type === 'Location'
+			? stringify(explorerContext.parent.location.pub_id)
+			: '';
 	const locationPreferences =
 		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.grid;
 	const item_size = locationPreferences?.item_size ?? explorerStore.gridItemSize;

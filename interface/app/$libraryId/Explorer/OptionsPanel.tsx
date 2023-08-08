@@ -1,4 +1,5 @@
 import { useDebouncedCallback } from 'use-debounce';
+import { stringify } from 'uuid';
 import {
 	GridViewSettings,
 	ListViewSettings,
@@ -8,6 +9,7 @@ import {
 } from '@sd/client';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { type SortOrder, SortOrderSchema } from '~/app/route-schemas';
+import { useExplorerContext } from './Context';
 import { getExplorerConfigStore, useExplorerConfigStore } from './config';
 import {
 	ExplorerLayoutMode,
@@ -53,9 +55,11 @@ type LayoutKeys<T extends keyof LayoutSettings> = LayoutSettings[T];
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerConfig = useExplorerConfigStore();
-
-	//we only want to update if we are on a location page
-	const locationUuid = getExplorerStore().locationUuid;
+	const explorerContext = useExplorerContext();
+	const locationUuid =
+		explorerContext.parent?.type === 'Location'
+			? stringify(explorerContext.parent.location.pub_id)
+			: '';
 	const locationPreferences =
 		getExplorerStore().viewLocationPreferences?.location?.[locationUuid];
 

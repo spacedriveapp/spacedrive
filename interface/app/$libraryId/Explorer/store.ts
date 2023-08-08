@@ -49,7 +49,6 @@ const state = {
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none',
-	locationUuid: null as string | null,
 	viewLocationPreferences: null as null | LibraryPreferences
 };
 
