@@ -4,8 +4,8 @@ import { RefObject, useEffect, useMemo, useState } from 'react';
 import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 
-type ItemData = Record<any, any> | undefined;
-type ItemId = string | number | undefined;
+type ItemData = any | undefined;
+type ItemId = number | string;
 
 export interface GridListItem<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	index: number;
@@ -25,8 +25,8 @@ export interface UseGridListProps<IdT extends ItemId = number, DataT extends Ite
 	top?: number;
 	rowsBeforeLoadMore?: number;
 	onLoadMore?: () => void;
-	getItemId: (index: number) => IdT | undefined;
-	getItemData: (index: number) => DataT | undefined;
+	getItemId?: (index: number) => IdT | undefined;
+	getItemData?: (index: number) => DataT;
 	size?: number | { width: number; height: number };
 	columns?: number;
 }
@@ -73,19 +73,15 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 		(index: number) => {
 			if (index < 0 || index >= props.count) return;
 
-			const data = getItemData?.(index);
-			if (data === undefined) return;
+			const id = getItemId?.(index) || index;
 
-			const id = getItemId?.(index);
-			if (id === undefined) return;
+			const data = getItemData?.(index) as DataT;
 
 			const column = index % columnCount;
 			const row = Math.floor(index / columnCount);
 
 			const x = paddingX + (column !== 0 ? gapX : 0) * column + virtualItemWidth * column;
 			const y = paddingY + (row !== 0 ? gapY : 0) * row + virtualItemHeight * row;
-
-			const bottom = y + virtualItemHeight;
 
 			const item: GridListItem<typeof id, DataT> = {
 				index,
@@ -99,7 +95,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 					x,
 					y,
 					top: y,
-					bottom: bottom,
+					bottom: y + virtualItemHeight,
 					left: x,
 					right: x + virtualItemWidth
 				}

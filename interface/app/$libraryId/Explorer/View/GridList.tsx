@@ -29,9 +29,10 @@ const GridListItem = (props: {
 	index: number;
 	item: ExplorerItem;
 	children: RenderItem;
-	onMouseDown: () => void;
+	onMouseDown: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 }) => {
 	const explorer = useExplorerContext();
+	const explorerView = useExplorerViewContext();
 
 	const selecto = useSelectoContext();
 
@@ -81,19 +82,11 @@ const GridListItem = (props: {
 			className="h-full w-full"
 			data-selectable=""
 			data-selectable-index={props.index}
-			data-selectable-id={props.item.item.id}
-			onMouseDown={(e) => {
-				e.stopPropagation();
-
-				props.onMouseDown();
-
-				explorer.resetSelectedItems();
-				explorer.addSelectedItem(props.item);
-			}}
+			data-selectable-id={hash}
+			onMouseDown={props.onMouseDown}
 			onContextMenu={(e) => {
-				if (!explorer.selectedItems.has(props.item)) {
-					explorer.resetSelectedItems();
-					explorer.addSelectedItem(props.item);
+				if (explorerView.selectable && !explorer.selectedItems.has(props.item)) {
+					explorer.resetSelectedItems([props.item]);
 					selecto?.selecto.current?.setSelectedTargets([e.currentTarget]);
 				}
 			}}
@@ -219,7 +212,7 @@ export default ({ children }: { children: RenderItem }) => {
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
-		if (!explorer.selectable) return;
+		if (!explorerView.selectable) return;
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;
@@ -251,27 +244,27 @@ export default ({ children }: { children: RenderItem }) => {
 		}
 
 		const newSelectedItem = grid.getItem(newIndex);
-		if (!newSelectedItem) return;
+		if (!newSelectedItem?.data) return;
 
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
-			const addToGridListSelection = e.shiftKey;
-
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${newSelectedItem.id}"]`
-			) as HTMLElement;
+				`[data-selectable-id="${explorerItemHash(newSelectedItem.data)}"]`
+			);
 
-			if (addToGridListSelection) {
+			if (!selectedItemDom) return;
+
+			if (e.shiftKey) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
 					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([
 						...(selecto.current?.getSelectedTargets() || []),
-						selectedItemDom
+						selectedItemDom as HTMLElement
 					]);
 				}
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
-				selecto.current?.setSelectedTargets([selectedItemDom]);
+				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
 				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
 			}
 		}
@@ -319,7 +312,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	return (
 		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>
-			{explorer.allowMultiSelect && (
+			{explorerView.selectable && explorer.allowMultiSelect && (
 				<Selecto
 					ref={selecto}
 					boundContainer={
@@ -368,7 +361,7 @@ export default ({ children }: { children: RenderItem }) => {
 						);
 					}}
 					scrollOptions={{
-						container: explorer.scrollRef.current!,
+						container: { current: explorer.scrollRef.current },
 						throttleTime: isChrome || dragFromThumbnail ? 30 : 10000
 					}}
 					onSelect={(e) => {
@@ -383,7 +376,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 							const item = getElementItem(el);
 
-							if (!item) return;
+							if (!item?.data) return;
 
 							selectoLastColumn.current = item.column;
 
@@ -402,6 +395,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 								selectoUnSelected.current = new Set();
 								explorer.resetSelectedItems([item.data]);
+								return;
 							}
 
 							if (e.added[0]) explorer.addSelectedItem(item.data);
@@ -411,13 +405,16 @@ export default ({ children }: { children: RenderItem }) => {
 
 							e.added.forEach((el) => {
 								const item = getElementItem(el);
-								if (!item) return;
+
+								if (!item?.data) return;
+
 								explorer.addSelectedItem(item.data);
 							});
 
 							e.removed.forEach((el) => {
 								const item = getElementItem(el);
-								if (!item) return;
+
+								if (!item?.data || typeof item.id === 'number') return;
 
 								if (document.contains(el)) explorer.removeSelectedItem(item.data);
 								else unselectedItems.push(item.id);
@@ -440,7 +437,7 @@ export default ({ children }: { children: RenderItem }) => {
 							const elements = [...e.added, ...e.removed];
 
 							const items = elements.reduce((items, el) => {
-								const item = el && getElementItem(el);
+								const item = getElementItem(el);
 
 								if (!item) return items;
 
@@ -572,12 +569,19 @@ export default ({ children }: { children: RenderItem }) => {
 						<GridListItem
 							index={index}
 							item={item}
-							onMouseDown={() => {
+							onMouseDown={(e) => {
+								e.stopPropagation();
+
+								if (!explorerView.selectable) return;
+
 								const item = grid.getItem(index);
 
-								if (!item) return;
+								if (!item?.data) return;
 
-								selectoLastColumn.current = item.column;
+								if (!explorer.allowMultiSelect) {
+									explorer.resetSelectedItems([item.data]);
+								} else selectoLastColumn.current = item.column;
+
 								activeItem.current = item.data;
 							}}
 						>

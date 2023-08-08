@@ -11,6 +11,7 @@ export interface ExplorerViewContext {
 	setIsRenaming: (isRenaming: boolean) => void;
 	padding?: number | { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
+	selectable: boolean;
 }
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);

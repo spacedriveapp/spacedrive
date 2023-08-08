@@ -431,7 +431,7 @@ export default () => {
 
 					const [rangeStart] = items;
 
-					if (rangeStart !== undefined) {
+					if (rangeStart) {
 						setRanges([[explorerItemHash(rangeStart), explorerItemHash(item)]]);
 					}
 
@@ -612,12 +612,12 @@ export default () => {
 								const firstRange = [
 									explorerItemHash(rangeStart),
 									explorerItemHash(rowBefore.original)
-								] satisfies [any, any];
+								] satisfies Range;
 
 								const secondRange = [
 									explorerItemHash(rowAfter.original),
 									explorerItemHash(rangeEnd)
-								] satisfies [any, any];
+								] satisfies Range;
 
 								const _ranges = ranges.filter(
 									(_, i) => i !== range.index && i !== rowRanges[1]?.index
@@ -632,7 +632,7 @@ export default () => {
 
 					const itemRange: Range = [explorerItemHash(item), explorerItemHash(item)];
 
-					const _ranges = [...ranges, itemRange] as Range[];
+					const _ranges = [...ranges, itemRange];
 
 					const rangeDown = getClosestRange(_ranges.length - 1, {
 						direction: 'down',
