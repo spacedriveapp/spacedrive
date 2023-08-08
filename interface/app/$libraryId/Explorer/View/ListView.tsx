@@ -774,7 +774,7 @@ export default () => {
 	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorer.selectable) return;
 
 		e.preventDefault();
 
@@ -1160,13 +1160,13 @@ export default () => {
 												key={row.id}
 												className="absolute left-0 top-0 flex w-full"
 												style={{
-													height: `${virtualRow.size}px`,
+													height: virtualRow.size,
 													transform: `translateY(${
 														virtualRow.start -
 														rowVirtualizer.options.scrollMargin
 													}px)`,
-													paddingLeft: `${paddingX}px`,
-													paddingRight: `${paddingX}px`
+													paddingLeft: paddingX,
+													paddingRight: paddingX
 												}}
 											>
 												<div

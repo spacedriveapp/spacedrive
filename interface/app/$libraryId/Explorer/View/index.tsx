@@ -18,6 +18,7 @@ import {
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
+	getItemObject,
 	isPath,
 	useLibraryContext,
 	useLibraryMutation
@@ -30,12 +31,7 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import {
-	ExplorerViewContext,
-	ExplorerViewSelection,
-	ViewContext,
-	useExplorerViewContext
-} from '../ViewContext';
+import { ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
 import { getExplorerStore, useExplorerStore } from '../store';
 import GridView from './GridView';
@@ -144,6 +140,8 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				onMouseDown={(e) => {
 					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
 
+					console.log('bruh');
+
 					explorer.resetSelectedItems();
 				}}
 			>
@@ -217,19 +215,20 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	const selectedItem = [...explorer.selectedItems][0];
 
 	const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
+	const object = selectedItem ? getItemObject(selectedItem) : null;
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
 			if (
-				itemPath == null ||
+				object == null ||
 				event.key.toUpperCase() !== 'N' ||
 				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={itemPath.id} />);
+			dialogManager.create((dp) => <CreateDialog {...dp} objects={[object]} />);
 		},
-		[os, itemPath]
+		[os, object]
 	);
 
 	const handleOpenShortcut = useCallback(

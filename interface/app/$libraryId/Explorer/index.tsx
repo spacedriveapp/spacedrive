@@ -12,7 +12,7 @@ import { useExplorerStore } from './store';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
-	contextMenu?: (item: ExplorerItem) => ReactNode;
+	contextMenu?: () => ReactNode;
 }
 
 const INSPECTOR_WIDTH = 260;
@@ -53,6 +53,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
 						<View
+							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
 							emptyNotice={
 								props.emptyNotice ?? (
 									<EmptyNotice

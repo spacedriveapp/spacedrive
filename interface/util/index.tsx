@@ -19,3 +19,7 @@ export function usePreviousEqualCheck<T>(value: T) {
 
 	return equal;
 }
+
+export type NonEmptyArray<T> = [T, ...T[]];
+
+export const isNonEmpty = <T,>(input: T[]): input is NonEmptyArray<T> => input.length > 0;

@@ -11,7 +11,6 @@ import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContext } from '../Explorer/Context';
-import ContextMenu, { FilePathItems } from '../Explorer/ContextMenu';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 import { useExplorer } from '../Explorer/useExplorer';
@@ -79,23 +78,7 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer
-				contextMenu={(item) => (
-					<ContextMenu
-						item={item}
-						extra={({ filePath }) => (
-							<>
-								{filePath && location.data && (
-									<FilePathItems.CutCopyItems
-										locationId={location.data.id}
-										filePath={filePath}
-									/>
-								)}
-							</>
-						)}
-					/>
-				)}
-			/>
+			<Explorer />
 		</ExplorerContext.Provider>
 	);
 };
