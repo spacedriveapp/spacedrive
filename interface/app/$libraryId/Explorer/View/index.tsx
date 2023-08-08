@@ -151,11 +151,12 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 						value={
 							{
 								...contextProps,
-								selectable: !isContextMenuOpen && !isRenaming,
+								selectable:
+									explorer.selectable && !isContextMenuOpen && !isRenaming,
 								setIsContextMenuOpen,
 								isRenaming,
 								setIsRenaming,
-								ref: ref
+								ref
 							} as ExplorerViewContext
 						}
 					>
