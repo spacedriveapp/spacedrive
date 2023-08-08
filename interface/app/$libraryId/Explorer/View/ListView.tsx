@@ -774,7 +774,7 @@ export default () => {
 	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorer.selectable) return;
 
 		e.preventDefault();
 

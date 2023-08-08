@@ -99,6 +99,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			onOpenChange={explorerView.setIsContextMenuOpen}
 			disabled={explorerView.contextMenu === undefined}
 			asChild={false}
+			onMouseDown={(e) => e.stopPropagation()}
 		>
 			{explorerView.contextMenu}
 		</ContextMenu.Root>
@@ -139,6 +140,8 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				className={clsx('h-full w-full', className)}
 				onMouseDown={(e) => {
 					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+
+					console.log('bruh');
 
 					explorer.resetSelectedItems();
 				}}
