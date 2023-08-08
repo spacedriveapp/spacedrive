@@ -34,9 +34,8 @@ export const CutCopyItems = new ConditionalItem({
 						getExplorerStore().cutCopyState = {
 							sourceParentPath: path ?? '/',
 							sourceLocationId: locationId,
-							sourcePathId: selectedFilePaths[0].id,
-							actionType: 'Cut',
-							active: true
+							sourcePathIds: selectedFilePaths.map((p) => p.id),
+							type: 'Cut'
 						};
 					}}
 					icon={Scissors}
@@ -49,9 +48,8 @@ export const CutCopyItems = new ConditionalItem({
 						getExplorerStore().cutCopyState = {
 							sourceParentPath: path ?? '/',
 							sourceLocationId: locationId,
-							sourcePathId: selectedFilePaths[0].id,
-							actionType: 'Copy',
-							active: true
+							sourcePathIds: selectedFilePaths.map((p) => p.id),
+							type: 'Copy'
 						};
 					}}
 					icon={Copy}

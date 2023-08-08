@@ -27,23 +27,25 @@ export default (props: PropsWithChildren) => {
 
 	return (
 		<CM.Root trigger={props.children}>
-			{parent?.type === 'Location' && cutCopyState.active && (
+			{parent?.type === 'Location' && cutCopyState.type !== 'Idle' && (
 				<>
 					<CM.Item
 						label="Paste"
 						keybind={keybind([ModifierKeys.Control], ['V'])}
 						onClick={async () => {
 							const path = currentPath ?? '/';
-							const { actionType, sourcePathId, sourceParentPath, sourceLocationId } =
+							const { type, sourcePathIds, sourceParentPath, sourceLocationId } =
 								cutCopyState;
+
 							const sameLocation =
 								sourceLocationId === parent.location.id &&
 								sourceParentPath === path;
+
 							try {
-								if (actionType == 'Copy') {
+								if (type == 'Copy') {
 									await copyFiles.mutateAsync({
 										source_location_id: sourceLocationId,
-										sources_file_path_ids: [sourcePathId],
+										sources_file_path_ids: [...sourcePathIds],
 										target_location_id: parent.location.id,
 										target_location_relative_directory_path: path,
 										target_file_name_suffix: sameLocation ? ' copy' : null
@@ -56,7 +58,7 @@ export default (props: PropsWithChildren) => {
 								} else {
 									await cutFiles.mutateAsync({
 										source_location_id: sourceLocationId,
-										sources_file_path_ids: [sourcePathId],
+										sources_file_path_ids: [...sourcePathIds],
 										target_location_id: parent.location.id,
 										target_location_relative_directory_path: path
 									});
@@ -64,7 +66,7 @@ export default (props: PropsWithChildren) => {
 							} catch (error) {
 								showAlertDialog({
 									title: 'Error',
-									value: `Failed to ${actionType.toLowerCase()} file, due to an error: ${error}`
+									value: `Failed to ${type.toLowerCase()} file, due to an error: ${error}`
 								});
 							}
 						}}
@@ -75,8 +77,7 @@ export default (props: PropsWithChildren) => {
 						label="Deselect"
 						onClick={() => {
 							getExplorerStore().cutCopyState = {
-								...cutCopyState,
-								active: false
+								type: 'Idle'
 							};
 						}}
 						icon={FileX}

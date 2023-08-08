@@ -116,23 +116,26 @@ export const RevealInNativeExplorer = new ConditionalItem({
 	Component: ({ items }) => <RevealInNativeExplorerBase items={items} />
 });
 
-export const Deselect = () => {
-	const { cutCopyState } = useExplorerStore();
+export const Deselect = new ConditionalItem({
+	useCondition: () => {
+		const { cutCopyState } = useExplorerStore();
 
-	return (
+		if (cutCopyState.type === 'Idle') return null;
+
+		return {};
+	},
+	Component: () => (
 		<ContextMenu.Item
 			label="Deselect"
-			hidden={!cutCopyState.active}
+			icon={FileX}
 			onClick={() => {
 				getExplorerStore().cutCopyState = {
-					...cutCopyState,
-					active: false
+					type: 'Idle'
 				};
 			}}
-			icon={FileX}
 		/>
-	);
-};
+	)
+});
 
 export const Share = () => {
 	return (

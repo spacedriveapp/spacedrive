@@ -25,11 +25,11 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 			items={[
 				SharedItems.RevealInNativeExplorer,
 				SharedItems.Rename,
-				FilePathItems.CutCopyItems
+				FilePathItems.CutCopyItems,
+				SharedItems.Deselect
 			]}
 		/>
 		{children?.()}
-		<SharedItems.Deselect />
 
 		<ContextMenu.Separator />
 		<SharedItems.Share />
