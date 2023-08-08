@@ -1,7 +1,7 @@
 use crate::prisma::{PrismaClient, SortOrder};
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -60,14 +60,18 @@ pub struct LocationViewSettings {
 
 #[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
 pub struct ListViewSettings {
-	double_click_action: Option<DoubleClickAction>,
+	double_click_action: Option<bool>,
+	sort_by: Option<ViewSortBy>,
+	col_sizes: Option<BTreeMap<i32, i32>>,
+	#[specta(type = _SortOrderType, inline)]
+	direction: Option<SortOrder>,
 }
 
 #[derive(Type)]
 pub enum _SortOrderType {
-	#[serde(rename = "asc")]
+	#[serde(rename = "Asc")]
 	_Asc,
-	#[serde(rename = "desc")]
+	#[serde(rename = "Desc")]
 	_Desc,
 }
 
@@ -77,7 +81,7 @@ pub struct MediaViewSettings {
 	sort_by: Option<ViewSortBy>,
 	#[specta(type = _SortOrderType, inline)]
 	direction: Option<SortOrder>,
-	double_click_action: Option<DoubleClickAction>,
+	double_click_action: Option<bool>,
 	show_square_thumbnails: Option<bool>,
 }
 
@@ -87,14 +91,8 @@ pub struct GridViewSettings {
 	sort_by: Option<ViewSortBy>,
 	#[specta(type = _SortOrderType, inline)]
 	direction: Option<SortOrder>,
-	double_click_action: Option<DoubleClickAction>,
+	double_click_action: Option<bool>,
 	show_object_size: Option<bool>,
-}
-
-#[derive(Debug, Clone, Type, Serialize, Deserialize)]
-pub enum DoubleClickAction {
-	OpenFile,
-	QuickPreview,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]

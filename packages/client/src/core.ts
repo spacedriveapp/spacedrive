@@ -103,8 +103,6 @@ export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
-export type DoubleClickAction = "OpenFile" | "QuickPreview"
-
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
@@ -137,7 +135,7 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
 export type GetArgs = { id: number }
 
-export type GridViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "asc" | "desc"; double_click_action: DoubleClickAction | null; show_object_size: boolean | null }
+export type GridViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "Asc" | "Desc"; double_click_action: boolean | null; show_object_size: boolean | null }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -183,7 +181,7 @@ export type LibraryPreferences = { location?: { [key: string]: LocationPreferenc
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListViewSettings = { double_click_action: DoubleClickAction | null }
+export type ListViewSettings = { double_click_action: boolean | null; sort_by: ViewSortBy | null; col_sizes: { [key: number]: number } | null; direction: "Asc" | "Desc" }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
@@ -216,7 +214,7 @@ export type MaybeUndefined<T> = null | null | T
 
 export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
-export type MediaViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "asc" | "desc"; double_click_action: DoubleClickAction | null; show_square_thumbnails: boolean | null }
+export type MediaViewSettings = { item_size: number | null; sort_by: ViewSortBy | null; direction: "Asc" | "Desc"; double_click_action: boolean | null; show_square_thumbnails: boolean | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 

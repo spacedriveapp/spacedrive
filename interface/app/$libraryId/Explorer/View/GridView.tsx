@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { stringify } from 'uuid';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { GridList } from '~/components';
 import { ViewItem } from '.';
@@ -20,6 +21,10 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+	const locationUuid = explorerStore.locationUuid ?? '';
+	const locationPreferences =
+		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.grid;
+	const item_size = locationPreferences?.item_size ?? explorerStore.gridItemSize;
 
 	const showSize =
 		!filePathData?.is_dir &&
@@ -32,7 +37,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
 				<FileThumb
 					data={data}
-					size={explorerStore.gridItemSize}
+					size={item_size}
 					className={clsx('mx-auto', cut && 'opacity-60')}
 				/>
 			</div>
@@ -41,7 +46,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 				<RenamableItemText
 					item={data}
 					selected={selected}
-					style={{ maxHeight: explorerStore.gridItemSize / 3 }}
+					style={{ maxHeight: item_size / 3 }}
 				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
@@ -60,16 +65,19 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+	const locationUuid = explorerStore.locationUuid ?? '';
+	const locationPreferences =
+		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.grid;
+	const item_size = locationPreferences?.item_size ?? explorerStore.gridItemSize;
 
-	const itemDetailsHeight =
-		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
-	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
+	const itemDetailsHeight = item_size / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
+	const itemHeight = item_size + itemDetailsHeight;
 
 	return (
 		<GridList
 			scrollRef={explorerView.scrollRef}
 			count={explorerView.items?.length || 100}
-			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
+			size={{ width: item_size, height: itemHeight }}
 			padding={12}
 			selectable={!!explorerView.items}
 			selected={explorerView.selected}

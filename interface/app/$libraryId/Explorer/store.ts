@@ -1,6 +1,6 @@
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { ExplorerItem, FilePathSearchOrdering, ObjectSearchOrdering, resetStore } from '@sd/client';
+import { ExplorerItem, FilePathSearchOrdering, LibraryPreferences, LocationPreferences, ObjectSearchOrdering, resetStore } from '@sd/client';
 import { SortOrder } from '~/app/route-schemas';
 
 type Join<K, P> = K extends string | number
@@ -13,7 +13,7 @@ type Leaves<T> = T extends object ? { [K in keyof T]-?: Join<K, Leaves<T[K]>> }[
 
 type UnionKeys<T> = T extends any ? Leaves<T> : never;
 
-export type ExplorerLayoutMode = 'rows' | 'grid' | 'columns' | 'media';
+export type ExplorerLayoutMode =  'list' | 'grid' | 'media';
 
 export enum ExplorerKind {
 	Location,
@@ -48,7 +48,9 @@ const state = {
 	mediaAspectSquare: false,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
-	groupBy: 'none'
+	groupBy: 'none',
+	locationUuid: null as string | null,
+	viewLocationPreferences: null as null | LibraryPreferences
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
