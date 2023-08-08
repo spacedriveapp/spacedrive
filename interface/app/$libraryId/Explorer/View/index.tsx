@@ -99,6 +99,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			onOpenChange={explorerView.setIsContextMenuOpen}
 			disabled={explorerView.contextMenu === undefined}
 			asChild={false}
+			onMouseDown={(e) => e.stopPropagation()}
 		>
 			{explorerView.contextMenu}
 		</ContextMenu.Root>
