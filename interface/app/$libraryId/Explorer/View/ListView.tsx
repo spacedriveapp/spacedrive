@@ -800,8 +800,8 @@ export default () => {
 					range.direction
 						? keyDirection !== range.direction
 						: backRange?.direction &&
-						  (backRange?.sorted.start.index === frontRange?.sorted.start.index ||
-								backRange?.sorted.end.index === frontRange?.sorted.end.index)
+						  (backRange.sorted.start.index === frontRange?.sorted.start.index ||
+								backRange.sorted.end.index === frontRange?.sorted.end.index)
 				) {
 					explorer.removeSelectedItem(range.end.original);
 
@@ -822,8 +822,8 @@ export default () => {
 						];
 
 						if (
-							(!range.direction && keyDirection === 'down') ||
-							nextRow.index === backRange.start.index
+							nextRow.index === backRange.start.index ||
+							nextRow.index === backRange.end.index
 						) {
 							_ranges = _ranges.filter((_, i) => i !== frontRange.index);
 						} else {
@@ -869,15 +869,13 @@ export default () => {
 					if (backRange && frontRange) {
 						let _ranges = [...ranges];
 
-						const backRangeStart =
-							direction === 'down' || rangeEndRow.index > backRange.sorted.start.index
-								? backRange.start.original
-								: rangeEndRow.original;
+						const backRangeStart = backRange.start.original;
 
 						const backRangeEnd =
-							direction === 'up' || rangeEndRow.index < backRange.sorted.end.index
-								? backRange.end.original
-								: rangeEndRow.original;
+							rangeEndRow.index < backRange.sorted.start.index ||
+							rangeEndRow.index > backRange.sorted.end.index
+								? rangeEndRow.original
+								: backRange.end.original;
 
 						_ranges[backRange.index] = [
 							explorerItemHash(backRangeStart),
@@ -885,8 +883,9 @@ export default () => {
 						];
 
 						if (
-							rangeEndRow.original === backRangeStart ||
-							rangeEndRow.original === backRangeEnd
+							backRange.direction !== direction &&
+							(rangeEndRow.original === backRangeStart ||
+								rangeEndRow.original === backRangeEnd)
 						) {
 							_ranges[backRange.index] =
 								rangeEndRow.original === backRangeStart
