@@ -3,18 +3,13 @@ use crate::{
 		notifications::{Notification, NotificationData, NotificationId},
 		CoreEvent,
 	},
-	location::{
-		file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
-		LocationManager,
-	},
-	node::NodeConfigManager,
-	object::{
-		orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path,
-		thumbnail_remover::ThumbnailRemoverActorProxy,
-	},
+	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+	notifications,
+	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
+	sync,
 	util::{db::maybe_missing, error::FileIOError},
-	NodeContext,
+	Node,
 };
 
 use std::{
@@ -25,16 +20,22 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
-use tokio::{fs, io};
+use tokio::{fs, io, sync::broadcast};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManager, LibraryManagerError};
+use super::{LibraryConfig, LibraryManagerError};
 
-/// LibraryContext holds context for a library which can be passed around the application.
+// TODO: Finish this
+// pub enum LibraryNew {
+// 	InitialSync,
+// 	Encrypted,
+// 	Loaded(LoadedLibrary),
+//  Deleting,
+// }
+
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
@@ -42,15 +43,18 @@ pub struct Library {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: Arc<sync::Manager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
-	/// node_context holds the node context for the node which this library is running on.
-	pub node_context: Arc<NodeContext>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
-	pub thumbnail_remover_proxy: ThumbnailRemoverActorProxy,
+
+	notifications: notifications::Notifications,
+
+	// Look, I think this shouldn't be here but our current invalidation system needs it.
+	// TODO(@Oscar): Get rid of this with the new invalidation system.
+	event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
 impl Debug for Library {
@@ -66,63 +70,36 @@ impl Debug for Library {
 }
 
 impl Library {
-	pub fn new(
+	pub async fn new(
 		id: Uuid,
-		instance_id: Uuid,
 		config: LibraryConfig,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
-		library_manager: Arc<LibraryManager>,
-		// node_context: Arc<NodeContext>,
-	) -> Self {
-		let (sync_manager, mut sync_rx) = SyncManager::new(&db, instance_id);
-		let node_context = library_manager.node_context.clone();
-
-		let library = Self {
-			orphan_remover: OrphanRemoverActor::spawn(db.clone()),
-			thumbnail_remover_proxy: library_manager.thumbnail_remover_proxy(),
+		node: &Arc<Node>,
+		sync: Arc<sync::Manager>,
+	) -> Arc<Self> {
+		Arc::new(Self {
 			id,
-			db,
 			config,
-			node_context,
+			sync,
+			db: db.clone(),
 			// key_manager,
-			sync: Arc::new(sync_manager),
 			identity: identity.clone(),
-		};
-
-		tokio::spawn({
-			async move {
-				while let Ok(op) = sync_rx.recv().await {
-					let SyncMessage::Created(op) = op else { continue; };
-
-					library_manager
-						.node_context
-						.p2p
-						.broadcast_sync_events(id, &identity, vec![op], &library_manager)
-						.await;
-				}
-			}
-		});
-
-		library
+			orphan_remover: OrphanRemoverActor::spawn(db),
+			notifications: node.notifications.clone(),
+			event_bus_tx: node.event_bus.0.clone(),
+		})
 	}
 
+	// TODO: Remove this once we replace the old invalidation system
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+		if let Err(e) = self.event_bus_tx.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
-	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
-		self.node_context.config.clone()
-	}
-
-	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
-		&self.node_context.location_manager
-	}
-
-	pub async fn thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_thumbnail_path(self, cas_id);
+	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
+		let thumb_path = get_thumbnail_path(node, cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
@@ -209,15 +186,11 @@ impl Library {
 			}
 		};
 
-		self.node_context
-			.notifications
-			.0
-			.send(Notification {
-				id: NotificationId::Library(self.id, result.id as u32),
-				data,
-				read: false,
-				expires,
-			})
-			.ok();
+		self.notifications._internal_send(Notification {
+			id: NotificationId::Library(self.id, result.id as u32),
+			data,
+			read: false,
+			expires,
+		});
 	}
 }

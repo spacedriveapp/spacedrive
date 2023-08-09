@@ -47,7 +47,6 @@ function OriginatorDialog({
 			ctaLabel="Done"
 			// closeLabel="Cancel"
 			onSubmit={async () => {
-				alert('TODO');
 				// TODO: Change into the new library
 			}}
 			// onCancelled={() => acceptSpacedrop.mutate([props.dropId, null])}

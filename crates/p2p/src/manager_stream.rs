@@ -213,7 +213,7 @@ where
 					),
 				}
 			}
-			ManagerStreamAction::StartStream(peer_id, rx) => {
+			ManagerStreamAction::StartStream(peer_id, tx) => {
 				if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
 					let addresses = self
 						.mdns
@@ -242,7 +242,7 @@ where
 					self.on_establish_streams
 						.entry(peer_id.0)
 						.or_default()
-						.push(OutboundRequest::Unicast(rx));
+						.push(OutboundRequest::Unicast(tx));
 				} else {
 					self.swarm
 						.behaviour_mut()
@@ -250,7 +250,7 @@ where
 						.push_back(ToSwarm::NotifyHandler {
 							peer_id: peer_id.0,
 							handler: NotifyHandler::Any,
-							event: OutboundRequest::Unicast(rx),
+							event: OutboundRequest::Unicast(tx),
 						});
 				}
 			}
