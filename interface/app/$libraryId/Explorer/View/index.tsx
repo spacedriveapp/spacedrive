@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
+import { stringify } from 'uuid';
 import {
 	ExplorerItem,
 	getExplorerItemData,
@@ -27,6 +28,7 @@ import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
+import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import {
@@ -124,10 +126,17 @@ export default memo(
 		emptyNotice,
 		...contextProps
 	}: ExplorerViewProps<T>) => {
-		const { layoutMode } = useExplorerStore();
-
+		const explorerStore = useExplorerStore();
+		const explorerContext = useExplorerContext();
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
+		const locationUuid =
+			explorerContext.parent?.type === 'Location'
+				? stringify(explorerContext.parent.location.pub_id)
+				: '';
+		const locationSettings =
+			explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
+		const layoutMode = locationSettings?.layout ?? explorerStore.layoutMode;
 
 		useKeyDownHandlers({
 			items: contextProps.items,

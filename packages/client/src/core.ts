@@ -110,7 +110,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings = { layout: ExplorerLayout | null; itemSize: number | null; mediaCols: number | null; mediaSqrThumbs: boolean | null; dblClickAction: boolean | null; showSize: boolean | null; sortBy: ViewSortBy | null; colSizes: { [key: number]: number } | null; direction: "Asc" | "Desc" }
+export type ExplorerSettings = { layout: ExplorerLayout | null; itemSize: number | null; mediaCols: number | null; mediaSqrThumbs: boolean | null; dblClickAction: boolean | null; showSize: boolean | null; sortBy: ViewSortBy | null; colSizes: { [key: string]: number } | null; direction: "Asc" | "Desc" }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 

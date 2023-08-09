@@ -29,7 +29,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			: '';
 	const explorerSettings =
 		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
-	const itemSize = explorerSettings?.itemSize ?? explorerStore.gridItemSize;
+	const itemSize = explorerSettings?.itemSize || explorerStore.gridItemSize;
 
 	const showSize =
 		!filePathData?.is_dir &&

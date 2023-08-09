@@ -9,8 +9,6 @@ import { FilePathSearchOrderingKeys, getExplorerStore, useExplorerStore } from '
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
-//these are the keys we have here in the frontend
-
 export const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
 	'none': 'None',
 	'name': 'Name',
@@ -30,7 +28,7 @@ export default () => {
 			? stringify(explorerContext.parent.location.pub_id)
 			: '';
 	const locationExplorerSettings =
-		getExplorerStore().viewLocationPreferences?.location?.[locationUuid]?.explorer;
+		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
 
 	const updatePreferences = useLibraryMutation('preferences.update', {
 		onError: () => {
@@ -40,20 +38,15 @@ export default () => {
 
 	const updatePreferencesHandler = useDebouncedCallback(
 		async (settingsToUpdate: Partial<ExplorerSettings>) => {
-			const locationSettings =
-				getExplorerStore().viewLocationPreferences?.location?.[locationUuid];
-
-			if (!locationSettings) return;
-
-			const updatedExplorerSettings: ExplorerSettings = {
-				...locationSettings.explorer,
-				...settingsToUpdate
-			};
+			const updatedExplorerSettings = {
+				...locationExplorerSettings,
+				...settingsToUpdate,
+				layout: explorerStore.layoutMode
+			} as ExplorerSettings;
 
 			await updatePreferences.mutateAsync({
 				location: {
 					[locationUuid]: {
-						...locationSettings,
 						explorer: updatedExplorerSettings
 					}
 				}
@@ -61,14 +54,14 @@ export default () => {
 
 			getExplorerStore().viewLocationPreferences = {
 				location: {
+					...explorerStore.viewLocationPreferences?.location,
 					[locationUuid]: {
-						...locationSettings,
 						explorer: updatedExplorerSettings
 					}
 				}
 			};
 		},
-		300
+		100
 	);
 
 	return (
@@ -79,10 +72,11 @@ export default () => {
 					{explorerStore.layoutMode === 'grid' ? (
 						<Slider
 							onValueChange={(value) => {
-								getExplorerStore().gridItemSize = value[0] || 100;
-								updatePreferencesHandler({
-									itemSize: value[0] || 100
-								});
+								!locationUuid
+									? (getExplorerStore().gridItemSize = value[0] || 100)
+									: updatePreferencesHandler({
+											itemSize: value[0] || 100
+									  });
 							}}
 							defaultValue={[
 								locationExplorerSettings?.itemSize ?? explorerStore.gridItemSize

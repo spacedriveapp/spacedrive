@@ -26,6 +26,7 @@ export const Component = () => {
 	useLibraryQuery(['preferences.get'], {
 		onSuccess: (data) => {
 			getExplorerStore().viewLocationPreferences = data;
+			console.log(data);
 		},
 		refetchOnMount: true,
 		refetchOnWindowFocus: false
