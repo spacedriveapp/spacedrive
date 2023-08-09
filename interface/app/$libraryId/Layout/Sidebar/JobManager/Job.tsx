@@ -1,4 +1,14 @@
-import { Info, Question } from 'phosphor-react';
+import {
+	Copy,
+	Fingerprint,
+	Folder,
+	Icon,
+	Image,
+	Info,
+	Question,
+	Scissors,
+	Trash
+} from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
@@ -11,6 +21,16 @@ interface JobProps {
 	isChild?: boolean;
 }
 
+const JobIcon: Record<string, Icon> = {
+	indexer: Folder,
+	thumbnailer: Image,
+	file_identifier: Fingerprint,
+	file_copier: Copy,
+	file_deleter: Trash,
+	file_cutter: Scissors,
+	object_validator: Fingerprint
+};
+
 function Job({ job, className, isChild }: JobProps) {
 	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
@@ -18,21 +38,12 @@ function Job({ job, className, isChild }: JobProps) {
 		onData: setRealtimeUpdate
 	});
 
-	const niceData = useJobInfo(job, realtimeUpdate)[job.name] || {
-		name: job.name,
-		icon: Question,
-		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
-	};
-	const isRunning = job.status === 'Running';
-	const isPaused = job.status === 'Paused';
-
-	const taskCount = realtimeUpdate?.task_count || job.task_count;
-	const completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count;
+	const jobData = useJobInfo(job, realtimeUpdate);
 
 	// clear stale realtime state when job is done
 	useEffect(() => {
-		if (isRunning) setRealtimeUpdate(null);
-	}, [isRunning]);
+		if (jobData.isRunning) setRealtimeUpdate(null);
+	}, [jobData.isRunning]);
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -48,7 +59,7 @@ function Job({ job, className, isChild }: JobProps) {
 				))}
 			</pre>
 		);
-		niceData.textItems?.push([
+		jobData.textItems?.push([
 			{
 				text: 'Completed with errors',
 				icon: Info,
@@ -67,20 +78,19 @@ function Job({ job, className, isChild }: JobProps) {
 	return (
 		<JobContainer
 			className={className}
-			name={niceData.name}
-			circleIcon={niceData.icon}
+			name={jobData.name}
+			circleIcon={JobIcon[job.name]}
 			textItems={
-				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
+				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}
-			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>
-			{(isRunning || isPaused) && (
+			{(jobData.isRunning || jobData.isPaused) && (
 				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar
-						pending={taskCount == 0}
-						value={completedTaskCount}
-						total={taskCount}
+						pending={jobData.taskCount == 0}
+						value={jobData.completedTaskCount}
+						total={jobData.taskCount}
 					/>
 				</div>
 			)}

@@ -6,7 +6,7 @@ export * from './useGroupJobTimeText';
 
 // NOTE: This type is also used on mobile except for the tooltip, Be careful when changing it.
 
-interface TextItem {
+export interface TextItem {
 	text?: string;
 	tooltip?: string;
 	icon?: ForwardRefExoticComponent<any>;

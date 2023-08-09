@@ -1,18 +1,22 @@
-import { Copy, Fingerprint, Folder, Image, Scissors, Trash } from 'phosphor-react';
 import { TextItems } from '.';
 import { formatNumber } from '../..';
 import { JobProgressEvent, JobReport } from '../../core';
 
 interface JobNiceData {
 	name: string;
-	icon: React.ForwardRefExoticComponent<any>;
 	textItems: TextItems;
+	// Job data
+	isRunning: boolean;
+	isQueued: boolean;
+	isPaused: boolean;
+	indexedPath: any;
+	taskCount: number;
+	completedTaskCount: number;
+	meta: any;
+	output: any;
 }
 
-export function useJobInfo(
-	job: JobReport,
-	realtimeUpdate: JobProgressEvent | null
-): Record<string, JobNiceData> {
+export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | null): JobNiceData {
 	const isRunning = job.status === 'Running',
 		isQueued = job.status === 'Queued',
 		isPaused = job.status === 'Paused',
@@ -22,109 +26,136 @@ export function useJobInfo(
 		meta = job.metadata,
 		output = meta?.output?.run_metadata;
 
-	return {
-		indexer: {
-			name: `${isQueued ? 'Index' : isRunning ? 'Indexing' : 'Indexed'} files  ${
-				indexedPath ? `at ${indexedPath}` : ``
-			}`,
-			icon: Folder,
-			textItems: [
-				[
-					{
-						text: isPaused
-							? job.message
-							: isRunning && realtimeUpdate?.message
-							? realtimeUpdate.message
-							: `${formatNumber(output?.total_paths)} ${plural(
-									output?.total_paths,
-									'path'
-							  )} discovered`
-					}
-				]
-			]
-		},
-		thumbnailer: {
-			name: `${isQueued ? 'Generate' : isRunning ? 'Generating' : 'Generated'} thumbnails`,
-			icon: Image,
-			textItems: [
-				[
-					{
-						text:
-							output?.thumbnails_created === 0
-								? 'None generated'
-								: `${
-										completedTaskCount
-											? formatNumber(completedTaskCount || 0)
-											: formatNumber(output?.thumbnails_created)
-								  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
-					},
-					{
-						text:
-							output?.thumbnails_skipped &&
-							`${output?.thumbnails_skipped} already exist`
-					}
-				]
-			]
-		},
-		file_identifier: {
-			name: `${isQueued ? 'Extract' : isRunning ? 'Extracting' : 'Extracted'} metadata`,
-			icon: Fingerprint,
-			textItems: [
-				!isRunning
-					? output?.total_orphan_paths === 0
-						? [{ text: 'No files changed' }]
-						: [
-								{
-									text: `${formatNumber(output?.total_orphan_paths)} ${plural(
-										output?.total_orphan_paths,
-										'file'
-									)}`
-								},
-								{
-									text: `${formatNumber(output?.total_objects_created)} ${plural(
-										output?.total_objects_created,
-										'Object'
-									)} created`
-								},
-								{
-									text: `${formatNumber(output?.total_objects_linked)} ${plural(
-										output?.total_objects_linked,
-										'Object'
-									)} linked`
-								}
-						  ]
-					: [{ text: addCommasToNumbersInMessage(realtimeUpdate?.message) }]
-			]
-		},
-		file_copier: {
-			name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
-				isRunning ? completedTaskCount + 1 : completedTaskCount
-			} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
-			icon: Copy,
-			textItems: [[{ text: job.status }]]
-		},
-		file_deleter: {
-			name: `${
-				isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
-			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
-			icon: Trash,
-			textItems: [[{ text: job.status }]]
-		},
-		file_cutter: {
-			name: `${
-				isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
-			} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
-			icon: Scissors,
-			textItems: [[{ text: job.status }]]
-		},
-		object_validator: {
-			name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
-				!isQueued ? completedTaskCount : ''
-			} ${plural(completedTaskCount, 'object')}`,
-			icon: Fingerprint,
-			textItems: [[{ text: job.status }]]
-		}
+	const data = {
+		isRunning,
+		isQueued,
+		isPaused,
+		indexedPath,
+		taskCount,
+		completedTaskCount,
+		meta,
+		output
 	};
+
+	switch (job.name) {
+		case 'indexer':
+			return {
+				...data,
+				name: `${isQueued ? 'Index' : isRunning ? 'Indexing' : 'Indexed'} files  ${
+					indexedPath ? `at ${indexedPath}` : ``
+				}`,
+				textItems: [
+					[
+						{
+							text: isPaused
+								? job.message
+								: isRunning && realtimeUpdate?.message
+								? realtimeUpdate.message
+								: `${formatNumber(output?.total_paths)} ${plural(
+										output?.total_paths,
+										'path'
+								  )} discovered`
+						}
+					]
+				]
+			};
+		case 'thumbnailer':
+			return {
+				...data,
+				name: `${
+					isQueued ? 'Generate' : isRunning ? 'Generating' : 'Generated'
+				} thumbnails`,
+				textItems: [
+					[
+						{
+							text:
+								output?.thumbnails_created === 0
+									? 'None generated'
+									: `${
+											completedTaskCount
+												? formatNumber(completedTaskCount || 0)
+												: formatNumber(output?.thumbnails_created)
+									  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
+						},
+						{
+							text:
+								output?.thumbnails_skipped &&
+								`${output?.thumbnails_skipped} already exist`
+						}
+					]
+				]
+			};
+		case 'file_identifier':
+			return {
+				...data,
+				name: `${isQueued ? 'Extract' : isRunning ? 'Extracting' : 'Extracted'} metadata`,
+				textItems: [
+					!isRunning
+						? output?.total_orphan_paths === 0
+							? [{ text: 'No files changed' }]
+							: [
+									{
+										text: `${formatNumber(output?.total_orphan_paths)} ${plural(
+											output?.total_orphan_paths,
+											'file'
+										)}`
+									},
+									{
+										text: `${formatNumber(
+											output?.total_objects_created
+										)} ${plural(
+											output?.total_objects_created,
+											'Object'
+										)} created`
+									},
+									{
+										text: `${formatNumber(
+											output?.total_objects_linked
+										)} ${plural(output?.total_objects_linked, 'Object')} linked`
+									}
+							  ]
+						: [{ text: addCommasToNumbersInMessage(realtimeUpdate?.message) }]
+				]
+			};
+		case 'file_copier':
+			return {
+				...data,
+				name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
+					isRunning ? completedTaskCount + 1 : completedTaskCount
+				} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'file_deleter':
+			return {
+				...data,
+				name: `${
+					isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'file_cutter':
+			return {
+				...data,
+				name: `${
+					isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'object_validator':
+			return {
+				...data,
+				name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
+					!isQueued ? completedTaskCount : ''
+				} ${plural(completedTaskCount, 'object')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		default:
+			return {
+				...data,
+				name: job.name,
+				textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
+			};
+	}
 }
 
 function plural(count: number, name?: string) {

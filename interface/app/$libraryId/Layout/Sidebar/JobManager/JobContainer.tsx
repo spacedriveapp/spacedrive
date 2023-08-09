@@ -1,17 +1,9 @@
 import clsx from 'clsx';
 import { ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode, forwardRef } from 'react';
+import { TextItems } from '@sd/client';
 import { Tooltip, tw } from '@sd/ui';
 import classes from './Job.module.scss';
 
-export interface TextItem {
-	text?: string;
-	tooltip?: string;
-	icon?: ForwardRefExoticComponent<any>;
-	onClick?: () => void;
-}
-
-// first array for lines, second array for items separated by " • ".
-export type TextItems = (TextItem | undefined)[][];
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 	name: string;
 	iconImg?: string;
