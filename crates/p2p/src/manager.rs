@@ -7,7 +7,10 @@ use std::{
 	},
 };
 
-use libp2p::{core::muxing::StreamMuxerBox, swarm::SwarmBuilder, Transport};
+use libp2p::{
+	core::{muxing::StreamMuxerBox, Transport},
+	swarm::SwarmBuilder,
+};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
@@ -23,7 +26,7 @@ use crate::{
 pub struct Manager<TMetadata: Metadata> {
 	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
-	pub(crate) application_name: &'static [u8],
+	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
 }
@@ -49,12 +52,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.unwrap();
 		let this = Arc::new(Self {
 			mdns_state,
-			// Look this is bad but it's hard to avoid. Technically a memory leak but it's a small amount of memory and is should done on startup on the P2P system.
-			application_name: Box::leak(Box::new(
-				format!("/{}/spacetime/1.0.0", application_name)
-					.as_bytes()
-					.to_vec(),
-			)),
+			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			peer_id,
 			event_stream_tx,
