@@ -155,6 +155,7 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
+	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_latitude(60_f64);
 	/// ```
@@ -167,6 +168,7 @@ impl MediaLocation {
 	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
+	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_longitude(20_f64);
 	/// ```
@@ -179,6 +181,7 @@ impl MediaLocation {
 	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
+	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_altitude(20);
 	/// ```
@@ -191,6 +194,7 @@ impl MediaLocation {
 	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
+	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
 	/// home.update_direction(233);
 	/// ```
