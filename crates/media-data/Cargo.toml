@@ -13,4 +13,3 @@ serde = { version = "1.0.183", features = ["derive"] }
 serde_json = { version = "1.0.104" }
 specta = { workspace = true }
 chrono = { version = "0.4.26", features = ["serde"] }
-tokio = { workspace = true, features = ["rt"] }

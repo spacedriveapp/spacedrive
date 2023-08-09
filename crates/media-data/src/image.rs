@@ -1,19 +1,18 @@
 use std::{
 	fs::File,
 	io::{BufReader, Cursor},
-	path::{Path, PathBuf},
+	path::Path,
 	str::FromStr,
 };
 
 use sd_prisma::prisma::media_data;
 
 use exif::{Exif, In, Tag};
-use tokio::task::spawn_blocking;
 
 use crate::{
 	orientation::Orientation,
 	utils::{from_slice_option_to_option, from_slice_option_to_res, to_slice_option},
-	ColorProfile, Dimensions, Flash, MediaLocation, MediaTime, Result,
+	ColorProfile, Dimensions, Error, Flash, MediaLocation, MediaTime, Result,
 };
 
 #[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -47,8 +46,8 @@ pub struct CameraData {
 }
 
 impl MediaDataImage {
-	pub async fn from_path(path: impl AsRef<Path> + Send) -> Result<Self> {
-		Self::from_reader(&ExifReader::from_path(path).await?)
+	pub fn from_path(path: &(impl AsRef<Path> + Send)) -> Result<Self> {
+		Self::from_reader(&ExifReader::from_path(path)?)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
@@ -88,17 +87,12 @@ impl MediaDataImage {
 			|x| x.parse::<i32>().ok(),
 		);
 
-		data.camera_data.orientation =
-			Orientation::int_to_orientation(reader.get_orientation_int().unwrap_or_default());
-
+		data.camera_data.orientation = Orientation::from_reader(reader).unwrap_or_default();
 		data.camera_data.flash = Flash::from_reader(reader);
-
 		data.camera_data.software = reader.get_tag(Tag::Software);
-
 		data.artist = reader.get_tag(Tag::Artist);
 		data.copyright = reader.get_tag(Tag::Copyright);
 		data.exif_version = reader.get_tag(Tag::ExifVersion);
-
 		data.location = MediaLocation::from_exif_reader(reader).ok();
 
 		Ok(data)
@@ -136,29 +130,21 @@ impl MediaDataImage {
 
 // pub struct MediaDataVideo;
 
-/// An [`ExifReader`]. This can get exif tags from images via files or slices.
-///
-/// If it is constructed from a slice, a temporary file will be created in your system's temp dir ([`std::env::temp_dir()`]).
-/// This will be removed once the [`ExifReader`] has been dropped.
+/// An [`ExifReader`]. This can get exif tags from images (either files or slices).
 pub struct ExifReader(Exif);
 
 impl ExifReader {
-	pub async fn from_path(path: impl AsRef<Path> + Send) -> Result<Self> {
-		fn inner(path: PathBuf) -> Result<ExifReader> {
-			let file = File::open(&path).map_err(|e| (e, path.clone().into_boxed_path()))?;
-			let mut reader = BufReader::new(file);
-			Ok(Self(
-				exif::Reader::new()
-					.read_from_container(&mut reader)
-					.map_err(|e| (e, path.into_boxed_path()))?,
-			))
-		}
-		let p = path.as_ref().to_owned();
-		spawn_blocking(move || inner(p)).await?
+	pub fn from_path(path: &(impl AsRef<Path> + Send)) -> Result<Self> {
+		let file = File::open(path)?;
+		let mut reader = BufReader::new(file);
+		Ok(Self(
+			exif::Reader::new()
+				.read_from_container(&mut reader)
+				.map_err(|_| Error::Init)?,
+		))
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
-		// This one can be sync as we already have the data in memory and no I/O is performed
 		Ok(Self(
 			exif::Reader::new().read_from_container(&mut Cursor::new(slice))?,
 		))
@@ -172,10 +158,13 @@ impl ExifReader {
 	where
 		T: FromStr,
 	{
-		self.0
-			.get_field(tag, In::PRIMARY)
-			.map(|x| x.display_value().to_string().replace(['\\', '\"'], ""))
-			.map(|x| x.parse::<T>().ok())?
+		self.0.get_field(tag, In::PRIMARY).map(|x| {
+			x.display_value()
+				.to_string()
+				.replace(['\\', '\"'], "")
+				.parse::<T>()
+				.ok()
+		})?
 	}
 
 	pub(crate) fn get_orientation_int(&self) -> Option<u32> {
@@ -198,40 +187,4 @@ impl ExifReader {
 			.map(|x| x.value.get_uint(0))
 			.unwrap_or_default()
 	}
-}
-
-#[cfg(test)]
-
-mod tests {
-
-	use exif::Tag;
-
-	use crate::{ExifReader, MediaDataImage, MediaLocation};
-
-	const FILE_SLICE: &[u8] = include_bytes!("../test-assets/img.jpg");
-
-	// #[test]
-	// #[should_panic]
-	// fn test() {
-	// 	let media_data_image = MediaDataImage::from_slice(FILE_SLICE).unwrap();
-	// 	panic!("{:?}", media_data_image);
-	// 	// panic!("{media_data_image:?}");
-	// }
-
-	#[test]
-	#[should_panic]
-	fn test() {
-		let reader = ExifReader::from_slice(FILE_SLICE).unwrap();
-
-		panic!("{:?}", reader.get_tag::<String>(Tag::GPSLatitudeRef));
-		// panic!("{media_data_image:?}");
-	}
-
-	// #[test]
-	// #[should_panic]
-	// fn test() {
-	// 	let x = MediaLocation::new(38.483940593, -12.42940594, None, None);
-	// 	panic!("{x}");
-	// 	// panic!("{media_data_image:?}");
-	// }
 }

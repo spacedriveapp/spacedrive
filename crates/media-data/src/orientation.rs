@@ -17,9 +17,14 @@ pub enum Orientation {
 
 impl Orientation {
 	/// This is used for quickly sourcing [`Orientation`] data from a path, to be later used by one of the modification functions.
-	pub async fn source_orientation(path: impl AsRef<Path> + Send) -> Option<Self> {
-		let reader = ExifReader::from_path(path).await.ok()?;
+	pub fn source_orientation(path: &(impl AsRef<Path> + Send)) -> Option<Self> {
+		let reader = ExifReader::from_path(path).ok()?;
 		reader.get_orientation_int().map(Self::int_to_orientation)
+	}
+
+	/// This is used for quickly sourcing an [`Orientation`] data from an [`ExifReader`]
+	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
+		reader.get_color_profile_int().map(Self::int_to_orientation)
 	}
 
 	/// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value

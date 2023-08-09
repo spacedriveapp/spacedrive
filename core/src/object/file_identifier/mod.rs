@@ -295,8 +295,7 @@ async fn identifier_job_step(
 							let media_path = location_path.join(path);
 
 							async move {
-								MediaDataImage::from_path(media_path)
-									.await?
+								MediaDataImage::from_path(&media_path)?
 									.to_query()
 									.map_err(JobError::MediaData)
 							}

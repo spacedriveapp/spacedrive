@@ -15,7 +15,7 @@ pub enum ColorProfile {
 }
 
 impl ColorProfile {
-	/// This is used for quickly sourcing [`ColorProfile`] data from an [`ExifReader`]
+	/// This is used for quickly sourcing a [`ColorProfile`] data from an [`ExifReader`]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
 		reader
 			.get_color_profile_int()
