@@ -129,7 +129,8 @@ impl MediaLocation {
 			(i.clone().count() == 3)
 				.then(|| i.zip(DMS_DIVISION.iter()).map(|(x, y)| x / y).sum::<f64>())
 				.map(|mut x| {
-					(reference == "W" || reference == "S").then(|| x = x.neg());
+					(reference == "W" || reference == "S" || reference == "3" || reference == "1")
+						.then(|| x = x.neg());
 					x
 				})
 		})
