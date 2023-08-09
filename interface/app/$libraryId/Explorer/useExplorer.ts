@@ -82,18 +82,25 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		[setSelectedItemHashes]
 	);
 
+	const itemsMap = useMemo(
+		() =>
+			(items ?? []).reduce((items, item) => {
+				const hash = itemHashesWeakMap.current.get(item) ?? explorerItemHash(item);
+				itemHashesWeakMap.current.set(item, hash);
+				items.set(hash, item);
+				return items;
+			}, new Map<ExplorerItemHash, ExplorerItem>()),
+		[items]
+	);
+
 	const selectedItems = useMemo(
 		() =>
-			(items ?? []).reduce((acc, item) => {
-				// get cached key for item since string concatenation could be slower
-				const key = itemHashesWeakMap.current.get(item) ?? explorerItemHash(item);
-				itemHashesWeakMap.current.set(item, key);
-
-				if (selectedItemHashes.value.has(key)) acc.add(item);
-
-				return acc;
+			[...selectedItemHashes.value].reduce((items, hash) => {
+				const item = itemsMap.get(hash);
+				if (item) items.add(item);
+				return items;
 			}, new Set<ExplorerItem>()),
-		[items, selectedItemHashes]
+		[itemsMap, selectedItemHashes]
 	);
 
 	return {
