@@ -2,7 +2,17 @@
 import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Barcode, CircleWavyCheck, Clock, Cube, Hash, Link, Lock, Path, Snowflake } from 'phosphor-react';
+import {
+	Barcode,
+	CircleWavyCheck,
+	Clock,
+	Cube,
+	Hash,
+	Link,
+	Lock,
+	Path,
+	Snowflake
+} from 'phosphor-react';
 import { HTMLAttributes, useEffect, useState } from 'react';
 import {
 	ExplorerItem,
@@ -19,6 +29,7 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
+import { useExplorerStore } from '../store.js';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -46,6 +57,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
 	const filePathData = data ? getItemFilePath(data) : null;
+	const explorerStore = useExplorerStore();
 
 	const isDir = data?.type === 'Path' ? data.item.is_dir : false;
 
@@ -80,7 +92,13 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 				<>
 					{showThumbnail && (
 						<div className="mb-2 aspect-square">
-							<FileThumb loadOriginal size={null} data={data} className="mx-auto" />
+							<FileThumb
+								pauseVideo={!!explorerStore.quickViewObject}
+								loadOriginal
+								size={null}
+								data={data}
+								className="mx-auto"
+							/>
 						</div>
 					)}
 					<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
@@ -203,9 +221,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 									<MetaTextLine>
 										<InspectorIcon component={Path} />
 										<MetaKeyName className="mr-1.5">Path</MetaKeyName>
-										<MetaValue>
-											{fileFullPath}
-										</MetaValue>
+										<MetaValue>{fileFullPath}</MetaValue>
 									</MetaTextLine>
 								</Tooltip>
 							)}
