@@ -1,9 +1,9 @@
 [package]
-name = "spacedrive"
+name = "sd-desktop"
 version = "0.1.0"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc."]
-default-run = "spacedrive"
+default-run = "sd-desktop"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }

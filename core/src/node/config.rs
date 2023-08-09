@@ -1,7 +1,6 @@
 use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use specta::Type;
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -35,32 +34,6 @@ pub struct NodeConfig {
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
-}
-
-// A version of [NodeConfig] that is safe to share with the frontend
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-pub struct SanitisedNodeConfig {
-	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
-	pub id: Uuid,
-	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
-	pub name: String,
-	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
-	pub p2p_port: Option<u32>,
-	// TODO: These will probs be replaced by your Spacedrive account in the near future.
-	pub p2p_email: Option<String>,
-	pub p2p_img_url: Option<String>,
-}
-
-impl From<NodeConfig> for SanitisedNodeConfig {
-	fn from(value: NodeConfig) -> Self {
-		Self {
-			id: value.id,
-			name: value.name,
-			p2p_port: value.p2p_port,
-			p2p_email: value.p2p_email,
-			p2p_img_url: value.p2p_img_url,
-		}
-	}
 }
 
 #[async_trait::async_trait]
@@ -121,9 +94,9 @@ impl Default for NodeConfig {
 	}
 }
 
-pub struct NodeConfigManager(RwLock<NodeConfig>, PathBuf);
+pub struct Manager(RwLock<NodeConfig>, PathBuf);
 
-impl NodeConfigManager {
+impl Manager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
 	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, MigratorError> {
 		Ok(Arc::new(Self(
