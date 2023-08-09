@@ -10,7 +10,14 @@ import {
 	Tag
 } from 'phosphor-react';
 import { useEffect, useRef } from 'react';
-import { useRspcLibraryContext } from '@sd/client';
+import { stringify } from 'uuid';
+import {
+	ExplorerLayout,
+	ExplorerSettings,
+	LocationSettings,
+	useRspcLibraryContext
+} from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { KeyManager } from '../KeyManager';
 import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
@@ -20,20 +27,63 @@ import { useExplorerSearchParams } from './util';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
+	const explorerContext = useExplorerContext();
+	const locationUuid =
+		explorerContext.parent?.type === 'Location'
+			? stringify(explorerContext.parent.location.pub_id)
+			: '';
+	const locationSettings = explorerStore.viewLocationPreferences?.location?.[locationUuid];
+	const updatePreferences = useLibraryMutation('preferences.update', {
+		onError: () => {
+			alert('An error has occurred while updating your preferences.');
+		}
+	});
+	const updateLayoutPreferredHandler = async (layout: ExplorerLayout) => {
+		const updatedExplorerSettings = {
+			...locationSettings?.explorer,
+			layout: layout
+		} as ExplorerSettings;
+
+		if (locationUuid) {
+			await updatePreferences.mutateAsync({
+				location: {
+					[locationUuid]: {
+						explorer: updatedExplorerSettings
+					}
+				}
+			});
+			getExplorerStore().viewLocationPreferences = {
+				location: {
+					...explorerStore.viewLocationPreferences?.location,
+					[locationUuid]: {
+						explorer: updatedExplorerSettings
+					}
+				}
+			};
+		} else {
+			getExplorerStore().layoutMode = layout;
+		}
+	};
 
 	const viewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'grid',
-			onClick: () => (getExplorerStore().layoutMode = 'grid'),
+			topBarActive:
+				locationUuid && locationSettings
+					? locationSettings?.explorer.layout === 'grid'
+					: explorerStore.layoutMode === 'grid',
+			onClick: () => updateLayoutPreferredHandler('grid'),
 			showAtResolution: 'sm:flex'
 		},
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'rows',
-			onClick: () => (getExplorerStore().layoutMode = 'rows'),
+			topBarActive:
+				locationUuid && locationSettings
+					? locationSettings?.explorer.layout === 'list'
+					: explorerStore.layoutMode === 'list',
+			onClick: () => updateLayoutPreferredHandler('list'),
 			showAtResolution: 'sm:flex'
 		},
 		// {
@@ -46,8 +96,11 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'media',
-			onClick: () => (getExplorerStore().layoutMode = 'media'),
+			topBarActive:
+				locationUuid && locationSettings
+					? locationSettings?.explorer.layout === 'media'
+					: explorerStore.layoutMode === 'media',
+			onClick: () => updateLayoutPreferredHandler('media'),
 			showAtResolution: 'sm:flex'
 		}
 	];

@@ -54,7 +54,7 @@ export const Component = () => {
 						selected={selectedItemId}
 						onSelectedChange={setSelectedItemId}
 						top={68}
-						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
+						className={explorerStore.layoutMode === 'list' ? 'min-w-0' : undefined}
 						contextMenu={
 							selectedItem ? (
 								<ContextMenu

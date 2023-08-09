@@ -3,24 +3,30 @@ mod library;
 
 pub use kv::*;
 pub use library::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use specta::Type;
 
 use std::collections::HashMap;
 
 use uuid::Uuid;
 
-impl<V> Preferences for HashMap<Uuid, V>
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[specta(inline)]
+pub struct Settings<V>(V);
+
+impl<V> Preferences for HashMap<Uuid, Settings<V>>
 where
-	V: Preferences,
+	V: Serialize + DeserializeOwned,
 {
 	fn to_kvs(self) -> PreferenceKVs {
 		PreferenceKVs::new(
 			self.into_iter()
-				.flat_map(|(id, value)| {
+				.map(|(id, value)| {
 					let mut buf = Uuid::encode_buffer();
 
 					let id = id.as_simple().encode_lower(&mut buf);
 
-					value.to_kvs().with_prefix(id)
+					(PreferenceKey::new(id), PreferenceValue::new(value))
 				})
 				.collect(),
 		)
@@ -29,11 +35,7 @@ where
 	fn from_entries(entries: Entries) -> Self {
 		entries
 			.into_iter()
-			.map(|(key, value)| {
-				let id = Uuid::parse_str(&key).unwrap();
-
-				(id, V::from_entries(value.expect_nested()))
-			})
+			.map(|(key, entry)| (Uuid::parse_str(&key).unwrap(), entry.expect_value()))
 			.collect()
 	}
 }
