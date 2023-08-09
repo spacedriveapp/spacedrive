@@ -78,7 +78,7 @@ function Job({ job, isChild }: JobProps) {
 	return (
 		<JobContainer
 			name={jobData.name}
-			circleIcon={JobIcon[job.name]}
+			icon={JobIcon[job.name]}
 			textItems={
 				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}

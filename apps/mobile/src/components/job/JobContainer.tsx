@@ -4,8 +4,7 @@ import { TextItems } from '@sd/client';
 
 type JobContainerProps = {
 	name: string;
-	iconImg?: string;
-	circleIcon?: Icon;
+	icon?: string | Icon;
 	// Array of arrays of TextItems, where each array of TextItems is a truncated line of text.
 	textItems?: TextItems;
 	isChild?: boolean;

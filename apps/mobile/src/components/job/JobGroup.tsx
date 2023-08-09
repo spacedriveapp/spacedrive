@@ -61,7 +61,7 @@ export default function JobGroup({ data: { jobs, ...data } }: JobGroupProps) {
 				<>
 					<Pressable onPress={() => setShowChildJobs((v) => !v)}>
 						<JobContainer
-							iconImg={Folder}
+							icon={Folder}
 							// TODO:
 							// containerStyle
 							name={getJobNiceActionName(

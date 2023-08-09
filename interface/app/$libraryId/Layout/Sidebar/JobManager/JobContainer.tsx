@@ -6,8 +6,7 @@ import classes from './Job.module.scss';
 
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 	name: string;
-	iconImg?: string;
-	circleIcon?: ForwardRefExoticComponent<any>;
+	icon?: string | ForwardRefExoticComponent<any>;
 	// Array of arrays of TextItems, where each array of TextItems is a truncated line of text.
 	textItems?: TextItems;
 	isChild?: boolean;
@@ -23,16 +22,7 @@ const TextItem = tw.span`truncate`;
 
 // Job container consolidates the common layout of a job item, used for regular jobs (Job.tsx) and grouped jobs (JobGroup.tsx).
 const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) => {
-	const {
-		name,
-		iconImg,
-		circleIcon: CircleIcon,
-		textItems,
-		isChild,
-		children,
-		className,
-		...restProps
-	} = props;
+	const { name, icon: Icon, textItems, isChild, children, className, ...restProps } = props;
 
 	return (
 		<li
@@ -45,10 +35,17 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 			)}
 			{...restProps}
 		>
-			{CircleIcon && (
-				<CircleIcon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
+			{typeof Icon === 'string' ? (
+				<img src={Icon} className={IMG_ICON_CLASS} />
+			) : (
+				Icon && (
+					<Icon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
+				)
 			)}
-			{iconImg && <img src={iconImg} className={IMG_ICON_CLASS} />}
+			{/* {CircleIcon && (
+				<CircleIcon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
+			)} */}
+			{/* {iconImg && <img src={iconImg} className={IMG_ICON_CLASS} />} */}
 			<MetaContainer>
 				<Tooltip tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
 					<span className="truncate pl-1.5 font-semibold">{name}</span>

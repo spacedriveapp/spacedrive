@@ -1,14 +1,4 @@
-import {
-	Copy,
-	Fingerprint,
-	Folder,
-	Icon,
-	Image,
-	Info,
-	Question,
-	Scissors,
-	Trash
-} from 'phosphor-react';
+import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo, useLibrarySubscription } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
@@ -79,7 +69,7 @@ function Job({ job, className, isChild }: JobProps) {
 		<JobContainer
 			className={className}
 			name={jobData.name}
-			circleIcon={JobIcon[job.name]}
+			icon={JobIcon[job.name]}
 			textItems={
 				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}

@@ -124,7 +124,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							'pb-2 hover:bg-app-selected/10',
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
-						iconImg={Folder}
+						icon={Folder}
 						name={getJobNiceActionName(
 							data.action ?? '',
 							data.status === 'Completed',
