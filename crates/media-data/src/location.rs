@@ -60,44 +60,44 @@ impl MediaLocation {
 		}
 	}
 
-	/// Create a new [`MediaLocation`] from a latitude and longitude pair of EXIF-style strings.
-	///
-	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
-	///
-	/// # Examples
-	///
-	/// ```
-	/// use sd_media_data::MediaLocation;
-	///
-	/// let x = MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	/// ```
-	pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
-		let res = [lat, long]
-			.into_iter()
-			.map(ToString::to_string)
-			.filter_map(|mut item| {
-				item.retain(|x| {
-					x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
-				});
-				let i = item
-					.split_whitespace()
-					.filter_map(|x| x.parse::<f64>().ok());
-				(i.clone().count() == 3)
-					.then(|| i.zip(DMS_DIVISION.iter()).map(|(x, y)| x / y).sum::<f64>())
-			})
-			.collect::<Vec<_>>();
+	// /// Create a new [`MediaLocation`] from a latitude and longitude pair of EXIF-style strings.
+	// ///
+	// /// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
+	// ///
+	// /// # Examples
+	// ///
+	// /// ```
+	// /// use sd_media_data::MediaLocation;
+	// ///
+	// /// let x = MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	// /// ```
+	// pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
+	// 	let res = [lat, long]
+	// 		.into_iter()
+	// 		.map(ToString::to_string)
+	// 		.filter_map(|mut item| {
+	// 			item.retain(|x| {
+	// 				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
+	// 			});
+	// 			let i = item
+	// 				.split_whitespace()
+	// 				.filter_map(|x| x.parse::<f64>().ok());
+	// 			(i.clone().count() == 3)
+	// 				.then(|| i.zip(DMS_DIVISION.iter()).map(|(x, y)| x / y).sum::<f64>())
+	// 		})
+	// 		.collect::<Vec<_>>();
 
-		(!res.is_empty() && res.len() == 2)
-			.then(|| {
-				Self::new(
-					Self::format_coordinate(res[0], LAT_MAX_POS),
-					Self::format_coordinate(res[1], LONG_MAX_POS),
-					None,
-					None,
-				)
-			})
-			.ok_or(Error::MediaLocationParse)
-	}
+	// 	(!res.is_empty() && res.len() == 2)
+	// 		.then(|| {
+	// 			Self::new(
+	// 				Self::format_coordinate(res[0], LAT_MAX_POS),
+	// 				Self::format_coordinate(res[1], LONG_MAX_POS),
+	// 				None,
+	// 				None,
+	// 			)
+	// 		})
+	// 		.ok_or(Error::MediaLocationParse)
+	// }
 
 	/// Create a new [`MediaLocation`] from an [`ExifReader`] instance.
 	///
@@ -115,12 +115,19 @@ impl MediaLocation {
 	/// ```
 	pub fn from_exif_reader(reader: &ExifReader) -> Result<Self> {
 		let res = [
-			reader.get_tag(Tag::GPSLatitude),
-			reader.get_tag(Tag::GPSLongitude),
+			(
+				reader.get_tag(Tag::GPSLatitude),
+				reader.get_tag(Tag::GPSLatitudeRef),
+			),
+			(
+				reader.get_tag(Tag::GPSLongitude),
+				reader.get_tag(Tag::GPSLongitudeRef),
+			),
 		]
 		.into_iter()
-		.filter_map(|item: Option<String>| {
-			let mut item = item.unwrap_or_default();
+		.filter_map(|(item, reference)| {
+			let mut item: String = item.unwrap_or_default();
+			let reference: String = reference.unwrap_or_default();
 			item.retain(|x| {
 				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
 			});
@@ -129,6 +136,10 @@ impl MediaLocation {
 				.filter_map(|x| x.parse::<f64>().ok());
 			(i.clone().count() == 3)
 				.then(|| i.zip(DMS_DIVISION.iter()).map(|(x, y)| x / y).sum::<f64>())
+				.map(|mut x| {
+					(reference == "W" || reference == "S").then(|| x = x.neg());
+					x
+				})
 		})
 		.collect::<Vec<_>>();
 
