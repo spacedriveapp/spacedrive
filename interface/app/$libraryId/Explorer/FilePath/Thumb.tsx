@@ -109,6 +109,7 @@ export interface ThumbProps {
 	className?: string;
 	loadOriginal?: boolean;
 	mediaControls?: boolean;
+	pauseVideo?: boolean;
 }
 
 function FileThumb({ size, cover, ...props }: ThumbProps) {
@@ -244,36 +245,18 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 								);
 							case 'Video':
 								return (
-									<video
-										// Order matter for crossOrigin attr
-										crossOrigin="anonymous"
+									<Video
 										src={src}
+										onLoad={onLoad}
 										onError={onError}
-										autoPlay
-										onVolumeChange={(e) => {
-											const video = e.target as HTMLVideoElement;
-											getExplorerStore().mediaPlayerVolume = video.volume;
-										}}
+										paused={props.pauseVideo}
 										controls={props.mediaControls}
-										onCanPlay={(e) => {
-											const video = e.target as HTMLVideoElement;
-											// Why not use the element's attribute? Because React...
-											// https://github.com/facebook/react/issues/10389
-											video.loop = !props.mediaControls;
-											video.muted = !props.mediaControls;
-											video.volume = getExplorerStore().mediaPlayerVolume;
-										}}
 										className={clsx(
 											childClassName,
 											size && 'rounded border-x-0 border-black',
 											props.className
 										)}
-										playsInline
-										onLoadedData={onLoad}
-										draggable={false}
-									>
-										<p>Video preview is not supported.</p>
-									</video>
+									/>
 								);
 							case 'Audio':
 								return (
@@ -355,3 +338,52 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 }
 
 export default memo(FileThumb);
+
+interface VideoProps {
+	src: string;
+	paused?: boolean;
+	controls?: boolean;
+	className?: string;
+	onLoad?: () => void;
+	onError?: () => void;
+}
+
+const Video = memo(({ src, paused, controls, className, onLoad, onError }: VideoProps) => {
+	const video = useRef<HTMLVideoElement>(null);
+
+	useEffect(() => {
+		if (video.current) {
+			paused ? video.current.pause() : video.current.play();
+		}
+	}, [paused]);
+
+	return (
+		<video
+			// Order matter for crossOrigin attr
+			crossOrigin="anonymous"
+			ref={video}
+			src={src}
+			onError={onError}
+			autoPlay={!paused}
+			onVolumeChange={(e) => {
+				const video = e.target as HTMLVideoElement;
+				getExplorerStore().mediaPlayerVolume = video.volume;
+			}}
+			controls={controls}
+			onCanPlay={(e) => {
+				const video = e.target as HTMLVideoElement;
+				// Why not use the element's attribute? Because React...
+				// https://github.com/facebook/react/issues/10389
+				video.loop = !controls;
+				video.muted = !controls;
+				video.volume = getExplorerStore().mediaPlayerVolume;
+			}}
+			className={className}
+			playsInline
+			onLoadedData={onLoad}
+			draggable={false}
+		>
+			<p>Video preview is not supported.</p>
+		</video>
+	);
+});
