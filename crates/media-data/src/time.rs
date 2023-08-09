@@ -9,7 +9,9 @@ use crate::{
 
 pub const NAIVE_FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
-#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(
+	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 /// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
 ///
 /// This may also be `undefined`.

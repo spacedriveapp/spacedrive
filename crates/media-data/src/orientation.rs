@@ -2,7 +2,9 @@ use crate::ExifReader;
 use image_rs::DynamicImage;
 use std::path::Path;
 
-#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(
+	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 pub enum Orientation {
 	#[default]
 	Normal,

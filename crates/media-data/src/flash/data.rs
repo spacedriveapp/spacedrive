@@ -7,7 +7,7 @@ use crate::{flash::consts::FLASH_MODES, ExifReader};
 pub struct Flash {
 	/// Specifies how flash was used (on, auto, off, forced, onvalid)
 	///
-	/// [`FlashMode::Invalid`] isn't a valid EXIF state, but it's included as the default,
+	/// [`FlashMode::Unknown`] isn't a valid EXIF state, but it's included as the default,
 	///  just in case we're unable to correctly match it to a known (valid) state.
 	///
 	/// This type should only ever be evaluated if flash EXIF data is present, so having this as a non-option shouldn't be an issue.
@@ -33,7 +33,7 @@ impl Flash {
 )]
 pub enum FlashMode {
 	#[default]
-	Invalid,
+	Unknown,
 	On,
 	Off,
 	Auto,
@@ -45,7 +45,7 @@ impl From<u32> for FlashMode {
 		FLASH_MODES
 			.into_iter()
 			.find_map(|(mode, slice)| slice.contains(&value).then_some(mode))
-			.unwrap_or(Self::Invalid)
+			.unwrap_or(Self::Unknown)
 	}
 }
 

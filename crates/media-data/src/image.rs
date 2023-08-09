@@ -46,7 +46,7 @@ pub struct CameraData {
 
 impl MediaDataImage {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-		Ok(Self::from_reader(&ExifReader::from_path(path)?)?)
+		Self::from_reader(&ExifReader::from_path(path)?)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {

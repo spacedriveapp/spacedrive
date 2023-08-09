@@ -4,7 +4,9 @@ use exif::Tag;
 
 use crate::ExifReader;
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(
+	Default, Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 pub struct Dimensions {
 	pub width: i32,
 	pub height: i32,
