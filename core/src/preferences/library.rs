@@ -8,10 +8,11 @@ use uuid::Uuid;
 use super::*;
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct LibraryPreferences {
 	#[serde(default)]
 	#[specta(optional)]
-	location: HashMap<Uuid, LocationPreferences>,
+	location: HashMap<Uuid, Settings<LocationSettings>>,
 }
 
 impl LibraryPreferences {
@@ -41,28 +42,22 @@ impl LibraryPreferences {
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct LocationPreferences {
-	/// View settings for the location - all writes are overwrites!
-	#[serde(skip_serializing_if = "Option::is_none")]
-	view: Option<LocationViewSettings>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	list: Option<ListViewSettings>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	media: Option<MediaViewSettings>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	grid: Option<GridViewSettings>,
+#[serde(rename_all = "camelCase")]
+pub struct LocationSettings {
+	explorer: ExplorerSettings,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct LocationViewSettings {
+#[serde(rename_all = "camelCase")]
+pub struct ExplorerSettings {
 	layout: Option<ExplorerLayout>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Type, Default, Debug)]
-pub struct ListViewSettings {
-	double_click_action: Option<bool>,
+	item_size: Option<i32>,
+	media_cols: Option<i32>,
+	media_sqr_thumbs: Option<bool>,
+	dbl_click_action: Option<bool>,
+	show_size: Option<bool>,
 	sort_by: Option<ViewSortBy>,
-	col_sizes: Option<BTreeMap<i32, i32>>,
+	col_sizes: Option<BTreeMap<String, i32>>,
 	#[specta(type = _SortOrderType, inline)]
 	direction: Option<SortOrder>,
 }
@@ -76,37 +71,20 @@ pub enum _SortOrderType {
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct MediaViewSettings {
-	item_size: Option<i32>,
-	sort_by: Option<ViewSortBy>,
-	#[specta(type = _SortOrderType, inline)]
-	direction: Option<SortOrder>,
-	double_click_action: Option<bool>,
-	show_square_thumbnails: Option<bool>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct GridViewSettings {
-	item_size: Option<i32>,
-	sort_by: Option<ViewSortBy>,
-	#[specta(type = _SortOrderType, inline)]
-	direction: Option<SortOrder>,
-	double_click_action: Option<bool>,
-	show_object_size: Option<bool>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
 pub enum ViewSortBy {
 	None,
 	Name,
-	Size,
+	SizeInBytes,
 	DateCreated,
 	DateModified,
 	DateIndexed,
+	#[serde(rename = "object.dateAccessed")]
 	DateAccessed,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
 pub enum ExplorerLayout {
 	Grid,
 	List,
@@ -126,38 +104,6 @@ impl Preferences for LibraryPreferences {
 				.remove("location")
 				.map(|value| HashMap::from_entries(value.expect_nested()))
 				.unwrap_or_default(),
-		}
-	}
-}
-
-impl Preferences for LocationPreferences {
-	fn to_kvs(self) -> PreferenceKVs {
-		let Self {
-			view,
-			list,
-			media,
-			grid,
-		} = self;
-
-		PreferenceKVs::new(
-			[
-				view.map(|v| (PreferenceKey::new("view"), PreferenceValue::new(v))),
-				list.map(|v| (PreferenceKey::new("list"), PreferenceValue::new(v))),
-				media.map(|v| (PreferenceKey::new("media"), PreferenceValue::new(v))),
-				grid.map(|v| (PreferenceKey::new("grid"), PreferenceValue::new(v))),
-			]
-			.into_iter()
-			.flatten()
-			.collect(),
-		)
-	}
-
-	fn from_entries(mut entries: Entries) -> Self {
-		Self {
-			view: entries.remove("view").map(|view| view.expect_value()),
-			list: entries.remove("list").map(|list| list.expect_value()),
-			media: entries.remove("media").map(|media| media.expect_value()),
-			grid: entries.remove("grid").map(|grid| grid.expect_value()),
 		}
 	}
 }

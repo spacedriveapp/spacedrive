@@ -32,8 +32,8 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'rows',
-			onClick: () => (getExplorerStore().layoutMode = 'rows'),
+			topBarActive: explorerStore.layoutMode === 'list',
+			onClick: () => (getExplorerStore().layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
 		},
 		// {

@@ -164,7 +164,7 @@ export default memo(
 							}
 						>
 							{layoutMode === 'grid' && <GridView />}
-							{layoutMode === 'rows' && <ListView />}
+							{layoutMode === 'list' && <ListView />}
 							{layoutMode === 'media' && <MediaView />}
 						</ViewContext.Provider>
 					) : (
@@ -195,7 +195,7 @@ export const EmptyNotice = ({
 				grid: GridFour,
 				media: MonitorPlay,
 				columns: Columns,
-				rows: Rows
+				list: Rows
 			}[layoutMode];
 
 		return <Icon size={100} opacity={0.3} />;

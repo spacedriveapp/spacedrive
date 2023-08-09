@@ -7,10 +7,11 @@ import {
 	Video_Light
 } from '@sd/assets/icons';
 import { ReactNode } from 'react';
+import { ExplorerLayout } from '@sd/client';
 import DismissibleNotice from '~/components/DismissibleNotice';
 import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
-import { ExplorerLayoutMode, useExplorerStore } from './store';
+import { useExplorerStore } from './store';
 
 const MediaViewIcon = () => {
 	const isDark = useIsDark();
@@ -54,7 +55,7 @@ const notices = {
 			"Get a visual overview of your files with Grid View. This view displays your files and folders as thumbnail images, making it easy to quickly identify the file you're looking for.",
 		icon: <CollectionIcon />
 	},
-	rows: {
+	list: {
 		key: 'listView',
 		title: 'List View',
 		description:
@@ -67,9 +68,9 @@ const notices = {
 		description:
 			'Discover photos and videos easily, Media View will show results starting at the current location including sub directories.',
 		icon: <MediaViewIcon />
-	},
-	columns: undefined
-} satisfies Record<ExplorerLayoutMode, Notice | undefined>;
+	}
+	// columns: undefined
+} satisfies Record<ExplorerLayout, Notice | undefined>;
 
 export default () => {
 	const { layoutMode } = useExplorerStore();
