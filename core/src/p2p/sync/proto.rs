@@ -24,10 +24,7 @@ impl SyncMessage {
 			)),
 			header => Err(std::io::Error::new(
 				std::io::ErrorKind::InvalidData,
-				format!(
-					"Invalid sync message header: {}",
-					(header as char).to_string()
-				),
+				format!("Invalid sync message header: {}", (header as char)),
 			)),
 		}
 	}
