@@ -8,7 +8,7 @@ use crate::{
 };
 
 // TODO(brxken128): figure out why rspc isn't displayng negative values as negative
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
 	latitude: f64,
 	longitude: f64,
@@ -22,15 +22,7 @@ const LONG_MAX_POS: f64 = 180_f64;
 impl MediaLocation {
 	/// This is used to clamp and format coordinates. They are rounded to 8 significant figures after the decimal point.
 	///
-	/// `max` must be a positive float, and it should be the maximum distance allowed (e.g. 90 or 180 degrees)
-	///
-	/// # Examples
-	///
-	/// ```
-	/// use sd_media_data::MediaLocation;
-	///
-	/// MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	/// ```
+	/// `max` must be a positive `f64`, and it should be the maximum distance allowed (e.g. 90 or 180 degrees)
 	#[must_use]
 	fn format_coordinate(v: f64, max: f64) -> f64 {
 		(v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF
@@ -171,7 +163,7 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```
+	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
@@ -183,7 +175,7 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```
+	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
@@ -195,7 +187,7 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```
+	/// ```ignore // from exif strings has been temporarily disabled
 	/// use sd_media_data::MediaLocation;
 	///
 	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();

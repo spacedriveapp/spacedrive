@@ -2,7 +2,7 @@ use crate::ExifReader;
 use image_rs::DynamicImage;
 use std::path::Path;
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum Orientation {
 	#[default]
 	Normal,
@@ -17,7 +17,8 @@ pub enum Orientation {
 
 impl Orientation {
 	/// This is used for quickly sourcing [`Orientation`] data from a path, to be later used by one of the modification functions.
-	pub fn source_orientation(path: &(impl AsRef<Path> + Send)) -> Option<Self> {
+	#[allow(clippy::future_not_send)]
+	pub fn source_orientation(path: impl AsRef<Path>) -> Option<Self> {
 		let reader = ExifReader::from_path(path).ok()?;
 		reader.get_orientation_int().map(Self::int_to_orientation)
 	}

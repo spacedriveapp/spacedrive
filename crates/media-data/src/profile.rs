@@ -1,7 +1,7 @@
 use crate::ExifReader;
 use std::fmt::Display;
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum ColorProfile {
 	#[default]
 	Normal,

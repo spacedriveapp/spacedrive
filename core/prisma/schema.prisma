@@ -91,7 +91,7 @@ model Instance {
 
     SharedOperation   SharedOperation[]
     RelationOperation RelationOperation[]
-    locations Location[]
+    locations         Location[]
 
     @@map("instance")
 }
@@ -295,19 +295,19 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    dimensions   Bytes?
-    media_date   Bytes?
-    camera_data  Bytes?
-    location     Bytes?
-    exif_version Bytes?
-    copyright    Bytes?
-    artist       Bytes?
+    dimensions     Bytes
+    media_date     Bytes
+    media_location Bytes?
+    camera_data    Bytes
+    artist         Bytes?
+    copyright      Bytes?
+    exif_version   Bytes?
 
     // video-specific
-    duration Int?
-    fps      Int?
-    streams  Int?
-    codecs   String? // eg: "h264,acc"
+    // duration Int?
+    // fps      Int?
+    // streams  Int?
+    // codecs   String? // eg: "h264,acc"
 
     object Object? @relation(fields: [id], references: [id], onDelete: Cascade)
 

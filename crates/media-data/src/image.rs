@@ -10,15 +10,14 @@ use sd_prisma::prisma::media_data;
 use exif::{Exif, In, Tag};
 
 use crate::{
-	orientation::Orientation,
-	utils::{from_slice_option_to_option, from_slice_option_to_res, to_slice_option},
-	ColorProfile, Dimensions, Error, Flash, MediaLocation, MediaTime, Result,
+	orientation::Orientation, ColorProfile, Dimensions, Error, Flash, MediaLocation, MediaTime,
+	Result,
 };
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaDataImage {
-	pub date_taken: MediaTime,
 	pub dimensions: Dimensions,
+	pub date_taken: MediaTime,
 	pub location: Option<MediaLocation>,
 	pub camera_data: CameraData,
 	pub artist: Option<String>,
@@ -26,7 +25,7 @@ pub struct MediaDataImage {
 	pub exif_version: Option<String>,
 }
 
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CameraData {
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
@@ -46,8 +45,8 @@ pub struct CameraData {
 }
 
 impl MediaDataImage {
-	pub fn from_path(path: &(impl AsRef<Path> + Send)) -> Result<Self> {
-		Self::from_reader(&ExifReader::from_path(path)?)
+	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+		Ok(Self::from_reader(&ExifReader::from_path(path)?)?)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
@@ -61,8 +60,8 @@ impl MediaDataImage {
 		data.date_taken = MediaTime::from_reader(reader);
 		data.dimensions = Dimensions::from_reader(reader);
 
-		data.camera_data.device_make = reader.get_tag(Tag::LensModel);
-		data.camera_data.device_model = reader.get_tag(Tag::LensModel);
+		data.camera_data.device_make = reader.get_tag(Tag::Make);
+		data.camera_data.device_model = reader.get_tag(Tag::Model);
 		data.camera_data.focal_length = reader.get_tag(Tag::FocalLength);
 		data.camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
 		data.camera_data.color_space = reader.get_tag(Tag::ColorSpace);
@@ -101,14 +100,14 @@ impl MediaDataImage {
 	/// This is only here as there's no easy impl from this foreign type to prisma's `CreateUnchecked`
 	pub fn to_query(self) -> Result<sd_prisma::prisma::media_data::CreateUnchecked> {
 		let kc = media_data::CreateUnchecked {
+			dimensions: serde_json::to_vec(&self.dimensions)?,
+			media_date: serde_json::to_vec(&self.date_taken)?,
+			camera_data: serde_json::to_vec(&self.camera_data)?,
 			_params: vec![
-				media_data::dimensions::set(to_slice_option(&self.dimensions)),
-				media_data::media_date::set(to_slice_option(&self.date_taken)),
-				media_data::camera_data::set(to_slice_option(&self.camera_data)),
-				media_data::location::set(to_slice_option(&self.location)),
-				media_data::copyright::set(to_slice_option(&self.copyright)),
-				media_data::artist::set(to_slice_option(&self.artist)),
-				media_data::exif_version::set(to_slice_option(&self.exif_version)),
+				media_data::media_location::set(serde_json::to_vec(&self.location).ok()),
+				media_data::artist::set(serde_json::to_vec(&self.artist).ok()),
+				media_data::copyright::set(serde_json::to_vec(&self.copyright).ok()),
+				media_data::exif_version::set(serde_json::to_vec(&self.exif_version).ok()),
 			],
 		};
 
@@ -117,12 +116,12 @@ impl MediaDataImage {
 
 	pub fn from_prisma_data(data: sd_prisma::prisma::media_data::Data) -> Result<Self> {
 		Ok(Self {
-			dimensions: from_slice_option_to_res(data.dimensions)?,
-			camera_data: from_slice_option_to_res(data.camera_data)?,
-			date_taken: from_slice_option_to_res(data.media_date)?,
+			dimensions: serde_json::from_slice(&data.dimensions)?,
+			camera_data: serde_json::from_slice(&data.camera_data)?,
+			date_taken: serde_json::from_slice(&data.media_date)?,
 			copyright: from_slice_option_to_option(data.copyright),
 			artist: from_slice_option_to_option(data.artist),
-			location: from_slice_option_to_option(data.location),
+			location: from_slice_option_to_option(data.media_location),
 			exif_version: from_slice_option_to_option(data.exif_version),
 		})
 	}
@@ -134,7 +133,7 @@ impl MediaDataImage {
 pub struct ExifReader(Exif);
 
 impl ExifReader {
-	pub fn from_path(path: &(impl AsRef<Path> + Send)) -> Result<Self> {
+	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
 		let file = File::open(path)?;
 		let mut reader = BufReader::new(file);
 		Ok(Self(
@@ -187,4 +186,12 @@ impl ExifReader {
 			.map(|x| x.value.get_uint(0))
 			.unwrap_or_default()
 	}
+}
+
+pub fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
+	value: Option<Vec<u8>>,
+) -> Option<T> {
+	value
+		.map(|x| serde_json::from_slice(&x).ok())
+		.unwrap_or_default()
 }

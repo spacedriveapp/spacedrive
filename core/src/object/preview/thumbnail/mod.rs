@@ -24,7 +24,7 @@ use once_cell::sync::Lazy;
 use sd_media_data::Orientation;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, runtime::Handle, task::block_in_place};
+use tokio::{fs, io, task::block_in_place};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -136,8 +136,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
 		let img = image::open(file_path.as_ref())?;
 
-		let orientation = Handle::current()
-			.block_on(async move { Orientation::source_orientation(file_path.as_ref()).await });
+		let orientation = Orientation::source_orientation(&file_path);
 
 		let (w, h) = img.dimensions();
 		// Optionally, resize the existing photo and convert back into DynamicImage
