@@ -2,7 +2,7 @@ import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExplorerItem, getItemFilePath, getItemLocation, useLibraryContext } from '@sd/client';
-import { PDFViewer } from '~/components';
+import { PDFViewer, TEXTViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
@@ -241,6 +241,21 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 											props.className
 										)}
 										crossOrigin="anonymous" // Here it is ok, because it is not a react attr
+									/>
+								);
+							case 'Text':
+								return (
+									<TEXTViewer
+										src={src}
+										onLoad={onLoad}
+										onError={onError}
+										className={clsx(
+											'h-full w-full border-0 font-mono px-4',
+											!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
+											childClassName,
+											props.className
+										)}
+										crossOrigin="anonymous"
 									/>
 								);
 							case 'Video':
