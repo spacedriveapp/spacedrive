@@ -49,8 +49,10 @@ export const Details = new ConditionalItem({
 
 export const Rename = new ConditionalItem({
 	useCondition: () => {
+		const { selectedItems } = useContextMenuContext();
 		const explorerStore = useExplorerStore();
-		if (explorerStore.layoutMode !== 'media') return null;
+
+		if (explorerStore.layoutMode === 'media' || selectedItems.length > 1) return null;
 
 		return {};
 	},

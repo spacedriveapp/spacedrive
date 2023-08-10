@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { ViewItem } from '.';
+import { useExplorerContext } from '../Context';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { useExplorerStore } from '../store';
@@ -13,9 +14,10 @@ interface GridViewItemProps {
 	selected: boolean;
 	isRenaming: boolean;
 	cut: boolean;
+	renamable: boolean;
 }
 
-const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProps) => {
+const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridViewItemProps) => {
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const { showBytesInGridView, gridItemSize } = useExplorerStore();
@@ -41,6 +43,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 					item={data}
 					selected={selected}
 					style={{ maxHeight: gridItemSize / 3 }}
+					disabled={!renamable}
 				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
@@ -57,6 +60,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 });
 
 export default () => {
+	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
 
 	return (
@@ -67,6 +71,7 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
+					renamable={explorer.selectedItems.size === 1}
 				/>
 			)}
 		</GridList>
