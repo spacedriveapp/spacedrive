@@ -3,7 +3,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
 		StatefulJob, WorkerContext,
 	},
-	library::LoadedLibrary,
+	library::Library,
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_file_identifier, IsolatedFilePathData,
@@ -82,7 +82,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let LoadedLibrary { db, .. } = &*ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		debug!("Identifying orphan File Paths...");
 

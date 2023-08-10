@@ -1,5 +1,5 @@
 use crate::{
-	node::{NodeConfig, Platform},
+	node::{config::NodeConfig, Platform},
 	p2p::IdentityOrRemoteIdentity,
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
@@ -186,7 +186,6 @@ impl Migrate for LibraryConfig {
 					node_platform: Platform::current() as i32,
 					last_seen: now,
 					date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
-					// timestamp: Default::default(), // TODO: Source this properly!
 					_params: vec![],
 				}
 				.to_query(db)

@@ -1,4 +1,4 @@
-use crate::{api::CoreEvent, invalidate_query, library::LoadedLibrary, Node};
+use crate::{api::CoreEvent, invalidate_query, library::Library, Node};
 
 use std::{
 	fmt,
@@ -22,7 +22,7 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus,
+	DynJob, JobError, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus, Jobs,
 };
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -51,7 +51,7 @@ pub enum WorkerCommand {
 }
 
 pub struct WorkerContext {
-	pub library: Arc<LoadedLibrary>,
+	pub library: Arc<Library>,
 	pub node: Arc<Node>,
 	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
@@ -101,9 +101,9 @@ impl Worker {
 		id: Uuid,
 		mut job: Box<dyn DynJob>,
 		mut report: JobReport,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		node: Arc<Node>,
-		job_manager: Arc<JobManager>,
+		job_manager: Arc<Jobs>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
 
@@ -227,7 +227,7 @@ impl Worker {
 		report_watch_tx: &watch::Sender<JobReport>,
 		start_time: DateTime<Utc>,
 		updates: Vec<JobReportUpdate>,
-		library: &LoadedLibrary,
+		library: &Library,
 	) {
 		// protect against updates if job is not running
 		if report.status != JobStatus::Running {
@@ -297,7 +297,7 @@ impl Worker {
 		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
-		library: Arc<LoadedLibrary>,
+		library: Arc<Library>,
 		node: Arc<Node>,
 	) {
 		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
@@ -378,7 +378,7 @@ impl Worker {
 		mut job: Box<dyn DynJob>,
 		job_result: Result<JobRunOutput, JobError>,
 		report: &mut JobReport,
-		library: &LoadedLibrary,
+		library: &Library,
 	) -> Option<Box<dyn DynJob>> {
 		// Run the job and handle the result
 		match job_result {
@@ -521,12 +521,12 @@ impl Worker {
 
 struct JobWorkTable {
 	job: Box<dyn DynJob>,
-	manager: Arc<JobManager>,
+	manager: Arc<Jobs>,
 	hash: u64,
 	report: JobReport,
 }
 
-fn invalidate_queries(library: &LoadedLibrary) {
+fn invalidate_queries(library: &Library) {
 	invalidate_query!(library, "jobs.isActive");
 	invalidate_query!(library, "jobs.reports");
 }

@@ -27,7 +27,7 @@ use tokio::{
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::library::LibraryManager;
+use crate::library::Libraries;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,7 +97,7 @@ impl InitConfig {
 
 	pub async fn apply(
 		self,
-		library_manager: &Arc<LibraryManager>,
+		library_manager: &Arc<Libraries>,
 		node: &Arc<Node>,
 	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);

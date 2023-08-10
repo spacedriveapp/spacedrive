@@ -4,10 +4,12 @@ use crate::{
 		CoreEvent,
 	},
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
+	notifications,
 	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
 	prisma::{file_path, location, PrismaClient},
+	sync,
 	util::{db::maybe_missing, error::FileIOError},
-	Node, NotificationManager,
+	Node,
 };
 
 use std::{
@@ -18,14 +20,13 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sd_core_sync::{SyncManager, SyncMessage};
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::notification;
 use tokio::{fs, io, sync::broadcast};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManager, LibraryManagerError, LibraryManagerEvent};
+use super::{LibraryConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -35,28 +36,28 @@ use super::{LibraryConfig, LibraryManager, LibraryManagerError, LibraryManagerEv
 //  Deleting,
 // }
 
-pub struct LoadedLibrary {
+pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync: Arc<sync::Manager>,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
 
-	notifications: NotificationManager,
+	notifications: notifications::Notifications,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
-impl Debug for LoadedLibrary {
+impl Debug for Library {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
@@ -68,77 +69,26 @@ impl Debug for LoadedLibrary {
 	}
 }
 
-impl LoadedLibrary {
+impl Library {
 	pub async fn new(
 		id: Uuid,
-		instance_id: Uuid,
 		config: LibraryConfig,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
-		manager: Arc<LibraryManager>,
 		node: &Arc<Node>,
+		sync: Arc<sync::Manager>,
 	) -> Arc<Self> {
-		let mut sync = SyncManager::new(&db, instance_id);
-
-		let library = Arc::new(Self {
+		Arc::new(Self {
 			id,
 			config,
+			sync,
 			db: db.clone(),
-			sync: Arc::new(sync.manager),
 			// key_manager,
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
-		});
-
-		manager
-			.tx
-			.emit(LibraryManagerEvent::Load(library.clone()))
-			.await;
-
-		// TODO: move this outta here. Can't go in `SyncManager` tho cause that would cause a circular dependency
-		tokio::spawn({
-			let library = library.clone();
-			let node = node.clone();
-
-			async move {
-				loop {
-					tokio::select! {
-						req = sync.ingest_rx.recv() => {
-							use sd_core_sync::ingest::Request;
-
-							let Some(req) = req else { continue; };
-
-							match req {
-								Request::Messages { tunnel, timestamps } => {
-									node.nlm.request_and_ingest_ops(
-										tunnel,
-										sd_core_sync::GetOpsArgs { clocks: timestamps, count: 100 },
-										&library.sync,
-										library.id
-									).await;
-								},
-								Request::Ingest(ops) => {
-									for op in ops.into_iter() {
-										library.sync.receive_crdt_operation(op).await;
-									}
-								}
-							}
-						},
-						msg = sync.rx.recv() => {
-							if let Ok(op) = msg {
-								let SyncMessage::Created = op else { continue; };
-
-								node.nlm.alert_new_ops(id, &library.sync).await;
-							}
-						},
-					}
-				}
-			}
-		});
-
-		library
+		})
 	}
 
 	// TODO: Remove this once we replace the old invalidation system
@@ -236,14 +186,11 @@ impl LoadedLibrary {
 			}
 		};
 
-		self.notifications
-			.0
-			.send(Notification {
-				id: NotificationId::Library(self.id, result.id as u32),
-				data,
-				read: false,
-				expires,
-			})
-			.ok();
+		self.notifications._internal_send(Notification {
+			id: NotificationId::Library(self.id, result.id as u32),
+			data,
+			read: false,
+			expires,
+		});
 	}
 }
