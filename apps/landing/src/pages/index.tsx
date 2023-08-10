@@ -155,24 +155,38 @@ export default function HomePage() {
 						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px]
 						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
 						/>
-						<video
-							className="absolute-horizontal-center pointer-events-none w-[1000px]"
-							autoPlay
-							muted
-							playsInline
-							loop
-						>
-							{deviceOs?.isWindows && (
-								<source src={'/images/ball.webm'} type={'video/webm'} />
-							)}
-							{(deviceOs?.isMacOs || deviceOs?.isMobile) && (
-								<source src={'/images/ball.mp4'} type={'video/mp4'} />
-							)}
-						</video>
+						<Image
+							className="absolute left-[200px] top-[350px] z-20"
+							loading="eager"
+							width={30}
+							height={30}
+							quality={100}
+							alt="l"
+							src="/images/blueplanet.png"
+						/>
+						<Image
+							className="absolute right-[200px] top-[450px] z-20"
+							loading="eager"
+							width={85}
+							height={65}
+							quality={100}
+							alt="l"
+							src="/images/pinkplanet.png"
+						/>
 						<div
-							className="xl2: z-30 mt-[60px] flex h-[255px] w-full px-6
+							className="xl2: relative z-30 mt-[60px] flex h-[255px] w-full px-6
 						 xs:mt-[170px] sm:mt-[110px] sm:h-[428px] md:mt-[180px] md:h-[428px] lg:mt-[280px] lg:h-[628px]"
 						>
+							<Image
+								className="absolute-horizontal-center top-0 z-20 w-[120px]
+								md:top-[-60px] md:w-[250px] lg:top-[-160px] lg:w-[400px]"
+								loading="eager"
+								width={400}
+								height={400}
+								quality={100}
+								alt="l"
+								src="/images/purpleplanet.png"
+							/>
 							<AppFrameOuter className="relative overflow-hidden">
 								<LineAnimation />
 								<AppFrameInner>
