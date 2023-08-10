@@ -249,7 +249,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full border-0 font-mono px-2',
+											'h-full w-full border-0 font-mono px-4',
 											!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
 											childClassName,
 											props.className
