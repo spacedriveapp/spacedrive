@@ -431,13 +431,13 @@ model Job {
 //// Album ////
 
 model Album {
-    id        Int     @id @default(autoincrement())
+    id        Int     @id
     pub_id    Bytes   @unique
     name      String
-    is_hidden Boolean @default(false)
+    is_hidden Boolean
 
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
+    date_created  DateTime
+    date_modified DateTime
 
     objects ObjectInAlbum[]
 
@@ -445,12 +445,12 @@ model Album {
 }
 
 model ObjectInAlbum {
-    date_created DateTime @default(now())
-    album_id Int
-    album    Album @relation(fields: [album_id], references: [id], onDelete: SetNull)
+    date_created DateTime
+    album_id     Int
+    album        Album    @relation(fields: [album_id], references: [id], onDelete: NoAction)
 
     object_id Int
-    object    Object @relation(fields: [object_id], references: [id], onDelete: SetNull)
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction)
 
     @@id([album_id, object_id])
     @@map("object_in_album")
