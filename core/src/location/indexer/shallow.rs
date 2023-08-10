@@ -10,11 +10,14 @@ use crate::{
 		indexer::{execute_indexer_update_step, IndexerJobUpdateStep},
 		LocationError,
 	},
-	to_remove_db_fetcher_fn,
+	to_remove_db_fetcher_fn, Node,
 };
 use tracing::error;
 
-use std::path::{Path, PathBuf};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
 use itertools::Itertools;
 
@@ -30,6 +33,7 @@ const BATCH_SIZE: usize = 1000;
 pub async fn shallow(
 	location: &location_with_indexer_rules::Data,
 	sub_path: &PathBuf,
+	node: &Arc<Node>,
 	library: &Library,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
@@ -80,9 +84,7 @@ pub async fn shallow(
 		.await?
 	};
 
-	library
-		.manager
-		.thumbnail_remover
+	node.thumbnail_remover
 		.remove_cas_ids(
 			to_remove
 				.iter()

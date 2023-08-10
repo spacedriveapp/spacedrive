@@ -13,6 +13,7 @@ use crate::{
 	location::{file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError},
 	prisma::location,
 	util::error::FileIOError,
+	Node,
 };
 
 use std::{
@@ -39,6 +40,7 @@ use super::{
 pub(super) struct WindowsEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Arc<Library>,
+	node: &'lib Arc<Node>,
 	last_check_recently_files: Instant,
 	recently_created_files: BTreeMap<PathBuf, Instant>,
 	last_check_rename_and_remove: Instant,
@@ -50,13 +52,18 @@ pub(super) struct WindowsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Arc<Library>) -> Self
+	fn new(
+		location_id: location::id::Type,
+		library: &'lib Arc<Library>,
+		node: &'lib Arc<Node>,
+	) -> Self
 	where
 		Self: Sized,
 	{
 		Self {
 			location_id,
 			library,
+			node,
 			last_check_recently_files: Instant::now(),
 			recently_created_files: BTreeMap::new(),
 			last_check_rename_and_remove: Instant::now(),
@@ -101,7 +108,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					.await?;
 				} else {
 					let metadata =
-						create_dir_or_file(self.location_id, &paths[0], self.library).await?;
+						create_dir_or_file(self.location_id, &paths[0], self.node, self.library)
+							.await?;
 
 					if metadata.is_file() {
 						self.recently_created_files
@@ -117,7 +125,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 						.await
 						.map_err(|e| FileIOError::from((path, e)))?;
 					if metadata.is_file() {
-						update_file(self.location_id, path, self.library).await?;
+						update_file(self.location_id, path, self.node, self.library).await?;
 					}
 				}
 			}
