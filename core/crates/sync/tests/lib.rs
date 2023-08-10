@@ -18,7 +18,7 @@ struct Instance {
 	id: Uuid,
 	_peer_id: sd_p2p::PeerId,
 	db: Arc<prisma::PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: Arc<sd_core_sync::Manager>,
 }
 
 impl Instance {
@@ -54,7 +54,7 @@ impl Instance {
 			.await
 			.unwrap();
 
-		let sync = sd_core_sync::SyncManager::new(&db, id);
+		let sync = sd_core_sync::Manager::new(&db, id);
 
 		(
 			Arc::new(Self {
@@ -105,9 +105,6 @@ impl Instance {
 			.exec()
 			.await
 			.unwrap();
-
-		left.sync.register_instance(right.id).await;
-		right.sync.register_instance(left.id).await;
 	}
 }
 
@@ -125,15 +122,9 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 		async move {
 			while let Ok(msg) = sync_rx1.recv().await {
 				match msg {
-					SyncMessage::Created => instance2
-						.sync
-						.ingest
-						.events
-						.send(ingest::Event::Notification(ingest::NotificationEvent {
-							tunnel: todo!(),
-						}))
-						.await
-						.unwrap(),
+					SyncMessage::Created => {
+						instance2.sync.ingest.event_tx.send(todo!()).await.unwrap()
+					}
 					_ => {}
 				}
 			}
@@ -160,9 +151,11 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 						instance2
 							.sync
 							.ingest
-							.events
+							.event_tx
 							.send(ingest::Event::Messages(ingest::MessagesEvent {
+								tunnel: todo!(),
 								messages,
+								has_more: false,
 								instance_id: instance1.id,
 							}))
 							.await

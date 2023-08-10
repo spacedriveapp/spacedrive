@@ -4,8 +4,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { useIsDark } from '../../../hooks';
 import { ExplorerContext } from '../Explorer/Context';
-import ContextMenu from '../Explorer/ContextMenu';
-// import ContextMenu from '../Explorer/FilePath/ContextMenu';
+import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
@@ -96,6 +95,48 @@ export const Component = () => {
 						</div>
 					}
 				/>
+				<div className="flex flex-1">
+					<View
+						items={query.isLoading ? null : items || []}
+						// TODO: Fix this type here.
+						scrollRef={page?.ref as any}
+						onLoadMore={loadMore}
+						rowsBeforeLoadMore={5}
+						selected={selectedItemId}
+						onSelectedChange={setSelectedItemId}
+						top={68}
+						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
+						contextMenu={
+							selectedItem ? (
+								<ContextMenu
+									item={selectedItem}
+									extra={({ object }) => (
+										<>
+											{object && (
+												<ObjectItems.RemoveFromRecents object={object} />
+											)}
+										</>
+									)}
+								/>
+							) : null
+						}
+						emptyNotice={
+							<div className="flex h-full flex-col items-center justify-center text-white">
+								<img
+									src={getIcon(
+										IconForCategory[selectedCategory] || 'Document',
+										isDark
+									)}
+									className="h-32 w-32"
+								/>
+								<h1 className="mt-4 text-lg font-bold">{selectedCategory}</h1>
+								<p className="mt-1 text-sm text-ink-dull">
+									{IconToDescription[selectedCategory]}
+								</p>
+							</div>
+						}
+					/>
+				</div>
 
 				{explorerStore.showInspector && (
 					<Inspector
