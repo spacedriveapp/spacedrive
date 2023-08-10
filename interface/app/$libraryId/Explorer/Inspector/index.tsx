@@ -1,4 +1,3 @@
-// import types from '../../constants/file-types.json';
 import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
@@ -7,43 +6,42 @@ import {
 	CircleWavyCheck,
 	Clock,
 	Cube,
+	Eraser,
+	FolderOpen,
 	Hash,
+	Icon,
 	Link,
 	Lock,
 	Path,
 	Snowflake
 } from 'phosphor-react';
-import { HTMLAttributes, ReactNode, useEffect, useState } from 'react';
+import { HTMLAttributes, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	ExplorerItem,
 	ObjectKind,
 	byteSize,
+	bytesToNumber,
 	getItemFilePath,
 	getItemObject,
-	isPath,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { useExplorerContext } from '../Context';
+import { useItemsAsObjects } from '../ContextMenu/Object/utils';
 import FileThumb from '../FilePath/Thumb';
+import { useExplorerStore } from '../store';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
 export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
 
-export const MetaContainer = tw.div`flex flex-col px-4 py-1.5`;
+export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
 export const MetaTitle = tw.h5`text-xs font-bold`;
-export const MetaKeyName = tw.h5`text-xs flex-shrink-0 flex-wrap-0`;
-export const MetaValue = tw.p`text-xs break-all text-ink truncate`;
 
-const MetaTextLine = tw.div`flex items-center my-0.5 text-xs text-ink-dull`;
-
-const InspectorIcon = ({ component: Icon, ...props }: any) => (
-	<Icon weight="bold" {...props} className={clsx('mr-2 shrink-0', props.className)} />
-);
+const DATE_FORMAT = 'D MMM YYYY';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	showThumbnail?: boolean;
@@ -54,53 +52,81 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 
 	const isDark = useIsDark();
 
-	let item: ReactNode;
+	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
-	if (explorer.selectedItems.size === 0) {
-		item = (
-			<div className="flex w-full flex-col items-center justify-center">
-				<img src={isDark ? Image : Image_Light} />
-				<div
-					className="mt-[15px] flex h-[390px] w-[245px] select-text items-center justify-center
-				rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10"
-				>
-					<p className="text-sm text-ink-dull">Nothing selected</p>
+	return (
+		<div {...props}>
+			{showThumbnail && (
+				<div className="relative mb-2 flex aspect-square items-center justify-center">
+					{explorer.selectedItems.size === 0 ? (
+						<img src={isDark ? Image : Image_Light} />
+					) : (
+						<Thumbnails items={selectedItems} />
+					)}
 				</div>
-			</div>
-		);
-	} else if (explorer.selectedItems.size === 1) {
-		item = (
-			<SingleItem
-				{...props}
-				showThumbnail={showThumbnail}
-				item={[...explorer.selectedItems][0]!}
-			/>
-		);
-	} else {
-		item = <p>Multiple items selected</p>;
-	}
+			)}
 
-	return <div {...props}>{item}</div>;
+			<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+				{explorer.selectedItems.size === 0 ? (
+					<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
+						Nothing selected
+					</div>
+				) : explorer.selectedItems.size === 1 ? (
+					<SingleItemMetadata item={selectedItems[0]!} />
+				) : (
+					<MultiItemMetadata items={selectedItems} />
+				)}
+			</div>
+		</div>
+	);
 };
 
-const SingleItem = ({ item, showThumbnail }: Props & { item: ExplorerItem }) => {
-	const { parent } = useExplorerContext();
+const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
+	return (
+		<>
+			{items
+				.slice(-3)
+				.reverse()
+				.map((item, i, thumbs) => (
+					<div
+						key={item.item.id}
+						className={clsx(
+							'h-full w-full',
+							thumbs.length > 1
+								? 'absolute !h-40 overflow-hidden rounded-lg border border-app-line bg-app-box/80 backdrop-blur'
+								: null,
+							i === 0 && thumbs.length > 1 && 'z-30 shadow-lg shadow-app-shade/20',
+							i === 1 && 'z-20 mb-6 opacity-75',
+							i === 2 && 'z-10 mb-12 opacity-50'
+						)}
+					>
+						<FileThumb
+							loadOriginal
+							size={null}
+							data={item}
+							className="mx-auto"
+							cover={thumbs.length > 1}
+						/>
 
-	const objectData = getItemObject(item);
+						{i === 0 && thumbs.length > 1 && (
+							<InfoPill className="absolute bottom-1 right-1 z-30 !bg-accent !px-1 !text-white">
+								{items.length} Selected
+							</InfoPill>
+						)}
+					</div>
+				))}
+		</>
+	);
+};
+
+const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const filePathData = getItemFilePath(item);
+	const objectData = getItemObject(item);
 
-	const isDir = item.type === 'Path' ? item.item.is_dir : false;
+	const isDir = item.type === 'Path' && item.item.is_dir;
 
-	// this prevents the inspector from fetching data when the user is navigating quickly
-	const [readyToFetch, setReadyToFetch] = useState(false);
-	useEffect(() => {
-		const timeout = setTimeout(() => {
-			setReadyToFetch(true);
-		}, 350);
-		return () => clearTimeout(timeout);
-	}, [item.item.id]);
+	const readyToFetch = useIsFetchReady(item);
 
-	// this is causing LAG
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
 		enabled: readyToFetch && !!objectData
 	});
@@ -109,168 +135,336 @@ const SingleItem = ({ item, showThumbnail }: Props & { item: ExplorerItem }) => 
 		enabled: readyToFetch && !!objectData
 	});
 
-	const { data: fileFullPath } = useLibraryQuery(['files.getPath', filePathData?.id || -1], {
-		enabled: !!filePathData
+	const fileFullPath = useLibraryQuery(['files.getPath', filePathData?.id || -1], {
+		enabled: readyToFetch && !!filePathData
 	});
 
 	// map array of numbers into string
 	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
 
+	const formatDate = (date: string | null | undefined) => date && dayjs(date).format(DATE_FORMAT);
+
 	return (
 		<>
-			{showThumbnail && (
-				<div className="mb-2 aspect-square">
-					<FileThumb loadOriginal size={null} data={item} className="mx-auto" />
+			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+				{filePathData?.name}
+				{filePathData?.extension && `.${filePathData.extension}`}
+			</h3>
+
+			{objectData && (
+				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
+					<Tooltip label="Favorite">
+						<FavoriteButton data={objectData} />
+					</Tooltip>
+
+					<Tooltip label="Encrypt">
+						<Button size="icon">
+							<Lock className="h-[18px] w-[18px]" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Share">
+						<Button size="icon">
+							<Link className="h-[18px] w-[18px]" />
+						</Button>
+					</Tooltip>
 				</div>
 			)}
-			<div className="flex w-full select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-				<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
-					{filePathData?.name}
-					{filePathData?.extension && `.${filePathData.extension}`}
-				</h3>
-				{objectData && (
-					<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
-						<Tooltip label="Favorite">
-							<FavoriteButton data={objectData} />
-						</Tooltip>
 
-						<Tooltip label="Encrypt">
-							<Button size="icon">
-								<Lock className="h-[18px] w-[18px]" />
-							</Button>
-						</Tooltip>
-						<Tooltip label="Share">
-							<Button size="icon">
-								<Link className="h-[18px] w-[18px]" />
-							</Button>
-						</Tooltip>
-					</div>
-				)}
-				{isPath(item) && parent?.type === 'Location' && (
-					<MetaContainer>
-						<MetaTitle>URI</MetaTitle>
-						<MetaValue>
-							{`${parent.location.path}/${item.item.materialized_path}${
-								item.item.name
-							}${item.item.is_dir ? `.${item.item.extension}` : '/'}`}
-						</MetaValue>
-					</MetaContainer>
-				)}
-				<Divider />
-				<MetaContainer>
-					<div className="flex flex-wrap gap-1 overflow-hidden">
-						<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
-						{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
-						{tags.data?.map((tag) => (
-							<Tooltip
-								key={tag.id}
-								label={tag.name || ''}
-								className="flex overflow-hidden"
-							>
-								<InfoPill
-									className="truncate !text-white"
-									style={{ backgroundColor: tag.color + 'CC' }}
-								>
-									{tag.name}
-								</InfoPill>
-							</Tooltip>
-						))}
-						{objectData && (
-							<DropdownMenu.Root
-								trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-								side="left"
-								sideOffset={5}
-								alignOffset={-10}
-							>
-								<AssignTagMenuItems objects={[objectData]} />
-							</DropdownMenu.Root>
-						)}
-					</div>
-				</MetaContainer>
-				<Divider />
-				<MetaContainer className="!flex-row space-x-2">
-					{filePathData?.size_in_bytes_bytes && (
-						<MetaTextLine>
-							<InspectorIcon component={Cube} />
-							<span className="mr-1.5">Size</span>
-							<MetaValue>{`${byteSize(filePathData.size_in_bytes_bytes)}`}</MetaValue>
-						</MetaTextLine>
-					)}
-					{fullObjectData.data?.media_data?.duration_seconds && (
-						<MetaTextLine>
-							<InspectorIcon component={Clock} />
-							<span className="mr-1.5">Duration</span>
-							<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
-						</MetaTextLine>
-					)}
-				</MetaContainer>
-				<Divider />
-				<MetaContainer>
-					<Tooltip label={dayjs(item.item.date_created).format('h:mm:ss a')}>
-						<MetaTextLine>
-							<InspectorIcon component={Clock} />
-							<MetaKeyName className="mr-1.5">Created</MetaKeyName>
-							<MetaValue>
-								{dayjs(item.item.date_created).format('MMM Do YYYY')}
-							</MetaValue>
-						</MetaTextLine>
+			<Divider />
+
+			<MetaContainer>
+				<MetaData
+					icon={Cube}
+					label="Size"
+					value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
+				/>
+
+				<MetaData icon={Clock} label="Created" value={formatDate(item.item.date_created)} />
+
+				<MetaData
+					icon={Eraser}
+					label="Modified"
+					value={formatDate(filePathData?.date_modified)}
+				/>
+
+				<MetaData
+					icon={Barcode}
+					label="Indexed"
+					value={formatDate(filePathData?.date_indexed)}
+				/>
+				<MetaData
+					icon={FolderOpen}
+					label="Accessed"
+					value={formatDate(objectData?.date_accessed)}
+				/>
+
+				<MetaData
+					icon={Path}
+					label="Path"
+					value={fileFullPath.data}
+					onClick={() => {
+						// TODO: Add toast notification
+						fileFullPath.data && navigator.clipboard.writeText(fileFullPath.data);
+					}}
+				/>
+			</MetaContainer>
+
+			<Divider />
+
+			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
+				<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+
+				{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+
+				{tags.data?.map((tag) => (
+					<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
+						<InfoPill
+							className="truncate !text-white"
+							style={{ backgroundColor: tag.color + 'CC' }}
+						>
+							{tag.name}
+						</InfoPill>
 					</Tooltip>
-					{filePathData && (
-						<Tooltip label={dayjs(filePathData.date_indexed).format('h:mm:ss a')}>
-							<MetaTextLine>
-								<InspectorIcon component={Barcode} />
-								<MetaKeyName className="mr-1.5">Indexed</MetaKeyName>
-								<MetaValue>
-									{dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-								</MetaValue>
-							</MetaTextLine>
-						</Tooltip>
-					)}
-					{fileFullPath && (
-						<Tooltip label={fileFullPath}>
-							<MetaTextLine>
-								<InspectorIcon component={Path} />
-								<MetaKeyName className="mr-1.5">Path</MetaKeyName>
-								<MetaValue>{fileFullPath}</MetaValue>
-							</MetaTextLine>
-						</Tooltip>
-					)}
-				</MetaContainer>
+				))}
 
-				{!isDir && objectData && (
-					<>
-						<Note data={objectData} />
-						<Divider />
-						<MetaContainer>
-							<Tooltip label={filePathData?.cas_id || ''}>
-								<MetaTextLine>
-									<InspectorIcon component={Snowflake} />
-									<MetaKeyName className="mr-1.5">Content ID</MetaKeyName>
-									<MetaValue>{filePathData?.cas_id || ''}</MetaValue>
-								</MetaTextLine>
-							</Tooltip>
-							{filePathData?.integrity_checksum && (
-								<Tooltip label={filePathData?.integrity_checksum || ''}>
-									<MetaTextLine>
-										<InspectorIcon component={CircleWavyCheck} />
-										<MetaKeyName className="mr-1.5">Checksum</MetaKeyName>
-										<MetaValue>{filePathData?.integrity_checksum}</MetaValue>
-									</MetaTextLine>
-								</Tooltip>
-							)}
-							{pub_id && (
-								<Tooltip label={pub_id || ''}>
-									<MetaTextLine>
-										<InspectorIcon component={Hash} />
-										<MetaKeyName className="mr-1.5">Object ID</MetaKeyName>
-										<MetaValue>{pub_id}</MetaValue>
-									</MetaTextLine>
-								</Tooltip>
-							)}
-						</MetaContainer>
-					</>
+				{objectData && (
+					<DropdownMenu.Root
+						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+						side="left"
+						sideOffset={5}
+						alignOffset={-10}
+					>
+						<AssignTagMenuItems objects={[objectData]} />
+					</DropdownMenu.Root>
 				)}
-			</div>
+			</MetaContainer>
+
+			{!isDir && objectData && (
+				<>
+					<Note data={objectData} />
+
+					<Divider />
+
+					<MetaContainer>
+						<MetaData
+							icon={Snowflake}
+							label="Content ID"
+							value={filePathData?.cas_id}
+						/>
+
+						{filePathData?.integrity_checksum && (
+							<MetaData
+								icon={CircleWavyCheck}
+								label="Checksum"
+								value={filePathData.integrity_checksum}
+							/>
+						)}
+
+						<MetaData icon={Hash} label="Object ID" value={pub_id} />
+					</MetaContainer>
+				</>
+			)}
 		</>
 	);
+};
+
+type MetadataDate = Date | { from: Date; to: Date } | null;
+
+const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
+	const explorerStore = useExplorerStore();
+
+	const selectedObjects = useItemsAsObjects(items);
+
+	const readyToFetch = useIsFetchReady(items);
+
+	const tags = useLibraryQuery(['tags.list'], {
+		enabled: readyToFetch && !explorerStore.isDragging,
+		suspense: true
+	});
+
+	const tagsWithObjects = useLibraryQuery(
+		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
+		{ enabled: readyToFetch && !explorerStore.isDragging }
+	);
+
+	const formatDate = (metadataDate: MetadataDate) => {
+		if (!metadataDate) return;
+
+		if (metadataDate instanceof Date) return dayjs(metadataDate).format(DATE_FORMAT);
+
+		const { from, to } = metadataDate;
+
+		const sameMonth = from.getMonth() === to.getMonth();
+		const sameYear = from.getFullYear() === to.getFullYear();
+
+		const format = ['D', !sameMonth && 'MMM', !sameYear && 'YYYY'].filter(Boolean).join(' ');
+
+		return `${dayjs(from).format(format)} - ${dayjs(to).format(DATE_FORMAT)}`;
+	};
+
+	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
+		date.setHours(0, 0, 0, 0);
+
+		if (!metadataDate) {
+			metadataDate = date;
+		} else if (metadataDate instanceof Date && date.getTime() !== metadataDate.getTime()) {
+			metadataDate = { from: metadataDate, to: date };
+		} else if ('from' in metadataDate && date < metadataDate.from) {
+			metadataDate.from = date;
+		} else if ('to' in metadataDate && date > metadataDate.to) {
+			metadataDate.to = date;
+		}
+
+		return metadataDate;
+	}, []);
+
+	const metadata = useMemo(
+		() =>
+			items.reduce(
+				(metadata, item) => {
+					const filePathData = getItemFilePath(item);
+					const objectData = getItemObject(item);
+
+					if (filePathData?.size_in_bytes_bytes) {
+						metadata.size += bytesToNumber(filePathData.size_in_bytes_bytes);
+					}
+
+					if (filePathData?.date_created) {
+						metadata.created = getDate(
+							metadata.created,
+							new Date(filePathData.date_created)
+						);
+					}
+
+					if (filePathData?.date_modified) {
+						metadata.modified = getDate(
+							metadata.modified,
+							new Date(filePathData.date_modified)
+						);
+					}
+
+					if (filePathData?.date_indexed) {
+						metadata.indexed = getDate(
+							metadata.indexed,
+							new Date(filePathData.date_indexed)
+						);
+					}
+
+					if (objectData?.date_accessed) {
+						metadata.accessed = getDate(
+							metadata.accessed,
+							new Date(objectData.date_accessed)
+						);
+					}
+
+					const kind =
+						item.type === 'Path' && item.item.is_dir
+							? 'Folder'
+							: ObjectKind[objectData?.kind || 0];
+
+					if (kind) {
+						const kindItems = metadata.kinds.get(kind);
+						if (!kindItems) metadata.kinds.set(kind, [item]);
+						else metadata.kinds.set(kind, [...kindItems, item]);
+					}
+
+					return metadata;
+				},
+				{ size: BigInt(0), indexed: null, kinds: new Map() } as {
+					size: bigint;
+					created: MetadataDate;
+					modified: MetadataDate;
+					indexed: MetadataDate;
+					accessed: MetadataDate;
+					kinds: Map<string, ExplorerItem[]>;
+				}
+			),
+		[items, getDate]
+	);
+
+	return (
+		<>
+			<MetaContainer>
+				<MetaData icon={Cube} label="Size" value={`${byteSize(metadata.size)}`} />
+				<MetaData icon={Clock} label="Created" value={formatDate(metadata.created)} />
+				<MetaData icon={Eraser} label="Modified" value={formatDate(metadata.modified)} />
+				<MetaData icon={Barcode} label="Indexed" value={formatDate(metadata.indexed)} />
+				<MetaData
+					icon={FolderOpen}
+					label="Accessed"
+					value={formatDate(metadata.accessed)}
+				/>
+			</MetaContainer>
+
+			<Divider />
+
+			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
+				{[...metadata.kinds].map(([kind, items]) => (
+					<InfoPill key={kind}>{`${kind} (${items.length})`}</InfoPill>
+				))}
+
+				{tags.data?.map((tag) => {
+					const objectsWithTag = tagsWithObjects.data?.[tag.id] || [];
+
+					if (objectsWithTag.length === 0) return null;
+
+					return (
+						<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+							<InfoPill
+								className="truncate !text-white"
+								style={{
+									backgroundColor: tag.color + 'CC',
+									opacity:
+										objectsWithTag.length === selectedObjects.length ? 1 : 0.5
+								}}
+							>
+								{tag.name} ({objectsWithTag.length})
+							</InfoPill>
+						</Tooltip>
+					);
+				})}
+
+				<DropdownMenu.Root
+					trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+					side="left"
+					sideOffset={5}
+					alignOffset={-10}
+				>
+					<AssignTagMenuItems objects={selectedObjects} />
+				</DropdownMenu.Root>
+			</MetaContainer>
+		</>
+	);
+};
+
+interface MetaDataProps {
+	icon: Icon;
+	label: string;
+	value: ReactNode;
+	onClick?: () => void;
+}
+
+const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
+	return (
+		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
+			<Icon weight="bold" className="mr-2 shrink-0" />
+			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
+			<Tooltip label={value} asChild>
+				<span className="truncate break-all text-ink">{value || '--'}</span>
+			</Tooltip>
+		</div>
+	);
+};
+
+const useIsFetchReady = (item: ExplorerItem | ExplorerItem[]) => {
+	const [readyToFetch, setReadyToFetch] = useState(false);
+
+	useEffect(() => {
+		setReadyToFetch(false);
+
+		const timeout = setTimeout(() => setReadyToFetch(true), 350);
+		return () => clearTimeout(timeout);
+	}, [item]);
+
+	return readyToFetch;
 };

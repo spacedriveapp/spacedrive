@@ -23,12 +23,10 @@ export default (props: { objects: Object[] }) => {
 
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	// Map<tag::id, Vec<object::id>>
-	const tagsWithObjects = useLibraryQuery(
-		['tags.getWithObjects', props.objects.map((o) => o.id)],
-		{
-			suspense: true
-		}
-	);
+	const tagsWithObjects = useLibraryQuery([
+		'tags.getWithObjects',
+		props.objects.map(({ id }) => id)
+	]);
 
 	const assignTag = useLibraryMutation('tags.assign', {
 		onSuccess: () => {
