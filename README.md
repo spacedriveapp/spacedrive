@@ -39,7 +39,7 @@ Organize files across many devices in one place. From cloud services to offline 
 For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
 
 <p align="center">
-  <img src="apps/landing/public/github.png" alt="App screenshot">
+  <img src="apps/landing/public/github.webp" alt="App screenshot">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
