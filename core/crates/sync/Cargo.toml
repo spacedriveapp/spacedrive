@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [features]
-default = []
+default = ["emit-messages"]
 emit-messages = []
 
 [dependencies]

@@ -284,8 +284,8 @@ impl NetworkedLibraries {
 	pub async fn sync_responder(&self, mut tunnel: Tunnel, library: Arc<Library>) {
 		let ingest = &library.sync.ingest;
 
-		let Some(mut rx) =
-			ingest.req_rx.lock().await.take() else {
+		let Ok(mut rx) =
+			ingest.req_rx.try_lock().await else {
 				return;
 			};
 

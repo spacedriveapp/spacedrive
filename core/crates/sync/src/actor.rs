@@ -51,3 +51,15 @@ macro_rules! wait {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! wait_ok {
+	($rx:expr, $pattern:pat $(=> $expr:expr)?) => {
+		loop {
+			match $rx.recv().await.ok() {
+				Some($pattern) => break $($expr)?,
+				_ => continue
+			}
+		}
+	};
+}

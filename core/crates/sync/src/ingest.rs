@@ -107,7 +107,7 @@ impl Actor {
 
 		Handler {
 			event_tx: handler_io.event_tx,
-			req_rx: Arc::new(Mutex::new(Some(handler_io.req_rx))),
+			req_rx: Arc::new(Mutex::new(handler_io.req_rx)),
 		}
 	}
 
@@ -246,7 +246,7 @@ impl Deref for Actor {
 
 pub struct Handler {
 	pub event_tx: mpsc::Sender<Event>,
-	pub req_rx: Arc<Mutex<Option<mpsc::Receiver<Request>>>>,
+	pub req_rx: Arc<Mutex<mpsc::Receiver<Request>>>,
 }
 
 #[derive(Debug)]
