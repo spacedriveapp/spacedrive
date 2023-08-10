@@ -257,9 +257,6 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
-										// Header -> Tunnel -> SyncMessage
-										use sd_core_sync::ingest;
-
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
@@ -270,25 +267,9 @@ impl P2PManager {
 
 										dbg!(&msg);
 
-										let ingest = &library.sync.ingest;
-
 										match msg {
 											SyncMessage::NewOperations => {
-												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
-												// TODO: Throw tunnel around like this makes it soooo confusing.
-												ingest
-													.event_tx
-													.send(ingest::Event::Notification(
-														ingest::NotificationEvent { tunnel },
-													))
-													.await
-													.ok();
-											}
-											SyncMessage::OperationsRequest(_) => {
-												todo!("this should be received somewhere else!");
-											}
-											SyncMessage::OperationsRequestResponse(_) => {
-												todo!("unreachable but add proper error handling")
+												node.nlm.sync_responder(tunnel, library).await
 											}
 										};
 									}

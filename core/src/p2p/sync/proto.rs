@@ -1,13 +1,8 @@
-use sd_core_sync::GetOpsArgs;
-use sd_p2p::proto::{decode, encode};
-use sd_sync::CRDTOperation;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyncMessage {
 	NewOperations,
-	OperationsRequest(GetOpsArgs),
-	OperationsRequestResponse(Vec<CRDTOperation>),
 }
 
 impl SyncMessage {
@@ -15,13 +10,6 @@ impl SyncMessage {
 	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
 		match stream.read_u8().await? {
 			b'N' => Ok(Self::NewOperations),
-			b'R' => Ok(Self::OperationsRequest(
-				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
-			)),
-			b'P' => Ok(Self::OperationsRequestResponse(
-				// TODO: Error handling
-				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
-			)),
 			header => Err(std::io::Error::new(
 				std::io::ErrorKind::InvalidData,
 				format!("Invalid sync message header: {}", (header as char)),
@@ -32,20 +20,6 @@ impl SyncMessage {
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
 			Self::NewOperations => vec![b'N'],
-			Self::OperationsRequest(args) => {
-				let mut buf = vec![b'R'];
-
-				// TODO: Error handling
-				encode::buf(&mut buf, &rmp_serde::to_vec_named(&args).unwrap());
-				buf
-			}
-			Self::OperationsRequestResponse(ops) => {
-				let mut buf = vec![b'P'];
-
-				// TODO: Error handling
-				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
-				buf
-			}
 		}
 	}
 }

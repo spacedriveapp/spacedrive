@@ -1,11 +1,18 @@
 use std::{collections::HashMap, sync::Arc};
 
+use sd_core_sync::ingest;
 use sd_p2p::{
+	proto::{decode, encode},
 	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, PeerId,
 };
+use sd_sync::CRDTOperation;
 use sync::GetOpsArgs;
-use tokio::{io::AsyncWriteExt, sync::RwLock};
+
+use tokio::{
+	io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
+	sync::RwLock,
+};
 use tracing::{debug, error};
 use uuid::Uuid;
 
@@ -206,8 +213,12 @@ impl NetworkedLibraries {
 		}
 	}
 
+	// These functions could be moved to some separate protocol abstraction
+	// which would be pretty cool.
+	//
 	// TODO: Error handling
-	pub async fn alert_new_ops(&self, library_id: Uuid, sync: &Arc<sync::Manager>) {
+
+	pub async fn sync_originator(&self, library_id: Uuid, sync: &Arc<sync::Manager>) {
 		debug!("NetworkedLibraryManager::alert_new_ops({library_id})");
 
 		let libraries = self.libraries.read().await;
@@ -250,14 +261,9 @@ impl NetworkedLibraries {
 					.unwrap();
 				tunnel.flush().await.unwrap();
 
-				while let Ok(SyncMessage::OperationsRequest(args)) =
-					SyncMessage::from_stream(&mut tunnel).await
+				while let Ok(SyncResponderMessage::GetOperation(args)) =
+					SyncResponderMessage::from_stream(&mut tunnel).await
 				{
-					// let args = match .unwrap() {
-					// 	 => resp,
-					// 	_ => todo!("unreachable but proper error handling"),
-					// };
-
 					let ops = sync.get_ops(args).await.unwrap();
 
 					debug!(
@@ -266,7 +272,7 @@ impl NetworkedLibraries {
 					);
 
 					tunnel
-						.write_all(&SyncMessage::OperationsRequestResponse(ops).to_bytes())
+						.write_all(&SyncOriginatorMessage::Operations(ops).to_bytes())
 						.await
 						.unwrap();
 					tunnel.flush().await.unwrap();
@@ -275,46 +281,120 @@ impl NetworkedLibraries {
 		}
 	}
 
-	// Ask the remote for operations and then ingest them
-	pub async fn request_ops(
-		&self,
-		tunnel: &mut Tunnel,
-		args: GetOpsArgs,
-	) -> Vec<sd_sync::CRDTOperation> {
-		tunnel
-			.write_all(&SyncMessage::OperationsRequest(args).to_bytes())
+	pub async fn sync_responder(&self, mut tunnel: Tunnel, library: Arc<Library>) {
+		let ingest = &library.sync.ingest;
+
+		let Some(mut rx) =
+			ingest.req_rx.lock().await.take() else {
+				return;
+			};
+
+		ingest
+			.event_tx
+			.send(ingest::Event::Notification(ingest::NotificationEvent))
 			.await
 			.unwrap();
-		tunnel.flush().await.unwrap();
 
-		let SyncMessage::OperationsRequestResponse(ops) = SyncMessage::from_stream(tunnel).await.unwrap() else {
-			todo!("unreachable but proper error handling")
-		};
+		while let Some(req) = rx.recv().await {
+			use sync::ingest::*;
 
-		// debug!("Received sync events response w/ id '{id}' from peer '{peer_id:?}' for library '{library_id:?}'");
+			const OPS_PER_REQUEST: u32 = 100;
 
-		ops
+			match req {
+				Request::Messages { timestamps } => {
+					tunnel
+						.write_all(
+							&SyncResponderMessage::GetOperation(sync::GetOpsArgs {
+								clocks: timestamps,
+								count: OPS_PER_REQUEST,
+							})
+							.to_bytes(),
+						)
+						.await
+						.unwrap();
+					tunnel.flush().await.unwrap();
+
+					let SyncOriginatorMessage::Operations(ops) =
+						SyncOriginatorMessage::from_stream(&mut tunnel)
+							.await
+							.unwrap();
+					// else { todo!("unreachable but proper error handling") };
+
+					ingest
+						.event_tx
+						.send(Event::Messages(MessagesEvent {
+							instance_id: library.sync.instance,
+							has_more: ops.len() == OPS_PER_REQUEST as usize,
+							messages: ops,
+						}))
+						.await
+						.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+				}
+				_ => {}
+			}
+		}
+	}
+}
+
+pub enum SyncOriginatorMessage {
+	Operations(Vec<CRDTOperation>),
+}
+
+impl SyncOriginatorMessage {
+	// TODO: Per field errors for better error handling
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
+		match stream.read_u8().await? {
+			b'O' => Ok(Self::Operations(
+				// TODO: Error handling
+				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
+			)),
+			header => Err(std::io::Error::new(
+				std::io::ErrorKind::InvalidData,
+				format!("Invalid sync message header: {}", (header as char)),
+			)),
+		}
 	}
 
-	// TODO: Error handling
-	pub async fn exchange_sync_ops(
-		&self,
-		mut tunnel: Tunnel,
-		peer_id: &PeerId,
-		library_id: Uuid,
-		sync: &sync::Manager,
-		args: GetOpsArgs,
-	) {
-		let ops = sync.get_ops(args).await.unwrap();
+	pub fn to_bytes(&self) -> Vec<u8> {
+		match self {
+			Self::Operations(ops) => {
+				let mut buf = vec![b'O'];
 
-		debug!(
-			"Sending '{}' sync ops from peer '{peer_id:?}' for library '{library_id:?}'",
-			ops.len()
-		);
+				// TODO: Error handling
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
+				buf
+			}
+		}
+	}
+}
 
-		tunnel
-			.write_all(&SyncMessage::OperationsRequestResponse(ops).to_bytes())
-			.await
-			.unwrap();
+pub enum SyncResponderMessage {
+	GetOperation(GetOpsArgs),
+}
+
+impl SyncResponderMessage {
+	// TODO: Per field errors for better error handling
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
+		match stream.read_u8().await? {
+			b'G' => Ok(Self::GetOperation(
+				rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
+			)),
+			header => Err(std::io::Error::new(
+				std::io::ErrorKind::InvalidData,
+				format!("Invalid sync message header: {}", (header as char)),
+			)),
+		}
+	}
+
+	pub fn to_bytes(&self) -> Vec<u8> {
+		match self {
+			Self::GetOperation(args) => {
+				let mut buf = vec![b'G'];
+
+				// TODO: Error handling
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&args).unwrap());
+				buf
+			}
+		}
 	}
 }
