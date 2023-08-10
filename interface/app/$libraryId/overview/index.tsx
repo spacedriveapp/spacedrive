@@ -78,7 +78,20 @@ export const Component = () => {
 					onSelectedChange={setSelectedItemId}
 					top={68}
 					className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-					contextMenu={selectedItem ? <ContextMenu item={selectedItem} /> : null}
+					contextMenu={
+						selectedItem ? (
+							<ContextMenu
+								item={selectedItem}
+								extra={({ object }) => (
+									<>
+										{object && (
+											<ObjectItems.RemoveFromRecents object={object} />
+										)}
+									</>
+								)}
+							/>
+						) : null
+					}
 					emptyNotice={
 						<div className="flex h-full flex-col items-center justify-center text-white">
 							<img
@@ -95,48 +108,6 @@ export const Component = () => {
 						</div>
 					}
 				/>
-				<div className="flex flex-1">
-					<View
-						items={query.isLoading ? null : items || []}
-						// TODO: Fix this type here.
-						scrollRef={page?.ref as any}
-						onLoadMore={loadMore}
-						rowsBeforeLoadMore={5}
-						selected={selectedItemId}
-						onSelectedChange={setSelectedItemId}
-						top={68}
-						className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
-						contextMenu={
-							selectedItem ? (
-								<ContextMenu
-									item={selectedItem}
-									extra={({ object }) => (
-										<>
-											{object && (
-												<ObjectItems.RemoveFromRecents object={object} />
-											)}
-										</>
-									)}
-								/>
-							) : null
-						}
-						emptyNotice={
-							<div className="flex h-full flex-col items-center justify-center text-white">
-								<img
-									src={getIcon(
-										IconForCategory[selectedCategory] || 'Document',
-										isDark
-									)}
-									className="h-32 w-32"
-								/>
-								<h1 className="mt-4 text-lg font-bold">{selectedCategory}</h1>
-								<p className="mt-1 text-sm text-ink-dull">
-									{IconToDescription[selectedCategory]}
-								</p>
-							</div>
-						}
-					/>
-				</div>
 
 				{explorerStore.showInspector && (
 					<Inspector
