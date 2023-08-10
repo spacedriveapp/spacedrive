@@ -83,6 +83,8 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 };
 
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
+	const explorerStore = useExplorerStore();
+
 	return (
 		<>
 			{items
@@ -107,6 +109,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 							data={item}
 							className="mx-auto"
 							cover={thumbs.length > 1}
+							pauseVideo={!!explorerStore.quickViewObject}
 						/>
 
 						{i === 0 && thumbs.length > 1 && (
