@@ -28,6 +28,7 @@ import {
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
+import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
 import { useItemsAsObjects } from '../ContextMenu/Object/utils';
 import FileThumb from '../FilePath/Thumb';
@@ -424,14 +425,16 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					);
 				})}
 
-				<DropdownMenu.Root
-					trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-					side="left"
-					sideOffset={5}
-					alignOffset={-10}
-				>
-					<AssignTagMenuItems objects={selectedObjects} />
-				</DropdownMenu.Root>
+				{isNonEmpty(selectedObjects) && (
+					<DropdownMenu.Root
+						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+						side="left"
+						sideOffset={5}
+						alignOffset={-10}
+					>
+						<AssignTagMenuItems objects={selectedObjects} />
+					</DropdownMenu.Root>
+				)}
 			</MetaContainer>
 		</>
 	);
