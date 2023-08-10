@@ -1,1 +1,79 @@
 # Features
+
+Experience the ultimate in file management with Spacedrive. Below is a detailed list of our current features and what we're bringing to you in the near future.
+
+<Notice
+	type="warning"
+	text="Features marked with an asterisk (*) are in development and will be available soon."
+/>
+
+- Desktop apps for [Windows](), [Linux](), and [macOS]().
+- Mobile apps for [iOS]() and [Android](). \*
+- Server app via [Docker]() for Linux, accompanied by a web interface.
+
+- [Libraries](../../developers/architecture/libraries): Seamlessly store and organize files across various devices, cloud services, and drives.
+
+  - Manage and switch between multiple Libraries via the sidebar.
+  - Encrypt Libraries with a password. \*
+  - Integrate other devices into a Library either locally or over the internet. \*
+  - Synchronize library data across devices. \*
+
+- [Locations](../../developers/architecture/locations): Designate Spacedrive's search locations. Any file detected in a Location gets incorporated into your Library database, subject to customizable filtering rules.
+
+  - Automated indexer periodically scans for file changes.
+  - Real-time tracking of Location changes ensures the index is always updated and synced.
+  - File categorization into [Objects]() is based on both magic bytes and file extensions, allowing differentiation between files with identical extensions across different OS.
+  - Define [Indexer Rules]() to exclude specific files or directories using methods like regex.
+  - Automatically generate [Preview Media](../../developers/architecture/preview-media) for images, videos, and texts, ensuring synchronization across devices.
+
+- [Explorer](../../developers/architecture/explorer): Effortlessly navigate files by Locations, Tags, Spaces, Albums, or through the Search function.
+
+  - Choose from 4 Layouts: List, Grid, Columns, or Media View.
+  - Context menu capabilities: rename, cut, copy, paste, duplicate, delete, favorite, and tag assignment.
+  - Multiple file selection and dedicated context menu options.
+  - Quick file access via double-click or the 'open with' option.
+  - Quick View: Integrated viewer for images and texts.
+
+- [Cloud Locations](../../developers/architecture/nodes): Integrate cloud accounts into a Library. \*
+
+  - Support for Google Drive, Dropbox, and OneDrive is on its way. \*
+  - Access cloud files using the Explorer. \*
+  - Choose to synchronize selected or all files to any device. \*
+  - Facilitate synchronization between various cloud platforms. \*
+
+- [Overview Statistics](): Analyze unique file categories via the Overview screen.
+
+- [Tags](../../developers/architecture/tags): Design and attach them to files, or explore tagged files directly from the sidebar.
+
+  - Efficient tag assignment.
+
+- [Spaces](../../developers/architecture/spaces): A collaborative tool to organize and showcase files. \*
+
+  - Invite fellow Spacedrive users to participate in a Space.
+  - Conveniently rename or rearrange files within a Space.
+
+- [Photo Albums](../../developers/architecture/albums): Import and create albums, ensuring the safeguarding of cherished memories.
+
+- **Library statistics**: Gain insights into total capacity, database size, preview media space, and available storage.
+
+- [Search](../../developers/architecture/search): Instantly look up your Library via the search bar or using CTRL+F.
+
+  - Supports searching both online and offline Locations.
+    _Expect enhanced search functionalities, complete with filters like tags, location, and type._
+
+- **Spacedrop**: A user-friendly method to transfer files across devices, either locally or over the internet. \*
+
+  - Simply drag files to the Spacedrop icon on the sidebar for effortless sharing.
+  - The Spacedrop widget on the top bar displays incoming files and their transfer progress.
+
+- Manage ongoing [Jobs](../../developers/architecture/jobs) and ensure data safety with the Job Manager widget, which offers recovery features in the event of a crash.
+
+- Themes: Light and dark modes available with an option for system synchronization.
+
+- A collection of 48 distinct icons tailored for different file types.
+
+- Broad compatibility with 250+ file types, empowered by "[magic byte](https://en.wikipedia.org/wiki/List_of_file_signatures)" recognition.
+
+- Integrated update installer for seamless software upgrades.
+
+- Optional telemetry and comprehensive local logs.

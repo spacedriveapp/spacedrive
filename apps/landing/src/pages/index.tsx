@@ -151,11 +151,11 @@ export default function HomePage() {
 						lg:h-[526px] lg:w-[728px]"
 						/>
 						<div
-							className="absolute-horizontal-center top-[500px] h-[12%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
+							className="absolute-horizontal-center top-[100px] h-[12%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
 						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px]
 						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
 						/>
-						<Image
+						{/* <Image
 							className="absolute left-[200px] top-[350px] z-20"
 							loading="eager"
 							width={30}
@@ -172,12 +172,12 @@ export default function HomePage() {
 							quality={100}
 							alt="l"
 							src="/images/pinkplanet.png"
-						/>
+						/> */}
 						<div
 							className="xl2: relative z-30 mt-[60px] flex h-[255px] w-full px-6
-						 xs:mt-[170px] sm:mt-[110px] sm:h-[428px] md:mt-[180px] md:h-[428px] lg:mt-[280px] lg:h-[628px]"
+						 xs:mt-[170px] sm:mt-[110px] sm:h-[428px] md:mt-[180px] md:h-[428px] lg:mt-[180px] lg:h-[628px]"
 						>
-							<Image
+							{/* <Image
 								className="absolute-horizontal-center top-0 z-20 w-[120px]
 								md:top-[-60px] md:w-[250px] lg:top-[-160px] lg:w-[400px]"
 								loading="eager"
@@ -186,7 +186,8 @@ export default function HomePage() {
 								quality={100}
 								alt="l"
 								src="/images/purpleplanet.png"
-							/>
+							/> */}
+
 							<AppFrameOuter className="relative overflow-hidden">
 								<LineAnimation />
 								<AppFrameInner>
