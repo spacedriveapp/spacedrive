@@ -5,7 +5,7 @@ use sd_utils::uuid_to_bytes;
 
 use prisma_client_rust::chrono::Utc;
 use serde_json::json;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 

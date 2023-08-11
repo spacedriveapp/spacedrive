@@ -339,9 +339,7 @@ impl PairingManager {
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 
-		node.nlm
-			.sync_originator(library_id, &library.sync.clone())
-			.await;
+		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 
 		stream.flush().await.unwrap();
 	}

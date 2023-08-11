@@ -269,13 +269,13 @@ impl P2PManager {
 
 										match msg {
 											SyncMessage::NewOperations => {
-												node.nlm.sync_responder(tunnel, library).await
+												super::sync::responder(tunnel, library).await;
 											}
 										};
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											node.nlm.clone(),
+											&node.nlm,
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,
@@ -349,7 +349,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync_handler(
-		nlm: Arc<NetworkedLibraries>,
+		nlm: &NetworkedLibraries,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,

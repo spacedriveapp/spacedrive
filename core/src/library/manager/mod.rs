@@ -3,7 +3,7 @@ use crate::{
 	location::indexer,
 	node::Platform,
 	object::tag,
-	p2p::IdentityOrRemoteIdentity,
+	p2p::{self, IdentityOrRemoteIdentity},
 	prisma::location,
 	sync,
 	util::{
@@ -401,7 +401,7 @@ impl Libraries {
 				loop {
 					let Ok(SyncMessage::Created) = sync.rx.recv().await else { continue };
 
-					node.nlm.sync_originator(id, &library.sync).await;
+					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
 				}
 			}
 		});

@@ -1,5 +1,6 @@
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+// will probs have more variants in future
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyncMessage {
 	NewOperations,
