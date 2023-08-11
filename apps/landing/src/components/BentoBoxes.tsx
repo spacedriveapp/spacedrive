@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button, tw } from '@sd/ui';
@@ -29,18 +30,14 @@ const BentoBox = ({ rowSpan = 1, colSpan = 1, className = '', children, bgUrl = 
 			height: '420px'
 		}}
 	>
-		<MagicCard className={className}>
-			<div
-				className="absolute-center z-10 h-[60%] w-[60%] rounded-full
-		bg-gradient-to-r from-fuchsia-400 from-30% via-sky-400 via-50% to-violet-400 to-40% opacity-[0.15] blur-[60px]"
-			/>
-			{children}
-		</MagicCard>
+		<MagicCard className={className}>{children}</MagicCard>
 	</div>
 );
 
 // const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg border border-black transition-opacity`;
 // const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 bg-app/30 backdrop-blur`;
+
+const GitHubButton = dynamic(() => import('react-github-btn'), { ssr: false });
 
 const BentoBoxes = () => {
 	return (
@@ -74,8 +71,9 @@ const BentoBoxes = () => {
 						className="mx-auto mt-3 brightness-125"
 						alt="Powerful tags"
 						width={300}
+						quality={100}
 						height={230}
-						src="/images/bento/tags.png"
+						src="/images/bento/tags.webp"
 					/>
 					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 
@@ -103,7 +101,7 @@ const BentoBoxes = () => {
 						width={340}
 						height={300}
 						quality={100}
-						src="/images/bento/search.png"
+						src="/images/bento/search.webp"
 					/>
 				</>
 			</BentoBox>
@@ -116,7 +114,7 @@ const BentoBoxes = () => {
 						width={340}
 						height={300}
 						quality={100}
-						src="/images/bento/library.png"
+						src="/images/bento/library.webp"
 					/>
 
 					<div className="relative z-30 mt-[30px]">
@@ -140,7 +138,7 @@ const BentoBoxes = () => {
 						width={311}
 						height={300}
 						quality={100}
-						src="/images/bento/spacedrop.png"
+						src="/images/bento/spacedrop.webp"
 					/>
 				</>
 			</BentoBox>
@@ -157,15 +155,25 @@ const BentoBoxes = () => {
 						</Text>
 					</div>
 					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-[420px] w-full" />
-					<Link target="_blank" href="https://github.com/spacedriveapp/spacedrive">
-						<Button
-							size="lg"
-							className="contribute-drop-shadow absolute-center relative z-40 block cursor-pointer border-0 bg-gradient-to-r
-							 from-emerald-400 to-cyan-500 text-sm text-black !transition-all !duration-200"
+					<div className="absolute-center relative z-40 mt-[40px] md:mt-0">
+						<Link target="_blank" href="https://github.com/spacedriveapp/spacedrive">
+							<Button
+								size="lg"
+								className="contribute-drop-shadow mx-auto mb-4 block cursor-pointer border-0
+							 bg-gradient-to-r from-emerald-400 to-cyan-500 text-sm text-black !transition-all !duration-200"
+							>
+								{`<>`} Contribute
+							</Button>
+						</Link>
+						<GitHubButton
+							href="https://github.com/spacedriveapp/spacedrive"
+							data-size="large"
+							data-show-count="true"
+							aria-label="Star spacedriveapp/spacedrive on GitHub"
 						>
-							{`<>`} Contribute
-						</Button>
-					</Link>
+							Star
+						</GitHubButton>
+					</div>
 				</>
 			</BentoBox>
 			<BentoBox colSpan={3} className="p-6">
@@ -175,12 +183,13 @@ const BentoBoxes = () => {
 						alt="crossplatform"
 						width={460}
 						height={100}
-						src="/images/bento/platforms.png"
+						src="/images/bento/platforms.webp"
+						quality={100}
 					/>
 					<DotPattern className="opacity-30" />
 					<div
 						className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
-					from-fuchsia-500 from-10% to-blue-500 opacity-40 blur-[175px]"
+					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
 					/>
 					<div className="relative z-30">
 						<Heading>Cross platform</Heading>

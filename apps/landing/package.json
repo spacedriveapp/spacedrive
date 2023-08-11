@@ -33,6 +33,7 @@
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
 		"react-dom": "^18.2.0",
+		"react-github-btn": "^1.4.0",
 		"react-hook-form": "^7.43.9",
 		"react-tsparticles": "^2.9.3",
 		"reading-time": "^1.5.0",

@@ -15,7 +15,7 @@ html {
 }
 
 .download-today-shadow-inset {
-	box-shadow: 50px 66px 78px -80px rgba(135, 63, 226, 0.30) inset;
+	box-shadow: 50px 66px 78px -80px rgba(86, 159, 255, 0.328) inset;
 	border-radius: 15px;
 	background-image: url('/images/stars.webp');
 	background-repeat: no-repeat;
@@ -30,7 +30,7 @@ html {
 	border-radius: 15px;
 	z-index: -1;
 	padding: 1px;
-	background: linear-gradient(90deg, #ffa4fa, #454545);
+	background: linear-gradient(90deg, #54b8f6, #212b56);
 	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
 	-webkit-mask-composite: xor;
 	mask-composite: exclude;
@@ -133,7 +133,7 @@ html {
 	position: absolute;
 	inset: 0;
 	padding: 1px;
-	border-radius: 10px;
+	border-radius: 7px;
 	background: linear-gradient(20deg,  #3c4c860e 30%, #9daadba2);
 	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
 	-webkit-mask-composite: xor;

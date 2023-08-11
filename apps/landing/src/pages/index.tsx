@@ -3,14 +3,14 @@
 /* eslint-disable tailwindcss/classnames-order */
 
 /* eslint-disable jsx-a11y/alt-text */
+import { Apple } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { Download } from 'phosphor-react';
+import { AndroidLogo, AppleLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
-import { tw } from '@sd/ui';
-import AccessData from '~/components/AccessData';
+import { Tooltip, tw } from '@sd/ui';
 import BentoBoxes from '~/components/BentoBoxes';
 import CloudStorage from '~/components/CloudStorage';
 import DownloadToday from '~/components/DownloadToday';
@@ -32,7 +32,7 @@ const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg tr
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
 export default function HomePage() {
-	const [opacity, setOpacity] = useState(1);
+	const [opacity, setOpacity] = useState(0.6);
 	const [deviceOs, setDeviceOs] = useState<null | {
 		isWindows: boolean;
 		isMacOs: boolean;
@@ -58,12 +58,12 @@ export default function HomePage() {
 			const currentScrollY = window.scrollY;
 
 			if (currentScrollY <= fadeStart) {
-				setOpacity(1);
+				setOpacity(0.6);
 			} else if (currentScrollY <= fadeEnd) {
 				const range = fadeEnd - fadeStart;
 				const diff = currentScrollY - fadeStart;
 				const ratio = diff / range;
-				setOpacity(1 - ratio);
+				setOpacity(0.6 - ratio);
 			} else {
 				setOpacity(0);
 			}
@@ -99,9 +99,17 @@ export default function HomePage() {
 			</div>
 
 			<PageWrapper>
-				<div
-					className="absolute-horizontal-center h-[150px] w-[60%] overflow-hidden
-				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-70 blur-[80px] md:blur-[150px]"
+				{/* <div
+					className="absolute-horizontal-center h-[140px] w-[60%] overflow-hidden
+				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-60 blur-[80px] md:blur-[150px]"
+				/> */}
+				<Image
+					loading="eager"
+					className="absolute-horizontal-center"
+					width={1278}
+					height={626}
+					alt="l"
+					src="/images/headergradient.webp"
 				/>
 				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
@@ -110,6 +118,7 @@ export default function HomePage() {
 						headline="Alpha has been released"
 						href="/blog/spacedrive-funding-announcement"
 						link="Read post"
+						className="mt-[50px] lg:mt-0"
 					/>
 
 					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
@@ -133,6 +142,7 @@ export default function HomePage() {
 					>
 						<HomeCTA
 							icon={<Download />}
+							className="z-5 relative"
 							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
@@ -143,51 +153,36 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-
+					<div className="relative z-10 mt-5 flex gap-3">
+						<Tooltip label="Android">
+							<AndroidLogo className="opacity-80" weight="fill" size={20} />
+						</Tooltip>
+						<Tooltip label="iOS">
+							<Apple className="text-[18px] opacity-80" />
+						</Tooltip>
+						<Tooltip label="Windows">
+							<WindowsLogo className="opacity-80" weight="fill" size={20} />
+						</Tooltip>
+						<Tooltip label="Linux">
+							<LinuxLogo className="opacity-80" weight="fill" size={20} />
+						</Tooltip>
+						<Tooltip label="Web">
+							<Globe className="opacity-80" weight="regular" size={20} />
+						</Tooltip>
+					</div>
 					<div>
 						<div
-							className="absolute-horizontal-center top-[400px] h-[10%] w-[70%] overflow-hidden rounded-full bg-gradient-to-r
-						from-transparent to-indigo-400 blur-[50px] md:h-[500px] md:blur-[150px] lg:top-[550px]
-						lg:h-[526px] lg:w-[728px]"
-						/>
-						<div
-							className="absolute-horizontal-center top-[100px] h-[12%] w-[60%] overflow-hidden rounded-full bg-gradient-to-r from-violet-900
-						to-fuchsia-400 blur-[50px] md:top-[900px] md:h-[150px] md:blur-[150px]
-						lg:h-[250px] lg:w-[600px] xl:h-[400px] xl:w-[900px]"
-						/>
-						{/* <Image
-							className="absolute left-[200px] top-[350px] z-20"
-							loading="eager"
-							width={30}
-							height={30}
-							quality={100}
-							alt="l"
-							src="/images/blueplanet.png"
-						/>
-						<Image
-							className="absolute right-[200px] top-[450px] z-20"
-							loading="eager"
-							width={85}
-							height={65}
-							quality={100}
-							alt="l"
-							src="/images/pinkplanet.png"
-						/> */}
-						<div
-							className="xl2: relative z-30 mt-[60px] flex h-[255px] w-full px-6
-						 xs:mt-[170px] sm:mt-[110px] sm:h-[428px] md:mt-[180px] md:h-[428px] lg:mt-[180px] lg:h-[628px]"
+							className="xl2:relative z-30 mt-[50px] flex h-[255px] w-full px-6
+						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-[628px]"
 						>
-							{/* <Image
-								className="absolute-horizontal-center top-0 z-20 w-[120px]
-								md:top-[-60px] md:w-[250px] lg:top-[-160px] lg:w-[400px]"
+							<Image
 								loading="eager"
-								width={400}
-								height={400}
-								quality={100}
+								className="absolute-horizontal-center top-[410px] w-[400px] xs:top-[360px] md:top-[180px] md:w-auto"
+								width={1278}
+								height={626}
 								alt="l"
-								src="/images/purpleplanet.png"
-							/> */}
-
+								src="/images/appgradient.webp"
+							/>
 							<AppFrameOuter className="relative overflow-hidden">
 								<LineAnimation />
 								<AppFrameInner>
@@ -205,8 +200,7 @@ export default function HomePage() {
 					</div>
 					<BentoBoxes />
 					<CloudStorage />
-					<AccessData />
-					<DownloadToday />
+					<DownloadToday isWindows={deviceOs?.isWindows} />
 				</div>
 			</PageWrapper>
 		</>
