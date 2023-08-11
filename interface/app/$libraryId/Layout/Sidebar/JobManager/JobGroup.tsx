@@ -3,32 +3,25 @@ import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-	JobGroup,
-	JobProgressEvent,
-	JobReport,
-	useLibraryMutation,
-	useLibrarySubscription
-} from '@sd/client';
+import { useMemo, useState } from 'react';
+import { JobGroup, JobProgressEvent, JobReport, useLibraryMutation } from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
-import { useJobManagerContext } from './context';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 
 interface JobGroupProps {
 	group: JobGroup;
+	progress: Record<string, JobProgressEvent>;
 	clearJob?: (arg: string) => void;
 }
 
-export default function ({ group }: JobGroupProps) {
+export default function ({ group, progress }: JobGroupProps) {
 	const { jobs } = group;
 
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
 	const runningJob = jobs.find((job) => job.status === 'Running');
-	const progress = useProgress(runningJob);
 
 	const tasks = calculateTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -76,11 +69,9 @@ export default function ({ group }: JobGroupProps) {
 							[
 								{
 									text:
-										(!showChildJobs &&
-											runningJob !== undefined &&
-											progress &&
-											progress.message) ||
-										undefined
+										!showChildJobs && runningJob !== undefined
+											? progress[runningJob.id]?.message
+											: undefined
 								}
 							]
 						]}
@@ -102,14 +93,14 @@ export default function ({ group }: JobGroupProps) {
 									isChild={jobs.length > 1}
 									key={job.id}
 									job={job}
-									progress={progress?.id === job.id ? progress : null}
+									progress={progress[job.id] ?? null}
 								/>
 							))}
 						</div>
 					)}
 				</>
 			) : (
-				<Job job={jobs[0]!} progress={progress} />
+				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
 			)}
 		</ul>
 	);
@@ -180,66 +171,6 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 			)}
 		</>
 	);
-}
-
-// Getting progress is so complex bc we cache in a way that React is happy with.
-// Sane people don't do this.
-function useProgress(runningJob?: JobReport) {
-	const ctx = useJobManagerContext();
-
-	const [progress, setProgress] = useState<JobProgressEvent | null>(() => {
-		if (!runningJob) return null;
-		// Use cached data if available for initial value
-		return ctx.cachedJobProgress.current.get(runningJob.id) ?? null;
-	});
-	// Stores active job id alongside progress so we don't have to pull activeJob into useEffect
-	const progressRef = useRef(
-		runningJob && progress ? ([runningJob.id, progress] as const) : null
-	);
-
-	// First, ensure the loaded progress is cached since strict mode
-	// will double-fire the second useEffect
-	useEffect(() => {
-		if (!progressRef.current) return;
-
-		const [jobId, progress] = progressRef.current;
-		ctx.cachedJobProgress.current.set(jobId, progress);
-	}, [ctx.cachedJobProgress]);
-
-	// Second, setup removal of cached data when job is no longer active
-	useEffect(() => {
-		const id = runningJob?.id;
-		if (id === undefined) return;
-
-		return () => {
-			ctx.cachedJobProgress.current.delete(id);
-		};
-	}, [runningJob?.id, ctx.cachedJobProgress]);
-
-	// Last, actually cache the data before unmounting and after delete check
-	useEffect(() => {
-		return () => {
-			if (!progressRef.current) return;
-
-			const [jobId, progress] = progressRef.current;
-			ctx.cachedJobProgress.current.set(jobId, progress);
-		};
-	}, [ctx.cachedJobProgress]);
-
-	useLibrarySubscription(['jobs.progress', runningJob?.id as string], {
-		onData: (data) => {
-			setProgress(data);
-			progressRef.current = [runningJob!.id, data];
-		},
-		enabled: runningJob !== undefined
-	});
-
-	// If there's no running jobs we're done, yay
-	useEffect(() => {
-		if (!runningJob) setProgress(null);
-	}, [runningJob]);
-
-	return progress;
 }
 
 function calculateTasks(jobs: JobReport[]) {

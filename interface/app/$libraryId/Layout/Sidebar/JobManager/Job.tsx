@@ -5,7 +5,6 @@ import { JobProgressEvent, JobReport } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
-import { useJobManagerContext } from './context';
 import useJobInfo from './useJobInfo';
 
 interface JobProps {

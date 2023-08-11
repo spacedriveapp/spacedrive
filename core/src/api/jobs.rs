@@ -11,8 +11,9 @@ use crate::{
 };
 
 use std::{
-	collections::{hash_map::Entry, HashMap, VecDeque},
+	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
 	path::PathBuf,
+	time::Instant,
 };
 
 use chrono::{DateTime, Utc};
@@ -20,7 +21,7 @@ use prisma_client_rust::or;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::time::{interval, Duration};
+use tokio::time::Duration;
 use tracing::{info, trace};
 use uuid::Uuid;
 
@@ -34,30 +35,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - the client replaces its local copy of the JobReport using the index provided by the reports procedure
 			// - this should be used with the ephemeral sync engine
 			R.with2(library())
-				.subscription(|(node, _), job_uuid: Uuid| async move {
+				.subscription(|(node, _), _: ()| async move {
 					let mut event_bus_rx = node.event_bus.0.subscribe();
-					let mut tick = interval(Duration::from_secs_f64(1.0 / 30.0));
+					// debounce per-job
+					let mut intervals = BTreeMap::<Uuid, Instant>::new();
 
 					async_stream::stream! {
 						loop {
 							let progress_event = loop {
 								if let Ok(CoreEvent::JobProgress(progress_event)) = event_bus_rx.recv().await {
-									if progress_event.id == job_uuid {
-										break progress_event;
-									}
+									break progress_event;
 								}
 							};
 
+							let instant = intervals.entry(progress_event.id).or_insert_with(||
+								Instant::now()
+							);
+
+							if instant.elapsed() <= Duration::from_secs_f64(1.0 / 30.0) {
+								continue;
+							}
+
 							yield progress_event;
 
-							loop {
-								tokio::select! { biased;
-									_ = tick.tick() => { break; },
-									_ = event_bus_rx.recv() => {
-										// event was killed by the void
-									},
-								}
-							}
+							*instant = Instant::now();
 						}
 					}
 				})

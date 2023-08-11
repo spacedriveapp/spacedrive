@@ -3,11 +3,9 @@ import { JobProgressEvent } from '@sd/client';
 
 const JobManagerContext = createContext<ReturnType<typeof useValue> | null>(null);
 
-// Custom hook allows createContext to infer type
 const useValue = () => {
-	const cachedJobProgress = useRef(new Map<string, JobProgressEvent>());
+	const cachedJobProgress = useRef<Record<string, JobProgressEvent>>({});
 
-	// Would usually useMemo here but there's no functions so referential stability doesn't matter
 	return {
 		cachedJobProgress
 	};
