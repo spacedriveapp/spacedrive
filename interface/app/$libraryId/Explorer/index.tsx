@@ -1,6 +1,6 @@
 import { FolderNotchOpen } from 'phosphor-react';
 import { PropsWithChildren, ReactNode } from 'react';
-import { ExplorerItem, useLibrarySubscription } from '@sd/client';
+import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
@@ -76,13 +76,3 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		</>
 	);
 }
-
-// contextMenu={
-// 	explorer.selectedItems.size > 0 ? (
-// 		props.contextMenu ? (
-// 			props.contextMenu(selectedItems)
-// 		) : (
-// 			<ContextMenu items={selectedItems} />
-// 		)
-// 	) : null
-// }

@@ -29,6 +29,7 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
+import { stringify } from '~/util/uuid';
 import { useExplorerContext } from '../Context';
 import { useItemsAsObjects } from '../ContextMenu/Object/utils';
 import FileThumb from '../FilePath/Thumb';
@@ -59,21 +60,21 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 		<div {...props}>
 			{showThumbnail && (
 				<div className="relative mb-2 flex aspect-square items-center justify-center">
-					{explorer.selectedItems.size === 0 ? (
-						<img src={isDark ? Image : Image_Light} />
-					) : (
+					{isNonEmpty(selectedItems) ? (
 						<Thumbnails items={selectedItems} />
+					) : (
+						<img src={isDark ? Image : Image_Light} />
 					)}
 				</div>
 			)}
 
 			<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-				{explorer.selectedItems.size === 0 ? (
+				{!isNonEmpty(selectedItems) ? (
 					<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
 						Nothing selected
 					</div>
-				) : explorer.selectedItems.size === 1 ? (
-					<SingleItemMetadata item={selectedItems[0]!} />
+				) : selectedItems.length === 1 ? (
+					<SingleItemMetadata item={selectedItems[0]} />
 				) : (
 					<MultiItemMetadata items={selectedItems} />
 				)}
@@ -85,40 +86,39 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	const explorerStore = useExplorerStore();
 
+	const lastThreeItems = items.slice(-3).reverse();
+
 	return (
 		<>
-			{items
-				.slice(-3)
-				.reverse()
-				.map((item, i, thumbs) => (
-					<div
-						key={item.item.id}
-						className={clsx(
-							'h-full w-full',
-							thumbs.length > 1
-								? 'absolute !h-40 overflow-hidden rounded-lg border border-app-line bg-app-box/80 backdrop-blur'
-								: null,
-							i === 0 && thumbs.length > 1 && 'z-30 shadow-lg shadow-app-shade/20',
-							i === 1 && 'z-20 mb-6 opacity-75',
-							i === 2 && 'z-10 mb-12 opacity-50'
-						)}
-					>
-						<FileThumb
-							loadOriginal
-							size={null}
-							data={item}
-							className="mx-auto"
-							cover={thumbs.length > 1}
-							pauseVideo={!!explorerStore.quickViewObject}
-						/>
+			{lastThreeItems.map((item, i, thumbs) => (
+				<div
+					key={item.item.id}
+					className={clsx(
+						'h-full w-full',
+						thumbs.length > 1
+							? 'absolute !h-40 overflow-hidden rounded-lg border border-app-line bg-app-box/80 backdrop-blur'
+							: null,
+						i === 0 && thumbs.length > 1 && 'z-30 shadow-lg shadow-app-shade/20',
+						i === 1 && 'z-20 mb-6 opacity-75',
+						i === 2 && 'z-10 mb-12 opacity-50'
+					)}
+				>
+					<FileThumb
+						loadOriginal
+						size={null}
+						data={item}
+						className="mx-auto"
+						cover={thumbs.length > 1}
+						pauseVideo={!!explorerStore.quickViewObject}
+					/>
 
-						{i === 0 && thumbs.length > 1 && (
-							<InfoPill className="absolute bottom-1 right-1 z-30 !bg-accent !px-1 !text-white">
-								{items.length} Selected
-							</InfoPill>
-						)}
-					</div>
-				))}
+					{i === 0 && thumbs.length > 1 && (
+						<InfoPill className="absolute bottom-1 right-1 z-30 !bg-accent !px-1 !text-white">
+							{items.length} Selected
+						</InfoPill>
+					)}
+				</div>
+			))}
 		</>
 	);
 };
@@ -135,7 +135,7 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: readyToFetch && !!objectData
 	});
 
-	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
+	const object = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
 		enabled: readyToFetch && !!objectData
 	});
 
@@ -143,8 +143,10 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: readyToFetch && !!filePathData
 	});
 
-	// map array of numbers into string
-	const pub_id = fullObjectData?.data?.pub_id.map((n: number) => n.toString(16)).join('');
+	const pubId = useMemo(
+		() => (object?.data?.pub_id ? stringify(object.data.pub_id) : null),
+		[object?.data?.pub_id]
+	);
 
 	const formatDate = (date: string | null | undefined) => date && dayjs(date).format(DATE_FORMAT);
 
@@ -264,7 +266,7 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 							/>
 						)}
 
-						<MetaData icon={Hash} label="Object ID" value={pub_id} />
+						<MetaData icon={Hash} label="Object ID" value={pubId} />
 					</MetaContainer>
 				</>
 			)}

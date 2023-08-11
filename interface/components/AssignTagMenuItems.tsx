@@ -88,7 +88,7 @@ export default (props: { objects: Object[] }) => {
 							// this is the same functionality as finder
 							const unassign = objectsWithTag?.length === props.objects.length;
 
-							// TODO: UI to differentiate tag assigning when some objects have tag when no objects have tag
+							// TODO: UI to differentiate tag assigning when some objects have tag when no objects have tag - ENG-965
 
 							return (
 								<Menu.Item
@@ -104,7 +104,7 @@ export default (props: { objects: Object[] }) => {
 									onClick={async (e) => {
 										e.preventDefault();
 
-										const args = {
+										await assignTag.mutateAsync({
 											unassign,
 											tag_id: tag.id,
 											object_ids: unassign
@@ -119,10 +119,7 @@ export default (props: { objects: Object[] }) => {
 																)
 														)
 														.map((o) => o.id)
-										};
-										console.log(args);
-
-										await assignTag.mutateAsync(args);
+										});
 									}}
 								>
 									<div

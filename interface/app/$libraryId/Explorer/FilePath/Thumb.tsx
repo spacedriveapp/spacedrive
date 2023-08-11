@@ -122,7 +122,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 	const [src, setSrc] = useState<null | string>(null);
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	const explorer = useExplorerContext();
+	const { parent } = useExplorerContext();
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -152,8 +152,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			thumbnailKey
 		} = itemData;
 		const locationId =
-			itemLocationId ??
-			(explorer.parent?.type === 'Location' ? explorer.parent.location.id : null);
+			itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
 
 		switch (thumbType) {
 			case ThumbType.Original:
@@ -193,7 +192,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		itemData,
 		platform,
 		thumbType,
-		explorer.parent
+		parent
 	]);
 
 	const onLoad = () => setLoaded(true);
@@ -251,8 +250,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full border-0 font-mono px-4',
-											!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
+											'h-full w-full border-0 px-4 font-mono',
+											!props.mediaControls
+												? 'overflow-hidden'
+												: 'overflow-auto',
 											childClassName,
 											props.className
 										)}
