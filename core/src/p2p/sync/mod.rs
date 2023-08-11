@@ -220,7 +220,7 @@ impl NetworkedLibraries {
 // TODO: Error handling
 
 pub use originator::run as originator;
-pub mod originator {
+mod originator {
 	use super::*;
 	use responder::tx as rx;
 
@@ -318,7 +318,7 @@ pub mod originator {
 }
 
 pub use responder::run as responder;
-pub mod responder {
+mod responder {
 	use super::*;
 	use originator::tx as rx;
 
@@ -360,7 +360,7 @@ pub mod responder {
 
 		ingest
 			.event_tx
-			.send(ingest::Event::Notification(ingest::NotificationEvent))
+			.send(ingest::Event::Notification)
 			.await
 			.unwrap();
 

@@ -22,17 +22,6 @@ pub struct HandlerIO<T: ActorTypes> {
 	pub req_rx: mpsc::Receiver<T::Request>,
 }
 
-// pub type SplitHandlerIO<T> = (
-// 	<T as ActorTypes>::Handler,
-// 	mpsc::Receiver<<T as ActorTypes>::Request>,
-// );
-
-// impl<T: ActorTypes> HandlerIO<T> {
-// 	pub fn split(self) -> SplitHandlerIO<T> {
-// 		(self.handler, self.req_rx)
-// 	}
-// }
-
 pub fn create_actor_io<T: ActorTypes>() -> (ActorIO<T>, HandlerIO<T>) {
 	let (req_tx, req_rx) = mpsc::channel(20);
 	let (event_tx, event_rx) = mpsc::channel(20);
@@ -45,18 +34,6 @@ macro_rules! wait {
 	($rx:expr, $pattern:pat $(=> $expr:expr)?) => {
 		loop {
 			match $rx.recv().await {
-				Some($pattern) => break $($expr)?,
-				_ => continue
-			}
-		}
-	};
-}
-
-#[macro_export]
-macro_rules! wait_ok {
-	($rx:expr, $pattern:pat $(=> $expr:expr)?) => {
-		loop {
-			match $rx.recv().await.ok() {
 				Some($pattern) => break $($expr)?,
 				_ => continue
 			}

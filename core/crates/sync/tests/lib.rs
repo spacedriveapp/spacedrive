@@ -117,7 +117,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 						.sync
 						.ingest
 						.event_tx
-						.send(ingest::Event::Notification(NotificationEvent))
+						.send(ingest::Event::Notification)
 						.await
 						.unwrap(),
 					_ => {}

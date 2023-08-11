@@ -20,7 +20,7 @@ pub enum Request {
 /// Stuff that the actor consumes
 #[derive(Debug)]
 pub enum Event {
-	Notification(NotificationEvent),
+	Notification,
 	Messages(MessagesEvent),
 }
 
@@ -42,7 +42,7 @@ impl Actor {
 	async fn tick(mut self) -> Option<Self> {
 		let state = match self.state.take()? {
 			State::WaitingForNotification => {
-				wait!(self.io.event_rx, Event::Notification(n) => n);
+				wait!(self.io.event_rx, Event::Notification);
 
 				State::RetrievingMessages
 			}
@@ -256,8 +256,6 @@ pub struct MessagesEvent {
 	pub has_more: bool,
 }
 
-#[derive(Debug)]
-pub struct NotificationEvent;
 
 impl ActorTypes for Actor {
 	type Event = Event;

@@ -329,7 +329,7 @@ impl PairingManager {
 		};
 
 		P2PManager::resync_handler(
-			node.nlm.clone(),
+			&node.nlm,
 			&mut stream,
 			peer_id,
 			self.metadata_manager.get().instances,
