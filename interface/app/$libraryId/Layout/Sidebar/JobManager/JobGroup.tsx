@@ -3,9 +3,9 @@ import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-	JobGroup as IJobGroup,
+	JobGroup,
 	JobProgressEvent,
 	JobReport,
 	useLibraryMutation,
@@ -14,107 +14,36 @@ import {
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
+import { useJobManagerContext } from './context';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 
 interface JobGroupProps {
-	data: IJobGroup;
-	clearJob: (arg: string) => void;
+	group: JobGroup;
+	clearJob?: (arg: string) => void;
 }
 
-function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
+export default function ({ group }: JobGroupProps) {
+	const { jobs } = group;
+
 	const [showChildJobs, setShowChildJobs] = useState(false);
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
-	const pauseJob = useLibraryMutation(['jobs.pause'], {
-		onError: alert
-	});
-	const resumeJob = useLibraryMutation(['jobs.resume'], {
-		onError: alert
-	});
-	const cancelJob = useLibraryMutation(['jobs.cancel'], {
-		onError: alert
-	});
+	const runningJob = jobs.find((job) => job.status === 'Running');
+	const progress = useProgress(runningJob);
 
-	const isJobsRunning = jobs.some((job) => job.status === 'Running');
-	const isJobPaused = jobs.some((job) => job.status === 'Paused');
-	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
-
-	useLibrarySubscription(['jobs.progress', activeJobId as string], {
-		onData: setRealtimeUpdate,
-		enabled: !!activeJobId || !showChildJobs
-	});
-
-	useEffect(() => {
-		if (data.status !== 'Running') {
-			setRealtimeUpdate(null);
-		}
-	}, [data.status]);
-
-	const tasks = totalTasks(jobs);
+	const tasks = calculateTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
-	if (!jobs.length) return <></>;
+	const dateStarted = useMemo(() => {
+		const createdAt = dayjs(jobs[0]?.created_at).fromNow();
+		return createdAt.charAt(0).toUpperCase() + createdAt.slice(1);
+	}, [jobs]);
 
-	let date_started = dayjs(jobs[0]?.created_at).fromNow();
-	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
+	if (jobs.length === 0) return <></>;
 
 	return (
 		<ul className="relative overflow-hidden">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
-				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
-					<Button
-						className="cursor-pointer"
-						onClick={() => resumeJob.mutate(data.id)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Resume">
-							<Play className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-				)}
-
-				{isJobsRunning && (
-					<Fragment>
-						<Tooltip label="Pause">
-							<Button
-								className="cursor-pointer"
-								onClick={() => {
-									pauseJob.mutate(data.id);
-								}}
-								size="icon"
-								variant="outline"
-							>
-								<Pause className="h-4 w-4 cursor-pointer" />
-							</Button>
-						</Tooltip>
-						<Tooltip label="Stop">
-							<Button
-								className="cursor-pointer"
-								onClick={() => {
-									cancelJob.mutate(data.id);
-								}}
-								size="icon"
-								variant="outline"
-							>
-								<Stop className="h-4 w-4 cursor-pointer" />
-							</Button>
-						</Tooltip>
-					</Fragment>
-				)}
-
-				{!isJobsRunning && (
-					<Button
-						className="cursor-pointer"
-						// onClick={() => clearJob?.(data.id as string)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Remove">
-							<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-				)}
+				<Options activeJob={runningJob} group={group} />
 			</div>
 			{jobs?.length > 1 ? (
 				<>
@@ -126,21 +55,21 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						)}
 						iconImg={Folder}
 						name={niceActionName(
-							data.action ?? '',
-							data.status === 'Completed',
+							group.action ?? '',
+							group.status === 'Completed',
 							jobs[0]
 						)}
 						textItems={[
 							[
 								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
-								{ text: date_started },
+								{ text: dateStarted },
 								{ text: totalGroupTime || undefined },
 
 								{
 									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
-										data.status
+										group.status
 									)
-										? data.status
+										? group.status
 										: undefined
 								}
 							],
@@ -148,14 +77,15 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 								{
 									text:
 										(!showChildJobs &&
-											isJobsRunning &&
-											realtimeUpdate?.message) ||
+											runningJob !== undefined &&
+											progress &&
+											progress.message) ||
 										undefined
 								}
 							]
 						]}
 					>
-						{!showChildJobs && isJobsRunning && (
+						{!showChildJobs && runningJob && (
 							<div className="my-1 ml-1.5 w-full">
 								<ProgressBar
 									pending={tasks.completed === 0}
@@ -166,21 +96,153 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						)}
 					</JobContainer>
 					{showChildJobs && (
-						<div className="">
+						<div>
 							{jobs.map((job) => (
-								<Job isChild={jobs.length > 1} key={job.id} job={job} />
+								<Job
+									isChild={jobs.length > 1}
+									key={job.id}
+									job={job}
+									progress={progress?.id === job.id ? progress : null}
+								/>
 							))}
 						</div>
 					)}
 				</>
 			) : (
-				<>{jobs[0] && <Job job={jobs[0]} />}</>
+				<Job job={jobs[0]!} progress={progress} />
 			)}
 		</ul>
 	);
 }
 
-function totalTasks(jobs: JobReport[]) {
+function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
+	const resumeJob = useLibraryMutation(['jobs.resume'], { onError: alert });
+	const pauseJob = useLibraryMutation(['jobs.pause'], { onError: alert });
+	const cancelJob = useLibraryMutation(['jobs.cancel'], { onError: alert });
+
+	const isJobPaused = useMemo(
+		() => group.jobs.some((job) => job.status === 'Paused'),
+		[group.jobs]
+	);
+
+	return (
+		<>
+			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
+				<Button
+					className="cursor-pointer"
+					onClick={() => resumeJob.mutate(group.id)}
+					size="icon"
+					variant="outline"
+				>
+					<Tooltip label="Resume">
+						<Play className="h-4 w-4 cursor-pointer" />
+					</Tooltip>
+				</Button>
+			)}
+			{activeJob === undefined ? (
+				<Button
+					className="cursor-pointer"
+					// onClick={() => clearJob?.(data.id as string)}
+					size="icon"
+					variant="outline"
+				>
+					<Tooltip label="Remove">
+						<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+					</Tooltip>
+				</Button>
+			) : (
+				<>
+					<Tooltip label="Pause">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								pauseJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Pause className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Stop">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								cancelJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Stop className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+				</>
+			)}
+		</>
+	);
+}
+
+// Getting progress is so complex bc we cache in a way that React is happy with.
+// Sane people don't do this.
+function useProgress(runningJob?: JobReport) {
+	const ctx = useJobManagerContext();
+
+	const [progress, setProgress] = useState<JobProgressEvent | null>(() => {
+		if (!runningJob) return null;
+		// Use cached data if available for initial value
+		return ctx.cachedJobProgress.current.get(runningJob.id) ?? null;
+	});
+	// Stores active job id alongside progress so we don't have to pull activeJob into useEffect
+	const progressRef = useRef(
+		runningJob && progress ? ([runningJob.id, progress] as const) : null
+	);
+
+	// First, ensure the loaded progress is cached since strict mode
+	// will double-fire the second useEffect
+	useEffect(() => {
+		if (!progressRef.current) return;
+
+		const [jobId, progress] = progressRef.current;
+		ctx.cachedJobProgress.current.set(jobId, progress);
+	}, [ctx.cachedJobProgress]);
+
+	// Second, setup removal of cached data when job is no longer active
+	useEffect(() => {
+		const id = runningJob?.id;
+		if (id === undefined) return;
+
+		return () => {
+			ctx.cachedJobProgress.current.delete(id);
+		};
+	}, [runningJob?.id, ctx.cachedJobProgress]);
+
+	// Last, actually cache the data before unmounting and after delete check
+	useEffect(() => {
+		return () => {
+			if (!progressRef.current) return;
+
+			const [jobId, progress] = progressRef.current;
+			ctx.cachedJobProgress.current.set(jobId, progress);
+		};
+	}, [ctx.cachedJobProgress]);
+
+	useLibrarySubscription(['jobs.progress', runningJob?.id as string], {
+		onData: (data) => {
+			setProgress(data);
+			progressRef.current = [runningJob!.id, data];
+		},
+		enabled: runningJob !== undefined
+	});
+
+	// If there's no running jobs we're done, yay
+	useEffect(() => {
+		if (!runningJob) setProgress(null);
+	}, [runningJob]);
+
+	return progress;
+}
+
+function calculateTasks(jobs: JobReport[]) {
 	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
 
 	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
@@ -204,5 +266,3 @@ function niceActionName(action: string, completed: boolean, job?: JobReport) {
 	}
 	return action;
 }
-
-export default JobGroup;

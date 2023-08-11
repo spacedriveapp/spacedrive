@@ -6,10 +6,10 @@ import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 
-export function JobsManager() {
+export function JobManager() {
 	const queryClient = useQueryClient();
 
-	const { data: jobs } = useLibraryQuery(['jobs.reports']);
+	const jobGroups = useLibraryQuery(['jobs.reports']);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -57,20 +57,14 @@ export function JobsManager() {
 			</PopoverClose>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className="h-full border-r border-app-line/50">
-					{jobs?.map((group) => (
-						<JobGroup
-							key={group.id}
-							data={group}
-							clearJob={function (arg: string): void {
-								throw new Error('Function not implemented.');
-							}}
-						/>
-					))}
-					{jobs?.length === 0 && (
-						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
-							No jobs.
-						</div>
-					)}
+					{jobGroups.data &&
+						(jobGroups.data.length === 0 ? (
+							<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
+								No jobs.
+							</div>
+						) : (
+							jobGroups.data.map((group) => <JobGroup key={group.id} group={group} />)
+						))}
 				</div>
 			</div>
 		</div>
