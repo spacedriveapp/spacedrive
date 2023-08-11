@@ -1,11 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
-use sd_p2p::spacetunnel::Tunnel;
 use sd_prisma::{prisma::*, prisma_sync::ModelSyncData};
 use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 use serde_json::to_vec;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use uhlc::{Timestamp, NTP64};
 use uuid::Uuid;
 
@@ -14,17 +13,14 @@ use crate::{actor::*, wait, SharedState};
 #[must_use]
 /// Stuff that can be handled outside the actor
 pub enum Request {
-	Messages {
-		tunnel: Tunnel,
-		timestamps: Vec<(Uuid, NTP64)>,
-	},
+	Messages { timestamps: Vec<(Uuid, NTP64)> },
 	Ingested,
 }
 
 /// Stuff that the actor consumes
 #[derive(Debug)]
 pub enum Event {
-	Notification(NotificationEvent),
+	Notification,
 	Messages(MessagesEvent),
 }
 
@@ -32,7 +28,7 @@ pub enum Event {
 pub enum State {
 	#[default]
 	WaitingForNotification,
-	RetrievingMessages(Tunnel),
+	RetrievingMessages,
 	Ingesting(MessagesEvent),
 }
 
@@ -46,14 +42,13 @@ impl Actor {
 	async fn tick(mut self) -> Option<Self> {
 		let state = match self.state.take()? {
 			State::WaitingForNotification => {
-				let notification = wait!(self.io.event_rx, Event::Notification(n) => n);
+				wait!(self.io.event_rx, Event::Notification);
 
-				State::RetrievingMessages(notification.tunnel)
+				State::RetrievingMessages
 			}
-			State::RetrievingMessages(tunnel) => {
+			State::RetrievingMessages => {
 				self.io
 					.send(Request::Messages {
-						tunnel,
 						timestamps: self
 							.timestamps
 							.read()
@@ -80,7 +75,7 @@ impl Actor {
 				println!("Ingested {count} messages!");
 
 				match event.has_more {
-					true => State::RetrievingMessages(event.tunnel),
+					true => State::RetrievingMessages,
 					false => State::WaitingForNotification,
 				}
 			}
@@ -92,8 +87,8 @@ impl Actor {
 		})
 	}
 
-	pub fn spawn(shared: Arc<SharedState>) -> SplitHandlerIO<Self> {
-		let (actor_io, handler_io) = create_actor_io::<Self>(|event_tx| Handler { event_tx });
+	pub fn spawn(shared: Arc<SharedState>) -> Handler {
+		let (actor_io, handler_io) = create_actor_io::<Self>();
 
 		tokio::spawn(async move {
 			let mut this = Self {
@@ -110,7 +105,10 @@ impl Actor {
 			}
 		});
 
-		handler_io.split()
+		Handler {
+			event_tx: handler_io.event_tx,
+			req_rx: Arc::new(Mutex::new(handler_io.req_rx)),
+		}
 	}
 
 	async fn receive_crdt_operation(&mut self, op: CRDTOperation) {
@@ -248,6 +246,7 @@ impl Deref for Actor {
 
 pub struct Handler {
 	pub event_tx: mpsc::Sender<Event>,
+	pub req_rx: Arc<Mutex<mpsc::Receiver<Request>>>,
 }
 
 #[derive(Debug)]
@@ -255,12 +254,6 @@ pub struct MessagesEvent {
 	pub instance_id: Uuid,
 	pub messages: Vec<CRDTOperation>,
 	pub has_more: bool,
-	pub tunnel: Tunnel,
-}
-
-#[derive(Debug)]
-pub struct NotificationEvent {
-	pub tunnel: Tunnel,
 }
 
 impl ActorTypes for Actor {

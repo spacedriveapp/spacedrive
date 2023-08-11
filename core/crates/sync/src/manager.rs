@@ -4,7 +4,7 @@ use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
 use std::{cmp::Ordering, ops::Deref, sync::Arc};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
@@ -17,7 +17,6 @@ pub struct Manager {
 pub struct SyncManagerNew {
 	pub manager: Manager,
 	pub rx: broadcast::Receiver<SyncMessage>,
-	pub ingest_rx: mpsc::Receiver<ingest::Request>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -40,12 +39,11 @@ impl Manager {
 			clock,
 		});
 
-		let (ingest, ingest_rx) = ingest::Actor::spawn(shared.clone());
+		let ingest = ingest::Actor::spawn(shared.clone());
 
 		SyncManagerNew {
 			manager: Self { shared, tx, ingest },
 			rx,
-			ingest_rx,
 		}
 	}
 
