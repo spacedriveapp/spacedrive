@@ -87,8 +87,12 @@ impl P2PManager {
 		// TODO: Delay building this until the libraries are loaded
 		let metadata_manager = MetadataManager::new(config);
 
-		let (manager, stream) =
-			sd_p2p::Manager::<PeerMetadata>::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
+		let (manager, stream) = sd_p2p::Manager::<PeerMetadata>::new(
+			SPACEDRIVE_APP_ID,
+			&keypair,
+			metadata_manager.clone(),
+		)
+		.await?;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",

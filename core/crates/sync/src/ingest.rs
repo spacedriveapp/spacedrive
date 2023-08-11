@@ -256,7 +256,6 @@ pub struct MessagesEvent {
 	pub has_more: bool,
 }
 
-
 impl ActorTypes for Actor {
 	type Event = Event;
 	type Request = Request;
