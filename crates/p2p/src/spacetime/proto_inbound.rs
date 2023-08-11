@@ -26,7 +26,7 @@ impl<TMetadata: Metadata> UpgradeInfo for InboundProtocol<TMetadata> {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.manager.application_name.clone())]
+		[SpaceTimeProtocolName(self.manager.spacetime_name.clone())]
 	}
 }
 

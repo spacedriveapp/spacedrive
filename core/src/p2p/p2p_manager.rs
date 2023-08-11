@@ -10,7 +10,7 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
+	Discovery, Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
 use serde::Serialize;
 use specta::Type;
@@ -66,6 +66,7 @@ pub enum P2PEvent {
 pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
+	pub discovery: Arc<Discovery<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
@@ -84,16 +85,17 @@ impl P2PManager {
 			(Self::config_to_metadata(&config, vec![]), config.keypair)
 		};
 
-		// TODO: Delay building this until the libraries are loaded
-		let metadata_manager = MetadataManager::new(config);
+		let (manager, stream) = Manager::new(SPACEDRIVE_APP_ID, &keypair).await?;
 
-		let (manager, stream) =
-			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
+		// TODO: move this discovery stuff into nlm -> Cause delayed metadata loading
+		let metadata_manager = MetadataManager::new(config);
+		let discovery = Discovery::new(&manager, metadata_manager.clone());
+		manager.service(discovery.clone()).await;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
 			manager.peer_id(),
-			manager.listen_addrs().await
+			discovery.listen_addrs()
 		);
 
 		// need to keep 'rx' around so that the channel isn't dropped
@@ -113,6 +115,7 @@ impl P2PManager {
 				pairing,
 				events: (tx, rx),
 				manager,
+				discovery,
 				spacedrop_pairing_reqs,
 				metadata_manager,
 				spacedrop_progress,

@@ -6,6 +6,7 @@ use tracing::warn;
 
 use crate::Metadata;
 
+// TODO: Merging into `Discovery`?
 /// is a wrapper around `ArcSwap` and provides an API for the application to update the metadata about the current device.
 /// This wrapper exists to ensure we ask the MDNS service to re-advertise the new metadata on change.
 pub struct MetadataManager<TMetadata: Metadata>(

@@ -1,6 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
-	net::SocketAddr,
+	collections::HashMap,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
 		Arc,
@@ -17,16 +16,15 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
-	MetadataManager, PeerId,
+	Keypair, ManagerStream, ManagerStreamAction, Metadata, PeerId, Service,
 };
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 #[derive(Debug)]
 pub struct Manager<TMetadata: Metadata> {
-	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
-	pub(crate) application_name: String,
+	pub(crate) application_name: &'static str,
+	pub(crate) spacetime_name: String,
 	pub(crate) stream_id: AtomicU64,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
 }
@@ -36,7 +34,6 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
-		metadata_manager: Arc<MetadataManager<TMetadata>>,
 	) -> Result<(Arc<Self>, ManagerStream<TMetadata>), ManagerError> {
 		application_name
 			.chars()
@@ -47,12 +44,9 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		let peer_id = PeerId(keypair.raw_peer_id());
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
 
-		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
-			.await
-			.unwrap();
 		let this = Arc::new(Self {
-			mdns_state,
-			application_name: format!("/{}/spacetime/1.0.0", application_name),
+			application_name,
+			spacetime_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			peer_id,
 			event_stream_tx,
@@ -68,31 +62,37 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			keypair.raw_peer_id(),
 		)
 		.build();
+
 		{
 			let listener_id = swarm
-            .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-            .unwrap();
+				.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+				.unwrap();
 			debug!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 		{
 			let listener_id = swarm
-        .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-        .unwrap();
+				.listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+				.unwrap();
 			debug!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 
 		Ok((
-			this.clone(),
+			this,
 			ManagerStream {
-				manager: this,
 				event_stream_rx,
 				swarm,
-				mdns,
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),
+				services: Default::default(),
 			},
 		))
+	}
+
+	// TODO: This being `async` is cringe
+	pub async fn service(&self, service: impl Service) {
+		self.emit(ManagerStreamAction::RegisterService(Box::pin(service)))
+			.await;
 	}
 
 	pub(crate) async fn emit(&self, event: ManagerStreamAction<TMetadata>) {
@@ -104,20 +104,6 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 
 	pub fn peer_id(&self) -> PeerId {
 		self.peer_id
-	}
-
-	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		self.mdns_state.listen_addrs.read().await.clone()
-	}
-
-	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
-		self.mdns_state
-			.discovered
-			.read()
-			.await
-			.values()
-			.cloned()
-			.collect()
 	}
 
 	pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, ()> {

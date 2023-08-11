@@ -75,7 +75,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		self.pending_events
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
-					OutboundProtocol(self.manager.application_name.clone(), req),
+					OutboundProtocol(self.manager.spacetime_name.clone(), req),
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?
 				.with_timeout(SUBSTREAM_TIMEOUT),

@@ -1,11 +1,10 @@
 use std::{
 	collections::{HashMap, VecDeque},
 	fmt,
+	future::poll_fn,
 	net::SocketAddr,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
+	pin::Pin,
+	sync::atomic::{AtomicBool, Ordering},
 };
 
 use libp2p::{
@@ -22,7 +21,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Event, Manager, Mdns, Metadata, PeerId,
+	Event, InternalEvent, Metadata, PeerId, Service, Services,
 };
 
 /// TODO
@@ -42,6 +41,8 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 	BroadcastData(Vec<u8>),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
+	/// Register a new service
+	RegisterService(Pin<Box<dyn Service>>),
 }
 
 impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction<TMetadata> {
@@ -57,14 +58,14 @@ impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction<TMetada
 }
 
 /// TODO
+#[must_use = "you must call `ManagerStream::next` to drive the P2P system"]
 pub struct ManagerStream<TMetadata: Metadata> {
-	pub(crate) manager: Arc<Manager<TMetadata>>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Mdns<TMetadata>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
+	pub(crate) services: Services,
 }
 
 impl<TMetadata> ManagerStream<TMetadata>
@@ -84,10 +85,11 @@ where
 			}
 
 			tokio::select! {
-				event = self.mdns.poll(&self.manager) => {
-					if let Some(event) = event {
-						return Some(event);
-					}
+				event = poll_fn(|cx| Pin::new(&mut self.services).poll(cx)) => {
+					// TODO: Emit events & merge enums
+					// if let Some(event) = event {
+					// 	return Some(event);
+					// }
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -129,7 +131,7 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									debug!("listen address added: {}", addr);
-									self.mdns.register_addr(addr).await;
+									self.services.emit(InternalEvent::NewListenAddr(addr));
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -142,7 +144,7 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									debug!("listen address added: {}", addr);
-									self.mdns.unregister_addr(&addr).await;
+									self.services.emit(InternalEvent::ExpiredListenAddr(addr));
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -157,8 +159,7 @@ where
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										debug!("listen address added: {}", addr);
-										self.mdns.unregister_addr(&addr).await;
-
+										self.services.emit(InternalEvent::ExpiredListenAddr(addr));
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
 									Err(err) => {
@@ -213,16 +214,8 @@ where
 			}
 			ManagerStreamAction::StartStream(peer_id, tx) => {
 				if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
-					let addresses = self
-						.mdns
-						.state
-						.discovered
-						.read()
-						.await
-						.get(&peer_id)
-						.unwrap()
-						.addresses
-						.clone();
+					let mut addresses = Vec::new();
+					self.services.get_candidates(peer_id, &mut addresses);
 
 					match self.swarm.dial(
 						DialOpts::peer_id(peer_id.0)
@@ -266,13 +259,14 @@ where
 			}
 			ManagerStreamAction::Shutdown(tx) => {
 				info!("Shutting down P2P Manager...");
-				self.mdns.shutdown().await;
+				self.services.emit(InternalEvent::Shutdown);
 				tx.send(()).unwrap_or_else(|_| {
 					warn!("Error sending shutdown signal to P2P Manager!");
 				});
 
 				return Some(Event::Shutdown);
 			}
+			ManagerStreamAction::RegisterService(service) => self.services.push(service),
 		}
 
 		None
