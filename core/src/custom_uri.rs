@@ -179,8 +179,8 @@ async fn handle_file(
 			entry
 		} else {
 			let library = node
-				.library_manager
-				.get_library(library_id)
+				.libraries
+				.get_library(&library_id)
 				.await
 				.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
 
@@ -278,6 +278,8 @@ async fn handle_file(
 		"heic" | "heics" => "image/heic,image/heic-sequence",
 		// AVIF images
 		"avif" | "avci" | "avcs" => "image/avif",
+		// TEXT document
+		"txt" => "text/plain",
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
 				"TODO: This filetype is not supported because of the missing mime type!",

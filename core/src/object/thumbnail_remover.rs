@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::{Libraries, LibraryManagerEvent},
 	prisma::{file_path, PrismaClient},
 	util::error::{FileIOError, NonUtf8PathError},
 };
@@ -19,17 +19,20 @@ use futures_concurrency::{future::TryJoin, stream::Merge};
 use thiserror::Error;
 use tokio::{
 	fs, io,
-	time::{interval, MissedTickBehavior},
+	time::{interval_at, Instant, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
+use super::preview::THUMBNAIL_CACHE_DIR_NAME;
+
+const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Error, Debug)]
-enum ThumbnailRemoverActorError {
+enum Error {
 	#[error("database error")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("missing file name: {}", .0.display())]
@@ -40,46 +43,23 @@ enum ThumbnailRemoverActorError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 }
 
-#[derive(Clone)]
-pub struct ThumbnailRemoverActorProxy {
-	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
-	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
-}
-
-impl ThumbnailRemoverActorProxy {
-	pub async fn new_non_indexed_thumbnail(&self, cas_id: String) {
-		if self
-			.non_indexed_thumbnails_cas_ids_tx
-			.send(cas_id)
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead");
-		}
-	}
-
-	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
-		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
-			error!("Thumbnail remover actor is dead");
-		}
-	}
-}
-
+#[derive(Debug)]
 enum DatabaseMessage {
 	Add(Uuid, Arc<PrismaClient>),
 	Remove(Uuid),
 }
 
-pub struct ThumbnailRemoverActor {
-	databases_tx: chan::Sender<DatabaseMessage>,
+pub struct Actor {
 	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
 	non_indexed_thumbnails_cas_ids_tx: chan::Sender<String>,
 	_cancel_loop: DropGuard,
 }
 
-impl ThumbnailRemoverActor {
-	pub fn new(thumbnails_directory: impl AsRef<Path>) -> Self {
-		let thumbnails_directory = thumbnails_directory.as_ref().to_path_buf();
+impl Actor {
+	pub fn new(data_dir: PathBuf, lm: Arc<Libraries>) -> Self {
+		let mut thumbnails_directory = data_dir;
+		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
+
 		let (databases_tx, databases_rx) = chan::bounded(4);
 		let (non_indexed_thumbnails_cas_ids_tx, non_indexed_thumbnails_cas_ids_rx) =
 			chan::unbounded();
@@ -110,40 +90,49 @@ impl ThumbnailRemoverActor {
 			}
 		});
 
+		tokio::spawn({
+			let rx = lm.rx.clone();
+			async move {
+				if let Err(err) = rx
+					.subscribe(move |event| {
+						let databases_tx = databases_tx.clone();
+
+						async move {
+							match event {
+								LibraryManagerEvent::Load(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Add(library.id, library.db.clone()))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
+								}
+								LibraryManagerEvent::Edit(_) => {}
+								LibraryManagerEvent::InstancesModified(_) => {}
+								LibraryManagerEvent::Delete(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Remove(library.id))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
+								}
+							}
+						}
+					})
+					.await
+				{
+					error!("Thumbnail remover actor has crashed with error: {err:?}")
+				}
+			}
+		});
+
 		Self {
-			databases_tx,
 			cas_ids_to_delete_tx,
 			non_indexed_thumbnails_cas_ids_tx,
 			_cancel_loop: cancel_token.drop_guard(),
-		}
-	}
-
-	pub async fn new_library(&self, Library { id, db, .. }: &Library) {
-		if self
-			.databases_tx
-			.send(DatabaseMessage::Add(*id, Arc::clone(db)))
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead")
-		}
-	}
-
-	pub async fn remove_library(&self, library_id: Uuid) {
-		if self
-			.databases_tx
-			.send(DatabaseMessage::Remove(library_id))
-			.await
-			.is_err()
-		{
-			error!("Thumbnail remover actor is dead")
-		}
-	}
-
-	pub fn proxy(&self) -> ThumbnailRemoverActorProxy {
-		ThumbnailRemoverActorProxy {
-			cas_ids_to_delete_tx: self.cas_ids_to_delete_tx.clone(),
-			non_indexed_thumbnails_cas_ids_tx: self.non_indexed_thumbnails_cas_ids_tx.clone(),
 		}
 	}
 
@@ -154,12 +143,13 @@ impl ThumbnailRemoverActor {
 		non_indexed_thumbnails_cas_ids_rx: chan::Receiver<String>,
 		cancel_token: CancellationToken,
 	) {
-		let mut check_interval = interval(HALF_HOUR);
+		let mut check_interval = interval_at(Instant::now() + THIRTY_SECS, HALF_HOUR);
 		check_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
 		let mut databases = HashMap::new();
 		let mut non_indexed_thumbnails_cas_ids = HashSet::new();
 
+		#[derive(Debug)]
 		enum StreamMessage {
 			Run,
 			ToDelete(Vec<String>),
@@ -196,8 +186,12 @@ impl ThumbnailRemoverActor {
 					}
 				}
 				StreamMessage::ToDelete(cas_ids) => {
-					if let Err(e) = Self::remove_by_cas_ids(&thumbnails_directory, cas_ids).await {
-						error!("Got an error when trying to remove thumbnails: {e:#?}");
+					if !cas_ids.is_empty() {
+						if let Err(e) =
+							Self::remove_by_cas_ids(&thumbnails_directory, cas_ids).await
+						{
+							error!("Got an error when trying to remove thumbnails: {e:#?}");
+						}
 					}
 				}
 
@@ -221,7 +215,7 @@ impl ThumbnailRemoverActor {
 	async fn remove_by_cas_ids(
 		thumbnails_directory: &Path,
 		cas_ids: Vec<String>,
-	) -> Result<(), ThumbnailRemoverActorError> {
+	) -> Result<(), Error> {
 		cas_ids
 			.into_iter()
 			.map(|cas_id| async move {
@@ -247,14 +241,14 @@ impl ThumbnailRemoverActor {
 		thumbnails_directory: &Path,
 		databases: impl Iterator<Item = &Arc<PrismaClient>>,
 		non_indexed_thumbnails_cas_ids: &HashSet<String>,
-	) -> Result<(), ThumbnailRemoverActorError> {
+	) -> Result<(), Error> {
 		let databases = databases.collect::<Vec<_>>();
 
 		// Thumbnails directory have the following structure:
 		// thumbnails/
 		// ├── version.txt
 		//└── <cas_id>[0..2]/ # sharding
-		//    └── <cas_id>[2..].webp
+		//    └── <cas_id>.webp
 
 		let mut read_dir = fs::read_dir(thumbnails_directory)
 			.await
@@ -274,14 +268,6 @@ impl ThumbnailRemoverActor {
 			{
 				continue;
 			}
-
-			let entry_path_name = entry_path
-				.file_name()
-				.ok_or_else(|| {
-					ThumbnailRemoverActorError::MissingFileName(entry.path().into_boxed_path())
-				})?
-				.to_str()
-				.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 
 			let mut thumbnails_paths_by_cas_id = HashMap::new();
 
@@ -306,23 +292,26 @@ impl ThumbnailRemoverActor {
 
 				let thumbnail_name = thumb_path
 					.file_stem()
-					.ok_or_else(|| {
-						ThumbnailRemoverActorError::MissingFileName(entry.path().into_boxed_path())
-					})?
+					.ok_or_else(|| Error::MissingFileName(entry.path().into_boxed_path()))?
 					.to_str()
 					.ok_or_else(|| NonUtf8PathError(entry.path().into_boxed_path()))?;
 
-				thumbnails_paths_by_cas_id
-					.insert(format!("{}{}", entry_path_name, thumbnail_name), thumb_path);
+				thumbnails_paths_by_cas_id.insert(thumbnail_name.to_string(), thumb_path);
 			}
 
 			if thumbnails_paths_by_cas_id.is_empty() {
+				trace!(
+					"Removing empty thumbnails sharding directory: {}",
+					entry_path.display()
+				);
 				fs::remove_dir(&entry_path)
 					.await
 					.map_err(|e| FileIOError::from((entry_path, e)))?;
 
 				continue;
 			}
+
+			let thumbs_found = thumbnails_paths_by_cas_id.len();
 
 			let mut thumbs_in_db_futs = databases
 				.iter()
@@ -348,6 +337,8 @@ impl ThumbnailRemoverActor {
 			thumbnails_paths_by_cas_id
 				.retain(|cas_id, _| !non_indexed_thumbnails_cas_ids.contains(cas_id));
 
+			let thumbs_to_remove = thumbnails_paths_by_cas_id.len();
+
 			thumbnails_paths_by_cas_id
 				.into_values()
 				.map(|path| async move {
@@ -359,8 +350,37 @@ impl ThumbnailRemoverActor {
 				.collect::<Vec<_>>()
 				.try_join()
 				.await?;
+
+			if thumbs_to_remove == thumbs_found {
+				// if we removed all the thumnails we foumd, it means that the directory is empty
+				// and can be removed...
+				trace!(
+					"Removing empty thumbnails sharding directory: {}",
+					entry_path.display()
+				);
+				fs::remove_dir(&entry_path)
+					.await
+					.map_err(|e| FileIOError::from((entry_path, e)))?;
+			}
 		}
 
 		Ok(())
+	}
+
+	pub async fn new_non_indexed_thumbnail(&self, cas_id: String) {
+		if self
+			.non_indexed_thumbnails_cas_ids_tx
+			.send(cas_id)
+			.await
+			.is_err()
+		{
+			error!("Thumbnail remover actor is dead");
+		}
+	}
+
+	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
+		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
+			error!("Thumbnail remover actor is dead");
+		}
 	}
 }

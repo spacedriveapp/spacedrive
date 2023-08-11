@@ -284,7 +284,7 @@ pub fn mount() -> Router {
 			}
 
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 FilePathSearchArgs {
 				     take,
 				     order,
@@ -327,7 +327,7 @@ pub fn mount() -> Router {
 					for file_path in file_paths {
 						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
 							library
-								.thumbnail_exists(cas_id)
+								.thumbnail_exists(&node, cas_id)
 								.await
 								.map_err(LocationError::from)?
 						} else {
@@ -360,7 +360,7 @@ pub fn mount() -> Router {
 			}
 
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 ObjectSearchArgs {
 				     take,
 				     order,
@@ -408,7 +408,7 @@ pub fn mount() -> Router {
 							.find_map(|c| c);
 
 						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
-							library.thumbnail_exists(cas_id).await.map_err(|e| {
+							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									"Failed to check that thumbnail exists".to_string(),

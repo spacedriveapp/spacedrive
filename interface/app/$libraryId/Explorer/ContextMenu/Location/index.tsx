@@ -1,12 +1,13 @@
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { SharedItems } from '..';
+import { ExtraFn, SharedItems } from '..';
 
 interface Props {
 	data: Extract<ExplorerItem, { type: 'Location' }>;
+	extra?: ExtraFn;
 }
 
-export default ({ data }: Props) => {
+export default ({ data, extra }: Props) => {
 	const location = data.item;
 
 	return (
@@ -20,6 +21,8 @@ export default ({ data }: Props) => {
 			<ContextMenu.Separator />
 
 			<SharedItems.RevealInNativeExplorer locationId={location.id} />
+
+			{extra?.({ location })}
 
 			<ContextMenu.Separator />
 

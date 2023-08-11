@@ -18,7 +18,7 @@ pub(crate) fn mount() -> Router {
 			}
 			// TODO: validate name isn't empty or too long
 
-			R.mutation(|ctx, args: ChangeNodeNameArgs| async move {
+			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = args.name {
 					if name.is_empty() || name.len() > 32 {
 						return Err(rspc::Error::new(
@@ -27,7 +27,7 @@ pub(crate) fn mount() -> Router {
 						));
 					}
 
-					ctx.config
+					node.config
 						.write(|mut config| {
 							config.name = name;
 						})

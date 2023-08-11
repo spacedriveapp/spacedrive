@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Alias } from 'vite';
 
+const projectPath = path.resolve(__dirname, '../../../');
 const pkgJsonCache = new Map();
 
 const resolver: Alias = {
@@ -12,10 +13,12 @@ const resolver: Alias = {
 
 		const [_, sourcePath] = source.split('~/');
 
-		if (importer!.includes('/src/')) {
-			const [pkg] = importer!.split('/src/');
+		const relativeImporter = importer!.replace(projectPath, '');
 
-			root = `${pkg!}/src`;
+		if (relativeImporter.includes('/src/')) {
+			const [pkg] = relativeImporter.split('/src/');
+
+			root = `${projectPath}${pkg}/src`;
 		} else {
 			let parent = importer!;
 

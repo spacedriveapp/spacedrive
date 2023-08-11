@@ -30,7 +30,7 @@ pub const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
 #[derive(Debug, Error)]
 pub enum OutboundFailure {}
 
-/// SpaceTime is a [`NetworkBehaviour`](libp2p::NetworkBehaviour) that implements the SpaceTime protocol.
+/// SpaceTime is a [`NetworkBehaviour`](libp2p_swarm::NetworkBehaviour) that implements the SpaceTime protocol.
 /// This protocol sits under the application to abstract many complexities of 2 way connections and deals with authentication, chucking, etc.
 pub struct SpaceTime<TMetadata: Metadata> {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
@@ -118,6 +118,10 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 						self.pending_events.push_back(ToSwarm::GenerateEvent(
 							ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
 								peer_id,
+								establisher: match endpoint {
+									ConnectedPoint::Dialer { .. } => true,
+									ConnectedPoint::Listener { .. } => false,
+								},
 							})),
 						));
 					}

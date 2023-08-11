@@ -8,5 +8,6 @@ edition = { workspace = true }
 
 [dependencies]
 libheif-rs = "0.19.2"
+libheif-sys = "=1.14.2"
 image = "0.24.6"
 thiserror = "1.0.40"

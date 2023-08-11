@@ -1,9 +1,9 @@
 {
-	"name": "@sd/server",
-	"version": "0.0.0",
-	"main": "index.js",
-	"license": "GPL-3.0-only",
-	"scripts": {
-		"dev": "RUST_LOG=\"sd_core=info\" cargo watch -x 'run -p server'"
-	}
+    "name": "@sd/server",
+    "version": "0.0.0",
+    "main": "index.js",
+    "license": "GPL-3.0-only",
+    "scripts": {
+        "dev": "RUST_LOG=\"sd_core=info\" cargo watch -x 'run -p sd-server'"
+    }
 }
