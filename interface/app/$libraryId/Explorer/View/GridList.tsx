@@ -457,43 +457,45 @@ export default ({ children }: { children: RenderItem }) => {
 									selectoLastColumn.current = lastItem.column;
 								}
 							} else if (columns.size === 1) {
-								const column = [...columns.values()][0];
+								const column = [...columns.values()][0]!;
 
-								if (column !== undefined) {
-									items.sort((a, b) => a.row - b.row);
+								items.sort((a, b) => a.row - b.row);
 
-									const itemRect = elements[0]?.getBoundingClientRect();
+								const itemRect = elements[0]?.getBoundingClientRect();
 
-									const inDragArea =
-										itemRect &&
-										(dragDirection.x === 'right'
-											? dragEnd.x >= itemRect.left
-											: dragEnd.x <= itemRect.right);
+								const inDragArea =
+									itemRect &&
+									(dragDirection.x === 'right'
+										? dragEnd.x >= itemRect.left
+										: dragEnd.x <= itemRect.right);
 
-									if (
-										column !== selectoLastColumn.current ||
-										(column === selectoLastColumn.current && !inDragArea)
-									) {
-										const firstItem =
-											dragDirection.y === 'down'
-												? items[0]
-												: items[items.length - 1];
+								if (
+									column !== selectoLastColumn.current ||
+									(column === selectoLastColumn.current && !inDragArea)
+								) {
+									const firstItem =
+										dragDirection.y === 'down'
+											? items[0]
+											: items[items.length - 1];
+
+									if (firstItem) {
+										const viewRectTop =
+											explorerView.ref.current?.getBoundingClientRect().top ??
+											0;
+
+										const itemTop = firstItem.rect.top + viewRectTop;
+										const itemBottom = firstItem.rect.bottom + viewRectTop;
 
 										if (
-											firstItem &&
-											(dragDirection.y === 'down'
-												? dragStart.y < firstItem.rect.top
-												: dragStart.y > firstItem.rect.bottom)
+											dragDirection.y === 'down'
+												? dragStart.y < itemTop
+												: dragStart.y > itemBottom
 										) {
-											const viewRect =
-												explorerView.ref.current?.getBoundingClientRect();
-
 											const dragHeight = Math.abs(
 												dragStart.y -
-													((dragDirection.y === 'down'
-														? firstItem.rect.top
-														: firstItem.rect.bottom) +
-														(viewRect?.top || 0))
+													(dragDirection.y === 'down'
+														? itemTop
+														: itemBottom)
 											);
 
 											let itemsInDragCount =
@@ -542,15 +544,15 @@ export default ({ children }: { children: RenderItem }) => {
 												}
 											});
 										}
+									}
 
-										if (!inDragArea && column === selectoFirstColumn.current) {
-											selectoFirstColumn.current = undefined;
-											selectoLastColumn.current = undefined;
-										} else {
-											selectoLastColumn.current = column;
-											if (selectoFirstColumn.current === undefined) {
-												selectoFirstColumn.current = column;
-											}
+									if (!inDragArea && column === selectoFirstColumn.current) {
+										selectoFirstColumn.current = undefined;
+										selectoLastColumn.current = undefined;
+									} else {
+										selectoLastColumn.current = column;
+										if (selectoFirstColumn.current === undefined) {
+											selectoFirstColumn.current = column;
 										}
 									}
 								}
