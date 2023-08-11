@@ -329,7 +329,7 @@ impl PairingManager {
 		};
 
 		P2PManager::resync_handler(
-			node.nlm.clone(),
+			&node.nlm,
 			&mut stream,
 			peer_id,
 			self.metadata_manager.get().instances,
@@ -339,9 +339,7 @@ impl PairingManager {
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 
-		node.nlm
-			.alert_new_ops(library_id, &library.sync.clone())
-			.await;
+		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 
 		stream.flush().await.unwrap();
 	}

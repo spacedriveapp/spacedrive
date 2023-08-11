@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import AppEmbed from '~/components/AppEmbed';
+import AppImage from '~/components/AppImage';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
@@ -145,7 +145,7 @@ export default function HomePage() {
 					</span>
 				</p>
 				<HomeCTA />
-				<AppEmbed />
+				<AppImage />
 				<Section
 					orientation="right"
 					heading="Never leave a file behind."
