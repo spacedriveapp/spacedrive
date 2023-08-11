@@ -11,7 +11,6 @@ emit-messages = []
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-utils = { path = "../../../crates/utils" }
-sd-p2p = { path = "../../../crates/p2p" }
 
 prisma-client-rust = { workspace = true }
 serde = { workspace = true }
