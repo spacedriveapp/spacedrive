@@ -10509,18 +10509,3 @@ dependencies = [
 name = "openssl-sys"
 version = "0.9.76"
 source = "git+https://github.com/spacedriveapp/rust-openssl?rev=92c3dec225a9e984884d5b30a517e5d44a24d03b#92c3dec225a9e984884d5b30a517e5d44a24d03b"
-
-[[patch.unused]]
-name = "rspc"
-version = "0.1.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=adebce542049b982dd251466d4144f4d57e92177#adebce542049b982dd251466d4144f4d57e92177"
-
-[[patch.unused]]
-name = "specta"
-version = "1.0.5"
-source = "git+https://github.com/oscartbeaumont/specta?rev=4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41#4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41"
-
-[[patch.unused]]
-name = "tauri-specta"
-version = "1.0.2"
-source = "git+https://github.com/oscartbeaumont/tauri-specta?rev=c964bef228a90a66effc18cefcba6859c45a8e08#c964bef228a90a66effc18cefcba6859c45a8e08"

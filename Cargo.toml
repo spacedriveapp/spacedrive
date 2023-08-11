@@ -37,7 +37,7 @@ prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-
 	"sqlite",
 ], default-features = false }
 
-rspc = { version = "=1.0.0-rc.5" } # ALWAYS USE `=` as we use unstable features that don't follow semver
+rspc = { version = "=1.0.0-rc.5" }                                                                                          # ALWAYS USE `=` as we use unstable features that don't follow semver
 specta = { version = "=2.0.0-rc.1" }
 httpz = { version = "0.0.3" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "b33bf3728b8986672e3915ea4703ee94b6d2f7cb" }
@@ -58,8 +58,6 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "782eb7b2
 mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
 
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6" }
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
+tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "b33bf3728b8986672e3915ea4703ee94b6d2f7cb" }
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }
