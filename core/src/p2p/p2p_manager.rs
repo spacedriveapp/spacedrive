@@ -87,8 +87,12 @@ impl P2PManager {
 		// TODO: Delay building this until the libraries are loaded
 		let metadata_manager = MetadataManager::new(config);
 
-		let (manager, stream) =
-			Manager::new(SPACEDRIVE_APP_ID, &keypair, metadata_manager.clone()).await?;
+		let (manager, stream) = sd_p2p::Manager::<PeerMetadata>::new(
+			SPACEDRIVE_APP_ID,
+			&keypair,
+			metadata_manager.clone(),
+		)
+		.await?;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -257,9 +261,6 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
-										// Header -> Tunnel -> SyncMessage
-										use sd_core_sync::ingest;
-
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
@@ -270,31 +271,15 @@ impl P2PManager {
 
 										dbg!(&msg);
 
-										let ingest = &library.sync.ingest;
-
 										match msg {
 											SyncMessage::NewOperations => {
-												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
-												// TODO: Throw tunnel around like this makes it soooo confusing.
-												ingest
-													.event_tx
-													.send(ingest::Event::Notification(
-														ingest::NotificationEvent { tunnel },
-													))
-													.await
-													.ok();
-											}
-											SyncMessage::OperationsRequest(_) => {
-												todo!("this should be received somewhere else!");
-											}
-											SyncMessage::OperationsRequestResponse(_) => {
-												todo!("unreachable but add proper error handling")
+												super::sync::responder(tunnel, library).await;
 											}
 										};
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											node.nlm.clone(),
+											&node.nlm,
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,
@@ -368,7 +353,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync_handler(
-		nlm: Arc<NetworkedLibraries>,
+		nlm: &NetworkedLibraries,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,

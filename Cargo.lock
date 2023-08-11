@@ -3762,13 +3762,11 @@ dependencies = [
 
 [[package]]
 name = "libheif-sys"
-version = "1.16.1"
+version = "1.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8aa6b598db572d6d3e0a61b4009f03caf827010cd53248f6aeffb1180e9d53f"
+checksum = "6af8b7a4151ae10f6d2e8684f7172c43f09c0258c84190fd9704422588ceec63"
 dependencies = [
  "libc",
- "pkg-config",
- "vcpkg",
 ]
 
 [[package]]
@@ -7002,7 +7000,6 @@ name = "sd-core-sync"
 version = "0.0.0"
 dependencies = [
  "prisma-client-rust",
- "sd-p2p",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
@@ -7127,6 +7124,7 @@ version = "0.1.0"
 dependencies = [
  "image",
  "libheif-rs",
+ "libheif-sys",
  "thiserror",
 ]
 
