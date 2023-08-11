@@ -177,8 +177,8 @@ export default function HomePage() {
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center top-[410px] w-[400px] xs:top-[360px] md:top-[180px] md:w-auto"
-								width={1278}
+								className="absolute-horizontal-center top-[410px] w-[400px] xs:top-[360px] md:top-[130px] md:w-auto"
+								width={1200}
 								height={626}
 								alt="l"
 								src="/images/appgradient.webp"
