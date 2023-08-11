@@ -213,7 +213,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; dimensions: number[] | null; media_date: number[] | null; camera_data: number[] | null; location: number[] | null; exif_version: number[] | null; copyright: number[] | null; artist: number[] | null; duration: number | null; fps: number | null; streams: number | null; codecs: string | null }
+export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
