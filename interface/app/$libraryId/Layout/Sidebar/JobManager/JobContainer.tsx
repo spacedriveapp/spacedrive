@@ -42,24 +42,20 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					<Icon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
 				)
 			)}
-			{/* {CircleIcon && (
-				<CircleIcon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
-			)} */}
-			{/* {iconImg && <img src={iconImg} className={IMG_ICON_CLASS} />} */}
 			<MetaContainer>
 				<Tooltip tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
 					<span className="truncate pl-1.5 font-semibold">{name}</span>
 				</Tooltip>
-				{textItems?.map((textItems, lineIndex) => {
+				{textItems?.map((item, index) => {
 					// filter out undefined text so we don't render empty TextItems
-					const filteredItems = textItems.filter((i) => i?.text);
+					const filteredItems = item.filter((i) => i?.text);
 
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
 
 					return (
 						<Tooltip
 							label={popoverText}
-							key={lineIndex}
+							key={index}
 							tooltipClassName="bg-black max-w-[400px]"
 						>
 							<TextLine>
@@ -70,7 +66,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 											<TextItem
 												onClick={textItem?.onClick}
 												className={clsx(
-													// lineIndex > 0 && 'px-1.5 py-0.5 italic',
+													// index > 0 && 'px-1.5 py-0.5 italic',
 													textItem?.onClick &&
 														'-ml-1.5 rounded-md hover:bg-app-button/50'
 												)}

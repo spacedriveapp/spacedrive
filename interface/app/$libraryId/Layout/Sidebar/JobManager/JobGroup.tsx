@@ -1,7 +1,7 @@
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
+import { Pause, Play, Stop } from 'phosphor-react';
 import { Fragment, useEffect, useState } from 'react';
 import {
 	JobGroup as IJobGroup,
@@ -18,10 +18,9 @@ import JobContainer from './JobContainer';
 
 interface JobGroupProps {
 	data: IJobGroup;
-	clearJob: (arg: string) => void;
 }
 
-function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
+function JobGroup({ data: { jobs, ...data } }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
@@ -61,6 +60,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 	return (
 		<ul className="relative overflow-hidden">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
+				{/* Resume */}
 				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
 					<Button
 						className="cursor-pointer"
@@ -73,7 +73,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						</Tooltip>
 					</Button>
 				)}
-
+				{/* Pause/Stop */}
 				{isJobsRunning && (
 					<Fragment>
 						<Tooltip label="Pause">
@@ -102,19 +102,15 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						</Tooltip>
 					</Fragment>
 				)}
-
-				{!isJobsRunning && (
-					<Button
-						className="cursor-pointer"
-						// onClick={() => clearJob?.(data.id as string)}
-						size="icon"
-						variant="outline"
-					>
+				{/* Remove */}
+				{/* TODO: Implement this */}
+				{/* {!isJobsRunning && (
+					<Button className="cursor-pointer" size="icon" variant="outline">
 						<Tooltip label="Remove">
 							<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
 						</Tooltip>
 					</Button>
-				)}
+				)} */}
 			</div>
 			{jobs?.length > 1 ? (
 				<>
@@ -166,7 +162,7 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						)}
 					</JobContainer>
 					{showChildJobs && (
-						<div className="">
+						<div>
 							{jobs.map((job) => (
 								<Job isChild={jobs.length > 1} key={job.id} job={job} />
 							))}
