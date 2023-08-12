@@ -91,7 +91,7 @@ model Instance {
 
     SharedOperation   SharedOperation[]
     RelationOperation RelationOperation[]
-    locations Location[]
+    locations         Location[]
 
     @@map("instance")
 }
@@ -432,13 +432,13 @@ model Job {
 //// Album ////
 
 model Album {
-    id        Int     @id
-    pub_id    Bytes   @unique
-    name      String
-    is_hidden Boolean
+    id        Int      @id
+    pub_id    Bytes    @unique
+    name      String?
+    is_hidden Boolean?
 
-    date_created  DateTime
-    date_modified DateTime
+    date_created  DateTime?
+    date_modified DateTime?
 
     objects ObjectInAlbum[]
 
@@ -446,9 +446,9 @@ model Album {
 }
 
 model ObjectInAlbum {
-    date_created DateTime
+    date_created DateTime?
     album_id     Int
-    album        Album    @relation(fields: [album_id], references: [id], onDelete: NoAction)
+    album        Album     @relation(fields: [album_id], references: [id], onDelete: NoAction)
 
     object_id Int
     object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction)

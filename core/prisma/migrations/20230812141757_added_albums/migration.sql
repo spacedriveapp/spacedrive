@@ -2,15 +2,15 @@
 CREATE TABLE "album" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
-    "name" TEXT NOT NULL,
-    "is_hidden" BOOLEAN NOT NULL,
-    "date_created" DATETIME NOT NULL,
-    "date_modified" DATETIME NOT NULL
+    "name" TEXT,
+    "is_hidden" BOOLEAN,
+    "date_created" DATETIME,
+    "date_modified" DATETIME
 );
 
 -- CreateTable
 CREATE TABLE "object_in_album" (
-    "date_created" DATETIME NOT NULL,
+    "date_created" DATETIME,
     "album_id" INTEGER NOT NULL,
     "object_id" INTEGER NOT NULL,
 
