@@ -3,7 +3,8 @@ import { useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, dialogManager } from '@sd/ui';
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
-import { IsRunningJob, JobsManager } from './JobManager';
+import { IsRunningJob, JobManager } from './JobManager';
+import { JobManagerContextProvider } from './JobManager/context';
 
 export default () => {
 	const { library } = useClientContext();
@@ -23,26 +24,28 @@ export default () => {
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
-					<Popover
-						trigger={
-							<Button
-								size="icon"
-								variant="subtle"
-								className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
-								disabled={!library}
-							>
-								{library && (
-									<Tooltip label="Recent Jobs">
-										<IsRunningJob />
-									</Tooltip>
-								)}
-							</Button>
-						}
-					>
-						<div className="block h-96 w-[430px]">
-							<JobsManager />
-						</div>
-					</Popover>
+					<JobManagerContextProvider>
+						<Popover
+							trigger={
+								<Button
+									size="icon"
+									variant="subtle"
+									className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
+									disabled={!library}
+								>
+									{library && (
+										<Tooltip label="Recent Jobs">
+											<IsRunningJob />
+										</Tooltip>
+									)}
+								</Button>
+							}
+						>
+							<div className="block h-96 w-[430px]">
+								<JobManager />
+							</div>
+						</Popover>
+					</JobManagerContextProvider>
 				</div>
 				<Button
 					variant="outline"
