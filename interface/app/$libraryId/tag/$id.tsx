@@ -39,7 +39,7 @@ export const Component = () => {
 				emptyNotice={
 					<EmptyNotice
 						icon={<img className="h-32 w-32" src={getIcon(iconNames.Tags)} />}
-						message="No items assigned to this tag"
+						message="No items assigned to this tag."
 					/>
 				}
 			/>

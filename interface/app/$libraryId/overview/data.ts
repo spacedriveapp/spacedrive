@@ -6,7 +6,7 @@ import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
-	Favorites: iconNames.HeartFlat,
+	Favorites: iconNames.Heart,
 	Albums: iconNames.Album,
 	Photos: iconNames.Image,
 	Videos: iconNames.Video,
@@ -17,7 +17,7 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 	Applications: iconNames.Application,
 	Games: iconNames.Game,
 	Books: iconNames.Book,
-	Encrypted: iconNames.EncryptedLock,
+	Encrypted: iconNames.Lock,
 	Databases: iconNames.Database,
 	Projects: iconNames.Folder,
 	Trash: iconNames.Trash
