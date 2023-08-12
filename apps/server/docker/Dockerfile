@@ -86,7 +86,7 @@ ENV TZ=UTC \
 	DATA_DIR=/data
 
 # Note: This needs to happen before the apt call to avoid locking issues with the previous step
-COPY --from=server /srv/spacedrive/target/release/server /usr/bin/
+COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get install \
@@ -102,7 +102,7 @@ EXPOSE 8080
 VOLUME [ "/data" ]
 
 # Run the CLI when the container is started
-ENTRYPOINT [ "server" ]
+ENTRYPOINT [ "sd-server" ]
 
 LABEL org.opencontainers.image.title="Spacedrive Server" \
 	org.opencontainers.image.source="https://github.com/spacedriveapp/spacedrive"
