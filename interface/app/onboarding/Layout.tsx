@@ -31,7 +31,9 @@ export const Component = () => {
 		unlockOnboardingScreen(screen, getOnboardingStore().unlockedScreens);
 	}, [match?.params?.screen]);
 
-	if (ctx.library?.uuid) return <Navigate to={`/${ctx.library.uuid}/overview`} replace />;
+	if (ctx.libraries.isLoading) return null;
+	if (ctx.library?.uuid !== undefined)
+		return <Navigate to={`/${ctx.library.uuid}/overview`} replace />;
 
 	return (
 		<OnboardingContext.Provider value={ctx}>

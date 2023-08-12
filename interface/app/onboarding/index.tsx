@@ -10,9 +10,7 @@ const Index = () => {
 	const obStore = getOnboardingStore();
 	const ctx = useOnboardingContext();
 
-	// This is neat because restores the last active screen, but only if it is not the starting screen
-	// Ignoring if people navigate back to the start if progress has been made
-	if (obStore.lastActiveScreen && obStore.unlockedScreens.length > 1 && !ctx.library)
+	if (obStore.lastActiveScreen && !ctx.library)
 		return <Navigate to={obStore.lastActiveScreen} replace />;
 
 	return <Navigate to="alpha" replace />;

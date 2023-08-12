@@ -26,6 +26,7 @@ export const useContextValue = () => {
 
 	return {
 		...form,
+		libraries,
 		library
 	};
 };
