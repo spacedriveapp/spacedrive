@@ -81,11 +81,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 
 			openFilePaths(library.uuid, [filePath.id]);
 		} else {
-			const { kind } = getExplorerItemData(data);
-
-			if (['Video', 'Image', 'Audio'].includes(kind)) {
-				getExplorerStore().quickViewObject = data;
-			}
+			getExplorerStore().quickViewObject = data;
 		}
 	};
 
