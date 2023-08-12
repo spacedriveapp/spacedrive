@@ -209,7 +209,9 @@ export const EmptyNotice = ({
 					: emptyNoticeIcon(icon as Icon)
 				: emptyNoticeIcon()}
 
-			<p className="mt-5 text-xs">{message !== undefined ? message : 'This list is empty'}</p>
+			<p className="mt-5 text-sm font-medium">
+				{message !== undefined ? message : 'This list is empty'}
+			</p>
 		</div>
 	);
 };

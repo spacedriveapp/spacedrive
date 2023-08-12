@@ -10,10 +10,10 @@ export const Component = () => {
 		<PageLayoutContext.Provider value={{ ref }}>
 			<div
 				ref={ref}
-				className="custom-scroll topbar-page-scroll app-background flex h-screen w-full flex-col"
+				className="custom-scroll topbar-page-scroll app-background flex h-screen w-full flex-1 flex-col"
 				style={{ paddingTop: TOP_BAR_HEIGHT }}
 			>
-				<div className="flex h-screen w-full flex-col">
+				<div className="flex h-screen w-full flex-1 flex-col">
 					<Outlet />
 				</div>
 			</div>
