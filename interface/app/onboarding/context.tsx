@@ -99,7 +99,7 @@ const useFormState = () => {
 			if (e instanceof Error) {
 				alert(`Failed to create library. Error: ${e.message}`);
 			}
-			navigate('/onboarding/privacy');
+			navigate('./privacy');
 		}
 	});
 
