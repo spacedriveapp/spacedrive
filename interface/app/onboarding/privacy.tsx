@@ -1,13 +1,10 @@
 import { Button, Form, RadioGroupField } from '@sd/ui';
 import { getOnboardingStore } from '~/../packages/client/src';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
-import { useUnlockOnboardingScreen } from './Progress';
 import { shareTelemetry, useOnboardingContext } from './context';
 
 export default function OnboardingPrivacy() {
 	const { form, onSubmit } = useOnboardingContext();
-
-	useUnlockOnboardingScreen();
 
 	return (
 		<Form

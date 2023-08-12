@@ -9,15 +9,12 @@ import {
 	OnboardingImg,
 	OnboardingTitle
 } from './Layout';
-import { useUnlockOnboardingScreen } from './Progress';
 import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
 	const { form } = useOnboardingContext();
 	const [importMode, setImportMode] = useState(false);
-
-	useUnlockOnboardingScreen();
 
 	const handleImport = () => {
 		// TODO
@@ -29,7 +26,7 @@ export default function OnboardingNewLibrary() {
 			// manual onSubmit as we need to set the library name in the store
 			onSubmit={async () => {
 				getOnboardingStore().newLibraryName = form.getValues('name');
-				navigate('privacy', { replace: true });
+				navigate('../privacy', { replace: true });
 			}}
 		>
 			<OnboardingContainer>

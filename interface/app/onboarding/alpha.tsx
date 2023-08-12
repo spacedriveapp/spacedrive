@@ -1,6 +1,5 @@
 import { AlphaBg, AlphaBg_Light, AppLogo } from '@sd/assets/images';
 import { Discord } from '@sd/assets/svgs/brands';
-import { useMatches, useNavigate } from 'react-router-dom';
 import { Button, ButtonLink } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';

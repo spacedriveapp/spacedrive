@@ -1,18 +1,34 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
-import { SubmitHandler } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import {
+	currentLibraryCache,
 	getOnboardingStore,
 	resetOnboardingStore,
 	telemetryStore,
 	useBridgeMutation,
+	useCachedLibraries,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
 import { RadioGroupField, useZodForm, z } from '@sd/ui';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
+
+// Hook for generating the value to put into `OnboardingContext.Provider`,
+// having it separate removes the need for a dedicated context type.
+export const useContextValue = () => {
+	const libraries = useCachedLibraries();
+	const library =
+		libraries.data?.find((l) => l.uuid === currentLibraryCache.id) || libraries.data?.[0];
+
+	const form = useFormState();
+
+	return {
+		...form,
+		library
+	};
+};
 
 export const shareTelemetry = RadioGroupField.options([
 	z.literal('share-telemetry'),
@@ -34,7 +50,8 @@ const schema = z.object({
 	shareTelemetry: shareTelemetry.schema
 });
 
-export const useContextValue = () => {
+// this is a lot so it gets its own hook :)
+const useFormState = () => {
 	const obStore = useOnboardingStore();
 
 	const form = useZodForm({
@@ -86,10 +103,7 @@ export const useContextValue = () => {
 		}
 	});
 
-	return {
-		form,
-		onSubmit
-	};
+	return { form, onSubmit };
 };
 
 export const useOnboardingContext = () => {
