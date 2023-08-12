@@ -4,7 +4,7 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typesc
 import { CheckCircle, Gear } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
+import { JobManagerContextProvider, useLibraryQuery } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
@@ -57,12 +57,14 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					<Pressable onPress={() => navigation.navigate('Settings')}>
 						<Gear color="white" size={24} />
 					</Pressable>
-					{/* Job Manager */}
-					<Pressable onPress={() => modalRef.current?.present()}>
-						<JobIcon />
-					</Pressable>
+					<JobManagerContextProvider>
+						{/* Job Manager */}
+						<Pressable onPress={() => modalRef.current?.present()}>
+							<JobIcon />
+						</Pressable>
+						<JobManagerModal ref={modalRef} />
+					</JobManagerContextProvider>
 				</View>
-				<JobManagerModal ref={modalRef} />
 			</View>
 		</DrawerContentScrollView>
 	);

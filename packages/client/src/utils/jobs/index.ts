@@ -3,6 +3,8 @@ import { JobReport } from '../../core';
 
 export * from './useGroupJobTimeText';
 export * from './useJobInfo';
+export * from './useJobProgress';
+export * from './context';
 
 // NOTE: This type is also used on mobile except for the tooltip, Be careful when changing it.
 
