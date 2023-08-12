@@ -196,8 +196,8 @@ importers:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
       react-hook-form:
-        specifier: ^7.43.9
-        version: 7.43.9(react@18.2.0)
+        specifier: ^7.45.2
+        version: 7.45.4(react@18.2.0)
       react-tsparticles:
         specifier: ^2.10.1
         version: 2.10.1(react@18.2.0)
@@ -285,7 +285,7 @@ importers:
         version: 4.4.7(@types/react@18.0.38)(react-native-gesture-handler@2.9.0)(react-native-reanimated@2.14.4)(react-native@0.71.3)(react@18.2.0)
       '@hookform/resolvers':
         specifier: ^3.1.0
-        version: 3.1.0(react-hook-form@7.43.9)
+        version: 3.1.0(react-hook-form@7.45.4)
       '@react-native-async-storage/async-storage':
         specifier: ~1.17.12
         version: 1.17.12(react-native@0.71.3)
@@ -363,7 +363,7 @@ importers:
         version: 18.2.0
       react-hook-form:
         specifier: ^7.43.9
-        version: 7.43.9(react@18.2.0)
+        version: 7.45.4(react@18.2.0)
       react-native:
         specifier: 0.71.3
         version: 0.71.3(@babel/core@7.22.1)(@babel/preset-env@7.22.10)(react@18.2.0)
@@ -713,8 +713,8 @@ importers:
         specifier: ^3.1.4
         version: 3.1.4(react@18.2.0)
       react-hook-form:
-        specifier: ^7.43.9
-        version: 7.43.9(react@18.2.0)
+        specifier: ^7.45.2
+        version: 7.45.4(react@18.2.0)
       react-json-view:
         specifier: ^1.21.3
         version: 1.21.3(@types/react@18.0.38)(react-dom@18.2.0)(react@18.2.0)
@@ -874,7 +874,7 @@ importers:
         version: 1.9.8(eslint@8.41.0)
       eslint-plugin-prettier:
         specifier: ^4.2.1
-        version: 4.2.1(eslint-config-prettier@8.8.0)(eslint@8.41.0)(prettier@3.0.1)
+        version: 4.2.1(eslint-config-prettier@8.8.0)(eslint@8.41.0)(prettier@2.8.8)
       eslint-plugin-react:
         specifier: ^7.32.2
         version: 7.32.2(eslint@8.41.0)
@@ -7180,14 +7180,6 @@ packages:
       tailwindcss: 3.3.2
     dev: false
 
-  /@hookform/resolvers@3.1.0(react-hook-form@7.43.9):
-    resolution: {integrity: sha512-z0A8K+Nxq+f83Whm/ajlwE6VtQlp/yPHZnXw7XWVPIGm1Vx0QV8KThU3BpbBRfAZ7/dYqCKKBNnQh85BkmBKkA==}
-    peerDependencies:
-      react-hook-form: ^7.0.0
-    dependencies:
-      react-hook-form: 7.43.9(react@18.2.0)
-    dev: false
-
   /@hookform/resolvers@3.1.0(react-hook-form@7.45.4):
     resolution: {integrity: sha512-z0A8K+Nxq+f83Whm/ajlwE6VtQlp/yPHZnXw7XWVPIGm1Vx0QV8KThU3BpbBRfAZ7/dYqCKKBNnQh85BkmBKkA==}
     peerDependencies:
@@ -7343,7 +7335,7 @@ packages:
       '@jest/schemas': 29.6.0
       '@types/istanbul-lib-coverage': 2.0.4
       '@types/istanbul-reports': 3.0.1
-      '@types/node': 20.4.10
+      '@types/node': 18.15.1
       '@types/yargs': 17.0.24
       chalk: 4.1.2
     dev: true
@@ -7362,7 +7354,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.0.4)
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.2.0)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -11813,10 +11805,6 @@ packages:
     resolution: {integrity: sha512-DqJociPbZP1lbZ5SQPk4oag6W7AyaGMO6gSfRwq3PWl4PXTwJpRQJhDq4W0kzrg3w6tJ1SwlvGZ5uKFHY13LIg==}
     dev: true
 
-  /@types/node@20.4.10:
-    resolution: {integrity: sha512-vwzFiiy8Rn6E0MtA13/Cxxgpan/N6UeNYR9oUu6kuJWxu6zCk98trcDp8CBhbtaeuq9SykCmXkFr2lWLoPcvLg==}
-    dev: true
-
   /@types/normalize-package-data@2.4.1:
     resolution: {integrity: sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==}
     dev: true
@@ -15588,7 +15576,7 @@ packages:
       semver: 6.3.0
     dev: true
 
-  /eslint-plugin-prettier@4.2.1(eslint-config-prettier@8.8.0)(eslint@8.41.0)(prettier@3.0.1):
+  /eslint-plugin-prettier@4.2.1(eslint-config-prettier@8.8.0)(eslint@8.41.0)(prettier@2.8.8):
     resolution: {integrity: sha512-f/0rXLXUt0oFYs8ra4w49wYZBG5GKZpAYsJSm6rnYL5uVDjd+zowwMwVZHnAjf4edNrKpCDYfXDgmRE/Ak7QyQ==}
     engines: {node: '>=12.0.0'}
     peerDependencies:
@@ -15601,7 +15589,7 @@ packages:
     dependencies:
       eslint: 8.41.0
       eslint-config-prettier: 8.8.0(eslint@8.41.0)
-      prettier: 3.0.1
+      prettier: 2.8.8
       prettier-linter-helpers: 1.0.0
     dev: true
 
@@ -21931,12 +21919,6 @@ packages:
     hasBin: true
     dev: true
 
-  /prettier@3.0.1:
-    resolution: {integrity: sha512-fcOWSnnpCrovBsmFZIGIy9UqK2FaI7Hqax+DIO0A9UxeVoY4iweyaFjS5TavZN97Hfehph0nhsZnjlVKzEQSrQ==}
-    engines: {node: '>=14'}
-    hasBin: true
-    dev: true
-
   /pretty-bytes@5.6.0:
     resolution: {integrity: sha512-FFw039TmrBqFK8ma/7OL3sDz/VytdtJr044/QUJtH0wK9lb9jLq9tJyIxUwtQJHwar2BqtiA4iCWSwo9JLkzFg==}
     engines: {node: '>=6'}
@@ -22381,15 +22363,6 @@ packages:
     engines: {node: '>=10'}
     peerDependencies:
       react: '>=17.0.0'
-    dependencies:
-      react: 18.2.0
-    dev: false
-
-  /react-hook-form@7.43.9(react@18.2.0):
-    resolution: {integrity: sha512-AUDN3Pz2NSeoxQ7Hs6OhQhDr6gtF9YRuutGDwPQqhSUAHJSgGl2VeY3qN19MG0SucpjgDiuMJ4iC5T5uB+eaNQ==}
-    engines: {node: '>=12.22.0'}
-    peerDependencies:
-      react: ^16.8.0 || ^17 || ^18
     dependencies:
       react: 18.2.0
     dev: false
@@ -26211,6 +26184,7 @@ packages:
       rollup: 3.24.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite@4.3.9(less@4.2.0):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}
