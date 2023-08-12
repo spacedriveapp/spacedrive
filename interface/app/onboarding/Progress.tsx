@@ -1,11 +1,22 @@
 import clsx from 'clsx';
-import { useNavigate } from 'react-router';
-import { useOnboardingStore } from '@sd/client';
+import { useEffect } from 'react';
+import { useMatch, useNavigate } from 'react-router';
+import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
 import routes from '.';
 
-export default function OnboardingProgress(props: { currentScreen?: string }) {
+export default function OnboardingProgress() {
 	const obStore = useOnboardingStore();
 	const navigate = useNavigate();
+
+	const match = useMatch('/onboarding/:screen');
+
+	const currentScreen = match?.params?.screen;
+
+	useEffect(() => {
+		if (!currentScreen) return;
+
+		unlockOnboardingScreen(currentScreen, getOnboardingStore().unlockedScreens);
+	}, [currentScreen]);
 
 	return (
 		<div className="flex w-full items-center justify-center">
@@ -20,7 +31,7 @@ export default function OnboardingProgress(props: { currentScreen?: string }) {
 							onClick={() => navigate(`./${path}`, { replace: true })}
 							className={clsx(
 								'h-2 w-2 rounded-full transition hover:bg-ink disabled:opacity-10',
-								props.currentScreen === path ? 'bg-ink' : 'bg-ink-faint'
+								currentScreen === path ? 'bg-ink' : 'bg-ink-faint'
 							)}
 						/>
 					);

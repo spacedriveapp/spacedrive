@@ -1,8 +1,7 @@
 import { BloomOne } from '@sd/assets/images';
 import clsx from 'clsx';
-import { useEffect } from 'react';
-import { Navigate, Outlet, useMatch } from 'react-router';
-import { getOnboardingStore, unlockOnboardingScreen, useDebugState } from '@sd/client';
+import { Navigate, Outlet } from 'react-router';
+import { useDebugState } from '@sd/client';
 import { tw } from '@sd/ui';
 import DragRegion from '~/components/DragRegion';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
@@ -22,15 +21,6 @@ export const Component = () => {
 
 	const ctx = useContextValue();
 
-	const match = useMatch('/onboarding/:screen');
-
-	useEffect(() => {
-		const screen = match?.params?.screen;
-		if (!screen) return;
-
-		unlockOnboardingScreen(screen, getOnboardingStore().unlockedScreens);
-	}, [match?.params?.screen]);
-
 	if (ctx.libraries.isLoading) return null;
 	if (ctx.library?.uuid !== undefined)
 		return <Navigate to={`/${ctx.library.uuid}/overview`} replace />;
@@ -48,7 +38,7 @@ export const Component = () => {
 					<div className="flex grow flex-col items-center justify-center">
 						<Outlet />
 					</div>
-					<Progress currentScreen={match?.params?.screen} />
+					<Progress />
 				</div>
 				<div className="flex justify-center p-4">
 					<p className="text-xs text-ink-dull opacity-50">
