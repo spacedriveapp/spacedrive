@@ -1,7 +1,7 @@
 import { VariantProps, cva, cx } from 'class-variance-authority';
 import clsx from 'clsx';
-import { forwardRef } from 'react';
-import { Link, LinkProps } from 'react-router-dom';
+import { ComponentProps, forwardRef } from 'react';
+import { Link } from 'react-router-dom';
 
 export interface ButtonBaseProps extends VariantProps<typeof styles> {}
 
@@ -82,7 +82,7 @@ export const Button = forwardRef<
 
 export const ButtonLink = forwardRef<
 	HTMLAnchorElement,
-	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
+	ButtonBaseProps & ComponentProps<typeof Link>
 >(({ className, size, variant, ...props }, ref) => {
 	return (
 		<Link
