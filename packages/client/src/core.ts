@@ -78,7 +78,7 @@ export type Procedures = {
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
-        { key: "jobs.progress", input: LibraryArgs<string>, result: JobProgressEvent } | 
+        { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
