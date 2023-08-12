@@ -1,48 +1,21 @@
-import { useNavigate } from 'react-router';
-import { getOnboardingStore } from '@sd/client';
-import { Button, Form, RadioGroupField, useZodForm, z } from '@sd/ui';
+import { Button, Form, RadioGroupField } from '@sd/ui';
+import { getOnboardingStore } from '~/../packages/client/src';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
-import { useUnlockOnboardingScreen } from './Progress';
-
-export const shareTelemetry = RadioGroupField.options([
-	z.literal('share-telemetry'),
-	z.literal('no-telemetry')
-]).details({
-	'share-telemetry': {
-		heading: 'Share anonymous usage',
-		description:
-			'Share completely anonymous telemetry data to help the developers improve the app'
-	},
-	'no-telemetry': {
-		heading: 'Share nothing',
-		description: 'Do not share any telemetry data with the developers'
-	}
-});
-
-const schema = z.object({
-	shareTelemetry: shareTelemetry.schema
-});
+import { shareTelemetry, useOnboardingContext } from './context';
 
 export default function OnboardingPrivacy() {
-	const navigate = useNavigate();
-
-	useUnlockOnboardingScreen();
-
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			shareTelemetry: 'share-telemetry'
-		}
-	});
-
-	const onSubmit = form.handleSubmit((data) => {
-		getOnboardingStore().shareTelemetry = data.shareTelemetry === 'share-telemetry';
-
-		navigate('/onboarding/creating-library', { replace: true });
-	});
+	const { form, onSubmit } = useOnboardingContext();
 
 	return (
-		<Form form={form} onSubmit={onSubmit} className="flex flex-col items-center">
+		<Form
+			form={form}
+			onSubmit={(e) => {
+				getOnboardingStore().shareTelemetry =
+					form.getValues('shareTelemetry') === 'share-telemetry';
+				return onSubmit(e);
+			}}
+			className="flex flex-col items-center"
+		>
 			<OnboardingContainer>
 				<OnboardingTitle>Your Privacy</OnboardingTitle>
 				<OnboardingDescription>
@@ -59,7 +32,7 @@ export default function OnboardingPrivacy() {
 						))}
 					</RadioGroupField.Root>
 				</div>
-				<Button className="text-center" type="submit" variant="accent" size="sm">
+				<Button type="submit" className="text-center" variant="accent" size="sm">
 					Continue
 				</Button>
 			</OnboardingContainer>
