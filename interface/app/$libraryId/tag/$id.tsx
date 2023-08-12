@@ -1,4 +1,4 @@
-import { Tag } from 'phosphor-react';
+import { getIcon, iconNames } from '@sd/assets/util';
 import { useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
@@ -36,7 +36,12 @@ export const Component = () => {
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
 				items={explorerData.data?.items || null}
-				emptyNotice={<EmptyNotice icon={Tag} message="No items assigned to this tag" />}
+				emptyNotice={
+					<EmptyNotice
+						icon={<img className="h-32 w-32" src={getIcon(iconNames.Tags)} />}
+						message="No items assigned to this tag."
+					/>
+				}
 			/>
 		</ExplorerContext.Provider>
 	);

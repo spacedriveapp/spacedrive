@@ -13,9 +13,10 @@ import { usePageLayoutContext } from '../PageLayout/Context';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
-const CategoryList = [
+export const CategoryList = [
 	'Recents',
 	'Favorites',
+	'Albums',
 	'Photos',
 	'Videos',
 	'Movies',
@@ -25,11 +26,11 @@ const CategoryList = [
 	'Encrypted',
 	'Projects',
 	'Applications',
-	'Archives',
+	// 'Archives',
 	'Databases',
 	'Games',
 	'Books',
-	'Contacts',
+	// 'Contacts',
 	'Trash'
 ] as Category[];
 

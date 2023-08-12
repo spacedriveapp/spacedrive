@@ -9,7 +9,7 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -336,4 +336,23 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
+	// .procedure("createDirectory", {
+	// 	#[derive(Type, Deserialize)]
+	// 	struct CreateDirectoryArgs {
+	// 		location_id: location::id::Type,
+	// 		subpath: String,
+	// 	}
+	// 	R.with2(library())
+	// 		.query(|(_, library), args: CreateDirectoryArgs| async move {
+	// 			let location = find_location(&library, args.location_id)
+	// 				.exec()
+	// 				.await?
+	// 				.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+	// 			let mut path = Path::new(&location.path.unwrap_or_default());
+	// 			path.push(args.subpath);
+
+	// 			Ok(())
+	// 		})
+	// })
 }
