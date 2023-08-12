@@ -8,15 +8,16 @@ import {
 	Scissors,
 	Trash
 } from 'phosphor-react-native';
-import { memo, useEffect, useState } from 'react';
+import { memo } from 'react';
 import { ViewStyle } from 'react-native';
-import { JobProgressEvent, JobReport, useJobInfo, useLibrarySubscription } from '@sd/client';
+import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import JobContainer from './JobContainer';
 
 type JobProps = {
 	job: JobReport;
 	isChild?: boolean;
 	containerStyle?: ViewStyle;
+	progress: JobProgressEvent | null;
 };
 
 const JobIcon: Record<string, Icon> = {
@@ -29,19 +30,8 @@ const JobIcon: Record<string, Icon> = {
 	object_validator: Fingerprint
 };
 
-function Job({ job, isChild }: JobProps) {
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
-
-	useLibrarySubscription(['jobs.progress', job.id], {
-		onData: setRealtimeUpdate
-	});
-
-	const jobData = useJobInfo(job, realtimeUpdate);
-
-	// clear stale realtime state when job is done
-	useEffect(() => {
-		if (jobData.isRunning) setRealtimeUpdate(null);
-	}, [jobData.isRunning]);
+function Job({ job, isChild, progress }: JobProps) {
+	const jobData = useJobInfo(job, progress);
 
 	if (job.status === 'CompletedWithErrors') {
 		// TODO:

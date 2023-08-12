@@ -1,15 +1,14 @@
-import { Folder } from '@sd/assets/icons';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { DotsThreeVertical, Folder, Pause, Play, Stop } from 'phosphor-react-native';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import {
-	JobGroup as IJobGroup,
+	JobGroup,
 	JobProgressEvent,
+	JobReport,
 	getJobNiceActionName,
 	getTotalTasks,
 	useLibraryMutation,
-	useLibrarySubscription,
 	useTotalElapsedTimeText
 } from '@sd/client';
 import { AnimatedHeight } from '../animation/layout';
@@ -17,82 +16,32 @@ import { Button } from '../primitive/Button';
 import Job from './Job';
 import JobContainer from './JobContainer';
 
-type JobGroupProps = {
-	data: IJobGroup;
-};
+interface JobGroupProps {
+	group: JobGroup;
+	progress: Record<string, JobProgressEvent>;
+}
 
-export default function JobGroup({ data: { jobs, ...data } }: JobGroupProps) {
+export default function ({ group, progress }: JobGroupProps) {
+	const { jobs } = group;
+
 	const [showChildJobs, setShowChildJobs] = useState(false);
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
-	const pauseJob = useLibraryMutation(['jobs.pause'], {
-		// onError: TODO:
-	});
-	const resumeJob = useLibraryMutation(['jobs.resume'], {
-		// onError: TODO:
-	});
-	const cancelJob = useLibraryMutation(['jobs.cancel'], {
-		// onError: TODO:
-	});
-
-	const isJobsRunning = jobs.some((job) => job.status === 'Running');
-	const isJobPaused = jobs.some((job) => job.status === 'Paused');
-	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
-
-	useLibrarySubscription(['jobs.progress', activeJobId as string], {
-		onData: setRealtimeUpdate,
-		enabled: !!activeJobId || !showChildJobs
-	});
-
-	useEffect(() => {
-		if (data.status !== 'Running') {
-			setRealtimeUpdate(null);
-		}
-	}, [data.status]);
+	const runningJob = jobs.find((job) => job.status === 'Running');
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
-	if (!jobs.length) return <></>;
+	const dateStarted = useMemo(() => {
+		const createdAt = dayjs(jobs[0]?.created_at).fromNow();
+		return createdAt.charAt(0).toUpperCase() + createdAt.slice(1);
+	}, [jobs]);
 
-	let date_started = dayjs(jobs[0]?.created_at).fromNow();
-	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
+	if (jobs.length === 0) return <></>;
 
 	return (
 		<>
 			<View>
-				{/* Resume */}
-				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
-					<Button variant="outline" size="sm" onPress={() => resumeJob.mutate(data.id)}>
-						<Play color="white" />
-					</Button>
-				)}
-				{/* Pause/Stop */}
-				{isJobsRunning && (
-					<>
-						<Button
-							variant="outline"
-							size="sm"
-							onPress={() => pauseJob.mutate(data.id)}
-						>
-							<Pause color="white" />
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onPress={() => cancelJob.mutate(data.id)}
-						>
-							<Stop color="white" />
-						</Button>
-					</>
-				)}
-				{/* TODO: */}
-				{/* Remove */}
-				{!isJobsRunning && (
-					<Button variant="outline" size="sm">
-						<DotsThreeVertical color="white" />
-					</Button>
-				)}
+				<Options activeJob={runningJob} group={group} />
 			</View>
 			{jobs?.length > 1 ? (
 				<>
@@ -102,8 +51,8 @@ export default function JobGroup({ data: { jobs, ...data } }: JobGroupProps) {
 							// TODO:
 							// containerStyle
 							name={getJobNiceActionName(
-								data.action ?? '',
-								data.status === 'Completed',
+								group.action ?? '',
+								group.status === 'Completed',
 								jobs[0]
 							)}
 							textItems={[
@@ -113,41 +62,92 @@ export default function JobGroup({ data: { jobs, ...data } }: JobGroupProps) {
 											tasks.total <= 1 ? 'task' : 'tasks'
 										}`
 									},
-									{ text: date_started },
+									{ text: dateStarted },
 									{ text: totalGroupTime || undefined },
 
 									{
 										text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
-											data.status
+											group.status
 										)
-											? data.status
+											? group.status
 											: undefined
 									}
 								],
 								[
 									{
 										text:
-											(!showChildJobs &&
-												isJobsRunning &&
-												realtimeUpdate?.message) ||
-											undefined
+											!showChildJobs && runningJob !== undefined
+												? progress[runningJob.id]?.message
+												: undefined
 									}
 								]
 							]}
 						>
-							{!showChildJobs && isJobsRunning && <>{/* TODO: ProgressBar */}</>}
+							{!showChildJobs && runningJob && <>{/* TODO: ProgressBar */}</>}
 						</JobContainer>
 					</Pressable>
 					{showChildJobs && (
 						<AnimatedHeight>
 							{jobs.map((job) => (
-								<Job isChild={jobs.length > 1} key={job.id} job={job} />
+								<Job
+									isChild={jobs.length > 1}
+									key={job.id}
+									job={job}
+									progress={progress[job.id] ?? null}
+								/>
 							))}
 						</AnimatedHeight>
 					)}
 				</>
 			) : (
-				jobs[0] && <Job job={jobs[0]} />
+				jobs[0] && <Job job={jobs[0]} progress={progress[jobs[0]!.id] || null} />
+			)}
+		</>
+	);
+}
+
+function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
+	const resumeJob = useLibraryMutation(['jobs.resume'], {
+		onError: () => {
+			// TODO:
+		}
+	});
+	const pauseJob = useLibraryMutation(['jobs.pause'], {
+		onError: () => {
+			// TODO:
+		}
+	});
+	const cancelJob = useLibraryMutation(['jobs.cancel'], {
+		onError: () => {
+			// TODO:
+		}
+	});
+
+	const isJobPaused = useMemo(
+		() => group.jobs.some((job) => job.status === 'Paused'),
+		[group.jobs]
+	);
+	return (
+		<>
+			{/* Resume */}
+			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
+				<Button variant="outline" size="sm" onPress={() => resumeJob.mutate(group.id)}>
+					<Play color="white" />
+				</Button>
+			)}
+			{activeJob === undefined ? (
+				<Button variant="outline" size="sm">
+					<DotsThreeVertical color="white" />
+				</Button>
+			) : (
+				<>
+					<Button variant="outline" size="sm" onPress={() => pauseJob.mutate(group.id)}>
+						<Pause color="white" />
+					</Button>
+					<Button variant="outline" size="sm" onPress={() => cancelJob.mutate(group.id)}>
+						<Stop color="white" />
+					</Button>
+				</>
 			)}
 		</>
 	);

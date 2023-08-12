@@ -1,8 +1,8 @@
 import { ForwardRefExoticComponent } from 'react';
 import { JobReport } from '../../core';
 
-export * from './useJobInfo';
 export * from './useGroupJobTimeText';
+export * from './useJobInfo';
 
 // NOTE: This type is also used on mobile except for the tooltip, Be careful when changing it.
 
