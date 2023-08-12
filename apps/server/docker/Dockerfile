@@ -70,7 +70,7 @@ RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 
 COPY --from=web /srv/spacedrive/apps/web/dist /srv/spacedrive/apps/web/dist
 
-RUN cargo build --features assets --release -p server
+RUN cargo build --features assets --release -p sd-server
 
 #--
 
