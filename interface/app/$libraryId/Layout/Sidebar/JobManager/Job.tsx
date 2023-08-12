@@ -1,6 +1,6 @@
 import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
-import { memo, useEffect, useState } from 'react';
-import { JobProgressEvent, JobReport, useJobInfo, useLibrarySubscription } from '@sd/client';
+import { memo } from 'react';
+import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
@@ -9,6 +9,7 @@ interface JobProps {
 	job: JobReport;
 	className?: string;
 	isChild?: boolean;
+	progress: JobProgressEvent | null;
 }
 
 const JobIcon: Record<string, Icon> = {
@@ -21,19 +22,8 @@ const JobIcon: Record<string, Icon> = {
 	object_validator: Fingerprint
 };
 
-function Job({ job, className, isChild }: JobProps) {
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
-
-	useLibrarySubscription(['jobs.progress', job.id], {
-		onData: setRealtimeUpdate
-	});
-
-	const jobData = useJobInfo(job, realtimeUpdate);
-
-	// clear stale realtime state when job is done
-	useEffect(() => {
-		if (jobData.isRunning) setRealtimeUpdate(null);
-	}, [jobData.isRunning]);
+function Job({ job, className, isChild, progress }: JobProps) {
+	const jobData = useJobInfo(job, progress);
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
