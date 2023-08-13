@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { ViewItem } from '.';
-import FileThumb from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { getExplorerStore, useExplorerStore } from '../store';
 import GridList from './GridList';
 
@@ -32,10 +32,12 @@ const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 				)}
 			>
 				<FileThumb
-					size={0}
 					data={data}
 					cover={explorerStore.mediaAspectSquare}
-					className={clsx('!rounded-none', cut && 'opacity-60')}
+					className={clsx(
+						!explorerStore.mediaAspectSquare && 'px-1',
+						cut && 'opacity-60'
+					)}
 				/>
 
 				<Button

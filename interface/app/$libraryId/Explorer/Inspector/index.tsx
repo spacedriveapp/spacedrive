@@ -32,7 +32,7 @@ import { isNonEmpty } from '~/util';
 import { stringify } from '~/util/uuid';
 import { useExplorerContext } from '../Context';
 import { useItemsAsObjects } from '../ContextMenu/Object/utils';
-import FileThumb from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -59,7 +59,7 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 	return (
 		<div {...props}>
 			{showThumbnail && (
-				<div className="relative mb-2 flex aspect-square items-center justify-center">
+				<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
 					{isNonEmpty(selectedItems) ? (
 						<Thumbnails items={selectedItems} />
 					) : (
@@ -91,33 +91,24 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	return (
 		<>
 			{lastThreeItems.map((item, i, thumbs) => (
-				<div
+				<FileThumb
 					key={item.item.id}
+					loadOriginal
+					data={item}
 					className={clsx(
-						'h-full w-full',
-						thumbs.length > 1
-							? 'absolute !h-40 overflow-hidden rounded-lg border border-app-line bg-app-box/80 backdrop-blur'
-							: null,
-						i === 0 && thumbs.length > 1 && 'z-30 shadow-lg shadow-app-shade/20',
-						i === 1 && 'z-20 mb-6 opacity-75',
-						i === 2 && 'z-10 mb-12 opacity-50'
+						thumbs.length > 1 && '!absolute',
+						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
+						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
+						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
-				>
-					<FileThumb
-						loadOriginal
-						size={null}
-						data={item}
-						className="mx-auto"
-						cover={thumbs.length > 1}
-						pauseVideo={!!explorerStore.quickViewObject}
-					/>
-
-					{i === 0 && thumbs.length > 1 && (
-						<InfoPill className="absolute bottom-1 right-1 z-30 !bg-accent !px-1 !text-white">
-							{items.length} Selected
-						</InfoPill>
-					)}
-				</div>
+					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
+					frame={thumbs.length > 1}
+					childClassName={(type) =>
+						type !== 'icon' && thumbs.length > 1
+							? 'shadow-md shadow-app-shade'
+							: undefined
+					}
+				/>
 			))}
 		</>
 	);

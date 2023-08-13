@@ -31,7 +31,7 @@ import { stringify } from '~/util/uuid';
 import { ViewItem } from '.';
 import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
-import FileThumb from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
 import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
