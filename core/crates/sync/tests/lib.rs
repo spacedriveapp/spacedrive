@@ -47,15 +47,15 @@ impl Instance {
 			.await
 			.unwrap();
 
-		let (sync_manager, sync_rx) = sd_core_sync::Manager::new(&db, id);
+		let sync = sd_core_sync::Manager::new(&db, id);
 
 		(
 			Arc::new(Self {
 				id,
 				db,
-				sync: Arc::new(sync_manager),
+				sync: Arc::new(sync.manager),
 			}),
-			sync_rx,
+			sync.rx,
 		)
 	}
 
