@@ -172,8 +172,7 @@ export default memo(
 					)}
 				</div>
 
-				{quickPreviewCtx.ref.current &&
-					createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
+				{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
 			</>
 		);
 	}
