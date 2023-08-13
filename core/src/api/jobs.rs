@@ -48,8 +48,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								}
 							};
 
-							let instant = intervals.entry(progress_event.id).or_insert_with(||
-								Instant::now()
+							let instant = intervals.entry(progress_event.id).or_insert_with(
+								Instant::now
 							);
 
 							if instant.elapsed() <= Duration::from_secs_f64(1.0 / 30.0) {

@@ -379,7 +379,7 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let mut sync = sync::Manager::new(&db, instance_id);
+		let (sync_manager, mut sync_rx) = sync::Manager::new(&db, instance_id);
 
 		let library = Library::new(
 			id,
@@ -387,8 +387,8 @@ impl Libraries {
 			identity,
 			// key_manager,
 			db,
-			&node,
-			Arc::new(sync.manager),
+			node,
+			Arc::new(sync_manager),
 		)
 		.await;
 
@@ -399,7 +399,7 @@ impl Libraries {
 
 			async move {
 				loop {
-					let Ok(SyncMessage::Created) = sync.rx.recv().await else { continue };
+					let Ok(SyncMessage::Created) = sync_rx.recv().await else { continue };
 
 					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
 				}

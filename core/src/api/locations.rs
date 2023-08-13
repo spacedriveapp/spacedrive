@@ -9,7 +9,7 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};

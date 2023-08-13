@@ -47,15 +47,15 @@ impl Instance {
 			.await
 			.unwrap();
 
-		let sync = sd_core_sync::Manager::new(&db, id);
+		let (sync_manager, sync_rx) = sd_core_sync::Manager::new(&db, id);
 
 		(
 			Arc::new(Self {
 				id,
 				db,
-				sync: Arc::new(sync.manager),
+				sync: Arc::new(sync_manager),
 			}),
-			sync.rx,
+			sync_rx,
 		)
 	}
 
@@ -112,15 +112,14 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 		async move {
 			while let Ok(msg) = sync_rx1.recv().await {
-				match msg {
-					SyncMessage::Created => instance2
+				if let SyncMessage::Created = msg {
+					instance2
 						.sync
 						.ingest
 						.event_tx
 						.send(ingest::Event::Notification)
 						.await
-						.unwrap(),
-					_ => {}
+						.unwrap()
 				}
 			}
 		}
