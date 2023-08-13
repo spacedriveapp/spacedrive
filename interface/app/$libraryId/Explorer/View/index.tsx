@@ -16,6 +16,8 @@ import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	ExplorerItem,
+	FilePath,
+	Object,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
@@ -27,6 +29,7 @@ import {
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
@@ -58,14 +61,14 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const onDoubleClick = () => {
 		if (location) {
 			navigate({
-				pathname: `/${library.uuid}/location/${location.id}`,
+				pathname: `../location/${location.id}`,
 				search: createSearchParams({
 					path: `/`
 				}).toString()
 			});
 		} else if (isPath(data) && data.item.is_dir) {
 			navigate({
-				pathname: `/${library.uuid}/location/${getItemFilePath(data)?.location_id}`,
+				pathname: `../location/${getItemFilePath(data)?.location_id}`,
 				search: createSearchParams({
 					path: `${data.item.materialized_path}${data.item.name}/`
 				}).toString()
@@ -208,38 +211,51 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
 
-	/// TODO: This ain't right!
-	const selectedItem = [...explorer.selectedItems][0];
-
-	const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
-	const object = selectedItem ? getItemObject(selectedItem) : null;
-
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
+			const objects: Object[] = [];
+
+			for (const item of explorer.selectedItems) {
+				const object = getItemObject(item);
+				if (!object) return;
+				objects.push(object);
+			}
+
 			if (
-				object == null ||
+				!isNonEmpty(objects) ||
 				event.key.toUpperCase() !== 'N' ||
 				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} objects={[object]} />);
+			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
 		},
-		[os, object]
+		[os, explorer.selectedItems]
 	);
 
 	const handleOpenShortcut = useCallback(
 		async (event: KeyboardEvent) => {
 			if (
-				itemPath == null ||
-				openFilePaths == null ||
-				event.key.toUpperCase() !== 'O' ||
-				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+				event.code.toUpperCase() !== 'O' ||
+				!event.getModifierState(
+					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+				) ||
+				!openFilePaths
 			)
 				return;
 
+			const paths: number[] = [];
+
+			for (const item of explorer.selectedItems) {
+				const path = getItemFilePath(item);
+				if (!path) return;
+				paths.push(path.id);
+			}
+
+			if (!isNonEmpty(paths)) return;
+
 			try {
-				await openFilePaths(library.uuid, [itemPath.id]);
+				await openFilePaths(library.uuid, paths);
 			} catch (error) {
 				showAlertDialog({
 					title: 'Error',
@@ -247,21 +263,23 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 				});
 			}
 		},
-		[os, itemPath, library.uuid, openFilePaths]
+		[os, library.uuid, openFilePaths, explorer.selectedItems]
 	);
 
 	const handleOpenQuickPreview = useCallback(
 		async (event: KeyboardEvent) => {
 			if (event.key !== ' ') return;
 			if (!getExplorerStore().quickViewObject) {
-				if (selectedItem) {
-					getExplorerStore().quickViewObject = selectedItem;
-				}
+				// ENG-973 - Don't use Set -> Array -> First Item
+				const items = [...explorer.selectedItems];
+				if (!isNonEmpty(items)) return;
+
+				getExplorerStore().quickViewObject = items[0];
 			} else {
 				getExplorerStore().quickViewObject = null;
 			}
 		},
-		[selectedItem]
+		[explorer.selectedItems]
 	);
 
 	const handleExplorerShortcut = useCallback(

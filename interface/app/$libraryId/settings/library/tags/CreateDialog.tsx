@@ -1,13 +1,14 @@
 import { Object, useLibraryMutation, usePlausibleEvent } from '@sd/client';
 import { Dialog, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
+import { NonEmptyArray } from '~/util';
 
 const schema = z.object({
 	name: z.string().trim().min(1).max(24),
 	color: z.string()
 });
 
-export default (props: UseDialogProps & { objects?: Object[] }) => {
+export default (props: UseDialogProps & { objects?: NonEmptyArray<Object> }) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
