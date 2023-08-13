@@ -20,8 +20,13 @@ pub struct GetOpsArgs {
 	pub count: u32,
 }
 
+pub struct New<T> {
+	pub manager: T,
+	pub rx: broadcast::Receiver<SyncMessage>,
+}
+
 impl Manager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> (Self, broadcast::Receiver<SyncMessage>) {
+	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> New<Self> {
 		let (tx, rx) = broadcast::channel(64);
 
 		let timestamps: Timestamps = Default::default();
@@ -36,7 +41,10 @@ impl Manager {
 
 		let ingest = ingest::Actor::spawn(shared.clone());
 
-		(Self { shared, tx, ingest }, rx)
+		New {
+			manager: Self { shared, tx, ingest },
+			rx,
+		}
 	}
 
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
