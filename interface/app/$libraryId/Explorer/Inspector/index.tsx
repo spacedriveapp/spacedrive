@@ -23,6 +23,7 @@ import {
 	bytesToNumber,
 	getItemFilePath,
 	getItemObject,
+	useItemsAsObjects,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
@@ -31,7 +32,6 @@ import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { stringify } from '~/util/uuid';
 import { useExplorerContext } from '../Context';
-import { useItemsAsObjects } from '../ContextMenu/Object/utils';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import FavoriteButton from './FavoriteButton';

@@ -1,8 +1,6 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
-import { ExplorerItem, FilePath, Object } from '@sd/client';
+import { ExplorerItem, FilePath, Object, useItemsAsFilePaths, useItemsAsObjects } from '@sd/client';
 import { NonEmptyArray } from '~/util';
-import { useItemsAsFilePaths } from './FilePath/utils';
-import { useItemsAsObjects } from './Object/utils';
 
 const ContextMenuContext = createContext<{
 	selectedItems: NonEmptyArray<ExplorerItem>;
