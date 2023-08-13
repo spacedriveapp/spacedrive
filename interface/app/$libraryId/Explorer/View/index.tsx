@@ -160,9 +160,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 					emptyNotice
 				)}
 			</div>
-
-			{quickPreviewCtx.ref.current &&
-				createPortal(<QuickPreview />, quickPreviewCtx.ref.current)}
+			{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
 		</>
 	);
 });
