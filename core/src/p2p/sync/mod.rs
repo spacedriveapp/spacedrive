@@ -263,7 +263,7 @@ mod originator {
 		dbg!(&library.instances);
 
 		// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
-		for (_, instance) in &library.instances {
+		for instance in library.instances.values() {
 			let InstanceState::Connected(peer_id) = *instance else {
 				continue;
 			};
@@ -276,12 +276,7 @@ mod originator {
 					"Alerting peer '{peer_id:?}' of new sync events for library '{library_id:?}'"
 				);
 
-				let mut stream = p2p
-					.manager
-					.stream(peer_id.clone())
-					.await
-					.map_err(|_| ())
-					.unwrap(); // TODO: handle providing incorrect peer id
+				let mut stream = p2p.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
 
 				stream
 					.write_all(&Header::Sync(library_id).to_bytes())
