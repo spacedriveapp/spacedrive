@@ -1,13 +1,14 @@
-mod kv;
-
-pub use kv::*;
-use specta::Type;
-
 use crate::prisma::PrismaClient;
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
+use tracing::error;
 use uuid::Uuid;
+
+mod kv;
+pub use kv::*;
 
 // Preferences are a set of types that are serialized as a list of key-value pairs,
 // where nested type keys are serialized as a dot-separated path.
@@ -36,9 +37,15 @@ impl LibraryPreferences {
 		let prefs = PreferenceKVs::new(
 			kvs.into_iter()
 				.filter_map(|data| {
-					let a = rmpv::decode::read_value(&mut data.value?.as_slice()).unwrap();
-
-					Some((PreferenceKey::new(data.key), PreferenceValue::from_value(a)))
+					rmpv::decode::read_value(&mut data.value?.as_slice())
+						.map_err(|e| error!("{e:#?}"))
+						.ok()
+						.map(|value| {
+							(
+								PreferenceKey::new(data.key),
+								PreferenceValue::from_value(value),
+							)
+						})
 				})
 				.collect(),
 		);
@@ -101,9 +108,10 @@ where
 		entries
 			.into_iter()
 			.map(|(key, value)| {
-				let id = Uuid::parse_str(&key).unwrap();
-
-				(id, V::from_entries(value.expect_nested()))
+				(
+					Uuid::parse_str(&key).expect("invalid uuid in preferences"),
+					V::from_entries(value.expect_nested()),
+				)
 			})
 			.collect()
 	}
