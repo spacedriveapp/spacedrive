@@ -42,7 +42,7 @@ export type Procedures = {
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
-        { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
+        { key: "files.updateAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 

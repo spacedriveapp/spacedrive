@@ -250,11 +250,13 @@ export const OpenOrDownload = new ConditionalItem({
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
 						onClick={async () => {
-							// TODO: make this work with multiple
-							if (selectedFilePaths[0].object_id)
-								updateAccessTime
-									.mutateAsync(selectedFilePaths[0].object_id)
-									.catch(console.error);
+							if (selectedFilePaths.length < 1) return;
+
+							updateAccessTime
+								.mutateAsync(
+									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
+								)
+								.catch(console.error);
 
 							try {
 								await openFilePaths(

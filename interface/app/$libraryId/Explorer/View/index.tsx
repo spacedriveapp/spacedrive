@@ -8,7 +8,6 @@ import {
 	memo,
 	useCallback,
 	useEffect,
-	useMemo,
 	useRef,
 	useState
 } from 'react';
@@ -16,9 +15,7 @@ import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	ExplorerItem,
-	FilePath,
 	Object,
-	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
 	getItemObject,
@@ -79,14 +76,11 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			explorerConfig.openOnDoubleClick &&
 			!explorerView.isRenaming
 		) {
-			if (data.type === 'Path' && data.item.object_id) {
-				updateAccessTime.mutate(data.item.object_id);
-			}
+			if (data.type === 'Path' && data.item.object_id)
+				updateAccessTime.mutate([data.item.object_id]);
 
 			openFilePaths(library.uuid, [filePath.id]);
-		} else {
-			getExplorerStore().quickViewObject = data;
-		}
+		} else getExplorerStore().quickViewObject = data;
 	};
 
 	return (
