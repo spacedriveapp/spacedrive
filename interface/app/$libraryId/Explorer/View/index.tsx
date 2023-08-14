@@ -15,6 +15,8 @@ import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	ExplorerItem,
+	FilePath,
+	Location,
 	Object,
 	getItemFilePath,
 	getItemLocation,
@@ -44,43 +46,98 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 }
 
 export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
+	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const { library } = useLibraryContext();
-	const navigate = useNavigate();
-
-	const { openFilePaths } = usePlatform();
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-	const filePath = getItemFilePath(data);
-	const location = getItemLocation(data);
-
 	const explorerConfig = useExplorerConfigStore();
 
-	const onDoubleClick = () => {
-		if (location) {
+	const navigate = useNavigate();
+	const { library } = useLibraryContext();
+	const { openFilePaths } = usePlatform();
+
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+	const onDoubleClick = async () => {
+		const selectedItems = [...explorer.selectedItems].reduce(
+			(items, item) => {
+				const sameAsClicked = data.item.id === item.item.id;
+
+				switch (item.type) {
+					case 'Path':
+					case 'Object': {
+						const filePath = getItemFilePath(item);
+						if (filePath) {
+							if (isPath(item) && item.item.is_dir) {
+								if (sameAsClicked) items.dirs = [filePath, ...items.dirs];
+								else items.dirs.push(item.item);
+							} else if (sameAsClicked) items.paths = [filePath, ...items.paths];
+							else items.paths.push(filePath);
+						}
+						break;
+					}
+
+					case 'Location': {
+						if (sameAsClicked) items.locations = [item.item, ...items.locations];
+						else items.locations.push(item.item);
+					}
+				}
+
+				return items;
+			},
+			{
+				paths: [],
+				dirs: [],
+				locations: []
+			} as { paths: FilePath[]; dirs: FilePath[]; locations: Location[] }
+		);
+
+		if (selectedItems.paths.length > 0 && !explorerView.isRenaming) {
+			if (explorerConfig.openOnDoubleClick && openFilePaths) {
+				updateAccessTime
+					.mutateAsync(
+						selectedItems.paths.map(({ object_id }) => object_id!).filter(Boolean)
+					)
+					.catch(console.error);
+
+				try {
+					await openFilePaths(
+						library.uuid,
+						selectedItems.paths.map(({ id }) => id)
+					);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: `Failed to open file, due to an error: ${error}`
+					});
+				}
+			} else if (!explorerConfig.openOnDoubleClick) {
+				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
+					getExplorerStore().quickViewObject = data;
+					return;
+				}
+			}
+		}
+
+		if (selectedItems.dirs.length > 0) {
+			const item = selectedItems.dirs[0];
+			if (!item) return;
+
+			navigate({
+				pathname: `../location/${item.location_id}`,
+				search: createSearchParams({
+					path: `${item.materialized_path}${item.name}/`
+				}).toString()
+			});
+		} else if (selectedItems.locations.length > 0) {
+			const location = selectedItems.locations[0];
+			if (!location) return;
+
 			navigate({
 				pathname: `../location/${location.id}`,
 				search: createSearchParams({
 					path: `/`
 				}).toString()
 			});
-		} else if (isPath(data) && data.item.is_dir) {
-			navigate({
-				pathname: `../location/${getItemFilePath(data)?.location_id}`,
-				search: createSearchParams({
-					path: `${data.item.materialized_path}${data.item.name}/`
-				}).toString()
-			});
-		} else if (
-			openFilePaths &&
-			filePath &&
-			explorerConfig.openOnDoubleClick &&
-			!explorerView.isRenaming
-		) {
-			if (data.type === 'Path' && data.item.object_id)
-				updateAccessTime.mutate([data.item.object_id]);
-
-			openFilePaths(library.uuid, [filePath.id]);
-		} else getExplorerStore().quickViewObject = data;
+		}
 	};
 
 	return (

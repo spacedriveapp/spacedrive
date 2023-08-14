@@ -375,20 +375,13 @@ export default ({ children }: { children: RenderItem }) => {
 							if (!item?.data) return;
 
 							if (!inputEvent.shiftKey) {
-								// TODO: Uncomment when implementing dnd
-								// if (set.has(item.id)) {
-								// 	selecto.current?.setSelectedTargets(
-								// 		e.beforeSelected
-								// 	);
-								// 	return set;
-								// } else {
-								// 	selecto.current?.setSelectedTargets([el]);
-								// 	selectoUnSelected.current = new Set();
-								// 	return new Set([item.id]);
-								// }
+								if (explorer.selectedItems.has(item.data)) {
+									selecto.current?.setSelectedTargets(e.beforeSelected);
+								} else {
+									selectoUnSelected.current = new Set();
+									explorer.resetSelectedItems([item.data]);
+								}
 
-								selectoUnSelected.current = new Set();
-								explorer.resetSelectedItems([item.data]);
 								return;
 							}
 
