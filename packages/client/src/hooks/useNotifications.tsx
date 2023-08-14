@@ -17,8 +17,6 @@ export function NotificationContextProvider({ children }: PropsWithChildren) {
 		}
 	});
 
-	console.log(notifications); // TODO
-
 	return (
 		<Context.Provider
 			value={{

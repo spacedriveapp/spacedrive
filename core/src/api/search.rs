@@ -281,13 +281,14 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).query(
-				|(_node, library),
+				|(node, library),
 				 NonIndexedPath {
 				     path,
 				     with_hidden_files,
 				     order,
 				 }| async move {
-					let mut paths = non_indexed::walk(path, with_hidden_files, library).await?;
+					let mut paths =
+						non_indexed::walk(path, with_hidden_files, node, library).await?;
 
 					if let Some(order) = order {
 						match order {
@@ -361,7 +362,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 FilePathSearchArgs {
 				     take,
 				     order,
@@ -404,7 +405,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					for file_path in file_paths {
 						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
 							library
-								.thumbnail_exists(cas_id)
+								.thumbnail_exists(&node, cas_id)
 								.await
 								.map_err(LocationError::from)?
 						} else {
@@ -437,7 +438,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 ObjectSearchArgs {
 				     take,
 				     order,
@@ -485,7 +486,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.find_map(|c| c);
 
 						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
-							library.thumbnail_exists(cas_id).await.map_err(|e| {
+							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									"Failed to check that thumbnail exists".to_string(),

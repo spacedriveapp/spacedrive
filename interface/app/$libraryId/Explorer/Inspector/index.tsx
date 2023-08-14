@@ -28,6 +28,7 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import AssignTagMenuItems from '../ContextMenu/Object/AssignTagMenuItems';
 import FileThumb from '../FilePath/Thumb';
+import { useExplorerStore } from '../store.js';
 import { uniqueId } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
@@ -77,6 +78,7 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 	const dataId = data ? uniqueId(data) : null;
 	const isDark = useIsDark();
 	const objectData = data ? getItemObject(data) : null;
+	const explorerStore = useExplorerStore();
 	const [readyToFetch, setReadyToFetch] = useState(false);
 
 	// Prevents the inspector from fetching data when the user is navigating quickly
@@ -140,7 +142,13 @@ export const Inspector = ({ data, context, showThumbnail = true, ...props }: Pro
 		<div {...props}>
 			{showThumbnail && (
 				<div className="mb-2 aspect-square">
-					<FileThumb loadOriginal size={null} data={data} className="mx-auto" />
+					<FileThumb
+						pauseVideo={!!explorerStore.quickViewObject}
+						loadOriginal
+						size={null}
+						data={data}
+						className="mx-auto"
+					/>
 				</div>
 			)}
 

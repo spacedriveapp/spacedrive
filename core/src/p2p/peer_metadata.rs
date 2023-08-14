@@ -76,13 +76,9 @@ impl Metadata for PeerMetadata {
 			instances: {
 				let mut i = 0;
 				let mut instances = String::new();
-				loop {
-					if let Some(s) = data.get(&format!("i_{}", i)) {
-						instances.push_str(&*s);
-						i += 1;
-					} else {
-						break;
-					}
+				while let Some(s) = data.get(&format!("i_{}", i)) {
+					instances.push_str(s);
+					i += 1;
 				}
 
 				if instances.is_empty() {

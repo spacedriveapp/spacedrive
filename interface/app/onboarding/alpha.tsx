@@ -1,13 +1,11 @@
 import { AlphaBg, AlphaBg_Light, AppLogo } from '@sd/assets/images';
 import { Discord } from '@sd/assets/svgs/brands';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@sd/ui';
+import { Button, ButtonLink } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { OnboardingContainer } from './Layout';
 
 export default function OnboardingAlpha() {
-	const navigate = useNavigate();
 	const platform = usePlatform();
 	const isDark = useIsDark();
 
@@ -34,23 +32,16 @@ export default function OnboardingAlpha() {
 					</p>
 					<div className="mt-0 flex w-full items-center justify-center gap-2">
 						<Button
-							onClick={() => {
-								platform.openLink('https://discord.gg/ukRnWSnAbG');
-							}}
+							onClick={() => platform.openLink('https://discord.gg/ukRnWSnAbG')}
 							className="flex gap-2"
 							variant="gray"
 						>
 							<Discord className="h-4 w-4 fill-ink" />
 							Join Discord
 						</Button>
-						<Button
-							onClick={() => {
-								navigate('/onboarding/new-library', { replace: true });
-							}}
-							variant="accent"
-						>
+						<ButtonLink to="../new-library" replace variant="accent">
 							Continue
-						</Button>
+						</ButtonLink>
 					</div>
 				</div>
 			</div>

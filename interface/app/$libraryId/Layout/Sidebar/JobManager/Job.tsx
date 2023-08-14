@@ -1,13 +1,7 @@
-import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { Info, Question } from 'phosphor-react';
-import { memo, useCallback, useEffect, useState } from 'react';
-import {
-	JobProgressEvent,
-	JobReport,
-	useLibraryMutation,
-	useLibrarySubscription
-} from '@sd/client';
+import { memo } from 'react';
+import { JobProgressEvent, JobReport } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
@@ -17,32 +11,21 @@ interface JobProps {
 	job: JobReport;
 	className?: string;
 	isChild?: boolean;
+	progress: JobProgressEvent | null;
 }
 
-function Job({ job, className, isChild }: JobProps) {
-	const queryClient = useQueryClient();
-
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
-
-	useLibrarySubscription(['jobs.progress', job.id], {
-		onData: setRealtimeUpdate
-	});
-
-	const niceData = useJobInfo(job, realtimeUpdate)[job.name] || {
+function Job({ job, className, isChild, progress }: JobProps) {
+	const info = useJobInfo(job, progress)[job.name] || {
 		name: job.name,
 		icon: Question,
 		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
 	};
+
 	const isRunning = job.status === 'Running';
 	const isPaused = job.status === 'Paused';
 
-	const task_count = realtimeUpdate?.task_count || job.task_count;
-	const completed_task_count = realtimeUpdate?.completed_task_count || job.completed_task_count;
-
-	// clear stale realtime state when job is done
-	useEffect(() => {
-		if (isRunning) setRealtimeUpdate(null);
-	}, [isRunning]);
+	const task_count = progress?.task_count || job.task_count;
+	const completed_task_count = progress?.completed_task_count || job.completed_task_count;
 
 	// dayjs from seconds to time
 	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
@@ -61,7 +44,7 @@ function Job({ job, className, isChild }: JobProps) {
 				))}
 			</pre>
 		);
-		niceData.textItems?.push([
+		info.textItems?.push([
 			{
 				text: 'Completed with errors',
 				icon: Info,
@@ -80,11 +63,9 @@ function Job({ job, className, isChild }: JobProps) {
 	return (
 		<JobContainer
 			className={className}
-			name={niceData.name}
-			circleIcon={niceData.icon}
-			textItems={
-				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
-			}
+			name={info.name}
+			circleIcon={info.icon}
+			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }]] : info.textItems}
 			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>

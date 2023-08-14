@@ -2,13 +2,14 @@ import { Plus } from 'phosphor-react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { useExplorerContext } from '../../Context';
-import { FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
+import { ExtraFn, FilePathItems, ObjectItems, SharedItems } from '../../ContextMenu';
 
 interface Props {
 	data: Extract<ExplorerItem, { type: 'Path' }>;
+	extra?: ExtraFn;
 }
 
-export default ({ data }: Props) => {
+export default ({ data, extra }: Props) => {
 	const filePath = data.item;
 	const { object } = filePath;
 
@@ -34,11 +35,10 @@ export default ({ data }: Props) => {
 
 			<SharedItems.Rename />
 
-			{object && <ObjectItems.RemoveFromRecents object={object} />}
-
-			{parent?.type === 'Location' && (
-				<FilePathItems.CutCopyItems locationId={parent.location.id} filePath={filePath} />
-			)}
+			{extra?.({
+				object: filePath.object ?? undefined,
+				filePath: filePath
+			})}
 
 			<SharedItems.Deselect />
 

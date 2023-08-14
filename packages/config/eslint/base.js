@@ -32,6 +32,7 @@ module.exports = {
 		'@typescript-eslint/explicit-module-boundary-types': 'off',
 		'@typescript-eslint/no-empty-interface': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
+		'@typescript-eslint/ban-types': 'off',
 		'no-control-regex': 'off',
 		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs'],
 		'turbo/no-undeclared-env-vars': [

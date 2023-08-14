@@ -1,12 +1,13 @@
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import { SharedItems } from '..';
+import { type ExtraFn, SharedItems } from '..';
 
 interface Props {
 	data: Extract<ExplorerItem, { type: 'NonIndexedPath' }>;
+	extra?: ExtraFn;
 }
 
-export default ({ data }: Props) => {
+export default ({ data, extra }: Props) => {
 	const location = data.item;
 
 	return (
@@ -17,9 +18,11 @@ export default ({ data }: Props) => {
 
 			<SharedItems.Details />
 
+			{/* TODO: Implement reveal in native explorer for ephemeral path */}
 			{/* <ContextMenu.Separator /> */}
-			{/* TODO */}
 			{/* <SharedItems.RevealInNativeExplorer locationId={location.id} /> */}
+
+			{extra?.({ location })}
 
 			<ContextMenu.Separator />
 

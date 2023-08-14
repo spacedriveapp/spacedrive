@@ -46,7 +46,7 @@ export function lockAppTheme(themeType: AppThemeType) {
     return invoke()<null>("lock_app_theme", { themeType })
 }
 
-export type OpenWithApplication = { url: string; name: string }
-export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }
-export type AppThemeType = "Auto" | "Light" | "Dark"
 export type RevealItem = { Location: { id: number } } | { FilePath: { id: number } }
+export type AppThemeType = "Auto" | "Light" | "Dark"
+export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }
+export type OpenWithApplication = { url: string; name: string }

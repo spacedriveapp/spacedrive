@@ -13,6 +13,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::error::FileIOError,
+	Node,
 };
 
 use std::{
@@ -30,6 +31,7 @@ use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use sd_prisma::prisma_sync;
 use sd_sync::*;
+use sd_utils::uuid_to_bytes;
 use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
@@ -46,7 +48,7 @@ pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::IndexerJobInit;
-pub use manager::{LocationManager, LocationManagerError};
+pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
@@ -69,6 +71,7 @@ pub struct LocationCreateArgs {
 impl LocationCreateArgs {
 	pub async fn create(
 		self,
+		node: &Node,
 		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
@@ -133,14 +136,14 @@ impl LocationCreateArgs {
 			)
 			.err_into::<LocationError>()
 			.and_then(|()| async move {
-				Ok(library
-					.location_manager()
+				Ok(node
+					.locations
 					.add(location.data.id, library.clone())
 					.await?)
 			})
 			.await
 			{
-				delete_location(library, location.data.id).await?;
+				delete_location(node, library, location.data.id).await?;
 				Err(err)?;
 			}
 
@@ -154,6 +157,7 @@ impl LocationCreateArgs {
 
 	pub async fn add_library(
 		self,
+		node: &Node,
 		library: &Arc<Library>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
@@ -198,8 +202,7 @@ impl LocationCreateArgs {
 				.add_library(library.id, uuid, &self.path, location.name)
 				.await?;
 
-			library
-				.location_manager()
+			node.locations
 				.add(location.data.id, library.clone())
 				.await?;
 
@@ -380,6 +383,7 @@ async fn link_location_and_indexer_rules(
 }
 
 pub async fn scan_location(
+	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
@@ -405,12 +409,13 @@ pub async fn scan_location(
 		location: location_base_data,
 		sub_path: None,
 	})
-	.spawn(library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn scan_location_sub_path(
+	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
@@ -442,12 +447,13 @@ pub async fn scan_location_sub_path(
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
-	.spawn(library)
+	.spawn(node, library)
 	.await
 	.map_err(Into::into)
 }
 
 pub async fn light_scan_location(
+	node: Arc<Node>,
 	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
@@ -461,9 +467,9 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::shallow(&location, &sub_path, &library).await?;
+	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library).await?;
+	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }
@@ -612,10 +618,9 @@ async fn create_location(
 						(location::path::NAME, json!(&path)),
 						(location::date_created::NAME, json!(date_created)),
 						(
-							location::instance_id::NAME,
+							location::instance::NAME,
 							json!(prisma_sync::instance::SyncId {
-								pub_id: vec![],
-								// id: library.config.instance_id,
+								pub_id: uuid_to_bytes(library.sync.instance)
 							}),
 						),
 					],
@@ -660,13 +665,11 @@ async fn create_location(
 }
 
 pub async fn delete_location(
+	node: &Node,
 	library: &Arc<Library>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
-	library
-		.location_manager()
-		.remove(location_id, library.clone())
-		.await?;
+	node.locations.remove(location_id, library.clone()).await?;
 
 	delete_directory(library, location_id, None).await?;
 
@@ -753,7 +756,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			// instance: None,
+			instance: None,
 		}
 	}
 }
@@ -775,7 +778,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			date_created: data.date_created,
 			file_paths: None,
 			indexer_rules: None,
-			// instance: None,
+			instance: None,
 		}
 	}
 }
@@ -837,10 +840,10 @@ pub(super) async fn generate_thumbnail(
 	extension: &str,
 	cas_id: &str,
 	path: impl AsRef<Path>,
-	library: &Library,
+	node: &Arc<Node>,
 ) {
 	let path = path.as_ref();
-	let output_path = get_thumbnail_path(library, cas_id);
+	let output_path = get_thumbnail_path(node, cas_id);
 
 	if let Err(e) = fs::metadata(&output_path).await {
 		if e.kind() != io::ErrorKind::NotFound {
@@ -880,7 +883,7 @@ pub(super) async fn generate_thumbnail(
 	}
 
 	trace!("Emitting new thumbnail event");
-	library.emit(CoreEvent::NewThumbnail {
+	node.emit(CoreEvent::NewThumbnail {
 		thumb_key: get_thumb_key(cas_id),
 	});
 }
