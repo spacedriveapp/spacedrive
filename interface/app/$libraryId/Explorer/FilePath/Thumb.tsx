@@ -10,7 +10,7 @@ import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
-import { svgMapping } from '../../../../../packages/assets/icons/ext/bearded-icons/icons/index';
+import LayeredFileIcon from './LayeredFileIcon';
 
 interface ThumbnailProps {
 	src: string;
@@ -207,46 +207,6 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 		});
 	};
 
-	const LayeredFileIcon = ({src, size, offsetX, offsetY, ...props}: {src: string, size: string, offsetX: string, offsetY: string, props: any}) => {
-		// console.log(svgMapping.html)
-		return (
-			<div className='relative'>
-				<img
-					src={src}
-					onLoad={onLoad}
-					onError={() => setLoaded(false)}
-					decoding={size ? 'async' : 'sync'}
-					// className={clsx(childClassName, props.className)}
-					draggable={false}
-				/>
-				<div className='flex absolute top-0 left-0 h-full w-full items-center justify-center mt-3'>
-					<svgMapping.rust viewBox='0 0 16 16' height='50%' width='50%' />
-				</div>
-				{/* <svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="100%"
-					height="100%"
-					viewBox="0 0 16 16"
-					fill="none"
-					// className={clsx(childClassName, props.className)}
-					className='absolute bottom-0 right-0 h-1/2 w-1/2'
-				>
-					<path
-						fill="#E44D26"
-						d="M3 7.5v2L7 13v-2L4 8.5 7 6V4L3 7.5ZM9 4v2l3 2.5L9 11v2l4-3.5v-2L9 4Z"
-					/>
-				</svg> */}
-				{/* <img
-					// src="https://s2.svgbox.net/assets/logo-white.svg"
-					src={svgMapping.html}
-					// fill="yellow"
-					className='absolute bottom-0 right-0 h-1/2 w-1/2'
-				>
-				</img> */}
-			</div>
-		)
-	}
-
 	const { kind, extension } = itemData;
 	const childClassName = 'max-h-full max-w-full object-contain';
 	return (
@@ -378,7 +338,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 						);
 					default:
 						return (
-							src !== '/@fs/mnt/r/Development/Contributions/spacedrive/packages/assets/icons/Document.png' ?
+							kind !== 'Document' ?
 								<img
 									src={src}
 									onLoad={onLoad}
