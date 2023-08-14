@@ -95,6 +95,7 @@ pub async fn get_file_data_from_isolated_file_path(
 	location_path: impl AsRef<Path>,
 	iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<FileData, FileSystemJobsError> {
+	let location_path = location_path.as_ref();
 	db.file_path()
 		.find_unique(iso_file_path.into())
 		.include(file_path_with_object::include())
@@ -102,16 +103,12 @@ pub async fn get_file_data_from_isolated_file_path(
 		.await?
 		.ok_or_else(|| {
 			FileSystemJobsError::FilePathNotFound(
-				AsRef::<Path>::as_ref(iso_file_path)
-					.to_path_buf()
-					.into_boxed_path(),
+				location_path.join(iso_file_path).into_boxed_path(),
 			)
 		})
 		.and_then(|path_data| {
 			Ok(FileData {
-				full_path: location_path
-					.as_ref()
-					.join(IsolatedFilePathData::try_from(&path_data)?),
+				full_path: location_path.join(IsolatedFilePathData::try_from(&path_data)?),
 				file_path: path_data,
 			})
 		})

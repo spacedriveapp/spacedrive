@@ -27,10 +27,10 @@ impl SyncMessage {
 
 #[cfg(test)]
 mod tests {
-	use sd_core_sync::NTP64;
-	use sd_sync::SharedOperation;
-	use serde_json::Value;
-	use uuid::Uuid;
+	// use sd_core_sync::NTP64;
+	// use sd_sync::SharedOperation;
+	// use serde_json::Value;
+	// use uuid::Uuid;
 
 	use super::*;
 

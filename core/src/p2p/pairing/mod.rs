@@ -129,8 +129,7 @@ impl PairingManager {
 						.get_all()
 						.await
 						.into_iter()
-						.find(|i| i.id == library_id)
-						.is_some()
+						.any(|i| i.id == library_id)
 					{
 						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
 
@@ -246,7 +245,7 @@ impl PairingManager {
 			.send(P2PEvent::PairingRequest {
 				id: pairing_id,
 				name: remote_instance.node_name.clone(),
-				os: remote_instance.node_platform.clone().into(),
+				os: remote_instance.node_platform.into(),
 			})
 			.ok();
 
