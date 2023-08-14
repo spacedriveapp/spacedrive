@@ -338,7 +338,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 						);
 					default:
 						return (
-							kind !== 'Document' ?
+							!src.endsWith('Document.png') ?
 								<img
 									src={src}
 									onLoad={onLoad}
@@ -348,7 +348,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									draggable={false}
 								/>
 								:
-								<LayeredFileIcon src={src} className={clsx(childClassName, props.className)} />
+								<LayeredFileIcon src={src} onLoad={onLoad} onError={() => setLoaded(false)} className={clsx(childClassName, props.className)} />
 						);
 				}
 			})()}
