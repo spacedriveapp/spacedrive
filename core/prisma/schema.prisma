@@ -91,7 +91,7 @@ model Instance {
 
     SharedOperation   SharedOperation[]
     RelationOperation RelationOperation[]
-    locations Location[]
+    locations         Location[]
 
     @@map("instance")
 }
@@ -230,7 +230,7 @@ model Object {
 
     tags       TagOnObject[]
     labels     LabelOnObject[]
-    // albums     ObjectInAlbum[]
+    albums     ObjectInAlbum[]
     spaces     ObjectInSpace[]
     file_paths FilePath[]
     // comments   Comment[]
@@ -431,32 +431,31 @@ model Job {
 
 //// Album ////
 
-// model Album {
-//     id        Int     @id @default(autoincrement())
-//     pub_id    Bytes   @unique
-//     name      String
-//     is_hidden Boolean @default(false)
+model Album {
+    id        Int      @id
+    pub_id    Bytes    @unique
+    name      String?
+    is_hidden Boolean?
 
-//     date_created  DateTime @default(now())
-//     date_modified DateTime @default(now())
+    date_created  DateTime?
+    date_modified DateTime?
 
-//     objects ObjectInAlbum[]
+    objects ObjectInAlbum[]
 
-//     @@map("album")
-// }
+    @@map("album")
+}
 
-// model ObjectInAlbum {
-//     date_created DateTime @default(now())
+model ObjectInAlbum {
+    date_created DateTime?
+    album_id     Int
+    album        Album     @relation(fields: [album_id], references: [id], onDelete: NoAction)
 
-//     album_id Int
-//     album    Album @relation(fields: [album_id], references: [id], onDelete: SetNull)
+    object_id Int
+    object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction)
 
-//     object_id Int
-//     object    Object @relation(fields: [object_id], references: [id], onDelete: SetNull)
-
-//     @@id([album_id, object_id])
-//     @@map("object_in_album")
-// }
+    @@id([album_id, object_id])
+    @@map("object_in_album")
+}
 
 //// Comment ////
 

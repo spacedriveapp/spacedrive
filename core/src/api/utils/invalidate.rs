@@ -114,20 +114,20 @@ impl InvalidRequests {
 /// );
 /// ```
 #[macro_export]
-#[allow(clippy::crate_in_macro_def)]
+// #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: None,
 						result_ty: None,
@@ -139,23 +139,23 @@ macro_rules! invalidate_query {
 		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
+		ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
 		))
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
                             parent_inline: false,
@@ -172,8 +172,8 @@ macro_rules! invalidate_query {
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
 			.map(|v|
-				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v, None),
+				ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+					$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v, None),
 				))
 			)
 			.map_err(|_| {
@@ -182,17 +182,17 @@ macro_rules! invalidate_query {
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr, $result_ty:ty: $result:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
                             parent_inline: false,
@@ -214,8 +214,8 @@ macro_rules! invalidate_query {
 			.and_then(|arg|
 				serde_json::to_value($result)
 				.map(|result|
-					ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-						crate::api::utils::InvalidateOperationEvent::dangerously_create($key, arg, Some(result)),
+					ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+						$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, arg, Some(result)),
 					))
 				)
 			)

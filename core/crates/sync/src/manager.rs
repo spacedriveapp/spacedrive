@@ -4,7 +4,7 @@ use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
 use std::{cmp::Ordering, ops::Deref, sync::Arc};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
@@ -14,20 +14,19 @@ pub struct Manager {
 	shared: Arc<SharedState>,
 }
 
-pub struct SyncManagerNew {
-	pub manager: Manager,
-	pub rx: broadcast::Receiver<SyncMessage>,
-	pub ingest_rx: mpsc::Receiver<ingest::Request>,
-}
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
 pub struct GetOpsArgs {
 	pub clocks: Vec<(Uuid, NTP64)>,
 	pub count: u32,
 }
 
+pub struct New<T> {
+	pub manager: T,
+	pub rx: broadcast::Receiver<SyncMessage>,
+}
+
 impl Manager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> SyncManagerNew {
+	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> New<Self> {
 		let (tx, rx) = broadcast::channel(64);
 
 		let timestamps: Timestamps = Default::default();
@@ -40,12 +39,11 @@ impl Manager {
 			clock,
 		});
 
-		let (ingest, ingest_rx) = ingest::Actor::spawn(shared.clone());
+		let ingest = ingest::Actor::spawn(shared.clone());
 
-		SyncManagerNew {
+		New {
 			manager: Self { shared, tx, ingest },
 			rx,
-			ingest_rx,
 		}
 	}
 
