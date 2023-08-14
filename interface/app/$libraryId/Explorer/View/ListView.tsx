@@ -1,6 +1,7 @@
 import {
 	ColumnDef,
 	ColumnSizingState,
+	OnChangeFn,
 	Row,
 	flexRender,
 	getCoreRowModel,
@@ -10,7 +11,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
 import { useDebouncedCallback } from 'use-debounce';
@@ -164,9 +165,14 @@ export default () => {
 		getExplorerStore().colSizes = columnSizing as (typeof defaultExplorerSettings)['colSizes'];
 	}, 100);
 
-	useEffect(() => {
-		updatePreferencesHandler();
-	}, [columnSizing]);
+	const colSizeHandler = useCallback(
+		(key: keyof (typeof defaultExplorerSettings)['colSizes']) => {
+			return !locationUuid
+				? defaultExplorerSettings.colSizes[key]
+				: explorerStore.colSizes[key];
+		},
+		[locationUuid, explorerStore.colSizes]
+	);
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -174,7 +180,7 @@ export default () => {
 				id: 'name',
 				header: 'Name',
 				minSize: 200,
-				size: explorerStore.colSizes.name,
+				size: colSizeHandler('name'),
 				maxSize: undefined,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
@@ -222,7 +228,7 @@ export default () => {
 			{
 				id: 'kind',
 				header: 'Type',
-				size: explorerStore.colSizes.kind,
+				size: colSizeHandler('kind'),
 				enableSorting: false,
 				accessorFn: (file) => {
 					return isPath(file) && file.item.is_dir
@@ -243,7 +249,7 @@ export default () => {
 			{
 				id: 'sizeInBytes',
 				header: 'Size',
-				size: explorerStore.colSizes.sizeInBytes,
+				size: colSizeHandler('sizeInBytes'),
 				accessorFn: (file) => {
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
@@ -254,13 +260,13 @@ export default () => {
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
-				size: explorerStore.colSizes.dateCreated,
+				size: colSizeHandler('dateCreated'),
 				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
 			},
 			{
 				id: 'dateModified',
 				header: 'Date Modified',
-				size: explorerStore.colSizes.dateModified,
+				size: colSizeHandler('dateModified'),
 				accessorFn: (file) =>
 					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
 			},
@@ -273,7 +279,7 @@ export default () => {
 			{
 				id: 'dateAccessed',
 				header: 'Date Accessed',
-				size: explorerStore.colSizes.dateAccessed,
+				size: colSizeHandler('dateAccessed'),
 				accessorFn: (file) =>
 					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
@@ -282,18 +288,18 @@ export default () => {
 				id: 'contentId',
 				header: 'Content ID',
 				enableSorting: false,
-				size: explorerStore.colSizes.contentId,
+				size: colSizeHandler('contentId'),
 				accessorFn: (file) => getExplorerItemData(file).casId
 			},
 			{
 				id: 'objectId',
 				header: 'Object ID',
 				enableSorting: false,
-				size: explorerStore.colSizes.objectId,
+				size: colSizeHandler('objectId'),
 				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
-		[explorerView.selected, explorerStore.cutCopyState.sourcePathId]
+		[explorerView.selected, explorerStore.cutCopyState.sourcePathId, colSizeHandler]
 	);
 
 	const table = useReactTable({
@@ -457,7 +463,9 @@ export default () => {
 		return typeof selectedItems === 'object' ? !!selectedItems.has(id) : selectedItems === id;
 	}
 
-	useEffect(() => handleResize(), [tableWidth]);
+	useEffect(() => {
+		handleResize();
+	}, [tableWidth]);
 
 	// TODO: Improve this
 	useEffect(() => {
@@ -483,7 +491,6 @@ export default () => {
 				table.setColumnSizing({ ...sizings, name: nameWidth });
 				setLocked(true);
 			} else table.setColumnSizing(sizings);
-
 			setSized(true);
 		}
 	}, []);
@@ -624,6 +631,7 @@ export default () => {
 	useWindowEventListener('mouseup', () => {
 		if (resizing) {
 			setTimeout(() => {
+				updatePreferencesHandler();
 				setResizing(false);
 				if (layout?.ref.current) {
 					layout.ref.current.style.cursor = '';

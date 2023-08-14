@@ -47,7 +47,6 @@ export default () => {
 				...getExplorerSettings(),
 				[settingToUpdate]: value
 			};
-			console.log(settingToUpdate, value);
 			await updatePreferences.mutateAsync({
 				location: {
 					[locationUuid]: {

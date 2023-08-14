@@ -32,15 +32,16 @@ export type CutCopyType = 'Cut' | 'Copy';
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
-export const nullValuesHandler = (obj: ExplorerSettings):ExplorerSettings  => {
-	const newObj: ExplorerSettings = {...defaultExplorerSettings}
-	for (const key in obj) {
-		if (obj[key] !== null) {
-		  newObj[key] = obj[key];
-		}
-	  }
+export const nullValuesHandler = (obj: ExplorerSettings) => {
+	const newObj: any = { ...defaultExplorerSettings };
+	Object.entries(obj).forEach(([key, value]) => {
+		if (value !== null) {
+			newObj[key] = value;
+		  }
+	});
 	return newObj;
-}
+  };
+
 
 export const defaultExplorerSettings = {
 	layoutMode: 'grid' as ExplorerLayout,

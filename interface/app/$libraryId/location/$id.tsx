@@ -34,9 +34,9 @@ export const Component = () => {
 			const explorerData = preferences.data?.location?.[locationUuid]?.explorer;
 			const updatedSettings = {
 				...explorerStore,
-				...nullValuesHandler(explorerData as ExplorerSettings)
+				...nullValuesHandler(explorerData as ExplorerSettings),
+				orderByDirection: 'Desc' //temp till types are fixed - for testing
 			};
-			console.log(updatedSettings);
 			explorerStore.reset(updatedSettings);
 		}
 	}, [locationUuid]);
