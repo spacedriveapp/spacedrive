@@ -102,6 +102,9 @@ async-channel = "1.9"
 tokio-util = "0.7"
 slotmap = "1.0.6"
 aovec = "1.1.0"
+flate2 = "1.0.26"
+tar = "0.4.40"
+tempfile = "^3.5.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
@@ -110,5 +113,4 @@ plist = "1"
 version = "0.1.5"
 
 [dev-dependencies]
-tempfile = "^3.5.0"
 tracing-test = "^0.2.4"

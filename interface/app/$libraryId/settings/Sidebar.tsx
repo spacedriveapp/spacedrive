@@ -1,6 +1,7 @@
 import {
 	Books,
 	Cloud,
+	Database,
 	FlyingSaucer,
 	GearSix,
 	HardDrive,
@@ -55,6 +56,10 @@ export default () => {
 					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
 						Appearance
+					</SidebarLink>
+					<SidebarLink to="client/backups">
+						<Icon component={Database} />
+						Backups
 					</SidebarLink>
 					<SidebarLink to="client/keybindings" disabled>
 						<Icon component={KeyReturn} />
