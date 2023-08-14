@@ -1,4 +1,4 @@
-import { svgMapping } from '../../../../../packages/assets/icons/ext/bearded-icons/icons/index';
+import * as icons from '../../../../../packages/assets/icons/ext/bearded-icons/icons/index';
 
 const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, size: string, onLoad: any, onError: any, props: any}) => {
 	return (
