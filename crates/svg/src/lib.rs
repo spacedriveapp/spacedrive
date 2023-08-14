@@ -25,14 +25,8 @@ pub enum SvgError {
 	Pixbuf,
 	#[error("there was an error while converting the image to an `RgbImage`")]
 	RgbImageConversion,
-	#[error("the image provided is unsupported")]
-	Unsupported,
 	#[error("the image provided is too large (over 20MiB)")]
 	TooLarge,
-	#[error("the provided bit depth is invalid")]
-	InvalidBitDepth,
-	#[error("invalid path provided (non UTF-8)")]
-	InvalidPath,
 }
 
 pub async fn svg_to_dynamic_image(path: &Path) -> SvgResult<DynamicImage> {
@@ -40,19 +34,19 @@ pub async fn svg_to_dynamic_image(path: &Path) -> SvgResult<DynamicImage> {
 		return Err(SvgError::TooLarge);
 	}
 
+	let data = fs::read(path).await?;
+
 	let opt = usvg::Options::default();
 
 	let mut fontdb = fontdb::Database::new();
 	fontdb.load_system_fonts();
-
-	let data = fs::read(path).await?;
 
 	let mut tree = usvg::Tree::from_data(&data, &opt)?;
 	tree.convert_text(&fontdb);
 
 	let rtree = resvg::Tree::from_usvg(&tree);
 
-	let Some(mut pixmap) = tiny_skia::Pixmap::new(rtree.size.width() as u32, rtree.size.height() as u32) else {
+	let Some(mut pixmap) = tiny_skia::Pixmap::new(rtree.size.width().ceil() as u32, rtree.size.height().ceil() as u32) else {
 		return Err(SvgError::Pixbuf)
 	};
 
