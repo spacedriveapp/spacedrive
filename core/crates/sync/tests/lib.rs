@@ -112,15 +112,14 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 
 		async move {
 			while let Ok(msg) = sync_rx1.recv().await {
-				match msg {
-					SyncMessage::Created => instance2
+				if let SyncMessage::Created = msg {
+					instance2
 						.sync
 						.ingest
 						.event_tx
 						.send(ingest::Event::Notification)
 						.await
-						.unwrap(),
-					_ => {}
+						.unwrap()
 				}
 			}
 		}

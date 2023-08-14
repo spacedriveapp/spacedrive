@@ -276,7 +276,7 @@ mod tests {
 				.await
 				.unwrap();
 
-				assert!(true, "recv a closed");
+				// assert!(true, "recv a closed");
 			}
 		});
 
@@ -297,7 +297,7 @@ mod tests {
 				.await
 				.unwrap();
 
-				assert!(true, "recv b closed");
+				// assert!(true, "recv b closed");
 			}
 		});
 
