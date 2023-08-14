@@ -1,7 +1,9 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { stringify } from 'uuid';
 import {
+	ExplorerSettings,
 	useLibraryContext,
 	useLibraryQuery,
 	useLibrarySubscription,
@@ -14,7 +16,7 @@ import Explorer from '../Explorer';
 import { ExplorerContext } from '../Explorer/Context';
 import ContextMenu, { FilePathItems } from '../Explorer/ContextMenu';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { getExplorerStore, useExplorerStore } from '../Explorer/store';
+import { getExplorerStore, nullValuesHandler, useExplorerStore } from '../Explorer/store';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
@@ -23,14 +25,25 @@ export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
-	useLibraryQuery(['preferences.get'], {
-		onSuccess: (data) => {
-			getExplorerStore().viewLocationPreferences = data;
-			console.log(data);
-		},
-		refetchOnMount: true,
-		refetchOnWindowFocus: false
-	});
+	const explorerStore = useExplorerStore();
+	const locationUuid = location.data && stringify(location.data?.pub_id);
+	const preferences = useLibraryQuery(['preferences.get']);
+
+	useEffect(() => {
+		if (locationUuid) {
+			const explorerData = preferences.data?.location?.[locationUuid]?.explorer;
+			const updatedSettings = {
+				...explorerStore,
+				...nullValuesHandler(explorerData as ExplorerSettings)
+			};
+			console.log(updatedSettings);
+			explorerStore.reset(updatedSettings);
+		}
+	}, [locationUuid]);
+
+	useEffect(() => {
+		preferences.refetch.call(undefined);
+	}, [locationUuid, path, preferences.refetch]);
 
 	useLibrarySubscription(
 		[
@@ -58,7 +71,7 @@ export const Component = () => {
 		>
 			<TopBarPortal
 				left={
-					<div className="group flex flex-row items-center space-x-2">
+					<div className="flex flex-row items-center space-x-2 group">
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
 							<span className="max-w-[100px] truncate text-sm font-medium">

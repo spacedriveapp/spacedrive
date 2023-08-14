@@ -1,10 +1,11 @@
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import {
+	DoubleClickAction,
 	ExplorerItem,
 	ExplorerLayout,
+	ExplorerSettings,
 	FilePathSearchOrdering,
-	LibraryPreferences,
 	ObjectSearchOrdering,
 	resetStore
 } from '@sd/client';
@@ -31,11 +32,39 @@ export type CutCopyType = 'Cut' | 'Copy';
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
-const state = {
+export const nullValuesHandler = (obj: ExplorerSettings):ExplorerSettings  => {
+	const newObj: ExplorerSettings = {...defaultExplorerSettings}
+	for (const key in obj) {
+		if (obj[key] !== null) {
+		  newObj[key] = obj[key];
+		}
+	  }
+	return newObj;
+}
+
+export const defaultExplorerSettings = {
 	layoutMode: 'grid' as ExplorerLayout,
-	gridItemSize: 110,
-	listItemSize: 40,
-	showBytesInGridView: true,
+	gridItemSize: 110 as number,
+	showBytesInGridView: true as boolean,
+	mediaColumns: 8 as number,
+	mediaAspectSquare: false as boolean,
+	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
+	orderByDirection: 'Desc' as SortOrder,
+	openOnDoubleClick: 'openFile' as DoubleClickAction,
+	colSizes: {
+		kind: 150,
+		name: 350,
+		sizeInBytes: 100,
+		dateModified: 150,
+		dateIndexed: 150,
+		dateCreated: 150,
+		dateAccessed: 150,
+		contentId: 180,
+		objectId: 180,
+	}
+} as const
+
+const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	mediaPlayerVolume: 0.7,
@@ -49,13 +78,9 @@ const state = {
 		active: false
 	},
 	quickViewObject: null as ExplorerItem | null,
-	mediaColumns: 8,
-	mediaAspectSquare: false,
-	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
-	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none',
-	viewLocationPreferences: null as null | LibraryPreferences
-};
+	...defaultExplorerSettings
+} as const
 
 export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
@@ -64,7 +89,7 @@ export function flattenThumbnailKey(thumbKey: string[]) {
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
 const explorerStore = proxy({
 	...state,
-	reset: () => resetStore(explorerStore, state),
+	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
 	addNewThumbnail: (thumbKey: string[]) => {
 		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
@@ -81,6 +106,22 @@ export function useExplorerStore() {
 
 export function getExplorerStore() {
 	return explorerStore;
+}
+
+export function getExplorerSettings(): ExplorerSettings {
+	return {
+		layoutMode: explorerStore.layoutMode,
+		gridItemSize: explorerStore.gridItemSize,
+		showBytesInGridView: explorerStore.showBytesInGridView,
+		mediaColumns: explorerStore.mediaColumns,
+		mediaAspectSquare: explorerStore.mediaAspectSquare,
+		orderBy: explorerStore.orderBy,
+		orderByDirection: explorerStore.orderByDirection.toLowerCase() as SortOrder,
+		openOnDoubleClick: explorerStore.openOnDoubleClick,
+		colSizes: {
+			...explorerStore.colSizes
+		}
+	}
 }
 
 export function isCut(id: number) {

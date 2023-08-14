@@ -104,13 +104,15 @@ export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
+export type DoubleClickAction = "openFile" | "quickPreview"
+
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings = { layout: ExplorerLayout | null; itemSize: number | null; mediaCols: number | null; mediaSqrThumbs: boolean | null; dblClickAction: boolean | null; showSize: boolean | null; sortBy: ViewSortBy | null; colSizes: { [key: string]: number } | null; direction: "Asc" | "Desc" }
+export type ExplorerSettings = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; orderBy: ViewSortBy | null; colSizes: { [key: string]: number } | null; orderByDirection: "Asc" | "Desc" }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 

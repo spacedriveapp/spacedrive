@@ -50,16 +50,16 @@ pub struct LocationSettings {
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ExplorerSettings {
-	layout: Option<ExplorerLayout>,
-	item_size: Option<i32>,
-	media_cols: Option<i32>,
-	media_sqr_thumbs: Option<bool>,
-	dbl_click_action: Option<bool>,
-	show_size: Option<bool>,
-	sort_by: Option<ViewSortBy>,
+	layout_mode: Option<ExplorerLayout>,
+	grid_item_size: Option<i32>,
+	media_columns: Option<i32>,
+	media_aspect_square: Option<bool>,
+	open_on_double_click: Option<DoubleClickAction>,
+	show_bytes_in_grid_view: Option<bool>,
+	order_by: Option<ViewSortBy>,
 	col_sizes: Option<BTreeMap<String, i32>>,
 	#[specta(type = _SortOrderType, inline)]
-	direction: Option<SortOrder>,
+	order_by_direction: Option<SortOrder>,
 }
 
 #[derive(Type)]
@@ -89,6 +89,13 @@ pub enum ExplorerLayout {
 	Grid,
 	List,
 	Media,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum DoubleClickAction {
+	OpenFile,
+	QuickPreview,
 }
 
 impl Preferences for LibraryPreferences {

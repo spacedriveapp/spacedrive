@@ -1,10 +1,8 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { stringify } from 'uuid';
 import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { GridList } from '~/components';
 import { ViewItem } from '.';
-import { useExplorerContext } from '../Context';
 import FileThumb from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
 import { isCut, useExplorerStore } from '../store';
@@ -22,14 +20,6 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 	const location = getItemLocation(data);
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const explorerContext = useExplorerContext();
-	const locationUuid =
-		explorerContext.parent?.type === 'Location'
-			? stringify(explorerContext.parent.location.pub_id)
-			: '';
-	const explorerSettings =
-		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
-	const itemSize = explorerSettings?.itemSize || explorerStore.gridItemSize;
 
 	const showSize =
 		!filePathData?.is_dir &&
@@ -42,7 +32,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 			<div className={clsx('mb-1 rounded-lg ', selected && 'bg-app-selectedItem')}>
 				<FileThumb
 					data={data}
-					size={itemSize}
+					size={explorerStore.gridItemSize}
 					className={clsx('mx-auto', cut && 'opacity-60')}
 				/>
 			</div>
@@ -51,7 +41,7 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 				<RenamableItemText
 					item={data}
 					selected={selected}
-					style={{ maxHeight: itemSize / 3 }}
+					style={{ maxHeight: explorerStore.gridItemSize / 3 }}
 				/>
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
@@ -70,23 +60,16 @@ const GridViewItem = memo(({ data, selected, index, cut, ...props }: GridViewIte
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
-	const explorerContext = useExplorerContext();
-	const locationUuid =
-		explorerContext.parent?.type === 'Location'
-			? stringify(explorerContext.parent.location.pub_id)
-			: '';
-	const explorerSettings =
-		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
-	const itemSize = explorerSettings?.itemSize ?? explorerStore.gridItemSize;
 
-	const itemDetailsHeight = itemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
-	const itemHeight = itemSize + itemDetailsHeight;
+	const itemDetailsHeight =
+		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
+	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
 
 	return (
 		<GridList
 			scrollRef={explorerView.scrollRef}
 			count={explorerView.items?.length || 100}
-			size={{ width: itemSize, height: itemHeight }}
+			size={{ width: explorerStore.gridItemSize, height: itemHeight }}
 			padding={12}
 			selectable={!!explorerView.items}
 			selected={explorerView.selected}

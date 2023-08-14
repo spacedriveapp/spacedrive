@@ -1,11 +1,16 @@
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
-import { ExplorerSettings, useLibraryMutation } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { RadixCheckbox, Select, SelectOption, Slider, tw } from '@sd/ui';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useExplorerContext } from './Context';
-import { getExplorerConfigStore, useExplorerConfigStore } from './config';
-import { FilePathSearchOrderingKeys, getExplorerStore, useExplorerStore } from './store';
+import {
+	FilePathSearchOrderingKeys,
+	defaultExplorerSettings,
+	getExplorerSettings,
+	getExplorerStore,
+	useExplorerStore
+} from './store';
 
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
@@ -21,14 +26,11 @@ export const sortOptions: Record<FilePathSearchOrderingKeys, string> = {
 
 export default () => {
 	const explorerStore = useExplorerStore();
-	const explorerConfig = useExplorerConfigStore();
 	const explorerContext = useExplorerContext();
 	const locationUuid =
 		explorerContext.parent?.type === 'Location'
 			? stringify(explorerContext.parent.location.pub_id)
 			: '';
-	const locationExplorerSettings =
-		explorerStore.viewLocationPreferences?.location?.[locationUuid]?.explorer;
 
 	const updatePreferences = useLibraryMutation('preferences.update', {
 		onError: () => {
@@ -37,13 +39,15 @@ export default () => {
 	});
 
 	const updatePreferencesHandler = useDebouncedCallback(
-		async (settingsToUpdate: Partial<ExplorerSettings>) => {
+		async (
+			settingToUpdate: keyof typeof defaultExplorerSettings,
+			value: (typeof defaultExplorerSettings)[keyof typeof defaultExplorerSettings]
+		) => {
 			const updatedExplorerSettings = {
-				...locationExplorerSettings,
-				...settingsToUpdate,
-				layout: explorerStore.layoutMode
-			} as ExplorerSettings;
-
+				...getExplorerSettings(),
+				[settingToUpdate]: value
+			};
+			console.log(settingToUpdate, value);
 			await updatePreferences.mutateAsync({
 				location: {
 					[locationUuid]: {
@@ -51,36 +55,24 @@ export default () => {
 					}
 				}
 			});
-
-			getExplorerStore().viewLocationPreferences = {
-				location: {
-					...explorerStore.viewLocationPreferences?.location,
-					[locationUuid]: {
-						explorer: updatedExplorerSettings
-					}
-				}
-			};
 		},
 		100
 	);
 
 	return (
-		<div className="flex w-80 flex-col gap-4 p-4">
+		<div className="flex flex-col gap-4 p-4 w-80">
 			{(explorerStore.layoutMode === 'grid' || explorerStore.layoutMode === 'media') && (
 				<div>
 					<Subheading>Item size</Subheading>
 					{explorerStore.layoutMode === 'grid' ? (
 						<Slider
 							onValueChange={(value) => {
-								!locationUuid
-									? (getExplorerStore().gridItemSize = value[0] || 100)
-									: updatePreferencesHandler({
-											itemSize: value[0] || 100
-									  });
+								if (!locationUuid)
+									return (getExplorerStore().gridItemSize = value[0] || 100);
+								updatePreferencesHandler('gridItemSize', value[0] || 100);
+								getExplorerStore().gridItemSize = value[0] || 100;
 							}}
-							defaultValue={[
-								locationExplorerSettings?.itemSize ?? explorerStore.gridItemSize
-							]}
+							defaultValue={[explorerStore.gridItemSize]}
 							max={200}
 							step={10}
 							min={60}
@@ -93,10 +85,10 @@ export default () => {
 							step={2}
 							onValueChange={([val]) => {
 								if (val !== undefined) {
+									if (!locationUuid)
+										return (getExplorerStore().mediaColumns = 10 - val);
+									updatePreferencesHandler('mediaColumns', 10 - val);
 									getExplorerStore().mediaColumns = 10 - val;
-									updatePreferencesHandler({
-										itemSize: 10 - val
-									});
 								}
 							}}
 						/>
@@ -112,10 +104,9 @@ export default () => {
 							size="sm"
 							className="w-full"
 							onChange={(sortBy) => {
+								if (!locationUuid) return (getExplorerStore().orderBy = sortBy);
+								updatePreferencesHandler('orderBy', sortBy);
 								getExplorerStore().orderBy = sortBy;
-								updatePreferencesHandler({
-									sortBy
-								});
 							}}
 						>
 							{Object.entries(sortOptions).map(([value, text]) => (
@@ -133,10 +124,10 @@ export default () => {
 							size="sm"
 							className="w-full"
 							onChange={(value) => {
+								if (!locationUuid)
+									return (getExplorerStore().orderByDirection = value);
+								updatePreferencesHandler('orderByDirection', value);
 								getExplorerStore().orderByDirection = value;
-								updatePreferencesHandler({
-									direction: value
-								});
 							}}
 						>
 							{SortOrderSchema.options.map((o) => (
@@ -156,10 +147,10 @@ export default () => {
 					name="showBytesInGridView"
 					onCheckedChange={(value) => {
 						if (typeof value === 'boolean') {
+							if (!locationUuid)
+								return (getExplorerStore().showBytesInGridView = value);
+							updatePreferencesHandler('showBytesInGridView', value);
 							getExplorerStore().showBytesInGridView = value;
-							updatePreferencesHandler({
-								showSize: value
-							});
 						}
 					}}
 					className="mt-1"
@@ -173,10 +164,10 @@ export default () => {
 					name="mediaAspectSquare"
 					onCheckedChange={(value) => {
 						if (typeof value === 'boolean') {
+							if (!locationUuid)
+								return (getExplorerStore().mediaAspectSquare = value);
+							updatePreferencesHandler('mediaAspectSquare', value);
 							getExplorerStore().mediaAspectSquare = value;
-							updatePreferencesHandler({
-								mediaSqrThumbs: value
-							});
 						}
 					}}
 					className="mt-1"
@@ -186,13 +177,11 @@ export default () => {
 				<Subheading>Double click action</Subheading>
 				<Select
 					className="w-full"
-					value={explorerConfig.openOnDoubleClick ? 'openFile' : 'quickPreview'}
+					value={explorerStore.openOnDoubleClick}
 					onChange={(value) => {
-						getExplorerConfigStore().openOnDoubleClick = value === 'openFile';
-						updatePreferencesHandler({
-							// this should really be an enum
-							dblClickAction: value === 'openFile'
-						});
+						if (!locationUuid) return (getExplorerStore().openOnDoubleClick = value);
+						updatePreferencesHandler('openOnDoubleClick', value);
+						getExplorerStore().openOnDoubleClick = value;
 					}}
 				>
 					<SelectOption value="openFile">Open File</SelectOption>

@@ -13,7 +13,9 @@ import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useBoundingclientrect, useKey, useWindowEventListener } from 'rooks';
+import { useDebouncedCallback } from 'use-debounce';
 import useResizeObserver from 'use-resize-observer';
+import { stringify } from 'uuid';
 import {
 	ExplorerItem,
 	FilePath,
@@ -25,13 +27,16 @@ import {
 	getItemObject,
 	isPath
 } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { ViewItem } from '.';
 import { useLayoutContext } from '../../Layout/Context';
+import { useExplorerContext } from '../Context';
 import FileThumb from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
+import { defaultExplorerSettings, getExplorerSettings } from '../store';
 import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
 import RenamableItemText from './RenamableItemText';
 
@@ -46,7 +51,7 @@ interface ListViewItemProps {
 const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem data={props.row.original} className="w-full">
-			<div role="row" className="flex h-full items-center">
+			<div role="row" className="flex items-center h-full">
 				{props.row.getVisibleCells().map((cell, i, cells) => {
 					return (
 						<div
@@ -100,6 +105,12 @@ export default () => {
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<[number, number][]>([]);
+	const explorerContext = useExplorerContext();
+
+	const locationUuid =
+		explorerContext.parent?.type === 'Location'
+			? stringify(explorerContext.parent.location.pub_id)
+			: '';
 
 	const top =
 		(explorerView.top || 0) +
@@ -130,13 +141,40 @@ export default () => {
 
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
 
+	const updatePreferences = useLibraryMutation('preferences.update', {
+		onError: () => {
+			alert('An error has occurred while updating your preferences.');
+		}
+	});
+
+	const updatePreferencesHandler = useDebouncedCallback(async () => {
+		if (!locationUuid) return;
+		await updatePreferences.mutateAsync({
+			location: {
+				[locationUuid]: {
+					explorer: {
+						...getExplorerSettings(),
+						colSizes: columnSizing
+					}
+				}
+			}
+		});
+		//react table requires empty objects with keys and values of numbers
+		//- this is a workaround for the default values in store
+		getExplorerStore().colSizes = columnSizing as (typeof defaultExplorerSettings)['colSizes'];
+	}, 100);
+
+	useEffect(() => {
+		updatePreferencesHandler();
+	}, [columnSizing]);
+
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
 			{
 				id: 'name',
 				header: 'Name',
 				minSize: 200,
-				size: 350,
+				size: explorerStore.colSizes.name,
 				maxSize: undefined,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
@@ -184,6 +222,7 @@ export default () => {
 			{
 				id: 'kind',
 				header: 'Type',
+				size: explorerStore.colSizes.kind,
 				enableSorting: false,
 				accessorFn: (file) => {
 					return isPath(file) && file.item.is_dir
@@ -204,7 +243,7 @@ export default () => {
 			{
 				id: 'sizeInBytes',
 				header: 'Size',
-				size: 100,
+				size: explorerStore.colSizes.sizeInBytes,
 				accessorFn: (file) => {
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
@@ -215,11 +254,13 @@ export default () => {
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
+				size: explorerStore.colSizes.dateCreated,
 				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
 			},
 			{
 				id: 'dateModified',
 				header: 'Date Modified',
+				size: explorerStore.colSizes.dateModified,
 				accessorFn: (file) =>
 					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
 			},
@@ -232,20 +273,23 @@ export default () => {
 			{
 				id: 'dateAccessed',
 				header: 'Date Accessed',
+				size: explorerStore.colSizes.dateAccessed,
 				accessorFn: (file) =>
 					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
+				id: 'contentId',
 				header: 'Content ID',
 				enableSorting: false,
-				size: 180,
+				size: explorerStore.colSizes.contentId,
 				accessorFn: (file) => getExplorerItemData(file).casId
 			},
 			{
+				id: 'objectId',
 				header: 'Object ID',
 				enableSorting: false,
-				size: 180,
+				size: explorerStore.colSizes.objectId,
 				accessorFn: (file) => getItemObject(file)?.pub_id
 			}
 		],
@@ -292,7 +336,6 @@ export default () => {
 				const nameColumnMinSize = table.getColumn('name')?.columnDef.minSize;
 				const newNameSize =
 					(nameSize || 0) + tableWidth - paddingX * 2 - scrollBarWidth - tableLength;
-
 				return {
 					...sizing,
 					...(nameSize !== undefined && nameColumnMinSize !== undefined
@@ -590,7 +633,7 @@ export default () => {
 	});
 
 	return (
-		<div className="flex w-full flex-col" ref={tableRef}>
+		<div className="flex flex-col w-full" ref={tableRef}>
 			{sized && (
 				<ScrollSync>
 					<>
@@ -610,7 +653,7 @@ export default () => {
 										<div
 											ref={tableHeaderRef}
 											key={headerGroup.id}
-											className="flex grow border-b border-app-line/50"
+											className="flex border-b grow border-app-line/50"
 										>
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
@@ -626,7 +669,7 @@ export default () => {
 												return (
 													<div
 														key={header.id}
-														className="relative shrink-0 px-4 py-2 text-xs first:pl-24"
+														className="relative px-4 py-2 text-xs shrink-0 first:pl-24"
 														style={{
 															width:
 																i === 0
@@ -712,7 +755,7 @@ export default () => {
 						</ScrollSyncPane>
 
 						<ScrollSyncPane>
-							<div className="no-scrollbar overflow-x-auto overscroll-x-none">
+							<div className="overflow-x-auto no-scrollbar overscroll-x-none">
 								<div
 									ref={tableBodyRef}
 									className="relative"
@@ -726,7 +769,7 @@ export default () => {
 											return (
 												<div
 													key={virtualRow.index}
-													className="absolute left-0 top-0 flex w-full py-px"
+													className="absolute top-0 left-0 flex w-full py-px"
 													style={{
 														height: `${virtualRow.size}px`,
 														transform: `translateY(${
@@ -737,7 +780,7 @@ export default () => {
 														paddingRight: `${paddingX}px`
 													}}
 												>
-													<div className="relative flex h-full w-full animate-pulse rounded-md bg-app-box" />
+													<div className="relative flex w-full h-full rounded-md animate-pulse bg-app-box" />
 												</div>
 											);
 										}
@@ -760,7 +803,7 @@ export default () => {
 										return (
 											<div
 												key={row.id}
-												className="absolute left-0 top-0 flex w-full"
+												className="absolute top-0 left-0 flex w-full"
 												style={{
 													height: `${virtualRow.size}px`,
 													transform: `translateY(${
@@ -793,7 +836,7 @@ export default () => {
 													)}
 												>
 													{selectedPrior && (
-														<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+														<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
 													)}
 
 													<ListViewItem
