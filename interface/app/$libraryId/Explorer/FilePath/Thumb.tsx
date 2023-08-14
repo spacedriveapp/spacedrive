@@ -362,7 +362,7 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	paused?: boolean;
 }
 
-const Video = memo(({ paused, controls, ...props }: VideoProps) => {
+const Video = memo(({ paused, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	useEffect(() => {
@@ -384,8 +384,8 @@ const Video = memo(({ paused, controls, ...props }: VideoProps) => {
 				const video = e.target as HTMLVideoElement;
 				// Why not use the element's attribute? Because React...
 				// https://github.com/facebook/react/issues/10389
-				video.loop = !controls;
-				video.muted = !controls;
+				video.loop = !props.controls;
+				video.muted = !props.controls;
 				video.volume = getExplorerStore().mediaPlayerVolume;
 			}}
 			playsInline
