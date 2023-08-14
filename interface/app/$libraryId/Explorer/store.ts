@@ -54,7 +54,7 @@ const state = {
 	orderByDirection: 'Desc' as SortOrder,
 	groupBy: 'none',
 	isDragging: false,
-	gridGap: 16
+	gridGap: 8
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {

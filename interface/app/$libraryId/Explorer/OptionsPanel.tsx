@@ -58,9 +58,9 @@ export default () => {
 							if (val) getExplorerStore().gridGap = val;
 						}}
 						defaultValue={[explorerStore.gridGap]}
-						max={24}
-						min={8}
-						step={8}
+						max={16}
+						min={4}
+						step={4}
 					/>
 				</div>
 			)}
