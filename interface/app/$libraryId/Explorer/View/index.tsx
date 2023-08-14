@@ -56,6 +56,10 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
+	function updateList<T = FilePath | Location>(list: T[], item: T, push: boolean) {
+		return !push ? [item, ...list] : [...list, item];
+	}
+
 	const onDoubleClick = async () => {
 		const selectedItems = [...explorer.selectedItems].reduce(
 			(items, item) => {
@@ -67,17 +71,14 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 						const filePath = getItemFilePath(item);
 						if (filePath) {
 							if (isPath(item) && item.item.is_dir) {
-								if (sameAsClicked) items.dirs = [filePath, ...items.dirs];
-								else items.dirs.push(item.item);
-							} else if (sameAsClicked) items.paths = [filePath, ...items.paths];
-							else items.paths.push(filePath);
+								items.dirs = updateList(items.dirs, filePath, !sameAsClicked);
+							} else items.paths = updateList(items.paths, filePath, !sameAsClicked);
 						}
 						break;
 					}
 
 					case 'Location': {
-						if (sameAsClicked) items.locations = [item.item, ...items.locations];
-						else items.locations.push(item.item);
+						items.locations = updateList(items.locations, item.item, !sameAsClicked);
 					}
 				}
 
