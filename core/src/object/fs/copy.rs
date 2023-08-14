@@ -137,26 +137,39 @@ impl StatefulJob for FileCopierJobInit {
 						.expect("We got the children path from the read_dir, so it should be a child of the source path"),
 				);
 
-				// Currently not supporting file_name suffixes children files in a directory being copied
-				more_steps.push(FileCopierJobStep {
-					target_full_path: target_children_full_path,
-					source_file_data: get_file_data_from_isolated_file_path(
-						&ctx.library.db,
+				match get_file_data_from_isolated_file_path(
+					&ctx.library.db,
+					&data.sources_location_path,
+					&IsolatedFilePathData::new(
+						init.source_location_id,
 						&data.sources_location_path,
-						&IsolatedFilePathData::new(
-							init.source_location_id,
-							&data.sources_location_path,
-							&children_path,
-							children_entry
-								.metadata()
-								.await
-								.map_err(|e| FileIOError::from((&children_path, e)))?
-								.is_dir(),
-						)
-						.map_err(FileSystemJobsError::from)?,
+						&children_path,
+						children_entry
+							.metadata()
+							.await
+							.map_err(|e| FileIOError::from((&children_path, e)))?
+							.is_dir(),
 					)
-					.await?,
-				});
+					.map_err(FileSystemJobsError::from)?,
+				)
+				.await
+				{
+					Ok(source_file_data) => {
+						// Currently not supporting file_name suffixes children files in a directory being copied
+						more_steps.push(FileCopierJobStep {
+							target_full_path: target_children_full_path,
+							source_file_data,
+						});
+					}
+					Err(FileSystemJobsError::FilePathNotFound(path)) => {
+						// FilePath doesn't exist in the database, it possibly wasn't indexed, so we skip it
+						warn!(
+							"Skipping duplicating {} as it wasn't indexed",
+							path.display()
+						);
+					}
+					Err(e) => return Err(e.into()),
+				}
 			}
 
 			Ok(more_steps.into())

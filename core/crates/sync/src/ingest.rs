@@ -118,10 +118,7 @@ impl Actor {
 
 		let mut timestamp = {
 			let mut clocks = self.timestamps.write().await;
-			clocks
-				.entry(op.instance)
-				.or_insert_with(|| op.timestamp)
-				.clone()
+			*clocks.entry(op.instance).or_insert_with(|| op.timestamp)
 		};
 
 		if timestamp < op.timestamp {

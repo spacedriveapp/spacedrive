@@ -42,7 +42,8 @@ impl PreferenceValue {
 	pub fn new(value: impl Serialize) -> Self {
 		let mut bytes = vec![];
 
-		rmp_serde::encode::write_named(&mut bytes, &value).unwrap();
+		rmp_serde::encode::write_named(&mut bytes, &value)
+			.expect("Failed to serialize preference value");
 
 		// let value = rmpv::decode::read_value(&mut bytes.as_slice()).unwrap();
 
@@ -52,7 +53,8 @@ impl PreferenceValue {
 	pub fn from_value(value: Value) -> Self {
 		let mut bytes = vec![];
 
-		rmpv::encode::write_value(&mut bytes, &value).unwrap();
+		rmpv::encode::write_value(&mut bytes, &value)
+			.expect("Failed to serialize preference value");
 
 		Self(bytes)
 	}
@@ -76,6 +78,7 @@ pub enum Entry {
 	Nested(Entries),
 }
 
+#[allow(clippy::unwrap_used, clippy::panic)]
 impl Entry {
 	pub fn expect_value<T: DeserializeOwned>(self) -> T {
 		match self {

@@ -14,19 +14,19 @@ pub struct Manager {
 	shared: Arc<SharedState>,
 }
 
-pub struct SyncManagerNew {
-	pub manager: Manager,
-	pub rx: broadcast::Receiver<SyncMessage>,
-}
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
 pub struct GetOpsArgs {
 	pub clocks: Vec<(Uuid, NTP64)>,
 	pub count: u32,
 }
 
+pub struct New<T> {
+	pub manager: T,
+	pub rx: broadcast::Receiver<SyncMessage>,
+}
+
 impl Manager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> SyncManagerNew {
+	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> New<Self> {
 		let (tx, rx) = broadcast::channel(64);
 
 		let timestamps: Timestamps = Default::default();
@@ -41,7 +41,7 @@ impl Manager {
 
 		let ingest = ingest::Actor::spawn(shared.clone());
 
-		SyncManagerNew {
+		New {
 			manager: Self { shared, tx, ingest },
 			rx,
 		}
