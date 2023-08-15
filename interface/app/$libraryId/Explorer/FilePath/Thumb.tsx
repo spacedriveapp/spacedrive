@@ -9,8 +9,8 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
-import classes from './Thumb.module.scss';
 import LayeredFileIcon from './LayeredFileIcon';
+import classes from './Thumb.module.scss';
 
 interface ThumbnailProps {
 	src: string;
@@ -251,8 +251,10 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full border-0 font-mono px-4',
-											!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
+											'h-full w-full border-0 px-4 font-mono',
+											!props.mediaControls
+												? 'overflow-hidden'
+												: 'overflow-auto',
 											childClassName,
 											props.className
 										)}
@@ -338,17 +340,16 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 						);
 					default:
 						return (
-							kind !== 'Code' ?
-								<img
-									src={src}
-									onLoad={onLoad}
-									onError={() => setLoaded(false)}
-									decoding={size ? 'async' : 'sync'}
-									className={clsx(childClassName, props.className)}
-									draggable={false}
-								/>
-								:
-								<LayeredFileIcon src={src} extension={props.data.item.extension} onLoad={onLoad} onError={() => setLoaded(false)} className={clsx(childClassName, props.className)} />
+							<LayeredFileIcon
+								src={src}
+								kind={kind}
+								extension={extension}
+								onLoad={onLoad}
+								onError={() => setLoaded(false)}
+								decoding={size ? 'async' : 'sync'}
+								className={clsx(childClassName, props.className)}
+								draggable={false}
+							/>
 						);
 				}
 			})()}
