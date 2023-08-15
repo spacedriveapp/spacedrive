@@ -3,6 +3,7 @@ import { FallbackProps } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
 import { Button } from '@sd/ui';
+import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 
 export function RouterErrorBoundary() {
@@ -55,6 +56,21 @@ export function ErrorPage({
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
+
+	const resetHandler = () => {
+		showAlertDialog({
+			title: 'Reset',
+			value: 'Are you sure you want to reset Spacedrive? Your database will be deleted.',
+			label: 'Confirm',
+			cancelBtn: true,
+			onSubmit: () => {
+				localStorage.clear();
+				// @ts-expect-error
+				window.__TAURI_INVOKE__('reset_spacedrive');
+			}
+		});
+	};
+
 	if (!submessage && debug.enabled)
 		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
@@ -98,13 +114,8 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
-							className="mt-4 max-w-xs border-transparent bg-red-500"
-							onClick={() => {
-								localStorage.clear();
-
-								// @ts-expect-error
-								window.__TAURI_INVOKE__('reset_spacedrive');
-							}}
+							className="max-w-xs mt-4 bg-red-500 border-transparent"
+							onClick={resetHandler}
 						>
 							Reset & Quit App
 						</Button>
