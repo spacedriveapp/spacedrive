@@ -37,11 +37,10 @@ export const nullValuesHandler = (obj: ExplorerSettings) => {
 	Object.entries(obj).forEach(([key, value]) => {
 		if (value !== null) {
 			newObj[key] = value;
-		  }
+		}
 	});
 	return newObj;
-  };
-
+};
 
 export const defaultExplorerSettings = {
 	layoutMode: 'grid' as ExplorerLayout,
@@ -61,9 +60,9 @@ export const defaultExplorerSettings = {
 		dateCreated: 150,
 		dateAccessed: 150,
 		contentId: 180,
-		objectId: 180,
+		objectId: 180
 	}
-} as const
+} as const;
 
 const state = {
 	tagAssignMode: false,
@@ -81,7 +80,7 @@ const state = {
 	quickViewObject: null as ExplorerItem | null,
 	groupBy: 'none',
 	...defaultExplorerSettings
-} as const
+} as const;
 
 export function flattenThumbnailKey(thumbKey: string[]) {
 	return thumbKey.join('/');
@@ -122,7 +121,7 @@ export function getExplorerSettings(): ExplorerSettings {
 		colSizes: {
 			...explorerStore.colSizes
 		}
-	}
+	};
 }
 
 export function isCut(id: number) {

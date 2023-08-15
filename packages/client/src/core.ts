@@ -112,7 +112,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; orderBy: ViewSortBy | null; colSizes: { [key: string]: number } | null; orderByDirection: "Asc" | "Desc" }
+export type ExplorerSettings = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colSizes: { [key: string]: number } | null; order: FilePathSearchOrdering | null }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
@@ -304,7 +304,5 @@ export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: bo
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
-
-export type ViewSortBy = "none" | "name" | "sizeInBytes" | "dateCreated" | "dateModified" | "dateIndexed" | "object.dateAccessed"
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }

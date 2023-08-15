@@ -1,4 +1,5 @@
-use crate::prisma::{PrismaClient, SortOrder};
+use crate::api::search;
+use crate::prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::BTreeMap;
@@ -56,31 +57,9 @@ pub struct ExplorerSettings {
 	media_aspect_square: Option<bool>,
 	open_on_double_click: Option<DoubleClickAction>,
 	show_bytes_in_grid_view: Option<bool>,
-	order_by: Option<ViewSortBy>,
 	col_sizes: Option<BTreeMap<String, i32>>,
-	#[specta(type = _SortOrderType, inline)]
-	order_by_direction: Option<SortOrder>,
-}
-
-#[derive(Type)]
-pub enum _SortOrderType {
-	#[serde(rename = "Asc")]
-	_Asc,
-	#[serde(rename = "Desc")]
-	_Desc,
-}
-
-#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-#[serde(rename_all = "camelCase")]
-pub enum ViewSortBy {
-	None,
-	Name,
-	SizeInBytes,
-	DateCreated,
-	DateModified,
-	DateIndexed,
-	#[serde(rename = "object.dateAccessed")]
-	DateAccessed,
+	// temporary
+	order: Option<search::FilePathSearchOrdering>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]

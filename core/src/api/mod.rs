@@ -31,7 +31,7 @@ mod nodes;
 pub mod notifications;
 mod p2p;
 mod preferences;
-mod search;
+pub(crate) mod search;
 mod sync;
 mod tags;
 pub mod utils;
