@@ -1,4 +1,5 @@
 use crate::ExifReader;
+use exif::Tag;
 use image_rs::DynamicImage;
 use std::path::Path;
 
@@ -22,27 +23,27 @@ impl Orientation {
 	#[allow(clippy::future_not_send)]
 	pub fn source_orientation(path: impl AsRef<Path>) -> Option<Self> {
 		let reader = ExifReader::from_path(path).ok()?;
-		reader.get_orientation_int().map(Self::int_to_orientation)
+		reader.get_tag_int(Tag::Orientation).map(Into::into)
 	}
 
 	/// This is used for quickly sourcing an [`Orientation`] data from an [`ExifReader`]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
-		reader.get_color_profile_int().map(Self::int_to_orientation)
+		reader.get_tag_int(Tag::Orientation).map(Into::into)
 	}
 
-	/// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value
-	pub(crate) const fn int_to_orientation(i: u32) -> Self {
-		match i {
-			2 => Self::MirroredHorizontal,
-			3 => Self::CW180,
-			4 => Self::MirroredVertical,
-			5 => Self::MirroredHorizontalAnd270CW,
-			6 => Self::CW90,
-			7 => Self::MirroredHorizontalAnd90CW,
-			8 => Self::CW270,
-			_ => Self::Normal,
-		}
-	}
+	// /// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value
+	// pub(crate) const fn int_to_orientation(i: u32) -> Self {
+	// 	match i {
+	// 		2 => Self::MirroredHorizontal,
+	// 		3 => Self::CW180,
+	// 		4 => Self::MirroredVertical,
+	// 		5 => Self::MirroredHorizontalAnd270CW,
+	// 		6 => Self::CW90,
+	// 		7 => Self::MirroredHorizontalAnd90CW,
+	// 		8 => Self::CW270,
+	// 		_ => Self::Normal,
+	// 	}
+	// }
 
 	/// This is used to correct thumbnails in the thumbnailer, if we are able to source orientation data for the file at hand.
 	#[must_use]
@@ -56,6 +57,21 @@ impl Orientation {
 			Self::MirroredVertical => img.flipv(),
 			Self::MirroredHorizontalAnd90CW => img.fliph().rotate90(),
 			Self::MirroredHorizontalAnd270CW => img.fliph().rotate270(),
+		}
+	}
+}
+
+impl From<u32> for Orientation {
+	fn from(value: u32) -> Self {
+		match value {
+			2 => Self::MirroredHorizontal,
+			3 => Self::CW180,
+			4 => Self::MirroredVertical,
+			5 => Self::MirroredHorizontalAnd270CW,
+			6 => Self::CW90,
+			7 => Self::MirroredHorizontalAnd90CW,
+			8 => Self::CW270,
+			_ => Self::Normal,
 		}
 	}
 }

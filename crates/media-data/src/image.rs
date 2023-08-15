@@ -1,3 +1,5 @@
+use exif::{Exif, In, Tag};
+use sd_prisma::prisma::media_data;
 use std::{
 	fs::File,
 	io::{BufReader, Cursor},
@@ -5,13 +7,9 @@ use std::{
 	str::FromStr,
 };
 
-use sd_prisma::prisma::media_data;
-
-use exif::{Exif, In, Tag};
-
 use crate::{
-	orientation::Orientation, ColorProfile, Dimensions, Error, Flash, MediaLocation, MediaTime,
-	Result,
+	orientation::Orientation, ColorProfile, Composite, Dimensions, Error, Flash, MediaLocation,
+	MediaTime, Result,
 };
 
 #[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -19,14 +17,15 @@ pub struct MediaDataImage {
 	pub dimensions: Dimensions,
 	pub date_taken: MediaTime,
 	pub location: Option<MediaLocation>,
-	pub camera_data: CameraData,
+	pub camera_data: ImageData,
 	pub artist: Option<String>,
+	pub description: Option<String>,
 	pub copyright: Option<String>,
 	pub exif_version: Option<String>,
 }
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct CameraData {
+pub struct ImageData {
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
 	pub color_space: Option<String>,
@@ -42,6 +41,12 @@ pub struct CameraData {
 	pub zoom: Option<f64>,
 	pub iso: Option<i32>,
 	pub software: Option<String>,
+	pub serial_number: Option<String>,
+	pub lens_serial_number: Option<String>,
+	pub contrast: Option<i32>,
+	pub saturation: Option<i32>,
+	pub sharpness: Option<i32>,
+	pub composite: Option<Composite>,
 }
 
 impl MediaDataImage {
@@ -49,33 +54,39 @@ impl MediaDataImage {
 		Self::from_reader(&ExifReader::from_path(path)?)
 	}
 
-	pub fn from_slice(slice: &[u8]) -> Result<Self> {
-		Self::from_reader(&ExifReader::from_slice(slice)?)
+	pub fn from_slice(bytes: &[u8]) -> Result<Self> {
+		Self::from_reader(&ExifReader::from_slice(bytes)?)
 	}
 
 	#[allow(clippy::field_reassign_with_default)]
 	pub fn from_reader(reader: &ExifReader) -> Result<Self> {
 		let mut data = Self::default();
+		let camera_data = &mut data.camera_data;
 
 		data.date_taken = MediaTime::from_reader(reader);
 		data.dimensions = Dimensions::from_reader(reader);
+		data.artist = reader.get_tag(Tag::Artist);
+		data.description = reader.get_tag(Tag::ImageDescription);
+		data.copyright = reader.get_tag(Tag::Copyright);
+		data.exif_version = reader.get_tag(Tag::ExifVersion);
+		data.location = MediaLocation::from_exif_reader(reader).ok();
 
-		data.camera_data.device_make = reader.get_tag(Tag::Make);
-		data.camera_data.device_model = reader.get_tag(Tag::Model);
-		data.camera_data.focal_length = reader.get_tag(Tag::FocalLength);
-		data.camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
-		data.camera_data.color_space = reader.get_tag(Tag::ColorSpace);
-		data.camera_data.color_profile = ColorProfile::from_reader(reader);
+		camera_data.device_make = reader.get_tag(Tag::Make);
+		camera_data.device_model = reader.get_tag(Tag::Model);
+		camera_data.focal_length = reader.get_tag(Tag::FocalLength);
+		camera_data.shutter_speed = reader.get_tag(Tag::ShutterSpeedValue);
+		camera_data.color_space = reader.get_tag(Tag::ColorSpace);
+		camera_data.color_profile = ColorProfile::from_reader(reader);
 
-		data.camera_data.lens_make = reader.get_tag(Tag::LensMake);
-		data.camera_data.lens_model = reader.get_tag(Tag::LensModel);
-		data.camera_data.iso = reader.get_tag(Tag::PhotographicSensitivity);
-		data.camera_data.zoom = reader
+		camera_data.lens_make = reader.get_tag(Tag::LensMake);
+		camera_data.lens_model = reader.get_tag(Tag::LensModel);
+		camera_data.iso = reader.get_tag(Tag::PhotographicSensitivity);
+		camera_data.zoom = reader
 			.get_tag(Tag::DigitalZoomRatio)
 			.map(|x: String| x.replace("unused", "1").parse().ok())
 			.unwrap_or_default();
 
-		data.camera_data.bit_depth = reader.get_tag::<String>(Tag::BitsPerSample).map_or_else(
+		camera_data.bit_depth = reader.get_tag::<String>(Tag::BitsPerSample).map_or_else(
 			|| {
 				reader
 					.get_tag::<String>(Tag::CompressedBitsPerPixel)
@@ -86,13 +97,16 @@ impl MediaDataImage {
 			|x| x.parse::<i32>().ok(),
 		);
 
-		data.camera_data.orientation = Orientation::from_reader(reader).unwrap_or_default();
-		data.camera_data.flash = Flash::from_reader(reader);
-		data.camera_data.software = reader.get_tag(Tag::Software);
-		data.artist = reader.get_tag(Tag::Artist);
-		data.copyright = reader.get_tag(Tag::Copyright);
-		data.exif_version = reader.get_tag(Tag::ExifVersion);
-		data.location = MediaLocation::from_exif_reader(reader).ok();
+		camera_data.orientation = Orientation::from_reader(reader).unwrap_or_default();
+		camera_data.flash = Flash::from_reader(reader);
+		camera_data.software = reader.get_tag(Tag::Software);
+		camera_data.serial_number = reader.get_tag(Tag::BodySerialNumber);
+		camera_data.lens_serial_number = reader.get_tag(Tag::LensSerialNumber);
+		camera_data.software = reader.get_tag(Tag::Software);
+		camera_data.contrast = reader.get_tag(Tag::Contrast);
+		camera_data.saturation = reader.get_tag(Tag::Saturation);
+		camera_data.sharpness = reader.get_tag(Tag::Sharpness);
+		camera_data.composite = Composite::from_reader(reader);
 
 		Ok(data)
 	}
@@ -119,6 +133,8 @@ impl MediaDataImage {
 			dimensions: serde_json::from_slice(&data.dimensions)?,
 			camera_data: serde_json::from_slice(&data.camera_data)?,
 			date_taken: serde_json::from_slice(&data.media_date)?,
+			description: Some(String::new()),
+			// description: serde_json::from_slice(&data.description)?,
 			copyright: from_slice_option_to_option(data.copyright),
 			artist: from_slice_option_to_option(data.artist),
 			location: from_slice_option_to_option(data.media_location),
@@ -166,23 +182,9 @@ impl ExifReader {
 		})?
 	}
 
-	pub(crate) fn get_orientation_int(&self) -> Option<u32> {
+	pub(crate) fn get_tag_int(&self, tag: Tag) -> Option<u32> {
 		self.0
-			.get_field(Tag::Orientation, In::PRIMARY)
-			.map(|x| x.value.get_uint(0))
-			.unwrap_or_default()
-	}
-
-	pub(crate) fn get_flash_int(&self) -> Option<u32> {
-		self.0
-			.get_field(Tag::Flash, In::PRIMARY)
-			.map(|x| x.value.get_uint(0))
-			.unwrap_or_default()
-	}
-
-	pub(crate) fn get_color_profile_int(&self) -> Option<u32> {
-		self.0
-			.get_field(Tag::CustomRendered, In::PRIMARY)
+			.get_field(tag, In::PRIMARY)
 			.map(|x| x.value.get_uint(0))
 			.unwrap_or_default()
 	}

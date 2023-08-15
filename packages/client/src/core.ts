@@ -137,7 +137,7 @@ export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean
 
 export type Flash = { mode: FlashMode; fired: boolean | null; returned: boolean | null; red_eye_reduction: boolean | null }
 
-export type FlashMode = "Invalid" | "On" | "Off" | "Auto" | "Forced"
+export type FlashMode = "Unknown" | "On" | "Off" | "Auto" | "Forced"
 
 export type FromPattern = { pattern: string; replace_all: boolean }
 

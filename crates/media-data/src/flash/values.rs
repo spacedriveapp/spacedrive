@@ -1,53 +1,51 @@
 use std::fmt::Display;
 
-use crate::{Error, Result};
-
 // https://exiftool.org/TagNames/EXIF.html scroll to bottom to get codds
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
-#[repr(u32)]
+#[derive(
+	Clone, Copy, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 pub enum FlashValue {
-	NoFire = 0x00,
-	Fired = 0x01,
-	FiredNoReturn = 0x05,
-	FiredReturn = 0x07,
-	OnNoFire = 0x08,
-	OnFired = 0x09,
-	OnNoReturn = 0x0d,
-	OnReturn = 0x0f,
-	OffNoFire = 0x10,
-	OffNoFireNoReturn = 0x14,
-	AutoNoFire = 0x18,
-	AutoFired = 0x19,
-	AutoFiredNoReturn = 0x1d,
-	AutoFiredReturn = 0x1f,
-	NoFlashFunction = 0x20,
-	OffNoFlashFunction = 0x30,
-	FiredRedEyeReduction = 0x41,
-	FiredRedEyeReductionNoReturn = 0x45,
-	FiredRedEyeReductionReturn = 0x47,
-	OnRedEyeReduction = 0x49,
-	OnRedEyeReductionNoReturn = 0x4d,
-	OnRedEyeReductionReturn = 0x4f,
-	OffRedEyeReduction = 0x50,
-	AutoNoFireRedEyeReduction = 0x58,
-	AutoFiredRedEyeReduction = 0x59,
-	AutoFiredRedEyeReductionNoReturn = 0x5d,
-	AutoFiredRedEyeReductionReturn = 0x5f,
+	#[default]
+	Unknown,
+	NoFire,
+	Fired,
+	FiredNoReturn,
+	FiredReturn,
+	OnNoFire,
+	OnFired,
+	OnNoReturn,
+	OnReturn,
+	OffNoFire,
+	OffNoFireNoReturn,
+	AutoNoFire,
+	AutoFired,
+	AutoFiredNoReturn,
+	AutoFiredReturn,
+	NoFlashFunction,
+	OffNoFlashFunction,
+	FiredRedEyeReduction,
+	FiredRedEyeReductionNoReturn,
+	FiredRedEyeReductionReturn,
+	OnRedEyeReduction,
+	OnRedEyeReductionNoReturn,
+	OnRedEyeReductionReturn,
+	OffRedEyeReduction,
+	AutoNoFireRedEyeReduction,
+	AutoFiredRedEyeReduction,
+	AutoFiredRedEyeReductionNoReturn,
+	AutoFiredRedEyeReductionReturn,
 }
 
 impl FlashValue {
 	#[must_use]
 	pub fn new(value: u32) -> Option<Self> {
-		let x: Result<Self> = value.try_into();
-		x.ok()
+		value.try_into().ok()
 	}
 }
 
-impl TryFrom<u32> for FlashValue {
-	type Error = Error;
-
-	fn try_from(value: u32) -> std::result::Result<Self, Self::Error> {
-		let res = match value {
+impl From<u32> for FlashValue {
+	fn from(value: u32) -> Self {
+		match value {
 			0x00 => Self::NoFire,
 			0x01 => Self::Fired,
 			0x05 => Self::FiredNoReturn,
@@ -75,16 +73,15 @@ impl TryFrom<u32> for FlashValue {
 			0x59 => Self::AutoFiredRedEyeReduction,
 			0x5d => Self::AutoFiredRedEyeReductionNoReturn,
 			0x5f => Self::AutoFiredRedEyeReductionReturn,
-			_ => return Err(Error::Conversion),
-		};
-
-		Ok(res)
+			_ => Self::default(),
+		}
 	}
 }
 
 impl Display for FlashValue {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
+			Self::Unknown => f.write_str("Flash data was present but we were unable to parse it"),
 			Self::NoFire => f.write_str("Flash didn't fire"),
 			Self::Fired => f.write_str("Flash fired"),
 			Self::FiredNoReturn => f.write_str("Flash fired but no return detected"),

@@ -1,3 +1,5 @@
+use exif::Tag;
+
 use crate::ExifReader;
 use std::fmt::Display;
 
@@ -19,14 +21,13 @@ pub enum ColorProfile {
 impl ColorProfile {
 	/// This is used for quickly sourcing a [`ColorProfile`] data from an [`ExifReader`]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
-		reader
-			.get_color_profile_int()
-			.map(Self::int_to_color_profile)
+		reader.get_tag_int(Tag::CustomRendered).map(Into::into)
 	}
+}
 
-	/// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value
-	pub(crate) const fn int_to_color_profile(i: u32) -> Self {
-		match i {
+impl From<u32> for ColorProfile {
+	fn from(value: u32) -> Self {
+		match value {
 			0 => Self::Custom,
 			2 => Self::HDRNoOriginal,
 			3 => Self::HDRWithOriginal,

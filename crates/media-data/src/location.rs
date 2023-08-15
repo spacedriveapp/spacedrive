@@ -7,7 +7,6 @@ use crate::{
 	Error, ExifReader, Result,
 };
 
-// TODO(brxken128): figure out why rspc isn't displayng negative values as negative
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
 	latitude: f64,

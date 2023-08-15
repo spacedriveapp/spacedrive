@@ -1,3 +1,5 @@
+use exif::Tag;
+
 use super::FlashValue;
 use crate::{flash::consts::FLASH_MODES, ExifReader};
 
@@ -23,7 +25,7 @@ pub struct Flash {
 impl Flash {
 	#[must_use]
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
-		let value = reader.get_flash_int()?;
+		let value = reader.get_tag_int(Tag::Flash)?;
 		FlashValue::try_from(value).ok()?.into()
 	}
 }
@@ -32,11 +34,16 @@ impl Flash {
 	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
 )]
 pub enum FlashMode {
+	/// The data is present, but we're unable to determine what they mean
 	#[default]
 	Unknown,
+	/// FLash was on
 	On,
+	/// Flash was off
 	Off,
+	/// Flash was set to automatically fire in certain conditions
 	Auto,
+	/// Flash was forcefully fired
 	Forced,
 }
 
@@ -45,7 +52,7 @@ impl From<u32> for FlashMode {
 		FLASH_MODES
 			.into_iter()
 			.find_map(|(mode, slice)| slice.contains(&value).then_some(mode))
-			.unwrap_or(Self::Unknown)
+			.unwrap_or_default()
 	}
 }
 
@@ -86,7 +93,7 @@ impl From<FlashValue> for Option<Flash> {
 			}
 			FlashValue::OffNoFire => data.fired = Some(false),
 			FlashValue::AutoNoFire => data.fired = Some(false),
-			FlashValue::NoFlashFunction | FlashValue::OffNoFlashFunction => {
+			FlashValue::NoFlashFunction | FlashValue::OffNoFlashFunction | FlashValue::Unknown => {
 				data = Flash::default();
 			}
 			FlashValue::AutoFiredRedEyeReduction => {
