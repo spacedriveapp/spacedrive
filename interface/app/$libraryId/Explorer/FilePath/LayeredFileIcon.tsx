@@ -1,6 +1,13 @@
 import * as Icons from '@sd/assets/icons/ext';
 
-const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, size: string, onLoad: any, onError: any, props: any}) => {
+const LayeredFileIcon = ({src, extension, size, onLoad, onError, ...props}: {src: string, extension: string, size: string, onLoad: any, onError: any, props: any}) => {
+	const IconMapping = {
+		rs: <Icons.rust viewBox='0 0 16 16' height='40%' width='40%' />,
+		go: <Icons.go viewBox='0 0 16 16' height='40%' width='40%' />,
+	}
+	const IconComponent = ({ extension }: { extension: keyof typeof IconMapping }) => {
+		return IconMapping[extension];
+	};
 	return (
 		<div className='relative'>
 			<img
@@ -10,9 +17,11 @@ const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, s
 				decoding={size ? 'async' : 'sync'}
 				draggable={false}
 			/>
-			<div className='flex absolute bottom-0 right-0 h-full w-full items-end justify-end pb-4 pr-2'>
-				<Icons.go viewBox='0 0 16 16' height='40%' width='40%' />
-			</div>
+			{IconMapping.hasOwnProperty(extension) && (
+				<div className='flex absolute bottom-0 right-0 h-full w-full items-end justify-end pb-4 pr-2'>
+					<IconComponent extension={extension as keyof typeof IconMapping} />
+				</div>
+			)}
 		</div>
 	)
 }
