@@ -1,9 +1,7 @@
-import clsx from 'clsx';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button, tw } from '@sd/ui';
-import DotPattern from './DotPattern';
 import { MagicCard, MagicContainer } from './MagicCard';
 
 const Heading = tw.h1`z-30 text-center font-semibold leading-tight text-white text-lg`;
@@ -46,7 +44,7 @@ const BentoBoxes = () => {
 		 md:mt-[220px] lg:grid lg:grid-cols-6"
 		>
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
-				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 				<>
 					<div className="relative z-20">
 						<Heading>Encryption</Heading>
@@ -75,7 +73,7 @@ const BentoBoxes = () => {
 						height={230}
 						src="/images/bento/tags.webp"
 					/>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 
 					<div className="relative z-[40] mt-5">
 						<Heading>Powerful tags</Heading>
@@ -94,7 +92,7 @@ const BentoBoxes = () => {
 							Easily find your files and folders through our search
 						</Text>
 					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 					<Image
 						className="mx-auto brightness-110"
 						alt="Search"
@@ -107,7 +105,7 @@ const BentoBoxes = () => {
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
 				<>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 					<Image
 						className="mx-auto brightness-125"
 						alt="Library"
@@ -131,7 +129,7 @@ const BentoBoxes = () => {
 							Send files to other devices quickly and easily
 						</Text>
 					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 					<Image
 						className="mx-auto brightness-125"
 						alt="Spacedrop"
@@ -181,12 +179,11 @@ const BentoBoxes = () => {
 					<Image
 						className="relative z-30 mx-auto"
 						alt="crossplatform"
-						width={460}
+						width={400}
 						height={100}
 						src="/images/bento/platforms.webp"
 						quality={100}
 					/>
-					<DotPattern className="opacity-30" />
 					<div
 						className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
 					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
@@ -198,7 +195,7 @@ const BentoBoxes = () => {
 							everywhere.
 						</Text>
 					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
 				</>
 			</BentoBox>
 		</MagicContainer>
