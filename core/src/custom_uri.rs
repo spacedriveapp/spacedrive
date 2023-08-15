@@ -280,6 +280,18 @@ async fn handle_file(
 		"avif" | "avci" | "avcs" => "image/avif",
 		// TEXT document
 		"txt" => "text/plain",
+		// HTML Code
+		"html" | "htm" => "text/html",
+		// CSS Code
+		"css" => "text/css",
+		// Javascript Code
+		"js" => "text/javascript",
+		// PHP Code
+		"php" => "application/x-httpd-php",
+		// PYTHON Code
+		"py" => "text/x-python",
+		// SHELL Code
+		"sh" => "application/x-sh",
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
 				"TODO: This filetype is not supported because of the missing mime type!",
