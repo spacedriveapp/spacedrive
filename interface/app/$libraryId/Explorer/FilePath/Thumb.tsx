@@ -337,7 +337,6 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 							/>
 						);
 					default:
-						console.log(kind, props.data.item.extension)
 						return (
 							kind !== 'Code' ?
 								<img
