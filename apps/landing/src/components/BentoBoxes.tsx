@@ -176,14 +176,16 @@ const BentoBoxes = () => {
 			</BentoBox>
 			<BentoBox colSpan={3} className="p-6">
 				<>
-					<Image
-						className="relative z-30 mx-auto"
-						alt="crossplatform"
-						width={400}
-						height={100}
-						src="/images/bento/platforms.webp"
-						quality={100}
-					/>
+					<div className="flex h-[80%] w-auto items-center justify-center">
+						<Image
+							className="relative z-30 mx-auto bottom-3"
+							alt="crossplatform"
+							width={440}
+							height={100}
+							src="/images/bento/platforms.webp"
+							quality={100}
+						/>
+					</div>
 					<div
 						className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
 					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
