@@ -348,7 +348,7 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									draggable={false}
 								/>
 								:
-								<LayeredFileIcon src={src} onLoad={onLoad} onError={() => setLoaded(false)} className={clsx(childClassName, props.className)} />
+								<LayeredFileIcon src={src} extension={props.data.item.extension} onLoad={onLoad} onError={() => setLoaded(false)} className={clsx(childClassName, props.className)} />
 						);
 				}
 			})()}
