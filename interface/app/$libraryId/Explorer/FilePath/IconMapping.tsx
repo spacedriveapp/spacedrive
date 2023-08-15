@@ -1,19 +1,20 @@
 import * as Icons from '@sd/assets/icons/ext';
+import React from 'react';
 
-export const IconMapping: Record<string, React.ReactElement> = {
-	rs: <Icons.rust viewBox="0 0 16 16" height="40%" width="40%" />,
-	go: <Icons.go viewBox="0 0 16 16" height="40%" width="40%" />,
-	html: <Icons.html viewBox="0 0 16 16" height="40%" width="40%" />,
-	css: <Icons.css viewBox="0 0 16 16" height="40%" width="40%" />,
-	scss: <Icons.scss viewBox="0 0 16 16" height="40%" width="40%" />,
-	js: <Icons.js viewBox="0 0 16 16" height="40%" width="40%" />,
-	jsx: <Icons.js viewBox="0 0 16 16" height="40%" width="40%" />,
-	ts: <Icons.tsx viewBox="0 0 16 16" height="40%" width="40%" />,
-	tsx: <Icons.tsx viewBox="0 0 16 16" height="40%" width="40%" />,
-	vue: <Icons.vue viewBox="0 0 16 16" height="40%" width="40%" />,
-	swift: <Icons.swift viewBox="0 0 16 16" height="40%" width="40%" />,
-	php: <Icons.php viewBox="0 0 16 16" height="40%" width="40%" />,
-	py: <Icons.python viewBox="0 0 16 16" height="40%" width="40%" />,
-	rb: <Icons.ruby viewBox="0 0 16 16" height="40%" width="40%" />,
-	sh: <Icons.shell viewBox="0 0 16 16" height="40%" width="40%" />
+export const IconMapping: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
+	rs: Icons.rust,
+	go: Icons.go,
+	html: Icons.html,
+	css: Icons.css,
+	scss: Icons.scss,
+	js: Icons.js,
+	jsx: Icons.js,
+	ts: Icons.tsx,
+	tsx: Icons.tsx,
+	vue: Icons.vue,
+	swift: Icons.swift,
+	php: Icons.php,
+	py: Icons.python,
+	rb: Icons.ruby,
+	sh: Icons.shell
 };

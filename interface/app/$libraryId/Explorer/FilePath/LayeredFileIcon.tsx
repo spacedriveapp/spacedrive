@@ -1,4 +1,4 @@
-import { IconMapping } from "./IconMapping";
+import { IconMapping } from './IconMapping';
 
 const LayeredFileIcon = ({
 	src,
@@ -15,9 +15,7 @@ const LayeredFileIcon = ({
 	onError: any;
 	props: any;
 }) => {
-	const IconComponent = ({ extension }: { extension: keyof typeof IconMapping }) => {
-		return IconMapping[extension];
-	};
+	const IconComponent = IconMapping[extension];
 	return (
 		<div className="relative">
 			<img
@@ -27,9 +25,9 @@ const LayeredFileIcon = ({
 				decoding={size ? 'async' : 'sync'}
 				draggable={false}
 			/>
-			{IconMapping.hasOwnProperty(extension) && (
+			{IconComponent !== undefined && (
 				<div className="absolute bottom-0 right-0 flex h-full w-full items-end justify-end pb-4 pr-2">
-					<IconComponent extension={extension as keyof typeof IconMapping} />
+					<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
 				</div>
 			)}
 		</div>
