@@ -44,7 +44,7 @@ const BentoBoxes = () => {
 		 md:mt-[220px] lg:grid lg:grid-cols-6"
 		>
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				<>
 					<div className="relative z-20">
 						<Heading>Encryption</Heading>
@@ -73,7 +73,7 @@ const BentoBoxes = () => {
 						height={230}
 						src="/images/bento/tags.webp"
 					/>
-					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 
 					<div className="relative z-[40] mt-5">
 						<Heading>Powerful tags</Heading>
@@ -92,7 +92,7 @@ const BentoBoxes = () => {
 							Easily find your files and folders through our search
 						</Text>
 					</div>
-					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 					<Image
 						className="mx-auto brightness-110"
 						alt="Search"
@@ -105,7 +105,7 @@ const BentoBoxes = () => {
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
 				<>
-					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 					<Image
 						className="mx-auto brightness-125"
 						alt="Library"
@@ -129,7 +129,7 @@ const BentoBoxes = () => {
 							Send files to other devices quickly and easily
 						</Text>
 					</div>
-					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 					<Image
 						className="mx-auto brightness-125"
 						alt="Spacedrop"
@@ -178,9 +178,9 @@ const BentoBoxes = () => {
 				<>
 					<div className="flex h-[80%] w-auto items-center justify-center">
 						<Image
-							className="relative z-30 mx-auto bottom-3"
+							className="relative bottom-2 z-30 mx-auto"
 							alt="crossplatform"
-							width={440}
+							width={500}
 							height={100}
 							src="/images/bento/platforms.webp"
 							quality={100}
@@ -197,7 +197,7 @@ const BentoBoxes = () => {
 							everywhere.
 						</Text>
 					</div>
-					<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				</>
 			</BentoBox>
 		</MagicContainer>

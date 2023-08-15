@@ -172,12 +172,12 @@ export default function HomePage() {
 					</div>
 					<div>
 						<div
-							className="xl2:relative z-30 mt-[50px] flex h-[255px] w-full px-6
+							className="xl2:relative z-30 flex h-[255px] w-full px-6
 						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-[628px]"
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center top-[410px] w-[400px] xs:top-[360px] md:top-[130px] md:w-auto"
+								className="absolute-horizontal-center top-[380px] w-[400px] xs:top-[360px] md:top-[130px] md:w-auto"
 								width={1200}
 								height={626}
 								alt="l"
