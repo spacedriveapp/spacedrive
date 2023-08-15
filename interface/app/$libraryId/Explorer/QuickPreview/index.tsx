@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import FileThumb from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { getExplorerStore } from '../store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
@@ -106,15 +106,13 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
 													{'name' in item && item.name
 														? item.name
-														: 'Unkown Object'}
+														: 'Unknown Object'}
 												</span>
 											</Dialog.Title>
 										</nav>
 										<div className="flex h-full w-full shrink items-center justify-center overflow-hidden">
 											<FileThumb
-												size={0}
 												data={explorerItem.current}
-												className="w-full"
 												loadOriginal
 												mediaControls
 											/>

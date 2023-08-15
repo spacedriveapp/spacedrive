@@ -60,7 +60,7 @@
 		"react-router": "6.9.0",
 		"react-router-dom": "6.9.0",
 		"react-scroll-sync": "^0.11.0",
-		"react-selecto": "^1.22.3",
+		"react-selecto": "^1.26.0",
 		"react-sticky-el": "^2.1.0",
 		"react-use-draggable-scroll": "^0.4.7",
 		"remix-params-helper": "^0.4.10",

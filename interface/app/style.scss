@@ -12,6 +12,20 @@ body {
 	@apply bg-app;
 }
 
+.frame::before {
+	@apply bg-app-frame;
+	content: '';
+	pointer-events: none;
+	user-select: none;
+	position: absolute;
+	inset: 0px;
+	border-radius: inherit;
+	padding: 1px;
+	mask: linear-gradient(black, black) content-box content-box, linear-gradient(black, black);
+	mask-composite: xor;
+	z-index: 9999;
+}
+
 .has-blur-effects {
 	.app-background {
 		// adjust macOS blur intensity here
