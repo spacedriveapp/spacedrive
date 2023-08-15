@@ -29,6 +29,7 @@ export type Procedures = {
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
+        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: number[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
@@ -41,7 +42,7 @@ export type Procedures = {
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
-        { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
+        { key: "files.updateAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
@@ -96,7 +97,7 @@ export type CRDTOperationType = SharedOperation | RelationOperation
 /**
  * Meow
  */
-export type Category = "Recents" | "Favorites" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
+export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
 
 export type ChangeNodeNameArgs = { name: string | null }
 

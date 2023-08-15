@@ -280,9 +280,8 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   echo "Download ffmpeg build..."
   _page=1
   while [ $_page -gt 0 ]; do
-    # TODO: Filter only actions triggered by the main branch
     _success=$(gh_curl "${_gh_url}/${_sd_gh_path}/actions/workflows/ffmpeg-macos.yml/runs?page=${_page}&per_page=100&status=success" \
-      | jq -r '. as $raw | .workflow_runs | if length == 0 then error("Error: \($raw)") else .[] | .artifacts_url end' \
+      | jq -r '. as $raw | .workflow_runs | if length == 0 then error("Error: \($raw)") else .[] | select(.head_branch == "main") | .artifacts_url end' \
       | while IFS= read -r _artifacts_url; do
         if _artifact_path="$(
           gh_curl "$_artifacts_url" \

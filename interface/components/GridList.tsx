@@ -1,121 +1,175 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import clsx from 'clsx';
-import React, {
-	HTMLAttributes,
-	PropsWithChildren,
-	ReactNode,
-	cloneElement,
-	createContext,
-	useContext,
-	useRef
-} from 'react';
+import React, { ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
 import { RefObject, useEffect, useMemo, useState } from 'react';
-import Selecto, { SelectoProps } from 'react-selecto';
-import { useBoundingclientrect, useIntersectionObserverRef, useKey, useKeys } from 'rooks';
+import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { TOP_BAR_HEIGHT } from '~/app/$libraryId/TopBar';
 
-type GridListSelection = number | number[];
-interface GridListDefaults<T extends GridListSelection> {
+type ItemData = any | undefined;
+type ItemId = number | string;
+
+export interface GridListItem<IdT extends ItemId = number, DataT extends ItemData = undefined> {
+	index: number;
+	id: IdT;
+	row: number;
+	column: number;
+	rect: Omit<DOMRect, 'toJSON'>;
+	data: DataT;
+}
+
+export interface UseGridListProps<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	count: number;
-	scrollRef: RefObject<HTMLElement>;
+	ref: RefObject<HTMLElement>;
 	padding?: number | { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
-	children: (props: {
-		index: number;
-		item: (props: GridListItemProps) => JSX.Element;
-	}) => JSX.Element | null;
-	selected?: T;
-	onSelectedChange?: (change: T) => void;
-	selectable?: boolean;
-	onSelect?: (index: number) => void;
-	onDeselect?: (index: number) => void;
 	overscan?: number;
 	top?: number;
-	onLoadMore?: () => void;
 	rowsBeforeLoadMore?: number;
-	preventSelection?: boolean;
-	preventContextMenuSelection?: boolean;
-}
-interface WrapProps<T extends GridListSelection> extends GridListDefaults<T> {
-	size: number | { width: number; height: number };
-}
-
-interface ResizeProps<T extends GridListSelection> extends GridListDefaults<T> {
-	columns: number;
+	onLoadMore?: () => void;
+	getItemId?: (index: number) => IdT | undefined;
+	getItemData?: (index: number) => DataT;
+	size?: number | { width: number; height: number };
+	columns?: number;
 }
 
-type GridListProps<T extends GridListSelection> = WrapProps<T> | ResizeProps<T>;
-
-export const GridList = <T extends GridListSelection>({
-	selectable = true,
+export const useGridList = <IdT extends ItemId = number, DataT extends ItemData = undefined>({
+	padding,
+	gap,
+	size,
+	columns,
+	ref,
+	getItemId,
+	getItemData,
 	...props
-}: GridListProps<T>) => {
-	const scrollBarWidth = 6;
+}: UseGridListProps<IdT, DataT>) => {
+	const { width } = useResizeObserver({ ref });
 
-	const multiSelect = Array.isArray(props.selected);
+	const paddingX = (typeof padding === 'object' ? padding.x : padding) || 0;
+	const paddingY = (typeof padding === 'object' ? padding.y : padding) || 0;
 
-	const paddingX = (typeof props.padding === 'object' ? props.padding.x : props.padding) || 0;
-	const paddingY = (typeof props.padding === 'object' ? props.padding.y : props.padding) || 0;
+	const gapX = (typeof gap === 'object' ? gap.x : gap) || 0;
+	const gapY = (typeof gap === 'object' ? gap.y : gap) || 0;
 
-	const gapX = (typeof props.gap === 'object' ? props.gap.x : props.gap) || 0;
-	const gapY = (typeof props.gap === 'object' ? props.gap.y : props.gap) || 0;
+	const itemWidth = size ? (typeof size === 'object' ? size.width : size) : undefined;
+	const itemHeight = size ? (typeof size === 'object' ? size.height : size) : undefined;
 
-	const itemWidth =
-		'size' in props
-			? typeof props.size === 'object'
-				? props.size.width
-				: props.size
-			: undefined;
+	const gridWidth = width ? width - (paddingX || 0) * 2 : 0;
 
-	const itemHeight =
-		'size' in props
-			? typeof props.size === 'object'
-				? props.size.height
-				: props.size
-			: undefined;
+	let columnCount = columns || 0;
 
-	const ref = useRef<HTMLDivElement>(null);
+	if (!columns && itemWidth) {
+		let columns = Math.floor(gridWidth / itemWidth);
+		if (gapX) columns = Math.floor((gridWidth - (columns - 1) * gapX) / itemWidth);
+		columnCount = columns;
+	}
 
-	const { width = 0 } = useResizeObserver({ ref: ref });
+	const rowCount = columnCount > 0 ? Math.ceil(props.count / columnCount) : 0;
 
-	const rect = useBoundingclientrect(ref);
+	const virtualItemWidth =
+		columnCount > 0 ? (gridWidth - (columnCount - 1) * gapX) / columnCount : 0;
 
-	const selecto = useRef<Selecto>(null);
-
-	const [scrollOptions, setScrollOptions] = React.useState<SelectoProps['scrollOptions']>();
-	const [listOffset, setListOffset] = useState(0);
-
-	const gridWidth = width - (paddingX || 0) * 2;
-
-	// Virtualizer count calculation
-	const amountOfColumns =
-		'columns' in props ? props.columns : itemWidth ? Math.floor(gridWidth / itemWidth) : 0;
-	const amountOfRows = amountOfColumns > 0 ? Math.ceil(props.count / amountOfColumns) : 0;
-
-	// Virtualizer item size calculation
-	const virtualItemWidth = amountOfColumns > 0 ? gridWidth / amountOfColumns : 0;
 	const virtualItemHeight = itemHeight || virtualItemWidth;
 
+	const getItem = useCallback(
+		(index: number) => {
+			if (index < 0 || index >= props.count) return;
+
+			const id = getItemId?.(index) || index;
+
+			const data = getItemData?.(index) as DataT;
+
+			const column = index % columnCount;
+			const row = Math.floor(index / columnCount);
+
+			const x = paddingX + (column !== 0 ? gapX : 0) * column + virtualItemWidth * column;
+			const y = paddingY + (row !== 0 ? gapY : 0) * row + virtualItemHeight * row;
+
+			const item: GridListItem<typeof id, DataT> = {
+				index,
+				id,
+				data,
+				row,
+				column,
+				rect: {
+					height: virtualItemHeight,
+					width: virtualItemWidth,
+					x,
+					y,
+					top: y,
+					bottom: y + virtualItemHeight,
+					left: x,
+					right: x + virtualItemWidth
+				}
+			};
+
+			return item;
+		},
+		[
+			columnCount,
+			props.count,
+			gapX,
+			gapY,
+			getItemId,
+			getItemData,
+			paddingX,
+			paddingY,
+			virtualItemHeight,
+			virtualItemWidth
+		]
+	);
+
+	return {
+		columnCount,
+		rowCount,
+		width: gridWidth,
+		padding: { x: paddingX, y: paddingY },
+		gap: { x: gapX, y: gapY },
+		itemHeight,
+		itemWidth,
+		virtualItemHeight,
+		virtualItemWidth,
+		getItem,
+		...props
+	};
+};
+
+export interface GridListProps {
+	grid: ReturnType<typeof useGridList>;
+	scrollRef: RefObject<HTMLElement>;
+	children: (index: number) => ReactNode;
+}
+
+export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
+	const ref = useRef<HTMLDivElement>(null);
+
+	const [listOffset, setListOffset] = useState(0);
+
+	const getHeight = useCallback(
+		(index: number) => grid.virtualItemHeight + (index !== 0 ? grid.gap.y : 0),
+		[grid.virtualItemHeight, grid.gap.y]
+	);
+
+	const getWidth = useCallback(
+		(index: number) => grid.virtualItemWidth + (index !== 0 ? grid.gap.x : 0),
+		[grid.virtualItemWidth, grid.gap.x]
+	);
+
 	const rowVirtualizer = useVirtualizer({
-		count: amountOfRows,
-		getScrollElement: () => props.scrollRef.current,
-		estimateSize: () => virtualItemHeight,
-		measureElement: () => virtualItemHeight,
-		paddingStart: paddingY,
-		paddingEnd: paddingY,
-		overscan: props.overscan,
+		count: grid.rowCount,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: getHeight,
+		paddingStart: grid.padding.y,
+		paddingEnd: grid.padding.y,
+		overscan: grid.overscan,
 		scrollMargin: listOffset
 	});
 
 	const columnVirtualizer = useVirtualizer({
 		horizontal: true,
-		count: amountOfColumns,
-		getScrollElement: () => props.scrollRef.current,
-		estimateSize: () => virtualItemWidth,
-		measureElement: () => virtualItemWidth,
-		paddingStart: paddingX,
-		paddingEnd: paddingX
+		count: grid.columnCount,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: getWidth,
+		paddingStart: grid.padding.x,
+		paddingEnd: grid.padding.x
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
@@ -125,7 +179,7 @@ export const GridList = <T extends GridListSelection>({
 	useEffect(() => {
 		rowVirtualizer.measure();
 		columnVirtualizer.measure();
-	}, [rowVirtualizer, columnVirtualizer, virtualItemWidth, virtualItemHeight]);
+	}, [rowVirtualizer, columnVirtualizer, grid.virtualItemWidth, grid.virtualItemHeight]);
 
 	// Force recalculate range
 	// https://github.com/TanStack/virtual/issues/485
@@ -134,143 +188,30 @@ export const GridList = <T extends GridListSelection>({
 		rowVirtualizer.calculateRange();
 		// @ts-ignore
 		columnVirtualizer.calculateRange();
-	}, [amountOfRows, amountOfColumns, rowVirtualizer, columnVirtualizer]);
 
-	// Set Selecto scroll options
-	useEffect(() => {
-		setScrollOptions({
-			container: props.scrollRef.current!,
-			getScrollPosition: () => {
-				// FIXME: Eslint is right here.
-				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-				return [props.scrollRef.current?.scrollLeft!, props.scrollRef.current?.scrollTop!];
-			},
-			throttleTime: 30,
-			threshold: 0
-		});
-	}, []);
-
-	// Check Selecto scroll
-	useEffect(() => {
-		const handleScroll = () => {
-			selecto.current?.checkScroll();
-		};
-
-		props.scrollRef.current?.addEventListener('scroll', handleScroll);
-		return () => props.scrollRef.current?.removeEventListener('scroll', handleScroll);
-	}, []);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [rowVirtualizer, columnVirtualizer, grid.columnCount, grid.rowCount]);
 
 	useEffect(() => {
-		setListOffset(ref.current?.offsetTop || 0);
-	}, [rect]);
-
-	// Handle key Selection
-	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		!props.preventSelection && e.preventDefault();
-
-		if (!selectable || !props.onSelectedChange || props.preventSelection) return;
-
-		const selectedItems = selecto.current?.getSelectedTargets() || [
-			...document.querySelectorAll<HTMLDivElement>(`[data-selected="true"]`)
-		];
-
-		const lastItem = selectedItems[selectedItems.length - 1];
-
-		if (lastItem) {
-			const currentIndex = Number(lastItem.getAttribute('data-selectable-index'));
-			let newIndex = currentIndex;
-
-			switch (e.key) {
-				case 'ArrowUp':
-					newIndex += -amountOfColumns;
-					break;
-				case 'ArrowDown':
-					newIndex += amountOfColumns;
-					break;
-				case 'ArrowRight':
-					newIndex += 1;
-					break;
-				case 'ArrowLeft':
-					newIndex += -1;
-					break;
-			}
-
-			const newSelectedItem = document.querySelector<HTMLDivElement>(
-				`[data-selectable-index="${newIndex}"]`
-			);
-
-			if (newSelectedItem) {
-				if (!multiSelect) {
-					const id = Number(newSelectedItem.getAttribute('data-selectable-id'));
-					props.onSelectedChange(id as T);
-				} else {
-					const addToGridListSelection = e.shiftKey;
-
-					selecto.current?.setSelectedTargets([
-						...(addToGridListSelection ? selectedItems : []),
-						newSelectedItem
-					]);
-
-					props.onSelectedChange(
-						[...(addToGridListSelection ? selectedItems : []), newSelectedItem].map(
-							(el) => Number(el.getAttribute('data-selectable-id'))
-						) as T
-					);
-				}
-
-				if (props.scrollRef.current) {
-					const direction = newIndex > currentIndex ? 'down' : 'up';
-
-					const itemRect = newSelectedItem.getBoundingClientRect();
-					const scrollRect = props.scrollRef.current.getBoundingClientRect();
-
-					const paddingTop = parseInt(
-						getComputedStyle(props.scrollRef.current).paddingTop
-					);
-
-					const top = props.top ? paddingTop + props.top : paddingTop;
-
-					switch (direction) {
-						case 'up': {
-							if (itemRect.top < top) {
-								props.scrollRef.current.scrollBy({
-									top: itemRect.top - top - paddingY - 1,
-									behavior: 'smooth'
-								});
-							}
-							break;
-						}
-						case 'down': {
-							if (itemRect.bottom > scrollRect.height) {
-								props.scrollRef.current.scrollBy({
-									top: itemRect.bottom - scrollRect.height + paddingY + 1,
-									behavior: 'smooth'
-								});
-							}
-							break;
-						}
-					}
-				}
-			}
-		}
-	});
-
-	useEffect(() => {
-		if (props.onLoadMore) {
+		if (grid.onLoadMore) {
 			const lastRow = virtualRows[virtualRows.length - 1];
 			if (lastRow) {
-				const rowsBeforeLoadMore = props.rowsBeforeLoadMore || 1;
+				const rowsBeforeLoadMore = grid.rowsBeforeLoadMore || 1;
 
 				const loadMoreOnIndex =
-					rowsBeforeLoadMore > amountOfRows ||
-					lastRow.index > amountOfRows - rowsBeforeLoadMore
-						? amountOfRows - 1
-						: amountOfRows - rowsBeforeLoadMore;
+					rowsBeforeLoadMore > grid.rowCount ||
+					lastRow.index > grid.rowCount - rowsBeforeLoadMore
+						? grid.rowCount - 1
+						: grid.rowCount - rowsBeforeLoadMore;
 
-				if (lastRow.index === loadMoreOnIndex) props.onLoadMore();
+				if (lastRow.index === loadMoreOnIndex) grid.onLoadMore();
 			}
 		}
-	}, [virtualRows, amountOfRows, props.rowsBeforeLoadMore, props.onLoadMore]);
+	}, [virtualRows, grid.rowCount, grid.rowsBeforeLoadMore, grid.onLoadMore, grid]);
+
+	useMutationObserver(scrollRef, () => setListOffset(ref.current?.offsetTop ?? 0));
+
+	useLayoutEffect(() => setListOffset(ref.current?.offsetTop ?? 0), []);
 
 	return (
 		<div
@@ -280,155 +221,46 @@ export const GridList = <T extends GridListSelection>({
 				height: `${rowVirtualizer.getTotalSize()}px`
 			}}
 		>
-			{multiSelect && (
-				<Selecto
-					ref={selecto}
-					dragContainer={ref.current}
-					boundContainer={ref.current}
-					selectableTargets={['[data-selectable]']}
-					toggleContinueSelect={'shift'}
-					hitRate={0}
-					scrollOptions={scrollOptions}
-					onDragStart={(e) => {
-						if (e.inputEvent.target.nodeName === 'BUTTON') {
-							return false;
-						}
-						return true;
-					}}
-					onScroll={(e) => {
-						selecto.current;
-						props.scrollRef.current?.scrollBy(
-							e.direction[0]! * 10,
-							e.direction[1]! * 10
-						);
-					}}
-					onSelect={(e) => {
-						const set = new Set(props.selected as number[]);
+			{grid.width > 0 &&
+				virtualRows.map((virtualRow) => (
+					<React.Fragment key={virtualRow.index}>
+						{virtualColumns.map((virtualColumn) => {
+							const index = virtualRow.index * grid.columnCount + virtualColumn.index;
 
-						e.removed.forEach((el) => {
-							set.delete(Number(el.getAttribute('data-selectable-id')));
-						});
+							if (index >= grid.count) return null;
 
-						e.added.forEach((el) => {
-							set.add(Number(el.getAttribute('data-selectable-id')));
-						});
-
-						props.onSelectedChange?.([...set] as T);
-					}}
-				/>
-			)}
-
-			{width !== 0 && (
-				<SelectoContext.Provider value={selecto}>
-					{virtualRows.map((virtualRow) => (
-						<React.Fragment key={virtualRow.index}>
-							{virtualColumns.map((virtualColumn) => {
-								const index =
-									virtualRow.index * amountOfColumns + virtualColumn.index;
-								const item = props.children({ index, item: GridListItem });
-
-								if (!item) return null;
-								return (
+							return (
+								<div
+									key={virtualColumn.index}
+									style={{
+										position: 'absolute',
+										top: 0,
+										left: 0,
+										width: `${virtualColumn.size}px`,
+										height: `${virtualRow.size}px`,
+										transform: `translateX(${
+											virtualColumn.start
+										}px) translateY(${
+											virtualRow.start - rowVirtualizer.options.scrollMargin
+										}px)`,
+										paddingLeft: virtualColumn.index !== 0 ? grid.gap.x : 0,
+										paddingTop: virtualRow.index !== 0 ? grid.gap.y : 0
+									}}
+								>
 									<div
-										key={virtualColumn.index}
+										className="m-auto"
 										style={{
-											position: 'absolute',
-											top: 0,
-											left: 0,
-											width: `${virtualColumn.size}px`,
-											height: `${virtualRow.size}px`,
-											transform: `translateX(${
-												virtualColumn.start
-											}px) translateY(${
-												virtualRow.start -
-												rowVirtualizer.options.scrollMargin
-											}px)`
+											width: grid.itemWidth || '100%',
+											height: grid.itemHeight || '100%'
 										}}
 									>
-										{cloneElement<GridListItemProps>(item, {
-											selectable: selectable && !!props.onSelectedChange,
-											index,
-											style: { width: itemWidth },
-											onMouseDown: (id) => {
-												!multiSelect && props.onSelectedChange?.(id as T);
-											},
-											onContextMenu: (id) => {
-												!props.preventContextMenuSelection &&
-													!multiSelect &&
-													props.onSelectedChange?.(id as T);
-											}
-										})}
+										{children(index)}
 									</div>
-								);
-							})}
-						</React.Fragment>
-					))}
-				</SelectoContext.Provider>
-			)}
-		</div>
-	);
-};
-
-const SelectoContext = createContext<React.RefObject<Selecto>>(undefined!);
-const useSelecto = () => useContext(SelectoContext);
-
-interface GridListItemProps
-	extends PropsWithChildren,
-		Omit<HTMLAttributes<HTMLDivElement>, 'id' | 'onMouseDown' | 'onContextMenu'> {
-	selectable?: boolean;
-	index?: number;
-	selected?: boolean;
-	id?: number;
-	onMouseDown?: (id: number) => void;
-	onContextMenu?: (id: number) => void;
-}
-
-const GridListItem = ({ className, children, style, ...props }: GridListItemProps) => {
-	const ref = useRef<HTMLDivElement>(null);
-	const selecto = useSelecto();
-
-	useEffect(() => {
-		if (props.selectable && props.selected && selecto.current) {
-			const current = selecto.current.getSelectedTargets();
-			selecto.current?.setSelectedTargets([
-				...current.filter(
-					(el) => el.getAttribute('data-selectable-id') !== String(props.id)
-				),
-				ref.current!
-			]);
-		}
-	}, []);
-
-	const selectableProps = props.selectable
-		? {
-				'data-selectable': '',
-				'data-selectable-id': props.id || props.index,
-				'data-selectable-index': props.index,
-				'data-selected': props.selected
-		  }
-		: {};
-
-	return (
-		<div
-			ref={ref}
-			{...selectableProps}
-			style={style}
-			className={clsx('mx-auto h-full', className)}
-			onMouseDown={(e) => {
-				e.stopPropagation();
-				if (e.button === 0 && props.onMouseDown && props.selectable) {
-					const id = props.id || props.index;
-					if (id) props.onMouseDown(id);
-				}
-			}}
-			onContextMenu={() => {
-				if (props.onContextMenu && props.selectable) {
-					const id = props.id || props.index;
-					if (id) props.onContextMenu(id);
-				}
-			}}
-		>
-			{children}
+								</div>
+							);
+						})}
+					</React.Fragment>
+				))}
 		</div>
 	);
 };

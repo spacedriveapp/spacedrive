@@ -13,9 +13,10 @@ import { usePageLayoutContext } from '../PageLayout/Context';
 import CategoryButton from './CategoryButton';
 import { IconForCategory } from './data';
 
-const CategoryList = [
+export const CategoryList = [
 	'Recents',
 	'Favorites',
+	'Albums',
 	'Photos',
 	'Videos',
 	'Movies',
@@ -25,11 +26,11 @@ const CategoryList = [
 	'Encrypted',
 	'Projects',
 	'Applications',
-	'Archives',
+	// 'Archives',
 	'Databases',
 	'Games',
 	'Books',
-	'Contacts',
+	// 'Contacts',
 	'Trash'
 ] as Category[];
 
@@ -70,7 +71,7 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	return (
 		<Sticky
 			scrollElement={pageRef.current || undefined}
-			stickyClassName="z-10 !top-[46px]"
+			stickyClassName="z-20 !top-[46px]"
 			topOffset={-46}
 		>
 			<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">

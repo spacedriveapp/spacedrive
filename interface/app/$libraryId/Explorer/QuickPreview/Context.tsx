@@ -1,18 +1,18 @@
-import { PropsWithChildren, RefObject, createContext, useContext, useRef } from 'react';
+import { PropsWithChildren, createContext, useContext, useState } from 'react';
 
 interface QuickPreviewContext {
-	ref: RefObject<HTMLDivElement>;
+	ref: HTMLDivElement | null;
 }
 
 const QuickPreviewContext = createContext<QuickPreviewContext | null>(null);
 
 export const QuickPreviewContextProvider = ({ children }: PropsWithChildren) => {
-	const ref = useRef<HTMLDivElement>(null);
+	const [ref, setRef] = useState<HTMLDivElement | null>(null);
 
 	return (
 		<QuickPreviewContext.Provider value={{ ref }}>
 			{children}
-			<div ref={ref} />
+			<div ref={setRef} />
 		</QuickPreviewContext.Provider>
 	);
 };

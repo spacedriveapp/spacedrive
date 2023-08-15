@@ -6,7 +6,8 @@ import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
-	Favorites: iconNames.HeartFlat,
+	Favorites: iconNames.Heart,
+	Albums: iconNames.Album,
 	Photos: iconNames.Image,
 	Videos: iconNames.Video,
 	Movies: iconNames.Movie,
@@ -16,8 +17,8 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 	Applications: iconNames.Application,
 	Games: iconNames.Game,
 	Books: iconNames.Book,
-	Encrypted: iconNames.EncryptedLock,
-	Archives: iconNames.Database,
+	Encrypted: iconNames.Lock,
+	Databases: iconNames.Database,
 	Projects: iconNames.Folder,
 	Trash: iconNames.Trash
 };
@@ -102,12 +103,12 @@ export function useItems(category: Category) {
 
 	return isObjectQuery
 		? {
-				items: objectsItems,
+				items: objectsItems ?? null,
 				query: objectsQuery,
 				loadMore
 		  }
 		: {
-				items: pathsItems,
+				items: pathsItems ?? null,
 				query: pathsQuery,
 				loadMore
 		  };

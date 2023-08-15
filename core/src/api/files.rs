@@ -14,6 +14,7 @@ use crate::{
 		erase::FileEraserJobInit,
 	},
 	prisma::{file_path, location, object},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::path::Path;
@@ -24,8 +25,8 @@ use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::fs;
-use tracing::error;
+use tokio::{fs, io};
+use tracing::{error, warn};
 
 use super::{Ctx, R};
 
@@ -129,12 +130,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
-				.mutation(|(_, library), id: i32| async move {
+				.mutation(|(_, library), ids: Vec<i32>| async move {
 					library
 						.db
 						.object()
-						.update(
-							object::id::equals(id),
+						.update_many(
+							vec![object::id::in_vec(ids)],
 							vec![object::date_accessed::set(Some(Utc::now().into()))],
 						)
 						.exec()
@@ -176,10 +177,76 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(node, library), args: FileDeleterJobInit| async move {
-					Job::new(args)
-						.spawn(&node, &library)
-						.await
-						.map_err(Into::into)
+					match args.file_path_ids.len() {
+						0 => Ok(()),
+						1 => {
+							let (maybe_location, maybe_file_path) = library
+								.db
+								._batch((
+									library
+										.db
+										.location()
+										.find_unique(location::id::equals(args.location_id))
+										.select(location::select!({ path })),
+									library
+										.db
+										.file_path()
+										.find_unique(file_path::id::equals(args.file_path_ids[0]))
+										.select(file_path_to_isolate::select()),
+								))
+								.await?;
+
+							let location_path = maybe_missing(
+								maybe_location
+									.ok_or(LocationError::IdNotFound(args.location_id))?
+									.path,
+								"location.path",
+							)
+							.map_err(LocationError::from)?;
+
+							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
+								FilePathError::IdNotFound(args.file_path_ids[0]),
+							))?;
+
+							let full_path = Path::new(&location_path).join(
+								IsolatedFilePathData::try_from(&file_path)
+									.map_err(LocationError::MissingField)?,
+							);
+
+							match if maybe_missing(file_path.is_dir, "file_path.is_dir")
+								.map_err(LocationError::MissingField)?
+							{
+								fs::remove_dir_all(&full_path).await
+							} else {
+								fs::remove_file(&full_path).await
+							} {
+								Ok(()) => Ok(()),
+								Err(e) if e.kind() == io::ErrorKind::NotFound => {
+									warn!(
+										"File not found in the file system, will remove from database: {}",
+										full_path.display()
+									);
+									library
+										.db
+										.file_path()
+										.delete(file_path::id::equals(args.file_path_ids[0]))
+										.exec()
+										.await
+										.map_err(LocationError::from)?;
+
+									Ok(())
+								}
+								Err(e) => {
+									Err(LocationError::from(FileIOError::from((full_path, e)))
+										.into())
+								}
+							}
+						}
+						_ => Job::new(args)
+							.spawn(&node, &library)
+							.await
+							.map_err(Into::into),
+					}
 				})
 		})
 		.procedure("eraseFiles", {
