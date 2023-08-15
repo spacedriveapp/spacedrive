@@ -1,6 +1,6 @@
 import * as Icons from '@sd/assets/icons/ext';
 
-export const IconMapping = {
+export const IconMapping: Record<string, React.ReactElement> = {
 	rs: <Icons.rust viewBox="0 0 16 16" height="40%" width="40%" />,
 	go: <Icons.go viewBox="0 0 16 16" height="40%" width="40%" />,
 	html: <Icons.html viewBox="0 0 16 16" height="40%" width="40%" />,
