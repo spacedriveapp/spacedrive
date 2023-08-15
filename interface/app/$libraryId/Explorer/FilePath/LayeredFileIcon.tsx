@@ -1,4 +1,4 @@
-import * as Icons from '@sd/assets/icons/ext/bearded-icons/icons/index';
+import * as Icons from '@sd/assets/icons/ext';
 
 const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, size: string, onLoad: any, onError: any, props: any}) => {
 	return (
@@ -11,7 +11,7 @@ const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, s
 				draggable={false}
 			/>
 			<div className='flex absolute top-0 left-0 h-full w-full items-center justify-center mt-3'>
-				<Icons.rust viewBox='0 0 16 16' height='50%' width='50%' />
+				<Icons.go viewBox='0 0 16 16' height='50%' width='50%' />
 			</div>
 		</div>
 	)

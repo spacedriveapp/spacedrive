@@ -13,7 +13,7 @@ import { dirname, join } from 'path';
 import prettier from 'prettier';
 import { fileURLToPath } from 'url';
 
-const assetFolders = ['icons', 'images', 'svgs/brands', 'icons/ext/bearded-icons/icons'];
+const assetFolders = ['icons', 'images', 'svgs/brands', 'icons/ext'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,7 +34,7 @@ assetFolders.forEach((folder) => {
 		.filter((fileName) => fileName !== 'index.ts' && fileName !== 'ext' && !/(^|\/)\.[^\/\.]/g.test(fileName))
 		.map((fileName) => {
 			const variableName = fileName.split('.')[0].replace(/-/g, '');
-			if (folder.startsWith('svgs') || folder.startsWith('icons/ext/')) {
+			if (folder.startsWith('svgs') || folder.startsWith('icons/ext')) {
 				return `import { ReactComponent as ${variableName} } from './${fileName}';`;
 			}
 			return `import ${variableName} from './${fileName}';`;
