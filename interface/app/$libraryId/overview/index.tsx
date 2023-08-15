@@ -1,14 +1,16 @@
 import { getIcon } from '@sd/assets/util';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Category } from '@sd/client';
 import { useIsDark } from '../../../hooks';
 import { ExplorerContext } from '../Explorer/Context';
 import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
+import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
 import { useExplorerStore } from '../Explorer/store';
+import { useExplorer } from '../Explorer/useExplorer';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
@@ -43,24 +45,23 @@ export const Component = () => {
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const { items, query, loadMore } = useItems(selectedCategory);
+	const { items, loadMore } = useItems(selectedCategory);
 
-	const [selectedItemId, setSelectedItemId] = useState<number>();
-
-	const selectedItem = useMemo(
-		() => (selectedItemId ? items?.find((item) => item.item.id === selectedItemId) : undefined),
-		[selectedItemId, items]
-	);
+	const explorer = useExplorer({
+		items,
+		loadMore,
+		scrollRef: page.ref
+	});
 
 	useEffect(() => {
-		if (page?.ref.current) {
-			const { scrollTop } = page.ref.current;
-			if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
-		}
-	}, [selectedCategory, page?.ref]);
+		if (!page.ref.current) return;
+
+		const { scrollTop } = page.ref.current;
+		if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
+	}, [selectedCategory, page.ref]);
 
 	return (
-		<ExplorerContext.Provider value={{}}>
+		<ExplorerContext.Provider value={explorer}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 
 			<Statistics />
@@ -69,28 +70,12 @@ export const Component = () => {
 
 			<div className="flex flex-1">
 				<View
-					items={query.isLoading ? null : items || []}
-					// TODO: Fix this type here.
-					scrollRef={page?.ref as any}
-					onLoadMore={loadMore}
-					rowsBeforeLoadMore={5}
-					selected={selectedItemId}
-					onSelectedChange={setSelectedItemId}
 					top={68}
 					className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
 					contextMenu={
-						selectedItem ? (
-							<ContextMenu
-								item={selectedItem}
-								extra={({ object }) => (
-									<>
-										{object && (
-											<ObjectItems.RemoveFromRecents object={object} />
-										)}
-									</>
-								)}
-							/>
-						) : null
+						<ContextMenu>
+							{() => <Conditional items={[ObjectItems.RemoveFromRecents]} />}
+						</ContextMenu>
 					}
 					emptyNotice={
 						<div className="flex h-full flex-col items-center justify-center text-white">
@@ -111,9 +96,8 @@ export const Component = () => {
 
 				{explorerStore.showInspector && (
 					<Inspector
-						data={selectedItem}
 						showThumbnail={explorerStore.layoutMode !== 'media'}
-						className="custom-scroll inspector-scroll sticky top-[68px] h-auto w-[260px] shrink-0 self-start bg-app pb-4 pl-1.5 pr-1"
+						className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] shrink-0 bg-app pb-4 pl-1.5 pr-1"
 					/>
 				)}
 			</div>

@@ -103,12 +103,12 @@ export function useItems(category: Category) {
 
 	return isObjectQuery
 		? {
-				items: objectsItems,
+				items: objectsItems ?? null,
 				query: objectsQuery,
 				loadMore
 		  }
 		: {
-				items: pathsItems,
+				items: pathsItems ?? null,
 				query: pathsQuery,
 				loadMore
 		  };

@@ -26,6 +26,17 @@ export type CutCopyType = 'Cut' | 'Copy';
 export type FilePathSearchOrderingKeys = UnionKeys<FilePathSearchOrdering> | 'none';
 export type ObjectSearchOrderingKeys = UnionKeys<ObjectSearchOrdering> | 'none';
 
+type CutCopyState =
+	| {
+			type: 'Idle';
+	  }
+	| {
+			type: 'Cut' | 'Copy';
+			sourceParentPath: string; // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
+			sourceLocationId: number;
+			sourcePathIds: number[];
+	  };
+
 const state = {
 	layoutMode: 'grid' as ExplorerLayoutMode,
 	gridItemSize: 110,
@@ -34,21 +45,16 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	mediaPlayerVolume: 0.7,
-	multiSelectIndexes: [] as number[],
 	newThumbnails: proxySet() as Set<string>,
-	cutCopyState: {
-		sourceParentPath: '', // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
-		sourceLocationId: 0,
-		sourcePathId: 0,
-		actionType: 'Cut',
-		active: false
-	},
+	cutCopyState: { type: 'Idle' } as CutCopyState,
 	quickViewObject: null as ExplorerItem | null,
 	mediaColumns: 8,
 	mediaAspectSquare: false,
 	orderBy: 'dateCreated' as FilePathSearchOrderingKeys,
 	orderByDirection: 'Desc' as SortOrder,
-	groupBy: 'none'
+	groupBy: 'none',
+	isDragging: false,
+	gridGap: 8
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {
@@ -78,9 +84,6 @@ export function getExplorerStore() {
 }
 
 export function isCut(id: number) {
-	return (
-		explorerStore.cutCopyState.active &&
-		explorerStore.cutCopyState.actionType === 'Cut' &&
-		explorerStore.cutCopyState.sourcePathId === id
-	);
+	const state = explorerStore.cutCopyState;
+	return state.type === 'Cut' && state.sourcePathIds.includes(id);
 }

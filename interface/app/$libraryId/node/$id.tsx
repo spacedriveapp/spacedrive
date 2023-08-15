@@ -5,6 +5,7 @@ import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContext } from '../Explorer/Context';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { useExplorer } from '../Explorer/useExplorer';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
@@ -14,17 +15,18 @@ export const Component = () => {
 
 	const nodeState = useBridgeQuery(['nodeState']);
 
+	const explorer = useExplorer({
+		items: query.data || null,
+		parent: nodeState.data
+			? {
+					type: 'Node',
+					node: nodeState.data
+			  }
+			: undefined
+	});
+
 	return (
-		<ExplorerContext.Provider
-			value={{
-				parent: nodeState.data
-					? {
-							type: 'Node',
-							node: nodeState.data
-					  }
-					: undefined
-			}}
-		>
+		<ExplorerContext.Provider value={explorer}>
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
@@ -42,7 +44,7 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer items={query.data || []} />
+			<Explorer />
 		</ExplorerContext.Provider>
 	);
 };
