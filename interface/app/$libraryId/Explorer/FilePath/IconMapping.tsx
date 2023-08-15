@@ -1,4 +1,4 @@
-import * as Icons from '@sd/assets/icons/ext';
+import * as Icons from '@sd/assets/svgs/ext';
 import React from 'react';
 
 export const IconMapping: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {

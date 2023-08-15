@@ -13,7 +13,7 @@ import { dirname, join } from 'path';
 import prettier from 'prettier';
 import { fileURLToPath } from 'url';
 
-const assetFolders = ['icons', 'images', 'svgs/brands', 'icons/ext'];
+const assetFolders = ['icons', 'images', 'svgs/brands', 'svgs/ext'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,10 +31,10 @@ assetFolders.forEach((folder) => {
 
 	// Generate the import statements for each asset.
 	const assetImports = fileNames
-		.filter((fileName) => fileName !== 'index.ts' && fileName !== 'ext' && !/(^|\/)\.[^\/\.]/g.test(fileName))
+		.filter((fileName) => fileName !== 'index.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
 		.map((fileName) => {
 			const variableName = fileName.split('.')[0].replace(/-/g, '');
-			if (folder.startsWith('svgs') || folder.startsWith('icons/ext')) {
+			if (folder.startsWith('svgs')) {
 				return `import { ReactComponent as ${variableName} } from './${fileName}';`;
 			}
 			return `import ${variableName} from './${fileName}';`;
@@ -43,7 +43,7 @@ assetFolders.forEach((folder) => {
 
 	// Generate the export statements for each asset.
 	const assetExports = fileNames
-		.filter((fileName) => fileName !== 'index.ts' && fileName !== 'ext' && !/(^|\/)\.[^\/\.]/g.test(fileName))
+		.filter((fileName) => fileName !== 'index.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
 		.map((fileName) => {
 			const variableName = fileName.split('.')[0].replace(/-/g, '');
 			return `${variableName},`;
