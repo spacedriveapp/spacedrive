@@ -26,7 +26,8 @@ const Section = tw.div`space-y-0.5`;
 
 export default () => {
 	const os = useOperatingSystem();
-	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	// const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const isBackupsEnabled = useFeatureFlag('backups');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
@@ -57,7 +58,7 @@ export default () => {
 						<Icon component={PaintBrush} />
 						Appearance
 					</SidebarLink>
-					<SidebarLink to="client/backups">
+					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
 						<Icon component={Database} />
 						Backups
 					</SidebarLink>
