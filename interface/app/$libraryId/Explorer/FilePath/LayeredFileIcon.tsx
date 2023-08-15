@@ -10,8 +10,8 @@ const LayeredFileIcon = ({src, size, onLoad, onError, ...props}: {src: string, s
 				decoding={size ? 'async' : 'sync'}
 				draggable={false}
 			/>
-			<div className='flex absolute top-0 left-0 h-full w-full items-center justify-center mt-3'>
-				<Icons.go viewBox='0 0 16 16' height='50%' width='50%' />
+			<div className='flex absolute bottom-0 right-0 h-full w-full items-end justify-end pb-4 pr-2'>
+				<Icons.go viewBox='0 0 16 16' height='40%' width='40%' />
 			</div>
 		</div>
 	)
