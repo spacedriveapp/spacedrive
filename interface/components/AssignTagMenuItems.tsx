@@ -2,7 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
-import { useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
+import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
 import {
 	ContextMenu,
 	DropdownMenu,
@@ -16,15 +16,17 @@ import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
-export default (props: { objectId: number }) => {
+export default (props: { objects: Object[] }) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], {
-		suspense: true
-	});
+	// Map<tag::id, Vec<object::id>>
+	const tagsWithObjects = useLibraryQuery([
+		'tags.getWithObjects',
+		props.objects.map(({ id }) => id)
+	]);
 
 	const assignTag = useLibraryMutation('tags.assign', {
 		onSuccess: () => {
@@ -55,9 +57,7 @@ export default (props: { objectId: number }) => {
 				iconProps={{ size: 15 }}
 				keybind={keybind([ModifierKeys.Control], ['N'])}
 				onClick={() => {
-					dialogManager.create((dp) => (
-						<CreateDialog {...dp} assignToObject={props.objectId} />
-					));
+					dialogManager.create((dp) => <CreateDialog {...dp} objects={props.objects} />);
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
@@ -80,9 +80,16 @@ export default (props: { objectId: number }) => {
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 							const tag = tags.data[virtualRow.index];
-							const active = !!tagsForObject.data?.find((t) => t.id === tag?.id);
-
 							if (!tag) return null;
+
+							const objectsWithTag = tagsWithObjects.data?.[tag?.id];
+
+							// only unassign if all objects have tag
+							// this is the same functionality as finder
+							const unassign = objectsWithTag?.length === props.objects.length;
+
+							// TODO: UI to differentiate tag assigning when some objects have tag when no objects have tag - ENG-965
+
 							return (
 								<Menu.Item
 									key={virtualRow.index}
@@ -94,12 +101,24 @@ export default (props: { objectId: number }) => {
 										height: `${virtualRow.size}px`,
 										transform: `translateY(${virtualRow.start}px)`
 									}}
-									onClick={(e) => {
+									onClick={async (e) => {
 										e.preventDefault();
-										assignTag.mutate({
+
+										await assignTag.mutateAsync({
+											unassign,
 											tag_id: tag.id,
-											object_ids: [props.objectId],
-											unassign: active
+											object_ids: unassign
+												? // use objects that already have tag
+												  objectsWithTag
+												: // use objects that don't have tag
+												  props.objects
+														.filter(
+															(o) =>
+																!objectsWithTag?.some(
+																	(ot) => ot === o.id
+																)
+														)
+														.map((o) => o.id)
 										});
 									}}
 								>
@@ -107,7 +126,11 @@ export default (props: { objectId: number }) => {
 										className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
 										style={{
 											backgroundColor:
-												active && tag.color ? tag.color : 'transparent',
+												objectsWithTag &&
+												objectsWithTag.length > 0 &&
+												tag.color
+													? tag.color
+													: 'transparent',
 											borderColor: tag.color || '#efefef'
 										}}
 									/>
