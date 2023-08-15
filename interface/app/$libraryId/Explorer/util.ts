@@ -3,6 +3,7 @@ import { ExplorerItem, FilePathSearchOrdering, getExplorerItemData } from '@sd/c
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 import { flattenThumbnailKey, useExplorerStore } from './store';
+import { ExplorerItemHash } from './useExplorer';
 
 export function useExplorerOrder(): FilePathSearchOrdering | undefined {
 	const explorerStore = useExplorerStore();
@@ -46,4 +47,8 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 
 		return itemData;
 	}, [explorerItem, newThumbnail]);
+}
+
+export function explorerItemHash(item: ExplorerItem): ExplorerItemHash {
+	return `${item.type}:${item.item.id}`;
 }

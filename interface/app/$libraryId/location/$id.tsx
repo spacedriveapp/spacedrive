@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
 	useLibraryContext,
 	useLibraryQuery,
@@ -8,18 +8,19 @@ import {
 } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { useZodRouteParams } from '~/hooks';
+import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContext } from '../Explorer/Context';
-import ContextMenu, { FilePathItems } from '../Explorer/ContextMenu';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { getExplorerStore, useExplorerStore } from '../Explorer/store';
+import { useExplorer } from '../Explorer/useExplorer';
 import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
+
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 
 	const location = useLibraryQuery(['locations.get', locationId]);
@@ -37,17 +38,27 @@ export const Component = () => {
 
 	const { items, loadMore } = useItems({ locationId });
 
+	const explorer = useExplorer({
+		items,
+		loadMore,
+		parent: location.data
+			? {
+					type: 'Location',
+					location: location.data
+			  }
+			: undefined
+	});
+
+	useEffect(() => {
+		// Using .call to silence eslint exhaustive deps warning.
+		// If clearSelectedItems referenced 'this' then this wouldn't work
+		explorer.resetSelectedItems.call(undefined);
+	}, [explorer.resetSelectedItems, path]);
+
+	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
+
 	return (
-		<ExplorerContext.Provider
-			value={{
-				parent: location.data
-					? {
-							type: 'Location',
-							location: location.data
-					  }
-					: undefined
-			}}
-		>
+		<ExplorerContext.Provider value={explorer}>
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
@@ -67,25 +78,7 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer
-				items={items}
-				onLoadMore={loadMore}
-				contextMenu={(item) => (
-					<ContextMenu
-						item={item}
-						extra={({ filePath }) => (
-							<>
-								{filePath && location.data && (
-									<FilePathItems.CutCopyItems
-										locationId={location.data.id}
-										filePath={filePath}
-									/>
-								)}
-							</>
-						)}
-					/>
-				)}
-			/>
+			<Explorer />
 		</ExplorerContext.Provider>
 	);
 };
@@ -130,11 +123,11 @@ const useItems = ({ locationId }: { locationId: number }) => {
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
-	function loadMore() {
+	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {
-			query.fetchNextPage();
+			query.fetchNextPage.call(undefined);
 		}
-	}
+	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
 	return { query, items, loadMore };
 };
