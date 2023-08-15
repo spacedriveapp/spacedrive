@@ -176,14 +176,14 @@ fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, Backup
 		.expect("Time went backwards")
 		.as_millis();
 
-	let bkp_path = backups_dir.join(&format!("{id}.bkp"));
+	let bkp_path = backups_dir.join(format!("{id}.bkp"));
 	let mut bkp_file = BufWriter::new(File::create(&bkp_path)?);
 
 	// Header. We do this so the file is self-sufficient.
 	Header {
 		id,
 		timestamp,
-		library_id: library.id.clone(),
+		library_id: library.id,
 		library_name: library.config.name.to_string(),
 	}
 	.write(&mut bkp_file)?;
@@ -247,13 +247,13 @@ fn restore_backup(node: &Arc<Node>, path: PathBuf) -> Result<Header, BackupError
 	let db_path = temp_dir.path().join("library.db");
 
 	fs::copy(
-		&library_path,
+		library_path,
 		node.libraries
 			.libraries_dir
 			.join(format!("{}.sdlibrary", header.library_id)),
 	)?;
 	fs::copy(
-		&db_path,
+		db_path,
 		node.libraries
 			.libraries_dir
 			.join(format!("{}.db", header.library_id)),
