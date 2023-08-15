@@ -295,6 +295,7 @@ where
 
 impl Header {
 	fn write(&self, file: &mut impl Write) -> Result<(), io::Error> {
+		// For future versioning we can bump `1` to `2` and match on it in the decoder.
 		file.write_all(b"sdbkp1")?;
 		file.write_all(&self.id.to_bytes_le())?;
 		file.write_all(&self.timestamp.to_le_bytes())?;
@@ -311,7 +312,7 @@ impl Header {
 
 	fn read(file: &mut impl Read) -> Result<Self, BackupError> {
 		let mut buf = vec![0u8; 6 + 16 + 16 + 16 + 4];
-		file.read_exact(&mut buf[..])?;
+		file.read_exact(&mut buf)?;
 		if &buf[..6] != b"sdbkp1" {
 			return Err(BackupError::MalformedHeader);
 		}
@@ -341,7 +342,7 @@ impl Header {
 				);
 
 				let mut name = vec![0; len as usize];
-				file.read_exact(&mut name[..])?;
+				file.read_exact(&mut name)?;
 				String::from_utf8(name).map_err(|_| BackupError::MalformedHeader)?
 			},
 		})
