@@ -278,6 +278,8 @@ async fn handle_file(
 		"heic" | "heics" => "image/heic,image/heic-sequence",
 		// AVIF images
 		"avif" | "avci" | "avcs" => "image/avif",
+		// TEXT document
+		"txt" => "text/plain",
 		_ => {
 			return Err(HandleCustomUriError::BadRequest(
 				"TODO: This filetype is not supported because of the missing mime type!",

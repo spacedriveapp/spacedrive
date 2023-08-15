@@ -68,9 +68,14 @@ export default ({ tag, onDelete }: Props) => {
 					</Tooltip>
 				</Button>
 			</div>
-			<Setting mini title="Show in Spaces" description="Show this tag on the spaces screen.">
-				<Switch checked />
-			</Setting>
+			<div className='flex flex-col gap-2'>
+				<Setting mini title="Hide in Library search" description="Hide files with this tag from results when searching entire library.">
+					<Switch />
+				</Setting>
+				<Setting mini title="Hide in sidebar" description="Prevent this tag from showing in the sidebar of the app.">
+					<Switch />
+				</Setting>
+			</div>
 		</Form>
 	);
 };

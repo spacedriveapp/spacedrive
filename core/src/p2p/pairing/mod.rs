@@ -129,8 +129,7 @@ impl PairingManager {
 						.get_all()
 						.await
 						.into_iter()
-						.find(|i| i.id == library_id)
-						.is_some()
+						.any(|i| i.id == library_id)
 					{
 						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
 
@@ -246,7 +245,7 @@ impl PairingManager {
 			.send(P2PEvent::PairingRequest {
 				id: pairing_id,
 				name: remote_instance.node_name.clone(),
-				os: remote_instance.node_platform.clone().into(),
+				os: remote_instance.node_platform.into(),
 			})
 			.ok();
 
@@ -329,7 +328,7 @@ impl PairingManager {
 		};
 
 		P2PManager::resync_handler(
-			node.nlm.clone(),
+			&node.nlm,
 			&mut stream,
 			peer_id,
 			self.metadata_manager.get().instances,
@@ -339,9 +338,7 @@ impl PairingManager {
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 
-		node.nlm
-			.alert_new_ops(library_id, &library.sync.clone())
-			.await;
+		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 
 		stream.flush().await.unwrap();
 	}

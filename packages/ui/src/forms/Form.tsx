@@ -34,6 +34,7 @@ export const Form = <T extends FieldValues>({
 			<form
 				onSubmit={(e) => {
 					e.stopPropagation();
+					e.preventDefault();
 					return onSubmit?.(e);
 				}}
 				{...props}

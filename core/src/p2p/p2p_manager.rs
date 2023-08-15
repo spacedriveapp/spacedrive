@@ -10,7 +10,7 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	Discovery, Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
+	Discovery, Event, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
 use serde::Serialize;
 use specta::Type;
@@ -65,7 +65,7 @@ pub enum P2PEvent {
 
 pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
-	pub manager: Arc<Manager<PeerMetadata>>,
+	pub manager: Arc<sd_p2p::Manager<PeerMetadata>>,
 	pub discovery: Arc<Discovery<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
@@ -85,7 +85,7 @@ impl P2PManager {
 			(Self::config_to_metadata(&config, vec![]), config.keypair)
 		};
 
-		let (manager, stream) = Manager::new(SPACEDRIVE_APP_ID, &keypair).await?;
+		let (manager, stream) = sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair).await?;
 
 		// TODO: move this discovery stuff into nlm -> Cause delayed metadata loading
 		let metadata_manager = MetadataManager::new(config);
@@ -260,9 +260,6 @@ impl P2PManager {
 											.await;
 									}
 									Header::Sync(library_id) => {
-										// Header -> Tunnel -> SyncMessage
-										use sd_core_sync::ingest;
-
 										let mut tunnel = Tunnel::responder(stream).await.unwrap();
 
 										let msg =
@@ -273,31 +270,15 @@ impl P2PManager {
 
 										dbg!(&msg);
 
-										let ingest = &library.sync.ingest;
-
 										match msg {
 											SyncMessage::NewOperations => {
-												// The ends up in `NetworkedLibraryManager::request_and_ingest_ops`.
-												// TODO: Throw tunnel around like this makes it soooo confusing.
-												ingest
-													.event_tx
-													.send(ingest::Event::Notification(
-														ingest::NotificationEvent { tunnel },
-													))
-													.await
-													.ok();
-											}
-											SyncMessage::OperationsRequest(_) => {
-												todo!("this should be received somewhere else!");
-											}
-											SyncMessage::OperationsRequestResponse(_) => {
-												todo!("unreachable but add proper error handling")
+												super::sync::responder(tunnel, library).await;
 											}
 										};
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											node.nlm.clone(),
+											&node.nlm,
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,
@@ -371,7 +352,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync_handler(
-		nlm: Arc<NetworkedLibraries>,
+		nlm: &NetworkedLibraries,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,
