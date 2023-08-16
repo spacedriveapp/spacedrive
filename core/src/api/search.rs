@@ -281,6 +281,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				cursor: Option<Vec<u8>>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
+				#[serde(default = "default_group_directories")]
+				group_directories: bool,
+			}
+
+			fn default_group_directories() -> bool {
+				true
 			}
 
 			R.with2(library()).query(
@@ -290,6 +296,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     order,
 				     cursor,
 				     filter,
+				     group_directories,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
@@ -300,6 +307,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.find_many(filter.into_params(db).await?)
 						.take(take as i64 + 1);
 
+					// WARN: this order_by for grouping directories MUST always come before the other order_by
+					if group_directories {
+						query = query.order_by(file_path::is_dir::order(prisma::SortOrder::Desc));
+					}
+
+					// WARN: this order_by for sorting data MUST always come after the other order_by
 					if let Some(order) = order {
 						query = query.order_by(order.into_param());
 					}
