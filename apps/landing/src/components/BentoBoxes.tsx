@@ -45,14 +45,14 @@ const BentoBoxes = () => {
 		>
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
 				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
-				<>
-					<div className="relative z-20">
-						<Heading>Encryption</Heading>
-						<Text className="mx-auto max-w-[417px]">
-							Your files and folders are fully encrypted through our algorithm,
-							preventing unauthorized access and guaranteed protection.
-						</Text>
-					</div>
+				<div className="relative z-20">
+					<Heading>Encryption</Heading>
+					<Text className="mx-auto max-w-[417px]">
+						Your files and folders are fully encrypted through our algorithm, preventing
+						unauthorized access and guaranteed protection.
+					</Text>
+				</div>
+				<div className="flex h-[80%] w-auto items-start justify-center">
 					<Image
 						className="mx-auto"
 						alt="Encryption"
@@ -61,38 +61,38 @@ const BentoBoxes = () => {
 						quality={100}
 						src="/images/bento/lock.webp"
 					/>
-				</>
+				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<>
+				<div className="flex h-[75%] w-auto items-center justify-center">
 					<Image
 						className="mx-auto mt-3 brightness-125"
 						alt="Powerful tags"
 						width={300}
 						quality={100}
-						height={230}
+						height={100}
 						src="/images/bento/tags.webp"
 					/>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				</div>
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 
-					<div className="relative z-[40] mt-5">
-						<Heading>Powerful tags</Heading>
-						<Text>
-							Create and apply tags to your files and folders, and instantly locate
-							desired content through filterable tags.
-						</Text>
-					</div>
-				</>
+				<div className="relative z-[40] mt-2 md:mt-7">
+					<Heading>Powerful tags</Heading>
+					<Text>
+						Create and apply tags to your files and folders, and instantly locate
+						desired content through filterable tags.
+					</Text>
+				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<>
-					<div className="relative z-30">
-						<Heading>Search everything</Heading>
-						<Text className="mx-auto max-w-[417px]">
-							Easily find your files and folders through our search
-						</Text>
-					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="relative z-30">
+					<Heading>Search everything</Heading>
+					<Text className="mx-auto max-w-[417px]">
+						Easily find your files and folders through our search
+					</Text>
+				</div>
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="flex h-[80%] w-auto items-start justify-center">
 					<Image
 						className="mx-auto brightness-110"
 						alt="Search"
@@ -101,11 +101,11 @@ const BentoBoxes = () => {
 						quality={100}
 						src="/images/bento/search.webp"
 					/>
-				</>
+				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="flex h-[80%] w-auto items-center justify-center">
 					<Image
 						className="mx-auto brightness-125"
 						alt="Library"
@@ -114,22 +114,21 @@ const BentoBoxes = () => {
 						quality={100}
 						src="/images/bento/library.webp"
 					/>
-
-					<div className="relative z-30 mt-[30px]">
-						<Heading>Full Ownership & Control</Heading>
-						<Text className="mx-auto">Make Spacedrive yours</Text>
-					</div>
-				</>
+				</div>
+				<div className="relative z-30 mt-[30px]">
+					<Heading>Full Ownership & Control</Heading>
+					<Text className="mx-auto">Make Spacedrive yours</Text>
+				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<>
-					<div className="relative z-30">
-						<Heading>Spacedrop</Heading>
-						<Text className="mx-auto max-w-[417px]">
-							Send files to other devices quickly and easily
-						</Text>
-					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="relative z-30">
+					<Heading>Spacedrop</Heading>
+					<Text className="mx-auto max-w-[417px]">
+						Send files to other devices quickly and easily
+					</Text>
+				</div>
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
+				<div className="flex h-[80%] w-auto items-center justify-center">
 					<Image
 						className="mx-auto brightness-125"
 						alt="Spacedrop"
@@ -138,67 +137,62 @@ const BentoBoxes = () => {
 						quality={100}
 						src="/images/bento/spacedrop.webp"
 					/>
-				</>
+				</div>
 			</BentoBox>
 			<BentoBox
 				colSpan={3}
 				className="h-[354px] p-6 brightness-110 lg:h-auto"
 				bgUrl="images/bento/opensource-bg.webp"
 			>
-				<>
-					<div className="relative z-30">
-						<Heading>Free & Opensource</Heading>
-						<Text className="mx-auto">
-							Developers and users can contribute with new ideas and features
-						</Text>
-					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-[420px] w-full" />
-					<div className="absolute-center relative z-40 mt-[40px] md:mt-0">
-						<Link target="_blank" href="https://github.com/spacedriveapp/spacedrive">
-							<Button
-								size="lg"
-								className="contribute-drop-shadow mx-auto mb-4 block cursor-pointer border-0
+				<div className="relative z-30">
+					<Heading>Free & Opensource</Heading>
+					<Text className="mx-auto">
+						Developers and users can contribute with new ideas and features
+					</Text>
+				</div>
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-[420px] w-full" />
+				<div className="absolute-center relative z-40 mt-[40px] md:mt-0">
+					<Link target="_blank" href="https://github.com/spacedriveapp/spacedrive">
+						<Button
+							size="lg"
+							className="contribute-drop-shadow mx-auto mb-4 block cursor-pointer border-0
 							 bg-gradient-to-r from-emerald-400 to-cyan-500 text-sm text-black !transition-all !duration-200"
-							>
-								{`<>`} Contribute
-							</Button>
-						</Link>
-						<GitHubButton
-							href="https://github.com/spacedriveapp/spacedrive"
-							data-size="large"
-							data-show-count="true"
-							aria-label="Star spacedriveapp/spacedrive on GitHub"
 						>
-							Star
-						</GitHubButton>
-					</div>
-				</>
+							{`<>`} Contribute
+						</Button>
+					</Link>
+					<GitHubButton
+						href="https://github.com/spacedriveapp/spacedrive"
+						data-size="large"
+						data-show-count="true"
+						aria-label="Star spacedriveapp/spacedrive on GitHub"
+					>
+						Star
+					</GitHubButton>
+				</div>
 			</BentoBox>
 			<BentoBox colSpan={3} className="p-6">
-				<>
-					<div className="flex h-[80%] w-auto items-center justify-center">
-						<Image
-							className="relative bottom-2 z-30 mx-auto"
-							alt="crossplatform"
-							width={500}
-							height={100}
-							src="/images/bento/platforms.webp"
-							quality={100}
-						/>
-					</div>
-					<div
-						className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
-					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
+				<div className="flex h-[80%] w-auto items-center justify-center">
+					<Image
+						className="relative bottom-2 z-30 mx-auto"
+						alt="crossplatform"
+						width={500}
+						height={100}
+						src="/images/bento/platforms.webp"
+						quality={100}
 					/>
-					<div className="relative z-30">
-						<Heading>Cross platform</Heading>
-						<Text className="mx-auto max-w-[417px]">
-							Windows, macOS, Linux, iOS, Android, and the web. Spacedrive is
-							everywhere.
-						</Text>
-					</div>
-					<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
-				</>
+				</div>
+				<div
+					className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
+					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
+				/>
+				<div className="relative z-30">
+					<Heading>Cross platform</Heading>
+					<Text className="mx-auto max-w-[400px]">
+						Windows, macOS, Linux, iOS, Android, and the web. Spacedrive is everywhere.
+					</Text>
+				</div>
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 			</BentoBox>
 		</MagicContainer>
 	);

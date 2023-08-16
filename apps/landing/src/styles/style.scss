@@ -422,3 +422,48 @@ pre {
 	-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
 	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
 }
+
+//cloud storage art animation stuff
+
+.gradient-path {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+	stroke-width: 2;
+  animation: dash 2.5s ease-in-out infinite;
+}
+
+.circle-two {
+	-webkit-animation: circleFade 2.5s ease-out infinite;
+	animation: circleFade 2.5s ease-out infinite;
+}
+
+.circle-one {
+	-webkit-animation: circleFade 2.5s ease-out infinite;
+	animation: circleFade 2.5s ease-out infinite;
+}
+
+@keyframes circleFade {
+	0% {
+		opacity: 0;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 1000;
+  }
+  90% {
+    stroke-dashoffset: 0;
+  }
+	100% {
+		opacity: 0
+	}
+}
+

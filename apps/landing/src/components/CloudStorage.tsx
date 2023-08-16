@@ -1,17 +1,20 @@
 import Image from 'next/image';
 import React from 'react';
+import CloudStorageArt from './CloudStorageArt';
 
 const CloudStorage = () => {
 	return (
 		<div className="relative mt-[200px] w-full max-w-[960px] md:mt-[250px]">
-			<div className="absolute-horizontal-center top-[-100px] h-[248px] w-[500px] md:top-[-195px] md:w-[960px]">
+			<div className="absolute-horizontal-center top-[-100px] h-[248px] w-[500px] md:top-[-55px] md:w-[960px]">
+				<div className="relative right-[270px] z-10 md:right-0">
+					<CloudStorageArt />
+				</div>
 				<Image
-					width={960}
-					height={248}
-					quality={100}
-					className="mb-10"
-					alt="art"
-					src="/images/cloudstorage.webp"
+					src="/images/cloudgradient.webp"
+					className="absolute left-0 right-0 top-[-100px] mx-auto"
+					width={560}
+					height={200}
+					alt="cloud gradient"
 				/>
 			</div>
 			<div className="mt-[60px] flex w-full flex-col flex-wrap items-center justify-center gap-5 md:flex-row">
@@ -22,7 +25,7 @@ const CloudStorage = () => {
 					logoUrl="/images/google-drive.svg"
 					imageWidth={53}
 				/>
-				<div className="flex flex-col justify-center w-full gap-5 md:flex-row">
+				<div className="flex w-full flex-col justify-center gap-5 md:flex-row">
 					<CloudCard imageWidth={45} title="Mega" logoUrl="/images/mega.svg" />
 					<CloudCard title="Amazon S3" logoUrl="/images/s3.svg" imageWidth={40} />
 				</div>
