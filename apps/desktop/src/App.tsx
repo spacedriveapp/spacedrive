@@ -17,6 +17,7 @@ import {
 	routes
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
+import { Dialogs } from '@sd/ui';
 import '@sd/ui/style';
 import * as commands from './commands';
 
@@ -120,6 +121,7 @@ export default function App() {
 			<PlatformProvider platform={platform}>
 				<QueryClientProvider client={queryClient}>
 					<AppInner />
+					<Dialogs />
 				</QueryClientProvider>
 			</PlatformProvider>
 		</RspcProvider>

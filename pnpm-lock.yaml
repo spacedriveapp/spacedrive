@@ -740,8 +740,8 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0(react-dom@18.2.0)(react@18.2.0)
       react-selecto:
-        specifier: ^1.22.3
-        version: 1.22.3
+        specifier: ^1.26.0
+        version: 1.26.0
       react-sticky-el:
         specifier: ^2.1.0
         version: 2.1.0(react-dom@18.2.0)(react@18.2.0)
@@ -21001,10 +21001,10 @@ packages:
       react-dom: 18.2.0(react@18.2.0)
     dev: false
 
-  /react-selecto@1.22.3:
-    resolution: {integrity: sha512-xCBnXEfuoWx5mczCL1wqm8v8Crq3JhIh5bJO5dCrWJFQyvBv0UbN1AGYrt9ZGxsxyitRj5cPdFq/Kf3KkpsuSA==}
+  /react-selecto@1.26.0:
+    resolution: {integrity: sha512-aBTZEYA68uE+o8TytNjTb2GpIn4oKEv0U4LIow3cspJQlF/PdAnBwkq9UuiKVuFluu5kfLQ7Keu3S2Tihlmw0g==}
     dependencies:
-      selecto: 1.22.6
+      selecto: 1.26.0
     dev: false
 
   /react-shallow-renderer@16.15.0(react@18.2.0):
@@ -21863,8 +21863,8 @@ packages:
       kind-of: 6.0.3
     dev: false
 
-  /selecto@1.22.6:
-    resolution: {integrity: sha512-9LqyQWmT032JZe3Rtg/urvXbkZJV/EFLGo115KQCv7wL9nuqindmJuzFQBRTB1xUcglWavGgnFZRp7EknFZh9Q==}
+  /selecto@1.26.0:
+    resolution: {integrity: sha512-cEFKdv5rmkF6pf2OScQJllaNp4UJy/FvviB40ZaMSHrQCxC72X/Q6uhzW1tlb2RE+0danvUNJTs64cI9VXtUyg==}
     dependencies:
       '@daybrush/utils': 1.13.0
       '@egjs/children-differ': 1.0.1
