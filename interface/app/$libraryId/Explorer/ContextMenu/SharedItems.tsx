@@ -1,121 +1,143 @@
 import { FileX, Share as ShareIcon } from 'phosphor-react';
 import { useMemo } from 'react';
-import { ExplorerItem, FilePath, useLibraryContext } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
-import { usePlatform } from '~/util/Platform';
+import { isNonEmpty } from '~/util';
+import { Platform } from '~/util/Platform';
+import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
+import { ConditionalItem } from './ConditionalItem';
+import { useContextMenuContext } from './context';
 
-export const OpenQuickView = ({ item }: { item: ExplorerItem }) => {
+export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();
+	const { selectedItems } = useContextMenuContext();
 
 	return (
 		<ContextMenu.Item
 			label="Quick view"
 			keybind={keybind([], [' '])}
-			onClick={() => (getExplorerStore().quickViewObject = item)}
+			onClick={() =>
+				// using [0] is not great
+				(getExplorerStore().quickViewObject = selectedItems[0])
+			}
 		/>
 	);
 };
 
-export const Details = () => {
-	const { showInspector } = useExplorerStore();
-	const keybind = useKeybindFactory();
+export const Details = new ConditionalItem({
+	useCondition: () => {
+		const { showInspector } = useExplorerStore();
+		if (showInspector) return null;
 
-	return (
-		<>
-			{!showInspector && (
-				<ContextMenu.Item
-					label="Details"
-					keybind={keybind([ModifierKeys.Control], ['I'])}
-					// icon={Sidebar}
-					onClick={() => (getExplorerStore().showInspector = true)}
-				/>
-			)}
-		</>
-	);
-};
+		return {};
+	},
+	Component: () => {
+		const keybind = useKeybindFactory();
 
-export const Rename = () => {
-	const explorerStore = useExplorerStore();
-	const keybind = useKeybindFactory();
-	const explorerView = useExplorerViewContext();
+		return (
+			<ContextMenu.Item
+				label="Details"
+				keybind={keybind([ModifierKeys.Control], ['I'])}
+				// icon={Sidebar}
+				onClick={() => (getExplorerStore().showInspector = true)}
+			/>
+		);
+	}
+});
 
-	return (
-		<>
-			{explorerStore.layoutMode !== 'media' && (
-				<ContextMenu.Item
-					label="Rename"
-					keybind={keybind([], ['Enter'])}
-					onClick={() => explorerView.setIsRenaming(true)}
-				/>
-			)}
-		</>
-	);
-};
+export const Rename = new ConditionalItem({
+	useCondition: () => {
+		const { selectedItems } = useContextMenuContext();
+		const explorerStore = useExplorerStore();
 
-export const RevealInNativeExplorer = (props: { locationId: number } | { filePath: FilePath }) => {
-	const os = useOperatingSystem();
-	const keybind = useKeybindFactory();
-	const { revealItems } = usePlatform();
-	const { library } = useLibraryContext();
+		if (explorerStore.layoutMode === 'media' || selectedItems.length > 1) return null;
 
-	const osFileBrowserName = useMemo(() => {
-		const lookup: Record<string, string> = {
-			macOS: 'Finder',
-			windows: 'Explorer'
-		};
+		return {};
+	},
+	Component: () => {
+		const explorerView = useExplorerViewContext();
+		const keybind = useKeybindFactory();
 
-		return lookup[os] ?? 'file manager';
-	}, [os]);
+		return (
+			<ContextMenu.Item
+				label="Rename"
+				keybind={keybind([], ['Enter'])}
+				onClick={() => explorerView.setIsRenaming(true)}
+			/>
+		);
+	}
+});
 
-	return (
-		<>
-			{revealItems && (
-				<ContextMenu.Item
-					label={`Reveal in ${osFileBrowserName}`}
-					keybind={keybind([ModifierKeys.Control], ['Y'])}
-					onClick={() => (
-						console.log(props),
-						revealItems(library.uuid, [
-							'filePath' in props
-								? {
-										FilePath: {
-											id: props.filePath.id
-										}
-								  }
-								: {
-										Location: {
-											id: props.locationId
-										}
-								  }
-						])
-					)}
-				/>
-			)}
-		</>
-	);
-};
+export const RevealInNativeExplorer = new ConditionalItem({
+	useCondition: () => {
+		const { selectedItems } = useContextMenuContext();
 
-export const Deselect = () => {
-	const { cutCopyState } = useExplorerStore();
+		const items = useMemo(() => {
+			const array: Parameters<NonNullable<Platform['revealItems']>>[1] = [];
 
-	return (
+			for (const item of selectedItems) {
+				switch (item.type) {
+					case 'Path': {
+						array.push({
+							FilePath: { id: item.item.id }
+						});
+						break;
+					}
+					case 'Object': {
+						// this isn't good but it's the current behaviour
+						const filePath = item.item.file_paths[0];
+						if (filePath)
+							array.push({
+								FilePath: {
+									id: filePath.id
+								}
+							});
+						else return [];
+						break;
+					}
+					case 'Location': {
+						array.push({
+							Location: {
+								id: item.item.id
+							}
+						});
+						break;
+					}
+				}
+			}
+
+			return array;
+		}, [selectedItems]);
+
+		if (!isNonEmpty(items)) return null;
+
+		return { items };
+	},
+	Component: ({ items }) => <RevealInNativeExplorerBase items={items} />
+});
+
+export const Deselect = new ConditionalItem({
+	useCondition: () => {
+		const { cutCopyState } = useExplorerStore();
+
+		if (cutCopyState.type === 'Idle') return null;
+
+		return {};
+	},
+	Component: () => (
 		<ContextMenu.Item
 			label="Deselect"
-			hidden={!cutCopyState.active}
+			icon={FileX}
 			onClick={() => {
 				getExplorerStore().cutCopyState = {
-					...cutCopyState,
-					active: false
+					type: 'Idle'
 				};
 			}}
-			icon={FileX}
 		/>
-	);
-};
+	)
+});
 
 export const Share = () => {
 	return (

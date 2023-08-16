@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_prisma::prisma_sync;
@@ -35,6 +37,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?)
 				})
+		})
+		.procedure("getWithObjects", {
+			R.with2(library()).query(
+				|(_, library), object_ids: Vec<object::id::Type>| async move {
+					let Library { db, .. } = library.as_ref();
+
+					let tags_with_objects = db
+						.tag()
+						.find_many(vec![tag::tag_objects::some(vec![
+							tag_on_object::object_id::in_vec(object_ids.clone()),
+						])])
+						.select(tag::select!({
+							id
+							tag_objects(vec![tag_on_object::object_id::in_vec(object_ids.clone())]): select {
+								object: select {
+									id
+								}
+							}
+						}))
+						.exec()
+						.await?;
+
+					Ok(tags_with_objects
+						.into_iter()
+						.map(|tag| {
+							(
+								tag.id,
+								tag.tag_objects
+									.into_iter()
+									.map(|rel| rel.object.id)
+									.collect::<Vec<_>>(),
+							)
+						})
+						.collect::<BTreeMap<_, _>>())
+				},
+			)
 		})
 		.procedure("get", {
 			R.with2(library())
@@ -137,6 +175,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					invalidate_query!(library, "tags.getForObject");
+					invalidate_query!(library, "tags.getWithObjects");
 
 					Ok(())
 				})

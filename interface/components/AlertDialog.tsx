@@ -10,6 +10,7 @@ interface Props extends UseDialogProps {
 	value?: string; // value to be displayed as text or in an input box
 	label?: string; // button label
 	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
+	cancelBtn?: boolean; // whether the dialog should have a cancel button
 }
 
 const AlertDialog = (props: Props) => {
@@ -20,6 +21,7 @@ const AlertDialog = (props: Props) => {
 			form={useZodForm()}
 			dialog={useDialog(props)}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
+			cancelBtn={props.cancelBtn}
 			onCancelled={false}
 		>
 			{props.description && <div className="mb-3 text-sm">{props.description}</div>}
@@ -37,7 +39,7 @@ const AlertDialog = (props: Props) => {
 							}}
 							size="icon"
 						>
-							<Clipboard className="h-4 w-4" />
+							<Clipboard className="w-4 h-4" />
 						</Button>
 					}
 				/>
