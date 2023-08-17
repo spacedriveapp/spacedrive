@@ -1,11 +1,6 @@
-use exif::{Exif, In, Tag};
+use exif::Tag;
 use sd_prisma::prisma::media_data;
-use std::{
-	fs::File,
-	io::{BufReader, Cursor},
-	path::Path,
-	str::FromStr,
-};
+use std::path::Path;
 
 mod composite;
 pub(self) mod consts;
@@ -14,6 +9,7 @@ mod flash;
 mod location;
 mod orientation;
 mod profile;
+mod reader;
 mod time;
 
 pub use composite::Composite;
@@ -23,9 +19,10 @@ pub use flash::{Flash, FlashMode, FlashValue};
 pub use location::MediaLocation;
 pub use orientation::Orientation;
 pub use profile::ColorProfile;
+pub use reader::ExifReader;
 pub use time::MediaTime;
 
-use crate::{Error, Result};
+use crate::Result;
 
 #[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaDataImage {
@@ -155,53 +152,6 @@ impl MediaDataImage {
 			location: from_slice_option_to_option(data.media_location),
 			exif_version: from_slice_option_to_option(data.exif_version),
 		})
-	}
-}
-
-// pub struct MediaDataVideo;
-
-/// An [`ExifReader`]. This can get exif tags from images (either files or slices).
-pub struct ExifReader(Exif);
-
-impl ExifReader {
-	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-		let file = File::open(path)?;
-		let mut reader = BufReader::new(file);
-		Ok(Self(
-			exif::Reader::new()
-				.read_from_container(&mut reader)
-				.map_err(|_| Error::Init)?,
-		))
-	}
-
-	pub fn from_slice(slice: &[u8]) -> Result<Self> {
-		Ok(Self(
-			exif::Reader::new().read_from_container(&mut Cursor::new(slice))?,
-		))
-	}
-
-	/// A helper function which gets the target `Tag` as `T`, provided `T` impls `FromStr`.
-	///
-	/// This function strips any erroneous newlines
-	#[must_use]
-	pub fn get_tag<T>(&self, tag: Tag) -> Option<T>
-	where
-		T: FromStr,
-	{
-		self.0.get_field(tag, In::PRIMARY).map(|x| {
-			x.display_value()
-				.to_string()
-				.replace(['\\', '\"'], "")
-				.parse::<T>()
-				.ok()
-		})?
-	}
-
-	pub(crate) fn get_tag_int(&self, tag: Tag) -> Option<u32> {
-		self.0
-			.get_field(tag, In::PRIMARY)
-			.map(|x| x.value.get_uint(0))
-			.unwrap_or_default()
 	}
 }
 
