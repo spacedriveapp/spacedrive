@@ -10,9 +10,7 @@ import {
 	Tag
 } from 'phosphor-react';
 import { useEffect, useRef } from 'react';
-import { stringify } from 'uuid';
-import { ExplorerLayout, useRspcLibraryContext } from '@sd/client';
-import { useLibraryMutation } from '@sd/client';
+import { useRspcLibraryContext } from '@sd/client';
 import { KeyManager } from '../KeyManager';
 import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';

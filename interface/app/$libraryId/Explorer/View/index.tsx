@@ -35,7 +35,7 @@ import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getExplorerStore } from '../store';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -47,8 +47,6 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-
-	const location = getItemLocation(data);
 
 	const explorerConfig = useExplorerConfigStore();
 

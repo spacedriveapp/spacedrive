@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -29,7 +29,7 @@ import LocationOptions from './LocationOptions';
 
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
-
+	const queryClient = useQueryClient();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
 
@@ -62,11 +62,8 @@ export const Component = () => {
 	const onSettingsChanged = useDebouncedCallback(
 		async (settings: ExplorerSettings<FilePathSearchOrdering>) => {
 			if (!location.data) return;
-
 			const pubId = stringify(location.data.pub_id);
-
 			try {
-				console.log(settings);
 				await updatePreferences.mutateAsync({
 					location: {
 						[pubId]: {
@@ -74,6 +71,7 @@ export const Component = () => {
 						}
 					}
 				});
+				queryClient.invalidateQueries(['preferences.get']);
 			} catch (e) {
 				alert('An error has occurred while updating your preferences.');
 			}

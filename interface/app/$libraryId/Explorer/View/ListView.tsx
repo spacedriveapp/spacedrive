@@ -16,6 +16,7 @@ import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
 	ExplorerItem,
+	ExplorerSettings,
 	FilePath,
 	ObjectKind,
 	byteSize,
@@ -35,7 +36,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
 import { createOrdering, getOrderingDirection, orderingKey } from '../store';
-import { getExplorerStore, isCut, useExplorerStore } from '../store';
+import { isCut } from '../store';
 import { ExplorerItemHash } from '../useExplorer';
 import { explorerItemHash } from '../util';
 import RenamableItemText from './RenamableItemText';
@@ -93,7 +94,6 @@ type Range = [ExplorerItemHash, ExplorerItemHash];
 export default () => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const layout = useLayoutContext();
 
@@ -128,11 +128,17 @@ export default () => {
 
 	const scrollBarWidth = 8;
 	const rowHeight = 45;
-
 	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
 	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
+
+	useEffect(() => {
+		//we need this to trigger a re-render with the updated column sizes from the store
+		if (!resizing) {
+			setColumnSizing(explorer.settingsStore.colSizes);
+		}
+	}, [resizing, explorer.settingsStore.colSizes]);
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -979,6 +985,9 @@ export default () => {
 	useWindowEventListener('mouseup', () => {
 		if (resizing) {
 			setTimeout(() => {
+				//we need to update the store to trigger a DB update
+				explorer.settingsStore.colSizes =
+					columnSizing as typeof explorer.settingsStore.colSizes;
 				setResizing(false);
 				if (layout?.ref.current) {
 					layout.ref.current.style.cursor = '';
@@ -1098,7 +1107,6 @@ export default () => {
 																		header.getResizeHandler()(
 																			e
 																		);
-
 																		setResizing(true);
 																		setLocked(false);
 
