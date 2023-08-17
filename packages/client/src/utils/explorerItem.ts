@@ -1,4 +1,5 @@
-import { ExplorerItem } from '../core';
+import { useMemo } from 'react';
+import { ExplorerItem, FilePath, Object } from '../core';
 import { ObjectKind, ObjectKindKey } from './objectKind';
 
 export function getItemObject(data: ExplorerItem) {
@@ -31,3 +32,54 @@ export function getExplorerItemData(data: ExplorerItem) {
 		thumbnailKey: data.thumbnail_key
 	};
 }
+
+export const useItemsAsObjects = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		const array: Object[] = [];
+
+		for (const item of items) {
+			switch (item.type) {
+				case 'Path': {
+					if (!item.item.object) return [];
+					array.push(item.item.object);
+					break;
+				}
+				case 'Object': {
+					array.push(item.item);
+					break;
+				}
+				default:
+					return [];
+			}
+		}
+
+		return array;
+	}, [items]);
+};
+
+export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		const array: FilePath[] = [];
+
+		for (const item of items) {
+			switch (item.type) {
+				case 'Path': {
+					array.push(item.item);
+					break;
+				}
+				case 'Object': {
+					// this isn't good but it's the current behaviour
+					const filePath = item.item.file_paths[0];
+					if (filePath) array.push(filePath);
+					else return [];
+
+					break;
+				}
+				default:
+					return [];
+			}
+		}
+
+		return array;
+	}, [items]);
+};

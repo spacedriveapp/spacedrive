@@ -49,7 +49,7 @@ pub enum LibraryManagerEvent {
 /// is a singleton that manages all libraries for a node.
 pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
-	libraries_dir: PathBuf,
+	pub libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
 	// Transmit side of `self.rx` channel
@@ -304,8 +304,8 @@ impl Libraries {
 		self.libraries.read().await.get(library_id).is_some()
 	}
 
-	/// load the library from a given path
-	async fn load(
+	/// load the library from a given path.
+	pub async fn load(
 		self: &Arc<Self>,
 		id: Uuid,
 		db_path: impl AsRef<Path>,
