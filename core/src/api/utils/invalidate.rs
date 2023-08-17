@@ -143,6 +143,33 @@ macro_rules! invalidate_query {
 			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
 		))
 	}};
+	(node; $ctx:expr, $key:literal) => {{
+		let ctx: &$crate::Node = &$ctx; // Assert the context is the correct type
+
+		#[cfg(debug_assertions)]
+		{
+			#[ctor::ctor]
+			fn invalidate() {
+				$crate::api::utils::INVALIDATION_REQUESTS
+					.lock()
+					.unwrap()
+					.queries
+					.push($crate::api::utils::InvalidationRequest {
+						key: $key,
+						arg_ty: None,
+						result_ty: None,
+            			macro_src: concat!(file!(), ":", line!()),
+					})
+			}
+		}
+
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
+		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
+		ctx.event_bus.0.send($crate::api::CoreEvent::InvalidateOperation(
+			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
+		)).ok();
+	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type

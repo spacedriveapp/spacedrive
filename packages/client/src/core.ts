@@ -3,6 +3,7 @@
 
 export type Procedures = {
     queries: 
+        { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
@@ -33,6 +34,9 @@ export type Procedures = {
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
+        { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
+        { key: "backups.delete", input: string, result: null } | 
+        { key: "backups.restore", input: string, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
@@ -88,6 +92,8 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
+export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
+
 export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
@@ -135,7 +141,11 @@ export type FullRescanArgs = { location_id: number; reidentify_objects: boolean 
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
+export type GetAll = { backups: Backup[]; directory: string }
+
 export type GetArgs = { id: number }
+
+export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
