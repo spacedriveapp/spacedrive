@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { subscribe, useSnapshot } from 'valtio';
 import { valtioPersist } from '../lib/valito';
 
-export const features = ['spacedrop', 'p2pPairing', 'syncRoute'] as const;
+export const features = ['spacedrop', 'p2pPairing', 'syncRoute', 'backups'] as const;
 
-export type FeatureFlag = typeof features[number];
+export type FeatureFlag = (typeof features)[number];
 
 const featureFlagState = valtioPersist('sd-featureFlags', {
 	enabled: [] as FeatureFlag[]
@@ -23,7 +23,8 @@ export function useOnFeatureFlagsChange(callback: (flags: FeatureFlag[]) => void
 	useEffect(() => subscribe(featureFlagState, () => callback(featureFlagState.enabled)));
 }
 
-export const isEnabled = (flag: FeatureFlag) => featureFlagState.enabled.find((ff) => flag === ff);
+export const isEnabled = (flag: FeatureFlag) =>
+	featureFlagState.enabled.find((ff) => flag === ff) !== undefined;
 
 export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 	if (!Array.isArray(flags)) {
@@ -34,6 +35,10 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 			if (f === 'p2pPairing') {
 				alert(
 					'Pairing will render your database broken and it WILL need to be reset! Use at your own risk!'
+				);
+			} else if (f === 'backups') {
+				alert(
+					'Backups are done on your live DB without proper Sqlite snapshotting. This will work but it could result in unintended side effects on the backup!'
 				);
 			}
 
