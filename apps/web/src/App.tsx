@@ -41,7 +41,7 @@ const platform: Platform = {
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
-	demoMode: import.meta.env.VITE_SD_DEMO_MODE === 'true'
+	confirm: (message, cb) => cb(window.confirm(message))
 };
 
 const queryClient = new QueryClient({

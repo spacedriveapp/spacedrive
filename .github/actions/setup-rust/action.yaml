@@ -22,25 +22,22 @@ runs:
     - name: Cache Rust Dependencies
       uses: Swatinem/rust-cache@v2
       with:
-        key: ${{ inputs.targets }}
         save-if: ${{ inputs.save-cache }}
-        prefix-key: 'v0'
-        shared-key: rust-deps
-        # Windows is having disk related problems with target caching
-        cache-targets: ${{ runner.os != 'Windows' }}
+        prefix-key: 'v0-rust-deps'
+        shared-key: ${{ inputs.targets }}
 
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore
       uses: actions/cache/restore@v3
       with:
         key: prisma-1-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './crates/sync-generator/*', './Cargo.toml') }}
-        path: ./crates/prisma/src/prisma*.rs
+        path: crates/prisma/src/**/*.rs
 
     - name: Generate Prisma client
       working-directory: core
       if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       shell: bash
-      run: cargo run -p prisma-cli --bin prisma -- generate
+      run: cargo prisma generate
 
     - name: Save Prisma codegen
       id: cache-prisma-save
@@ -48,4 +45,4 @@ runs:
       uses: actions/cache/save@v3
       with:
         key: ${{ steps.cache-prisma-restore.outputs.cache-primary-key }}
-        path: ./crates/prisma/src/prisma*.rs
+        path: crates/prisma/src/**/*.rs

@@ -1,9 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import { X } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
-import { ExplorerItem } from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { FileThumb } from '../FilePath/Thumb';
 import { getExplorerStore } from '../store';
@@ -16,7 +16,7 @@ export interface QuickPreviewProps extends Dialog.DialogProps {
 }
 
 export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
-	const explorerItem = useRef<null | ExplorerItem>(null);
+	const [explorerItem, setExplorerItem] = useState<null | ExplorerItem>(null);
 	const explorerStore = getExplorerStore();
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -34,7 +34,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				const { quickViewObject } = explorerStore;
 				if (quickViewObject != null) {
 					setIsOpen(true);
-					explorerItem.current = quickViewObject;
+					setExplorerItem(quickViewObject);
 				} else {
 					setIsOpen(false);
 				}
@@ -63,9 +63,9 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				}}
 			>
 				{transitions((styles, show) => {
-					if (!show || explorerItem.current == null) return null;
+					if (!show || explorerItem == null) return null;
 
-					const { item } = explorerItem.current;
+					const { item } = explorerItem;
 
 					return (
 						<>
@@ -112,7 +112,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 										</nav>
 										<div className="flex h-full w-full shrink items-center justify-center overflow-hidden">
 											<FileThumb
-												data={explorerItem.current}
+												data={explorerItem}
 												loadOriginal
 												mediaControls
 											/>
