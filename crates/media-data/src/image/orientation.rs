@@ -1,4 +1,4 @@
-use crate::ExifReader;
+use super::ExifReader;
 use exif::Tag;
 use image_rs::DynamicImage;
 use std::path::Path;
@@ -30,20 +30,6 @@ impl Orientation {
 	pub fn from_reader(reader: &ExifReader) -> Option<Self> {
 		reader.get_tag_int(Tag::Orientation).map(Into::into)
 	}
-
-	// /// This follows the EXIF specification as to how images are supposed to be rotated/flipped/etc depending on their associated value
-	// pub(crate) const fn int_to_orientation(i: u32) -> Self {
-	// 	match i {
-	// 		2 => Self::MirroredHorizontal,
-	// 		3 => Self::CW180,
-	// 		4 => Self::MirroredVertical,
-	// 		5 => Self::MirroredHorizontalAnd270CW,
-	// 		6 => Self::CW90,
-	// 		7 => Self::MirroredHorizontalAnd90CW,
-	// 		8 => Self::CW270,
-	// 		_ => Self::Normal,
-	// 	}
-	// }
 
 	/// This is used to correct thumbnails in the thumbnailer, if we are able to source orientation data for the file at hand.
 	#[must_use]

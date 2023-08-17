@@ -7,10 +7,25 @@ use std::{
 	str::FromStr,
 };
 
-use crate::{
-	orientation::Orientation, ColorProfile, Composite, Dimensions, Error, Flash, MediaLocation,
-	MediaTime, Result,
-};
+mod composite;
+pub(self) mod consts;
+mod dimensions;
+mod flash;
+mod location;
+mod orientation;
+mod profile;
+mod time;
+
+pub use composite::Composite;
+pub use consts::DMS_DIVISION;
+pub use dimensions::Dimensions;
+pub use flash::{Flash, FlashMode, FlashValue};
+pub use location::MediaLocation;
+pub use orientation::Orientation;
+pub use profile::ColorProfile;
+pub use time::MediaTime;
+
+use crate::{Error, Result};
 
 #[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaDataImage {

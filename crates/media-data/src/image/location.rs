@@ -1,11 +1,10 @@
-use std::{fmt::Display, ops::Neg};
-
-use exif::Tag;
-
-use crate::{
+use super::{
 	consts::{DECIMAL_SF, DMS_DIVISION},
-	Error, ExifReader, Result,
+	ExifReader,
 };
+use crate::{Error, Result};
+use exif::Tag;
+use std::{fmt::Display, ops::Neg};
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
@@ -50,45 +49,6 @@ impl MediaLocation {
 			direction,
 		}
 	}
-
-	// /// Create a new [`MediaLocation`] from a latitude and longitude pair of EXIF-style strings.
-	// ///
-	// /// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
-	// ///
-	// /// # Examples
-	// ///
-	// /// ```
-	// /// use sd_media_data::MediaLocation;
-	// ///
-	// /// let x = MediaLocation::from_exif_strings("-1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
-	// /// ```
-	// pub fn from_exif_strings(lat: &str, long: &str) -> Result<Self> {
-	// 	let res = [lat, long]
-	// 		.into_iter()
-	// 		.map(ToString::to_string)
-	// 		.filter_map(|mut item| {
-	// 			item.retain(|x| {
-	// 				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
-	// 			});
-	// 			let i = item
-	// 				.split_whitespace()
-	// 				.filter_map(|x| x.parse::<f64>().ok());
-	// 			(i.clone().count() == 3)
-	// 				.then(|| i.zip(DMS_DIVISION.iter()).map(|(x, y)| x / y).sum::<f64>())
-	// 		})
-	// 		.collect::<Vec<_>>();
-
-	// 	(!res.is_empty() && res.len() == 2)
-	// 		.then(|| {
-	// 			Self::new(
-	// 				Self::format_coordinate(res[0], LAT_MAX_POS),
-	// 				Self::format_coordinate(res[1], LONG_MAX_POS),
-	// 				None,
-	// 				None,
-	// 			)
-	// 		})
-	// 		.ok_or(Error::MediaLocationParse)
-	// }
 
 	/// Create a new [`MediaLocation`] from an [`ExifReader`] instance.
 	///
@@ -154,8 +114,7 @@ impl MediaLocation {
 	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
-	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_latitude(60_f64);
 	/// ```
 	pub fn update_latitude(&mut self, lat: f64) {
@@ -164,11 +123,10 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```ignore // from exif strings has been temporarily disabled
+	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
-	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_longitude(20_f64);
 	/// ```
 	pub fn update_longitude(&mut self, long: f64) {
@@ -177,11 +135,10 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```ignore // from exif strings has been temporarily disabled
+	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
-	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_altitude(20);
 	/// ```
 	pub fn update_altitude(&mut self, altitude: i32) {
@@ -190,11 +147,10 @@ impl MediaLocation {
 
 	/// # Examples
 	///
-	/// ```ignore // from exif strings has been temporarily disabled
+	/// ```
 	/// use sd_media_data::MediaLocation;
 	///
-	/// // These are missing the GPS ref and therefore may be invalid - will require some fixing
-	/// let mut home = MediaLocation::from_exif_strings("1 deg 5 min 10.34 sec", "23 deg 39 min 14.97").unwrap();
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_direction(233);
 	/// ```
 	pub fn update_direction(&mut self, bearing: i32) {

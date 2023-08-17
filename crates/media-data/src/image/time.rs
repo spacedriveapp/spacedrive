@@ -1,11 +1,10 @@
-use std::fmt::Display;
-
-use chrono::{DateTime, FixedOffset, NaiveDateTime};
-
-use crate::{
+use super::{
 	consts::{OFFSET_TAGS, TIME_TAGS},
-	Error, ExifReader,
+	ExifReader,
 };
+use crate::Error;
+use chrono::{DateTime, FixedOffset, NaiveDateTime};
+use std::fmt::Display;
 
 pub const NAIVE_FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 

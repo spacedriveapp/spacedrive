@@ -1,6 +1,5 @@
+use super::ExifReader;
 use exif::Tag;
-
-use crate::ExifReader;
 use std::fmt::Display;
 
 #[derive(

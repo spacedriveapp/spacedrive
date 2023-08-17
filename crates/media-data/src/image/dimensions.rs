@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use exif::Tag;
 
-use crate::ExifReader;
+use super::ExifReader;
 
 #[derive(
 	Default, Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize, specta::Type,
