@@ -21,7 +21,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Event, InternalEvent, Metadata, PeerId, Service, Services,
+	Component, Components, Event, InternalEvent, Metadata, PeerId,
 };
 
 /// TODO
@@ -42,7 +42,7 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
 	/// Register a new service
-	RegisterService(Pin<Box<dyn Service>>),
+	RegisterService(Pin<Box<dyn Component>>),
 }
 
 impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction<TMetadata> {
@@ -65,7 +65,7 @@ pub struct ManagerStream<TMetadata: Metadata> {
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
-	pub(crate) services: Services,
+	pub(crate) services: Components,
 }
 
 impl<TMetadata> ManagerStream<TMetadata>

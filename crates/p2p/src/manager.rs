@@ -16,16 +16,21 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	Keypair, ManagerStream, ManagerStreamAction, Metadata, PeerId, Service,
+	Component, ConnectionState, Keypair, ManagerStream, ManagerStreamAction, Metadata, PeerId,
 };
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
+// TODO: Remove `TMetadata` through the whole system
 #[derive(Debug)]
 pub struct Manager<TMetadata: Metadata> {
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: &'static str,
 	pub(crate) spacetime_name: String,
 	pub(crate) stream_id: AtomicU64,
+
+	// TODO: Expose generic
+	pub(crate) connection_state: Arc<ConnectionState<()>>,
+
 	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
 }
 
@@ -49,6 +54,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			spacetime_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			peer_id,
+			connection_state: Arc::new(Default::default()),
 			event_stream_tx,
 		});
 
@@ -89,8 +95,19 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		))
 	}
 
+	// /// TODO: Docs
+	// // Construct or load a service.
+	// pub fn service(name: String) -> Service2 {
+	// 	todo!();
+	// }
+
+	pub fn connection_state(&self) -> Arc<ConnectionState<()>> {
+		self.connection_state.clone()
+	}
+
+	// TODO: Rename from `service`
 	// TODO: This being `async` is cringe
-	pub async fn service(&self, service: impl Service) {
+	pub async fn service(&self, service: impl Component) {
 		self.emit(ManagerStreamAction::RegisterService(Box::pin(service)))
 			.await;
 	}

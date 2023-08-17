@@ -10,7 +10,7 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	Discovery, Event, ManagerError, ManagerStream, MetadataManager, PeerId,
+	Discovery, Event, ManagerError, ManagerStream, MetadataManager, PeerId, Service,
 };
 use serde::Serialize;
 use specta::Type;
@@ -66,12 +66,14 @@ pub enum P2PEvent {
 pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<sd_p2p::Manager<PeerMetadata>>,
-	pub discovery: Arc<Discovery<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-	node_config_manager: Arc<config::Manager>,
+
+	service: Service,
+
+	node_config: Arc<config::Manager>,
 }
 
 impl P2PManager {
@@ -90,12 +92,12 @@ impl P2PManager {
 		// TODO: move this discovery stuff into nlm -> Cause delayed metadata loading
 		let metadata_manager = MetadataManager::new(config);
 		let discovery = Discovery::new(&manager, metadata_manager.clone());
-		manager.service(discovery.clone()).await;
+		let listen_addrs = discovery.listen_addrs(); // TODO: Allow accessing listen addr's from rspc
+		manager.service(discovery).await;
 
 		info!(
-			"Node '{}' is now online listening at addresses: {:?}",
+			"Node '{}' is now online listening at addresses: {listen_addrs:?}",
 			manager.peer_id(),
-			discovery.listen_addrs()
 		);
 
 		// need to keep 'rx' around so that the channel isn't dropped
@@ -112,14 +114,14 @@ impl P2PManager {
 
 		Ok((
 			Arc::new(Self {
+				service: todo!(), // TODO: manager.service(),
 				pairing,
 				events: (tx, rx),
 				manager,
-				discovery,
 				spacedrop_pairing_reqs,
 				metadata_manager,
 				spacedrop_progress,
-				node_config_manager: node_config,
+				node_config,
 			}),
 			stream,
 		))
@@ -323,7 +325,7 @@ impl P2PManager {
 	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
 		self.metadata_manager.update(Self::config_to_metadata(
-			&self.node_config_manager.get().await,
+			&self.node_config.get().await,
 			instances,
 		));
 	}

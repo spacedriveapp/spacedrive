@@ -14,7 +14,7 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
-use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId, Service};
+use crate::{Component, DiscoveredPeer, Event, Metadata, MetadataManager, PeerId};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -139,7 +139,7 @@ where
 	}
 
 	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
-	pub async fn poll(&mut self, manager: &Arc<Manager<TMetadata>>) -> Option<Event<TMetadata>> {
+	pub async fn poll(&mut self) -> Option<Event<TMetadata>> {
 		tokio::select! {
 			_ = &mut self.next_mdns_advertisement => self.advertise(),
 			_ = self.trigger_advertisement.recv() => self.advertise(),
@@ -177,7 +177,8 @@ where
 												peer
 											} else {
 												DiscoveredPeer {
-													manager: manager.clone(),
+													// TODO: Probs don't hold it
+													manager: todo!(), // manager.clone(),
 													peer_id,
 													metadata,
 													addresses: info

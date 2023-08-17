@@ -16,12 +16,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut rx = node.p2p.subscribe();
 				async_stream::stream! {
 					// TODO: Don't block subscription start
-					for peer in node.p2p.discovery.get_discovered_peers().await {
-						yield P2PEvent::DiscoveredPeer {
-							peer_id: peer.peer_id,
-							metadata: peer.metadata,
-						};
-					}
+					// for peer in node.p2p.discovery.get_discovered_peers().await {
+					// 	yield P2PEvent::DiscoveredPeer {
+					// 		peer_id: peer.peer_id,
+					// 		metadata: peer.metadata,
+					// 	};
+					// }
 
 					// // TODO: Don't block subscription start
 					// for peer in ctx.p2p_manager.get_connected_peers().await.unwrap() {

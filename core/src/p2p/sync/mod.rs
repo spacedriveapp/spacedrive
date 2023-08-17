@@ -4,7 +4,7 @@ use sd_core_sync::ingest;
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	DiscoveredPeer, PeerId,
+	DiscoveredPeer, PeerId, Service,
 };
 use sd_sync::CRDTOperation;
 use sync::GetOpsArgs;
@@ -26,20 +26,24 @@ use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 mod proto;
 pub use proto::*;
 
-#[derive(Debug, Clone, Copy)]
-pub enum InstanceState {
-	Unavailable,
-	Discovered(PeerId),
-	Connected(PeerId),
-}
+// #[derive(Debug, Clone, Copy)]
+// pub enum InstanceState {
+// 	Unavailable,
+// 	Discovered(PeerId),
+// 	Connected(PeerId),
+// }
 
-pub struct LibraryData {
-	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
-}
+// TODO: Effectively rebuild discovery to treat "service" as library here and "peer" as instance
+
+// pub struct LibraryData {
+// 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
+// }
 
 pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
-	pub(crate) libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
+	pub(crate) libraries: RwLock<HashMap<Uuid, Service>>,
+	// TODO: Removing this
+	// pub(crate) libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
 }
 
 impl NetworkedLibraries {

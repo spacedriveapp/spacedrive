@@ -1,5 +1,7 @@
 //! Rust Peer to Peer Networking Library
 
+mod component;
+mod connection_state;
 mod discovery;
 mod event;
 mod manager;
@@ -12,6 +14,8 @@ pub mod spacetime;
 pub mod spacetunnel;
 mod utils;
 
+pub use component::*;
+pub use connection_state::*;
 pub use discovery::*;
 pub use event::*;
 pub use manager::*;

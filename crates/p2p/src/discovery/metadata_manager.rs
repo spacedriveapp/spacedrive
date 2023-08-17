@@ -6,9 +6,12 @@ use tracing::warn;
 
 use crate::Metadata;
 
+// TODO: Removing this
+
 // TODO: Merging into `Discovery`?
 /// is a wrapper around `ArcSwap` and provides an API for the application to update the metadata about the current device.
 /// This wrapper exists to ensure we ask the MDNS service to re-advertise the new metadata on change.
+#[deprecated]
 pub struct MetadataManager<TMetadata: Metadata>(
 	ArcSwap<TMetadata>,
 	// Starts out `None` cause this is constructed in userspace but when passed into `Manager::new` this will be set.
@@ -28,9 +31,10 @@ impl<TMetadata: Metadata> MetadataManager<TMetadata> {
 		Arc::new(Self(ArcSwap::new(Arc::new(metadata)), OnceCell::default()))
 	}
 
-	pub(crate) async fn set_tx(&self, tx: mpsc::UnboundedSender<()>) {
-		self.1.get_or_init(move || async move { tx }).await;
-	}
+	// TODO: Replace this
+	// pub(crate) async fn set_tx(&self, tx: mpsc::UnboundedSender<()>) {
+	// 	self.1.get_or_init(move || async move { tx }).await;
+	// }
 
 	/// Returns a copy of the current metadata
 	pub fn get(&self) -> TMetadata {

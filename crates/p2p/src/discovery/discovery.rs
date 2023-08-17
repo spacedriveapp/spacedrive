@@ -1,12 +1,13 @@
 use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
+	pin::Pin,
 	sync::{Arc, PoisonError, RwLock},
 	task::{Context, Poll},
 };
 
 use crate::{
-	DiscoveredPeer, InternalEvent, Manager, Mdns, Metadata, MetadataManager, PeerId, Service,
+	Component, DiscoveredPeer, InternalEvent, Manager, Mdns, Metadata, MetadataManager, PeerId,
 };
 
 /// TODO
@@ -21,15 +22,15 @@ impl<TMetadata: Metadata> Discovery<TMetadata> {
 	pub fn new(
 		manager: &Manager<TMetadata>,
 		metadata_manager: Arc<MetadataManager<TMetadata>>,
-	) -> Arc<Self> {
-		Arc::new(Self {
+	) -> Self {
+		Self {
 			listen_addrs: Default::default(),
 			discovered: Default::default(),
 			metadata_manager: metadata_manager.clone(),
 			mdns: Mdns::new(manager.application_name, manager.peer_id, metadata_manager)
 				// TODO: Error handling
 				.unwrap(),
-		})
+		}
 	}
 
 	pub fn listen_addrs(&self) -> HashSet<SocketAddr> {
@@ -49,13 +50,13 @@ impl<TMetadata: Metadata> Discovery<TMetadata> {
 	}
 }
 
-impl<TMetadata: Metadata> Service for Arc<Discovery<TMetadata>> {
-	fn advertise(&mut self) {
+impl<TMetadata: Metadata> Component for Discovery<TMetadata> {
+	fn advertise(self: Pin<&mut Self>) {
 		// self.mdns.queue_advertisement();
 		todo!();
 	}
 
-	fn get_candidates(&mut self, peer_id: PeerId, candidates: &mut Vec<SocketAddr>) {
+	fn get_candidates(self: Pin<&mut Self>, peer_id: PeerId, candidates: &mut Vec<SocketAddr>) {
 		candidates.extend(
 			self.discovered
 				.read()
@@ -67,7 +68,7 @@ impl<TMetadata: Metadata> Service for Arc<Discovery<TMetadata>> {
 		);
 	}
 
-	fn on_event(&mut self, event: InternalEvent) {
+	fn on_event(self: Pin<&mut Self>, event: InternalEvent) {
 		match event {
 			InternalEvent::NewListenAddr(addr) => {
 				self.listen_addrs
@@ -89,7 +90,9 @@ impl<TMetadata: Metadata> Service for Arc<Discovery<TMetadata>> {
 		}
 	}
 
-	fn poll(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+		// let y = Box::pin(self.mdns.poll(cx));
+
 		// let y = self.mdns.poll(manager);
 
 		// TODO: Poll `self.mdns` properly
