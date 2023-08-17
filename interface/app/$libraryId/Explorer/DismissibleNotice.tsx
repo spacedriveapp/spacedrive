@@ -11,6 +11,7 @@ import { ExplorerLayout } from '@sd/client';
 import DismissibleNotice from '~/components/DismissibleNotice';
 import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
+import { useExplorerContext } from './Context';
 import { useExplorerStore } from './store';
 
 const MediaViewIcon = () => {
@@ -73,9 +74,9 @@ const notices = {
 } satisfies Record<ExplorerLayout, Notice | undefined>;
 
 export default () => {
-	const { layoutMode } = useExplorerStore();
+	const settings = useExplorerContext().useSettingsSnapshot();
 
-	const notice = notices[layoutMode];
+	const notice = notices[settings.layoutMode];
 
 	if (!notice) return null;
 

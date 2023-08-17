@@ -1,5 +1,8 @@
-import { RefObject, useCallback, useMemo, useRef, useState } from 'react';
-import { ExplorerItem, FilePath, Location, NodeState, Tag } from '@sd/client';
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
+import { z } from 'zod';
+import { ExplorerItem, ExplorerSettings, FilePath, Location, NodeState, Tag } from '@sd/client';
+import { Ordering, OrderingKeys, createDefaultExplorerSettings } from './store';
 import { explorerItemHash } from './util';
 
 export type ExplorerParent =
@@ -17,7 +20,7 @@ export type ExplorerParent =
 			node: NodeState;
 	  };
 
-export interface UseExplorerProps {
+export interface UseExplorerProps<TOrder extends Ordering> {
 	items: ExplorerItem[] | null;
 	parent?: ExplorerParent;
 	loadMore?: () => void;
@@ -35,6 +38,7 @@ export interface UseExplorerProps {
 	 * @defaultValue `true`
 	 */
 	selectable?: boolean;
+	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
 }
 
 export type ExplorerItemMeta = {
@@ -48,7 +52,10 @@ export type ExplorerItemHash = `${ExplorerItemMeta['type']}:${ExplorerItemMeta['
  * Controls top-level config and state for the explorer.
  * View- and inspector-specific state is not handled here.
  */
-export function useExplorer(props: UseExplorerProps) {
+export function useExplorer<TOrder extends Ordering>({
+	settings,
+	...props
+}: UseExplorerProps<TOrder>) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	return {
@@ -57,6 +64,7 @@ export function useExplorer(props: UseExplorerProps) {
 		rowsBeforeLoadMore: 5,
 		selectable: true,
 		scrollRef,
+		...settings,
 		// Provided values
 		...props,
 		// Selected items
@@ -64,7 +72,43 @@ export function useExplorer(props: UseExplorerProps) {
 	};
 }
 
-export type UseExplorer = ReturnType<typeof useExplorer>;
+export type UseExplorer<TOrder extends Ordering> = ReturnType<typeof useExplorer<TOrder>>;
+
+export function useExplorerSettings<TOrder extends Ordering>({
+	settings,
+	onSettingsChanged,
+	orderingKeys
+}: {
+	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
+	onSettingsChanged: (settings: ExplorerSettings<TOrder>) => any;
+	orderingKeys?: z.ZodUnion<
+		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
+	>;
+}) {
+	const [store] = useState(() => proxy(settings));
+
+	useEffect(() => {
+		Object.assign(store, settings);
+	}, [store, settings]);
+
+	useEffect(
+		() =>
+			subscribe(store, () => {
+				onSettingsChanged(snapshot(store) as ExplorerSettings<TOrder>);
+			}),
+		[onSettingsChanged, store]
+	);
+
+	return {
+		useSettingsSnapshot: () => useSnapshot(store),
+		settingsStore: store,
+		orderingKeys
+	};
+}
+
+export type UseExplorerSettings<TOrder extends Ordering> = ReturnType<
+	typeof useExplorerSettings<TOrder>
+>;
 
 function useSelectedItems(items: ExplorerItem[] | null) {
 	// Doing pointer lookups for hashes is a bit faster than assembling a bunch of strings
