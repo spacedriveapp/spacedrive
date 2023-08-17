@@ -221,7 +221,7 @@ if [ "$SYSNAME" = "Linux" ]; then
         'This is likely because the RPM Fusion free repository is not enabled.' \
         'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
     fi
-    
+
     sudo dnf group install "C Development Tools and Libraries"
     sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_BINDGEN_DEPS $FEDORA_LIBP2P_DEPS $FEDORA_VIDEO_DEPS
   else
@@ -301,7 +301,6 @@ elif [ "$SYSNAME" = "Darwin" ]; then
             printf 'yes'
             exit
           else
-            echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
             # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
             # https://github.com/actions/upload-artifact/issues/51
             # Use it when running in evironments that are not authenticated with github
@@ -350,10 +349,10 @@ elif [ "$SYSNAME" = "Darwin" ]; then
   (
     case "$_arch" in
       x86_64)
-        _artifact_id="702683038"
+        _artifact_id="866514594"
         ;;
       arm64)
-        _artifact_id="702683035"
+        _artifact_id="866514593"
         ;;
       *)
         err "Unsupported architecture: $_arch"
@@ -364,7 +363,6 @@ elif [ "$SYSNAME" = "Darwin" ]; then
       gh_curl "${_gh_url}/${_sd_gh_path}/actions/artifacts/${_artifact_id}/zip" \
         | tar -xf- -C "${_frameworks_dir}/bin"
     } 2>/dev/null; then
-      echo 'Failed to download artifact from Github, falling back to nightly.link' >&2
       # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
       # https://github.com/actions/upload-artifact/issues/51
       # Use it when running in evironments that are not authenticated with github

@@ -11,6 +11,17 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          remove-codeql: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-android: 'true'
+          overprovision-lvm: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -45,6 +56,7 @@ jobs:
           tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
           archs: amd64
           image: ${{ steps.image_info.outputs.name }}
+          layers: 'false'
           context: ./apps/server/docker
           build-args: |
             REPO=${{ steps.image_info.outputs.repo }}
