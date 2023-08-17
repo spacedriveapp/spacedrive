@@ -17,52 +17,28 @@ import { KeyManager } from '../KeyManager';
 import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
-import { getExplorerSettings, getExplorerStore, useExplorerStore } from './store';
+import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
-	const explorerContext = useExplorerContext();
-	const locationUuid =
-		explorerContext.parent?.type === 'Location'
-			? stringify(explorerContext.parent.location.pub_id)
-			: '';
-	const updatePreferences = useLibraryMutation('preferences.update', {
-		onError: () => {
-			alert('An error has occurred while updating your preferences.');
-		}
-	});
-	const updateLayoutPreferredHandler = async (layout: ExplorerLayout) => {
-		if (!locationUuid) {
-			return (getExplorerStore().layoutMode = layout);
-		}
-		const updatedExplorerSettings = {
-			...getExplorerSettings(),
-			layoutMode: layout
-		};
-		await updatePreferences.mutateAsync({
-			location: {
-				[locationUuid]: {
-					explorer: updatedExplorerSettings
-				}
-			}
-		});
-		getExplorerStore().layoutMode = layout;
-	};
+	const explorer = useExplorerContext();
+
+	const settings = explorer.useSettingsSnapshot();
 
 	const viewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'grid',
-			onClick: () => updateLayoutPreferredHandler('grid'),
+			topBarActive: settings.layoutMode === 'grid',
+			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
 		},
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'list',
-			onClick: () => updateLayoutPreferredHandler('list'),
+			topBarActive: settings.layoutMode === 'list',
+			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
 		},
 		// {
@@ -75,8 +51,8 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'media',
-			onClick: () => updateLayoutPreferredHandler('media'),
+			topBarActive: settings.layoutMode === 'media',
+			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
 		}
 	];

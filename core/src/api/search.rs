@@ -52,7 +52,7 @@ impl From<SortOrder> for prisma::SortOrder {
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
 pub enum FilePathSearchOrdering {
 	Name(SortOrder),
 	SizeInBytes(SortOrder),
@@ -185,15 +185,17 @@ impl FilePathFilterArgs {
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
 pub enum ObjectSearchOrdering {
 	DateAccessed(SortOrder),
+	Kind(SortOrder),
 }
 
 impl ObjectSearchOrdering {
 	fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
+			Self::Kind(v) => v,
 		})
 		.into()
 	}
@@ -204,6 +206,7 @@ impl ObjectSearchOrdering {
 
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
+			Self::Kind(_) => kind::order(dir),
 		}
 	}
 }

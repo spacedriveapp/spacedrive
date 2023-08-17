@@ -45,12 +45,12 @@ impl LibraryPreferences {
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationSettings {
-	explorer: ExplorerSettings,
+	explorer: ExplorerSettings<search::FilePathSearchOrdering>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ExplorerSettings {
+pub struct ExplorerSettings<TOrder> {
 	layout_mode: Option<ExplorerLayout>,
 	grid_item_size: Option<i32>,
 	media_columns: Option<i32>,
@@ -59,7 +59,8 @@ pub struct ExplorerSettings {
 	show_bytes_in_grid_view: Option<bool>,
 	col_sizes: Option<BTreeMap<String, i32>>,
 	// temporary
-	order: Option<search::FilePathSearchOrdering>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	order: Option<Option<TOrder>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]

@@ -176,7 +176,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 
 	const quickPreviewCtx = useQuickPreviewContext();
 
-	const { layoutMode } = useExplorerStore();
+	const { layoutMode } = explorer.useSettingsSnapshot();
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -227,7 +227,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 });
 
 export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
-	const { layoutMode } = useExplorerStore();
+	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
 		const Icon =
