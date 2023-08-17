@@ -57,21 +57,16 @@ body {
 .explorer-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
-		width: 6px;
+		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[46px] rounded-[6px] bg-[#00000000];
+		@apply mt-[46px] rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-transparent;
+		@apply rounded-[8px] bg-app-box;
 	}
 	&::-webkit-scrollbar-corner {
 		background-color: transparent;
-	}
-	&:hover {
-		&::-webkit-scrollbar-thumb {
-			@apply bg-app-divider/20;
-		}
 	}
 }
 .default-scroll {
