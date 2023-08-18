@@ -1,9 +1,9 @@
 import { captureException } from '@sentry/browser';
-import { useState } from 'react';
 import { FallbackProps } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Dialogs } from '@sd/ui';
+import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 
 export function RouterErrorBoundary() {
@@ -56,12 +56,19 @@ export function ErrorPage({
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
-	const [toggleDialog, setToggleDialog] = useState(false);
 
 	const resetHandler = () => {
-		localStorage.clear();
-		// @ts-expect-error
-		window.__TAURI_INVOKE__('reset_spacedrive');
+		showAlertDialog({
+			title: 'Reset',
+			value: 'Are you sure you want to reset Spacedrive? Your database will be deleted.',
+			label: 'Confirm',
+			cancelBtn: true,
+			onSubmit: () => {
+				localStorage.clear();
+				// @ts-expect-error
+				window.__TAURI_INVOKE__('reset_spacedrive');
+			}
+		});
 	};
 
 	if (!submessage && debug.enabled)
@@ -76,12 +83,7 @@ export function ErrorPage({
 				(isMacOS ? ' rounded-lg' : '')
 			}
 		>
-			{toggleDialog && (
-				<ConfirmDialog
-					resetHandler={resetHandler}
-					setToggleDialog={(t) => setToggleDialog(t)}
-				/>
-			)}
+			<Dialogs />
 			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
 			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
 			<pre className="m-2 max-w-[650px] whitespace-normal text-center text-ink">
@@ -113,7 +115,7 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
-							onClick={() => setToggleDialog(true)}
+							onClick={resetHandler}
 							className="mt-4 max-w-xs border-transparent bg-red-500"
 						>
 							Reset & Quit App
@@ -124,37 +126,3 @@ export function ErrorPage({
 		</div>
 	);
 }
-
-interface Props {
-	setToggleDialog: (toggle: boolean) => void;
-	resetHandler: () => void;
-}
-
-//this is a temporary component until the Dialog system is extendable
-const ConfirmDialog = ({ setToggleDialog, resetHandler }: Props) => {
-	return (
-		<div className="absolute flex h-full w-full items-center justify-center bg-app/50">
-			<div className="flex h-[170px] w-full max-w-[400px] flex-col justify-between rounded-md border border-app-line bg-app-box">
-				<div className="px-5 pt-5">
-					<h1 className="font-bold text-white">Reset</h1>
-					<p className="mt-2 text-sm text-white">
-						Are you sure you want to reset Spacedrive? Your database will be deleted.
-					</p>
-				</div>
-				<div className="flex h-[60px] items-center justify-end gap-2 bg-app-selected px-3">
-					<Button
-						onClick={() => setToggleDialog(false)}
-						className="text-white"
-						size="sm"
-						variant="gray"
-					>
-						Cancel
-					</Button>
-					<Button onClick={resetHandler} variant="accent">
-						Confirm
-					</Button>
-				</div>
-			</div>
-		</div>
-	);
-};
