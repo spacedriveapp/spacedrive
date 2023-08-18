@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { AndroidLogo, AppleLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
+import { AndroidLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
 import { memo, useEffect, useState } from 'react';
 import { Tooltip, tw } from '@sd/ui';
 import BentoBoxes from '~/components/BentoBoxes';
@@ -105,7 +105,7 @@ export default function HomePage() {
 				/> */}
 				<Image
 					loading="eager"
-					className="absolute-horizontal-center"
+					className="absolute-horizontal-center fade-in"
 					width={1278}
 					height={626}
 					alt="l"
@@ -155,19 +155,35 @@ export default function HomePage() {
 					</p>
 					<div className="relative z-10 mt-5 flex gap-3">
 						<Tooltip label="Android">
-							<AndroidLogo className="opacity-80" weight="fill" size={20} />
+							<AndroidLogo
+								className="animation-delay-1 opacity-80 fade-in"
+								weight="fill"
+								size={20}
+							/>
 						</Tooltip>
 						<Tooltip label="iOS">
-							<Apple className="text-[18px] opacity-80" />
+							<Apple className="animation-delay-2 text-[18px] opacity-80 fade-in" />
 						</Tooltip>
 						<Tooltip label="Windows">
-							<WindowsLogo className="opacity-80" weight="fill" size={20} />
+							<WindowsLogo
+								className="animation-delay-3 opacity-80 fade-in"
+								weight="fill"
+								size={20}
+							/>
 						</Tooltip>
 						<Tooltip label="Linux">
-							<LinuxLogo className="opacity-80" weight="fill" size={20} />
+							<LinuxLogo
+								className="animation-delay-4 opacity-80 fade-in"
+								weight="fill"
+								size={20}
+							/>
 						</Tooltip>
 						<Tooltip label="Web">
-							<Globe className="opacity-80" weight="regular" size={20} />
+							<Globe
+								className="animation-delay-5 opacity-80 fade-in"
+								weight="regular"
+								size={20}
+							/>
 						</Tooltip>
 					</div>
 					<div>
@@ -177,13 +193,13 @@ export default function HomePage() {
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center top-[380px] w-[400px] xs:top-[360px] md:top-[130px] md:w-auto"
+								className="absolute-horizontal-center animation-delay-2 top-[380px] w-[400px] fade-in xs:top-[360px] md:top-[130px] md:w-auto"
 								width={1200}
 								height={626}
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="relative overflow-hidden">
+							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
 								<LineAnimation />
 								<AppFrameInner>
 									<Image

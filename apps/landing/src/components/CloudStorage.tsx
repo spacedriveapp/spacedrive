@@ -1,10 +1,24 @@
+import clsx from 'clsx';
+import { useInView } from 'framer-motion';
 import Image from 'next/image';
-import React from 'react';
+import React, { useRef } from 'react';
 import CloudStorageArt from './CloudStorageArt';
 
 const CloudStorage = () => {
+	const ref = useRef<HTMLDivElement>(null);
+	const isInView = useInView(ref, {
+		amount: 0.5,
+		once: true
+	});
+
 	return (
-		<div className="relative mt-[200px] w-full max-w-[960px] md:mt-[250px]">
+		<div
+			ref={ref}
+			className={clsx(
+				'relative mt-[200px] w-full max-w-[960px] opacity-0  md:mt-[250px]',
+				isInView && 'fade-in-heading'
+			)}
+		>
 			<div className="absolute-horizontal-center top-[-100px] h-[248px] w-[500px] md:top-[-55px] md:w-[960px]">
 				<div className="relative right-[270px] z-10 md:right-0">
 					<CloudStorageArt />
