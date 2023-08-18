@@ -1,3 +1,4 @@
+import * as LayeredIcons from '../../../packages/assets/svgs/ext';
 import * as icons from '../icons';
 
 // Define a type for icon names. This filters out any names with underscores in them.
@@ -54,4 +55,10 @@ export const getIcon = (
 			: // 4. Default to the document (or document light) icon.
 			  document) as keyof typeof icons
 	];
+};
+
+export const getLayeredIcon = (kind: string, extension?: string | null) => {
+	return extension && extension in LayeredIcons
+		? LayeredIcons[extension.toLowerCase() as keyof typeof LayeredIcons]
+		: null;
 };

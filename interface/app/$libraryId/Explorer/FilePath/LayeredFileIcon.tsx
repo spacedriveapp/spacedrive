@@ -1,6 +1,7 @@
 import { type ImgHTMLAttributes } from 'react';
 import { type ObjectKindKey } from '@sd/client';
 import { IconMapping } from './IconMapping';
+import { getLayeredIcon } from '../../../../../packages/assets/util';
 
 interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
 	kind: ObjectKindKey;
@@ -9,7 +10,7 @@ interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
 
 const LayeredFileIcon = ({ kind, extension, ...props }: LayeredFileIconProps) => {
 	const iconImg = <img {...props} />;
-	const IconComponent = extension ? IconMapping[kind]?.[extension] : null;
+	const IconComponent = extension ? getLayeredIcon('Code', extension) : null;
 
 	return IconComponent == null ? (
 		iconImg
