@@ -186,17 +186,6 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 		isRenaming
 	});
 
-	useEffect(() => {
-		// using .next() is not great
-		const explorerStore = getExplorerStore();
-		const selectedItem = explorer.selectedItems.values().next().value as
-			| ExplorerItem
-			| undefined;
-		if (explorerStore.quickViewObject != null && selectedItem) {
-			explorerStore.quickViewObject = selectedItem;
-		}
-	}, [explorer.selectedItems]);
-
 	return (
 		<ViewContext.Provider
 			value={{

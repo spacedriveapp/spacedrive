@@ -10,7 +10,7 @@ import {
 	useRef,
 	useState
 } from 'react';
-import { ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
+import { ExplorerItem, ObjectKindKey, getItemFilePath, useLibraryContext } from '@sd/client';
 import { PDFViewer, TEXTViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
