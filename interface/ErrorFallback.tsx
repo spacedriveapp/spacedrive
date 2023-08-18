@@ -2,7 +2,7 @@ import { captureException } from '@sentry/browser';
 import { FallbackProps } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Dialogs } from '@sd/ui';
 import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 
@@ -83,6 +83,7 @@ export function ErrorPage({
 				(isMacOS ? ' rounded-lg' : '')
 			}
 		>
+			<Dialogs />
 			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
 			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
 			<pre className="m-2 max-w-[650px] whitespace-normal text-center text-ink">
@@ -114,8 +115,8 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
-							className="max-w-xs mt-4 bg-red-500 border-transparent"
 							onClick={resetHandler}
+							className="mt-4 max-w-xs border-transparent bg-red-500"
 						>
 							Reset & Quit App
 						</Button>
