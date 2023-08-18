@@ -1,56 +1,53 @@
 import { getIcon } from '@sd/assets/util';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Category } from '@sd/client';
+import { useSnapshot } from 'valtio';
+import { Category, ObjectSearchOrdering } from '@sd/client';
 import { useIsDark } from '../../../hooks';
-import { ExplorerContext } from '../Explorer/Context';
+import { ExplorerContextProvider } from '../Explorer/Context';
 import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
 import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
-import { useExplorerStore } from '../Explorer/store';
-import { useExplorer } from '../Explorer/useExplorer';
+import {
+	createDefaultExplorerSettings,
+	objectOrderingKeysSchema,
+	useExplorerStore
+} from '../Explorer/store';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
-import { Categories, CategoryList } from './Categories';
-import { IconForCategory, useItems } from './data';
-
-const IconToDescription = {
-	Recents: "See files you've recently opened or created",
-	Favorites: 'See files you have marked as favorites',
-	Albums: 'Organize your photos and videos into albums',
-	Photos: 'View all photos in your library',
-	Videos: 'View all videos in your library',
-	Movies: 'View all movies in your library',
-	Music: 'View all music in your library',
-	Documents: 'View all documents in your library',
-	Downloads: 'View all downloads in your library',
-	Encrypted: 'View all encrypted files in your library',
-	Projects: 'View all projects in your library',
-	Applications: 'View all applications in your library',
-	Archives: 'View all archives in your library',
-	Databases: 'View all databases in your library',
-	Games: 'View all games in your library',
-	Books: 'View all books in your library',
-	Contacts: 'View all contacts in your library',
-	Trash: 'View all files in your trash'
-};
+import { Categories } from './Categories';
+import { IconForCategory, IconToDescription, useItems } from './data';
 
 export const Component = () => {
 	const explorerStore = useExplorerStore();
 	const isDark = useIsDark();
 	const page = usePageLayoutContext();
 
+	const explorerSettings = useExplorerSettings({
+		settings: useMemo(
+			() =>
+				createDefaultExplorerSettings<ObjectSearchOrdering>({
+					order: null
+				}),
+			[]
+		),
+		onSettingsChanged: () => {},
+		orderingKeys: objectOrderingKeysSchema
+	});
+
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const { items, loadMore } = useItems(selectedCategory);
+	const { items, loadMore } = useItems(selectedCategory, explorerSettings);
 
 	const explorer = useExplorer({
 		items,
 		loadMore,
-		scrollRef: page.ref
+		scrollRef: page.ref,
+		settings: explorerSettings
 	});
 
 	useEffect(() => {
@@ -60,8 +57,10 @@ export const Component = () => {
 		if (scrollTop > 100) page.ref.current.scrollTo({ top: 100 });
 	}, [selectedCategory, page.ref]);
 
+	const settings = useSnapshot(explorer.settingsStore);
+
 	return (
-		<ExplorerContext.Provider value={explorer}>
+		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 
 			<Statistics />
@@ -71,7 +70,7 @@ export const Component = () => {
 			<div className="flex flex-1">
 				<View
 					top={68}
-					className={explorerStore.layoutMode === 'rows' ? 'min-w-0' : undefined}
+					className={settings.layoutMode === 'list' ? 'min-w-0' : undefined}
 					contextMenu={
 						<ContextMenu>
 							{() => <Conditional items={[ObjectItems.RemoveFromRecents]} />}
@@ -96,11 +95,11 @@ export const Component = () => {
 
 				{explorerStore.showInspector && (
 					<Inspector
-						showThumbnail={explorerStore.layoutMode !== 'media'}
+						showThumbnail={settings.layoutMode !== 'media'}
 						className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] shrink-0 bg-app pb-4 pl-1.5 pr-1"
 					/>
 				)}
 			</div>
-		</ExplorerContext.Provider>
+		</ExplorerContextProvider>
 	);
 };
