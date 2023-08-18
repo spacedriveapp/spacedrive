@@ -16,6 +16,7 @@ import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
 	ExplorerItem,
+	ExplorerSettings,
 	FilePath,
 	ObjectKind,
 	byteSize,
@@ -34,7 +35,8 @@ import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { FilePathSearchOrderingKeys, getExplorerStore, isCut, useExplorerStore } from '../store';
+import { createOrdering, getOrderingDirection, orderingKey } from '../store';
+import { isCut } from '../store';
 import { ExplorerItemHash } from '../useExplorer';
 import { explorerItemHash } from '../util';
 import RenamableItemText from './RenamableItemText';
@@ -91,7 +93,7 @@ type Range = [ExplorerItemHash, ExplorerItemHash];
 
 export default () => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
+	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
 	const layout = useLayoutContext();
 
@@ -126,11 +128,17 @@ export default () => {
 
 	const scrollBarWidth = 8;
 	const rowHeight = 45;
-
 	const { width: tableWidth = 0 } = useResizeObserver({ ref: tableRef });
 	const { width: headerWidth = 0 } = useResizeObserver({ ref: tableHeaderRef });
 
 	const getFileName = (path: FilePath) => `${path.name}${path.extension && `.${path.extension}`}`;
+
+	useEffect(() => {
+		//we need this to trigger a re-render with the updated column sizes from the store
+		if (!resizing) {
+			setColumnSizing(explorer.settingsStore.colSizes);
+		}
+	}, [resizing, explorer.settingsStore.colSizes]);
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -138,7 +146,7 @@ export default () => {
 				id: 'name',
 				header: 'Name',
 				minSize: 200,
-				size: 350,
+				size: settings.colSizes['name'],
 				maxSize: undefined,
 				meta: { className: '!overflow-visible !text-ink' },
 				accessorFn: (file) => {
@@ -178,6 +186,7 @@ export default () => {
 			{
 				id: 'kind',
 				header: 'Type',
+				size: settings.colSizes['kind'],
 				enableSorting: false,
 				accessorFn: (file) => {
 					return isPath(file) && file.item.is_dir
@@ -198,7 +207,7 @@ export default () => {
 			{
 				id: 'sizeInBytes',
 				header: 'Size',
-				size: 100,
+				size: settings.colSizes['sizeInBytes'],
 				accessorFn: (file) => {
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
@@ -209,11 +218,13 @@ export default () => {
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
+				size: settings.colSizes['dateCreated'],
 				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
 			},
 			{
 				id: 'dateModified',
 				header: 'Date Modified',
+				size: settings.colSizes['dateModified'],
 				accessorFn: (file) =>
 					dayjs(getItemFilePath(file)?.date_modified).format('MMM Do YYYY')
 			},
@@ -226,17 +237,20 @@ export default () => {
 			{
 				id: 'dateAccessed',
 				header: 'Date Accessed',
+				size: settings.colSizes['dateAccessed'],
 				accessorFn: (file) =>
 					getItemObject(file)?.date_accessed &&
 					dayjs(getItemObject(file)?.date_accessed).format('MMM Do YYYY')
 			},
 			{
+				id: 'contentId',
 				header: 'Content ID',
 				enableSorting: false,
-				size: 180,
+				size: settings.colSizes['contentId'],
 				accessorFn: (file) => getExplorerItemData(file).casId
 			},
 			{
+				id: 'objectId',
 				header: 'Object ID',
 				enableSorting: false,
 				size: 180,
@@ -247,7 +261,7 @@ export default () => {
 				}
 			}
 		],
-		[explorer.selectedItems]
+		[explorer.selectedItems, settings.colSizes]
 	);
 
 	const table = useReactTable({
@@ -710,7 +724,6 @@ export default () => {
 				const nameColumnMinSize = table.getColumn('name')?.columnDef.minSize;
 				const newNameSize =
 					(nameSize || 0) + tableWidth - paddingX * 2 - scrollBarWidth - tableLength;
-
 				return {
 					...sizing,
 					...(nameSize !== undefined && nameColumnMinSize !== undefined
@@ -751,7 +764,6 @@ export default () => {
 				table.setColumnSizing({ ...sizings, name: nameWidth });
 				setLocked(true);
 			} else table.setColumnSizing(sizings);
-
 			setSized(true);
 		}
 	}, []);
@@ -973,6 +985,9 @@ export default () => {
 	useWindowEventListener('mouseup', () => {
 		if (resizing) {
 			setTimeout(() => {
+				//we need to update the store to trigger a DB update
+				explorer.settingsStore.colSizes =
+					columnSizing as typeof explorer.settingsStore.colSizes;
 				setResizing(false);
 				if (layout?.ref.current) {
 					layout.ref.current.style.cursor = '';
@@ -1012,8 +1027,11 @@ export default () => {
 											{headerGroup.headers.map((header, i) => {
 												const size = header.column.getSize();
 
-												const isSorted =
-													explorerStore.orderBy === header.id;
+												const orderingDirection =
+													settings.order &&
+													orderingKey(settings.order) === header.id
+														? getOrderingDirection(settings.order)
+														: null;
 
 												const cellContent = flexRender(
 													header.column.columnDef.header,
@@ -1039,15 +1057,21 @@ export default () => {
 															if (resizing) return;
 
 															if (header.column.getCanSort()) {
-																if (isSorted) {
-																	getExplorerStore().orderByDirection =
-																		explorerStore.orderByDirection ===
-																		'Asc'
-																			? 'Desc'
-																			: 'Asc';
+																if (orderingDirection) {
+																	explorer.settingsStore.order =
+																		createOrdering(
+																			header.id,
+																			orderingDirection ===
+																				'Asc'
+																				? 'Desc'
+																				: 'Asc'
+																		);
 																} else {
-																	getExplorerStore().orderBy =
-																		header.id as FilePathSearchOrderingKeys;
+																	explorer.settingsStore.order =
+																		createOrdering(
+																			header.id,
+																			'Asc'
+																		);
 																}
 															}
 														}}
@@ -1056,7 +1080,7 @@ export default () => {
 															<div
 																className={clsx(
 																	'flex items-center justify-between gap-3',
-																	isSorted
+																	orderingDirection !== null
 																		? 'text-ink'
 																		: 'text-ink-dull'
 																)}
@@ -1068,14 +1092,12 @@ export default () => {
 																	/>
 																)}
 
-																{isSorted ? (
-																	explorerStore.orderByDirection ===
-																	'Asc' ? (
-																		<CaretUp className="shrink-0 text-ink-faint" />
-																	) : (
-																		<CaretDown className="shrink-0 text-ink-faint" />
-																	)
-																) : null}
+																{orderingDirection === 'Asc' && (
+																	<CaretUp className="shrink-0 text-ink-faint" />
+																)}
+																{orderingDirection === 'Desc' && (
+																	<CaretDown className="shrink-0 text-ink-faint" />
+																)}
 
 																<div
 																	onClick={(e) =>
@@ -1085,7 +1107,6 @@ export default () => {
 																		header.getResizeHandler()(
 																			e
 																		);
-
 																		setResizing(true);
 																		setLocked(false);
 

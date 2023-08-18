@@ -35,8 +35,9 @@ struct OptionalRange<T> {
 	to: Option<T>,
 }
 
-#[derive(Deserialize, Type, Debug, Clone, Copy)]
-enum SortOrder {
+#[derive(Serialize, Deserialize, Type, Debug, Clone, Copy)]
+#[serde(rename_all = "PascalCase")]
+pub enum SortOrder {
 	Asc,
 	Desc,
 }
@@ -50,9 +51,9 @@ impl From<SortOrder> for prisma::SortOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-enum FilePathSearchOrdering {
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+pub enum FilePathSearchOrdering {
 	Name(SortOrder),
 	SizeInBytes(SortOrder),
 	DateCreated(SortOrder),
@@ -183,16 +184,18 @@ impl FilePathFilterArgs {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-enum ObjectSearchOrdering {
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+pub enum ObjectSearchOrdering {
 	DateAccessed(SortOrder),
+	Kind(SortOrder),
 }
 
 impl ObjectSearchOrdering {
 	fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
+			Self::Kind(v) => v,
 		})
 		.into()
 	}
@@ -200,8 +203,10 @@ impl ObjectSearchOrdering {
 	fn into_param(self) -> object::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use object::*;
+
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
+			Self::Kind(_) => kind::order(dir),
 		}
 	}
 }

@@ -18,9 +18,11 @@ interface GridViewItemProps {
 }
 
 const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridViewItemProps) => {
+	const explorer = useExplorerContext();
+	const { showBytesInGridView, gridItemSize } = explorer.useSettingsSnapshot();
+
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
-	const { showBytesInGridView, gridItemSize } = useExplorerStore();
 
 	const showSize =
 		!filePathData?.is_dir &&
