@@ -228,12 +228,13 @@ import { ReactComponent as prolog } from './prolog.svg';
 import { ReactComponent as properties } from './properties.svg';
 import { ReactComponent as pug } from './pug.svg';
 import { ReactComponent as pvk } from './pvk.svg';
+import { ReactComponent as py } from './py.svg';
 import { ReactComponent as pyproject } from './pyproject.svg';
-import { ReactComponent as python } from './python.svg';
 import { ReactComponent as qt } from './qt.svg';
 import { ReactComponent as quarkus } from './quarkus.svg';
 import { ReactComponent as quasar } from './quasar.svg';
 import { ReactComponent as razor } from './razor.svg';
+import { ReactComponent as rb } from './rb.svg';
 import { ReactComponent as reactjs } from './reactjs.svg';
 import { ReactComponent as reactts } from './reactts.svg';
 import { ReactComponent as readme } from './readme.svg';
@@ -249,8 +250,7 @@ import { ReactComponent as root_folder } from './root_folder.svg';
 import { ReactComponent as root_folder_light } from './root_folder_light.svg';
 import { ReactComponent as root_folder_light_open } from './root_folder_light_open.svg';
 import { ReactComponent as root_folder_open } from './root_folder_open.svg';
-import { ReactComponent as ruby } from './ruby.svg';
-import { ReactComponent as rust } from './rust.svg';
+import { ReactComponent as rs } from './rs.svg';
 import { ReactComponent as rustfmt } from './rustfmt.svg';
 import { ReactComponent as sails } from './sails.svg';
 import { ReactComponent as sass } from './sass.svg';
@@ -258,7 +258,7 @@ import { ReactComponent as scala } from './scala.svg';
 import { ReactComponent as scss } from './scss.svg';
 import { ReactComponent as sentinel } from './sentinel.svg';
 import { ReactComponent as sequelize } from './sequelize.svg';
-import { ReactComponent as shell } from './shell.svg';
+import { ReactComponent as sh } from './sh.svg';
 import { ReactComponent as slim } from './slim.svg';
 import { ReactComponent as sln } from './sln.svg';
 import { ReactComponent as smarty } from './smarty.svg';
@@ -291,13 +291,13 @@ import { ReactComponent as toolversions } from './toolversions.svg';
 import { ReactComponent as tox } from './tox.svg';
 import { ReactComponent as travis } from './travis.svg';
 import { ReactComponent as tres } from './tres.svg';
+import { ReactComponent as ts } from './ts.svg';
 import { ReactComponent as tscn } from './tscn.svg';
 import { ReactComponent as tsconfig } from './tsconfig.svg';
 import { ReactComponent as tsx } from './tsx.svg';
 import { ReactComponent as turbo } from './turbo.svg';
 import { ReactComponent as twig } from './twig.svg';
 import { ReactComponent as txt } from './txt.svg';
-import { ReactComponent as typescript } from './typescript.svg';
 import { ReactComponent as typescriptdef } from './typescriptdef.svg';
 import { ReactComponent as ui } from './ui.svg';
 import { ReactComponent as unocss } from './unocss.svg';
@@ -552,12 +552,13 @@ export {
 	properties,
 	pug,
 	pvk,
+	py,
 	pyproject,
-	python,
 	qt,
 	quarkus,
 	quasar,
 	razor,
+	rb,
 	reactjs,
 	reactts,
 	readme,
@@ -573,8 +574,7 @@ export {
 	root_folder_light,
 	root_folder_light_open,
 	root_folder_open,
-	ruby,
-	rust,
+	rs,
 	rustfmt,
 	sails,
 	sass,
@@ -582,7 +582,7 @@ export {
 	scss,
 	sentinel,
 	sequelize,
-	shell,
+	sh,
 	slim,
 	sln,
 	smarty,
@@ -615,13 +615,13 @@ export {
 	tox,
 	travis,
 	tres,
+	ts,
 	tscn,
 	tsconfig,
 	tsx,
 	turbo,
 	twig,
 	txt,
-	typescript,
 	typescriptdef,
 	ui,
 	unocss,
