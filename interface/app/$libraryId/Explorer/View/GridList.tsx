@@ -98,6 +98,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const explorer = useExplorerContext();
+	const settings = explorer.useSettingsSnapshot();
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
@@ -108,9 +109,8 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
 
-	const itemDetailsHeight =
-		explorerStore.gridItemSize / 4 + (explorerStore.showBytesInGridView ? 20 : 0);
-	const itemHeight = explorerStore.gridItemSize + itemDetailsHeight;
+	const itemDetailsHeight = settings.gridItemSize / 4 + (settings.showBytesInGridView ? 20 : 0);
+	const itemHeight = settings.gridItemSize + itemDetailsHeight;
 
 	const grid = useGridList({
 		ref: explorerView.ref,
@@ -119,19 +119,19 @@ export default ({ children }: { children: RenderItem }) => {
 		onLoadMore: explorer.loadMore,
 		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		size:
-			explorerStore.layoutMode === 'grid'
-				? { width: explorerStore.gridItemSize, height: itemHeight }
+			settings.layoutMode === 'grid'
+				? { width: settings.gridItemSize, height: itemHeight }
 				: undefined,
-		columns: explorerStore.layoutMode === 'media' ? explorerStore.mediaColumns : undefined,
+		columns: settings.layoutMode === 'media' ? settings.mediaColumns : undefined,
 		getItemId: (index) => {
 			const item = explorer.items?.[index];
 			return item ? explorerItemHash(item) : undefined;
 		},
 		getItemData: (index) => explorer.items?.[index],
-		padding: explorerView.padding || explorerStore.layoutMode === 'grid' ? 12 : undefined,
+		padding: explorerView.padding || settings.layoutMode === 'grid' ? 12 : undefined,
 		gap:
 			explorerView.gap ||
-			(explorerStore.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
+			(settings.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
 		top: explorerView.top
 	});
 

@@ -69,69 +69,71 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`;
 
 	return (
-		<Sticky
-			scrollElement={pageRef.current || undefined}
-			stickyClassName="z-20 !top-[46px]"
-			topOffset={-46}
-		>
-			<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">
-				<ArrowButton
-					onClick={() => handleArrowOnClick('right')}
-					className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
-				>
-					<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
-				</ArrowButton>
+		<div>
+			<Sticky
+				scrollElement={pageRef.current || undefined}
+				stickyClassName="z-20 !top-[46px]"
+				topOffset={-46}
+			>
+				<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">
+					<ArrowButton
+						onClick={() => handleArrowOnClick('right')}
+						className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
+					>
+						<ArrowLeft weight="bold" className="h-4 w-4 text-ink" />
+					</ArrowButton>
 
-				<div
-					ref={ref}
-					{...events}
-					className="no-scrollbar flex space-x-px overflow-x-scroll pr-[60px]"
-					style={{
-						WebkitMaskImage: maskImage, // Required for Chromium based browsers
-						maskImage
-					}}
-				>
-					{categories.data &&
-						CategoryList.map((category, index) => {
-							const iconString = IconForCategory[category] || 'Document';
-							return (
-								<motion.div
-									onViewportEnter={() => lastCategoryVisibleHandler(index)}
-									onViewportLeave={() => lastCategoryVisibleHandler(index)}
-									viewport={{
-										root: ref,
-										// WARNING: Edge breaks if the values are not postfixed with px or %
-										margin: '0% -120px 0% 0%'
-									}}
-									className={clsx(
-										'min-w-fit',
-										mouseState !== 'dragging' && '!cursor-default'
-									)}
-									key={category}
-								>
-									<CategoryButton
-										category={category}
-										icon={getIcon(iconString, isDark)}
-										items={categories.data[category]}
-										selected={props.selected === category}
-										onClick={() => props.onSelectedChanged(category)}
-									/>
-								</motion.div>
-							);
-						})}
+					<div
+						ref={ref}
+						{...events}
+						className="no-scrollbar flex space-x-px overflow-x-scroll pr-[60px]"
+						style={{
+							WebkitMaskImage: maskImage, // Required for Chromium based browsers
+							maskImage
+						}}
+					>
+						{categories.data &&
+							CategoryList.map((category, index) => {
+								const iconString = IconForCategory[category] || 'Document';
+								return (
+									<motion.div
+										onViewportEnter={() => lastCategoryVisibleHandler(index)}
+										onViewportLeave={() => lastCategoryVisibleHandler(index)}
+										viewport={{
+											root: ref,
+											// WARNING: Edge breaks if the values are not postfixed with px or %
+											margin: '0% -120px 0% 0%'
+										}}
+										className={clsx(
+											'min-w-fit',
+											mouseState !== 'dragging' && '!cursor-default'
+										)}
+										key={category}
+									>
+										<CategoryButton
+											category={category}
+											icon={getIcon(iconString, isDark)}
+											items={categories.data[category]}
+											selected={props.selected === category}
+											onClick={() => props.onSelectedChanged(category)}
+										/>
+									</motion.div>
+								);
+							})}
+					</div>
+
+					<ArrowButton
+						onClick={() => handleArrowOnClick('left')}
+						className={clsx(
+							'right-3',
+							lastCategoryVisible && 'pointer-events-none opacity-0'
+						)}
+					>
+						<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
+					</ArrowButton>
 				</div>
-
-				<ArrowButton
-					onClick={() => handleArrowOnClick('left')}
-					className={clsx(
-						'right-3',
-						lastCategoryVisible && 'pointer-events-none opacity-0'
-					)}
-				>
-					<ArrowRight weight="bold" className="h-4 w-4 text-ink" />
-				</ArrowButton>
-			</div>
-		</Sticky>
+			</Sticky>
+		</div>
 	);
 };
 

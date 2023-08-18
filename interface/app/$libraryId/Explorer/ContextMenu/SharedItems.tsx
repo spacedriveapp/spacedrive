@@ -4,6 +4,7 @@ import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { Platform } from '~/util/Platform';
+import { useExplorerContext } from '../Context';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -50,9 +51,10 @@ export const Details = new ConditionalItem({
 export const Rename = new ConditionalItem({
 	useCondition: () => {
 		const { selectedItems } = useContextMenuContext();
-		const explorerStore = useExplorerStore();
 
-		if (explorerStore.layoutMode === 'media' || selectedItems.length > 1) return null;
+		const settings = useExplorerContext().useSettingsSnapshot();
+
+		if (settings.layoutMode === 'media' || selectedItems.length > 1) return null;
 
 		return {};
 	},
