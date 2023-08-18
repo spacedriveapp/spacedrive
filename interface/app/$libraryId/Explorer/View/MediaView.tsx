@@ -42,7 +42,7 @@ const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 					variant="gray"
 					size="icon"
 					className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-					onClick={() => (getExplorerStore().quickViewObject = data)}
+					onClick={() => (getExplorerStore().showQuickView = true)}
 				>
 					<ArrowsOutSimple />
 				</Button>

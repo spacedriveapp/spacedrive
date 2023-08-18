@@ -1,6 +1,7 @@
 import { FileX, Share as ShareIcon } from 'phosphor-react';
 import { useMemo } from 'react';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { Platform } from '~/util/Platform';
@@ -13,16 +14,12 @@ import { useContextMenuContext } from './context';
 
 export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();
-	const { selectedItems } = useContextMenuContext();
 
 	return (
 		<ContextMenu.Item
 			label="Quick view"
 			keybind={keybind([], [' '])}
-			onClick={() =>
-				// using [0] is not great
-				(getExplorerStore().quickViewObject = selectedItems[0])
-			}
+			onClick={() => (getExplorerStore().showQuickView = true)}
 		/>
 	);
 };
@@ -144,7 +141,7 @@ export const Deselect = new ConditionalItem({
 export const Share = () => {
 	return (
 		<>
-			<ContextMenu.Item
+			<Menu.Item
 				label="Share"
 				icon={ShareIcon}
 				onClick={(e) => {

@@ -1,5 +1,6 @@
 import { Plus } from 'phosphor-react';
-import { ReactNode, useMemo } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
+import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
@@ -13,7 +14,7 @@ export * as SharedItems from './SharedItems';
 export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
 
-const Items = ({ children }: { children?: () => ReactNode }) => (
+const Items = ({ children }: PropsWithChildren) => (
 	<>
 		<Conditional items={[FilePathItems.OpenOrDownload]} />
 		<SharedItems.OpenQuickView />
@@ -29,7 +30,8 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 				SharedItems.Deselect
 			]}
 		/>
-		{children?.()}
+
+		{children}
 
 		<ContextMenu.Separator />
 		<SharedItems.Share />
@@ -57,15 +59,19 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 	</>
 );
 
-export default ({ children }: { children?: () => ReactNode }) => {
+export default (props: PropsWithChildren<{ items?: ExplorerItem[]; custom?: boolean }>) => {
 	const explorer = useExplorerContext();
 
-	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
+	const selectedItems = useMemo(
+		() => props.items || [...explorer.selectedItems],
+		[explorer.selectedItems, props.items]
+	);
+
 	if (!isNonEmpty(selectedItems)) return null;
 
 	return (
 		<ContextMenuContextProvider selectedItems={selectedItems}>
-			<Items>{children}</Items>
+			{props.custom ? <>{props.children}</> : <Items>{props.children}</Items>}
 		</ContextMenuContextProvider>
 	);
 };

@@ -2,6 +2,7 @@ import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
 import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
@@ -29,7 +30,7 @@ export const Delete = new ConditionalItem({
 		const keybind = useKeybindFactory();
 
 		return (
-			<ContextMenu.Item
+			<Menu.Item
 				icon={Trash}
 				label="Delete"
 				variant="danger"
@@ -73,7 +74,7 @@ export const Compress = new ConditionalItem({
 		const keybind = useKeybindFactory();
 
 		return (
-			<ContextMenu.Item
+			<Menu.Item
 				label="Compress"
 				icon={Package}
 				keybind={keybind([ModifierKeys.Control], ['B'])}
@@ -157,7 +158,7 @@ export const SecureDelete = new ConditionalItem({
 		return { locationId, selectedFilePaths };
 	},
 	Component: ({ locationId, selectedFilePaths }) => (
-		<ContextMenu.Item
+		<Menu.Item
 			variant="danger"
 			label="Secure delete"
 			icon={TrashSimple}
@@ -242,11 +243,11 @@ export const OpenOrDownload = new ConditionalItem({
 
 		const { library } = useLibraryContext();
 
-		if (platform === 'web') return <ContextMenu.Item label="Download" />;
+		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
 			return (
 				<>
-					<ContextMenu.Item
+					<Menu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
 						onClick={async () => {

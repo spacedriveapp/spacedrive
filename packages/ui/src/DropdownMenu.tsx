@@ -1,8 +1,10 @@
 import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import React, {
+	ContextType,
 	PropsWithChildren,
 	Suspense,
+	createContext,
 	useCallback,
 	useContext,
 	useRef,
@@ -17,24 +19,58 @@ import {
 	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
-interface DropdownMenuProps extends RadixDM.MenuContentProps {
+interface DropdownMenuProps extends RadixDM.MenuContentProps, RadixDM.DropdownMenuProps {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
+	usePortal?: boolean;
 }
 
-const context = React.createContext<boolean>(false);
-export const useDropdownMenu = () => useContext(context);
+const DropdownMenuContext = createContext<{ usePortal: boolean } | null>(null);
+
+export const useDropdownMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
+	const ctx = useContext(DropdownMenuContext);
+
+	if (suspense && ctx === null) throw new Error('DropdownMenuContext.Provider not found!');
+
+	return ctx as T extends true
+		? NonNullable<ContextType<typeof DropdownMenuContext>>
+		: NonNullable<ContextType<typeof DropdownMenuContext>> | undefined;
+};
 
 const Root = ({
-	trigger,
-	children,
-	className,
-	asChild = true,
-	triggerClassName,
 	alignToTrigger,
+	className,
+	children,
+	usePortal = true,
 	...props
 }: PropsWithChildren<DropdownMenuProps>) => {
+	const {
+		defaultOpen,
+		open,
+		onOpenChange,
+		modal,
+		dir,
+		trigger,
+		triggerClassName,
+		asChild = true,
+		...contentProps
+	} = props;
+
+	const rootProps = {
+		defaultOpen,
+		open,
+		onOpenChange,
+		modal,
+		dir
+	} satisfies RadixDM.DropdownMenuProps;
+
+	const triggerProps = {
+		children: trigger,
+		className: triggerClassName,
+		asChild
+	} satisfies RadixDM.DropdownMenuTriggerProps;
+
 	const [width, setWidth] = useState<number>();
 
 	const measureRef = useCallback(
@@ -45,22 +81,30 @@ const Root = ({
 	);
 
 	return (
-		<RadixDM.Root>
-			<RadixDM.Trigger ref={measureRef} asChild={asChild} className={triggerClassName}>
-				{trigger}
-			</RadixDM.Trigger>
-			<RadixDM.Portal>
-				<RadixDM.Content
-					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
-					align="start"
-					style={{ width }}
-					{...props}
-				>
-					<context.Provider value={true}>{children}</context.Provider>
-				</RadixDM.Content>
-			</RadixDM.Portal>
-		</RadixDM.Root>
+		<DropdownMenuContext.Provider value={{ usePortal }}>
+			<RadixDM.Root {...rootProps}>
+				<RadixDM.Trigger ref={measureRef} {...triggerProps} />
+				<Portal>
+					<RadixDM.Content
+						className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
+						align="start"
+						style={{ width }}
+						{...contentProps}
+					>
+						{children}
+					</RadixDM.Content>
+				</Portal>
+			</RadixDM.Root>
+		</DropdownMenuContext.Provider>
 	);
+};
+
+const Portal = ({ children }: PropsWithChildren) => {
+	const dropdownMenuContext = useDropdownMenuContext({ suspense: true });
+
+	const Portal = dropdownMenuContext.usePortal ? RadixDM.Portal : React.Fragment;
+
+	return <Portal>{children}</Portal>;
 };
 
 const Separator = (props: { className?: string }) => (
@@ -78,14 +122,14 @@ const SubMenu = ({
 			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
 				<ContextMenuDivItem rightArrow {...{ label, icon }} />
 			</RadixDM.SubTrigger>
-			<RadixDM.Portal>
+			<Portal>
 				<Suspense fallback={null}>
 					<RadixDM.SubContent
 						className={clsx(contextMenuClassNames, className)}
 						{...props}
 					/>
 				</Suspense>
-			</RadixDM.Portal>
+			</Portal>
 		</RadixDM.Sub>
 	);
 };

@@ -61,7 +61,11 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	}
 
 	const onDoubleClick = async () => {
-		const selectedItems = [...explorer.selectedItems].reduce(
+		const selectedItems = [...explorer.selectedItems];
+
+		if (!isNonEmpty(selectedItems)) return;
+
+		const items = selectedItems.reduce(
 			(items, item) => {
 				const sameAsClicked = data.item.id === item.item.id;
 
@@ -91,18 +95,16 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			} as { paths: FilePath[]; dirs: FilePath[]; locations: Location[] }
 		);
 
-		if (selectedItems.paths.length > 0 && !explorerView.isRenaming) {
+		if (items.paths.length > 0 && !explorerView.isRenaming) {
 			if (explorerConfig.openOnDoubleClick && openFilePaths) {
 				updateAccessTime
-					.mutateAsync(
-						selectedItems.paths.map(({ object_id }) => object_id!).filter(Boolean)
-					)
+					.mutateAsync(items.paths.map(({ object_id }) => object_id!).filter(Boolean))
 					.catch(console.error);
 
 				try {
 					await openFilePaths(
 						library.uuid,
-						selectedItems.paths.map(({ id }) => id)
+						items.paths.map(({ id }) => id)
 					);
 				} catch (error) {
 					showAlertDialog({
@@ -112,14 +114,14 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				}
 			} else if (!explorerConfig.openOnDoubleClick) {
 				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
-					getExplorerStore().quickViewObject = data;
+					getExplorerStore().showQuickView = true;
 					return;
 				}
 			}
 		}
 
-		if (selectedItems.dirs.length > 0) {
-			const item = selectedItems.dirs[0];
+		if (items.dirs.length > 0) {
+			const item = items.dirs[0];
 			if (!item) return;
 
 			navigate({
@@ -128,8 +130,8 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 					path: `${item.materialized_path}${item.name}/`
 				}).toString()
 			});
-		} else if (selectedItems.locations.length > 0) {
-			const location = selectedItems.locations[0];
+		} else if (items.locations.length > 0) {
+			const location = items.locations[0];
 			if (!location) return;
 
 			navigate({
@@ -196,7 +198,16 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 	}, [explorer.selectedItems]);
 
 	return (
-		<>
+		<ViewContext.Provider
+			value={{
+				...contextProps,
+				selectable: explorer.selectable && !isContextMenuOpen && !isRenaming,
+				setIsContextMenuOpen,
+				isRenaming,
+				setIsRenaming,
+				ref
+			}}
+		>
 			<div
 				ref={ref}
 				style={style}
@@ -208,29 +219,18 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				}}
 			>
 				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-					<ViewContext.Provider
-						value={
-							{
-								...contextProps,
-								selectable:
-									explorer.selectable && !isContextMenuOpen && !isRenaming,
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
-								ref
-							} as ExplorerViewContext
-						}
-					>
+					<>
 						{layoutMode === 'grid' && <GridView />}
 						{layoutMode === 'list' && <ListView />}
 						{layoutMode === 'media' && <MediaView />}
-					</ViewContext.Provider>
+					</>
 				) : (
 					emptyNotice
 				)}
 			</div>
+
 			{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
-		</>
+		</ViewContext.Provider>
 	);
 });
 
@@ -330,14 +330,15 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	const handleOpenQuickPreview = useCallback(
 		async (event: KeyboardEvent) => {
 			if (event.key !== ' ') return;
-			if (!getExplorerStore().quickViewObject) {
-				// ENG-973 - Don't use Set -> Array -> First Item
-				const items = [...explorer.selectedItems];
-				if (!isNonEmpty(items)) return;
 
-				getExplorerStore().quickViewObject = items[0];
+			event.preventDefault();
+
+			if (!getExplorerStore().showQuickView) {
+				if (explorer.selectedItems.size === 0) return;
+
+				getExplorerStore().showQuickView = true;
 			} else {
-				getExplorerStore().quickViewObject = null;
+				getExplorerStore().showQuickView = false;
 			}
 		},
 		[explorer.selectedItems]

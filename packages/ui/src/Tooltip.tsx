@@ -8,11 +8,12 @@ export interface TooltipProps extends PropsWithChildren {
 	className?: string;
 	tooltipClassName?: string;
 	asChild?: boolean;
+	hoverable?: boolean;
 }
 
-export const Tooltip = ({ position = 'bottom', ...props }: TooltipProps) => {
+export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: TooltipProps) => {
 	return (
-		<TooltipPrimitive.Provider>
+		<TooltipPrimitive.Provider disableHoverableContent={!hoverable}>
 			<TooltipPrimitive.Root>
 				<TooltipPrimitive.Trigger asChild>
 					{props.asChild ? (

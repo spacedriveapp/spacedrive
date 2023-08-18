@@ -35,7 +35,7 @@ import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { useExplorerViewContext } from '../ViewContext';
-import { createOrdering, getOrderingDirection, orderingKey } from '../store';
+import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from '../store';
 import { isCut } from '../store';
 import { ExplorerItemHash } from '../useExplorer';
 import { explorerItemHash } from '../util';
@@ -94,6 +94,7 @@ type Range = [ExplorerItemHash, ExplorerItemHash];
 export default () => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
+	const { showQuickView } = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const layout = useLayoutContext();
 
@@ -786,7 +787,7 @@ export default () => {
 	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
-		if (!explorerView.selectable) return;
+		if (!explorerView.selectable || showQuickView) return;
 
 		e.preventDefault();
 

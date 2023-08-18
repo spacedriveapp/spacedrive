@@ -99,7 +99,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
-	const explorerStore = useExplorerStore();
+	const { showQuickView, ...explorerStore } = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
 	const selecto = useRef<Selecto>(null);
@@ -205,9 +205,9 @@ export default ({ children }: { children: RenderItem }) => {
 	}, [explorer.selectedItems]);
 
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		if (explorer.selectedItems.size > 0) e.preventDefault();
+		if (!explorerView.selectable || showQuickView) return;
 
-		if (!explorerView.selectable) return;
+		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;

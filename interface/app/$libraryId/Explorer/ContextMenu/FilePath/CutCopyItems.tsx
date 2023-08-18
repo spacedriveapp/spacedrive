@@ -2,6 +2,7 @@ import { Copy, Scissors } from 'phosphor-react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../../Context';

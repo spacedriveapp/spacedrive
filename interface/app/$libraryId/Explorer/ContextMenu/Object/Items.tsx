@@ -4,6 +4,7 @@ import { ObjectKind, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
+import { Menu } from '~/components/Menu';
 import { isNonEmpty } from '~/util';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
@@ -48,9 +49,9 @@ export const AssignTag = new ConditionalItem({
 		return { selectedObjects };
 	},
 	Component: ({ selectedObjects }) => (
-		<ContextMenu.SubMenu label="Assign tag" icon={TagSimple}>
+		<Menu.SubMenu label="Assign tag" icon={TagSimple}>
 			<AssignTagMenuItems objects={selectedObjects} />
-		</ContextMenu.SubMenu>
+		</Menu.SubMenu>
 	)
 });
 
@@ -83,10 +84,10 @@ export const ConvertObject = new ConditionalItem({
 		return { kind };
 	},
 	Component: ({ kind }) => (
-		<ContextMenu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+		<Menu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 			{ObjectConversions[kind]?.map((ext) => (
-				<ContextMenu.Item key={ext} label={ext} disabled />
+				<Menu.Item key={ext} label={ext} disabled />
 			))}
-		</ContextMenu.SubMenu>
+		</Menu.SubMenu>
 	)
 });

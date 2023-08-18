@@ -38,10 +38,10 @@ import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
-export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
+export const PlaceholderPill = tw.span`cursor-default inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
 
 export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
-export const MetaTitle = tw.h5`text-xs font-bold`;
+export const MetaTitle = tw.h5`text-xs font-bold text-ink`;
 
 const DATE_FORMAT = 'D MMM YYYY';
 
@@ -101,9 +101,9 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
-					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
+					pauseVideo={!!explorerStore.showQuickView || thumbs.length > 1}
 					frame={thumbs.length > 1}
-					childClassName={(type) =>
+					childClassName={({ type }) =>
 						type !== 'icon' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
@@ -114,7 +114,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	);
 };
 
-const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
+export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const filePathData = getItemFilePath(item);
 	const objectData = getItemObject(item);
 
@@ -143,13 +143,13 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	return (
 		<>
-			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
 				{filePathData?.name}
 				{filePathData?.extension && `.${filePathData.extension}`}
 			</h3>
 
 			{objectData && (
-				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
+				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">
 					<Tooltip label="Favorite">
 						<FavoriteButton data={objectData} />
 					</Tooltip>
@@ -445,7 +445,7 @@ interface MetaDataProps {
 
 const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
 	return (
-		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
+		<div className="flex cursor-default items-center text-xs text-ink-dull" onClick={onClick}>
 			<Icon weight="bold" className="mr-2 shrink-0" />
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
 			<Tooltip label={value} asChild>
