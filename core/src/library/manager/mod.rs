@@ -3,7 +3,7 @@ use crate::{
 	location::indexer,
 	node::Platform,
 	object::tag,
-	p2p::IdentityOrRemoteIdentity,
+	p2p::{self, IdentityOrRemoteIdentity},
 	prisma::location,
 	sync,
 	util::{
@@ -49,7 +49,7 @@ pub enum LibraryManagerEvent {
 /// is a singleton that manages all libraries for a node.
 pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
-	libraries_dir: PathBuf,
+	pub libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
 	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
 	// Transmit side of `self.rx` channel
@@ -304,8 +304,8 @@ impl Libraries {
 		self.libraries.read().await.get(library_id).is_some()
 	}
 
-	/// load the library from a given path
-	async fn load(
+	/// load the library from a given path.
+	pub async fn load(
 		self: &Arc<Self>,
 		id: Uuid,
 		db_path: impl AsRef<Path>,
@@ -387,7 +387,7 @@ impl Libraries {
 			identity,
 			// key_manager,
 			db,
-			&node,
+			node,
 			Arc::new(sync.manager),
 		)
 		.await;
@@ -399,43 +399,9 @@ impl Libraries {
 
 			async move {
 				loop {
-					tokio::select! {
-						req = sync.ingest_rx.recv() => {
-							use sd_core_sync::ingest;
+					let Ok(SyncMessage::Created) = sync.rx.recv().await else { continue };
 
-							let Some(req) = req else { continue; };
-
-							const OPS_PER_REQUEST: u32 = 100;
-
-							match req {
-								ingest::Request::Messages { mut tunnel, timestamps } => {
-									let ops = node.nlm.request_ops(
-										&mut tunnel,
-										sd_core_sync::GetOpsArgs { clocks: timestamps, count: OPS_PER_REQUEST },
-									).await;
-
-									library.sync.ingest
-										.event_tx
-										.send(ingest::Event::Messages(ingest::MessagesEvent {
-											tunnel,
-											instance_id: library.sync.instance,
-											has_more: ops.len() == OPS_PER_REQUEST as usize,
-											messages: ops,
-										}))
-										.await
-										.expect("TODO: Handle ingest channel closed, so we don't loose ops");
-								},
-								_ => {}
-							}
-						},
-						msg = sync.rx.recv() => {
-							if let Ok(op) = msg {
-								let SyncMessage::Created = op else { continue; };
-
-								node.nlm.alert_new_ops(id, &library.sync).await;
-							}
-						},
-					}
+					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
 				}
 			}
 		});

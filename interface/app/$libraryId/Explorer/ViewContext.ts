@@ -1,29 +1,18 @@
 import { ReactNode, RefObject, createContext, useContext } from 'react';
-import { ExplorerItem } from '@sd/client';
 
-export type ExplorerViewSelection = number | number[];
+export type ExplorerViewSelection = number | Set<number>;
 
-export interface ExplorerViewContext<T extends ExplorerViewSelection = ExplorerViewSelection> {
-	items: ExplorerItem[] | null;
-	scrollRef: RefObject<HTMLDivElement>;
-	selected?: T;
-	onSelectedChange?: (selected: ExplorerViewSelectionChange<T>) => void;
-	overscan?: number;
-	onLoadMore?: () => void;
-	rowsBeforeLoadMore?: number;
+export interface ExplorerViewContext {
+	ref: RefObject<HTMLDivElement>;
 	top?: number;
-	multiSelect?: boolean;
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
 	setIsRenaming: (isRenaming: boolean) => void;
-	selectable?: boolean;
 	padding?: number | { x?: number; y?: number };
+	gap?: number | { x?: number; y?: number };
+	selectable: boolean;
 }
-
-export type ExplorerViewSelectionChange<T extends ExplorerViewSelection> = T extends number[]
-	? number[]
-	: number | undefined;
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);
 

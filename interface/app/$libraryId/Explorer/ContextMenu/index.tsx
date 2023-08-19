@@ -1,26 +1,85 @@
-import { ReactNode } from 'react';
-import { ExplorerItem, FilePath, Location, Object } from '@sd/client';
-import FilePathCM from './FilePath';
-import LocationCM from './Location';
-import ObjectCM from './Object';
+import { Plus } from 'phosphor-react';
+import { ReactNode, useMemo } from 'react';
+import { ContextMenu } from '@sd/ui';
+import { isNonEmpty } from '~/util';
+import { useExplorerContext } from '../Context';
+import { Conditional, ConditionalGroupProps } from './ConditionalItem';
+import * as FilePathItems from './FilePath/Items';
+import * as ObjectItems from './Object/Items';
+import * as SharedItems from './SharedItems';
+import { ContextMenuContextProvider } from './context';
 
 export * as SharedItems from './SharedItems';
 export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
 
-export type ExtraFn = (a: {
-	object?: Object;
-	filePath?: FilePath;
-	location?: Location;
-}) => ReactNode;
+const Items = ({ children }: { children?: () => ReactNode }) => (
+	<>
+		<Conditional items={[FilePathItems.OpenOrDownload]} />
+		<SharedItems.OpenQuickView />
 
-export default ({ item, extra }: { item: ExplorerItem; extra?: ExtraFn }) => {
-	switch (item.type) {
-		case 'Path':
-			return <FilePathCM data={item} extra={extra} />;
-		case 'Object':
-			return <ObjectCM data={item} extra={extra} />;
-		case 'Location':
-			return <LocationCM data={item} extra={extra} />;
-	}
+		<SeparatedConditional items={[SharedItems.Details]} />
+
+		<ContextMenu.Separator />
+		<Conditional
+			items={[
+				SharedItems.RevealInNativeExplorer,
+				SharedItems.Rename,
+				FilePathItems.CutCopyItems,
+				SharedItems.Deselect
+			]}
+		/>
+		{children?.()}
+
+		<ContextMenu.Separator />
+		<SharedItems.Share />
+
+		<SeparatedConditional items={[ObjectItems.AssignTag]} />
+
+		<Conditional
+			items={[
+				FilePathItems.CopyAsPath,
+				FilePathItems.Crypto,
+				FilePathItems.Compress,
+				ObjectItems.ConvertObject,
+				FilePathItems.ParentFolderActions,
+				FilePathItems.SecureDelete
+			]}
+		>
+			{(items) => (
+				<ContextMenu.SubMenu label="More actions..." icon={Plus}>
+					{items}
+				</ContextMenu.SubMenu>
+			)}
+		</Conditional>
+
+		<SeparatedConditional items={[FilePathItems.Delete]} />
+	</>
+);
+
+export default ({ children }: { children?: () => ReactNode }) => {
+	const explorer = useExplorerContext();
+
+	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
+	if (!isNonEmpty(selectedItems)) return null;
+
+	return (
+		<ContextMenuContextProvider selectedItems={selectedItems}>
+			<Items>{children}</Items>
+		</ContextMenuContextProvider>
+	);
 };
+
+/**
+ * A `Conditional` that inserts a `<ContextMenu.Separator />` above its items.
+ */
+const SeparatedConditional = ({ items, children }: ConditionalGroupProps) => (
+	<Conditional items={items}>
+		{(c) => (
+			<>
+				<ContextMenu.Separator />
+				{children ? children(c) : c}
+			</>
+		)}
+	</Conditional>
+);

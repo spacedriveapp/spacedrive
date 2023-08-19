@@ -14,7 +14,8 @@ export type Platform = {
 		_linux_workaround?: boolean
 	) => string;
 	openLink: (url: string) => void;
-	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
+	// Tauri patches `window.confirm` to return `Promise` not `bool`
+	confirm(msg: string, cb: (result: boolean) => void): void;
 	getOs?(): Promise<OperatingSystem>;
 	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;

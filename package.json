@@ -19,6 +19,7 @@
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
 		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
+		"bootstrap:desktop": "cargo clean && ./.github/scripts/setup-system.sh && pnpm i && pnpm prep && pnpm desktop dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",

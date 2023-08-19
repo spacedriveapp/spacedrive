@@ -1,8 +1,8 @@
 import { useSnapshot } from 'valtio';
-import { valtioPersist } from '@sd/client';
+import { DoubleClickAction, valtioPersist } from '@sd/client';
 
 export const explorerConfigStore = valtioPersist('explorer-config', {
-	openOnDoubleClick: true
+	openOnDoubleClick: 'openFile' as DoubleClickAction
 });
 
 export function useExplorerConfigStore() {

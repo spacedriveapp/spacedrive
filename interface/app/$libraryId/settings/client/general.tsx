@@ -90,20 +90,20 @@ export const Component = () => {
 						<div>
 							<NodeSettingLabel>Data Folder</NodeSettingLabel>
 							<div className="mt-2 flex w-full flex-row gap-2">
-								<Input
-									className="grow"
-									value={node.data?.data_path}
-									onChange={() => {
-										/* TODO */
-									}}
-									disabled
-								/>
+								<Input className="grow" value={node.data?.data_path} disabled />
 								<Button
 									size="sm"
 									variant="outline"
 									onClick={() => {
-										if (node.data && platform?.openLink) {
-											platform.openLink(node.data.data_path);
+										if (node.data && !!platform?.openLink) {
+											platform.confirm(
+												'Modifying or backing up data within this folder may cause irreparable damage! Proceed at your own risk!',
+												(result) => {
+													if (result) {
+														platform.openLink(node.data.data_path);
+													}
+												}
+											);
 										}
 									}}
 								>

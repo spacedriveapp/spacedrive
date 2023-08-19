@@ -222,8 +222,8 @@ mod tests {
 			node_id: Uuid::new_v4(),
 			node_name: "Node Name".into(),
 			node_platform: Platform::current(),
-			last_seen: Utc::now().into(),
-			date_created: Utc::now().into(),
+			last_seen: Utc::now(),
+			date_created: Utc::now(),
 		};
 
 		{
