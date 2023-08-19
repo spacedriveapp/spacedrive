@@ -1,6 +1,6 @@
 import { type ImgHTMLAttributes } from 'react';
 import { type ObjectKindKey } from '@sd/client';
-import { getLayeredIcon } from '../../../../../packages/assets/util';
+import { getLayeredIcon } from '@sd/assets/util';
 
 interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
 	kind: ObjectKindKey;
