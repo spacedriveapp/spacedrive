@@ -172,23 +172,6 @@ export const FileThumb = memo((props: ThumbProps) => {
 								);
 
 							case 'Text':
-								return (
-									<TEXTViewer
-										src={src}
-										onLoad={onLoad}
-										onError={onError}
-										className={clsx(
-											'h-full w-full px-4 font-mono',
-											!props.mediaControls
-												? 'overflow-hidden'
-												: 'overflow-auto',
-											className,
-											props.frame && [frameClassName, '!bg-none']
-										)}
-										crossOrigin="anonymous"
-									/>
-								);
-
 							case 'Code':
 								return (
 									<TEXTViewer
