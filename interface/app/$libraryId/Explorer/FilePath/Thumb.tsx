@@ -36,6 +36,7 @@ export interface ThumbProps {
 	cover?: boolean;
 	frame?: boolean;
 	blackBars?: boolean;
+	blackBarsSize?: number;
 	extension?: boolean;
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
@@ -202,6 +203,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 										paused={props.pauseVideo}
 										controls={props.mediaControls}
 										blackBars={props.blackBars}
+										blackBarsSize={props.blackBarsSize}
 										className={clsx(
 											className,
 											props.frame && !props.blackBars && frameClassName
@@ -263,6 +265,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 								blackBars={
 									props.blackBars && itemData.kind === 'Video' && !props.cover
 								}
+								blackBarsSize={props.blackBarsSize}
 								extension={
 									props.extension &&
 									itemData.extension &&
@@ -293,22 +296,16 @@ export const FileThumb = memo((props: ThumbProps) => {
 interface ThumbnailProps extends ImgHTMLAttributes<HTMLImageElement> {
 	cover?: boolean;
 	blackBars?: boolean;
+	blackBarsSize?: number;
 	extension?: string;
 }
 
 const Thumbnail = memo(
-	({
-		crossOrigin,
-		blackBars,
-		extension,
-		cover,
-
-		...props
-	}: ThumbnailProps) => {
+	({ crossOrigin, blackBars, blackBarsSize, extension, cover, ...props }: ThumbnailProps) => {
 		const ref = useRef<HTMLImageElement>(null);
 
 		const size = useSize(ref);
-		const { style: blackBarsStyle } = useBlackBars(size);
+		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
 		return (
 			<>
@@ -349,13 +346,14 @@ const Thumbnail = memo(
 interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	paused?: boolean;
 	blackBars?: boolean;
+	blackBarsSize?: number;
 }
 
-const Video = memo(({ paused, blackBars, ...props }: VideoProps) => {
+const Video = memo(({ paused, blackBars, blackBarsSize, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	const size = useSize(ref);
-	const { style: blackBarsStyle } = useBlackBars(size);
+	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
 	useEffect(() => {
 		if (!ref.current) return;
@@ -398,13 +396,15 @@ const useSize = (ref: RefObject<Element>) => {
 	return size;
 };
 
-const useBlackBars = (size: { width: number; height: number }) => {
+const useBlackBars = (videoSize: { width: number; height: number }, blackBarsSize?: number) => {
 	return useMemo(() => {
-		const { width, height } = size;
+		const { width, height } = videoSize;
 
 		const orientation = height > width ? 'vertical' : 'horizontal';
 
-		const barSize = Math.floor(Math.ceil(orientation === 'vertical' ? height : width) / 10);
+		const barSize =
+			blackBarsSize ||
+			Math.floor(Math.ceil(orientation === 'vertical' ? height : width) / 10);
 
 		const xBarSize = orientation === 'vertical' ? barSize : 0;
 		const yBarSize = orientation === 'horizontal' ? barSize : 0;
@@ -423,5 +423,5 @@ const useBlackBars = (size: { width: number; height: number }) => {
 				borderRadius: 4
 			}
 		};
-	}, [size]);
+	}, [videoSize, blackBarsSize]);
 };

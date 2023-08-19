@@ -97,6 +97,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					loadOriginal
 					frame
 					blackBars={thumbs.length === 1}
+					blackBarsSize={16}
 					extension={thumbs.length > 1}
 					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
 					className={clsx(
