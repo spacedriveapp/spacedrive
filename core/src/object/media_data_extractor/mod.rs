@@ -61,12 +61,12 @@ static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.cloned()
-		.filter(can_generate_media_data_for_image)
+		.filter(can_extract_media_data_for_image)
 		.map(Extension::Image)
 		.collect()
 });
 
-pub const fn can_generate_media_data_for_image(image_extension: &ImageExtension) -> bool {
+pub const fn can_extract_media_data_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
 	matches!(
 		image_extension,
