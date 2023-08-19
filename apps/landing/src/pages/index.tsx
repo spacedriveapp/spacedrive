@@ -5,11 +5,13 @@
 /* eslint-disable jsx-a11y/alt-text */
 import { Apple } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
 import { AndroidLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
-import { memo, useEffect, useState } from 'react';
+import { IconProps } from 'phosphor-react';
+import { FunctionComponent, forwardRef, memo, useEffect, useState } from 'react';
 import { Tooltip, tw } from '@sd/ui';
 import BentoBoxes from '~/components/BentoBoxes';
 import CloudStorage from '~/components/CloudStorage';
@@ -30,6 +32,14 @@ const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-g
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
+
+const platforms = [
+	{ name: 'Android', icon: AndroidLogo, url: 'https://www.google.com' },
+	{ name: 'iOS', icon: Apple, url: 'https://www.github.com' },
+	{ name: 'Windows', icon: WindowsLogo, url: 'https://www.github.com' },
+	{ name: 'Linux', icon: LinuxLogo, url: 'https://www.github.com' },
+	{ name: 'Web', icon: Globe, url: 'https://www.github.com' }
+];
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
@@ -111,7 +121,7 @@ export default function HomePage() {
 					alt="l"
 					src="/images/headergradient.webp"
 				/>
-				<div className="flex w-full flex-col items-center px-4">
+				<div className="flex flex-col items-center w-full px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -121,10 +131,10 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
+					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -142,7 +152,7 @@ export default function HomePage() {
 					>
 						<HomeCTA
 							icon={<Download />}
-							className="z-5 relative"
+							className="relative z-5"
 							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
@@ -153,38 +163,21 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-					<div className="relative z-10 mt-5 flex gap-3">
-						<Tooltip label="Android">
-							<AndroidLogo
-								className="animation-delay-1 opacity-80 fade-in"
-								weight="fill"
-								size={20}
-							/>
-						</Tooltip>
-						<Tooltip label="iOS">
-							<Apple className="animation-delay-2 text-[18px] opacity-80 fade-in" />
-						</Tooltip>
-						<Tooltip label="Windows">
-							<WindowsLogo
-								className="animation-delay-3 opacity-80 fade-in"
-								weight="fill"
-								size={20}
-							/>
-						</Tooltip>
-						<Tooltip label="Linux">
-							<LinuxLogo
-								className="animation-delay-4 opacity-80 fade-in"
-								weight="fill"
-								size={20}
-							/>
-						</Tooltip>
-						<Tooltip label="Web">
-							<Globe
-								className="animation-delay-5 opacity-80 fade-in"
-								weight="regular"
-								size={20}
-							/>
-						</Tooltip>
+					<div className="relative z-10 flex gap-3 mt-5">
+						{platforms.map((platform, i) => (
+							<motion.div
+								initial={{ opacity: 0, y: 20 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: i * 0.2, ease: 'easeInOut' }}
+								key={platform.name}
+							>
+								<Platform
+									icon={platform.icon}
+									url={platform.url}
+									label={platform.name}
+								/>
+							</motion.div>
+						))}
 					</div>
 					<div>
 						<div
@@ -199,7 +192,7 @@ export default function HomePage() {
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
+							<AppFrameOuter className="relative overflow-hidden fade-in-heading animation-delay-2">
 								<LineAnimation />
 								<AppFrameInner>
 									<Image
@@ -222,6 +215,24 @@ export default function HomePage() {
 		</>
 	);
 }
+
+interface Props {
+	icon: FunctionComponent<IconProps>;
+	url: string;
+	label: string;
+}
+
+const Platform = forwardRef<HTMLAnchorElement, Props>(({ icon: Icon, url, label }, ref) => {
+	return (
+		<Tooltip label={label}>
+			<Link ref={ref} href={url} target="_blank">
+				<Icon size={20} className="opacity-80" weight="fill" />
+			</Link>
+		</Tooltip>
+	);
+});
+
+Platform.displayName = 'Platform';
 
 const LineAnimation = memo(() => {
 	const [numberOfLines, setNumberOfLines] = useState(1);
@@ -254,7 +265,7 @@ const LineAnimation = memo(() => {
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="left-line bg-gradient-to-r from-transparent to-white/50 opacity-0"
+					className="opacity-0 left-line bg-gradient-to-r from-transparent to-white/50"
 				/>
 			))}
 			{[...Array(numberOfLines)].map((_, i) => (
@@ -273,7 +284,7 @@ const LineAnimation = memo(() => {
 						position: 'absolute',
 						zIndex: 50
 					}}
-					className="bg-gradient-to-b from-transparent to-white/50 opacity-0"
+					className="opacity-0 bg-gradient-to-b from-transparent to-white/50"
 				/>
 			))}
 		</>
