@@ -1,6 +1,7 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
+	CSSProperties,
 	ImgHTMLAttributes,
 	RefObject,
 	VideoHTMLAttributes,
@@ -421,7 +422,7 @@ const useBlackBars = (videoSize: { width: number; height: number }, blackBarsSiz
 				borderBottomWidth: yBarSize,
 				borderColor: 'black',
 				borderRadius: 4
-			}
+			} satisfies CSSProperties
 		};
 	}, [videoSize, blackBarsSize]);
 };
