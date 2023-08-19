@@ -94,8 +94,6 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
-export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null }
-
 /**
  * Meow
  */
@@ -104,6 +102,8 @@ export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" 
 export type ChangeNodeNameArgs = { name: string | null }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
+
+export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type CreateLibraryArgs = { name: LibraryName }
 
@@ -148,6 +148,8 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string }
 export type GetArgs = { id: number }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type ImageData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
 export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
@@ -224,9 +226,9 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; dimensions: number[]; media_date: number[]; media_location: number[] | null; camera_data: number[]; artist: number[] | null; copyright: number[] | null; exif_version: number[] | null }
+export type MediaData = { id: number; dimensions: number[]; media_date: number[]; media_location: number[] | null; camera_data: number[]; artist: number[] | null; copyright: number[] | null; exif_version: number[] | null; object_id: number }
 
-export type MediaDataImage = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: CameraData; artist: string | null; copyright: string | null; exif_version: string | null }
+export type MediaDataImage = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: ImageData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
 export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
 

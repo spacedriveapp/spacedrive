@@ -14,14 +14,14 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use sd_file_ext::extensions::{Extension, ImageExtension};
+use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
+use sd_media_data::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
-use sd_file_ext::extensions::VideoExtension;
+use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
-use sd_media_data::Orientation;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io, task::block_in_place};
@@ -61,18 +61,18 @@ pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
 
 #[cfg(feature = "ffmpeg")]
 static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
-	sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
+	ALL_VIDEO_EXTENSIONS
 		.iter()
-		.map(Clone::clone)
+		.cloned()
 		.filter(can_generate_thumbnail_for_video)
 		.map(Extension::Video)
 		.collect()
 });
 
 static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
-	sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
+	ALL_IMAGE_EXTENSIONS
 		.iter()
-		.map(Clone::clone)
+		.cloned()
 		.filter(can_generate_thumbnail_for_image)
 		.map(Extension::Image)
 		.collect()
@@ -93,6 +93,7 @@ pub enum ThumbnailerError {
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailerJobStepKind {
 	Image,

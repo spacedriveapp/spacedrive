@@ -9,22 +9,16 @@ use crate::{
 	util::{db::maybe_missing, error::FileIOError},
 };
 
-use sd_file_ext::{
-	extensions::{Extension, ImageExtension},
-	kind::ObjectKind,
-};
-use sd_media_data::MediaDataImage;
+use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+
 use sd_prisma::prisma_sync;
 use sd_sync::{CRDTOperation, OperationFactory};
 use sd_utils::uuid_to_bytes;
 
-use once_cell::sync::Lazy;
 use std::{
-	borrow::Cow,
 	collections::{HashMap, HashSet},
 	fmt::Debug,
 	path::Path,
-	str::FromStr,
 };
 
 use futures::future::join_all;
@@ -230,54 +224,35 @@ async fn identifier_job_step(
 			new_objects_cas_ids
 		);
 
-		let ((object_create_args, file_path_update_args), create_media_data_queries): (
-			(Vec<_>, Vec<_>),
-			Vec<_>,
-		) = file_paths_requiring_new_object
-			.iter()
-			.map(|(file_path_pub_id, (meta, fp))| {
-				let object_pub_id = Uuid::new_v4();
+		let (object_create_args, file_path_update_args): (Vec<_>, Vec<_>) =
+			file_paths_requiring_new_object
+				.iter()
+				.map(|(file_path_pub_id, (meta, fp))| {
+					let object_pub_id = Uuid::new_v4();
+					let sync_id = || prisma_sync::object::SyncId {
+						pub_id: sd_utils::uuid_to_bytes(object_pub_id),
+					};
 
-				let mp = fp.materialized_path.clone().unwrap_or_default();
-				let name = fp.name.clone().unwrap_or_default();
-				let ext = fp.extension.clone().unwrap_or_default();
+					let kind = meta.kind as i32;
 
-				let materialized_path = Cow::Borrowed(mp.as_str());
-				let name = Cow::Borrowed(name.as_str());
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+						(
+							(object::date_created::NAME, json!(fp.date_created)),
+							object::date_created::set(fp.date_created),
+						),
+						(
+							(object::kind::NAME, json!(kind)),
+							object::kind::set(Some(kind)),
+						),
+					]
+					.into_iter()
+					.unzip();
 
-				let path = IsolatedFilePathData::from_db_data(
-					location.id,
-					fp.is_dir.unwrap_or_default(),
-					materialized_path,
-					name,
-					Cow::Borrowed(ext.as_str()),
-				);
+					let object_creation_args = (
+						sync.shared_create(sync_id(), sync_params),
+						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
+					);
 
-				let sync_id = || prisma_sync::object::SyncId {
-					pub_id: sd_utils::uuid_to_bytes(object_pub_id),
-				};
-
-				let kind = meta.kind as i32;
-
-				let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-					(
-						(object::date_created::NAME, json!(fp.date_created)),
-						object::date_created::set(fp.date_created),
-					),
-					(
-						(object::kind::NAME, json!(kind)),
-						object::kind::set(Some(kind)),
-					),
-				]
-				.into_iter()
-				.unzip();
-
-				let object_creation_args = (
-					sync.shared_create(sync_id(), sync_params),
-					object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
-				);
-
-				(
 					(object_creation_args, {
 						let (crdt_op, db_op) = file_path_object_connect_ops(
 							*file_path_pub_id,
@@ -287,18 +262,9 @@ async fn identifier_job_step(
 						);
 
 						(crdt_op, db_op.select(file_path::select!({ pub_id })))
-					}),
-					ImageExtension::from_str(&ext)
-						.map(|ext| FILTERED_IMAGE_EXTENSIONS.contains(&ext))
-						.unwrap_or(false)
-						.then(|| {
-							MediaDataImage::from_path(&location_path.join(path))?
-								.to_query()
-								.map_err(JobError::MediaData)
-						}),
-				)
-			})
-			.unzip();
+					})
+				})
+				.unzip();
 
 		// create new object records with assembled values
 		let total_created_files = sync
@@ -329,33 +295,6 @@ async fn identifier_job_step(
 			.await?;
 
 			trace!("Updated file paths with created objects");
-		}
-
-		// TODO(brxken128):
-		// This only works on the very first index, and if the object is brand new to the database
-		// This also does not work for objects added to a location after the initial index
-		// Shallow re-indexes also do not affect this
-		// Maybe a media data job is in order?
-		// Also I think some media data is being assigned to the wrong file,
-		// or the frontend is reading it from the wrong file (could just be my bad TS)
-		// The creation function only runs against file paths requiring new objects, but I'm not too sure where to move it
-		// We could `Option<MediaDataImage>` it in `FileMetadata` and pull it there, and create it on each usage?
-
-		if !create_media_data_queries.is_empty() {
-			let total_created_media_data = db
-				.media_data()
-				.create_many(
-					create_media_data_queries
-						.iter()
-						.flatten()
-						.flatten()
-						.cloned()
-						.collect(),
-				)
-				.exec()
-				.await?;
-
-			tracing::debug!("Extracted EXIF data for {total_created_media_data} files");
 		}
 
 		total_created_files as usize
@@ -421,21 +360,4 @@ async fn process_identifier_file_paths(
 			.map(|last_row| last_row.id)
 			.unwrap_or(cursor),
 	))
-}
-
-static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<ImageExtension>> = Lazy::new(|| {
-	sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
-		.iter()
-		.map(Clone::clone)
-		.filter(can_generate_media_data_for_image)
-		.collect()
-});
-
-pub const fn can_generate_media_data_for_image(image_extension: &ImageExtension) -> bool {
-	use ImageExtension::*;
-
-	matches!(
-		image_extension,
-		Jpg | Jpeg | Png | Tiff | Webp | Heic | Heics | Heif | Heifs | Avif
-	)
 }

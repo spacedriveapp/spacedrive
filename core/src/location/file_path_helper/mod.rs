@@ -52,6 +52,13 @@ file_path::select!(file_path_for_thumbnailer {
 	extension
 	cas_id
 });
+file_path::select!(file_path_for_media_data {
+	materialized_path
+	is_dir
+	name
+	extension
+	object_id
+});
 file_path::select!(file_path_to_isolate {
 	location_id
 	materialized_path

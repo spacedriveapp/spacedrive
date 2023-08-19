@@ -1,6 +1,3 @@
-use super::{
-	ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
-};
 use crate::{
 	invalidate_query,
 	job::JobError,
@@ -14,11 +11,18 @@ use crate::{
 	util::error::FileIOError,
 	Node,
 };
+
 use sd_file_ext::extensions::Extension;
+
 use std::path::{Path, PathBuf};
-use thumbnail::init_thumbnail_dir;
+
 use tokio::fs;
 use tracing::{debug, trace};
+
+use super::{
+	init_thumbnail_dir, ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind,
+	FILTERED_IMAGE_EXTENSIONS,
+};
 
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;

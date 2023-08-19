@@ -124,8 +124,12 @@ impl MediaDataImage {
 	}
 
 	/// This is only here as there's no easy impl from this foreign type to prisma's `CreateUnchecked`
-	pub fn to_query(self) -> Result<sd_prisma::prisma::media_data::CreateUnchecked> {
-		let kc = media_data::CreateUnchecked {
+	pub fn to_query(
+		self,
+		object_id: sd_prisma::prisma::media_data::object_id::Type,
+	) -> Result<sd_prisma::prisma::media_data::CreateUnchecked> {
+		Ok(media_data::CreateUnchecked {
+			object_id,
 			dimensions: serde_json::to_vec(&self.dimensions)?,
 			media_date: serde_json::to_vec(&self.date_taken)?,
 			camera_data: serde_json::to_vec(&self.camera_data)?,
@@ -135,9 +139,7 @@ impl MediaDataImage {
 				media_data::copyright::set(serde_json::to_vec(&self.copyright).ok()),
 				media_data::exif_version::set(serde_json::to_vec(&self.exif_version).ok()),
 			],
-		};
-
-		Ok(kc)
+		})
 	}
 
 	pub fn from_prisma_data(data: sd_prisma::prisma::media_data::Data) -> Result<Self> {
@@ -155,6 +157,7 @@ impl MediaDataImage {
 	}
 }
 
+#[must_use]
 pub fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
 	value: Option<Vec<u8>>,
 ) -> Option<T> {

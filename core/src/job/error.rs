@@ -2,7 +2,8 @@ use crate::{
 	location::{indexer::IndexerError, LocationError},
 	object::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
-		preview::ThumbnailerError, validation::ValidatorError,
+		media_data_extractor::MediaDataError, preview::ThumbnailerError,
+		validation::ValidatorError,
 	},
 	util::{db::MissingFieldError, error::FileIOError},
 };
@@ -43,28 +44,28 @@ pub enum JobError {
 	FileIO(#[from] FileIOError),
 	#[error("Location error: {0}")]
 	Location(#[from] LocationError),
-
-	// Specific job errors
-	#[error(transparent)]
-	Indexer(#[from] IndexerError),
-	#[error(transparent)]
-	ThumbnailError(#[from] ThumbnailerError),
-	#[error(transparent)]
-	IdentifierError(#[from] FileIdentifierJobError),
-	#[error(transparent)]
-	Validator(#[from] ValidatorError),
-	#[error(transparent)]
-	FileSystemJobsError(#[from] FileSystemJobsError),
-	#[error(transparent)]
-	CryptoError(#[from] CryptoError),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
 	#[error("item of type '{0}' with id '{1}' is missing from the db")]
 	MissingFromDb(&'static str, String),
 	#[error("Thumbnail skipped")]
 	ThumbnailSkipped,
-	#[error("media data error: {0}")]
-	MediaData(#[from] sd_media_data::Error),
+
+	// Specific job errors
+	#[error(transparent)]
+	Indexer(#[from] IndexerError),
+	#[error(transparent)]
+	Thumbnail(#[from] ThumbnailerError),
+	#[error(transparent)]
+	FileIdentifier(#[from] FileIdentifierJobError),
+	#[error(transparent)]
+	Validator(#[from] ValidatorError),
+	#[error(transparent)]
+	FileSystemJobsError(#[from] FileSystemJobsError),
+	#[error(transparent)]
+	CryptoError(#[from] CryptoError),
+	#[error(transparent)]
+	MediaData(#[from] MediaDataError),
 
 	// Not errors
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]

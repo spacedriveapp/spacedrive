@@ -309,7 +309,8 @@ model MediaData {
     // streams  Int?
     // codecs   String? // eg: "h264,acc"
 
-    object Object? @relation(fields: [id], references: [id], onDelete: Cascade)
+    object_id Int    @unique
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
 
     @@map("media_data")
 }

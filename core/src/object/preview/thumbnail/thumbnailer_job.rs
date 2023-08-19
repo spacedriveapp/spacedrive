@@ -9,7 +9,6 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_thumbnailer, IsolatedFilePathData,
 	},
-	object::preview::thumbnail::directory::init_thumbnail_dir,
 	prisma::{file_path, location, PrismaClient},
 	util::db::maybe_missing,
 };
@@ -27,8 +26,8 @@ use serde_json::json;
 use tracing::{debug, info, trace};
 
 use super::{
-	inner_process_step, ThumbnailerError, ThumbnailerJobStep, ThumbnailerJobStepKind,
-	FILTERED_IMAGE_EXTENSIONS,
+	init_thumbnail_dir, inner_process_step, ThumbnailerError, ThumbnailerJobStep,
+	ThumbnailerJobStepKind, FILTERED_IMAGE_EXTENSIONS,
 };
 
 #[cfg(feature = "ffmpeg")]
@@ -161,14 +160,7 @@ impl StatefulJob for ThumbnailerJobInit {
 			path,
 		});
 
-		Ok((
-			ThumbnailerJobRunMetadata {
-				thumbnails_created: 0,
-				thumbnails_skipped: 0,
-			},
-			all_files,
-		)
-			.into())
+		Ok(all_files.into())
 	}
 
 	async fn execute_step(

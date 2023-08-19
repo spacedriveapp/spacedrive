@@ -30,9 +30,15 @@ pub type JobMetadata = Option<serde_json::Value>;
 #[derive(Debug, Default)]
 pub struct JobRunErrors(pub Vec<String>);
 
-impl From<Vec<String>> for JobRunErrors {
-	fn from(errors: Vec<String>) -> Self {
-		Self(errors)
+impl<I: IntoIterator<Item = String>> From<I> for JobRunErrors {
+	fn from(errors: I) -> Self {
+		Self(errors.into_iter().collect())
+	}
+}
+
+impl fmt::Display for JobRunErrors {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.0.join("\n"))
 	}
 }
 
@@ -290,10 +296,13 @@ impl<RunMetadata, Step> From<(RunMetadata, Vec<Step>)> for JobInitOutput<RunMeta
 	}
 }
 
-impl<Step> From<Vec<Step>> for JobInitOutput<(), Step> {
+impl<RunMetadata, Step> From<Vec<Step>> for JobInitOutput<RunMetadata, Step>
+where
+	RunMetadata: Default,
+{
 	fn from(steps: Vec<Step>) -> Self {
 		Self {
-			run_metadata: (),
+			run_metadata: RunMetadata::default(),
 			steps: VecDeque::from(steps),
 			errors: Default::default(),
 		}
@@ -361,6 +370,18 @@ impl<Step, RunMetadata: JobRunMetadata> From<(Vec<Step>, RunMetadata)>
 			maybe_more_steps: Some(more_steps),
 			maybe_more_metadata: Some(more_metadata),
 			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<(RunMetadata, JobRunErrors)>
+	for JobStepOutput<Step, RunMetadata>
+{
+	fn from((more_metadata, errors): (RunMetadata, JobRunErrors)) -> Self {
+		Self {
+			maybe_more_steps: None,
+			maybe_more_metadata: Some(more_metadata),
+			errors,
 		}
 	}
 }
