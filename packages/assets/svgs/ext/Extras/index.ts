@@ -12,7 +12,6 @@ import { ReactComponent as afphoto } from './afphoto.svg';
 import { ReactComponent as afpub } from './afpub.svg';
 import { ReactComponent as ai } from './ai.svg';
 import { ReactComponent as air } from './air.svg';
-import { ReactComponent as angular } from './angular.svg';
 import { ReactComponent as anim } from './anim.svg';
 import { ReactComponent as astro } from './astro.svg';
 import { ReactComponent as astroconfig } from './astroconfig.svg';
@@ -32,9 +31,7 @@ import { ReactComponent as blade } from './blade.svg';
 import { ReactComponent as brotli } from './brotli.svg';
 import { ReactComponent as browserslist } from './browserslist.svg';
 import { ReactComponent as bsconfig } from './bsconfig.svg';
-import { ReactComponent as bun } from './bun.svg';
 import { ReactComponent as bundler } from './bundler.svg';
-import { ReactComponent as c } from './c.svg';
 import { ReactComponent as cargo } from './cargo.svg';
 import { ReactComponent as cargolock } from './cargolock.svg';
 import { ReactComponent as cert } from './cert.svg';
@@ -42,7 +39,6 @@ import { ReactComponent as cheader } from './cheader.svg';
 import { ReactComponent as civet } from './civet.svg';
 import { ReactComponent as cli } from './cli.svg';
 import { ReactComponent as clojure } from './clojure.svg';
-import { ReactComponent as cmake } from './cmake.svg';
 import { ReactComponent as codeworkspace } from './codeworkspace.svg';
 import { ReactComponent as commitlint } from './commitlint.svg';
 import { ReactComponent as compodoc } from './compodoc.svg';
@@ -50,12 +46,9 @@ import { ReactComponent as composer } from './composer.svg';
 import { ReactComponent as composerlock } from './composerlock.svg';
 import { ReactComponent as conan } from './conan.svg';
 import { ReactComponent as conf } from './conf.svg';
-import { ReactComponent as cpp } from './cpp.svg';
 import { ReactComponent as crystal } from './crystal.svg';
-import { ReactComponent as csharp } from './csharp.svg';
 import { ReactComponent as cshtml } from './cshtml.svg';
 import { ReactComponent as csproj } from './csproj.svg';
-import { ReactComponent as css } from './css.svg';
 import { ReactComponent as cssmap } from './cssmap.svg';
 import { ReactComponent as csv } from './csv.svg';
 import { ReactComponent as cucumber } from './cucumber.svg';
@@ -63,7 +56,6 @@ import { ReactComponent as cypress } from './cypress.svg';
 import { ReactComponent as cypressjs } from './cypressjs.svg';
 import { ReactComponent as cypressts } from './cypressts.svg';
 import { ReactComponent as d } from './d.svg';
-import { ReactComponent as dartlang } from './dartlang.svg';
 import { ReactComponent as diff } from './diff.svg';
 import { ReactComponent as docker } from './docker.svg';
 import { ReactComponent as dockerdebug } from './dockerdebug.svg';
@@ -104,7 +96,6 @@ import { ReactComponent as freemarker } from './freemarker.svg';
 import { ReactComponent as fsharp } from './fsharp.svg';
 import { ReactComponent as gbl } from './gbl.svg';
 import { ReactComponent as git } from './git.svg';
-import { ReactComponent as go } from './go.svg';
 import { ReactComponent as go_package } from './go_package.svg';
 import { ReactComponent as godot } from './godot.svg';
 import { ReactComponent as gradle } from './gradle.svg';
@@ -125,7 +116,6 @@ import { ReactComponent as haxe } from './haxe.svg';
 import { ReactComponent as haxeml } from './haxeml.svg';
 import { ReactComponent as hpp } from './hpp.svg';
 import { ReactComponent as htaccess } from './htaccess.svg';
-import { ReactComponent as html } from './html.svg';
 import { ReactComponent as image } from './image.svg';
 import { ReactComponent as imagegif } from './imagegif.svg';
 import { ReactComponent as imageico } from './imageico.svg';
@@ -136,11 +126,9 @@ import { ReactComponent as imba } from './imba.svg';
 import { ReactComponent as info } from './info.svg';
 import { ReactComponent as ipynb } from './ipynb.svg';
 import { ReactComponent as jar } from './jar.svg';
-import { ReactComponent as java } from './java.svg';
 import { ReactComponent as jenkins } from './jenkins.svg';
 import { ReactComponent as jest } from './jest.svg';
 import { ReactComponent as jinja } from './jinja.svg';
-import { ReactComponent as js } from './js.svg';
 import { ReactComponent as jsmap } from './jsmap.svg';
 import { ReactComponent as json } from './json.svg';
 import { ReactComponent as jsp } from './jsp.svg';
@@ -148,7 +136,6 @@ import { ReactComponent as julia } from './julia.svg';
 import { ReactComponent as karma } from './karma.svg';
 import { ReactComponent as key } from './key.svg';
 import { ReactComponent as knex } from './knex.svg';
-import { ReactComponent as kotlin } from './kotlin.svg';
 import { ReactComponent as kotlins } from './kotlins.svg';
 import { ReactComponent as krita } from './krita.svg';
 import { ReactComponent as latex } from './latex.svg';
@@ -211,7 +198,6 @@ import { ReactComponent as perl } from './perl.svg';
 import { ReactComponent as perlm } from './perlm.svg';
 import { ReactComponent as pfx } from './pfx.svg';
 import { ReactComponent as photoshop } from './photoshop.svg';
-import { ReactComponent as php } from './php.svg';
 import { ReactComponent as playright } from './playright.svg';
 import { ReactComponent as pnpm } from './pnpm.svg';
 import { ReactComponent as pnpmlock } from './pnpmlock.svg';
@@ -228,7 +214,6 @@ import { ReactComponent as prolog } from './prolog.svg';
 import { ReactComponent as properties } from './properties.svg';
 import { ReactComponent as pug } from './pug.svg';
 import { ReactComponent as pvk } from './pvk.svg';
-import { ReactComponent as py } from './py.svg';
 import { ReactComponent as pyproject } from './pyproject.svg';
 import { ReactComponent as qt } from './qt.svg';
 import { ReactComponent as quarkus } from './quarkus.svg';
@@ -291,7 +276,6 @@ import { ReactComponent as toolversions } from './toolversions.svg';
 import { ReactComponent as tox } from './tox.svg';
 import { ReactComponent as travis } from './travis.svg';
 import { ReactComponent as tres } from './tres.svg';
-import { ReactComponent as ts } from './ts.svg';
 import { ReactComponent as tscn } from './tscn.svg';
 import { ReactComponent as tsconfig } from './tsconfig.svg';
 import { ReactComponent as tsx } from './tsx.svg';
@@ -313,7 +297,6 @@ import { ReactComponent as viteenv } from './viteenv.svg';
 import { ReactComponent as vitest } from './vitest.svg';
 import { ReactComponent as vmod } from './vmod.svg';
 import { ReactComponent as vscode } from './vscode.svg';
-import { ReactComponent as vue } from './vue.svg';
 import { ReactComponent as wasm } from './wasm.svg';
 import { ReactComponent as webpack } from './webpack.svg';
 import { ReactComponent as windi } from './windi.svg';
@@ -336,7 +319,6 @@ export {
 	afpub,
 	ai,
 	air,
-	angular,
 	anim,
 	astro,
 	astroconfig,
@@ -356,9 +338,7 @@ export {
 	brotli,
 	browserslist,
 	bsconfig,
-	bun,
 	bundler,
-	c,
 	cargo,
 	cargolock,
 	cert,
@@ -366,7 +346,6 @@ export {
 	civet,
 	cli,
 	clojure,
-	cmake,
 	codeworkspace,
 	commitlint,
 	compodoc,
@@ -374,12 +353,9 @@ export {
 	composerlock,
 	conan,
 	conf,
-	cpp,
 	crystal,
-	csharp,
 	cshtml,
 	csproj,
-	css,
 	cssmap,
 	csv,
 	cucumber,
@@ -387,7 +363,6 @@ export {
 	cypressjs,
 	cypressts,
 	d,
-	dartlang,
 	diff,
 	docker,
 	dockerdebug,
@@ -428,7 +403,6 @@ export {
 	fsharp,
 	gbl,
 	git,
-	go,
 	go_package,
 	godot,
 	gradle,
@@ -449,7 +423,6 @@ export {
 	haxeml,
 	hpp,
 	htaccess,
-	html,
 	image,
 	imagegif,
 	imageico,
@@ -460,11 +433,9 @@ export {
 	info,
 	ipynb,
 	jar,
-	java,
 	jenkins,
 	jest,
 	jinja,
-	js,
 	jsmap,
 	json,
 	jsp,
@@ -472,7 +443,6 @@ export {
 	karma,
 	key,
 	knex,
-	kotlin,
 	kotlins,
 	krita,
 	latex,
@@ -535,7 +505,6 @@ export {
 	perlm,
 	pfx,
 	photoshop,
-	php,
 	playright,
 	pnpm,
 	pnpmlock,
@@ -552,7 +521,6 @@ export {
 	properties,
 	pug,
 	pvk,
-	py,
 	pyproject,
 	qt,
 	quarkus,
@@ -615,7 +583,6 @@ export {
 	tox,
 	travis,
 	tres,
-	ts,
 	tscn,
 	tsconfig,
 	tsx,
@@ -637,7 +604,6 @@ export {
 	vitest,
 	vmod,
 	vscode,
-	vue,
 	wasm,
 	webpack,
 	windi,
