@@ -1,86 +1,99 @@
-import { ClipboardText, Image, Package, Trash, TrashSimple } from 'phosphor-react';
-import { FilePath, libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
+import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
+import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { useExplorerContext } from '../../Context';
+import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
+import { Conditional, ConditionalItem } from '../ConditionalItem';
+import { useContextMenuContext } from '../context';
 import OpenWith from './OpenWith';
 
 export * from './CutCopyItems';
 
-interface FilePathProps {
-	filePath: FilePath;
-}
+export const Delete = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		if (!isNonEmpty(selectedFilePaths)) return null;
 
-export const Delete = ({ filePath }: FilePathProps) => {
-	const keybind = useKeybindFactory();
+		const locationId = selectedFilePaths[0].location_id;
+		if (locationId === null) return null;
 
-	const locationId = filePath.location_id;
+		return { selectedFilePaths, locationId };
+	},
+	Component: ({ selectedFilePaths, locationId }) => {
+		const keybind = useKeybindFactory();
 
-	return (
-		<>
-			{locationId != null && (
-				<ContextMenu.Item
-					icon={Trash}
-					label="Delete"
-					variant="danger"
-					keybind={keybind([ModifierKeys.Control], ['Delete'])}
-					onClick={() =>
-						dialogManager.create((dp) => (
-							<DeleteDialog {...dp} location_id={locationId} path_id={filePath.id} />
-						))
-					}
-				/>
-			)}
-		</>
-	);
-};
-
-export const CopyAsPath = ({ pathOrId }: { pathOrId: number | string }) => {
-	return (
-		<ContextMenu.Item
-			label="Copy as path"
-			icon={ClipboardText}
-			onClick={async () => {
-				try {
-					const path =
-						typeof pathOrId === 'string'
-							? pathOrId
-							: await libraryClient.query(['files.getPath', pathOrId]);
-
-					if (path == null) throw new Error('No file path available');
-
-					navigator.clipboard.writeText(path);
-				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: `Failed to copy file path: ${error}`
-					});
+		return (
+			<ContextMenu.Item
+				icon={Trash}
+				label="Delete"
+				variant="danger"
+				keybind={keybind([ModifierKeys.Control], ['Delete'])}
+				onClick={() =>
+					dialogManager.create((dp) => (
+						<DeleteDialog
+							{...dp}
+							locationId={locationId}
+							pathIds={selectedFilePaths.map((p) => p.id)}
+						/>
+					))
 				}
-			}}
+			/>
+		);
+	}
+});
+
+export const CopyAsPath = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		if (!isNonEmpty(selectedFilePaths) || selectedFilePaths.length > 1) return null;
+
+		return { selectedFilePaths };
+	},
+	Component: ({ selectedFilePaths }) => (
+		<CopyAsPathBase
+			getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
 		/>
-	);
-};
+	)
+});
 
-export const Compress = (_: FilePathProps) => {
-	const keybind = useKeybindFactory();
+export const Compress = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		if (!isNonEmpty(selectedFilePaths)) return null;
 
-	return (
-		<ContextMenu.Item
-			label="Compress"
-			icon={Package}
-			keybind={keybind([ModifierKeys.Control], ['B'])}
-			disabled
-		/>
-	);
-};
+		return { selectedFilePaths };
+	},
+	Component: ({ selectedFilePaths: _ }) => {
+		const keybind = useKeybindFactory();
 
-export const Crypto = (_: FilePathProps) => {
-	return (
-		<>
-			{/* <ContextMenu.Item
+		return (
+			<ContextMenu.Item
+				label="Compress"
+				icon={Package}
+				keybind={keybind([ModifierKeys.Control], ['B'])}
+				disabled
+			/>
+		);
+	}
+});
+
+export const Crypto = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		if (!isNonEmpty(selectedFilePaths)) return null;
+
+		return { selectedFilePaths };
+	},
+	Component: ({ selectedFilePaths: _ }) => {
+		return (
+			<>
+				{/* <ContextMenu.Item
 					label="Encrypt"
 					icon={LockSimple}
 					keybind="⌘E"
@@ -106,8 +119,8 @@ export const Crypto = (_: FilePathProps) => {
 						}
 					}}
 				/> */}
-			{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
-			{/* <ContextMenu.Item
+				{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
+				{/* <ContextMenu.Item
 					label="Decrypt"
 					icon={LockSimpleOpen}
 					keybind="⌘D"
@@ -128,102 +141,128 @@ export const Crypto = (_: FilePathProps) => {
 						}
 					}}
 				/> */}
-		</>
-	);
-};
+			</>
+		);
+	}
+});
 
-export const SecureDelete = ({ filePath }: FilePathProps) => {
-	const locationId = filePath.location_id;
+export const SecureDelete = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		if (!isNonEmpty(selectedFilePaths)) return null;
 
-	return (
-		<>
-			{locationId && (
-				<ContextMenu.Item
-					variant="danger"
-					label="Secure delete"
-					icon={TrashSimple}
-					onClick={() =>
-						dialogManager.create((dp) => (
-							<EraseDialog {...dp} location_id={locationId} path_id={filePath.id} />
-						))
-					}
-					disabled
-				/>
-			)}
-		</>
-	);
-};
+		const locationId = selectedFilePaths[0].location_id;
+		if (locationId === null) return null;
 
-export const ParentFolderActions = ({
-	filePath,
-	locationId
-}: FilePathProps & { locationId: number }) => {
-	const fullRescan = useLibraryMutation('locations.fullRescan');
-	const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+		return { locationId, selectedFilePaths };
+	},
+	Component: ({ locationId, selectedFilePaths }) => (
+		<ContextMenu.Item
+			variant="danger"
+			label="Secure delete"
+			icon={TrashSimple}
+			onClick={() =>
+				dialogManager.create((dp) => (
+					<EraseDialog {...dp} locationId={locationId} filePaths={selectedFilePaths} />
+				))
+			}
+			disabled
+		/>
+	)
+});
 
-	return (
-		<>
-			<ContextMenu.Item
-				onClick={async () => {
-					try {
-						await fullRescan.mutateAsync({
-							location_id: locationId,
-							reidentify_objects: false
-						});
-					} catch (error) {
-						showAlertDialog({
-							title: 'Error',
-							value: `Failed to rescan location, due to an error: ${error}`
-						});
-					}
-				}}
-				label="Rescan Directory"
-				icon={Package}
-			/>
-			<ContextMenu.Item
-				onClick={async () => {
-					try {
-						await generateThumbnails.mutateAsync({
-							id: locationId,
-							path: filePath.materialized_path ?? '/'
-						});
-					} catch (error) {
-						showAlertDialog({
-							title: 'Error',
-							value: `Failed to generate thumbnails, due to an error: ${error}`
-						});
-					}
-				}}
-				label="Regen Thumbnails"
-				icon={Image}
-			/>
-		</>
-	);
-};
+export const ParentFolderActions = new ConditionalItem({
+	useCondition: () => {
+		const { parent } = useExplorerContext();
 
-export const OpenOrDownload = ({ filePath }: { filePath: FilePath }) => {
-	const keybind = useKeybindFactory();
-	const { platform, openFilePaths: openFilePath } = usePlatform();
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+		if (parent?.type !== 'Location') return null;
 
-	const { library } = useLibraryContext();
+		return { parent };
+	},
+	Component: ({ parent }) => {
+		const { selectedFilePaths } = useContextMenuContext();
 
-	if (platform === 'web') return <ContextMenu.Item label="Download" />;
-	else
+		const fullRescan = useLibraryMutation('locations.fullRescan');
+		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
+
 		return (
 			<>
-				{openFilePath && (
+				<ContextMenu.Item
+					onClick={async () => {
+						try {
+							await fullRescan.mutateAsync({
+								location_id: parent.location.id,
+								reidentify_objects: false
+							});
+						} catch (error) {
+							showAlertDialog({
+								title: 'Error',
+								value: `Failed to rescan location, due to an error: ${error}`
+							});
+						}
+					}}
+					label="Rescan Directory"
+					icon={Package}
+				/>
+				<ContextMenu.Item
+					onClick={async () => {
+						try {
+							await generateThumbnails.mutateAsync({
+								id: parent.location.id,
+								path: selectedFilePaths[0]?.materialized_path ?? '/'
+							});
+						} catch (error) {
+							showAlertDialog({
+								title: 'Error',
+								value: `Failed to generate thumbnails, due to an error: ${error}`
+							});
+						}
+					}}
+					label="Regen Thumbnails"
+					icon={Image}
+				/>
+			</>
+		);
+	}
+});
+
+export const OpenOrDownload = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths } = useContextMenuContext();
+		const { openFilePaths } = usePlatform();
+
+		if (!openFilePaths || !isNonEmpty(selectedFilePaths)) return null;
+
+		return { openFilePaths, selectedFilePaths };
+	},
+	Component: ({ openFilePaths, selectedFilePaths }) => {
+		const keybind = useKeybindFactory();
+		const { platform } = usePlatform();
+		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+		const { library } = useLibraryContext();
+
+		if (platform === 'web') return <ContextMenu.Item label="Download" />;
+		else
+			return (
+				<>
 					<ContextMenu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
 						onClick={async () => {
-							if (filePath.object_id)
-								updateAccessTime
-									.mutateAsync(filePath.object_id)
-									.catch(console.error);
+							if (selectedFilePaths.length < 1) return;
+
+							updateAccessTime
+								.mutateAsync(
+									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
+								)
+								.catch(console.error);
 
 							try {
-								await openFilePath(library.uuid, [filePath.id]);
+								await openFilePaths(
+									library.uuid,
+									selectedFilePaths.map((p) => p.id)
+								);
 							} catch (error) {
 								showAlertDialog({
 									title: 'Error',
@@ -232,8 +271,8 @@ export const OpenOrDownload = ({ filePath }: { filePath: FilePath }) => {
 							}
 						}}
 					/>
-				)}
-				<OpenWith filePath={filePath} />
-			</>
-		);
-};
+					<Conditional items={[OpenWith]} />
+				</>
+			);
+	}
+});

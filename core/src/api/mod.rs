@@ -21,6 +21,7 @@ pub enum CoreEvent {
 	InvalidateOperation(InvalidateOperationEvent),
 }
 
+mod backups;
 mod categories;
 mod files;
 mod jobs;
@@ -31,7 +32,7 @@ mod nodes;
 pub mod notifications;
 mod p2p;
 mod preferences;
-mod search;
+pub(crate) mod search;
 mod sync;
 mod tags;
 pub mod utils;
@@ -113,6 +114,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("sync.", sync::mount())
 		.merge("preferences.", preferences::mount())
 		.merge("notifications.", notifications::mount())
+		.merge("backups.", backups::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
 			#[allow(clippy::let_and_return)]

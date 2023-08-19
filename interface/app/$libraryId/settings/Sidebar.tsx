@@ -1,6 +1,7 @@
 import {
 	Books,
 	Cloud,
+	Database,
 	FlyingSaucer,
 	GearSix,
 	HardDrive,
@@ -25,7 +26,8 @@ const Section = tw.div`space-y-0.5`;
 
 export default () => {
 	const os = useOperatingSystem();
-	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	// const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const isBackupsEnabled = useFeatureFlag('backups');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
@@ -55,6 +57,10 @@ export default () => {
 					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
 						Appearance
+					</SidebarLink>
+					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
+						<Icon component={Database} />
+						Backups
 					</SidebarLink>
 					<SidebarLink to="client/keybindings" disabled>
 						<Icon component={KeyReturn} />

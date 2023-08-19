@@ -116,7 +116,7 @@ export default () => {
 							key={`${library.uuid} ${key}`}
 							title={StatItemNames[key as keyof Statistics]!}
 							bytes={BigInt(value)}
-							isLoading={platform.demoMode ? false : stats.isLoading}
+							isLoading={stats.isLoading}
 							info={StatDescriptions[key as keyof Statistics]}
 						/>
 					);
