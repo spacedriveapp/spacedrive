@@ -1,4 +1,5 @@
-import * as LayeredIcons from '../../../packages/assets/svgs/ext';
+import { type ObjectKindKey } from '@sd/client';
+import { LayeredIcons } from '../../../packages/assets/svgs/ext';
 import * as icons from '../icons';
 
 // Define a type for icon names. This filters out any names with underscores in them.
@@ -57,8 +58,11 @@ export const getIcon = (
 	];
 };
 
-export const getLayeredIcon = (kind: string, extension?: string | null) => {
-	return extension && extension in LayeredIcons
-		? LayeredIcons[extension.toLowerCase() as keyof typeof LayeredIcons]
-		: null;
+export const getLayeredIcon = (kind: ObjectKindKey, extension?: string | null) => {
+	const iconKind: ObjectKindKey =
+		LayeredIcons[
+			// Check if the specific icon kind exists.
+			kind && kind in LayeredIcons ? kind : 'Extras'
+		];
+	return extension && iconKind?.[extension];
 };
