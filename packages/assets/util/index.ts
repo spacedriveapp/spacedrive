@@ -1,5 +1,5 @@
 import { type ObjectKindKey } from '@sd/client';
-import { LayeredIcons } from '../../../packages/assets/svgs/ext/index';
+import { LayeredIcons } from '../svgs/ext';
 import * as icons from '../icons';
 
 // Define a type for icon names. This filters out any names with underscores in them.
