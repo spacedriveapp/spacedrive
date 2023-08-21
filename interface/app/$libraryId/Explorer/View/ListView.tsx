@@ -747,7 +747,7 @@ export default () => {
 	useEffect(() => setRanges([]), [explorer.items]);
 
 	// Measure initial column widths
-	useLayoutEffect(() => {
+	useEffect(() => {
 		if (!tableRef.current || sized) return;
 
 		const columns = table.getAllColumns();
