@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt,
 	future::poll_fn,
 	net::SocketAddr,
@@ -61,6 +61,12 @@ impl From<Event> for ManagerStreamAction {
 }
 
 /// TODO
+#[derive(Default)]
+pub struct ManagerState {
+	listen_addrs: HashSet<SocketAddr>,
+}
+
+/// TODO
 #[must_use = "you must call `ManagerStream::next` to drive the P2P system"]
 pub struct ManagerStream {
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
@@ -68,7 +74,8 @@ pub struct ManagerStream {
 	pub(crate) queued_events: VecDeque<Event>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
-	pub(crate) services: Components,
+	pub(crate) components: Components,
+	pub(crate) state: ManagerState,
 }
 
 impl ManagerStream {
@@ -85,7 +92,7 @@ impl ManagerStream {
 			}
 
 			tokio::select! {
-				event = poll_fn(|cx| Pin::new(&mut self.services).poll(cx)) => {
+				event = poll_fn(|cx| Pin::new(&mut self.components).poll(cx, &mut self.state)) => {
 					// TODO: Emit events & merge enums
 					// if let Some(event) = event {
 					// 	return Some(event);
@@ -131,7 +138,7 @@ impl ManagerStream {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									debug!("listen address added: {}", addr);
-									self.services.emit(InternalEvent::NewListenAddr(addr));
+									self.components.emit(InternalEvent::NewListenAddr(addr));
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -144,7 +151,7 @@ impl ManagerStream {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									debug!("listen address added: {}", addr);
-									self.services.emit(InternalEvent::ExpiredListenAddr(addr));
+									self.components.emit(InternalEvent::ExpiredListenAddr(addr));
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -159,7 +166,7 @@ impl ManagerStream {
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										debug!("listen address added: {}", addr);
-										self.services.emit(InternalEvent::ExpiredListenAddr(addr));
+										self.components.emit(InternalEvent::ExpiredListenAddr(addr));
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
 									Err(err) => {
@@ -212,7 +219,7 @@ impl ManagerStream {
 			ManagerStreamAction::StartStream(peer_id, tx) => {
 				if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
 					let mut addresses = Vec::new();
-					self.services.get_candidates(peer_id, &mut addresses);
+					self.components.get_candidates(peer_id, &mut addresses);
 
 					match self.swarm.dial(
 						DialOpts::peer_id(peer_id.0)
@@ -256,14 +263,14 @@ impl ManagerStream {
 			}
 			ManagerStreamAction::Shutdown(tx) => {
 				info!("Shutting down P2P Manager...");
-				self.services.emit(InternalEvent::Shutdown);
+				self.components.emit(InternalEvent::Shutdown);
 				tx.send(()).unwrap_or_else(|_| {
 					warn!("Error sending shutdown signal to P2P Manager!");
 				});
 
 				return Some(Event::Shutdown);
 			}
-			ManagerStreamAction::RegisterComponent(service) => self.services.push(service),
+			ManagerStreamAction::RegisterComponent(service) => self.components.push(service),
 		}
 
 		None

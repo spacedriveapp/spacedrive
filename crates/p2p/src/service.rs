@@ -51,12 +51,3 @@ where
 
 	// TODO: Accessors for discovered peers and their metadata
 }
-
-// pub(crate) trait GenericService {}
-
-// impl<I, T> GenericService for Service<I, T>
-// where
-// 	I: ServiceIdentifier,
-// 	T: Metadata,
-// {
-// }

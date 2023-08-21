@@ -102,7 +102,8 @@ impl Manager {
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),
-				services: Default::default(),
+				components: Default::default(),
+				state: Default::default(),
 			},
 		))
 	}

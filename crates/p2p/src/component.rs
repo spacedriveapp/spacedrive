@@ -5,7 +5,7 @@ use std::{
 	task::{Context, Poll},
 };
 
-use crate::{Manager, PeerId};
+use crate::{Manager, ManagerState, PeerId};
 
 /// can be registered into the P2PManager to extend it's functionality
 pub trait Component: Send + 'static {
@@ -21,7 +21,7 @@ pub trait Component: Send + 'static {
 	fn on_event(self: Pin<&mut Self>, event: InternalEvent) {}
 
 	/// TODO: Keep this or not?
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()>;
 }
 
 /// Wrapper for addressing multiple services at once
@@ -57,18 +57,20 @@ impl Components {
 			service.as_mut().advertise();
 		}
 	}
-}
 
-impl Future for Components {
-	type Output = ();
-
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+	// Can be turned into a `Future` using `poll_fn`
+	pub fn poll(
+		mut self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		state: &mut ManagerState,
+	) -> Poll<()> {
 		let mut pending = false;
 
 		// TODO: Removing complete futures from poll rotation
 
+		// We poll all futures on each `.poll` to ensure a component isn't starved
 		for fut in self.0.iter_mut() {
-			match fut.as_mut().poll(cx) {
+			match fut.as_mut().poll(cx, state) {
 				Poll::Ready(()) => {}
 				Poll::Pending => pending = true,
 			}

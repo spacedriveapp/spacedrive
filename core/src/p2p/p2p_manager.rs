@@ -65,7 +65,7 @@ pub enum P2PEvent {
 
 pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
-	pub manager: Arc<sd_p2p::Manager<PeerMetadata>>,
+	pub manager: Arc<sd_p2p::Manager>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
