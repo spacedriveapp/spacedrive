@@ -41,11 +41,6 @@ pub enum ManagerStreamAction {
 	BroadcastData(Vec<u8>),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
-	/// Register a new component
-	RegisterComponent(Pin<Box<dyn Component>>),
-	// /// Register a new service
-	// /// TODO: Do I need to *own* it or can I just reference it?
-	// RegisterService(Box<dyn GenericService>),
 }
 
 impl fmt::Debug for ManagerStreamAction {
@@ -79,7 +74,13 @@ pub struct ManagerStream {
 }
 
 impl ManagerStream {
-	// Your application should keep polling this until `None` is received or the P2P system will be halted.
+	/// Register a component onto the P2P system.
+	pub fn component(&mut self, component: impl Component) {
+		self.components.push(Box::pin(component));
+	}
+
+	/// This method progress the p2p system and return the next event.
+	/// Your application must keep polling this until `None` is received otherwise the P2P system will stall.
 	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
@@ -270,7 +271,6 @@ impl ManagerStream {
 
 				return Some(Event::Shutdown);
 			}
-			ManagerStreamAction::RegisterComponent(service) => self.components.push(service),
 		}
 
 		None

@@ -39,7 +39,7 @@ where
 	I: ServiceIdentifier,
 	T: Metadata,
 {
-	// pub fn new() -> Self {}
+	// pub fn new(manager: &()) -> Self {}
 
 	// pub fn get();
 

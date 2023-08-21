@@ -41,7 +41,7 @@ pub use proto::*;
 
 pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
-	pub(crate) libraries: RwLock<HashMap<Uuid, Service>>,
+	// pub(crate) libraries: RwLock<HashMap<Uuid, Service>>,
 	// TODO: Removing this
 	// pub(crate) libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
 }
@@ -50,7 +50,7 @@ impl NetworkedLibraries {
 	pub fn new(p2p: Arc<P2PManager>, lm: &Libraries) -> Arc<Self> {
 		let this = Arc::new(Self {
 			p2p,
-			libraries: Default::default(),
+			// libraries: Default::default(),
 		});
 
 		tokio::spawn({
@@ -108,24 +108,24 @@ impl NetworkedLibraries {
 			.collect();
 
 		let mut libraries = self.libraries.write().await;
-		libraries.insert(
-			library.id,
-			LibraryData {
-				instances: instances
-					.into_iter()
-					.filter_map(|i| {
-						// TODO: Error handling
-						match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-							IdentityOrRemoteIdentity::Identity(identity) => {
-								Some((identity.to_remote_identity(), InstanceState::Unavailable))
-							}
-							// We don't own it so don't advertise it
-							IdentityOrRemoteIdentity::RemoteIdentity(_) => None,
-						}
-					})
-					.collect(),
-			},
-		);
+		// libraries.insert(
+		// 	library.id,
+		// 	LibraryData {
+		// 		instances: instances
+		// 			.into_iter()
+		// 			.filter_map(|i| {
+		// 				// TODO: Error handling
+		// 				match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
+		// 					IdentityOrRemoteIdentity::Identity(identity) => {
+		// 						Some((identity.to_remote_identity(), InstanceState::Unavailable))
+		// 					}
+		// 					// We don't own it so don't advertise it
+		// 					IdentityOrRemoteIdentity::RemoteIdentity(_) => None,
+		// 				}
+		// 			})
+		// 			.collect(),
+		// 	},
+		// );
 
 		self.p2p.update_metadata(metadata_instances).await;
 	}
@@ -146,75 +146,75 @@ impl NetworkedLibraries {
 	// TODO: Replace all these follow events with a pub/sub system????
 
 	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
-		for lib in self.libraries.write().await.values_mut() {
-			if let Some((_pk, instance)) = lib
-				.instances
-				.iter_mut()
-				.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
-			{
-				if !matches!(instance, InstanceState::Connected(_)) {
-					let should_connect = matches!(instance, InstanceState::Unavailable);
+		// for lib in self.libraries.write().await.values_mut() {
+		// 	if let Some((_pk, instance)) = lib
+		// 		.instances
+		// 		.iter_mut()
+		// 		.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
+		// 	{
+		// 		if !matches!(instance, InstanceState::Connected(_)) {
+		// 			let should_connect = matches!(instance, InstanceState::Unavailable);
 
-					*instance = InstanceState::Discovered(event.peer_id);
+		// 			*instance = InstanceState::Discovered(event.peer_id);
 
-					if should_connect {
-						event.dial().await;
-					}
-				}
+		// 			if should_connect {
+		// 				event.dial().await;
+		// 			}
+		// 		}
 
-				return; // PK can only exist once so we short circuit
-			}
-		}
+		// 		return; // PK can only exist once so we short circuit
+		// 	}
+		// }
 	}
 
 	pub async fn peer_expired(&self, id: PeerId) {
-		for lib in self.libraries.write().await.values_mut() {
-			for instance in lib.instances.values_mut() {
-				if let InstanceState::Discovered(peer_id) = instance {
-					if *peer_id == id {
-						*instance = InstanceState::Unavailable;
-					}
-				}
-			}
-		}
+		// for lib in self.libraries.write().await.values_mut() {
+		// 	for instance in lib.instances.values_mut() {
+		// 		if let InstanceState::Discovered(peer_id) = instance {
+		// 			if *peer_id == id {
+		// 				*instance = InstanceState::Unavailable;
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 
 	pub async fn peer_connected(&self, peer_id: PeerId) {
 		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
 		// TODO: Hence part of the need for `Self::peer_connected2`
-		for lib in self.libraries.write().await.values_mut() {
-			for instance in lib.instances.values_mut() {
-				if let InstanceState::Discovered(id) = instance {
-					if *id == peer_id {
-						*instance = InstanceState::Connected(peer_id);
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
+		// for lib in self.libraries.write().await.values_mut() {
+		// 	for instance in lib.instances.values_mut() {
+		// 		if let InstanceState::Discovered(id) = instance {
+		// 			if *id == peer_id {
+		// 				*instance = InstanceState::Connected(peer_id);
+		// 				return; // Will only exist once so we short circuit
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 
 	// TODO: Remove need for this cause it's weird
 	pub async fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
-		for lib in self.libraries.write().await.values_mut() {
-			if let Some(instance) = lib.instances.get_mut(&instance_id) {
-				*instance = InstanceState::Connected(peer_id);
-				return; // Will only exist once so we short circuit
-			}
-		}
+		// for lib in self.libraries.write().await.values_mut() {
+		// 	if let Some(instance) = lib.instances.get_mut(&instance_id) {
+		// 		*instance = InstanceState::Connected(peer_id);
+		// 		return; // Will only exist once so we short circuit
+		// 	}
+		// }
 	}
 
 	pub async fn peer_disconnected(&self, peer_id: PeerId) {
-		for lib in self.libraries.write().await.values_mut() {
-			for instance in lib.instances.values_mut() {
-				if let InstanceState::Connected(id) = instance {
-					if *id == peer_id {
-						*instance = InstanceState::Unavailable;
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
+		// for lib in self.libraries.write().await.values_mut() {
+		// 	for instance in lib.instances.values_mut() {
+		// 		if let InstanceState::Connected(id) = instance {
+		// 			if *id == peer_id {
+		// 				*instance = InstanceState::Unavailable;
+		// 				return; // Will only exist once so we short circuit
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 }
 

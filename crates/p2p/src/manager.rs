@@ -16,8 +16,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	Component, ConnectionState, Keypair, ManagerStream, ManagerStreamAction, Metadata, PeerId,
-	Service,
+	ConnectionState, Keypair, ManagerStream, ManagerStreamAction, PeerId,
 };
 
 #[derive(Debug, Clone)]
@@ -112,20 +111,8 @@ impl Manager {
 		self.event_stream_tx.emit(event).await
 	}
 
-	/// TODO: Docs
-	// // Construct or load a service.
-	// pub fn service<T: Metadata>(&self, name: String, identifier: I, metadata: T) -> Service<I, T> {
-	// 	todo!();
-	// }
-
 	pub fn connection_state(&self) -> Arc<ConnectionState<()>> {
 		self.connection_state.clone()
-	}
-
-	// TODO: This being `async` is cringe
-	pub async fn component(&self, service: impl Component) {
-		self.emit(ManagerStreamAction::RegisterComponent(Box::pin(service)))
-			.await;
 	}
 
 	pub fn peer_id(&self) -> PeerId {

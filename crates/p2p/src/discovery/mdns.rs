@@ -36,6 +36,8 @@ impl Mdns {
 }
 
 impl Component for Mdns {
+	// TODO: How is the parent application gonna list for these events?
+
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()> {
 		// TODO: MDNS readvertisement every minute
 

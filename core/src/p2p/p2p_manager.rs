@@ -10,7 +10,7 @@ use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	Discovery, Event, ManagerError, ManagerStream, MetadataManager, PeerId, Service,
+	Event, ManagerError, ManagerStream, Mdns, PeerId, Service,
 };
 use serde::Serialize;
 use specta::Type;
@@ -67,11 +67,9 @@ pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<sd_p2p::Manager>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	// pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-
-	service: Service,
 
 	node_config: Arc<config::Manager>,
 }
@@ -79,25 +77,21 @@ pub struct P2PManager {
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
-	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
-		let (config, keypair) = {
-			let config = node_config.get().await;
+	) -> Result<(Arc<P2PManager>, ManagerStream), ManagerError> {
+		let (manager, mut stream) =
+			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &node_config.get().await.keypair).await?;
 
-			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
-			(Self::config_to_metadata(&config, vec![]), config.keypair)
-		};
-
-		let (manager, stream) = sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair).await?;
+		stream.component(Mdns::new()?);
 
 		// TODO: move this discovery stuff into nlm -> Cause delayed metadata loading
-		let metadata_manager = MetadataManager::new(config);
-		let discovery = Discovery::new(&manager, metadata_manager.clone());
-		let listen_addrs = discovery.listen_addrs(); // TODO: Allow accessing listen addr's from rspc
-		manager.component(discovery).await;
+		// let discovery = Discovery::new(&manager, metadata_manager.clone());
+		// let listen_addrs = discovery.listen_addrs(); // TODO: Allow accessing listen addr's from rspc
+		// stream.component(discovery);
 
 		info!(
-			"Node '{}' is now online listening at addresses: {listen_addrs:?}",
+			"Node '{}' is now online listening at addresses: {:?}",
 			manager.peer_id(),
+			"todo" // TODO: `listen_addrs`
 		);
 
 		// need to keep 'rx' around so that the channel isn't dropped
@@ -106,7 +100,7 @@ impl P2PManager {
 		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
 		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
 
-		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
+		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
 		// TODO: proper shutdown
 		// https://docs.rs/ctrlc/latest/ctrlc/
@@ -114,12 +108,12 @@ impl P2PManager {
 
 		Ok((
 			Arc::new(Self {
-				service: todo!(), // TODO: manager.service(),
+				// service: todo!(), // TODO: manager.service(),
 				pairing,
 				events: (tx, rx),
 				manager,
 				spacedrop_pairing_reqs,
-				metadata_manager,
+				// metadata_manager,
 				spacedrop_progress,
 				node_config,
 			}),
@@ -127,10 +121,9 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(&self, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
+	pub fn start(&self, mut stream: ManagerStream, node: Arc<Node>) {
 		tokio::spawn({
 			let manager = self.manager.clone();
-			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
 			let spacedrop_progress = self.spacedrop_progress.clone();
@@ -138,11 +131,11 @@ impl P2PManager {
 			let node = node.clone();
 
 			async move {
-				let node_service = manager.service("todo".into(), ());
-				let library_services = vec![
-					// TODO: Properly load em and keep them updated
-					manager.service("todo2".into(), ()),
-				];
+				// let node_service = manager.service("todo".into(), ());
+				// let library_services = vec![
+				// 	// TODO: Properly load em and keep them updated
+				// 	manager.service("todo2".into(), ()),
+				// ];
 
 				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
@@ -171,15 +164,16 @@ impl P2PManager {
 							debug!("Peer '{}' connected", event.peer_id);
 							node.nlm.peer_connected(event.peer_id).await;
 
-							if event.establisher {
-								let manager = manager.clone();
-								let nlm = node.nlm.clone();
-								let instances = metadata_manager.get().instances;
-								tokio::spawn(async move {
-									let mut stream = manager.stream(event.peer_id).await.unwrap();
-									Self::resync(nlm, &mut stream, event.peer_id, instances).await;
-								});
-							}
+							todo!();
+							// if event.establisher {
+							// 	let manager = manager.clone();
+							// 	let nlm = node.nlm.clone();
+							// 	let instances = metadata_manager.get().instances;
+							// 	tokio::spawn(async move {
+							// 		let mut stream = manager.stream(event.peer_id).await.unwrap();
+							// 		Self::resync(nlm, &mut stream, event.peer_id, instances).await;
+							// 	});
+							// }
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
