@@ -13,17 +13,17 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		file_path_helper::{check_existing_file_path, get_inode_and_device, IsolatedFilePathData},
+		file_path_helper::{
+			check_file_path_exists, get_inode_and_device, FilePathError, IsolatedFilePathData,
+		},
 		manager::LocationManagerError,
 	},
 	prisma::location,
 	util::error::FileIOError,
+	Node,
 };
 
-use std::{
-	collections::{BTreeMap, HashMap},
-	path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use notify::{
@@ -44,8 +44,10 @@ use super::{
 #[derive(Debug)]
 pub(super) struct MacOsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Library,
-	recently_created_files: BTreeMap<PathBuf, Instant>,
+	library: &'lib Arc<Library>,
+	node: &'lib Arc<Node>,
+	recently_created_files: HashMap<PathBuf, Instant>,
+	recently_created_files_buffer: Vec<(PathBuf, Instant)>,
 	last_check_created_files: Instant,
 	latest_created_dir: Option<PathBuf>,
 	last_check_rename: Instant,
@@ -56,14 +58,20 @@ pub(super) struct MacOsEventHandler<'lib> {
 
 #[async_trait]
 impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
-	fn new(location_id: location::id::Type, library: &'lib Library) -> Self
+	fn new(
+		location_id: location::id::Type,
+		library: &'lib Arc<Library>,
+		node: &'lib Arc<Node>,
+	) -> Self
 	where
 		Self: Sized,
 	{
 		Self {
 			location_id,
 			library,
-			recently_created_files: BTreeMap::new(),
+			node,
+			recently_created_files: HashMap::new(),
+			recently_created_files_buffer: Vec::new(),
 			last_check_created_files: Instant::now(),
 			latest_created_dir: None,
 			last_check_rename: Instant::now(),
@@ -99,22 +107,13 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 					&fs::metadata(path)
 						.await
 						.map_err(|e| FileIOError::from((path, e)))?,
+					self.node,
 					self.library,
 				)
 				.await?;
 				self.latest_created_dir = Some(paths.remove(0));
 			}
 			EventKind::Create(CreateKind::File) => {
-				let path = &paths[0];
-				create_file(
-					self.location_id,
-					path,
-					&fs::metadata(path)
-						.await
-						.map_err(|e| FileIOError::from((path, e)))?,
-					self.library,
-				)
-				.await?;
 				self.recently_created_files
 					.insert(paths.remove(0), Instant::now());
 			}
@@ -123,7 +122,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				// when a file is created. So we need to check if the file was recently
 				// created to avoid unecessary updates
 				if !self.recently_created_files.contains_key(&paths[0]) {
-					update_file(self.location_id, &paths[0], self.library).await?;
+					update_file(self.location_id, &paths[0], self.node, self.library).await?;
 				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
@@ -141,66 +140,110 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 	}
 
 	async fn tick(&mut self) {
-		// Cleaning out recently created files that are older than 1 second
-		if self.last_check_created_files.elapsed() > ONE_SECOND {
+		// Cleaning out recently created files that are older than 200 milliseconds
+		if self.last_check_created_files.elapsed() > HUNDRED_MILLIS * 2 {
+			if let Err(e) = self.handle_recently_created_eviction().await {
+				error!("Error while handling recently created files eviction: {e:#?}");
+			}
 			self.last_check_created_files = Instant::now();
-			self.recently_created_files
-				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
 		}
 
 		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
 			// Cleaning out recently renamed files that are older than 100 milliseconds
-			self.handle_create_eviction().await;
-			self.handle_remove_eviction().await;
+			if let Err(e) = self.handle_rename_create_eviction().await {
+				error!("Failed to create file_path on MacOS : {e:#?}");
+			}
+
+			if let Err(e) = self.handle_rename_remove_eviction().await {
+				error!("Failed to remove file_path: {e:#?}");
+			}
+
+			self.last_check_rename = Instant::now();
 		}
 	}
 }
 
 impl MacOsEventHandler<'_> {
-	async fn handle_create_eviction(&mut self) {
+	async fn handle_recently_created_eviction(&mut self) -> Result<(), LocationManagerError> {
+		self.recently_created_files_buffer.clear();
+		let mut should_invalidate = false;
+
+		for (path, created_at) in self.recently_created_files.drain() {
+			if created_at.elapsed() < ONE_SECOND {
+				self.recently_created_files_buffer.push((path, created_at));
+			} else {
+				create_file(
+					self.location_id,
+					&path,
+					&fs::metadata(&path)
+						.await
+						.map_err(|e| FileIOError::from((&path, e)))?,
+					self.node,
+					self.library,
+				)
+				.await?;
+				should_invalidate = true;
+			}
+		}
+
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
+		}
+
+		self.recently_created_files
+			.extend(self.recently_created_files_buffer.drain(..));
+
+		Ok(())
+	}
+
+	async fn handle_rename_create_eviction(&mut self) -> Result<(), LocationManagerError> {
 		// Just to make sure that our buffer is clean
 		self.paths_map_buffer.clear();
+		let mut should_invalidate = false;
 
 		for (inode_and_device, (instant, path)) in self.new_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = create_dir_or_file(self.location_id, &path, self.library).await {
-					error!("Failed to create file_path on MacOS : {e}");
-				} else {
-					trace!("Created file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				create_dir_or_file(self.location_id, &path, self.node, self.library).await?;
+				trace!("Created file_path due timeout: {}", path.display());
+				should_invalidate = true;
 			} else {
 				self.paths_map_buffer
 					.push((inode_and_device, (instant, path)));
 			}
 		}
 
-		for (key, value) in self.paths_map_buffer.drain(..) {
-			self.new_paths_map.insert(key, value);
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
+
+		self.new_paths_map.extend(self.paths_map_buffer.drain(..));
+
+		Ok(())
 	}
 
-	async fn handle_remove_eviction(&mut self) {
+	async fn handle_rename_remove_eviction(&mut self) -> Result<(), LocationManagerError> {
 		// Just to make sure that our buffer is clean
 		self.paths_map_buffer.clear();
+		let mut should_invalidate = false;
 
 		for (inode_and_device, (instant, path)) in self.old_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = remove(self.location_id, &path, self.library).await {
-					error!("Failed to remove file_path: {e}");
-				} else {
-					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				remove(self.location_id, &path, self.library).await?;
+				trace!("Removed file_path due timeout: {}", path.display());
+				should_invalidate = true;
 			} else {
 				self.paths_map_buffer
 					.push((inode_and_device, (instant, path)));
 			}
 		}
 
-		for (key, value) in self.paths_map_buffer.drain(..) {
-			self.old_paths_map.insert(key, value);
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
+
+		self.old_paths_map.extend(self.paths_map_buffer.drain(..));
+
+		Ok(())
 	}
 
 	async fn handle_single_rename_event(
@@ -215,7 +258,7 @@ impl MacOsEventHandler<'_> {
 				let inode_and_device = get_inode_and_device(&meta)?;
 				let location_path = extract_location_path(self.location_id, self.library).await?;
 
-				if !check_existing_file_path(
+				if !check_file_path_exists::<FilePathError>(
 					&IsolatedFilePathData::new(
 						self.location_id,
 						&location_path,
@@ -234,7 +277,7 @@ impl MacOsEventHandler<'_> {
 						);
 
 						// We found a new path for this old path, so we can rename it
-						rename(self.location_id, &path, &old_path, self.library).await?;
+						rename(self.location_id, &path, &old_path, meta, self.library).await?;
 					} else {
 						trace!("No match for new path yet: {}", path.display());
 						self.new_paths_map
@@ -265,7 +308,16 @@ impl MacOsEventHandler<'_> {
 					);
 
 					// We found a new path for this old path, so we can rename it
-					rename(self.location_id, &new_path, &path, self.library).await?;
+					rename(
+						self.location_id,
+						&new_path,
+						&path,
+						fs::metadata(&new_path)
+							.await
+							.map_err(|e| FileIOError::from((&new_path, e)))?,
+						self.library,
+					)
+					.await?;
 				} else {
 					trace!("No match for old path yet: {}", path.display());
 					// We didn't find a new path for this old path, so we store ir for later

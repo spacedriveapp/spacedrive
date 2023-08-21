@@ -1,41 +1,92 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum RelationOperationData {
+pub enum OperationKind<'a> {
 	Create,
-	Update { field: String, value: Value },
+	Update(&'a str),
 	Delete,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+impl std::fmt::Display for OperationKind<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			OperationKind::Create => write!(f, "c"),
+			OperationKind::Update(field) => write!(f, "u:{}", field),
+			OperationKind::Delete => write!(f, "d"),
+		}
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub struct RelationOperation {
-	pub relation_item: Uuid,
-	pub relation_group: Uuid,
+	pub relation_item: Value,
+	pub relation_group: Value,
 	pub relation: String,
 	pub data: RelationOperationData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
-pub enum SharedOperationData {
+impl RelationOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+pub enum RelationOperationData {
 	#[serde(rename = "c")]
-	Create(Map<String, Value>),
+	Create,
 	#[serde(rename = "u")]
 	Update { field: String, value: Value },
 	#[serde(rename = "d")]
 	Delete,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+impl RelationOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 pub struct SharedOperation {
 	pub record_id: Value,
 	pub model: String,
 	pub data: SharedOperationData,
+}
+
+impl SharedOperation {
+	pub fn kind(&self) -> OperationKind {
+		self.data.as_kind()
+	}
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+pub enum SharedOperationData {
+	#[serde(rename = "c")]
+	Create,
+	#[serde(rename = "u")]
+	Update { field: String, value: Value },
+	#[serde(rename = "d")]
+	Delete,
+}
+
+impl SharedOperationData {
+	fn as_kind(&self) -> OperationKind {
+		match self {
+			Self::Create => OperationKind::Create,
+			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Delete => OperationKind::Delete,
+		}
+	}
 }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, Type)]
@@ -61,7 +112,7 @@ pub struct SharedOperation {
 // 	pub items: Vec<OwnedOperationItem>,
 // }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
 #[serde(untagged)]
 pub enum CRDTOperationType {
 	Shared(SharedOperation),
@@ -69,9 +120,9 @@ pub enum CRDTOperationType {
 	// Owned(OwnedOperation),
 }
 
-#[derive(Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
-	pub node: Uuid,
+	pub instance: Uuid,
 	#[specta(type = u32)]
 	pub timestamp: NTP64,
 	pub id: Uuid,
@@ -82,7 +133,7 @@ pub struct CRDTOperation {
 impl Debug for CRDTOperation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("CRDTOperation")
-			.field("node", &self.node.to_string())
+			.field("instance", &self.instance.to_string())
 			.field("timestamp", &self.timestamp.to_string())
 			.field("typ", &self.typ)
 			.finish()

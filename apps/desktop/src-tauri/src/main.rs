@@ -8,8 +8,8 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
 
 use tauri::{
-	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin, Manager,
-	RunEvent, Runtime,
+	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin,
+	AppHandle, Manager, RunEvent, Runtime,
 };
 use tokio::{task::block_in_place, time::sleep};
 use tracing::{debug, error};
@@ -24,7 +24,7 @@ mod menu;
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn app_ready(app_handle: tauri::AppHandle) {
+async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
@@ -32,7 +32,7 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn reset_spacedrive(app_handle: tauri::AppHandle) {
+async fn reset_spacedrive(app_handle: AppHandle) {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
@@ -51,8 +51,17 @@ async fn reset_spacedrive(app_handle: tauri::AppHandle) {
 #[tauri::command(async)]
 #[specta::specta]
 async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
-	opener::open(node.data_dir.join("logs")).ok();
-	Ok(())
+	let logs_path = node.data_dir.join("logs");
+
+	#[cfg(target_os = "linux")]
+	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+
+	#[cfg(not(target_os = "linux"))]
+	let open_result = opener::open(logs_path);
+
+	open_result.map_err(|err| {
+		error!("Failed to open logs dir: {err}");
+	})
 }
 
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
@@ -76,6 +85,9 @@ macro_rules! tauri_handlers {
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
+	sd_desktop_linux::normalize_environment();
+
+	#[cfg(target_os = "linux")]
 	let (tx, rx) = tokio::sync::mpsc::channel(1);
 
 	let data_dir = path::data_dir()
@@ -85,16 +97,20 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
+	// Initialize and configure app logging
+	// Return value must be assigned to variable for flushing remaining logs on main exit throught Drop
 	let _guard = Node::init_logger(&data_dir);
 
 	let result = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default();
+
 	let (node, app) = match result {
 		Ok((node, router)) => {
 			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
 			#[cfg(target_os = "linux")]
 			let app = app_linux::setup(app, rx, create_custom_uri_endpoint(node.clone()).axum()).await;
+
 			let app = app
 				.register_uri_scheme_protocol(
 					"spacedrive",
@@ -114,6 +130,18 @@ async fn main() -> tauri::Result<()> {
 		}
 	};
 
+	// macOS expected behavior is for the app to not exit when the main window is closed.
+	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
+	#[cfg(target_os = "macos")]
+	let app = app.on_window_event(|event| {
+		if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+			if event.window().label() == "main" {
+				AppHandle::hide(&event.window().app_handle()).expect("Window should hide on macOS");
+				api.prevent_close();
+			}
+		}
+	});
+
 	let app = app
 		.setup(|app| {
 			#[cfg(feature = "updater")]
@@ -132,7 +160,7 @@ async fn main() -> tauri::Result<()> {
 							println!(
 							"Window did not emit `app_ready` event fast enough. Showing window..."
 						);
-							let _ = window.show();
+							window.show().expect("Main window should show");
 						}
 					}
 				});
@@ -167,9 +195,10 @@ async fn main() -> tauri::Result<()> {
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
-			file::open_file_path,
+			file::open_file_paths,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with,
+			file::reveal_items,
 			theme::lock_app_theme
 		])
 		.build(tauri::generate_context!())?;

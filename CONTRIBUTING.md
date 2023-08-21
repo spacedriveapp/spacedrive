@@ -55,8 +55,13 @@ To quickly run only the desktop app after `prep`, you can use:
 
 To run the web app:
 
-- `cargo run -p server` (runs the server)
-- `pnpm web dev` (runs the web embed server)
+- `pnpm dev:web`
+
+This will start both the server and web interface.
+You can launch these individually if you'd prefer:
+
+- `cargo run -p sd-server` (server)
+- `pnpm web dev` (web interface)
 
 To run the landing page:
 
@@ -114,6 +119,21 @@ To resolve this issue:
 - Install Xcode from the Mac App Store.
 - Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
   This command will use Xcode's developer tools instead of macOS's default tools.
+
+#### `unable to lookup item 'PlatformPath'`
+
+If you run into this issue, or similar:
+
+```
+error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output :
+xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
+```
+
+Ensure that MacOS is fully updated, and that you have XCode installed (via the app store).
+
+Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update MacOS to the latest version available.
+
+Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
 
 ### Credits
 

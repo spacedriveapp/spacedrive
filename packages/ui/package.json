@@ -43,12 +43,14 @@
 		"react-loading-icons": "^1.1.0",
 		"react-router-dom": "6.9.0",
 		"tailwindcss-radix": "^2.6.0",
+		"ts-pattern": "^5.0.1",
 		"use-debounce": "^9.0.4",
 		"zod": "^3.21.4"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.19.3",
 		"@sd/config": "workspace:*",
+		"@storybook/types": "^7.0.24",
 		"@tailwindcss/typography": "^0.5.7",
 		"@types/node": "^18.15.1",
 		"@types/react": "^18.0.21",

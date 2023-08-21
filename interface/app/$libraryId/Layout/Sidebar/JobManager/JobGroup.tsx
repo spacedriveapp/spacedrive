@@ -1,114 +1,179 @@
 /* eslint-disable no-case-declarations */
 import { Folder } from '@sd/assets/icons';
-import { JobReport, useLibraryMutation } from '@sd/client';
-import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
-import { Fragment, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { JobGroup, JobProgressEvent, JobReport, useLibraryMutation } from '@sd/client';
+import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
 import { useTotalElapsedTimeText } from './useGroupJobTimeText';
-import { IJobGroup } from './useGroupedJobs';
+
 interface JobGroupProps {
-	data: IJobGroup;
-	clearJob: (arg: string) => void;
+	group: JobGroup;
+	progress: Record<string, JobProgressEvent>;
+	clearJob?: (arg: string) => void;
 }
 
-function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
+export default function ({ group, progress }: JobGroupProps) {
+	const { jobs } = group;
+
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const pauseJob = useLibraryMutation(['jobs.pause']);
-	const resumeJob = useLibraryMutation(['jobs.resume']);
+	const runningJob = jobs.find((job) => job.status === 'Running');
 
-	const isJobsRunning = jobs.some((job) => job.status === 'Running');
-
-	const tasks = totalTasks(jobs);
+	const tasks = calculateTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
-	if (!jobs.length) return <></>;
+	const dateStarted = useMemo(() => {
+		const createdAt = dayjs(jobs[0]?.created_at).fromNow();
+		return createdAt.charAt(0).toUpperCase() + createdAt.slice(1);
+	}, [jobs]);
 
-	let date_started = dayjs(jobs[0]?.created_at).fromNow();
-	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
-
+	if (jobs.length === 0) return <></>;
 
 	return (
 		<ul className="relative overflow-hidden">
-			<div className='row absolute right-3 top-3 z-50 flex space-x-1'>
-				{data.paused && <Button
+			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
+				<Options activeJob={runningJob} group={group} />
+			</div>
+			{jobs?.length > 1 ? (
+				<>
+					<JobContainer
+						onClick={() => setShowChildJobs((v) => !v)}
+						className={clsx(
+							'pb-2 hover:bg-app-selected/10',
+							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
+						)}
+						iconImg={Folder}
+						name={niceActionName(
+							group.action ?? '',
+							group.status === 'Completed',
+							jobs[0]
+						)}
+						textItems={[
+							[
+								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
+								{ text: dateStarted },
+								{ text: totalGroupTime || undefined },
+
+								{
+									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
+										group.status
+									)
+										? group.status
+										: undefined
+								}
+							],
+							[
+								{
+									text:
+										!showChildJobs && runningJob !== undefined
+											? progress[runningJob.id]?.message
+											: undefined
+								}
+							]
+						]}
+					>
+						{!showChildJobs && runningJob && (
+							<div className="my-1 ml-1.5 w-full">
+								<ProgressBar
+									pending={tasks.completed === 0}
+									value={tasks.completed}
+									total={tasks.total}
+								/>
+							</div>
+						)}
+					</JobContainer>
+					{showChildJobs && (
+						<div>
+							{jobs.map((job) => (
+								<Job
+									isChild={jobs.length > 1}
+									key={job.id}
+									job={job}
+									progress={progress[job.id] ?? null}
+								/>
+							))}
+						</div>
+					)}
+				</>
+			) : (
+				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
+			)}
+		</ul>
+	);
+}
+
+function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
+	const resumeJob = useLibraryMutation(['jobs.resume'], { onError: alert });
+	const pauseJob = useLibraryMutation(['jobs.pause'], { onError: alert });
+	const cancelJob = useLibraryMutation(['jobs.cancel'], { onError: alert });
+
+	const isJobPaused = useMemo(
+		() => group.jobs.some((job) => job.status === 'Paused'),
+		[group.jobs]
+	);
+
+	return (
+		<>
+			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
+				<Button
 					className="cursor-pointer"
-					onClick={() => resumeJob.mutate(data.id)}
+					onClick={() => resumeJob.mutate(group.id)}
 					size="icon"
 					variant="outline"
 				>
 					<Tooltip label="Resume">
 						<Play className="h-4 w-4 cursor-pointer" />
 					</Tooltip>
-				</Button>}
-
-
-				{isJobsRunning && (<Fragment>
-					<Button
-						className="cursor-pointer"
-						onClick={() => {
-							pauseJob.mutate(data.id);
-						}}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Pause">
-							<Pause className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-					{/* <Button
-						className="cursor-pointer"
-						onClick={() => resumeJob.mutate(data.id)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Stop">
-							<Stop className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button> */}
-				</Fragment>)}
-				{!isJobsRunning && (
-					<Button
-						className="cursor-pointer"
-						onClick={() => clearJob?.(data.id as string)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Remove">
-							<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-				)}
-			</div>
-			<JobContainer
-				onClick={() => setShowChildJobs((v) => !v)}
-				className={clsx("pb-2 hover:bg-app-selected/10", showChildJobs && "border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox")}
-				iconImg={Folder}
-				name={niceActionName(data.action, !!data.completed, jobs[0])}
-				textItems={[[{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` }, { text: date_started }, { text: data.paused ? "Paused" : data.completed ? totalGroupTime || undefined : data.queued ? "Queued" : "" }]]}
-			>
-				{!showChildJobs && isJobsRunning && (
-					<div className="my-1 w-full">
-						<ProgressBar value={tasks.completed} total={tasks.total} />
-					</div>
-				)}
-			</JobContainer>
-			{showChildJobs && (
-				<div className=''>
-					{jobs.map((job) => (
-						<Job key={job.id} job={job} />
-					))}
-				</div>
+				</Button>
 			)}
-		</ul>
+			{activeJob === undefined ? (
+				<Button
+					className="cursor-pointer"
+					// onClick={() => clearJob?.(data.id as string)}
+					size="icon"
+					variant="outline"
+				>
+					<Tooltip label="Remove">
+						<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+					</Tooltip>
+				</Button>
+			) : (
+				<>
+					<Tooltip label="Pause">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								pauseJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Pause className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Stop">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								cancelJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Stop className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+				</>
+			)}
+		</>
 	);
 }
 
-function totalTasks(jobs: JobReport[]) {
+function calculateTasks(jobs: JobReport[]) {
 	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
 
 	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
@@ -123,12 +188,12 @@ function totalTasks(jobs: JobReport[]) {
 }
 
 function niceActionName(action: string, completed: boolean, job?: JobReport) {
+	const name = job?.metadata?.location?.name || 'Unknown';
 	switch (action) {
 		case 'scan_location':
-			const name = job?.metadata?.init?.location?.name || 'Unknown';
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
+		case 'scan_location_sub_path':
+			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
 	}
 	return action;
 }
-
-export default JobGroup;

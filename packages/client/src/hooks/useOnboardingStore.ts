@@ -9,16 +9,16 @@ export enum UseCase {
 	Other = 'other'
 }
 
-const onboardingStoreDefaults = {
+const onboardingStoreDefaults = () => ({
 	newLibraryName: '',
 	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
 	shareTelemetry: true,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false
-};
+});
 
-const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults);
+const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults());
 
 export function useOnboardingStore() {
 	return useSnapshot(appOnboardingStore);
@@ -29,10 +29,7 @@ export function getOnboardingStore() {
 }
 
 export function resetOnboardingStore() {
-	for (const key in onboardingStoreDefaults) {
-		// @ts-expect-error - TODO: type needs to be fixed
-		appOnboardingStore[key] = onboardingStoreDefaults[key];
-	}
+	Object.assign(appOnboardingStore, onboardingStoreDefaults());
 }
 
 export function unlockOnboardingScreen(key: string, unlockedScreens: string[] = []) {

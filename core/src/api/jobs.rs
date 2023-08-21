@@ -1,11 +1,6 @@
-use std::{
-	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
-};
-
 use crate::{
 	invalidate_query,
-	job::{job_without_data, JobManager, JobReport, JobStatus},
+	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit,
@@ -15,15 +10,22 @@ use crate::{
 	prisma::{job, location, SortOrder},
 };
 
+use std::{
+	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
+	path::PathBuf,
+	time::Instant,
+};
+
 use chrono::{DateTime, Utc};
+use prisma_client_rust::or;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
+use tokio::time::Duration;
+use tracing::{info, trace};
 use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
-use tokio::time::{interval, Duration};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -33,30 +35,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - the client replaces its local copy of the JobReport using the index provided by the reports procedure
 			// - this should be used with the ephemeral sync engine
 			R.with2(library())
-				.subscription(|(ctx, _), job_uuid: Uuid| async move {
-					let mut event_bus_rx = ctx.event_bus.0.subscribe();
-					let mut tick = interval(Duration::from_secs_f64(1.0 / 30.0));
+				.subscription(|(node, _), _: ()| async move {
+					let mut event_bus_rx = node.event_bus.0.subscribe();
+					// debounce per-job
+					let mut intervals = BTreeMap::<Uuid, Instant>::new();
 
 					async_stream::stream! {
 						loop {
 							let progress_event = loop {
 								if let Ok(CoreEvent::JobProgress(progress_event)) = event_bus_rx.recv().await {
-									if progress_event.id == job_uuid {
-										break progress_event;
-									}
+									break progress_event;
 								}
 							};
 
+							let instant = intervals.entry(progress_event.id).or_insert_with(
+								Instant::now
+							);
+
+							if instant.elapsed() <= Duration::from_secs_f64(1.0 / 30.0) {
+								continue;
+							}
+
 							yield progress_event;
 
-							loop {
-								tokio::select! { biased;
-									_ = tick.tick() => { break; },
-									_ = event_bus_rx.recv() => {
-										// event was killed by the void
-									},
-								}
-							}
+							*instant = Instant::now();
 						}
 					}
 				})
@@ -70,19 +72,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - TODO: refactor grouping system to a many-to-many table
 			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 			pub struct JobGroup {
-				id: String,
-				action: String,
+				id: Uuid,
+				action: Option<String>,
 				status: JobStatus,
 				created_at: DateTime<Utc>,
-				jobs: Vec<JobReport>,
+				jobs: VecDeque<JobReport>,
 			}
-			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-			pub struct JobGroups {
-				groups: Vec<JobGroup>,
-				index: HashMap<String, i32>, // maps job ids to their group index
-			}
+
 			R.with2(library())
-				.query(|(ctx, library), _: ()| async move {
+				.query(|(node, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
 					let job_reports: Vec<JobReport> = library
@@ -98,63 +96,73 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(JobReport::try_from)
 						.collect();
 
-					let active_reports = ctx.jobs.get_active_reports().await;
+					let active_reports_by_id = node.jobs.get_active_reports_with_id().await;
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_meta();
 
+						trace!(
+							"job {:#?}, action_name {}, group_key {:?}",
+							job,
+							action_name,
+							group_key
+						);
+
 						// if the job is running, use the in-memory report
-						let memory_job = active_reports.values().find(|j| j.id == job.id);
-						let report = match memory_job {
-							Some(j) => j,
-							None => &job,
-						};
+						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
+
 						// if we have a group key, handle grouping
 						if let Some(group_key) = group_key {
 							match groups.entry(group_key) {
 								// Create new job group with metadata
-								Entry::Vacant(e) => {
-									let id = job.parent_id.unwrap_or(job.id);
-									let group = JobGroup {
-										id: id.to_string(),
-										action: action_name.clone(),
+								Entry::Vacant(entry) => {
+									entry.insert(JobGroup {
+										id: job.parent_id.unwrap_or(job.id),
+										action: Some(action_name.clone()),
 										status: job.status,
-										jobs: vec![report.clone()],
+										jobs: [report.clone()].into_iter().collect(),
 										created_at: job.created_at.unwrap_or(Utc::now()),
-									};
-									e.insert(group);
+									});
 								}
 								// Add to existing job group
-								Entry::Occupied(mut e) => {
-									let group = e.get_mut();
-									group.jobs.insert(0, report.clone()); // inserts at the beginning
+								Entry::Occupied(mut entry) => {
+									let group = entry.get_mut();
+
+									// protect paused status from being overwritten
+									if report.status != JobStatus::Paused {
+										group.status = report.status;
+									}
+
+									// if group.status.is_finished() && !report.status.is_finished() {
+									// }
+									group.jobs.push_front(report.clone());
 								}
 							}
+						} else {
+							// insert individual job as group
+							groups.insert(
+								job.id.to_string(),
+								JobGroup {
+									id: job.id,
+									action: None,
+									status: job.status,
+									jobs: [report.clone()].into_iter().collect(),
+									created_at: job.created_at.unwrap_or(Utc::now()),
+								},
+							);
 						}
 					}
 
-					let mut groups_vec: Vec<JobGroup> = groups.into_values().collect();
+					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
 					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-					// Update the index after sorting the groups
-					let mut index: HashMap<String, i32> = HashMap::new();
-					for (i, group) in groups_vec.iter().enumerate() {
-						for job in &group.jobs {
-							index.insert(job.id.clone().to_string(), i as i32);
-						}
-					}
-
-					Ok(JobGroups {
-						groups: groups_vec,
-						index,
-					})
+					Ok(groups_vec)
 				})
 		})
 		.procedure("isActive", {
-			R.with2(library()).query(|(ctx, _), _: ()| async move {
-				Ok(!ctx.jobs.get_running_reports().await.is_empty())
-			})
+			R.with2(library())
+				.query(|(node, _), _: ()| async move { Ok(node.jobs.has_active_workers().await) })
 		})
 		.procedure("clear", {
 			R.with2(library())
@@ -173,7 +181,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("clearAll", {
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
-					library.db.job().delete_many(vec![]).exec().await?;
+					info!("Clearing all jobs");
+					library
+						.db
+						.job()
+						.delete_many(vec![or![
+							job::status::equals(Some(JobStatus::Canceled as i32)),
+							job::status::equals(Some(JobStatus::Failed as i32)),
+							job::status::equals(Some(JobStatus::Completed as i32)),
+							job::status::equals(Some(JobStatus::CompletedWithErrors as i32)),
+						]])
+						.exec()
+						.await?;
 
 					invalidate_query!(library, "jobs.reports");
 					Ok(())
@@ -182,14 +201,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::pause(&ctx.jobs, id).await.map_err(Into::into)
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::pause(&node.jobs, id).await.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
-				.mutation(|(ctx, _), id: Uuid| async move {
-					JobManager::resume(&ctx.jobs, id).await.map_err(Into::into)
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::resume(&node.jobs, id).await.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
+				})
+		})
+		.procedure("cancel", {
+			R.with2(library())
+				.mutation(|(node, library), id: Uuid| async move {
+					let ret = Jobs::cancel(&node.jobs, id).await.map_err(Into::into);
+					invalidate_query!(library, "jobs.reports");
+					ret
 				})
 		})
 		.procedure("generateThumbsForLocation", {
@@ -200,18 +231,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(_, library), args: GenerateThumbsForLocationArgs| async move {
+				|(node, library), args: GenerateThumbsForLocationArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(ThumbnailerJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ThumbnailerJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&node, &library)
+					.await
+					.map_err(Into::into)
 				},
 			)
 		})
@@ -223,19 +254,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.mutation(|(_, library), args: ObjectValidatorArgs| async move {
-					if find_location(&library, args.id).exec().await?.is_none() {
+				.mutation(|(node, library), args: ObjectValidatorArgs| async move {
+					let Some(location) =  find_location(&library, args.id)
+						.exec()
+						.await?
+						else {
 						return Err(LocationError::IdNotFound(args.id).into());
-					}
+					};
 
-					library
-						.spawn_job(ObjectValidatorJobInit {
-							location_id: args.id,
-							path: args.path,
-							background: true,
-						})
-						.await
-						.map_err(Into::into)
+					Job::new(ObjectValidatorJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&node, &library)
+					.await
+					.map_err(Into::into)
 				})
 		})
 		.procedure("identifyUniqueFiles", {
@@ -245,27 +278,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub path: PathBuf,
 			}
 
-			R.with2(library())
-				.mutation(|(_, library), args: IdentifyUniqueFilesArgs| async move {
+			R.with2(library()).mutation(
+				|(node, library), args: IdentifyUniqueFilesArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					library
-						.spawn_job(FileIdentifierJobInit {
-							location,
-							sub_path: Some(args.path),
-						})
-						.await
-						.map_err(Into::into)
-				})
+					Job::new(FileIdentifierJobInit {
+						location,
+						sub_path: Some(args.path),
+					})
+					.spawn(&node, &library)
+					.await
+					.map_err(Into::into)
+				},
+			)
 		})
 		.procedure("newThumbnail", {
 			R.with2(library())
-				.subscription(|(ctx, _), _: ()| async move {
+				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
 
-					let mut event_bus_rx = ctx.event_bus.0.subscribe();
+					let mut event_bus_rx = node.event_bus.0.subscribe();
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {

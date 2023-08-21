@@ -2,14 +2,14 @@ import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Location, Node, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
+import { Location, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
 import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
-import { Folder } from '~/components/Folder';
+import { Folder } from '~/components';
 import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 
 interface Props {
-	location: Location & { node: Node | null };
+	location: Location;
 }
 
 export default ({ location }: Props) => {
@@ -19,11 +19,9 @@ export default ({ location }: Props) => {
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const onlineLocations = useOnlineLocations();
 
-	const isDark = useIsDark();
-
 	if (hide) return <></>;
 
-	const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
+	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
 
 	return (
 		<Card
@@ -32,15 +30,16 @@ export default ({ location }: Props) => {
 				navigate(`${location.id}`);
 			}}
 		>
-			<Folder white={!isDark} className="mr-3 h-10 w-10 self-center" />
+			<Folder className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
-				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 select-text truncate  text-sm text-ink-dull">
-					{location.node && (
+				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
+				<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
+					{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
+					{/* {location.node && (
 						<span className="mr-1 rounded bg-app-selected  px-1 py-[1px]">
 							{location.node.name}
 						</span>
-					)}
+					)} */}
 					{location.path}
 				</p>
 			</div>
@@ -89,7 +88,7 @@ export default ({ location }: Props) => {
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						fullRescan.mutate(location.id);
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: false });
 					}}
 				>
 					<Tooltip label="Rescan Location">

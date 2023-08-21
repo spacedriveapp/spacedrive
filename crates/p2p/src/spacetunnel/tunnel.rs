@@ -4,17 +4,30 @@ use std::{
 	task::{Context, Poll},
 };
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 use crate::spacetime::UnicastStream;
 
+#[derive(Debug)]
 pub struct Tunnel {
 	stream: UnicastStream,
 }
 
 impl Tunnel {
 	// TODO: Proper errors
-	pub async fn from_stream(mut stream: UnicastStream) -> Result<Self, &'static str> {
+	pub async fn initiator(mut stream: UnicastStream) -> Result<Self, &'static str> {
+		stream
+			.write_all(&[b'T'])
+			.await
+			.map_err(|_| "Error writing discriminator")?;
+
+		// TODO: Do pairing + authentication
+
+		Ok(Self { stream })
+	}
+
+	// TODO: Proper errors
+	pub async fn responder(mut stream: UnicastStream) -> Result<Self, &'static str> {
 		let discriminator = stream
 			.read_u8()
 			.await
@@ -23,7 +36,7 @@ impl Tunnel {
 			return Err("Invalid discriminator. Is this stream actually a tunnel?");
 		}
 
-		// TODO: Do pairing
+		// TODO: Do pairing + authentication
 
 		Ok(Self { stream })
 	}

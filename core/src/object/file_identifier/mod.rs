@@ -6,28 +6,23 @@ use crate::{
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
-	sync,
-	sync::SyncManager,
-	util::{
-		db::{maybe_missing, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_sync::CRDTOperation;
+use sd_prisma::prisma_sync;
+use sd_sync::{CRDTOperation, OperationFactory};
 
 use std::{
 	collections::{HashMap, HashSet},
-	path::{Path, PathBuf},
+	path::Path,
 };
 
 use futures::future::join_all;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::fs;
-use tracing::{error, info};
+use tracing::{error, trace};
 use uuid::Uuid;
 
 pub mod file_identifier_job;
@@ -84,7 +79,7 @@ impl FileMetadata {
 			.await
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
-		info!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
+		trace!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
 		Ok(FileMetadata {
 			cas_id,
@@ -92,15 +87,6 @@ impl FileMetadata {
 			fs_metadata,
 		})
 	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FileIdentifierReport {
-	location_path: PathBuf,
-	total_orphan_paths: usize,
-	total_objects_created: usize,
-	total_objects_linked: usize,
-	total_objects_ignored: usize,
 }
 
 async fn identifier_job_step(
@@ -150,14 +136,14 @@ async fn identifier_job_step(
 			.map(|(pub_id, (meta, _))| {
 				(
 					sync.shared_update(
-						sync::file_path::SyncId {
-							pub_id: uuid_to_bytes(*pub_id),
+						prisma_sync::file_path::SyncId {
+							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
 						json!(&meta.cas_id),
 					),
 					db.file_path().update(
-						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
+						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
 						vec![file_path::cas_id::set(Some(meta.cas_id.clone()))],
 					),
 				)
@@ -213,7 +199,7 @@ async fn identifier_job_step(
 		)
 		.await?;
 
-	info!(
+	trace!(
 		"Found {} existing Objects in Library, linking file paths...",
 		existing_objects.len()
 	);
@@ -230,7 +216,7 @@ async fn identifier_job_step(
 			.map(|(_, (meta, _))| &meta.cas_id)
 			.collect::<HashSet<_>>();
 
-		info!(
+		trace!(
 			"Creating {} new Objects in Library... {:#?}",
 			file_paths_requiring_new_object.len(),
 			new_objects_cas_ids
@@ -242,8 +228,8 @@ async fn identifier_job_step(
 				.map(|(file_path_pub_id, (meta, fp))| {
 					let object_pub_id = Uuid::new_v4();
 
-					let sync_id = || sync::object::SyncId {
-						pub_id: uuid_to_bytes(object_pub_id),
+					let sync_id = || prisma_sync::object::SyncId {
+						pub_id: sd_utils::uuid_to_bytes(object_pub_id),
 					};
 
 					let kind = meta.kind as i32;
@@ -262,8 +248,8 @@ async fn identifier_job_step(
 					.unzip();
 
 					let object_creation_args = (
-						sync.unique_shared_create(sync_id(), sync_params),
-						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
+						sync.shared_create(sync_id(), sync_params),
+						object::create_unchecked(sd_utils::uuid_to_bytes(object_pub_id), db_params),
 					);
 
 					(object_creation_args, {
@@ -284,7 +270,10 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync, db.object().create_many(db_params))
+				(
+					sync.into_iter().flatten().collect(),
+					db.object().create_many(db_params),
+				)
 			})
 			.await
 			.unwrap_or_else(|e| {
@@ -292,10 +281,10 @@ async fn identifier_job_step(
 				0
 			});
 
-		info!("Created {} new Objects in Library", total_created_files);
+		trace!("Created {} new Objects in Library", total_created_files);
 
 		if total_created_files > 0 {
-			info!("Updating file paths with created objects");
+			trace!("Updating file paths with created objects");
 
 			sync.write_ops(db, {
 				let data: (Vec<_>, Vec<_>) = file_path_update_args.into_iter().unzip();
@@ -304,7 +293,7 @@ async fn identifier_job_step(
 			})
 			.await?;
 
-			info!("Updated file paths with created objects");
+			trace!("Updated file paths with created objects");
 		}
 
 		total_created_files as usize
@@ -318,25 +307,26 @@ async fn identifier_job_step(
 fn file_path_object_connect_ops<'db>(
 	file_path_id: Uuid,
 	object_id: Uuid,
-	sync: &SyncManager,
+	sync: &crate::sync::Manager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
-	info!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
+	#[cfg(debug_assertions)]
+	trace!("Connecting <FilePath id={file_path_id}> to <Object pub_id={object_id}'>");
 
 	let vec_id = object_id.as_bytes().to_vec();
 
 	(
 		sync.shared_update(
-			sync::file_path::SyncId {
-				pub_id: uuid_to_bytes(file_path_id),
+			prisma_sync::file_path::SyncId {
+				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(sync::object::SyncId {
+			json!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),
 		db.file_path().update(
-			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),
+			file_path::pub_id::equals(sd_utils::uuid_to_bytes(file_path_id)),
 			vec![file_path::object::connect(object::pub_id::equals(vec_id))],
 		),
 	)
@@ -346,23 +336,27 @@ async fn process_identifier_file_paths(
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
-	cursor: &mut file_path::id::Type,
+	cursor: file_path::id::Type,
 	library: &Library,
 	orphan_count: usize,
-) -> Result<(usize, usize), JobError> {
-	info!(
+) -> Result<(usize, usize, file_path::id::Type), JobError> {
+	trace!(
 		"Processing {:?} orphan Paths. ({} completed of {})",
 		file_paths.len(),
 		step_number,
 		orphan_count
 	);
 
-	let counts = identifier_job_step(library, location, file_paths).await?;
+	let (total_objects_created, total_objects_linked) =
+		identifier_job_step(library, location, file_paths).await?;
 
-	// set the step data cursor to the last row of this chunk
-	if let Some(last_row) = file_paths.last() {
-		*cursor = last_row.id;
-	}
-
-	Ok(counts)
+	Ok((
+		total_objects_created,
+		total_objects_linked,
+		// returns a new cursor to the last row of this chunk or the current one
+		file_paths
+			.last()
+			.map(|last_row| last_row.id)
+			.unwrap_or(cursor),
+	))
 }

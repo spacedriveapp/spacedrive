@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{
-		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	prisma::{file_path, location},
@@ -11,64 +11,55 @@ use crate::{
 use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
 use tracing::warn;
 
 use super::{get_location_path_from_location_id, get_many_files_datas, FileData};
 
-pub struct FileDeleterJob {}
-
-#[derive(Serialize, Deserialize, Hash, Type)]
+#[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileDeleterJobInit {
 	pub location_id: location::id::Type,
 	pub file_path_ids: Vec<file_path::id::Type>,
 }
 
-impl JobInitData for FileDeleterJobInit {
-	type Job = FileDeleterJob;
-}
-
 #[async_trait::async_trait]
-impl StatefulJob for FileDeleterJob {
-	type Init = FileDeleterJobInit;
+impl StatefulJob for FileDeleterJobInit {
 	type Data = ();
 	type Step = FileData;
+	type RunMetadata = ();
 
 	const NAME: &'static str = "file_deleter";
 
-	fn new() -> Self {
-		Self {}
-	}
-
 	async fn init(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let Library { db, .. } = &ctx.library;
+		ctx: &WorkerContext,
+		data: &mut Option<Self::Data>,
+	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
+		let init = self;
+		let Library { db, .. } = &*ctx.library;
 
-		state.steps = get_many_files_datas(
+		let steps = get_many_files_datas(
 			db,
-			get_location_path_from_location_id(db, state.init.location_id).await?,
-			&state.init.file_path_ids,
+			get_location_path_from_location_id(db, init.location_id).await?,
+			&init.file_path_ids,
 		)
-		.await?
-		.into_iter()
-		.collect();
+		.await?;
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+		// Must fill in the data, otherwise the job will not run
+		*data = Some(());
 
-		Ok(())
+		Ok(steps.into())
 	}
 
 	async fn execute_step(
 		&self,
-		ctx: &mut WorkerContext,
-		state: &mut JobState<Self>,
-	) -> Result<(), JobError> {
-		let step = &state.steps[0];
-
+		ctx: &WorkerContext,
+		CurrentStep { step, .. }: CurrentStep<'_, Self::Step>,
+		_: &Self::Data,
+		_: &Self::RunMetadata,
+	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
@@ -95,16 +86,20 @@ impl StatefulJob for FileDeleterJob {
 			}
 		}
 
-		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
-			state.step_number + 1,
-		)]);
-
-		Ok(())
+		Ok(().into())
 	}
 
-	async fn finalize(&mut self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(
+		&self,
+		ctx: &WorkerContext,
+		_data: &Option<Self::Data>,
+		_run_metadata: &Self::RunMetadata,
+	) -> JobResult {
+		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		ctx.library.orphan_remover.invoke().await;
+
+		Ok(Some(json!({ "init": init })))
 	}
 }

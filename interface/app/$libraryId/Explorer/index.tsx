@@ -1,40 +1,31 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ExplorerItem, useLibrarySubscription } from '@sd/client';
-import { useExplorerStore, useKeyDeleteFile } from '~/hooks';
+import { PropsWithChildren, ReactNode } from 'react';
+import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
-import ExplorerContextMenu from './ContextMenu';
+import { useExplorerContext } from './Context';
+import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
-import ContextMenu from './File/ContextMenu';
 import { Inspector } from './Inspector';
-import View, { ExplorerViewProps } from './View';
-import { useExplorerSearchParams } from './util';
+import ExplorerContextMenu from './ParentContextMenu';
+import View, { EmptyNotice, ExplorerViewProps } from './View';
+import { useExplorerStore } from './store';
 
 interface Props {
-	items: ExplorerItem[] | null;
-	onLoadMore?(): void;
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
+	contextMenu?: () => ReactNode;
 }
 
-export default function Explorer(props: Props) {
-	const INSPECTOR_WIDTH = 260;
+const INSPECTOR_WIDTH = 260;
 
+/**
+ * This component is used in a few routes and acts as the reference demonstration of how to combine
+ * all the elements of the explorer except for the context, which must be used in the parent component.
+ */
+export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
+	const explorer = useExplorerContext();
 
-	const [{ path }] = useExplorerSearchParams();
-
-	const scrollRef = useRef<HTMLDivElement>(null);
-
-	const [selectedItemId, setSelectedItemId] = useState<number>();
-
-	const selectedItem = useMemo(
-		() =>
-			selectedItemId
-				? props.items?.find((item) => item.item.id === selectedItemId)
-				: undefined,
-		[selectedItemId, props.items]
-	);
-
+	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
 		onStarted: () => {
 			console.log('Started RSPC subscription new thumbnail');
@@ -47,37 +38,29 @@ export default function Explorer(props: Props) {
 		}
 	});
 
-	useKeyDeleteFile(selectedItem || null, explorerStore.locationId);
-
-	useEffect(() => setSelectedItemId(undefined), [path]);
-
 	return (
 		<>
 			<ExplorerContextMenu>
 				<div className="flex-1 overflow-hidden">
 					<div
-						ref={scrollRef}
-						className="custom-scroll explorer-scroll relative h-screen overflow-x-hidden"
+						ref={explorer.scrollRef}
+						className="explorer-scroll relative h-screen overflow-x-hidden overflow-y-auto"
 						style={{
 							paddingTop: TOP_BAR_HEIGHT,
 							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
 						}}
 					>
-						<DismissibleNotice />
+						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
+
 						<View
-							layout={explorerStore.layoutMode}
-							items={props.items}
-							scrollRef={scrollRef}
-							onLoadMore={props.onLoadMore}
-							rowsBeforeLoadMore={5}
-							selected={selectedItemId}
-							onSelectedChange={setSelectedItemId}
-							contextMenu={<ContextMenu data={selectedItem} />}
+							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
 							emptyNotice={
-								props.emptyNotice || {
-									icon: FolderNotchOpen,
-									message: 'This folder is empty'
-								}
+								props.emptyNotice ?? (
+									<EmptyNotice
+										icon={FolderNotchOpen}
+										message="This folder is empty"
+									/>
+								)
 							}
 						/>
 					</div>
@@ -86,7 +69,6 @@ export default function Explorer(props: Props) {
 
 			{explorerStore.showInspector && (
 				<Inspector
-					data={selectedItem}
 					className="custom-scroll inspector-scroll absolute inset-y-0 right-0 pb-4 pl-1.5 pr-1"
 					style={{ paddingTop: TOP_BAR_HEIGHT + 16, width: INSPECTOR_WIDTH }}
 				/>

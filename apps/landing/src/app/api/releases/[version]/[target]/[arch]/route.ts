@@ -62,11 +62,11 @@ export async function GET(_: Request, extra: { params: object }) {
 	const signature = await fetch(signatureAsset.browser_download_url).then((r) => r.text());
 
 	const response: TauriResponse = {
-		version: params.version,
+		version: '0.2.0',
 		url: asset.browser_download_url,
 		signature,
 		notes: '',
-		pub_date: asset.created_at
+		pub_date: new Date().toISOString()
 	};
 
 	return NextResponse.json(response);

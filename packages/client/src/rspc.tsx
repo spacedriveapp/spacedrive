@@ -20,12 +20,12 @@ type StripLibraryArgsFromInput<
 	NeverOverNull extends boolean
 > = T extends any
 	? T['input'] extends LibraryArgs<infer E>
-	? {
-		key: T['key'];
-		input: NeverOverNull extends true ? (E extends null ? never : E) : E;
-		result: T['result'];
-	}
-	: never
+		? {
+				key: T['key'];
+				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
+				result: T['result'];
+		  }
+		: never
 	: never;
 
 type NonLibraryProceduresDef = {
@@ -51,13 +51,13 @@ export const rspc2 = initRspc<Procedures>({
 	links: globalThis.rspcLinks
 }); // TODO: Removing this?
 
-const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
+export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 // @ts-expect-error // TODO: Fix
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
 	// context // TODO: Shared context
 });
 
-const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
+export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 	mapQueryKey: (keyAndInput) => {
 		const libraryId = currentLibraryCache.id;
 		if (libraryId === null)

@@ -2,10 +2,10 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, LocationCreateArgs,
-		LocationError, LocationUpdateArgs,
+		location_with_indexer_rules, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
 };
 
@@ -17,15 +17,7 @@ use specta::Type;
 
 use super::{utils::library, Ctx, R};
 
-#[derive(Serialize, Deserialize, Type, Debug)]
-#[serde(tag = "type")]
-pub enum ExplorerContext {
-	Location(location::Data),
-	Tag(tag::Data),
-	// Space(object_in_space::Data),
-}
-
-#[derive(Serialize, Deserialize, Type, Debug)]
+#[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
@@ -41,13 +33,11 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: object_with_file_paths::Data,
 	},
-}
-
-#[derive(Serialize, Deserialize, Type, Debug)]
-pub struct ExplorerData {
-	pub context: ExplorerContext,
-	pub items: Vec<ExplorerItem>,
-	pub cursor: Option<Vec<u8>>,
+	Location {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: location::Data,
+	},
 }
 
 file_path::include!(file_path_with_object { object });
@@ -61,7 +51,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.db
 					.location()
 					.find_many(vec![])
-					.include(location::include!({ node }))
+					.order_by(location::date_created::order(SortOrder::Desc))
 					.exec()
 					.await?)
 			})
@@ -91,9 +81,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("create", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					if let Some(location) = args.create(&library).await? {
-						scan_location(&library, location).await?;
+				.mutation(|(node, library), args: LocationCreateArgs| async move {
+					if let Some(location) = args.create(&node, &library).await? {
+						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
 					}
 
@@ -103,13 +93,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("update", {
 			R.with2(library())
 				.mutation(|(_, library), args: LocationUpdateArgs| async move {
-					args.update(&library).await.map_err(Into::into)
+					let ret = args.update(&library).await.map_err(Into::into);
+					invalidate_query!(library, "locations.list");
+					ret
 				})
 		})
 		.procedure("delete", {
 			R.with2(library()).mutation(
-				|(_, library), location_id: location::id::Type| async move {
-					delete_location(&library, location_id).await?;
+				|(node, library), location_id: location::id::Type| async move {
+					delete_location(&node, &library, location_id).await?;
 					invalidate_query!(library, "locations.list");
 					Ok(())
 				},
@@ -125,25 +117,81 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("addLibrary", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationCreateArgs| async move {
-					if let Some(location) = args.add_library(&library).await? {
-						scan_location(&library, location).await?;
+				.mutation(|(node, library), args: LocationCreateArgs| async move {
+					if let Some(location) = args.add_library(&node, &library).await? {
+						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
 					}
 					Ok(())
 				})
 		})
 		.procedure("fullRescan", {
+			#[derive(Type, Deserialize)]
+			pub struct FullRescanArgs {
+				pub location_id: location::id::Type,
+				pub reidentify_objects: bool,
+			}
+
 			R.with2(library()).mutation(
-				|(_, library), location_id: location::id::Type| async move {
+				|(node, library),
+				 FullRescanArgs {
+				     location_id,
+				     reidentify_objects,
+				 }| async move {
+					if reidentify_objects {
+						library
+							.db
+							.file_path()
+							.update_many(
+								vec![
+									file_path::location_id::equals(Some(location_id)),
+									file_path::object_id::not(None),
+								],
+								vec![file_path::object::disconnect()],
+							)
+							.exec()
+							.await?;
+
+						library.orphan_remover.invoke().await;
+					}
+
 					// rescan location
 					scan_location(
+						&node,
 						&library,
 						find_location(&library, location_id)
 							.include(location_with_indexer_rules::include())
 							.exec()
 							.await?
 							.ok_or(LocationError::IdNotFound(location_id))?,
+					)
+					.await
+					.map_err(Into::into)
+				},
+			)
+		})
+		.procedure("subPathRescan", {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct RescanArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: String,
+			}
+
+			R.with2(library()).mutation(
+				|(node, library),
+				 RescanArgs {
+				     location_id,
+				     sub_path,
+				 }: RescanArgs| async move {
+					scan_location_sub_path(
+						&node,
+						&library,
+						find_location(&library, location_id)
+							.include(location_with_indexer_rules::include())
+							.exec()
+							.await?
+							.ok_or(LocationError::IdNotFound(location_id))?,
+						sub_path,
 					)
 					.await
 					.map_err(Into::into)
@@ -158,7 +206,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library())
-				.subscription(|(_, library), args: LightScanArgs| async move {
+				.subscription(|(node, library), args: LightScanArgs| async move {
 					let location = find_location(&library, args.location_id)
 						.include(location_with_indexer_rules::include())
 						.exec()
@@ -166,20 +214,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
 					let handle =
-						tokio::spawn(light_scan_location(library, location, args.sub_path));
+						tokio::spawn(light_scan_location(node, library, location, args.sub_path));
 
 					Ok(AbortOnDrop(handle))
 				})
 		})
 		.procedure(
 			"online",
-			R.subscription(|ctx, _: ()| async move {
-				let location_manager = ctx.location_manager.clone();
-
-				let mut rx = location_manager.online_rx();
+			R.subscription(|node, _: ()| async move {
+				let mut rx = node.locations.online_rx();
 
 				async_stream::stream! {
-					let online = location_manager.get_online().await;
+					let online = node.locations.get_online().await;
 
 					yield online;
 
@@ -290,4 +336,23 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
+	// .procedure("createDirectory", {
+	// 	#[derive(Type, Deserialize)]
+	// 	struct CreateDirectoryArgs {
+	// 		location_id: location::id::Type,
+	// 		subpath: String,
+	// 	}
+	// 	R.with2(library())
+	// 		.query(|(_, library), args: CreateDirectoryArgs| async move {
+	// 			let location = find_location(&library, args.location_id)
+	// 				.exec()
+	// 				.await?
+	// 				.ok_or(LocationError::IdNotFound(args.location_id))?;
+
+	// 			let mut path = Path::new(&location.path.unwrap_or_default());
+	// 			path.push(args.subpath);
+
+	// 			Ok(())
+	// 		})
+	// })
 }

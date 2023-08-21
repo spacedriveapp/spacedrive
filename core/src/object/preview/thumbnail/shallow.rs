@@ -12,12 +12,13 @@ use crate::{
 	object::preview::thumbnail,
 	prisma::{file_path, location, PrismaClient},
 	util::error::FileIOError,
+	Node,
 };
 use sd_file_ext::extensions::Extension;
 use std::path::{Path, PathBuf};
 use thumbnail::init_thumbnail_dir;
 use tokio::fs;
-use tracing::info;
+use tracing::{debug, trace};
 
 #[cfg(feature = "ffmpeg")]
 use super::FILTERED_VIDEO_EXTENSIONS;
@@ -26,10 +27,11 @@ pub async fn shallow_thumbnailer(
 	location: &location::Data,
 	sub_path: &PathBuf,
 	library: &Library,
+	node: &Node,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = &library;
+	let Library { db, .. } = library;
 
-	let thumbnail_dir = init_thumbnail_dir(library.config().data_directory()).await?;
+	let thumbnail_dir = init_thumbnail_dir(node.config.data_directory()).await?;
 
 	let location_id = location.id;
 	let location_path = match &location.path {
@@ -66,7 +68,7 @@ pub async fn shallow_thumbnailer(
 		)
 	};
 
-	info!(
+	debug!(
 		"Searching for images in location {location_id} at path {}",
 		path.display()
 	);
@@ -86,7 +88,7 @@ pub async fn shallow_thumbnailer(
 	)
 	.await?;
 
-	info!("Found {:?} image files", image_files.len());
+	trace!("Found {:?} image files", image_files.len());
 
 	#[cfg(feature = "ffmpeg")]
 	let video_files = {
@@ -100,7 +102,7 @@ pub async fn shallow_thumbnailer(
 		)
 		.await?;
 
-		info!("Found {:?} video files", video_files.len());
+		trace!("Found {:?} video files", video_files.len());
 
 		video_files
 	};

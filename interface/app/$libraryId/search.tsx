@@ -1,91 +1,77 @@
 import { MagnifyingGlass } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useEffect, useMemo } from 'react';
-import { z } from 'zod';
-import { useLibraryQuery } from '@sd/client';
-import {
-	SortOrder,
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodSearchParams
-} from '~/hooks';
+import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { FilePathSearchOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
+import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
-import { getExplorerItemData } from './Explorer/util';
+import { ExplorerContextProvider } from './Explorer/Context';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
+import { EmptyNotice } from './Explorer/View';
+import {
+	createDefaultExplorerSettings,
+	filePathOrderingKeysSchema,
+	getExplorerStore
+} from './Explorer/store';
+import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
-import TopBarOptions from './TopBar/TopBarOptions';
 
-export const SEARCH_PARAMS = z.object({
-	search: z.string().optional(),
-	take: z.coerce.number().optional(),
-	order: z.union([z.object({ name: SortOrder }), z.object({ name: SortOrder })]).optional()
-});
-
-export type SearchArgs = z.infer<typeof SEARCH_PARAMS>;
-
-const SearchExplorer = memo((props: { args: SearchArgs }) => {
-	const explorerStore = useExplorerStore();
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
-
+const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const { search, ...args } = props.args;
 
-	const query = useLibraryQuery(
-		[
-			'search.paths',
-			{
-				...args,
-				filter: {
-					search
-				}
-			}
-		],
-		{
-			suspense: true,
-			enabled: !!search,
-			onSuccess: () => getExplorerStore().resetNewThumbnails()
-		}
-	);
+	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
+		suspense: true,
+		enabled: !!search,
+		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	});
+
+	const explorerSettings = useExplorerSettings({
+		settings: useMemo(
+			() =>
+				createDefaultExplorerSettings<FilePathSearchOrdering>({
+					order: {
+						field: 'name',
+						value: 'Asc'
+					}
+				}),
+			[]
+		),
+		onSettingsChanged: () => {},
+		orderingKeys: filePathOrderingKeysSchema
+	});
+
+	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const items = useMemo(() => {
-		const items = query.data?.items;
+		const items = query.data?.items ?? null;
 
-		if (explorerStore.layoutMode !== 'media') return items;
+		if (settingsSnapshot.layoutMode !== 'media') return items;
 
-		return items?.filter((item) => {
-			const { kind } = getExplorerItemData(item);
-			return kind === 'Video' || kind === 'Image';
-		});
-	}, [query.data, explorerStore.layoutMode]);
+		return (
+			items?.filter((item) => {
+				const { kind } = getExplorerItemData(item);
+				return kind === 'Video' || kind === 'Image';
+			}) || null
+		);
+	}, [query.data, settingsSnapshot.layoutMode]);
 
-	useEffect(() => {
-		getExplorerStore().selectedRowIndex = null;
-	}, [search]);
+	const explorer = useExplorer({
+		items,
+		settings: explorerSettings
+	});
 
 	return (
 		<>
-			{items && items.length > 0 ? (
-				<>
-					<TopBarPortal
-						right={
-							<TopBarOptions
-								options={[
-									explorerViewOptions,
-									explorerToolOptions,
-									explorerControlOptions
-								]}
-							/>
-						}
+			{search ? (
+				<ExplorerContextProvider explorer={explorer}>
+					<TopBarPortal right={<DefaultTopBarOptions />} />
+					<Explorer
+						emptyNotice={<EmptyNotice message={`No results found for "${search}"`} />}
 					/>
-					<Explorer items={items} />
-				</>
+				</ExplorerContextProvider>
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center">
-					{!search && (
-						<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
-					)}
-					<p className="text-xs text-ink-faint">
-						{search ? `No results found for "${search}"` : 'Search for files...'}
-					</p>
+					<MagnifyingGlass size={110} className="mb-5 text-ink-faint" opacity={0.3} />
+					<p className="text-xs text-ink-faint">Search for files...</p>
 				</div>
 			)}
 		</>
@@ -93,12 +79,12 @@ const SearchExplorer = memo((props: { args: SearchArgs }) => {
 });
 
 export const Component = () => {
-	const [searchParams] = useZodSearchParams(SEARCH_PARAMS);
+	const [searchParams] = useZodSearchParams(SearchParamsSchema);
 
 	const search = useDeferredValue(searchParams);
 
 	return (
-		<Suspense fallback="LOADING FIRST RENDER">
+		<Suspense>
 			<SearchExplorer args={search} />
 		</Suspense>
 	);

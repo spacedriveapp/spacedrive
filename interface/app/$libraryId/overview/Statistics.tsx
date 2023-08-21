@@ -1,8 +1,9 @@
-import byteSize from 'byte-size';
 import clsx from 'clsx';
+import { Info } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Statistics, byteSize, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -10,6 +11,7 @@ interface StatItemProps {
 	title: string;
 	bytes: bigint;
 	isLoading: boolean;
+	info?: string;
 }
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
@@ -17,6 +19,13 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
+};
+const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+	total_bytes_capacity:
+		'The total capacity of all nodes connected to the library. May show incorrect values during alpha.',
+	preview_media_bytes: 'The total size of all preview media files, such as thumbnails.',
+	library_db_size: 'The size of the library database.',
+	total_bytes_free: 'Free space available on all nodes connected to the library.'
 };
 
 const EMPTY_STATISTICS = {
@@ -36,12 +45,12 @@ const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof type
 let mounted = false;
 
 const StatItem = (props: StatItemProps) => {
-	const { title, bytes = BigInt('0'), isLoading } = props;
+	const { title, bytes, isLoading } = props;
 
-	const size = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
+	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
-		end: +size.value,
+		end: size.value,
 		duration: mounted ? 0 : 1,
 		saveState: false
 	});
@@ -49,11 +58,22 @@ const StatItem = (props: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'flex w-32 shrink-0 cursor-default flex-col rounded-md px-4 py-3 duration-75',
+				'group flex w-32 shrink-0 flex-col rounded-md px-4 py-3 duration-75',
 				!bytes && 'hidden'
 			)}
 		>
-			<span className="text-sm text-gray-400">{title}</span>
+			<span className="whitespace-nowrap text-sm text-gray-400 ">
+				{title}
+				{props.info && (
+					<Tooltip tooltipClassName="bg-black" label={props.info}>
+						<Info
+							weight="fill"
+							className="-mt-0.5 ml-1 inline h-3 w-3 text-ink-faint opacity-0 transition-opacity group-hover:opacity-70"
+						/>
+					</Tooltip>
+				)}
+			</span>
+
 			<span className="text-2xl">
 				{isLoading && (
 					<div>
@@ -86,7 +106,7 @@ export default () => {
 	});
 	mounted = true;
 	return (
-		<div className="flex w-full px-5 pt-4">
+		<div className="flex w-full px-5 pb-2 pt-4">
 			{/* STAT CONTAINER */}
 			<div className="-mb-1 flex h-20 overflow-hidden">
 				{Object.entries(stats?.data || []).map(([key, value]) => {
@@ -96,7 +116,8 @@ export default () => {
 							key={`${library.uuid} ${key}`}
 							title={StatItemNames[key as keyof Statistics]!}
 							bytes={BigInt(value)}
-							isLoading={platform.demoMode ? false : stats.isLoading}
+							isLoading={stats.isLoading}
+							info={StatDescriptions[key as keyof Statistics]}
 						/>
 					);
 				})}

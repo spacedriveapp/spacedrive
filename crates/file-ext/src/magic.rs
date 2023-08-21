@@ -215,15 +215,19 @@ impl Extension {
 				}
 			}
 			ExtensionPossibility::Conflicts(ext) => match ext_str {
-				"ts" => {
-					let maybe_video_ext = if ext.iter().any(|e| matches!(e, Extension::Video(_))) {
-						verify_magic_bytes(VideoExtension::Ts, file)
-							.await
-							.map(Extension::Video)
-					} else {
-						None
-					};
-					Some(maybe_video_ext.unwrap_or(Extension::Code(CodeExtension::Ts)))
+				"ts" if ext.iter().any(|e| matches!(e, Extension::Video(_))) => {
+					verify_magic_bytes(VideoExtension::Ts, file)
+						.await
+						.map_or(Some(Extension::Code(CodeExtension::Ts)), |video_ext| {
+							Some(Extension::Video(video_ext))
+						})
+				}
+				"mts" if ext.iter().any(|e| matches!(e, Extension::Video(_))) => {
+					verify_magic_bytes(VideoExtension::Mts, file)
+						.await
+						.map_or(Some(Extension::Code(CodeExtension::Mts)), |video_ext| {
+							Some(Extension::Video(video_ext))
+						})
 				}
 				_ => None,
 			},

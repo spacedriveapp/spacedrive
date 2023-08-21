@@ -1,5 +1,7 @@
 import {
 	Books,
+	Cloud,
+	Database,
 	FlyingSaucer,
 	GearSix,
 	HardDrive,
@@ -24,7 +26,8 @@ const Section = tw.div`space-y-0.5`;
 
 export default () => {
 	const os = useOperatingSystem();
-	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	// const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const isBackupsEnabled = useFeatureFlag('backups');
 
 	return (
 		<div className="custom-scroll no-scrollbar h-full w-60 max-w-[180px] shrink-0 border-r border-app-line/50 pb-5">
@@ -55,6 +58,10 @@ export default () => {
 						<Icon component={PaintBrush} />
 						Appearance
 					</SidebarLink>
+					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
+						<Icon component={Database} />
+						Backups
+					</SidebarLink>
 					<SidebarLink to="client/keybindings" disabled>
 						<Icon component={KeyReturn} />
 						Keybinds
@@ -70,10 +77,10 @@ export default () => {
 						<Icon component={GearSix} />
 						General
 					</SidebarLink>
-					<SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
+					{/* <SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
 						<Icon component={ShareNetwork} />
 						Nodes
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						Locations
@@ -81,6 +88,10 @@ export default () => {
 					<SidebarLink to="library/tags">
 						<Icon component={TagSimple} />
 						Tags
+					</SidebarLink>
+					<SidebarLink disabled to="library/clouds">
+						<Icon component={Cloud} />
+						Clouds
 					</SidebarLink>
 					<SidebarLink to="library/keys" disabled>
 						<Icon component={Key} />

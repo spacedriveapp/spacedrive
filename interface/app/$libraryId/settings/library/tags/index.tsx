@@ -1,21 +1,17 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
+import { Heading } from '~/app/$libraryId/settings/Layout';
+import { TagsSettingsParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
-import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
 import EditForm from './EditForm';
 
-const PARAMS = z.object({
-	id: z.coerce.number().default(-1)
-});
-
 export const Component = () => {
 	const tags = useLibraryQuery(['tags.list']);
-	const id = useZodRouteParams(PARAMS).id;
-	const tagSelectedParam = tags.data?.find((tag) => tag.id === id);
+	const { id: locationId } = useZodRouteParams(TagsSettingsParamsSchema);
+	const tagSelectedParam = tags.data?.find((tag) => tag.id === locationId);
 	const [selectedTag, setSelectedTag] = useState<null | Tag>(
 		tagSelectedParam ?? tags.data?.[0] ?? null
 	);
@@ -24,6 +20,12 @@ export const Component = () => {
 	useEffect(() => {
 		setSelectedTag(tagSelectedParam !== undefined ? tagSelectedParam : null);
 	}, [tagSelectedParam]);
+
+	// Set the first tag as selected when the tags list data is first loaded
+	useEffect(() => {
+		if (tags?.data?.length || 0 > 1 && !selectedTag) setSelectedTag(tags.data?.[0] ?? null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tags?.data]);
 
 	return (
 		<>

@@ -5,68 +5,11 @@ use std::{
 };
 
 use libp2p::{futures::AsyncWriteExt, swarm::NegotiatedSubstream};
-use tokio::io::{
-	AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf,
-};
-use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
-use tracing::error;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf};
+use tokio_util::compat::Compat;
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
 pub const UNICAST_DISCRIMINATOR: u8 = 1;
-
-#[derive(Debug)]
-pub enum SpaceTimeStream {
-	Broadcast(BroadcastStream),
-	Unicast(UnicastStream),
-}
-
-impl SpaceTimeStream {
-	pub(crate) async fn from_stream(io: NegotiatedSubstream) -> Self {
-		let mut io = io.compat();
-		let discriminator = io.read_u8().await.unwrap(); // TODO: Timeout on this
-		match discriminator {
-			BROADCAST_DISCRIMINATOR => Self::Broadcast(BroadcastStream(Some(io))),
-			UNICAST_DISCRIMINATOR => Self::Unicast(UnicastStream(io)),
-			_ => todo!(), // TODO: Error handling
-		}
-	}
-
-	pub fn stream_type(&self) -> &'static str {
-		match self {
-			Self::Broadcast(_) => "broadcast",
-			Self::Unicast(_) => "unicast",
-		}
-	}
-
-	pub async fn close(self) -> Result<(), io::Error> {
-		match self {
-			Self::Broadcast(mut stream) => {
-				if let Some(stream) = stream.0.take() {
-					BroadcastStream::close_inner(stream).await
-				} else if cfg!(debug_assertions) {
-					panic!("'BroadcastStream' should never be 'None' here!");
-				} else {
-					error!("'BroadcastStream' should never be 'None' here!");
-					Ok(())
-				}
-			}
-			Self::Unicast(stream) => stream.0.into_inner().close().await,
-		}
-	}
-}
-
-impl AsyncRead for SpaceTimeStream {
-	fn poll_read(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &mut ReadBuf<'_>,
-	) -> Poll<io::Result<()>> {
-		match self.get_mut() {
-			Self::Broadcast(stream) => Pin::new(stream).poll_read(cx, buf),
-			Self::Unicast(stream) => Pin::new(stream).poll_read(cx, buf),
-		}
-	}
-}
 
 /// A broadcast is a message sent to many peers in the network.
 /// Due to this it is not possible to respond to a broadcast.
@@ -74,6 +17,10 @@ impl AsyncRead for SpaceTimeStream {
 pub struct BroadcastStream(Option<Compat<NegotiatedSubstream>>);
 
 impl BroadcastStream {
+	pub(crate) fn new(stream: Compat<NegotiatedSubstream>) -> Self {
+		Self(Some(stream))
+	}
+
 	async fn close_inner(mut io: Compat<NegotiatedSubstream>) -> Result<(), io::Error> {
 		io.write_all(&[b'D']).await?;
 		io.flush().await?;
@@ -114,8 +61,8 @@ pub struct UnicastStream(Compat<NegotiatedSubstream>);
 // TODO: Utils for sending msgpack and stuff over the stream. -> Have a max size of reading buffers so we are less susceptible to DoS attacks.
 
 impl UnicastStream {
-	pub(crate) fn new(io: NegotiatedSubstream) -> Self {
-		Self(io.compat())
+	pub(crate) fn new(io: Compat<NegotiatedSubstream>) -> Self {
+		Self(io)
 	}
 
 	pub(crate) async fn write_discriminator(&mut self) -> io::Result<()> {

@@ -44,7 +44,7 @@
 // 	}
 
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-// 		let Library { db, .. } = &ctx.library;
+// 		let Library { db, .. } = &*ctx.library;
 
 // 		state.steps = get_many_files_datas(
 // 			db,
@@ -150,7 +150,7 @@
 // 		Ok(())
 // 	}
 
-// 	async fn finalize(&mut self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+// 	async fn finalize(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 // 		invalidate_query!(ctx.library, "search.paths");
 
 // 		// mark job as successful

@@ -27,7 +27,7 @@ pub enum ObjectKind {
 	Alias = 10,
 	/// Raw bytes encrypted by Spacedrive with self contained metadata
 	Encrypted = 11,
-	/// A link can open web pages, apps or Spaces
+	/// A key or certificate file
 	Key = 12,
 	/// A link can open web pages, apps or Spaces
 	Link = 13,

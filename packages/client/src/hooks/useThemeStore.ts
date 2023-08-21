@@ -16,3 +16,7 @@ export function useThemeStore() {
 export function getThemeStore() {
 	return themeStore;
 }
+
+export function isDarkTheme() {
+	return themeStore.theme === 'dark';
+}

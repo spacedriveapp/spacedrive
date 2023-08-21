@@ -1,6 +1,7 @@
 use crate::{
 	api::utils::library,
 	invalidate_query,
+	job::Job,
 	library::Library,
 	location::{
 		file_path_helper::{
@@ -13,18 +14,19 @@ use crate::{
 		erase::FileEraserJobInit,
 	},
 	prisma::{file_path, location, object},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::path::Path;
 
 use chrono::Utc;
-use futures::future::try_join_all;
+use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::fs;
-use tracing::error;
+use tokio::{fs, io};
+use tracing::{error, warn};
 
 use super::{Ctx, R};
 
@@ -44,6 +46,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object::include!({ file_paths media_data }))
 						.exec()
 						.await?)
+				})
+		})
+		.procedure("getPath", {
+			R.with2(library())
+				.query(|(_, library), id: i32| async move {
+					let isolated_path = IsolatedFilePathData::try_from(
+						library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(id))
+							.select(file_path_to_isolate::select())
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
+					)
+					.map_err(LocationError::MissingField)?;
+
+					let location_id = isolated_path.location_id();
+					let location_path = find_location(&library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?
+						.path
+						.ok_or(LocationError::MissingPath(location_id))?;
+
+					Ok(Path::new(&location_path)
+						.join(&isolated_path)
+						.to_str()
+						.map(|str| str.to_string()))
 				})
 		})
 		.procedure("setNote", {
@@ -98,12 +130,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
-				.mutation(|(_, library), id: i32| async move {
+				.mutation(|(_, library), ids: Vec<i32>| async move {
 					library
 						.db
 						.object()
-						.update(
-							object::id::equals(id),
+						.update_many(
+							vec![object::id::in_vec(ids)],
 							vec![object::date_accessed::set(Some(Utc::now().into()))],
 						)
 						.exec()
@@ -132,44 +164,125 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		// .procedure("encryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileEncryptorJobInit| async move {
-		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileEncryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		// .procedure("decryptFiles", {
 		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: FileDecryptorJobInit| async move {
-		// 			library.spawn_job(args).await.map_err(Into::into)
+		// 		.mutation(|(node, library), args: FileDecryptorJobInit| async move {
+		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		.procedure("deleteFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileDeleterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileDeleterJobInit| async move {
+					match args.file_path_ids.len() {
+						0 => Ok(()),
+						1 => {
+							let (maybe_location, maybe_file_path) = library
+								.db
+								._batch((
+									library
+										.db
+										.location()
+										.find_unique(location::id::equals(args.location_id))
+										.select(location::select!({ path })),
+									library
+										.db
+										.file_path()
+										.find_unique(file_path::id::equals(args.file_path_ids[0]))
+										.select(file_path_to_isolate::select()),
+								))
+								.await?;
+
+							let location_path = maybe_missing(
+								maybe_location
+									.ok_or(LocationError::IdNotFound(args.location_id))?
+									.path,
+								"location.path",
+							)
+							.map_err(LocationError::from)?;
+
+							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
+								FilePathError::IdNotFound(args.file_path_ids[0]),
+							))?;
+
+							let full_path = Path::new(&location_path).join(
+								IsolatedFilePathData::try_from(&file_path)
+									.map_err(LocationError::MissingField)?,
+							);
+
+							match if maybe_missing(file_path.is_dir, "file_path.is_dir")
+								.map_err(LocationError::MissingField)?
+							{
+								fs::remove_dir_all(&full_path).await
+							} else {
+								fs::remove_file(&full_path).await
+							} {
+								Ok(()) => Ok(()),
+								Err(e) if e.kind() == io::ErrorKind::NotFound => {
+									warn!(
+										"File not found in the file system, will remove from database: {}",
+										full_path.display()
+									);
+									library
+										.db
+										.file_path()
+										.delete(file_path::id::equals(args.file_path_ids[0]))
+										.exec()
+										.await
+										.map_err(LocationError::from)?;
+
+									Ok(())
+								}
+								Err(e) => {
+									Err(LocationError::from(FileIOError::from((full_path, e)))
+										.into())
+								}
+							}
+						}
+						_ => Job::new(args)
+							.spawn(&node, &library)
+							.await
+							.map_err(Into::into),
+					}
 				})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileEraserJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileEraserJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCopierJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCopierJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
-				.mutation(|(_, library), args: FileCutterJobInit| async move {
-					library.spawn_job(args).await.map_err(Into::into)
+				.mutation(|(node, library), args: FileCutterJobInit| async move {
+					Job::new(args)
+						.spawn(&node, &library)
+						.await
+						.map_err(Into::into)
 				})
 		})
 		.procedure("renameFile", {
@@ -237,9 +350,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map_err(LocationError::FilePath)?;
 
 					let mut new_file_full_path = location_path.join(iso_file_path.parent());
-					new_file_full_path.push(new_file_name);
 					if !new_extension.is_empty() {
-						new_file_full_path.set_extension(new_extension);
+						new_file_full_path.push(format!("{}.{}", new_file_name, new_extension));
+					} else {
+						new_file_full_path.push(new_file_name);
 					}
 
 					match fs::metadata(&new_file_full_path).await {
@@ -270,19 +384,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})?;
 
-					library
-						.db
-						.file_path()
-						.update(
-							file_path::id::equals(from_file_path_id),
-							vec![
-								file_path::name::set(Some(new_file_name.to_string())),
-								file_path::extension::set(Some(new_extension.to_string())),
-							],
-						)
-						.exec()
-						.await?;
-
 					Ok(())
 				}
 
@@ -304,7 +405,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					};
 
-					let to_update = try_join_all(
+					let errors = join_all(
 						library
 							.db
 							.file_path()
@@ -313,12 +414,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?
 							.into_iter()
-							.flat_map(|file_path| {
-								let id = file_path.id;
-
-								IsolatedFilePathData::try_from(file_path).map(|d| (id, d))
-							})
-							.map(|(file_path_id, iso_file_path)| {
+							.flat_map(IsolatedFilePathData::try_from)
+							.map(|iso_file_path| {
 								let from = location_path.join(&iso_file_path);
 								let mut to = location_path.join(iso_file_path.parent());
 								let full_name = iso_file_path.full_name();
@@ -339,57 +436,37 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 											"Invalid file name".to_string(),
 										))
 									} else {
-										fs::rename(&from, &to)
-											.await
-											.map_err(|e| {
-												error!(
-													"Failed to rename file from: '{}' to: '{}'",
+										fs::rename(&from, &to).await.map_err(|e| {
+											error!(
+													"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
 													from.display(),
 													to.display()
 												);
-												rspc::Error::with_cause(
-													ErrorCode::Conflict,
-													"Failed to rename file".to_string(),
-													e,
-												)
-											})
-											.map(|_| {
-												let (name, extension) =
-												IsolatedFilePathData::separate_name_and_extension_from_str(
-												&replaced_full_name,
-												)
-												.expect("we just built this full name and validated it");
-
-												(
-													file_path_id,
-													(name.to_string(), extension.to_string()),
-												)
-											})
+											rspc::Error::with_cause(
+												ErrorCode::Conflict,
+												"Failed to rename file".to_string(),
+												e,
+											)
+										})
 									}
 								}
 							}),
 					)
-					.await?;
+					.await
+					.into_iter()
+					.filter_map(Result::err)
+					.collect::<Vec<_>>();
 
-					// TODO: dispatch sync update events
-
-					library
-						.db
-						._batch(
-							to_update
+					if !errors.is_empty() {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::Conflict,
+							errors
 								.into_iter()
-								.map(|(file_path_id, (new_name, new_extension))| {
-									library.db.file_path().update(
-										file_path::id::equals(file_path_id),
-										vec![
-											file_path::name::set(Some(new_name)),
-											file_path::extension::set(Some(new_extension)),
-										],
-									)
-								})
-								.collect::<Vec<_>>(),
-						)
-						.await?;
+								.map(|e| e.to_string())
+								.collect::<Vec<_>>()
+								.join("\n"),
+						));
+					}
 
 					Ok(())
 				}

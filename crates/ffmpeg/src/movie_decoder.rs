@@ -6,25 +6,22 @@ use crate::{
 
 use ffmpeg_sys_next::{
 	av_buffersink_get_frame, av_buffersrc_write_frame, av_dict_get, av_display_rotation_get,
-	av_frame_alloc, av_frame_free, av_guess_sample_aspect_ratio, av_packet_alloc, av_packet_free,
-	av_packet_unref, av_read_frame, av_seek_frame, av_stream_get_side_data, avcodec_alloc_context3,
-	avcodec_find_decoder, avcodec_flush_buffers, avcodec_free_context, avcodec_open2,
-	avcodec_parameters_to_context, avcodec_receive_frame, avcodec_send_packet,
-	avfilter_get_by_name, avfilter_graph_alloc, avfilter_graph_config,
-	avfilter_graph_create_filter, avfilter_graph_free, avfilter_link, avformat_close_input,
-	avformat_find_stream_info, avformat_open_input, AVCodec, AVCodecContext, AVCodecID,
-	AVFilterContext, AVFilterGraph, AVFormatContext, AVFrame, AVMediaType, AVPacket,
-	AVPacketSideDataType, AVRational, AVStream, AVERROR, AVERROR_EOF, AV_DICT_IGNORE_SUFFIX,
-	AV_TIME_BASE, EAGAIN,
+	av_frame_alloc, av_frame_free, av_packet_alloc, av_packet_free, av_packet_unref, av_read_frame,
+	av_seek_frame, av_stream_get_side_data, avcodec_alloc_context3, avcodec_find_decoder,
+	avcodec_flush_buffers, avcodec_free_context, avcodec_open2, avcodec_parameters_to_context,
+	avcodec_receive_frame, avcodec_send_packet, avfilter_get_by_name, avfilter_graph_alloc,
+	avfilter_graph_config, avfilter_graph_create_filter, avfilter_graph_free, avfilter_link,
+	avformat_close_input, avformat_find_stream_info, avformat_open_input, AVCodec, AVCodecContext,
+	AVCodecID, AVFilterContext, AVFilterGraph, AVFormatContext, AVFrame, AVMediaType, AVPacket,
+	AVPacketSideDataType, AVRational, AVStream, AVERROR, AVERROR_EOF, AVPROBE_SCORE_MAX,
+	AV_DICT_IGNORE_SUFFIX, AV_TIME_BASE, EAGAIN,
 };
 use std::{
-	ffi::{c_int, CString},
+	ffi::{CStr, CString},
 	fmt::Write,
 	path::Path,
 	time::Duration,
 };
-
-const AVERROR_EAGAIN: c_int = AVERROR(EAGAIN);
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ThumbnailSize {
@@ -101,6 +98,14 @@ impl MovieDecoder {
 			}
 		}
 
+		unsafe {
+			// This needs to remain at 100 or the app will force crash if it comes
+			// across a video with subtitles or any type of corruption.
+			if (*decoder.format_context).probe_score != AVPROBE_SCORE_MAX {
+				return Err(ThumbnailerError::CorruptVideo);
+			}
+		}
+
 		decoder.initialize_video(prefer_embedded_metadata)?;
 
 		decoder.frame = unsafe { av_frame_alloc() };
@@ -131,7 +136,7 @@ impl MovieDecoder {
 
 	pub(crate) fn seek(&mut self, seconds: i64) -> Result<(), ThumbnailerError> {
 		if !self.allow_seek {
-			return Err(ThumbnailerError::SeekNotAllowed);
+			return Ok(());
 		}
 
 		let timestamp = (AV_TIME_BASE as i64).checked_mul(seconds).unwrap_or(0);
@@ -196,7 +201,7 @@ impl MovieDecoder {
 		let mut new_frame = FfmpegFrame::new()?;
 		let mut attempts = 0;
 		let mut ret = unsafe { av_buffersink_get_frame(self.filter_sink, new_frame.as_mut_ptr()) };
-		while ret == AVERROR_EAGAIN && attempts < 10 {
+		while ret == AVERROR(EAGAIN) && attempts < 10 {
 			self.decode_video_frame()?;
 			check_error(
 				unsafe { av_buffersrc_write_frame(self.filter_source, self.frame) },
@@ -243,7 +248,10 @@ impl MovieDecoder {
 			std::slice::from_raw_parts((*new_frame.as_mut_ptr()).data[0], frame_data_size)
 		});
 
-		unsafe { avfilter_graph_free(&mut self.filter_graph) };
+		if !self.filter_graph.is_null() {
+			unsafe { avfilter_graph_free(&mut self.filter_graph) };
+			self.filter_graph = std::ptr::null_mut();
+		}
 
 		Ok(())
 	}
@@ -323,29 +331,26 @@ impl MovieDecoder {
 						tag = unsafe {
 							av_dict_get(
 								(*stream).metadata,
-								empty_cstring.as_ptr() as *const i8,
+								empty_cstring.as_ptr(),
 								tag,
 								AV_DICT_IGNORE_SUFFIX,
 							)
 						};
+
 						if tag.is_null() {
 							break;
 						}
-						if unsafe {
-							CString::from_raw((*tag).key)
-								.to_str()
-								.expect("Found non-UTF-8 path") == "filename"
-								&& CString::from_raw((*tag).value)
-									.to_str()
-									.expect("Found non-UTF-8 path")
-									.starts_with("cover.")
-						} {
-							if embedded_data_streams.is_empty() {
-								embedded_data_streams.push(stream_idx);
-							} else {
-								embedded_data_streams[0] = stream_idx;
+
+						// WARNING: NEVER use CString with foreign raw pointer (causes double-free)
+						let key = unsafe { CStr::from_ptr((*tag).key) }.to_str();
+						if let Ok(key) = key {
+							let value = unsafe { CStr::from_ptr((*tag).value) }.to_str();
+							if let Ok(value) = value {
+								if key == "filename" && value == "cover." {
+									embedded_data_streams.insert(0, stream_idx);
+									continue;
+								}
 							}
-							continue;
 						}
 					}
 				}
@@ -381,7 +386,7 @@ impl MovieDecoder {
 		self.packet = unsafe { av_packet_alloc() };
 
 		while frames_available && !frame_decoded {
-			frames_available = unsafe { av_read_frame(self.format_context, self.packet) == 0 };
+			frames_available = unsafe { av_read_frame(self.format_context, self.packet) >= 0 };
 			if frames_available {
 				frame_decoded = unsafe { (*self.packet).stream_index } == self.video_stream_index;
 				if !frame_decoded {
@@ -412,11 +417,11 @@ impl MovieDecoder {
 
 		match unsafe { avcodec_receive_frame(self.video_codec_context, self.frame) } {
 			0 => Ok(true),
-			AVERROR_EAGAIN => Ok(false),
-			e => Err(ThumbnailerError::FfmpegWithReason(
+			e if e != AVERROR(EAGAIN) => Err(ThumbnailerError::FfmpegWithReason(
 				FfmpegError::from(e),
 				"Failed to receive frame from decoder".to_string(),
 			)),
+			_ => Ok(false),
 		}
 	}
 
@@ -584,8 +589,7 @@ impl MovieDecoder {
 		if size.is_none() {
 			return Ok("w=0:h=0".to_string());
 		}
-
-		let size = size.unwrap();
+		let size = size.expect("Size should have been checked for None");
 
 		match size {
 			ThumbnailSize::Dimensions { width, height } => {
@@ -597,76 +601,25 @@ impl MovieDecoder {
 			}
 		}
 
+		if scaled_width <= 0 {
+			scaled_width = -1
+		}
+
+		if scaled_height <= 0 {
+			scaled_height = -1
+		}
+
 		let mut scale = String::new();
 
-		if scaled_width != -1 && scaled_height != -1 {
-			let _ = write!(scale, "w={scaled_width}:h={scaled_height}");
-			if maintain_aspect_ratio {
-				let _ = write!(scale, ":force_original_aspect_ratio=decrease");
-			}
-		} else if !maintain_aspect_ratio {
-			if scaled_width == -1 {
-				let _ = write!(scale, "w={scaled_height}:h={scaled_height}");
-			} else {
-				let _ = write!(scale, "w={scaled_width}:h={scaled_width}");
-			}
-		} else {
-			let size_int = if scaled_height == -1 {
-				scaled_width
-			} else {
-				scaled_height
-			};
+		write!(scale, "w={scaled_width}:h={scaled_height}")
+			.expect("Write of const string should work");
 
-			let anamorphic;
-			let aspect_ratio;
-			unsafe {
-				scaled_width = (*self.video_codec_context).width;
-				scaled_height = (*self.video_codec_context).height;
-
-				aspect_ratio = av_guess_sample_aspect_ratio(
-					self.format_context,
-					self.video_stream,
-					self.frame,
-				);
-				anamorphic = aspect_ratio.num != 0 && aspect_ratio.num != aspect_ratio.den;
-			}
-
-			if anamorphic {
-				scaled_width = scaled_width * aspect_ratio.num / aspect_ratio.den;
-
-				if size_int != 0 {
-					if scaled_height > scaled_width {
-						scaled_width = scaled_width * size_int / scaled_height;
-						scaled_height = size_int;
-					} else {
-						scaled_height = scaled_height * size_int / scaled_width;
-						scaled_width = size_int;
-					}
-				}
-
-				let _ = write!(scale, "w={scaled_width}:h={scaled_height}");
-			} else if scaled_height > scaled_width {
-				let _ = write!(
-					scale,
-					"w=-1:h={}",
-					if size_int == 0 {
-						scaled_height
-					} else {
-						size_int
-					}
-				);
-			} else {
-				let _ = write!(
-					scale,
-					"w={}:h=-1",
-					if size_int == 0 {
-						scaled_width
-					} else {
-						size_int
-					}
-				);
-			}
+		if maintain_aspect_ratio {
+			write!(scale, ":force_original_aspect_ratio=decrease")
+				.expect("Write of const string should work");
 		}
+
+		// TODO: Handle anamorphic videos
 
 		Ok(scale)
 	}
@@ -715,8 +668,8 @@ impl Drop for MovieDecoder {
 			unsafe {
 				av_packet_unref(self.packet);
 				av_packet_free(&mut self.packet);
-				self.packet = std::ptr::null_mut();
 			}
+			self.packet = std::ptr::null_mut();
 		}
 
 		if !self.frame.is_null() {
@@ -724,6 +677,7 @@ impl Drop for MovieDecoder {
 				av_frame_free(&mut self.frame);
 				self.frame = std::ptr::null_mut();
 			}
+			self.frame = std::ptr::null_mut();
 		}
 
 		self.video_stream_index = -1;
@@ -749,17 +703,17 @@ fn setup_filter(
 	graph_ctx: *mut AVFilterGraph,
 	error_message: &str,
 ) -> Result<(), ThumbnailerError> {
-	let filter_name_cstr = CString::new(filter_name).unwrap();
-	let filter_setup_name_cstr = CString::new(filter_setup_name).unwrap();
-	let args_cstr = CString::new(args).unwrap();
+	let filter_name_cstr = CString::new(filter_name).expect("CString from str");
+	let filter_setup_name_cstr = CString::new(filter_setup_name).expect("CString from str");
+	let args_cstr = CString::new(args).expect("CString from str");
 
 	check_error(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
-				args_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
+				args_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				graph_ctx,
 			)
@@ -782,8 +736,8 @@ fn setup_filter_without_args(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				std::ptr::null_mut(),
 				graph_ctx,

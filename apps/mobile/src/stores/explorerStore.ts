@@ -1,4 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
+import { proxySet } from 'valtio/utils';
 import { resetStore } from '@sd/client';
 
 // TODO: Add "media"
@@ -13,14 +14,23 @@ const state = {
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
 	listItemSize: 65,
-	newThumbnails: {} as Record<string, boolean>
+	newThumbnails: proxySet() as Set<string>
 };
+
+export function flattenThumbnailKey(thumbKey: string[]) {
+	return thumbKey.join('/');
+}
 
 const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
-	addNewThumbnail: (cas_id: string) => {
-		explorerStore.newThumbnails[cas_id] = true;
+	addNewThumbnail: (thumbKey: string[]) => {
+		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
+	},
+	// this should be done when the explorer query is refreshed
+	// prevents memory leak
+	resetNewThumbnails: () => {
+		explorerStore.newThumbnails.clear();
 	}
 });
 

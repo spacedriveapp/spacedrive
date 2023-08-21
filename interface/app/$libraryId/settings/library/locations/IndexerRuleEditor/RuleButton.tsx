@@ -40,7 +40,7 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 			)}
 		>
 			<div className="w-full">
-				<p className="mb-2 text-center text-sm">{rule.name}</p>
+				<p className="mb-2 truncate px-2 text-center text-sm">{rule.name}</p>
 				<div className="flex flex-wrap justify-center gap-2">
 					<InfoPill
 						ref={toggleRef}

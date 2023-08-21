@@ -24,8 +24,6 @@ pub enum FileSystemJobsError {
 	Database(#[from] QueryError),
 	#[error(transparent)]
 	FilePath(#[from] FilePathError),
-	#[error("source and destination path are the same: {}", .0.display())]
-	MatchingSrcDest(Box<Path>),
 	#[error("action would overwrite another file: {}", .0.display())]
 	WouldOverwrite(Box<Path>),
 	#[error("missing-field: {0}")]

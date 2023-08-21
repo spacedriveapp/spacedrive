@@ -1,5 +1,4 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
-import { useTheme } from '../hooks';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -15,7 +14,8 @@ export type Platform = {
 		_linux_workaround?: boolean
 	) => string;
 	openLink: (url: string) => void;
-	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
+	// Tauri patches `window.confirm` to return `Promise` not `bool`
+	confirm(msg: string, cb: (result: boolean) => void): void;
 	getOs?(): Promise<OperatingSystem>;
 	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
@@ -24,7 +24,11 @@ export type Platform = {
 	openPath?(path: string): void;
 	openLogsDir?(): void;
 	// Opens a file path with a given ID
-	openFilePath?(library: string, ids: number[]): any;
+	openFilePaths?(library: string, ids: number[]): any;
+	revealItems?(
+		library: string,
+		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;

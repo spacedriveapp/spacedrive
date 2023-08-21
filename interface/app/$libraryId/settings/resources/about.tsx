@@ -1,7 +1,7 @@
 import { AppLogo } from '@sd/assets/images';
 import { Discord, Github } from '@sd/assets/svgs/brands';
 import { Globe } from 'phosphor-react';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useDebugStateEnabler } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
@@ -12,11 +12,17 @@ export const Component = () => {
 	const os = useOperatingSystem();
 	const currentPlatformNiceName =
 		os === 'browser' ? 'Web' : os == 'macOS' ? os : os.charAt(0).toUpperCase() + os.slice(1);
+	const onClick = useDebugStateEnabler();
 
 	return (
 		<div className="h-auto">
 			<div className="flex flex-row items-center">
-				<img src={AppLogo} className="mr-8 h-[88px] w-[88px]" />
+				<img
+					src={AppLogo}
+					className="mr-8 h-[88px] w-[88px]"
+					draggable="false"
+					onClick={onClick}
+				/>
 				<div className="flex flex-col">
 					<h1 className="text-2xl font-bold">
 						Spacedrive {os !== 'unknown' && <>for {currentPlatformNiceName}</>}
@@ -79,7 +85,10 @@ export const Component = () => {
 				<h1 className="my-5 text-lg font-bold text-ink">
 					We also would like to thank all our contributors
 				</h1>
-				<img src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12" />
+				<img
+					src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12"
+					draggable="false"
+				/>
 			</div>
 		</div>
 	);

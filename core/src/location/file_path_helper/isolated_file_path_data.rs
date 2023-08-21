@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use super::{
 	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
-	file_path_to_isolate_with_id, file_path_with_object, FilePathError,
+	file_path_to_isolate_with_id, file_path_walker, file_path_with_object, FilePathError,
 };
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
@@ -24,6 +24,10 @@ static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
+	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
+	// and are not public. They have some specific logic on them and should not be writen to directly.
+	// If you wanna access one of them outside from location module, write yourself an accessor method
+	// to have read only access to them.
 	pub(in crate::location) location_id: location::id::Type,
 	pub(in crate::location) materialized_path: Cow<'a, str>,
 	pub(in crate::location) is_dir: bool,
@@ -64,7 +68,7 @@ impl IsolatedFilePathData<'static> {
 			)?),
 			name: Cow::Owned(
 				(location_path != full_path)
-					.then(|| Self::prepare_name(full_path).to_string())
+					.then(|| Self::prepare_name(full_path, is_dir).to_string())
 					.unwrap_or_default(),
 			),
 			extension: Cow::Owned(extension),
@@ -80,18 +84,6 @@ impl IsolatedFilePathData<'static> {
 impl<'a> IsolatedFilePathData<'a> {
 	pub fn location_id(&self) -> location::id::Type {
 		self.location_id
-	}
-
-	pub fn name(&'a self) -> &'a str {
-		&self.name
-	}
-
-	pub fn extension(&'a self) -> &'a str {
-		&self.extension
-	}
-
-	pub fn materialized_path(&'a self) -> &'a str {
-		&self.materialized_path
 	}
 
 	pub fn is_root(&self) -> bool {
@@ -257,12 +249,16 @@ impl<'a> IsolatedFilePathData<'a> {
 		}
 	}
 
-	fn prepare_name(path: &Path) -> &str {
+	fn prepare_name(path: &Path, is_dir: bool) -> &str {
 		// Not using `impl AsRef<Path>` here because it's an private method
-		path.file_stem()
-			.unwrap_or_default()
-			.to_str()
-			.unwrap_or_default()
+		if is_dir {
+			path.file_name()
+		} else {
+			path.file_stem()
+		}
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
 	}
 
 	pub fn from_db_data(
@@ -450,6 +446,7 @@ mod macros {
 impl_from_db!(
 	file_path,
 	file_path_to_isolate,
+	file_path_walker,
 	file_path_to_isolate_with_id,
 	file_path_with_object
 );

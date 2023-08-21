@@ -2,19 +2,23 @@
 
 use crate::{
 	api::{CoreEvent, Router},
-	job::JobManager,
-	library::LibraryManager,
-	location::{LocationManager, LocationManagerError},
-	node::NodeConfigManager,
-	p2p::P2PManager,
+	location::LocationManagerError,
+	object::thumbnail_remover,
+	p2p::sync::NetworkedLibraries,
 };
 
+use api::notifications::{Notification, NotificationData, NotificationId};
+use chrono::{DateTime, Utc};
+use node::config;
+use notifications::Notifications;
 pub use sd_prisma::*;
 
 use std::{
+	fmt,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
+
 use thiserror::Error;
 use tokio::{fs, sync::broadcast};
 use tracing::{error, info, warn};
@@ -22,7 +26,7 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt as tracing_fmt, prelude::*, EnvFilter};
 
 pub mod api;
 pub mod custom_uri;
@@ -30,34 +34,44 @@ pub(crate) mod job;
 pub mod library;
 pub(crate) mod location;
 pub(crate) mod node;
+pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod p2p;
-pub(crate) mod sync;
-pub(crate) mod util;
+pub(crate) mod preferences;
+#[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
+pub mod util;
 pub(crate) mod volume;
 
-#[derive(Clone)]
-pub struct NodeContext {
-	pub config: Arc<NodeConfigManager>,
-	pub jobs: Arc<JobManager>,
-	pub location_manager: Arc<LocationManager>,
-	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-}
+pub(crate) use sd_core_sync as sync;
 
+/// Represents a single running instance of the Spacedrive core.
+/// Holds references to all the services that make up the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
-	config: Arc<NodeConfigManager>,
-	pub library_manager: Arc<LibraryManager>,
-	location_manager: Arc<LocationManager>,
-	jobs: Arc<JobManager>,
-	p2p: Arc<P2PManager>,
-	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
-	// peer_request: tokio::sync::Mutex<Option<PeerRequest>>,
+	pub config: Arc<config::Manager>,
+	pub libraries: Arc<library::Libraries>,
+	pub jobs: Arc<job::Jobs>,
+	pub locations: location::Locations,
+	pub p2p: Arc<p2p::P2PManager>,
+	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	pub notifications: Notifications,
+	pub nlm: Arc<NetworkedLibraries>,
+	pub thumbnail_remover: thumbnail_remover::Actor,
+}
+
+impl fmt::Debug for Node {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("Node")
+			.field("data_dir", &self.data_dir)
+			.finish()
+	}
 }
 
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
+
+		info!("Starting core with data directory '{}'", data_dir.display());
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
@@ -66,54 +80,50 @@ impl Node {
 		let _ = fs::create_dir_all(&data_dir).await;
 
 		let event_bus = broadcast::channel(1024);
-		let config = NodeConfigManager::new(data_dir.to_path_buf())
+		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		let jobs = JobManager::new();
-		let location_manager = LocationManager::new();
-		let library_manager = LibraryManager::new(
-			data_dir.join("libraries"),
-			NodeContext {
-				config: config.clone(),
-				jobs: jobs.clone(),
-				location_manager: location_manager.clone(),
-				// p2p: p2p.clone(),
-				event_bus_tx: event_bus.0.clone(),
-			},
-		)
-		.await?;
-		let p2p = P2PManager::new(config.clone(), library_manager.clone()).await?;
+		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone()).await?;
 
+		let (locations, locations_actor) = location::Locations::new();
+		let (jobs, jobs_actor) = job::Jobs::new();
+		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+		let node = Arc::new(Node {
+			data_dir: data_dir.to_path_buf(),
+			jobs,
+			locations,
+			nlm: NetworkedLibraries::new(p2p.clone(), &libraries),
+			notifications: notifications::Notifications::new(),
+			p2p,
+			config,
+			event_bus,
+			thumbnail_remover: thumbnail_remover::Actor::new(
+				data_dir.to_path_buf(),
+				libraries.clone(),
+			),
+			libraries,
+		});
+
+		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
-			init_data
-				.apply(&library_manager, config.get().await)
-				.await?;
+			init_data.apply(&node.libraries, &node).await?;
 		}
 
-		let router = api::mount();
-		let node = Node {
-			data_dir: data_dir.to_path_buf(),
-			config,
-			library_manager,
-			location_manager,
-			jobs,
-			p2p,
-			event_bus,
-			// peer_request: tokio::sync::Mutex::new(None),
-		};
+		locations_actor.start(node.clone());
+		jobs_actor.start(node.clone());
+		node.p2p.start(p2p_stream, node.clone());
 
+		// Finally load the libraries from disk into the library manager
+		node.libraries.init(&node).await?;
+
+		let router = api::mount();
 		info!("Spacedrive online.");
-		Ok((Arc::new(node), router))
+		Ok((node, router))
 	}
 
 	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
-		let log_filter = match cfg!(debug_assertions) {
-			true => tracing::Level::DEBUG,
-			false => tracing::Level::INFO,
-		};
-
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -124,11 +134,15 @@ impl Node {
 		);
 
 		let collector = tracing_subscriber::registry()
-			.with(fmt::Subscriber::new().with_ansi(false).with_writer(logfile))
 			.with(
-				fmt::Subscriber::new()
-					.with_writer(std::io::stdout.with_max_level(log_filter))
-					.with_filter(
+				tracing_fmt::Subscriber::new()
+					.with_ansi(false)
+					.with_writer(logfile),
+			)
+			.with(
+				tracing_fmt::Subscriber::new()
+					.with_writer(std::io::stdout)
+					.with_filter(if cfg!(debug_assertions) {
 						EnvFilter::from_default_env()
 							.add_directive(
 								"warn".parse().expect("Error invalid tracing directive!"),
@@ -167,40 +181,55 @@ impl Node {
 								"rspc=debug"
 									.parse()
 									.expect("Error invalid tracing directive!"),
-							),
-					),
+							)
+					} else {
+						EnvFilter::from("info")
+					}),
 			);
 
 		tracing::collect::set_global_default(collector)
 			.map_err(|err| {
-				println!("Error initializing global logger: {:?}", err);
+				eprintln!("Error initializing global logger: {:?}", err);
 			})
 			.ok();
+
+		let prev_hook = std::panic::take_hook();
+		std::panic::set_hook(Box::new(move |panic_info| {
+			error!("{}", panic_info);
+			prev_hook(panic_info);
+		}));
 
 		guard
 	}
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.jobs.clone().shutdown().await;
+		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
 	}
 
-	// pub async fn begin_guest_peer_request(
-	// 	&self,
-	// 	peer_id: String,
-	// ) -> Option<Receiver<peer_request::guest::State>> {
-	// 	let mut pr_guard = self.peer_request.lock().await;
+	pub async fn emit_notification(&self, data: NotificationData, expires: Option<DateTime<Utc>>) {
+		let notification = Notification {
+			id: NotificationId::Node(self.notifications._internal_next_id()),
+			data,
+			read: false,
+			expires,
+		};
 
-	// 	if pr_guard.is_some() {
-	// 		return None;
-	// 	}
-
-	// 	let (req, stream) = peer_request::guest::PeerRequest::new_actor(peer_id);
-	// 	*pr_guard = Some(PeerRequest::Guest(req));
-	// 	Some(stream)
-	// }
+		match self
+			.config
+			.write(|mut cfg| cfg.notifications.push(notification.clone()))
+			.await
+		{
+			Ok(_) => {
+				self.notifications._internal_send(notification);
+			}
+			Err(err) => {
+				error!("Error saving notification to config: {:?}", err);
+			}
+		}
+	}
 }
 
 /// Error type for Node related errors.

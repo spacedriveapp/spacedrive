@@ -1,65 +1,134 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { z } from 'zod';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { stringify } from 'uuid';
 import {
+	ExplorerSettings,
+	FilePathSearchOrdering,
 	useLibraryContext,
+	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Folder } from '~/components/Folder';
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useExplorerTopBarOptions,
-	useZodRouteParams
-} from '~/hooks';
+import { LocationIdParamsSchema } from '~/app/route-schemas';
+import { Folder } from '~/components';
+import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
-import { useExplorerOrder, useExplorerSearchParams } from '../Explorer/util';
+import { ExplorerContextProvider } from '../Explorer/Context';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import {
+	createDefaultExplorerSettings,
+	filePathOrderingKeysSchema,
+	getExplorerStore
+} from '../Explorer/store';
+import { UseExplorerSettings, useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
-import TopBarOptions from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
-
-const PARAMS = z.object({
-	id: z.coerce.number()
-});
 
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
-	const { id: location_id } = useZodRouteParams(PARAMS);
-	const { explorerViewOptions, explorerControlOptions, explorerToolOptions } =
-		useExplorerTopBarOptions();
+	const queryClient = useQueryClient();
+	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
+	const location = useLibraryQuery(['locations.get', locationId]);
 
-	const location = useLibraryQuery(['locations.get', location_id]);
+	const preferences = useLibraryQuery(['preferences.get']);
+	const updatePreferences = useLibraryMutation('preferences.update');
+
+	const settings = useMemo(() => {
+		const defaults = createDefaultExplorerSettings<FilePathSearchOrdering>({
+			order: {
+				field: 'name',
+				value: 'Asc'
+			}
+		});
+
+		if (!location.data) return defaults;
+
+		const pubId = stringify(location.data.pub_id);
+
+		const settings = preferences.data?.location?.[pubId]?.explorer;
+
+		if (!settings) return defaults;
+
+		for (const [key, value] of Object.entries(settings)) {
+			if (value !== null) Object.assign(defaults, { [key]: value });
+		}
+
+		return defaults;
+	}, [location.data, preferences.data?.location]);
+
+	const onSettingsChanged = useDebouncedCallback(
+		async (settings: ExplorerSettings<FilePathSearchOrdering>) => {
+			if (!location.data) return;
+			const pubId = stringify(location.data.pub_id);
+			try {
+				await updatePreferences.mutateAsync({
+					location: {
+						[pubId]: {
+							explorer: settings
+						}
+					}
+				});
+				queryClient.invalidateQueries(['preferences.get']);
+			} catch (e) {
+				alert('An error has occurred while updating your preferences.');
+			}
+		},
+		500
+	);
+
+	const explorerSettings = useExplorerSettings<FilePathSearchOrdering>({
+		settings,
+		onSettingsChanged,
+		orderingKeys: filePathOrderingKeysSchema
+	});
+
+	const { items, loadMore } = useItems({ locationId, settings: explorerSettings });
+
+	const explorer = useExplorer({
+		items,
+		loadMore,
+		parent: location.data
+			? {
+					type: 'Location',
+					location: location.data
+			  }
+			: undefined,
+		settings: explorerSettings
+	});
 
 	useLibrarySubscription(
 		[
 			'locations.quickRescan',
 			{
-				location_id,
-				sub_path: path ?? ''
+				sub_path: path ?? '',
+				location_id: locationId
 			}
 		],
 		{ onData() {} }
 	);
 
-	const explorerStore = getExplorerStore();
-
 	useEffect(() => {
-		explorerStore.locationId = location_id;
-	}, [explorerStore, location_id, path]);
+		// Using .call to silence eslint exhaustive deps warning.
+		// If clearSelectedItems referenced 'this' then this wouldn't work
+		explorer.resetSelectedItems.call(undefined);
+	}, [explorer.resetSelectedItems, path]);
 
-	const { items, loadMore } = useItems();
+	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
 
 	return (
-		<>
+		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
 					<div className="group flex flex-row items-center space-x-2">
 						<span className="flex flex-row items-center">
 							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{path ? getLastSectionOfPath(path) : location.data?.name}
+							<span className="max-w-[100px] truncate text-sm font-medium">
+								{path && path?.length > 1
+									? getLastSectionOfPath(path)
+									: location.data?.name}
 							</span>
 						</span>
 						{location.data && (
@@ -67,26 +136,27 @@ export const Component = () => {
 						)}
 					</div>
 				}
-				right={
-					<TopBarOptions
-						options={[explorerViewOptions, explorerToolOptions, explorerControlOptions]}
-					/>
-				}
+				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer items={items} onLoadMore={loadMore} />
-		</>
+			<Explorer />
+		</ExplorerContextProvider>
 	);
 };
 
-const useItems = () => {
-	const { id: locationId } = useZodRouteParams(PARAMS);
+const useItems = ({
+	locationId,
+	settings
+}: {
+	locationId: number;
+	settings: UseExplorerSettings<FilePathSearchOrdering>;
+}) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
 	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
-	const explorerState = useExplorerStore();
+	const explorerSettings = settings.useSettingsSnapshot();
 
 	const query = useInfiniteQuery({
 		queryKey: [
@@ -94,10 +164,10 @@ const useItems = () => {
 			{
 				library_id: library.uuid,
 				arg: {
-					order: useExplorerOrder(),
+					order: explorerSettings.order,
 					filter: {
 						locationId,
-						...(explorerState.layoutMode === 'media'
+						...(explorerSettings.layoutMode === 'media'
 							? { object: { kind: [5, 7] } }
 							: { path: path ?? '' })
 					},
@@ -120,11 +190,11 @@ const useItems = () => {
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
-	function loadMore() {
+	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {
-			query.fetchNextPage();
+			query.fetchNextPage.call(undefined);
 		}
-	}
+	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
 	return { query, items, loadMore };
 };

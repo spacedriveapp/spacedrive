@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
+import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
@@ -17,14 +18,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
-import {
-	appReady,
-	getFilePathOpenWithApps,
-	lockAppTheme,
-	openFilePath,
-	openFilePathWith,
-	openLogsDir
-} from './commands';
+import * as commands from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -81,22 +75,27 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
-	openPath: (path) => shell.open(path),
-	openLogsDir,
-	openFilePath,
-	getFilePathOpenWithApps,
-	openFilePathWith,
-	lockAppTheme
+	confirm: (msg, cb) => confirm(msg).then(cb),
+	...commands
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			networkMode: 'always'
+		},
+		mutations: {
+			networkMode: 'always'
+		}
+	}
+});
 
 const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		appReady();
+		commands.appReady();
 	}, []);
 
 	useEffect(() => {

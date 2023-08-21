@@ -7,13 +7,17 @@ use crate::{
 			check_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 			IsolatedFilePathData,
 		},
+		indexer::{execute_indexer_update_step, IndexerJobUpdateStep},
 		LocationError,
 	},
-	to_remove_db_fetcher_fn,
+	to_remove_db_fetcher_fn, Node,
 };
 use tracing::error;
 
-use std::path::{Path, PathBuf};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
 use itertools::Itertools;
 
@@ -29,6 +33,7 @@ const BATCH_SIZE: usize = 1000;
 pub async fn shallow(
 	location: &location_with_indexer_rules::Data,
 	sub_path: &PathBuf,
+	node: &Arc<Node>,
 	library: &Library,
 ) -> Result<(), JobError> {
 	let location_id = location.id;
@@ -45,7 +50,7 @@ pub async fn shallow(
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(IndexerError::from)?;
 
-	let (add_root, to_walk_path) = if sub_path != Path::new("") {
+	let (add_root, to_walk_path) = if sub_path != Path::new("") && sub_path != Path::new("/") {
 		let full_path = ensure_sub_path_is_in_location(&location_path, &sub_path)
 			.await
 			.map_err(IndexerError::from)?;
@@ -66,44 +71,59 @@ pub async fn shallow(
 		(false, location_path.to_path_buf())
 	};
 
-	let (walked, to_remove, errors) = {
+	let (walked, to_update, to_remove, errors) = {
 		walk_single_dir(
 			&to_walk_path,
 			&indexer_rules,
 			|_, _| {},
 			file_paths_db_fetcher_fn!(&db),
-			to_remove_db_fetcher_fn!(location_id, location_path, &db),
+			to_remove_db_fetcher_fn!(location_id, &db),
 			iso_file_path_factory(location_id, &location_path),
 			add_root,
 		)
 		.await?
 	};
 
+	node.thumbnail_remover
+		.remove_cas_ids(
+			to_remove
+				.iter()
+				.filter_map(|file_path| file_path.cas_id.clone())
+				.collect::<Vec<_>>(),
+		)
+		.await;
+
 	errors.into_iter().for_each(|e| error!("{e}"));
 
 	// TODO pass these uuids to sync system
 	remove_non_existing_file_paths(to_remove, &db).await?;
 
-	let total_paths = &mut 0;
-
-	let steps = walked
+	let save_steps = walked
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.enumerate()
-		.map(|(i, chunk)| {
-			let chunk_steps = chunk.collect::<Vec<_>>();
-
-			*total_paths += chunk_steps.len() as u64;
-
-			IndexerJobSaveStep {
-				chunk_idx: i,
-				walked: chunk_steps,
-			}
+		.map(|(i, chunk)| IndexerJobSaveStep {
+			chunk_idx: i,
+			walked: chunk.collect::<Vec<_>>(),
 		})
 		.collect::<Vec<_>>();
 
-	for step in steps {
+	for step in save_steps {
 		execute_indexer_save_step(location, &step, library).await?;
+	}
+
+	let update_steps = to_update
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.enumerate()
+		.map(|(i, chunk)| IndexerJobUpdateStep {
+			chunk_idx: i,
+			to_update: chunk.collect::<Vec<_>>(),
+		})
+		.collect::<Vec<_>>();
+
+	for step in update_steps {
+		execute_indexer_update_step(&step, library).await?;
 	}
 
 	invalidate_query!(library, "search.paths");

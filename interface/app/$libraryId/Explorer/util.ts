@@ -1,64 +1,33 @@
 import { useMemo } from 'react';
-import { z } from 'zod';
-import {
-	ExplorerItem,
-	FilePathSearchOrdering,
-	ObjectKind,
-	ObjectKindKey,
-	isObject,
-	isPath
-} from '@sd/client';
-import { useExplorerStore, useZodSearchParams } from '~/hooks';
-
-export function useExplorerOrder(): FilePathSearchOrdering | undefined {
-	const explorerStore = useExplorerStore();
-
-	const ordering = useMemo(() => {
-		if (explorerStore.orderBy === 'none') return undefined;
-
-		const obj = {};
-
-		explorerStore.orderBy.split('.').reduce((acc, next, i, all) => {
-			if (all.length - 1 === i) acc[next] = explorerStore.orderByDirection;
-			else acc[next] = {};
-
-			return acc[next];
-		}, obj as any);
-
-		return obj as FilePathSearchOrdering;
-	}, [explorerStore.orderBy, explorerStore.orderByDirection]);
-
-	return ordering;
-}
-
-export function getItemObject(data: ExplorerItem) {
-	return isObject(data) ? data.item : data.item.object;
-}
-
-export function getItemFilePath(data: ExplorerItem) {
-	return isObject(data) ? data.item.file_paths[0] : data.item;
-}
-
-export function getExplorerItemData(data: ExplorerItem) {
-	const filePath = getItemFilePath(data);
-	const objectData = getItemObject(data);
-
-	return {
-		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		casId: filePath?.cas_id || null,
-		isDir: isPath(data) && data.item.is_dir,
-		extension: filePath?.extension || null,
-		locationId: filePath?.location_id || null,
-		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
-		thumbnailKey: data.thumbnail_key
-	};
-}
-
-export const SEARCH_PARAMS = z.object({
-	path: z.string().optional(),
-	take: z.coerce.number().default(100)
-});
+import { ExplorerItem, getExplorerItemData } from '@sd/client';
+import { ExplorerParamsSchema } from '~/app/route-schemas';
+import { useZodSearchParams } from '~/hooks';
+import { flattenThumbnailKey, useExplorerStore } from './store';
+import { ExplorerItemHash } from './useExplorer';
 
 export function useExplorerSearchParams() {
-	return useZodSearchParams(SEARCH_PARAMS);
+	return useZodSearchParams(ExplorerParamsSchema);
+}
+
+export function useExplorerItemData(explorerItem: ExplorerItem) {
+	const explorerStore = useExplorerStore();
+
+	const newThumbnail = !!(
+		explorerItem.thumbnail_key &&
+		explorerStore.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
+	);
+
+	return useMemo(() => {
+		const itemData = getExplorerItemData(explorerItem);
+
+		if (!itemData.hasLocalThumbnail) {
+			itemData.hasLocalThumbnail = newThumbnail;
+		}
+
+		return itemData;
+	}, [explorerItem, newThumbnail]);
+}
+
+export function explorerItemHash(item: ExplorerItem): ExplorerItemHash {
+	return `${item.type}:${item.item.id}`;
 }

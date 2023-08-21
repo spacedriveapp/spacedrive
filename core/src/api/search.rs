@@ -6,11 +6,10 @@ use crate::{
 	library::{Category, Library},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		find_location, LocationError,
+		LocationError,
 	},
 	object::preview::get_thumb_key,
-	prisma::{self, file_path, location, object, tag, tag_on_object},
-	util::db::chain_optional_iter,
+	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 };
 
 use std::collections::BTreeSet;
@@ -36,8 +35,9 @@ struct OptionalRange<T> {
 	to: Option<T>,
 }
 
-#[derive(Deserialize, Type, Debug, Clone, Copy)]
-enum SortOrder {
+#[derive(Serialize, Deserialize, Type, Debug, Clone, Copy)]
+#[serde(rename_all = "PascalCase")]
+pub enum SortOrder {
 	Asc,
 	Desc,
 }
@@ -51,9 +51,9 @@ impl From<SortOrder> for prisma::SortOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-enum FilePathSearchOrdering {
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+pub enum FilePathSearchOrdering {
 	Name(SortOrder),
 	SizeInBytes(SortOrder),
 	DateCreated(SortOrder),
@@ -80,7 +80,7 @@ impl FilePathSearchOrdering {
 		use file_path::*;
 		match self {
 			Self::Name(_) => name::order(dir),
-			Self::SizeInBytes(_) => size_in_bytes::order(dir),
+			Self::SizeInBytes(_) => size_in_bytes_bytes::order(dir),
 			Self::DateCreated(_) => date_created::order(dir),
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
@@ -122,29 +122,80 @@ struct FilePathFilterArgs {
 	object: Option<ObjectFilterArgs>,
 }
 
-#[derive(Deserialize, Type, Debug)]
-#[serde(rename_all = "camelCase")]
-struct FilePathSearchArgs {
-	#[specta(optional)]
-	take: Option<i32>,
-	#[specta(optional)]
-	order: Option<FilePathSearchOrdering>,
-	#[specta(optional)]
-	cursor: Option<Vec<u8>>,
-	#[serde(default)]
-	filter: FilePathFilterArgs,
+impl FilePathFilterArgs {
+	async fn into_params(
+		self,
+		db: &PrismaClient,
+	) -> Result<Vec<file_path::WhereParam>, rspc::Error> {
+		let location = if let Some(location_id) = self.location_id {
+			Some(
+				db.location()
+					.find_unique(location::id::equals(location_id))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(location_id))?,
+			)
+		} else {
+			None
+		};
+
+		let directory_materialized_path_str = match (self.path, location) {
+			(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
+				let parent_iso_file_path =
+					IsolatedFilePathData::from_relative_str(location.id, &path);
+				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Directory not found".into(),
+					));
+				}
+
+				parent_iso_file_path.materialized_path_for_children()
+			}
+			(Some(_empty), _) => Some("/".into()),
+			_ => None,
+		};
+
+		{
+			use file_path::*;
+
+			Ok(sd_utils::chain_optional_iter(
+				self.search
+					.unwrap_or_default()
+					.split(' ')
+					.map(str::to_string)
+					.map(name::contains),
+				[
+					self.location_id.map(Some).map(location_id::equals),
+					self.extension.map(Some).map(extension::equals),
+					self.created_at.from.map(|v| date_created::gte(v.into())),
+					self.created_at.to.map(|v| date_created::lte(v.into())),
+					directory_materialized_path_str
+						.map(Some)
+						.map(materialized_path::equals),
+					self.object.and_then(|obj| {
+						let params = obj.into_params();
+
+						(!params.is_empty()).then(|| object::is(params))
+					}),
+				],
+			))
+		}
+	}
 }
 
-#[derive(Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-enum ObjectSearchOrdering {
+#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+pub enum ObjectSearchOrdering {
 	DateAccessed(SortOrder),
+	Kind(SortOrder),
 }
 
 impl ObjectSearchOrdering {
 	fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
+			Self::Kind(v) => v,
 		})
 		.into()
 	}
@@ -152,13 +203,15 @@ impl ObjectSearchOrdering {
 	fn into_param(self) -> object::OrderByWithRelationParam {
 		let dir = self.get_sort_order();
 		use object::*;
+
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
+			Self::Kind(_) => kind::order(dir),
 		}
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default)]
+#[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 enum ObjectHiddenFilter {
 	#[default]
@@ -167,7 +220,7 @@ enum ObjectHiddenFilter {
 }
 
 impl ObjectHiddenFilter {
-	fn to_param(&self) -> Option<object::WhereParam> {
+	fn to_param(self) -> Option<object::WhereParam> {
 		match self {
 			ObjectHiddenFilter::Exclude => Some(or![
 				object::hidden::equals(None),
@@ -199,7 +252,7 @@ impl ObjectFilterArgs {
 	fn into_params(self) -> Vec<object::WhereParam> {
 		use object::*;
 
-		chain_optional_iter(
+		sd_utils::chain_optional_iter(
 			[],
 			[
 				self.hidden.to_param(),
@@ -219,91 +272,52 @@ impl ObjectFilterArgs {
 	}
 }
 
-#[derive(Deserialize, Type, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ObjectSearchArgs {
-	#[specta(optional)]
-	take: Option<i32>,
-	#[specta(optional)]
-	order: Option<ObjectSearchOrdering>,
-	#[specta(optional)]
-	cursor: Option<Vec<u8>>,
-	#[serde(default)]
-	filter: ObjectFilterArgs,
-}
-
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("paths", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct FilePathSearchArgs {
+				#[specta(optional)]
+				take: Option<i32>,
+				#[specta(optional)]
+				order: Option<FilePathSearchOrdering>,
+				#[specta(optional)]
+				cursor: Option<Vec<u8>>,
+				#[serde(default)]
+				filter: FilePathFilterArgs,
+				#[serde(default = "default_group_directories")]
+				group_directories: bool,
+			}
+
+			fn default_group_directories() -> bool {
+				true
+			}
+
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 FilePathSearchArgs {
 				     take,
 				     order,
 				     cursor,
 				     filter,
+				     group_directories,
 				 }| async move {
-					let Library { db, .. } = &library;
-
-					let location = if let Some(location_id) = filter.location_id {
-						Some(
-							find_location(&library, location_id)
-								.exec()
-								.await?
-								.ok_or(LocationError::IdNotFound(location_id))?,
-						)
-					} else {
-						None
-					};
-
-					let directory_materialized_path_str = match (filter.path, location) {
-						(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
-							let parent_iso_file_path =
-								IsolatedFilePathData::from_relative_str(location.id, &path);
-							if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db)
-								.await?
-							{
-								return Err(rspc::Error::new(
-									ErrorCode::NotFound,
-									"Directory not found".into(),
-								));
-							}
-
-							parent_iso_file_path.materialized_path_for_children()
-						}
-						(Some(_empty), _) => Some("/".into()),
-						_ => None,
-					};
-
-					use file_path::*;
-
-					let params = chain_optional_iter(
-						filter
-							.search
-							.unwrap_or_default()
-							.split(' ')
-							.map(str::to_string)
-							.map(name::contains),
-						[
-							filter.location_id.map(Some).map(location_id::equals),
-							filter.extension.map(Some).map(extension::equals),
-							filter.created_at.from.map(|v| date_created::gte(v.into())),
-							filter.created_at.to.map(|v| date_created::lte(v.into())),
-							directory_materialized_path_str
-								.map(Some)
-								.map(materialized_path::equals),
-							filter.object.and_then(|obj| {
-								let params = obj.into_params();
-
-								(!params.is_empty()).then(|| object::is(params))
-							}),
-						],
-					);
+					let Library { db, .. } = library.as_ref();
 
 					let take = take.unwrap_or(100);
 
-					let mut query = db.file_path().find_many(params).take(take as i64 + 1);
+					let mut query = db
+						.file_path()
+						.find_many(filter.into_params(db).await?)
+						.take(take as i64 + 1);
 
+					// WARN: this order_by for grouping directories MUST always come before the other order_by
+					if group_directories {
+						query = query.order_by(file_path::is_dir::order(prisma::SortOrder::Desc));
+					}
+
+					// WARN: this order_by for sorting data MUST always come after the other order_by
 					if let Some(order) = order {
 						query = query.order_by(order.into_param());
 					}
@@ -331,7 +345,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					for file_path in file_paths {
 						let thumbnail_exists_locally = if let Some(cas_id) = &file_path.cas_id {
 							library
-								.thumbnail_exists(cas_id)
+								.thumbnail_exists(&node, cas_id)
 								.await
 								.map_err(LocationError::from)?
 						} else {
@@ -350,15 +364,28 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("objects", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct ObjectSearchArgs {
+				#[specta(optional)]
+				take: Option<i32>,
+				#[specta(optional)]
+				order: Option<ObjectSearchOrdering>,
+				#[specta(optional)]
+				cursor: Option<Vec<u8>>,
+				#[serde(default)]
+				filter: ObjectFilterArgs,
+			}
+
 			R.with2(library()).query(
-				|(_, library),
+				|(node, library),
 				 ObjectSearchArgs {
 				     take,
 				     order,
 				     cursor,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = &library;
+					let Library { db, .. } = library.as_ref();
 
 					let take = take.unwrap_or(100);
 
@@ -399,7 +426,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.find_map(|c| c);
 
 						let thumbnail_exists_locally = if let Some(cas_id) = cas_id {
-							library.thumbnail_exists(cas_id).await.map_err(|e| {
+							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									"Failed to check that thumbnail exists".to_string(),
