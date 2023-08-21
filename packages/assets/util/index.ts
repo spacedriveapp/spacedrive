@@ -1,6 +1,5 @@
-import { type ObjectKindKey } from '@sd/client';
-import { LayeredIcons } from '../svgs/ext';
 import * as icons from '../icons';
+import { LayeredIcons } from '../svgs/ext';
 
 // Define a type for icon names. This filters out any names with underscores in them.
 // The use of 'never' is to make sure that icon types with underscores are not included.
@@ -58,8 +57,8 @@ export const getIcon = (
 	];
 };
 
-export const getLayeredIcon = (kind: ObjectKindKey, extension?: string | null) => {
-	const iconKind: ObjectKindKey =
+export const getLayeredIcon = (kind: string, extension?: string | null) => {
+	const iconKind =
 		LayeredIcons[
 			// Check if specific kind exists.
 			kind && kind in LayeredIcons ? kind : 'Extras'
