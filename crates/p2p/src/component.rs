@@ -20,8 +20,10 @@ pub trait Component: Send + 'static {
 	/// Handle an internal event.
 	fn on_event(self: Pin<&mut Self>, event: InternalEvent) {}
 
-	/// TODO: Keep this or not?
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()>;
+	/// TODO
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()> {
+		Poll::Ready(())
+	}
 }
 
 /// Wrapper for addressing multiple services at once
