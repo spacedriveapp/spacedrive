@@ -3,6 +3,7 @@
 
 export type Procedures = {
     queries: 
+        { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
@@ -30,9 +31,13 @@ export type Procedures = {
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
+        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: number[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
+        { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
+        { key: "backups.delete", input: string, result: null } | 
+        { key: "backups.restore", input: string, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
@@ -42,7 +47,7 @@ export type Procedures = {
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
-        { key: "files.updateAccessTime", input: LibraryArgs<number>, result: null } | 
+        { key: "files.updateAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
@@ -88,6 +93,8 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
+export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
+
 export type BuildInfo = { version: string; commit: string }
 
 export type CRDTOperation = { instance: string; timestamp: number; id: string; typ: CRDTOperationType }
@@ -105,6 +112,8 @@ export type CreateLibraryArgs = { name: LibraryName }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
+export type DoubleClickAction = "openFile" | "quickPreview"
+
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
 export type Error = { code: ErrorCode; message: string }
@@ -116,7 +125,9 @@ export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound"
 
 export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem }
 
-export type ExplorerLayout = "Grid" | "List" | "Media"
+export type ExplorerLayout = "grid" | "list" | "media"
+
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colSizes: { [key: string]: number } | null; order?: TOrder | null }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
@@ -130,9 +141,9 @@ export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; c
 
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
-export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; cursor?: number[] | null; filter?: FilePathFilterArgs }
+export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; cursor?: number[] | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
-export type FilePathSearchOrdering = { name: SortOrder } | { sizeInBytes: SortOrder } | { dateCreated: SortOrder } | { dateModified: SortOrder } | { dateIndexed: SortOrder } | { object: ObjectSearchOrdering }
+export type FilePathSearchOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectSearchOrdering }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
@@ -142,7 +153,11 @@ export type FullRescanArgs = { location_id: number; reidentify_objects: boolean 
 
 export type GenerateThumbsForLocationArgs = { id: number; path: string }
 
+export type GetAll = { backups: Backup[]; directory: string }
+
 export type GetArgs = { id: number }
+
+export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
@@ -184,13 +199,9 @@ export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
 
 export type LibraryName = string
 
-export type LibraryPreferences = { location?: { [key: string]: LocationPreferences } }
+export type LibraryPreferences = { location?: { [key: string]: LocationSettings } }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
-
-export type ListViewColumnSettings = { hide: boolean; size: number | null }
-
-export type ListViewSettings = { columns: { [key: string]: ListViewColumnSettings }; sort_col: string | null }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
@@ -201,7 +212,7 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
-export type LocationPreferences = { view?: LocationViewSettings | null }
+export type LocationSettings = { explorer: ExplorerSettings<FilePathSearchOrdering> }
 
 /**
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
@@ -212,8 +223,6 @@ export type LocationPreferences = { view?: LocationViewSettings | null }
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
-
-export type LocationViewSettings = { layout: ExplorerLayout; list: ListViewSettings }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
@@ -252,7 +261,7 @@ export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; cursor?: number[] | null; filter?: ObjectFilterArgs }
 
-export type ObjectSearchOrdering = { dateAccessed: SortOrder }
+export type ObjectSearchOrdering = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 

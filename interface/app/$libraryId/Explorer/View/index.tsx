@@ -8,34 +8,35 @@ import {
 	memo,
 	useCallback,
 	useEffect,
-	useMemo,
+	useRef,
 	useState
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	type ExplorerItem,
-	getExplorerItemData,
+	type FilePath,
+	type Location,
+	NonIndexedPathItem,
+	type Object,
 	getItemFilePath,
+	getItemObject,
+	isPath,
 	useLibraryContext,
 	useLibraryMutation
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
+import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import {
-	ExplorerViewContext,
-	ExplorerViewSelection,
-	ExplorerViewSelectionChange,
-	ViewContext,
-	useExplorerViewContext
-} from '../ViewContext';
+import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -46,61 +47,120 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 }
 
 export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
+	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const { library } = useLibraryContext();
-	const navigate = useNavigate();
-
-	const { openFilePaths } = usePlatform();
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-	const filePath = getItemFilePath(data);
 
 	const explorerConfig = useExplorerConfigStore();
 
-	const onDoubleClick = () => {
-		if (data.type === 'Location') {
-			navigate({
-				pathname: `/${library.uuid}/location/${data.item.id}`,
-				search: createSearchParams({
-					path: `/`
-				}).toString()
-			});
-		} else if (data.type === 'Path' && data.item.is_dir && data.item.location_id) {
-			if (!data.item.name) {
-				showAlertDialog({
-					title: 'Error',
-					value: "Can't open unnamed directory"
+	const navigate = useNavigate();
+	const { library } = useLibraryContext();
+	const { openFilePaths } = usePlatform();
+
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+	const onDoubleClick = async () => {
+		const selectedItems = [...explorer.selectedItems].reduce(
+			(items, item) => {
+				const sameAsClicked = uniqueId(data) === uniqueId(item);
+
+				switch (item.type) {
+					case 'Location': {
+						items.locations.splice(sameAsClicked ? 0 : -1, 0, item.item);
+						break;
+					}
+					case 'NonIndexedPath': {
+						items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, item.item);
+						break;
+					}
+					default: {
+						for (const filePath of item.type === 'Path'
+							? [item.item]
+							: item.item.file_paths) {
+							if (isPath(item) && item.item.is_dir) {
+								items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
+							} else {
+								items.paths.splice(sameAsClicked ? 0 : -1, 0, filePath);
+							}
+						}
+						break;
+					}
+				}
+
+				return items;
+			},
+			{
+				dirs: [],
+				paths: [],
+				locations: [],
+				non_indexed: []
+			} as {
+				dirs: FilePath[];
+				paths: FilePath[];
+				locations: Location[];
+				non_indexed: NonIndexedPathItem[];
+			}
+		);
+
+		if (selectedItems.paths.length > 0 && !explorerView.isRenaming) {
+			if (explorerConfig.openOnDoubleClick && openFilePaths) {
+				updateAccessTime
+					.mutateAsync(
+						selectedItems.paths.map(({ object_id }) => object_id!).filter(Boolean)
+					)
+					.catch(console.error);
+
+				try {
+					await openFilePaths(
+						library.uuid,
+						selectedItems.paths.map(({ id }) => id)
+					);
+				} catch (error) {
+					showAlertDialog({
+						title: 'Error',
+						value: `Failed to open file, due to an error: ${error}`
+					});
+				}
+			} else if (!explorerConfig.openOnDoubleClick) {
+				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
+					getExplorerStore().quickViewObject = data;
+					return;
+				}
+			}
+		}
+
+		if (selectedItems.dirs.length > 0) {
+			const [item] = selectedItems.dirs;
+			if (item) {
+				navigate({
+					pathname: `../location/${item.location_id}`,
+					search: createSearchParams({
+						path: `${item.materialized_path}${item.name}/`
+					}).toString()
 				});
 				return;
 			}
+		}
 
-			navigate({
-				pathname: `/${library.uuid}/location/${data.item.location_id}`,
-				search: createSearchParams({
-					path: `${data.item.materialized_path ?? '/'}${data.item.name}/`
-				}).toString()
-			});
-		} else if (data.type === 'NonIndexedPath' && data.item.is_dir) {
-			navigate({
-				search: createSearchParams({ path: data.item.path }).toString()
-			});
-		} else if (
-			data.type !== 'NonIndexedPath' &&
-			openFilePaths &&
-			filePath &&
-			'id' in filePath &&
-			explorerConfig.openOnDoubleClick &&
-			!explorerView.isRenaming
-		) {
-			if (data.type === 'Path' && data.item.object_id) {
-				updateAccessTime.mutate(data.item.object_id);
+		if (selectedItems.locations.length > 0) {
+			const [location] = selectedItems.locations;
+			if (location) {
+				navigate({
+					pathname: `../location/${location.id}`,
+					search: createSearchParams({
+						path: `/`
+					}).toString()
+				});
+				return;
 			}
+		}
 
-			openFilePaths(library.uuid, [filePath.id]);
-		} else {
-			const { kind } = getExplorerItemData(data);
-
-			if (['Video', 'Image', 'Audio'].includes(kind)) {
-				getExplorerStore().quickViewObject = data;
+		if (selectedItems.non_indexed.length > 0) {
+			const [non_indexed] = selectedItems.non_indexed;
+			if (non_indexed) {
+				navigate({
+					search: createSearchParams({ path: non_indexed.path }).toString()
+				});
+				return;
 			}
 		}
 	};
@@ -115,89 +175,91 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			onOpenChange={explorerView.setIsContextMenuOpen}
 			disabled={explorerView.contextMenu === undefined}
 			asChild={false}
+			onMouseDown={(e) => e.stopPropagation()}
 		>
 			{explorerView.contextMenu}
 		</ContextMenu.Root>
 	);
 };
 
-export interface ExplorerViewProps<T extends ExplorerViewSelection = ExplorerViewSelection>
+export interface ExplorerViewProps
 	extends Omit<
-		ExplorerViewContext<T>,
-		'multiSelect' | 'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen'
+		ExplorerViewContext,
+		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref'
 	> {
 	className?: string;
+	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
 }
 
-export default memo(
-	<T extends ExplorerViewSelection>({
-		className,
-		emptyNotice,
-		...contextProps
-	}: ExplorerViewProps<T>) => {
-		const { layoutMode } = useExplorerStore();
+export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
+	const explorer = useExplorerContext();
 
-		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
-		const [isRenaming, setIsRenaming] = useState(false);
+	const quickPreviewCtx = useQuickPreviewContext();
 
-		useKeyDownHandlers({
-			items: contextProps.items,
-			selected: contextProps.selected,
-			isRenaming
-		});
+	const { layoutMode } = explorer.useSettingsSnapshot();
 
-		const quickPreviewCtx = useQuickPreviewContext();
+	const ref = useRef<HTMLDivElement>(null);
 
-		return (
-			<>
-				<div
-					className={clsx('h-full w-full', className)}
-					onMouseDown={() =>
-						contextProps.onSelectedChange?.(
-							(Array.isArray(contextProps.selected)
-								? []
-								: undefined) as ExplorerViewSelectionChange<T>
-						)
-					}
-				>
-					{contextProps.items === null ||
-					(contextProps.items && contextProps.items.length > 0) ? (
-						<ViewContext.Provider
-							value={
-								{
-									...contextProps,
-									multiSelect: Array.isArray(contextProps.selected),
-									selectable: !isContextMenuOpen,
-									setIsContextMenuOpen,
-									isRenaming,
-									setIsRenaming
-								} as ExplorerViewContext
-							}
-						>
-							{layoutMode === 'grid' && <GridView />}
-							{layoutMode === 'rows' && <ListView />}
-							{layoutMode === 'media' && <MediaView />}
-						</ViewContext.Provider>
-					) : (
-						emptyNotice
-					)}
-				</div>
+	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+	const [isRenaming, setIsRenaming] = useState(false);
 
-				{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
-			</>
-		);
-	}
-) as <T extends ExplorerViewSelection>(props: ExplorerViewProps<T>) => JSX.Element;
+	useKeyDownHandlers({
+		isRenaming
+	});
 
-export const EmptyNotice = ({
-	icon,
-	message
-}: {
-	icon?: Icon | ReactNode;
-	message?: ReactNode;
-}) => {
-	const { layoutMode } = useExplorerStore();
+	useEffect(() => {
+		// using .next() is not great
+		const explorerStore = getExplorerStore();
+		const selectedItem = explorer.selectedItems.values().next().value as
+			| ExplorerItem
+			| undefined;
+		if (explorerStore.quickViewObject != null && selectedItem) {
+			explorerStore.quickViewObject = selectedItem;
+		}
+	}, [explorer.selectedItems]);
+
+	return (
+		<>
+			<div
+				ref={ref}
+				style={style}
+				className={clsx('h-full w-full', className)}
+				onMouseDown={(e) => {
+					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+
+					explorer.resetSelectedItems();
+				}}
+			>
+				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
+					<ViewContext.Provider
+						value={
+							{
+								...contextProps,
+								selectable:
+									explorer.selectable && !isContextMenuOpen && !isRenaming,
+								setIsContextMenuOpen,
+								isRenaming,
+								setIsRenaming,
+								ref
+							} as ExplorerViewContext
+						}
+					>
+						{layoutMode === 'grid' && <GridView />}
+						{layoutMode === 'list' && <ListView />}
+						{layoutMode === 'media' && <MediaView />}
+					</ViewContext.Provider>
+				) : (
+					emptyNotice
+				)}
+			</div>
+			{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
+		</>
+	);
+});
+
+export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
 		const Icon =
@@ -206,7 +268,7 @@ export const EmptyNotice = ({
 				grid: GridFour,
 				media: MonitorPlay,
 				columns: Columns,
-				rows: Rows
+				list: Rows
 			}[layoutMode];
 
 		return <Icon size={100} opacity={0.3} />;
@@ -214,69 +276,73 @@ export const EmptyNotice = ({
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-			{icon
-				? isValidElement(icon)
-					? icon
-					: emptyNoticeIcon(icon as Icon)
+			{props.icon
+				? isValidElement(props.icon)
+					? props.icon
+					: emptyNoticeIcon(props.icon as Icon)
 				: emptyNoticeIcon()}
 
 			<p className="mt-5 text-sm font-medium">
-				{message !== undefined ? message : 'This list is empty'}
+				{props.message !== undefined ? props.message : 'This list is empty'}
 			</p>
 		</div>
 	);
 };
 
-const useKeyDownHandlers = ({
-	items,
-	selected,
-	isRenaming
-}: Pick<ExplorerViewProps, 'items' | 'selected'> & { isRenaming: boolean }) => {
+const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
+	const explorer = useExplorerContext();
+
 	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
 
-	const selectedItem = useMemo(
-		() =>
-			items?.find(
-				(item) => uniqueId(item) === (Array.isArray(selected) ? selected[0] : selected)
-			),
-		[items, selected]
-	);
-
-	const itemPath = selectedItem ? getItemFilePath(selectedItem) : null;
-
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
+			const objects: Object[] = [];
+
+			for (const item of explorer.selectedItems) {
+				const object = getItemObject(item);
+				if (!object) return;
+				objects.push(object);
+			}
+
 			if (
-				itemPath == null ||
-				!('id' in itemPath) ||
+				!isNonEmpty(objects) ||
 				event.key.toUpperCase() !== 'N' ||
 				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} assignToObject={itemPath.id} />);
+			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
 		},
-		[os, itemPath]
+		[os, explorer.selectedItems]
 	);
 
 	const handleOpenShortcut = useCallback(
 		async (event: KeyboardEvent) => {
 			if (
-				itemPath == null ||
-				openFilePaths == null ||
-				event.key.toUpperCase() !== 'O' ||
-				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
+				event.code.toUpperCase() !== 'O' ||
+				!event.getModifierState(
+					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+				) ||
+				!openFilePaths
 			)
 				return;
 
-			try {
-				if (!('id' in itemPath)) {
-					throw new Error('Ephemeral path not supported yet');
-				}
+			const paths: number[] = [];
 
-				await openFilePaths(library.uuid, [itemPath.id]);
+			for (const item of explorer.selectedItems)
+				for (const path of item.type === 'Path'
+					? [item.item]
+					: item.type === 'Object'
+					? item.item.file_paths
+					: [])
+					paths.push(path.id);
+
+			if (!isNonEmpty(paths)) return;
+
+			try {
+				await openFilePaths(library.uuid, paths);
 			} catch (error) {
 				showAlertDialog({
 					title: 'Error',
@@ -284,21 +350,23 @@ const useKeyDownHandlers = ({
 				});
 			}
 		},
-		[os, itemPath, library.uuid, openFilePaths]
+		[os, library.uuid, openFilePaths, explorer.selectedItems]
 	);
 
 	const handleOpenQuickPreview = useCallback(
 		async (event: KeyboardEvent) => {
 			if (event.key !== ' ') return;
 			if (!getExplorerStore().quickViewObject) {
-				if (selectedItem) {
-					getExplorerStore().quickViewObject = selectedItem;
-				}
+				// ENG-973 - Don't use Set -> Array -> First Item
+				const items = [...explorer.selectedItems];
+				if (!isNonEmpty(items)) return;
+
+				getExplorerStore().quickViewObject = items[0];
 			} else {
 				getExplorerStore().quickViewObject = null;
 			}
 		},
-		[selectedItem]
+		[explorer.selectedItems]
 	);
 
 	const handleExplorerShortcut = useCallback(

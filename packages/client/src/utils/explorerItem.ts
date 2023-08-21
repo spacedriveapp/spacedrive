@@ -1,6 +1,7 @@
-import { ExplorerItem } from '../core';
+import { useMemo } from 'react';
+import { type ExplorerItem, type FilePath, type Object } from '../core';
 import { byteSize } from '../lib';
-import { ObjectKind, ObjectKindKey } from './objectKind';
+import { ObjectKind, type ObjectKindKey } from './objectKind';
 
 export function getItemObject(data: ExplorerItem) {
 	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
@@ -16,18 +17,19 @@ export function getItemLocation(data: ExplorerItem) {
 }
 
 export function getExplorerItemData(data?: null | ExplorerItem) {
+	const itemObj = data ? getItemObject(data) : null;
 	const itemData = {
 		name: null as string | null,
 		size: byteSize(0),
-		kind:
-			ObjectKind[(data && getItemObject(data)?.kind) || ObjectKind.Unknown] ??
-			ObjectKind[ObjectKind.Unknown],
+		kind: ObjectKind[itemObj?.kind || ObjectKind.Unknown] ?? ObjectKind[ObjectKind.Unknown],
 		casId: null as string | null,
 		isDir: false,
 		extension: null as string | null,
 		locationId: null as number | null,
 		dateIndexed: null as string | null,
-		dateCreated: data?.item.date_created ?? null,
+		dateCreated: data?.item.date_created ?? itemObj?.date_created ?? null,
+		dateModified: null as string | null,
+		dateAccessed: itemObj?.date_accessed ?? null,
 		thumbnailKey: data?.thumbnail_key ?? [],
 		hasLocalThumbnail: data?.has_local_thumbnail ?? false // this will be overwritten if new thumbnail is generated
 	};
@@ -45,6 +47,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
 		if ('location_id' in filePath) itemData.locationId = filePath.location_id;
 		if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
+		if ('date_modified' in filePath) itemData.dateModified = filePath.date_modified;
 	} else if (location) {
 		if (location.total_capacity != null && location.available_capacity != null)
 			itemData.size = byteSize(location.total_capacity - location.available_capacity);
@@ -58,3 +61,54 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 
 	return itemData;
 }
+
+export const useItemsAsObjects = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		const array: Object[] = [];
+
+		for (const item of items) {
+			switch (item.type) {
+				case 'Path': {
+					if (!item.item.object) return [];
+					array.push(item.item.object);
+					break;
+				}
+				case 'Object': {
+					array.push(item.item);
+					break;
+				}
+				default:
+					return [];
+			}
+		}
+
+		return array;
+	}, [items]);
+};
+
+export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		const array: FilePath[] = [];
+
+		for (const item of items) {
+			switch (item.type) {
+				case 'Path': {
+					array.push(item.item);
+					break;
+				}
+				case 'Object': {
+					// this isn't good but it's the current behaviour
+					const filePath = item.item.file_paths[0];
+					if (filePath) array.push(filePath);
+					else return [];
+
+					break;
+				}
+				default:
+					return [];
+			}
+		}
+
+		return array;
+	}, [items]);
+};

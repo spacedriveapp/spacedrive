@@ -1,18 +1,21 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { getExplorerItemData, useLibraryQuery } from '@sd/client';
-import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
+import { type FilePathSearchOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { type SearchParams, SearchParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
-import { ExplorerContext } from './Explorer/Context';
+import { ExplorerContextProvider } from './Explorer/Context';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { EmptyNotice } from './Explorer/View';
-import { getExplorerStore, useExplorerStore } from './Explorer/store';
+import {
+	createDefaultExplorerSettings,
+	filePathOrderingKeysSchema,
+	getExplorerStore
+} from './Explorer/store';
+import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {
-	const explorerStore = useExplorerStore();
-
 	const { search, ...args } = props.args;
 
 	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
@@ -21,33 +24,52 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
-	const items =
-		useMemo(() => {
-			const items = query.data?.items;
+	const explorerSettings = useExplorerSettings({
+		settings: useMemo(
+			() =>
+				createDefaultExplorerSettings<FilePathSearchOrdering>({
+					order: {
+						field: 'name',
+						value: 'Asc'
+					}
+				}),
+			[]
+		),
+		orderingKeys: filePathOrderingKeysSchema
+	});
 
-			if (explorerStore.layoutMode !== 'media') return items;
+	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
-			return items?.filter((item) => {
-				const { kind } = getExplorerItemData(item);
-				return kind === 'Video' || kind === 'Image';
-			});
-		}, [query.data, explorerStore.layoutMode]) ?? [];
+	const items = useMemo(() => {
+		const items = query.data?.items ?? [];
+
+		if (settingsSnapshot.layoutMode !== 'media') return items;
+
+		return items?.filter((item) => {
+			const { kind } = getExplorerItemData(item);
+			return kind === 'Video' || kind === 'Image';
+		});
+	}, [query.data, settingsSnapshot.layoutMode]);
+
+	const explorer = useExplorer({
+		items,
+		settings: explorerSettings
+	});
 
 	return (
-		<ExplorerContext.Provider value={{}}>
+		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
-				items={items}
 				emptyNotice={
 					<EmptyNotice
 						icon={
-							search || (
+							search ? (
 								<MagnifyingGlass
 									size={110}
 									className="mb-5 text-ink-faint"
 									opacity={0.3}
 								/>
-							)
+							) : null
 						}
 						message={
 							search ? `No results found for "${search}"` : 'Search for files...'
@@ -55,7 +77,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 					/>
 				}
 			/>
-		</ExplorerContext.Provider>
+		</ExplorerContextProvider>
 	);
 });
 
@@ -65,7 +87,7 @@ export const Component = () => {
 	const search = useDeferredValue(searchParams);
 
 	return (
-		<Suspense fallback="LOADING FIRST RENDER">
+		<Suspense>
 			<SearchExplorer args={search} />
 		</Suspense>
 	);

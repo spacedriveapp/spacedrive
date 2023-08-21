@@ -118,6 +118,7 @@ export interface DialogProps<S extends FieldValues>
 	children?: ReactNode;
 	ctaDanger?: boolean;
 	closeLabel?: string;
+	cancelBtn?: boolean;
 	description?: string;
 	onCancelled?: boolean | (() => void);
 	submitDisabled?: boolean;
@@ -187,7 +188,7 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
+								<div className="flex flex-row justify-end p-3 space-x-2 border-t border-app-line bg-app-selected">
 									{form.formState.isSubmitting && <Loader />}
 									{props.buttonsSideContent && (
 										<div>{props.buttonsSideContent}</div>
@@ -209,7 +210,21 @@ export function Dialog<S extends FieldValues>({
 											</Button>
 										</RDialog.Close>
 									)}
-
+									{props.cancelBtn && (
+										<RDialog.Close asChild>
+											<Button
+												size="sm"
+												variant="gray"
+												onClick={
+													typeof onCancelled === 'function'
+														? onCancelled
+														: undefined
+												}
+											>
+												Cancel
+											</Button>
+										</RDialog.Close>
+									)}
 									<Button
 										type="submit"
 										size="sm"

@@ -12,6 +12,20 @@ body {
 	@apply bg-app;
 }
 
+.frame::before {
+	@apply bg-app-frame;
+	content: '';
+	pointer-events: none;
+	user-select: none;
+	position: absolute;
+	inset: 0px;
+	border-radius: inherit;
+	padding: 1px;
+	mask: linear-gradient(black, black) content-box content-box, linear-gradient(black, black);
+	mask-composite: xor;
+	z-index: 9999;
+}
+
 .has-blur-effects {
 	.app-background {
 		// adjust macOS blur intensity here
@@ -46,18 +60,13 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[46px] rounded-[6px] bg-[#00000000];
+		@apply mt-[46px] rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-transparent;
+		@apply rounded-[6px] bg-app-box;
 	}
 	&::-webkit-scrollbar-corner {
 		background-color: transparent;
-	}
-	&:hover {
-		&::-webkit-scrollbar-thumb {
-			@apply bg-app-divider/20;
-		}
 	}
 }
 .default-scroll {
