@@ -182,7 +182,7 @@ export default function HomePage() {
 					<div>
 						<div
 							className="xl2:relative z-30 flex h-[255px] w-full px-6
-						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-[628px]"
+						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto"
 						>
 							<Image
 								loading="eager"
@@ -199,12 +199,47 @@ export default function HomePage() {
 										loading="eager"
 										width={1278}
 										height={626}
-										alt="l"
+										alt="spacedrive app"
 										className="rounded-lg"
 										src="/images/app.webp"
 									/>
 								</AppFrameInner>
 							</AppFrameOuter>
+						</div>
+					</div>
+					<div
+						className="relative mb-[125px] mt-[240px] flex w-full max-w-[700px] items-center justify-center  sm:mb-[150px] sm:mt-[250px]
+					 md:mb-[120px] md:mt-[260px] lg:my-[350px]"
+					>
+						<div
+							className="z-1 absolute top-[-150px] w-full max-w-[300px] rotate-[100deg] sm:top-[-200px]
+						 sm:max-w-[400px] md:top-[-200px] lg:top-auto lg:mr-[250px] lg:max-w-[700px] lg:rotate-0"
+						>
+							<Image
+								loading="eager"
+								width={700}
+								height={626}
+								quality={100}
+								alt="wormhole"
+								src="/images/wormhole.webp"
+							/>
+						</div>
+						<div
+							className="z-2 worm-hole-border-gradient relative flex w-full max-w-[500px] flex-col
+		 items-center justify-center gap-2 bg-gradient-to-r from-[#080710]/0 to-[#080710]/50 p-10 backdrop-blur-md"
+						>
+							<h1 className="bg-gradient-to-r from-white to-indigo-300 bg-clip-text text-[20px] font-bold text-transparent">
+								Heading
+							</h1>
+							<p className="text-sm text-center text-gray-400">
+								Lorem ipsum dolor sit amet consectetur adipisicing elit. Nam, iure
+								ea dolores atque unde fugit ad libero debitis nemo quis culpa sequi
+								illum aliquam iusto harum quo laborum ducimus voluptas Lorem, ipsum
+								dolor sit amet consectetur adipisicing elit. Similique eos,
+								voluptatum, ipsam facilis placeat tempore consequuntur officia
+								distinctio voluptate blanditiis tenetur, animi ut ea laboriosam
+								laborum culpa autem accusantium reprehenderit!
+							</p>
 						</div>
 					</div>
 					<BentoBoxes />
