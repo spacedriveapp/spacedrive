@@ -114,7 +114,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 			default:
 				setSrc(
 					getIcon(
-						itemData.isDir ? 'Folder' : itemData.kind,
+						itemData.isDir || parent?.type === 'Node' ? 'Folder' : itemData.kind,
 						isDark,
 						itemData.extension,
 						itemData.isDir
