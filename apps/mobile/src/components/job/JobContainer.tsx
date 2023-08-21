@@ -1,4 +1,5 @@
 import { Icon } from 'phosphor-react-native';
+import { Fragment } from 'react';
 import { Image, Text, View, ViewStyle } from 'react-native';
 import { TextItems } from '@sd/client';
 import { styled, tw, twStyle } from '~/lib/tailwind';
@@ -22,44 +23,56 @@ export default function JobContainer(props: JobContainerProps) {
 	return (
 		<View
 			style={twStyle(
-				'border-b border-app-line/50 px-4 py-3',
-				isChild && 'border-b-0 bg-app-darkBox p-2 pl-10'
+				'flex flex-row justify-center',
+				'border-b border-app-line/50 px-4 py-2',
+				isChild && 'border-b-0 p-2 pl-14',
+				restProps.containerStyle
 			)}
 		>
 			{typeof Icon === 'number' ? (
-				<Image source={Icon} style={tw`h-8 w-8`} />
+				<Image source={Icon} style={tw`ml-4 mr-1 h-8 w-8`} />
 			) : (
-				Icon && <Icon weight="fill" color="white" style={tw``} />
+				Icon && (
+					<View
+						style={tw`mr-1 h-7 w-7 items-center justify-center rounded-full bg-app-button`}
+					>
+						<Icon weight="fill" color="white" size={18} />
+					</View>
+				)
 			)}
 			<MetaContainer>
+				<Text style={tw`pl-1.5 text-sm font-medium text-white`} numberOfLines={1}>
+					{name}
+				</Text>
 				{textItems?.map((item, index) => {
 					// filter out undefined text so we don't render empty TextItems
 					const filteredItems = item.filter((i) => i?.text);
-					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
-					// TODO:
 					return (
-						<Text key={index} style={tw`mr-8 mt-[2px] pl-1.5 text-ink-faint`}>
+						<Text
+							key={index}
+							style={tw`mt-[2px] pl-1.5 text-[13px] text-ink-faint`}
+							numberOfLines={1}
+						>
 							{filteredItems.map((item, index) => {
 								const Icon = item?.icon;
 								return (
-									<>
+									<Fragment key={index}>
 										{Icon && (
 											<Icon
 												weight="fill"
-												className="-mt-0.5 ml-[5px] mr-1 inline"
+												// TODO: this might be ugly
+												style={tw`-mt-0.5 ml-[5px] inline`}
 											/>
 										)}
-										<Text key={index} style={tw`truncate`}>
-											{item?.text}
-										</Text>
+										<Text key={index}>{item?.text}</Text>
 										{index < filteredItems.length - 1 && <Text> • </Text>}
-									</>
+									</Fragment>
 								);
 							})}
 						</Text>
 					);
 				})}
-				<View style={tw`mt-1`}>{children}</View>
+				{children && <View style={tw`mt-1`}>{children}</View>}
 			</MetaContainer>
 		</View>
 	);

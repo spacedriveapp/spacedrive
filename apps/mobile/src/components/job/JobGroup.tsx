@@ -1,7 +1,9 @@
+import { Folder } from '@sd/assets/icons';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Folder, Pause, Play, Stop } from 'phosphor-react-native';
+import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import {
 	JobGroup,
 	JobProgressEvent,
@@ -11,6 +13,7 @@ import {
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
+import { tw, twStyle } from '~/lib/tailwind';
 import { AnimatedHeight } from '../animation/layout';
 import { Button } from '../primitive/Button';
 import Job from './Job';
@@ -38,18 +41,42 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	if (jobs.length === 0) return <></>;
 
-	return (
-		<>
-			<View>
+	const renderRightActions = (
+		progress: Animated.AnimatedInterpolation<number>,
+		_dragX: Animated.AnimatedInterpolation<number>,
+		swipeable: Swipeable
+	) => {
+		const translate = progress.interpolate({
+			inputRange: [0, 1],
+			outputRange: [100, 0],
+			extrapolate: 'clamp'
+		});
+
+		return (
+			<Animated.View
+				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
+			>
 				<Options activeJob={runningJob} group={group} />
-			</View>
+			</Animated.View>
+		);
+	};
+
+	return (
+		<Swipeable
+			containerStyle={tw.style(showChildJobs && 'bg-app-darkBox/30')}
+			enableTrackpadTwoFingerGesture
+			renderRightActions={renderRightActions}
+		>
 			{jobs?.length > 1 ? (
 				<>
 					<Pressable onPress={() => setShowChildJobs((v) => !v)}>
 						<JobContainer
 							icon={Folder}
 							// TODO:
-							// containerStyle
+							containerStyle={tw.style(
+								'pl-8 pt-4',
+								showChildJobs && 'border-b-0 pb-0'
+							)}
 							name={getJobNiceActionName(
 								group.action ?? '',
 								group.status === 'Completed',
@@ -87,7 +114,7 @@ export default function ({ group, progress }: JobGroupProps) {
 						</JobContainer>
 					</Pressable>
 					{showChildJobs && (
-						<AnimatedHeight>
+						<AnimatedHeight style={tw`mb-4`}>
 							{jobs.map((job) => (
 								<Job
 									isChild={jobs.length > 1}
@@ -100,26 +127,26 @@ export default function ({ group, progress }: JobGroupProps) {
 					)}
 				</>
 			) : (
-				jobs[0] && <Job job={jobs[0]} progress={progress[jobs[0]!.id] || null} />
+				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
 			)}
-		</>
+		</Swipeable>
 	);
 }
 
 function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
 	const resumeJob = useLibraryMutation(['jobs.resume'], {
 		onError: () => {
-			// TODO:
+			// TODO: Toasts
 		}
 	});
 	const pauseJob = useLibraryMutation(['jobs.pause'], {
 		onError: () => {
-			// TODO:
+			// TODO: Toasts
 		}
 	});
 	const cancelJob = useLibraryMutation(['jobs.cancel'], {
 		onError: () => {
-			// TODO:
+			// TODO: Toasts
 		}
 	});
 
@@ -127,27 +154,29 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 		() => group.jobs.some((job) => job.status === 'Paused'),
 		[group.jobs]
 	);
+
 	return (
 		<>
 			{/* Resume */}
 			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
 				<Button variant="outline" size="sm" onPress={() => resumeJob.mutate(group.id)}>
-					<Play color="white" />
+					<Play size={18} color="white" />
 				</Button>
 			)}
-			{activeJob === undefined ? (
+			{/* TODO: This should remove the job from panel */}
+			{activeJob !== undefined ? (
 				<Button variant="outline" size="sm">
-					<DotsThreeVertical color="white" />
+					<DotsThreeVertical size={16} color="white" />
 				</Button>
 			) : (
-				<>
+				<View style={tw`flex flex-row gap-2`}>
 					<Button variant="outline" size="sm" onPress={() => pauseJob.mutate(group.id)}>
-						<Pause color="white" />
+						<Pause size={16} color="white" />
 					</Button>
 					<Button variant="outline" size="sm" onPress={() => cancelJob.mutate(group.id)}>
-						<Stop color="white" />
+						<Stop size={16} color="white" />
 					</Button>
-				</>
+				</View>
 			)}
 		</>
 	);

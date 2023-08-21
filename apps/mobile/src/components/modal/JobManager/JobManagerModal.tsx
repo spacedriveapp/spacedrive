@@ -28,8 +28,9 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		<Modal ref={ref} snapPoints={['60']} title="Job Manager" showCloseButton>
 			<FlatList
 				data={jobGroups.data}
-				style={tw`flex-1 p-4`}
+				style={tw`flex-1`}
 				keyExtractor={(i) => i.id}
+				contentContainerStyle={tw`mt-4`}
 				renderItem={({ item }) => <JobGroup group={item} progress={progress} />}
 				ListEmptyComponent={
 					<View style={tw`flex h-60 items-center justify-center`}>
