@@ -14,13 +14,14 @@ pub struct ExifReader(Exif);
 
 impl ExifReader {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-		let file = File::open(path)?;
+		let file = File::open(&path)?;
 		let mut reader = BufReader::new(file);
-		Ok(Self(
-			exif::Reader::new()
-				.read_from_container(&mut reader)
-				.map_err(|_| Error::Init)?,
-		))
+		exif::Reader::new()
+			.read_from_container(&mut reader)
+			.map_or_else(
+				|_| Err(Error::NoExifData(path.as_ref().to_path_buf())),
+				|reader| Ok(Self(reader)),
+			)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {

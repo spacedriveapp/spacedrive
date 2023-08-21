@@ -1,4 +1,4 @@
-use std::{num::ParseFloatError, path::Path};
+use std::{num::ParseFloatError, path::PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -6,8 +6,6 @@ pub enum Error {
 	Io(#[from] std::io::Error),
 	#[error("error from the exif crate: {0}")]
 	Exif(#[from] exif::Error),
-	#[error("error from exif crate: {0} on file {}", .1.display())]
-	ExifOnFile(exif::Error, Box<Path>),
 	#[error("there was an error while parsing time with chrono: {0}")]
 	Chrono(#[from] chrono::ParseError),
 	#[error("there was an error while converting between types")]
@@ -18,6 +16,8 @@ pub enum Error {
 	FloatParse(#[from] ParseFloatError),
 	#[error("there was an error while initializing the exif reader")]
 	Init,
+	#[error("the item provided ({0}) contains no exif data")]
+	NoExifData(PathBuf),
 
 	#[error("serde error {0}")]
 	Serde(#[from] serde_json::Error),
