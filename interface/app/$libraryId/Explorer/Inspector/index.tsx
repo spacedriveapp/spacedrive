@@ -30,7 +30,7 @@ import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
-import { FileThumb } from '../FilePath/Thumb';
+import { FileThumb, ThumbType } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
@@ -104,7 +104,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
 					frame={thumbs.length > 1}
 					childClassName={(type) =>
-						type !== 'icon' && thumbs.length > 1
+						type !== ThumbType.Icon && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}

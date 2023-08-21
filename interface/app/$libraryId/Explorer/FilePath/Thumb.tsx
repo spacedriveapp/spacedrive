@@ -137,7 +137,7 @@ const Video = memo(({ paused, ...props }: VideoProps) => {
 	);
 });
 
-enum ThumbType {
+export enum ThumbType {
 	Icon,
 	Original,
 	Thumbnail
@@ -193,9 +193,13 @@ export const FileThumb = memo(
 			setSrc(undefined);
 			setLoaded(false);
 
-			if (loadOriginal) setThumbType(ThumbType.Original);
-			else if (itemData.hasLocalThumbnail) setThumbType(ThumbType.Thumbnail);
-			else setThumbType(ThumbType.Icon);
+			if (loadOriginal) {
+				setThumbType(ThumbType.Original);
+			} else if (itemData.hasLocalThumbnail) {
+				setThumbType(ThumbType.Thumbnail);
+			} else {
+				setThumbType(ThumbType.Icon);
+			}
 		}, [loadOriginal, itemData]);
 
 		useEffect(() => {
@@ -213,7 +217,8 @@ export const FileThumb = memo(
 							platform.getFileUrl(
 								library.uuid,
 								locationId,
-								data.item.id,
+								(data.type === 'Object' && data.item.file_paths[0]?.id) ||
+									data.item.id,
 								// Workaround Linux webview not supporting playing video and audio through custom protocol urls
 								itemData.kind === 'Video' || itemData.kind === 'Audio'
 							)
