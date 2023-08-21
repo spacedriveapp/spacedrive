@@ -142,7 +142,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 			}}
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
-				loaded ? 'visible' : 'invisible',
+				!loaded && 'invisible',
 				!props.size && 'h-full w-full',
 				props.cover && 'overflow-hidden',
 				props.className
@@ -302,7 +302,15 @@ interface ThumbnailProps extends ImgHTMLAttributes<HTMLImageElement> {
 }
 
 const Thumbnail = memo(
-	({ crossOrigin, blackBars, blackBarsSize, extension, cover, ...props }: ThumbnailProps) => {
+	({
+		crossOrigin,
+		blackBars,
+		blackBarsSize,
+		extension,
+		cover,
+		className,
+		...props
+	}: ThumbnailProps) => {
 		const ref = useRef<HTMLImageElement>(null);
 
 		const size = useSize(ref);
@@ -317,6 +325,7 @@ const Thumbnail = memo(
 					ref={ref}
 					draggable={false}
 					style={{ ...(blackBars ? blackBarsStyle : {}) }}
+					className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 					{...props}
 				/>
 
@@ -350,7 +359,7 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	blackBarsSize?: number;
 }
 
-const Video = memo(({ paused, blackBars, blackBarsSize, ...props }: VideoProps) => {
+const Video = memo(({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	const size = useSize(ref);
@@ -382,6 +391,7 @@ const Video = memo(({ paused, blackBars, blackBarsSize, ...props }: VideoProps) 
 			playsInline
 			draggable={false}
 			style={{ ...(blackBars ? blackBarsStyle : {}) }}
+			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 		>
 			<p>Video preview is not supported.</p>
