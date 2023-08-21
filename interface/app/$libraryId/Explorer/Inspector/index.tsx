@@ -93,16 +93,19 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 			{lastThreeItems.map((item, i, thumbs) => (
 				<FileThumb
 					key={item.item.id}
-					loadOriginal
 					data={item}
+					loadOriginal
+					frame
+					blackBars={thumbs.length === 1}
+					blackBarsSize={16}
+					extension={thumbs.length > 1}
+					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
 						i === 1 && 'z-20 !h-[80%] !w-[80%] rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
-					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
-					frame={thumbs.length > 1}
 					childClassName={(type) =>
 						type !== 'icon' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'

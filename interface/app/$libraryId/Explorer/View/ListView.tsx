@@ -169,6 +169,7 @@ export default () => {
 								<FileThumb
 									data={item}
 									size={35}
+									blackBars
 									className={clsx(cut && 'opacity-60')}
 								/>
 							</div>
