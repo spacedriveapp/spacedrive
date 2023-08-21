@@ -17,12 +17,24 @@ use tracing::{debug, error, warn};
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
 	Component, ConnectionState, Keypair, ManagerStream, ManagerStreamAction, Metadata, PeerId,
+	Service,
 };
 
+#[derive(Debug, Clone)]
+pub(crate) struct EventStreamTx(mpsc::Sender<ManagerStreamAction>);
+
+impl EventStreamTx {
+	pub(crate) async fn emit(&self, event: ManagerStreamAction) {
+		match self.0.send(event).await {
+			Ok(_) => {}
+			Err(err) => warn!("error emitting event: {}", err),
+		}
+	}
+}
+
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
-// TODO: Remove `TMetadata` through the whole system
 #[derive(Debug)]
-pub struct Manager<TMetadata: Metadata> {
+pub struct Manager {
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: &'static str,
 	pub(crate) spacetime_name: String,
@@ -31,15 +43,15 @@ pub struct Manager<TMetadata: Metadata> {
 	// TODO: Expose generic
 	pub(crate) connection_state: Arc<ConnectionState<()>>,
 
-	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
+	event_stream_tx: EventStreamTx,
 }
 
-impl<TMetadata: Metadata> Manager<TMetadata> {
+impl Manager {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
 	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
-	) -> Result<(Arc<Self>, ManagerStream<TMetadata>), ManagerError> {
+	) -> Result<(Arc<Self>, ManagerStream), ManagerError> {
 		application_name
 			.chars()
 			.all(|c| char::is_alphanumeric(c) || c == '-')
@@ -55,7 +67,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			stream_id: AtomicU64::new(0),
 			peer_id,
 			connection_state: Arc::new(Default::default()),
-			event_stream_tx,
+			event_stream_tx: EventStreamTx(event_stream_tx),
 		});
 
 		let mut swarm = SwarmBuilder::with_tokio_executor(
@@ -95,9 +107,13 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		))
 	}
 
-	// /// TODO: Docs
+	pub(crate) async fn emit(&self, event: ManagerStreamAction) {
+		self.event_stream_tx.emit(event).await
+	}
+
+	/// TODO: Docs
 	// // Construct or load a service.
-	// pub fn service(name: String) -> Service2 {
+	// pub fn service<T: Metadata>(&self, name: String, identifier: I, metadata: T) -> Service<I, T> {
 	// 	todo!();
 	// }
 
@@ -105,18 +121,10 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		self.connection_state.clone()
 	}
 
-	// TODO: Rename from `service`
 	// TODO: This being `async` is cringe
-	pub async fn service(&self, service: impl Component) {
-		self.emit(ManagerStreamAction::RegisterService(Box::pin(service)))
+	pub async fn component(&self, service: impl Component) {
+		self.emit(ManagerStreamAction::RegisterComponent(Box::pin(service)))
 			.await;
-	}
-
-	pub(crate) async fn emit(&self, event: ManagerStreamAction<TMetadata>) {
-		match self.event_stream_tx.send(event).await {
-			Ok(_) => {}
-			Err(err) => warn!("error emitting event: {}", err),
-		}
 	}
 
 	pub fn peer_id(&self) -> PeerId {
@@ -154,9 +162,8 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
 		self.event_stream_tx
-			.send(ManagerStreamAction::Shutdown(tx))
-			.await
-			.unwrap();
+			.emit(ManagerStreamAction::Shutdown(tx))
+			.await;
 		rx.await.unwrap_or_else(|_| {
 			warn!("Error receiving shutdown signal to P2P Manager!");
 		}); // Await shutdown so we don't kill the app before the Mdns broadcast

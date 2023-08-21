@@ -11,6 +11,7 @@ use crate::{
 };
 
 /// TODO
+// TODO: Remove `TMetadata` still
 pub struct Discovery<TMetadata: Metadata> {
 	listen_addrs: RwLock<HashSet<SocketAddr>>,
 	discovered: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
@@ -19,10 +20,7 @@ pub struct Discovery<TMetadata: Metadata> {
 }
 
 impl<TMetadata: Metadata> Discovery<TMetadata> {
-	pub fn new(
-		manager: &Manager<TMetadata>,
-		metadata_manager: Arc<MetadataManager<TMetadata>>,
-	) -> Self {
+	pub fn new(manager: &Manager, metadata_manager: Arc<MetadataManager<TMetadata>>) -> Self {
 		Self {
 			listen_addrs: Default::default(),
 			discovered: Default::default(),

@@ -22,9 +22,9 @@ use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRI
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
 #[allow(clippy::type_complexity)]
-pub struct SpaceTimeConnection<TMetadata: Metadata> {
+pub struct SpaceTimeConnection {
 	peer_id: PeerId,
-	manager: Arc<Manager<TMetadata>>,
+	manager: Arc<Manager>,
 	pending_events: VecDeque<
 		ConnectionHandlerEvent<
 			OutboundProtocol,
@@ -35,8 +35,8 @@ pub struct SpaceTimeConnection<TMetadata: Metadata> {
 	>,
 }
 
-impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
-	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager<TMetadata>>) -> Self {
+impl SpaceTimeConnection {
+	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager>) -> Self {
 		Self {
 			peer_id,
 			manager,
@@ -45,13 +45,11 @@ impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
 	}
 }
 
-// pub enum Connection
-
-impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
+impl ConnectionHandler for SpaceTimeConnection {
 	type FromBehaviour = OutboundRequest;
-	type ToBehaviour = ManagerStreamAction<TMetadata>;
+	type ToBehaviour = ManagerStreamAction;
 	type Error = StreamUpgradeError<io::Error>;
-	type InboundProtocol = InboundProtocol<TMetadata>;
+	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
 	type InboundOpenInfo = ();

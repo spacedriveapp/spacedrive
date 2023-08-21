@@ -93,7 +93,7 @@ impl P2PManager {
 		let metadata_manager = MetadataManager::new(config);
 		let discovery = Discovery::new(&manager, metadata_manager.clone());
 		let listen_addrs = discovery.listen_addrs(); // TODO: Allow accessing listen addr's from rspc
-		manager.service(discovery).await;
+		manager.component(discovery).await;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {listen_addrs:?}",
@@ -138,6 +138,12 @@ impl P2PManager {
 			let node = node.clone();
 
 			async move {
+				let node_service = manager.service("todo".into(), ());
+				let library_services = vec![
+					// TODO: Properly load em and keep them updated
+					manager.service("todo2".into(), ()),
+				];
+
 				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {

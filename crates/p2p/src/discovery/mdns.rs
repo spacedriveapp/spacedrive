@@ -139,7 +139,7 @@ where
 	}
 
 	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
-	pub async fn poll(&mut self) -> Option<Event<TMetadata>> {
+	pub async fn poll(&mut self) -> Option<Event> {
 		tokio::select! {
 			_ = &mut self.next_mdns_advertisement => self.advertise(),
 			_ = self.trigger_advertisement.recv() => self.advertise(),
@@ -197,7 +197,9 @@ where
 											discovered_peers.insert(peer_id, peer.clone());
 											peer
 										};
-										return Some(Event::PeerDiscovered(peer));
+										todo!();
+										// return Some(Event::PeerDiscovered(peer));
+										return None;
 									}
 									Err(err) => {
 										error!("error parsing metadata for peer '{}': {}", raw_peer_id, err)
@@ -225,10 +227,12 @@ where
 										self.state.discovered.write().unwrap_or_else(PoisonError::into_inner);
 									let peer = discovered_peers.remove(&peer_id);
 
-									return Some(Event::PeerExpired {
-										id: peer_id,
-										metadata: peer.map(|p| p.metadata),
-									});
+									todo!();
+									// return Some(Event::PeerExpired {
+									// 	id: peer_id,
+									// 	metadata: peer.map(|p| p.metadata),
+									// });
+									return None;
 								}
 							}
 							Err(_) => warn!(

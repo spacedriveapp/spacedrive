@@ -1,6 +1,6 @@
 //! Temporary library for easier binary encoding/decoding.
 //!
-//! Eventually these will be deprecated by macros but I can't find one which supports large payloads (basically it needs to write to async stream not in-memory bufffer) -> Binario is my own prototype of a Rust library to do this but it's not prod ready yet.
+//! Eventually these will be deprecated by macros but I can't find one which supports streaming payloads (basically it needs to read/write to async stream not in-memory buffer)
 //!
 use thiserror::Error;
 use uuid::Uuid;

@@ -9,7 +9,7 @@ use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiscoveredPeer<TMetadata: Metadata> {
 	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+	pub(crate) manager: Arc<Manager>,
 	/// get the peer id of the discovered peer
 	pub peer_id: PeerId,
 	/// get the metadata of the discovered peer

@@ -21,13 +21,13 @@ use tracing::{debug, error, info, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Component, Components, Event, InternalEvent, Metadata, PeerId,
+	Component, Components, Event, InternalEvent, Metadata, PeerId, Service,
 };
 
 /// TODO
-pub enum ManagerStreamAction<TMetadata: Metadata> {
+pub enum ManagerStreamAction {
 	/// Events are returned to the application via the `ManagerStream::next` method.
-	Event(Event<TMetadata>),
+	Event(Event),
 	/// TODO
 	GetConnectedPeers(oneshot::Sender<Vec<PeerId>>),
 	/// Tell the [`libp2p::Swarm`](libp2p::Swarm) to establish a new connection to a peer.
@@ -41,39 +41,39 @@ pub enum ManagerStreamAction<TMetadata: Metadata> {
 	BroadcastData(Vec<u8>),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
-	/// Register a new service
-	RegisterService(Pin<Box<dyn Component>>),
+	/// Register a new component
+	RegisterComponent(Pin<Box<dyn Component>>),
+	// /// Register a new service
+	// /// TODO: Do I need to *own* it or can I just reference it?
+	// RegisterService(Box<dyn GenericService>),
 }
 
-impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction<TMetadata> {
+impl fmt::Debug for ManagerStreamAction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.write_str("ManagerStreamAction")
 	}
 }
 
-impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction<TMetadata> {
-	fn from(event: Event<TMetadata>) -> Self {
+impl From<Event> for ManagerStreamAction {
+	fn from(event: Event) -> Self {
 		Self::Event(event)
 	}
 }
 
 /// TODO
 #[must_use = "you must call `ManagerStream::next` to drive the P2P system"]
-pub struct ManagerStream<TMetadata: Metadata> {
-	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction<TMetadata>>,
-	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
+pub struct ManagerStream {
+	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
+	pub(crate) swarm: Swarm<SpaceTime>,
+	pub(crate) queued_events: VecDeque<Event>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
 	pub(crate) services: Components,
 }
 
-impl<TMetadata> ManagerStream<TMetadata>
-where
-	TMetadata: Metadata,
-{
+impl ManagerStream {
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
-	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
+	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
 			if self.shutdown.load(Ordering::Relaxed) {
@@ -179,10 +179,7 @@ where
 		}
 	}
 
-	async fn handle_manager_stream_action(
-		&mut self,
-		event: ManagerStreamAction<TMetadata>,
-	) -> Option<Event<TMetadata>> {
+	async fn handle_manager_stream_action(&mut self, event: ManagerStreamAction) -> Option<Event> {
 		match event {
 			ManagerStreamAction::Event(event) => return Some(event),
 			ManagerStreamAction::GetConnectedPeers(response) => {
@@ -266,7 +263,7 @@ where
 
 				return Some(Event::Shutdown);
 			}
-			ManagerStreamAction::RegisterService(service) => self.services.push(service),
+			ManagerStreamAction::RegisterComponent(service) => self.services.push(service),
 		}
 
 		None
