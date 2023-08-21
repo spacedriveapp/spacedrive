@@ -14,20 +14,18 @@ pub struct ExifReader(Exif);
 
 impl ExifReader {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-		let file = File::open(&path)?;
-		let mut reader = BufReader::new(file);
 		exif::Reader::new()
-			.read_from_container(&mut reader)
+			.read_from_container(&mut BufReader::new(File::open(&path)?))
 			.map_or_else(
-				|_| Err(Error::NoExifData(path.as_ref().to_path_buf())),
+				|_| Err(Error::NoExifDataOnPath(path.as_ref().to_path_buf())),
 				|reader| Ok(Self(reader)),
 			)
 	}
 
 	pub fn from_slice(slice: &[u8]) -> Result<Self> {
-		Ok(Self(
-			exif::Reader::new().read_from_container(&mut Cursor::new(slice))?,
-		))
+		exif::Reader::new()
+			.read_from_container(&mut Cursor::new(slice))
+			.map_or_else(|_| Err(Error::NoExifDataOnSlice), |reader| Ok(Self(reader)))
 	}
 
 	/// A helper function which gets the target `Tag` as `T`, provided `T` impls `FromStr`.

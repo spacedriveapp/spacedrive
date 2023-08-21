@@ -16,8 +16,10 @@ pub enum Error {
 	FloatParse(#[from] ParseFloatError),
 	#[error("there was an error while initializing the exif reader")]
 	Init,
-	#[error("the item provided ({0}) contains no exif data")]
-	NoExifData(PathBuf),
+	#[error("the file provided at ({0}) contains no exif data")]
+	NoExifDataOnPath(PathBuf),
+	#[error("the slice provided contains no exif data")]
+	NoExifDataOnSlice,
 
 	#[error("serde error {0}")]
 	Serde(#[from] serde_json::Error),

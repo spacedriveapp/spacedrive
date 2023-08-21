@@ -5,7 +5,7 @@ use exif::Tag;
 /// # Examples:
 ///
 /// ```
-/// use sd_media_data::DMS_DIVISION;
+/// use sd_media_data::image::DMS_DIVISION;
 ///
 /// let latitude = [53_f64, 19_f64, 35.11_f64]; // in DMS
 /// latitude.iter().zip(DMS_DIVISION.iter());
