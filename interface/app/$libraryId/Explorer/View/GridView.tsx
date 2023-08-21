@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { type ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';

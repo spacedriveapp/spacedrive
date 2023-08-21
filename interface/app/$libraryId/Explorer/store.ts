@@ -3,11 +3,11 @@ import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
-	DoubleClickAction,
-	ExplorerItem,
-	ExplorerLayout,
-	ExplorerSettings,
-	SortOrder,
+	type DoubleClickAction,
+	type ExplorerItem,
+	type ExplorerLayout,
+	type ExplorerSettings,
+	type SortOrder,
 	resetStore
 } from '@sd/client';
 

@@ -1,7 +1,7 @@
 import {
-	ColumnDef,
-	ColumnSizingState,
-	Row,
+	type ColumnDef,
+	type ColumnSizingState,
+	type Row,
 	flexRender,
 	getCoreRowModel,
 	useReactTable
@@ -15,9 +15,9 @@ import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
-	ExplorerItem,
-	FilePath,
-	NonIndexedPathItem,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem,
 	ObjectKind,
 	byteSize,
 	getExplorerItemData,

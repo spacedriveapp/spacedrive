@@ -11,7 +11,7 @@ import {
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
-	ExplorerItem,
+	type ExplorerItem,
 	byteSize,
 	getItemFilePath,
 	getItemObject,
@@ -19,7 +19,7 @@ import {
 } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
-import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
+import { Modal, type ModalRef, ModalScrollView } from '~/components/layout/Modal';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';

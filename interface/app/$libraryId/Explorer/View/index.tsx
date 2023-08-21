@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Columns, GridFour, Icon, MonitorPlay, Rows } from 'phosphor-react';
+import { Columns, GridFour, type Icon, MonitorPlay, Rows } from 'phosphor-react';
 import {
 	type HTMLAttributes,
 	type PropsWithChildren,
@@ -17,9 +17,8 @@ import {
 	type ExplorerItem,
 	type FilePath,
 	type Location,
-	NonIndexedPathItem,
+	type NonIndexedPathItem,
 	type Object,
-	getItemFilePath,
 	getItemObject,
 	isPath,
 	useLibraryContext,

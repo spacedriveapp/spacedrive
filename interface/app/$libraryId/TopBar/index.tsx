@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { type Ref } from 'react';
+import type { Ref } from 'react';
 import { useExplorerStore } from '../Explorer/store';
 import { NavigationButtons } from './NavigationButtons';
 import SearchBar from './SearchBar';

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Navigate, Outlet, RouteObject, useMatches } from 'react-router-dom';
+import { Navigate, Outlet, type RouteObject, useMatches } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';

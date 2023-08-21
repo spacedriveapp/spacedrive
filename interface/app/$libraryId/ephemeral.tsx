@@ -1,7 +1,7 @@
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
 import { type FilePathSearchOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { PathParams, PathParamsSchema } from '~/app/route-schemas';
+import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';

@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import {
-	ComponentProps,
+	type ComponentProps,
 	forwardRef,
 	useCallback,
 	useEffect,

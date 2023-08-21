@@ -1,8 +1,15 @@
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
-import { ExplorerItem, ExplorerSettings, FilePath, Location, NodeState, Tag } from '@sd/client';
-import { Ordering, OrderingKeys, createDefaultExplorerSettings } from './store';
+import type {
+	ExplorerItem,
+	ExplorerSettings,
+	FilePath,
+	Location,
+	NodeState,
+	Tag
+} from '@sd/client';
+import { type Ordering, type OrderingKeys, createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
 
 export type ExplorerParent =

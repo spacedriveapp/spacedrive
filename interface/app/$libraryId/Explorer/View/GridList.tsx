@@ -1,5 +1,5 @@
 import {
-	ReactNode,
+	type ReactNode,
 	createContext,
 	useCallback,
 	useContext,
@@ -10,7 +10,7 @@ import {
 } from 'react';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
-import { ExplorerItem } from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { useExplorerContext } from '../Context';

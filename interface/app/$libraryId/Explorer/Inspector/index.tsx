@@ -15,9 +15,16 @@ import {
 	Path,
 	Snowflake
 } from 'phosphor-react';
-import { HTMLAttributes, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-	ExplorerItem,
+	type HTMLAttributes,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState
+} from 'react';
+import {
+	type ExplorerItem,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,

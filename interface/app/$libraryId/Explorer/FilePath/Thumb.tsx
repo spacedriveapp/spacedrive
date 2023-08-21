@@ -1,15 +1,15 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
-	ImgHTMLAttributes,
-	VideoHTMLAttributes,
+	type ImgHTMLAttributes,
+	type VideoHTMLAttributes,
 	memo,
 	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState
 } from 'react';
-import { ExplorerItem, useLibraryContext } from '@sd/client';
+import { type ExplorerItem, useLibraryContext } from '@sd/client';
 import { PDFViewer, TEXTViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
