@@ -55,7 +55,10 @@ export const CODEViewer = memo(
 				if (link.href) {
 					const response = await fetch(link.href);
 					if (response.ok) {
-						response.text().then((text) => {setQuickPreviewContent(text); Prism.highlightAll();});
+						response.text().then((text) => {
+							setQuickPreviewContent(text);
+							Prism.highlightAll();
+						});
 					}
 				}
 			};
