@@ -18,7 +18,6 @@ use windows::{
 		UI::Shell::{
 			BHID_DataObject, FOLDERID_Profile, IAssocHandler, IShellItem, SHAssocEnumHandlers,
 			SHCreateItemFromParsingName, SHGetKnownFolderPath, ASSOC_FILTER_RECOMMENDED,
-			KNOWN_FOLDER_FLAG,
 		},
 	},
 };
@@ -118,18 +117,4 @@ pub fn open_file_path_with(path: &Path, url: &str) -> Result<()> {
 	}
 
 	Err(Error::OK)
-}
-
-pub fn known_folder(id: GUID) -> Option<PathBuf> {
-	let Ok(path) = (unsafe { SHGetKnownFolderPath(&id, KNOWN_FOLDER_FLAG(0), HANDLE::default()) }) else {
-		return None;
-	};
-
-	Some(PathBuf::from(unsafe {
-		OsString::from_wide(path.as_wide())
-	}))
-}
-
-pub fn known_folder_profile() -> Option<PathBuf> {
-	known_folder(FOLDERID_Profile)
 }

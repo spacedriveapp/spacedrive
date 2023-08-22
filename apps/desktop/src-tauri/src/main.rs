@@ -64,24 +64,6 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
-#[tauri::command(async)]
-#[specta::specta]
-async fn user_home_dir() -> Option<PathBuf> {
-	#[cfg(target_os = "macos")]
-	return Some(PathBuf::from(
-		unsafe { sd_desktop_macos::get_user_home_directory() }.to_string(),
-	));
-
-	#[cfg(target_os = "linux")]
-	return sd_desktop_linux::get_current_user_home();
-
-	#[cfg(windows)]
-	return sd_desktop_windows::known_folder_profile();
-
-	#[allow(unreachable_code)]
-	None
-}
-
 pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("spacedrive")
 		.js_init_script(format!(
@@ -213,7 +195,6 @@ async fn main() -> tauri::Result<()> {
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
-			user_home_dir,
 			file::open_file_paths,
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with,
