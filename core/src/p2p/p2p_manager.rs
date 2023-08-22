@@ -45,6 +45,9 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		metadata: PeerMetadata,
 	},
+	ExpiredPeer {
+		peer_id: PeerId,
+	},
 	SpacedropRequest {
 		id: Uuid,
 		peer_id: PeerId,
@@ -148,6 +151,11 @@ impl P2PManager {
 							node.nlm.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, .. } => {
+							events
+								.send(P2PEvent::ExpiredPeer { peer_id: id })
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {

@@ -29,6 +29,9 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 
 			if (data.type === 'DiscoveredPeer') {
 				setDiscoveredPeer([discoveredPeers.set(data.peer_id, data.metadata)]);
+			} else if (data.type === 'ExpiredPeer') {
+				discoveredPeers.delete(data.peer_id);
+				setDiscoveredPeer([new Map(discoveredPeers)]);
 			} else if (data.type === 'PairingProgress') {
 				setPairingStatus([pairingStatus.set(data.id, data.status)]);
 			}
