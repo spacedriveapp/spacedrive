@@ -31,7 +31,8 @@ impl LibraryPreferences {
 		let prefs = PreferenceKVs::new(
 			kvs.into_iter()
 				.filter_map(|data| {
-					let a = rmpv::decode::read_value(&mut data.value?.as_slice()).unwrap();
+					let a = rmpv::decode::read_value(&mut data.value?.as_slice())
+						.expect("failed to read value");
 
 					Some((PreferenceKey::new(data.key), PreferenceValue::from_value(a)))
 				})

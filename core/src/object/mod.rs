@@ -6,12 +6,12 @@ use specta::Type;
 pub mod cas;
 pub mod file_identifier;
 pub mod fs;
-pub mod media_data_extractor;
 pub mod orphan_remover;
-pub mod preview;
 pub mod tag;
 pub mod thumbnail_remover;
 pub mod validation;
+pub mod media;
+
 
 // Objects are primarily created by the identifier from Paths
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location

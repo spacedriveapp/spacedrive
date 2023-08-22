@@ -3,8 +3,7 @@ use crate::{
 	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
 	location::{find_location, LocationError},
 	object::{
-		file_identifier::file_identifier_job::FileIdentifierJobInit,
-		preview::thumbnailer_job::ThumbnailerJobInit,
+		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
 	prisma::{job, location, SortOrder},
@@ -236,7 +235,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(ThumbnailerJobInit {
+					Job::new(MediaProcessorJobInit {
 						location,
 						sub_path: Some(args.path),
 					})

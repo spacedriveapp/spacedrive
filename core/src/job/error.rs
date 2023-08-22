@@ -2,8 +2,7 @@ use crate::{
 	location::{indexer::IndexerError, LocationError},
 	object::{
 		file_identifier::FileIdentifierJobError, fs::error::FileSystemJobsError,
-		media_data_extractor::MediaDataError, preview::ThumbnailerError,
-		validation::ValidatorError,
+		media::media_processor::MediaProcessorError, validation::ValidatorError,
 	},
 	util::{db::MissingFieldError, error::FileIOError},
 };
@@ -55,7 +54,7 @@ pub enum JobError {
 	#[error(transparent)]
 	Indexer(#[from] IndexerError),
 	#[error(transparent)]
-	Thumbnail(#[from] ThumbnailerError),
+	MediaProcessor(#[from] MediaProcessorError),
 	#[error(transparent)]
 	FileIdentifier(#[from] FileIdentifierJobError),
 	#[error(transparent)]
@@ -64,8 +63,6 @@ pub enum JobError {
 	FileSystemJobsError(#[from] FileSystemJobsError),
 	#[error(transparent)]
 	CryptoError(#[from] CryptoError),
-	#[error(transparent)]
-	MediaData(#[from] MediaDataError),
 
 	// Not errors
 	#[error("job had a early finish: <name='{name}', reason='{reason}'>")]

@@ -16,8 +16,12 @@ use crate::{
 	},
 	object::{
 		file_identifier::FileMetadata,
-		media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
-		preview::{can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path},
+		media::{
+			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
+			thumbnail::{
+				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path,
+			},
+		},
 		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
@@ -823,7 +827,9 @@ async fn generate_thumbnail(
 
 	#[cfg(feature = "ffmpeg")]
 	{
-		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use crate::object::media::thumbnail::{
+			can_generate_thumbnail_for_video, generate_video_thumbnail,
+		};
 		use sd_file_ext::extensions::VideoExtension;
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {

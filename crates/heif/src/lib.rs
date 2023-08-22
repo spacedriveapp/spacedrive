@@ -21,8 +21,8 @@ pub enum HeifError {
 	LibHeif(#[from] libheif_rs::HeifError),
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),
-	#[error("io error: {0}")]
-	Io(#[from] std::io::Error),
+	#[error("io error: {0} at {}", .1.display())]
+	Io(std::io::Error, Box<Path>),
 	#[error("there was an error while converting the image to an `RgbImage`")]
 	RgbImageConversion,
 	#[error("the image provided is unsupported")]
@@ -36,7 +36,10 @@ pub enum HeifError {
 }
 
 pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
-	if fs::metadata(path)?.len() > HEIF_MAXIMUM_FILE_SIZE {
+	if fs::metadata(path)
+		.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?
+		.len() > HEIF_MAXIMUM_FILE_SIZE
+	{
 		return Err(HeifError::TooLarge);
 	}
 
@@ -65,10 +68,14 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 		// this is the interpolation stuff, it essentially just makes the image correct
 		// in regards to stretching/resolution, etc
 		for y in 0..img.height() {
-			reader.seek(SeekFrom::Start((i.stride * y as usize) as u64))?;
+			reader
+				.seek(SeekFrom::Start((i.stride * y as usize) as u64))
+				.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?;
 
 			for _ in 0..img.width() {
-				reader.read_exact(&mut buffer)?;
+				reader
+					.read_exact(&mut buffer)
+					.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?;
 				sequence.extend_from_slice(&buffer);
 			}
 		}

@@ -35,7 +35,12 @@ where
 	fn from_entries(entries: Entries) -> Self {
 		entries
 			.into_iter()
-			.map(|(key, entry)| (Uuid::parse_str(&key).unwrap(), entry.expect_value()))
+			.map(|(key, entry)| {
+				(
+					Uuid::parse_str(&key).expect("invalid uuid"),
+					entry.expect_value(),
+				)
+			})
 			.collect()
 	}
 }

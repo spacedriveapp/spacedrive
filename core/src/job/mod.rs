@@ -69,6 +69,7 @@ pub trait StatefulJob:
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
 	const IS_BACKGROUND: bool = false;
+	const IS_BATCHED: bool = false;
 
 	/// initialize the steps for the job
 	async fn init(
@@ -477,11 +478,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let res = stateful_job.init(&inner_ctx, &mut new_data).await;
 
 				if let Ok(res) = res.as_ref() {
-					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
-				}
-
-				if let Ok(res) = res.as_ref() {
-					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+					if !<SJob as StatefulJob>::IS_BATCHED {
+						inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+					}
 				}
 
 				(new_data, res)
@@ -822,7 +821,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 										run_metadata.update(more_metadata);
 									}
 
-									ctx.progress(events);
+									if !<SJob as StatefulJob>::IS_BATCHED {
+										ctx.progress(events);
+									}
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");

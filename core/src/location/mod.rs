@@ -5,8 +5,7 @@ use crate::{
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		media_data_extractor::{self, MediaDataJobInit},
-		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
+		media::{media_processor, MediaProcessorJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::error::FileIOError,
@@ -398,11 +397,7 @@ pub async fn scan_location(
 		location: location_base_data.clone(),
 		sub_path: None,
 	})
-	.queue_next(MediaDataJobInit {
-		location: location_base_data.clone(),
-		sub_path: None,
-	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
 	})
@@ -440,11 +435,7 @@ pub async fn scan_location_sub_path(
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
 	})
-	.queue_next(MediaDataJobInit {
-		location: location_base_data.clone(),
-		sub_path: Some(sub_path.clone()),
-	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
@@ -470,8 +461,7 @@ pub async fn light_scan_location(
 
 	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	media_data_extractor::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
+	media_processor::shallow(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }

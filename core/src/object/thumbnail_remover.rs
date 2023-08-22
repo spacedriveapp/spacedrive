@@ -26,7 +26,7 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
-use super::preview::THUMBNAIL_CACHE_DIR_NAME;
+use super::media::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 
 const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);

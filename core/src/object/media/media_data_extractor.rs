@@ -1,8 +1,7 @@
 use crate::{
-	job::{JobRunErrors, JobRunMetadata},
-	library::Library,
-	location::file_path_helper::{file_path_for_media_data, FilePathError, IsolatedFilePathData},
-	prisma::{location, media_data},
+	job::JobRunErrors,
+	location::file_path_helper::{file_path_for_media_processor, IsolatedFilePathData},
+	prisma::{location, media_data, PrismaClient},
 	util::error::FileIOError,
 };
 
@@ -18,22 +17,11 @@ use thiserror::Error;
 use tokio::task::spawn_blocking;
 use tracing::error;
 
-mod full_job;
-mod shallow;
-
-pub use full_job::MediaDataJobInit;
-pub use shallow::shallow;
-
 #[derive(Error, Debug)]
 pub enum MediaDataError {
-	#[error("sub path not found: <path='{}'>", .0.display())]
-	SubPathNotFound(Box<Path>),
-
 	// Internal errors
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
-	#[error(transparent)]
-	FilePath(#[from] FilePathError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
@@ -42,22 +30,13 @@ pub enum MediaDataError {
 	TokioJoinHandle(#[from] tokio::task::JoinError),
 }
 
-pub type MediaDataJobStep = Vec<file_path_for_media_data::Data>;
-
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct MediaDataJobRunMetadata {
-	media_data_extracted: u32,
-	media_data_skipped: u32,
+pub struct MediaDataExtractorMetadata {
+	pub extracted: u32,
+	pub skipped: u32,
 }
 
-impl JobRunMetadata for MediaDataJobRunMetadata {
-	fn update(&mut self, new_data: Self) {
-		self.media_data_extracted += new_data.media_data_extracted;
-		self.media_data_skipped += new_data.media_data_skipped;
-	}
-}
-
-static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.cloned()
@@ -83,21 +62,25 @@ pub async fn extract_media_data(path: impl AsRef<Path>) -> Result<MediaDataImage
 		.map_err(Into::into)
 }
 
-pub async fn inner_process_step(
-	step: &MediaDataJobStep,
+pub async fn process(
+	files_paths: impl IntoIterator<Item = &file_path_for_media_processor::Data>,
+	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
-	location: &location::Data,
-	library: &Library,
-) -> Result<(MediaDataJobRunMetadata, JobRunErrors), MediaDataError> {
-	let mut run_metadata = MediaDataJobRunMetadata::default();
+	db: &PrismaClient,
+) -> Result<(MediaDataExtractorMetadata, JobRunErrors), MediaDataError> {
+	let mut run_metadata = MediaDataExtractorMetadata::default();
+	let files_paths = files_paths.into_iter().collect::<Vec<_>>();
+	if files_paths.is_empty() {
+		return Ok((run_metadata, JobRunErrors::default()));
+	}
 
 	let location_path = location_path.as_ref();
 
-	let objects_already_with_media_data = library
-		.db
+	let objects_already_with_media_data = db
 		.media_data()
 		.find_many(vec![media_data::object_id::in_vec(
-			step.iter()
+			files_paths
+				.iter()
 				.filter_map(|file_path| file_path.object_id)
 				.collect(),
 		)])
@@ -108,11 +91,11 @@ pub async fn inner_process_step(
 		.map(|media_data| media_data.object_id)
 		.collect::<HashSet<_>>();
 
-	run_metadata.media_data_skipped = objects_already_with_media_data.len() as u32;
+	run_metadata.skipped = objects_already_with_media_data.len() as u32;
 
 	let (media_datas, errors) = {
-		let maybe_media_data = step
-			.iter()
+		let maybe_media_data = files_paths
+			.into_iter()
 			.filter_map(|file_path| {
 				file_path.object_id.and_then(|object_id| {
 					(!objects_already_with_media_data.contains(&object_id))
@@ -120,7 +103,7 @@ pub async fn inner_process_step(
 				})
 			})
 			.filter_map(|(file_path, object_id)| {
-				IsolatedFilePathData::try_from((location.id, file_path))
+				IsolatedFilePathData::try_from((location_id, file_path))
 					.map_err(|e| error!("{e:#?}"))
 					.ok()
 					.map(|iso_file_path| (location_path.join(iso_file_path), object_id))
@@ -140,6 +123,10 @@ pub async fn inner_process_step(
 			|(mut media_datas, mut errors), (maybe_media_data, path, object_id)| {
 				match maybe_media_data {
 					Ok(media_data) => media_datas.push((media_data, object_id)),
+					Err(MediaDataError::MediaData(sd_media_data::Error::NoExifDataOnPath(_))) => {
+						// No exif data on path, skipping
+						run_metadata.skipped += 1;
+					}
 					Err(e) => errors.push((e, path)),
 				}
 				(media_datas, errors)
@@ -147,8 +134,7 @@ pub async fn inner_process_step(
 		)
 	};
 
-	let created = library
-		.db
+	let created = db
 		.media_data()
 		.create_many(
 			media_datas
@@ -164,8 +150,8 @@ pub async fn inner_process_step(
 		.exec()
 		.await?;
 
-	run_metadata.media_data_extracted = created as u32;
-	run_metadata.media_data_skipped += errors.len() as u32;
+	run_metadata.extracted = created as u32;
+	run_metadata.skipped += errors.len() as u32;
 
 	Ok((
 		run_metadata,
