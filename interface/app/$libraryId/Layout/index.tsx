@@ -35,17 +35,13 @@ const Layout = () => {
 	usePlausiblePageViewMonitor({ currentPath: rawPath });
 	usePlausiblePingMonitor({ currentPath: rawPath });
 
-	const submitPing = useCallback(() => {
-		plausibleEvent({
-			event: {
-				type: 'ping'
-			}
-		});
-	}, [plausibleEvent]);
-
 	useEffect(() => {
 		const interval = setInterval(() => {
-			submitPing();
+			plausibleEvent({
+				event: {
+					type: 'ping'
+				}
+			});
 		}, 270 * 1000);
 		console.log('ran');
 
