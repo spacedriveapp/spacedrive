@@ -117,14 +117,14 @@ export default () => {
 	const { isScrolled } = useScrolled(explorer.scrollRef, sized ? listOffset - top : undefined);
 
 	const paddingX =
-		(typeof explorerView.padding === 'number'
-			? explorerView.padding
-			: explorerView.padding?.x) || 16;
+		(typeof explorerView.padding === 'object'
+			? explorerView.padding.x
+			: explorerView.padding) || 16;
 
 	const paddingY =
-		(typeof explorerView.padding === 'number'
-			? explorerView.padding
-			: explorerView.padding?.y) || 12;
+		(typeof explorerView.padding === 'object'
+			? explorerView.padding.y
+			: explorerView.padding) || 12;
 
 	const scrollBarWidth = 8;
 	const rowHeight = 45;

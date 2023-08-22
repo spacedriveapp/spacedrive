@@ -1,7 +1,5 @@
 import { type ReactNode, type RefObject, createContext, useContext } from 'react';
 
-export type ExplorerViewSelection = string | string[];
-
 export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;
 	top?: number;
