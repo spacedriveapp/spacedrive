@@ -22,10 +22,10 @@ import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
 import classes from './Thumb.module.scss';
 
-export enum ThumbType {
-	Icon,
-	Original,
-	Thumbnail
+export const enum ThumbType {
+	Icon = 'ICON',
+	Original = 'ORIGINAL',
+	Thumbnail = 'THUMBNAIL'
 }
 
 export interface ThumbProps {
@@ -40,7 +40,7 @@ export interface ThumbProps {
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
 	className?: string;
-	childClassName?: string | ((type: ThumbType) => string | undefined);
+	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
 }
 
 export const FileThumb = memo((props: ThumbProps) => {

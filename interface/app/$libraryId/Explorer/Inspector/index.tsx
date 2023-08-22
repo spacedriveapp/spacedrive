@@ -37,7 +37,7 @@ import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
-import { FileThumb, ThumbType } from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
@@ -128,7 +128,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
-						type !== ThumbType.Icon && thumbs.length > 1
+						type !== 'ICON' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}
