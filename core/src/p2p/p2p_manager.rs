@@ -108,10 +108,6 @@ impl P2PManager {
 
 		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
 
-		// TODO: proper shutdown
-		// https://docs.rs/ctrlc/latest/ctrlc/
-		// https://docs.rs/system_shutdown/latest/system_shutdown/
-
 		Ok((
 			Arc::new(Self {
 				pairing,
@@ -141,11 +137,6 @@ impl P2PManager {
 				while let Some(event) = stream.next().await {
 					match event {
 						Event::PeerDiscovered(event) => {
-							debug!(
-								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-								event.peer_id, event.addresses, event.metadata
-							);
-
 							events
 								.send(P2PEvent::DiscoveredPeer {
 									peer_id: event.peer_id,
@@ -156,8 +147,7 @@ impl P2PManager {
 
 							node.nlm.peer_discovered(event).await;
 						}
-						Event::PeerExpired { id, metadata } => {
-							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
+						Event::PeerExpired { id, .. } => {
 							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {

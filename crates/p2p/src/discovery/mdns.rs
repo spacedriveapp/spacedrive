@@ -12,7 +12,7 @@ use tokio::{
 	sync::{mpsc, RwLock},
 	time::{sleep_until, Instant, Sleep},
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId};
 
@@ -159,6 +159,7 @@ where
 								}
 
 								match TMetadata::from_hashmap(
+									&peer_id,
 									&info
 										.get_properties()
 										.iter()
@@ -204,11 +205,13 @@ where
 											discovered_peers.insert(peer_id, peer.clone());
 											peer
 										};
+										debug!(
+											"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+											peer.peer_id, peer.addresses, peer.metadata
+										);
 										return Some(Event::PeerDiscovered(peer));
 									}
-									Err(err) => {
-										error!("error parsing metadata for peer '{}': {}", raw_peer_id, err)
-									}
+									Err(err) => error!("error parsing metadata for peer '{}': {}", raw_peer_id, err)
 								}
 							}
 							Err(_) => warn!(
@@ -232,9 +235,11 @@ where
 										self.state.discovered.write().await;
 									let peer = discovered_peers.remove(&peer_id);
 
+									let metadata = peer.map(|p| p.metadata);
+									debug!("Peer '{peer_id}' expired with metadata: {metadata:?}");
 									return Some(Event::PeerExpired {
 										id: peer_id,
-										metadata: peer.map(|p| p.metadata),
+										metadata,
 									});
 								}
 							}
