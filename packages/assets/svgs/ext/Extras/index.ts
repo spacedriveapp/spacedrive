@@ -16,11 +16,6 @@ import { ReactComponent as anim } from './anim.svg';
 import { ReactComponent as astro } from './astro.svg';
 import { ReactComponent as astroconfig } from './astroconfig.svg';
 import { ReactComponent as atomizer } from './atomizer.svg';
-import { ReactComponent as audio } from './audio.svg';
-import { ReactComponent as audiomp3 } from './audiomp3.svg';
-import { ReactComponent as audioogg } from './audioogg.svg';
-import { ReactComponent as audiowav } from './audiowav.svg';
-import { ReactComponent as audiowv } from './audiowv.svg';
 import { ReactComponent as azure } from './azure.svg';
 import { ReactComponent as babel } from './babel.svg';
 import { ReactComponent as bat } from './bat.svg';
@@ -116,12 +111,6 @@ import { ReactComponent as haxe } from './haxe.svg';
 import { ReactComponent as haxeml } from './haxeml.svg';
 import { ReactComponent as hpp } from './hpp.svg';
 import { ReactComponent as htaccess } from './htaccess.svg';
-import { ReactComponent as image } from './image.svg';
-import { ReactComponent as imagegif } from './imagegif.svg';
-import { ReactComponent as imageico } from './imageico.svg';
-import { ReactComponent as imagejpg } from './imagejpg.svg';
-import { ReactComponent as imagepng } from './imagepng.svg';
-import { ReactComponent as imagewebp } from './imagewebp.svg';
 import { ReactComponent as imba } from './imba.svg';
 import { ReactComponent as info } from './info.svg';
 import { ReactComponent as ipynb } from './ipynb.svg';
@@ -193,7 +182,6 @@ import { ReactComponent as ocamll } from './ocamll.svg';
 import { ReactComponent as ocamly } from './ocamly.svg';
 import { ReactComponent as opengl } from './opengl.svg';
 import { ReactComponent as parcel } from './parcel.svg';
-import { ReactComponent as pdf } from './pdf.svg';
 import { ReactComponent as perl } from './perl.svg';
 import { ReactComponent as perlm } from './perlm.svg';
 import { ReactComponent as pfx } from './pfx.svg';
@@ -231,10 +219,6 @@ import { ReactComponent as rjson } from './rjson.svg';
 import { ReactComponent as robots } from './robots.svg';
 import { ReactComponent as rollup } from './rollup.svg';
 import { ReactComponent as rome } from './rome.svg';
-import { ReactComponent as root_folder } from './root_folder.svg';
-import { ReactComponent as root_folder_light } from './root_folder_light.svg';
-import { ReactComponent as root_folder_light_open } from './root_folder_light_open.svg';
-import { ReactComponent as root_folder_open } from './root_folder_open.svg';
 import { ReactComponent as rs } from './rs.svg';
 import { ReactComponent as rustfmt } from './rustfmt.svg';
 import { ReactComponent as sails } from './sails.svg';
@@ -323,11 +307,6 @@ export {
 	astro,
 	astroconfig,
 	atomizer,
-	audio,
-	audiomp3,
-	audioogg,
-	audiowav,
-	audiowv,
 	azure,
 	babel,
 	bat,
@@ -423,12 +402,6 @@ export {
 	haxeml,
 	hpp,
 	htaccess,
-	image,
-	imagegif,
-	imageico,
-	imagejpg,
-	imagepng,
-	imagewebp,
 	imba,
 	info,
 	ipynb,
@@ -500,7 +473,6 @@ export {
 	ocamly,
 	opengl,
 	parcel,
-	pdf,
 	perl,
 	perlm,
 	pfx,
@@ -538,10 +510,6 @@ export {
 	robots,
 	rollup,
 	rome,
-	root_folder,
-	root_folder_light,
-	root_folder_light_open,
-	root_folder_open,
 	rs,
 	rustfmt,
 	sails,
