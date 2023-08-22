@@ -63,7 +63,7 @@ impl StatefulJob for MediaProcessorJobInit {
 	type Step = MediaProcessorJobStep;
 	type RunMetadata = MediaProcessorMetadata;
 
-	const NAME: &'static str = "thumbnailer";
+	const NAME: &'static str = "media_processor";
 	const IS_BATCHED: bool = true;
 
 	async fn init(

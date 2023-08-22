@@ -42,20 +42,20 @@ export default function useJobInfo(
 				]
 			]
 		},
-		thumbnailer: {
-			name: `${isQueued ? 'Generate' : isRunning ? 'Generating' : 'Generated'} thumbnails`,
+		media_processor: {
+			name: `${isQueued ? 'Process' : isRunning ? 'Processing' : 'Processed'} media files`,
 			icon: Image,
 			textItems: [
 				[
 					{
 						text:
 							output?.thumbnails_created === 0
-								? 'None generated'
+								? 'None processed'
 								: `${
 										completedTaskCount
 											? formatNumber(completedTaskCount || 0)
 											: formatNumber(output?.thumbnails_created)
-								  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
+								  } of ${taskCount} ${plural(taskCount, 'media file')} processed`
 					},
 					{
 						text:
