@@ -20,6 +20,7 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
+import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
 
 const THUMB_TYPE = {
@@ -279,8 +280,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 					default:
 						return (
-							<img
+							<LayeredFileIcon
 								src={src}
+								kind={itemData.kind}
+								extension={itemData.extension}
 								onLoad={onLoad}
 								onError={() => setLoaded(false)}
 								decoding={props.size ? 'async' : 'sync'}
