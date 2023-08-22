@@ -43,10 +43,8 @@ const Layout = () => {
 				}
 			});
 		}, 270 * 1000);
-		console.log('ran');
 
 		return () => clearInterval(interval);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
