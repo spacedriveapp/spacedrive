@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ExplorerItem, FilePath, Object } from '../core';
 import { byteSize } from '../lib';
-import { ObjectKind, type ObjectKindKey } from './objectKind';
+import { ObjectKind } from './objectKind';
 
 export function getItemObject(data: ExplorerItem) {
 	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
@@ -18,12 +18,15 @@ export function getItemLocation(data: ExplorerItem) {
 
 export function getExplorerItemData(data?: null | ExplorerItem) {
 	const itemObj = data ? getItemObject(data) : null;
+
+	const kind = (itemObj?.kind ? ObjectKind[itemObj.kind] : null) ?? 'Unknown';
+
 	const itemData = {
 		name: null as string | null,
 		size: byteSize(0),
-		kind: ObjectKind[itemObj?.kind || ObjectKind.Unknown] ?? ObjectKind[ObjectKind.Unknown],
-		casId: null as string | null,
+		kind,
 		isDir: false,
+		casId: null as string | null,
 		extension: null as string | null,
 		locationId: null as number | null,
 		dateIndexed: null as string | null,
@@ -43,7 +46,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
 		itemData.extension = filePath.extension;
-		if ('kind' in filePath) itemData.kind = ObjectKind[filePath.kind] as ObjectKindKey;
+		if ('kind' in filePath) itemData.kind = ObjectKind[filePath.kind] ?? 'Unknown';
 		if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
 		if ('location_id' in filePath) itemData.locationId = filePath.location_id;
 		if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
@@ -53,11 +56,13 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 			itemData.size = byteSize(location.total_capacity - location.available_capacity);
 
 		itemData.name = location.name;
-		itemData.kind = ObjectKind[ObjectKind.Folder] as ObjectKindKey;
+		itemData.kind = ObjectKind[ObjectKind.Folder] ?? 'Unknown';
 		itemData.isDir = true;
 		itemData.locationId = location.id;
 		itemData.dateIndexed = location.date_created;
 	}
+
+	if (data.type == 'Path' && itemData.isDir) itemData.kind = 'Folder';
 
 	return itemData;
 }

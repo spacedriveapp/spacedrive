@@ -18,13 +18,11 @@ import {
 	type ExplorerItem,
 	type FilePath,
 	type NonIndexedPathItem,
-	ObjectKind,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
-	getItemObject,
-	isPath
+	getItemObject
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useScrolled } from '~/hooks';
@@ -190,21 +188,12 @@ export default () => {
 				header: 'Type',
 				size: settings.colSizes['kind'],
 				enableSorting: false,
-				accessorFn: (file) => {
-					return isPath(file) && file.item.is_dir
-						? 'Folder'
-						: ObjectKind[getItemObject(file)?.kind || 0];
-				},
-				cell: (cell) => {
-					const file = cell.row.original;
-					return (
-						<InfoPill className="bg-app-button/50">
-							{isPath(file) && file.item.is_dir
-								? 'Folder'
-								: ObjectKind[getItemObject(file)?.kind || 0]}
-						</InfoPill>
-					);
-				}
+				accessorFn: (file) => getExplorerItemData(file).kind,
+				cell: (cell) => (
+					<InfoPill className="bg-app-button/50">
+						{getExplorerItemData(cell.row.original).kind}
+					</InfoPill>
+				)
 			},
 			{
 				id: 'sizeInBytes',
