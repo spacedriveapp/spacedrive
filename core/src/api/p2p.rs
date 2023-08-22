@@ -11,6 +11,7 @@ use super::{Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
+		// TODO: Allow accessing listen addr's from rspc
 		.procedure("events", {
 			R.subscription(|node, _: ()| async move {
 				let mut rx = node.p2p.subscribe();

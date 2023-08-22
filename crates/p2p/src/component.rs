@@ -5,10 +5,18 @@ use std::{
 	task::{Context, Poll},
 };
 
+use tokio::sync::broadcast;
+
 use crate::{Manager, ManagerState, PeerId};
 
 /// can be registered into the P2PManager to extend it's functionality
 pub trait Component: Send + 'static {
+	/// TODO
+	// type InEvent;
+
+	/// TODO
+	type OutEvent: Clone;
+
 	/// Advertise service to the network.
 	/// This will be called when a change to the listen_addr's is made.
 	fn advertise(self: Pin<&mut Self>) {}
@@ -21,17 +29,57 @@ pub trait Component: Send + 'static {
 	fn on_event(self: Pin<&mut Self>, event: InternalEvent) {}
 
 	/// TODO
+	fn poll(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		state: &mut ManagerState,
+	) -> Poll<Option<Self::OutEvent>> {
+		Poll::Ready(None)
+	}
+}
+
+pub trait ErasedComponent {
+	fn advertise(self: Pin<&mut Self>);
+
+	fn get_candidates(self: Pin<&mut Self>, peer_id: PeerId, candidates: &mut Vec<SocketAddr>);
+
+	fn on_event(self: Pin<&mut Self>, event: InternalEvent);
+
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()>;
+}
+
+impl<C: Component> ErasedComponent for C {
+	fn advertise(self: Pin<&mut Self>) {
+		C::advertise(self)
+	}
+
+	fn get_candidates(self: Pin<&mut Self>, peer_id: PeerId, candidates: &mut Vec<SocketAddr>) {
+		C::get_candidates(self, peer_id, candidates)
+	}
+
+	fn on_event(self: Pin<&mut Self>, event: InternalEvent) {
+		C::on_event(self, event)
+	}
+
+	// TODO: Custom enum instead of `Poll`?
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()> {
-		Poll::Ready(())
+		match C::poll(self, cx, state) {
+			Poll::Ready(e) => {
+				// TODO
+
+				Poll::Ready(())
+			}
+			Poll::Pending => Poll::Pending,
+		}
 	}
 }
 
 /// Wrapper for addressing multiple services at once
 #[derive(Default)]
-pub(crate) struct Components(Vec<Pin<Box<dyn Component>>>);
+pub(crate) struct Components(Vec<Pin<Box<dyn ErasedComponent>>>);
 
 impl Components {
-	pub fn push(&mut self, service: Pin<Box<dyn Component>>) {
+	pub fn push(&mut self, service: Pin<Box<dyn ErasedComponent>>) {
 		// 32 comes from `streamunordered` crate which itself comes from `futures` I think.
 		// This is to avoid a complicated `Future` implementation and really more than 32 is an edge case we don't care about, rn.
 		debug_assert!(
@@ -87,6 +135,10 @@ impl Components {
 		Poll::Pending
 	}
 }
+
+pub struct ComponentRef<T: Clone>(broadcast::Sender<T>);
+
+impl<T: Clone> ComponentRef<T> {}
 
 // TODO: Maybe merging with `ManagerStreamAction`
 /// Internal event for P2PManager to emit to services

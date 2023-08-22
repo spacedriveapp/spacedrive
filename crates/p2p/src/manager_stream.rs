@@ -15,15 +15,16 @@ use libp2p::{
 	},
 	Swarm,
 };
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::{debug, error, info, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Component, Components, Event, InternalEvent, Metadata, PeerId, Service,
+	Component, ComponentRef, Components, Event, InternalEvent, Metadata, PeerId, Service,
 };
 
+// TODO: Remove this and have it be `InternalEvent` entirely
 /// TODO
 pub enum ManagerStreamAction {
 	/// Events are returned to the application via the `ManagerStream::next` method.
@@ -75,8 +76,12 @@ pub struct ManagerStream {
 
 impl ManagerStream {
 	/// Register a component onto the P2P system.
-	pub fn component(&mut self, component: impl Component) {
-		self.components.push(Box::pin(component));
+	pub fn component<C: Component>(&mut self, component: C) -> ComponentRef<()> {
+		// let (tx, rx) = broadcast::channel(25);
+
+		// self.components.push(Box::pin(component));
+
+		todo!();
 	}
 
 	/// This method progress the p2p system and return the next event.

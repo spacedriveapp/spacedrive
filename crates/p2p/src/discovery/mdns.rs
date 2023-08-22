@@ -36,16 +36,20 @@ impl Mdns {
 }
 
 impl Component for Mdns {
-	// TODO: How is the parent application gonna list for these events?
+	type OutEvent = ();
 
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>, state: &mut ManagerState) -> Poll<()> {
+	fn poll(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		state: &mut ManagerState,
+	) -> Poll<Option<Self::OutEvent>> {
 		// TODO: MDNS readvertisement every minute
 
 		// TODO: Receiving updates to `services`
 
 		// TODO: Incoming mDNS discoveries
-		// TODO: Reemit if node startup and debounce is happy with it.
+		// TODO: Re-emit if node startup and debounce is happy with it.
 
-		Poll::Ready(())
+		Poll::Ready(None)
 	}
 }

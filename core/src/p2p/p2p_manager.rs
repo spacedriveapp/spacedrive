@@ -67,10 +67,8 @@ pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<sd_p2p::Manager>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	// pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
-
 	node_config: Arc<config::Manager>,
 }
 
@@ -80,19 +78,6 @@ impl P2PManager {
 	) -> Result<(Arc<P2PManager>, ManagerStream), ManagerError> {
 		let (manager, mut stream) =
 			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &node_config.get().await.keypair).await?;
-
-		stream.component(Mdns::new()?);
-
-		// TODO: move this discovery stuff into nlm -> Cause delayed metadata loading
-		// let discovery = Discovery::new(&manager, metadata_manager.clone());
-		// let listen_addrs = discovery.listen_addrs(); // TODO: Allow accessing listen addr's from rspc
-		// stream.component(discovery);
-
-		info!(
-			"Node '{}' is now online listening at addresses: {:?}",
-			manager.peer_id(),
-			"todo" // TODO: `listen_addrs`
-		);
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
@@ -108,12 +93,10 @@ impl P2PManager {
 
 		Ok((
 			Arc::new(Self {
-				// service: todo!(), // TODO: manager.service(),
 				pairing,
 				events: (tx, rx),
 				manager,
 				spacedrop_pairing_reqs,
-				// metadata_manager,
 				spacedrop_progress,
 				node_config,
 			}),
@@ -121,7 +104,16 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(&self, mut stream: ManagerStream, node: Arc<Node>) {
+	// TODO: Returning error -> Maybe remove?
+	pub fn start(&self, mut stream: ManagerStream, node: Arc<Node>) -> Result<(), ManagerError> {
+		let mdns = stream.component(Mdns::new()?);
+
+		info!(
+			"Node '{}' is now online listening at addresses: {:?}",
+			"todo", // TODO: manager.peer_id(),
+			"todo"  // TODO: `listen_addrs`
+		);
+
 		tokio::spawn({
 			let manager = self.manager.clone();
 			let events = self.events.0.clone();
@@ -140,29 +132,29 @@ impl P2PManager {
 				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {
-						Event::PeerDiscovered(event) => {
-							debug!(
-								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-								event.peer_id, event.addresses, event.metadata
-							);
+						// Event::PeerDiscovered(event) => {
+						// 	debug!(
+						// 		"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+						// 		event.peer_id, event.addresses, event.metadata
+						// 	);
 
-							events
-								.send(P2PEvent::DiscoveredPeer {
-									peer_id: event.peer_id,
-									metadata: event.metadata.clone(),
-								})
-								.map_err(|_| error!("Failed to send event to p2p event stream!"))
-								.ok();
+						// 	events
+						// 		.send(P2PEvent::DiscoveredPeer {
+						// 			peer_id: event.peer_id,
+						// 			metadata: event.metadata.clone(),
+						// 		})
+						// 		.map_err(|_| error!("Failed to send event to p2p event stream!"))
+						// 		.ok();
 
-							node.nlm.peer_discovered(event).await;
-						}
-						Event::PeerExpired { id, metadata } => {
-							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
-							node.nlm.peer_expired(id).await;
-						}
+						// 	node.nlm.peer_discovered(event).await;
+						// }
+						// Event::PeerExpired { id, metadata } => {
+						// 	debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
+						// 	node.nlm.peer_expired(id).await;
+						// }
 						Event::PeerConnected(event) => {
 							debug!("Peer '{}' connected", event.peer_id);
-							node.nlm.peer_connected(event.peer_id).await;
+							// node.nlm.peer_connected(event.peer_id).await;
 
 							todo!();
 							// if event.establisher {
@@ -177,11 +169,11 @@ impl P2PManager {
 						}
 						Event::PeerDisconnected(peer_id) => {
 							debug!("Peer '{}' disconnected", peer_id);
-							node.nlm.peer_disconnected(peer_id).await;
+							// node.nlm.peer_disconnected(peer_id).await;
+							todo!();
 						}
 						Event::PeerMessage(event) => {
 							let events = events.clone();
-							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
@@ -309,6 +301,8 @@ impl P2PManager {
 				}
 			}
 		});
+
+		Ok(())
 	}
 
 	fn config_to_metadata(config: &NodeConfig, instances: Vec<RemoteIdentity>) -> PeerMetadata {
