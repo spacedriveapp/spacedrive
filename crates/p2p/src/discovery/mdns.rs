@@ -38,6 +38,7 @@ where
 	mdns_service_receiver: flume::Receiver<ServiceEvent>,
 	service_name: String,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
+	next_allowed_discovery_advertisement: Instant,
 	trigger_advertisement: mpsc::UnboundedReceiver<()>,
 	pub(crate) state: Arc<MdnsState<TMetadata>>,
 }
@@ -70,6 +71,7 @@ where
 				mdns_service_receiver,
 				service_name,
 				next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
+				next_allowed_discovery_advertisement: Instant::now(),
 				trigger_advertisement: advertise_rx,
 				state: state.clone(),
 			},
@@ -84,6 +86,13 @@ where
 
 	/// Do an mdns advertisement to the network.
 	async fn advertise(&mut self) {
+		self.inner_advertise().await;
+
+		self.next_mdns_advertisement =
+			Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
+	}
+
+	async fn inner_advertise(&self) {
 		let metadata = self.metadata_manager.get().to_hashmap();
 
 		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vec<Ip>, port)>`
@@ -125,9 +134,6 @@ where
 				Err(err) => warn!("error registering mdns service: {}", err),
 			}
 		}
-
-		self.next_mdns_advertisement =
-			Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
 	}
 
 	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
@@ -165,9 +171,19 @@ where
 												self.state.discovered.write().await;
 
 											let peer = if let Some(peer) = discovered_peers.remove(&peer_id) {
-
 												peer
 											} else {
+												// Found a new peer, let's readvertise our mdns service as it may have just come online
+												// `self.last_discovery_advertisement` is to prevent DOS-style attacks.
+												let now = Instant::now();
+												if self.next_allowed_discovery_advertisement <= now {
+													self.next_allowed_discovery_advertisement = now + Duration::from_secs(1);
+
+													self.inner_advertise().await;
+													self.next_mdns_advertisement =
+														Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
+												}
+
 												DiscoveredPeer {
 													manager: manager.clone(),
 													peer_id,
