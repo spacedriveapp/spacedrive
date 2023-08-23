@@ -192,9 +192,8 @@ export const FileThumb = memo((props: ThumbProps) => {
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
-											itemData.kind === 'Code'
-												? `language-${itemData.extension}`
-												: null,
+											itemData.kind === 'Code' &&
+												`language-${itemData.extension}`,
 											props.frame && [frameClassName, '!bg-none']
 										)}
 									/>
