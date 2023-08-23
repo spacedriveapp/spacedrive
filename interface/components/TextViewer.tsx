@@ -31,7 +31,7 @@ export const TextViewer = memo(
 		}, [href, onError, onLoad, syntaxHighlight, quickPreviewContent]);
 
 		return (
-			<pre className={className} style={{ colorScheme: 'dark' }}>
+			<pre className={className}>
 				{syntaxHighlight ? <code>{quickPreviewContent}</code> : quickPreviewContent}
 			</pre>
 		);

@@ -154,6 +154,18 @@ body {
 		}
 	}
 }
+.textviewer-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply bg-app-box;
+	}
+}
 
 @keyframes fadeIn {
 	from {
