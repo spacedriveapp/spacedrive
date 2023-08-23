@@ -1,9 +1,9 @@
 import { getIcon } from '@sd/assets/util';
-import { PropsWithChildren, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { type PropsWithChildren, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
 import {
-	ExplorerItem,
+	type ExplorerItem,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
@@ -122,7 +122,7 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 				if (isDir !== null) setSrc(getIcon(kind, isDarkTheme(), extension, isDir));
 				break;
 		}
-	}, [filePath?.id, itemData, props.data.item.id, thumbType]);
+	}, [itemData, thumbType]);
 
 	return (
 		<FileThumbWrapper size={size}>

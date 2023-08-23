@@ -1,9 +1,9 @@
 import { Plus } from 'phosphor-react';
-import { ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { ContextMenu } from '@sd/ui';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
-import { Conditional, ConditionalGroupProps } from './ConditionalItem';
+import { Conditional, type ConditionalGroupProps } from './ConditionalItem';
 import * as FilePathItems from './FilePath/Items';
 import * as ObjectItems from './Object/Items';
 import * as SharedItems from './SharedItems';
@@ -20,8 +20,7 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 
 		<SeparatedConditional items={[SharedItems.Details]} />
 
-		<ContextMenu.Separator />
-		<Conditional
+		<SeparatedConditional
 			items={[
 				SharedItems.RevealInNativeExplorer,
 				SharedItems.Rename,

@@ -1,36 +1,70 @@
 import { useMemo } from 'react';
-import { ExplorerItem, FilePath, Object } from '../core';
-import { ObjectKind, ObjectKindKey } from './objectKind';
+import type { ExplorerItem, FilePath, Object } from '../core';
+import { byteSize } from '../lib';
+import { ObjectKind } from './objectKind';
 
 export function getItemObject(data: ExplorerItem) {
 	return data.type === 'Object' ? data.item : data.type === 'Path' ? data.item.object : null;
 }
 
 export function getItemFilePath(data: ExplorerItem) {
-	return data.type === 'Path'
-		? data.item
-		: data.type === 'Object'
-		? data.item.file_paths[0]
-		: null;
+	if (data.type === 'Path' || data.type === 'NonIndexedPath') return data.item;
+	return (data.type === 'Object' && data.item.file_paths[0]) || null;
 }
 
 export function getItemLocation(data: ExplorerItem) {
 	return data.type === 'Location' ? data.item : null;
 }
 
-export function getExplorerItemData(data: ExplorerItem) {
-	const filePath = getItemFilePath(data);
-	const objectData = getItemObject(data);
+export function getExplorerItemData(data?: null | ExplorerItem) {
+	const itemObj = data ? getItemObject(data) : null;
 
-	return {
-		kind: (ObjectKind[objectData?.kind ?? 0] as ObjectKindKey) || null,
-		casId: filePath?.cas_id || null,
-		isDir: getItemFilePath(data)?.is_dir || false,
-		extension: filePath?.extension || null,
-		locationId: filePath?.location_id || null,
-		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
-		thumbnailKey: data.thumbnail_key
+	const kind = (itemObj?.kind ? ObjectKind[itemObj.kind] : null) ?? 'Unknown';
+
+	const itemData = {
+		name: null as string | null,
+		size: byteSize(0),
+		kind,
+		isDir: false,
+		casId: null as string | null,
+		extension: null as string | null,
+		locationId: null as number | null,
+		dateIndexed: null as string | null,
+		dateCreated: data?.item.date_created ?? itemObj?.date_created ?? null,
+		dateModified: null as string | null,
+		dateAccessed: itemObj?.date_accessed ?? null,
+		thumbnailKey: data?.thumbnail_key ?? [],
+		hasLocalThumbnail: data?.has_local_thumbnail ?? false // this will be overwritten if new thumbnail is generated
 	};
+
+	if (!data) return itemData;
+
+	const filePath = getItemFilePath(data);
+	const location = getItemLocation(data);
+	if (filePath) {
+		itemData.name = filePath.name;
+		itemData.size = byteSize(filePath.size_in_bytes_bytes);
+		itemData.isDir = filePath.is_dir ?? false;
+		itemData.extension = filePath.extension;
+		if ('kind' in filePath) itemData.kind = ObjectKind[filePath.kind] ?? 'Unknown';
+		if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
+		if ('location_id' in filePath) itemData.locationId = filePath.location_id;
+		if ('date_indexed' in filePath) itemData.dateIndexed = filePath.date_indexed;
+		if ('date_modified' in filePath) itemData.dateModified = filePath.date_modified;
+	} else if (location) {
+		if (location.total_capacity != null && location.available_capacity != null)
+			itemData.size = byteSize(location.total_capacity - location.available_capacity);
+
+		itemData.name = location.name;
+		itemData.kind = ObjectKind[ObjectKind.Folder] ?? 'Unknown';
+		itemData.isDir = true;
+		itemData.locationId = location.id;
+		itemData.dateIndexed = location.date_created;
+	}
+
+	if (data.type == 'Path' && itemData.isDir) itemData.kind = 'Folder';
+
+	return itemData;
 }
 
 export const useItemsAsObjects = (items: ExplorerItem[]) => {
