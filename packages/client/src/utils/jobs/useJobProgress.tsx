@@ -15,7 +15,7 @@ export const useJobProgress = (jobGroups?: JobGroup[]) => {
 
 	useLibrarySubscription(['jobs.progress'], {
 		onData(data) {
-			console.log(`setting ${data.id} progress`);
+			// console.log(`setting ${data.id} progress`);
 			setProgress((prev) => ({ ...prev, [data.id]: data }));
 		}
 	});

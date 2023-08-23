@@ -23,8 +23,7 @@ const drawerHeight = Platform.select({
 function JobIcon() {
 	const { data: isActive } = useLibraryQuery(['jobs.isActive']);
 	return isActive ? (
-		// NOTE: This animation looks weird on Mobile, need to find a better one
-		<PulseAnimation style={tw`h-[24px] w-[24px]`} speed={0.3} />
+		<PulseAnimation style={tw`h-[24px] w-[32px]`} speed={1.5} />
 	) : (
 		<CheckCircle color="white" size={24} />
 	);
@@ -52,7 +51,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<DrawerTags stackName={stackName} />
 				</View>
-				<View style={tw`flex flex-row gap-x-4`}>
+				<View style={tw`flex w-full flex-row items-center gap-x-4`}>
 					{/* Settings */}
 					<Pressable onPress={() => navigation.navigate('Settings')}>
 						<Gear color="white" size={24} />

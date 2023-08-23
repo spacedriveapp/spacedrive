@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import { memo } from 'react';
 import { View } from 'react-native';
-import { tw, twStyle } from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 
 type ProgressBarProps = {
 	value: number;
