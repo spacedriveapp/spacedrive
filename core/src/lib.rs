@@ -116,12 +116,13 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
+		// Finally load the libraries from disk into the library manager
+		node.libraries.init(&node).await?;
+
+		// It's import these are run after libraries are loaded!
 		locations_actor.start(node.clone());
 		jobs_actor.start(node.clone());
 		node.p2p.start(p2p_stream, node.clone());
-
-		// Finally load the libraries from disk into the library manager
-		node.libraries.init(&node).await?;
 
 		let router = api::mount();
 		info!("Spacedrive online.");
