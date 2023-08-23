@@ -1,11 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import { X } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
-import { ExplorerItem } from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import FileThumb from '../FilePath/Thumb';
+import { FileThumb } from '../FilePath/Thumb';
 import { getExplorerStore } from '../store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
@@ -16,7 +16,7 @@ export interface QuickPreviewProps extends Dialog.DialogProps {
 }
 
 export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
-	const explorerItem = useRef<null | ExplorerItem>(null);
+	const [explorerItem, setExplorerItem] = useState<null | ExplorerItem>(null);
 	const explorerStore = getExplorerStore();
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -34,7 +34,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				const { quickViewObject } = explorerStore;
 				if (quickViewObject != null) {
 					setIsOpen(true);
-					explorerItem.current = quickViewObject;
+					setExplorerItem(quickViewObject);
 				} else {
 					setIsOpen(false);
 				}
@@ -63,9 +63,9 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				}}
 			>
 				{transitions((styles, show) => {
-					if (!show || explorerItem.current == null) return null;
+					if (!show || explorerItem == null) return null;
 
-					const { item } = explorerItem.current;
+					const { item } = explorerItem;
 
 					return (
 						<>
@@ -106,15 +106,13 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
 													{'name' in item && item.name
 														? item.name
-														: 'Unkown Object'}
+														: 'Unknown Object'}
 												</span>
 											</Dialog.Title>
 										</nav>
 										<div className="flex h-full w-full shrink items-center justify-center overflow-hidden">
 											<FileThumb
-												size={0}
-												data={explorerItem.current}
-												className="w-full"
+												data={explorerItem}
 												loadOriginal
 												mediaControls
 											/>

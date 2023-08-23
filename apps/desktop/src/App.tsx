@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
+import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
@@ -74,6 +75,7 @@ const platform: Platform = {
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
+	confirm: (msg, cb) => confirm(msg).then(cb),
 	...commands
 };
 

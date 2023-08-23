@@ -10,12 +10,12 @@ import { valtioPersist } from '../lib';
 export type PlausiblePlatformType = 'web' | 'mobile' | 'desktop' | 'unknown';
 
 type TelemetryState = {
-	shareTelemetry: boolean;
+	shareFullTelemetry: boolean;
 	platform: PlausiblePlatformType;
 };
 
 export const telemetryStore = valtioPersist<TelemetryState>('sd-telemetryStore', {
-	shareTelemetry: false, // false by default, so functions cannot accidentally send data if the user has not decided
+	shareFullTelemetry: false, // false by default
 	platform: 'unknown'
 });
 

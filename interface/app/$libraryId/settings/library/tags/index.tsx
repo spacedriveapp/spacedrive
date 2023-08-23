@@ -21,6 +21,12 @@ export const Component = () => {
 		setSelectedTag(tagSelectedParam !== undefined ? tagSelectedParam : null);
 	}, [tagSelectedParam]);
 
+	// Set the first tag as selected when the tags list data is first loaded
+	useEffect(() => {
+		if (tags?.data?.length || 0 > 1 && !selectedTag) setSelectedTag(tags.data?.[0] ?? null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tags?.data]);
+
 	return (
 		<>
 			<Heading

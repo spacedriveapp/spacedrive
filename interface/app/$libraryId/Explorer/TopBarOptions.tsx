@@ -20,20 +20,23 @@ import { useExplorerSearchParams } from './util';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
+	const explorer = useExplorerContext();
+
+	const settings = explorer.useSettingsSnapshot();
 
 	const viewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'grid',
-			onClick: () => (getExplorerStore().layoutMode = 'grid'),
+			topBarActive: settings.layoutMode === 'grid',
+			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
 		},
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'rows',
-			onClick: () => (getExplorerStore().layoutMode = 'rows'),
+			topBarActive: settings.layoutMode === 'list',
+			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
 		},
 		// {
@@ -46,8 +49,8 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'media',
-			onClick: () => (getExplorerStore().layoutMode = 'media'),
+			topBarActive: settings.layoutMode === 'media',
+			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
 		}
 	];

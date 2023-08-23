@@ -6,6 +6,7 @@ export * from './DragRegion';
 export * from './Folder';
 export * from './GridList';
 export * from './PDFViewer';
+export * from './TEXTViewer';
 export * from './PasswordMeter';
 export * from './SubtleButton';
 export * from './TrafficLights';
