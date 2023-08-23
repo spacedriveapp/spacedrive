@@ -74,14 +74,10 @@ import { ReactComponent as exs } from './exs.svg';
 import { ReactComponent as exx } from './exx.svg';
 import { ReactComponent as farm } from './farm.svg';
 import { ReactComponent as figma } from './figma.svg';
-import { ReactComponent as file } from './file.svg';
-import { ReactComponent as file_light } from './file_light.svg';
 import { ReactComponent as flakelock } from './flakelock.svg';
 import { ReactComponent as flutter } from './flutter.svg';
 import { ReactComponent as flutterlock } from './flutterlock.svg';
 import { ReactComponent as flutterpackage } from './flutterpackage.svg';
-import { ReactComponent as folder } from './folder.svg';
-import { ReactComponent as folder_open } from './folder_open.svg';
 import { ReactComponent as fonteot } from './fonteot.svg';
 import { ReactComponent as fontotf } from './fontotf.svg';
 import { ReactComponent as fontttf } from './fontttf.svg';
@@ -265,7 +261,6 @@ import { ReactComponent as tsconfig } from './tsconfig.svg';
 import { ReactComponent as tsx } from './tsx.svg';
 import { ReactComponent as turbo } from './turbo.svg';
 import { ReactComponent as twig } from './twig.svg';
-import { ReactComponent as txt } from './txt.svg';
 import { ReactComponent as typescriptdef } from './typescriptdef.svg';
 import { ReactComponent as ui } from './ui.svg';
 import { ReactComponent as unocss } from './unocss.svg';
@@ -365,14 +360,10 @@ export {
 	exx,
 	farm,
 	figma,
-	file,
-	file_light,
 	flakelock,
 	flutter,
 	flutterlock,
 	flutterpackage,
-	folder,
-	folder_open,
 	fonteot,
 	fontotf,
 	fontttf,
@@ -556,7 +547,6 @@ export {
 	tsx,
 	turbo,
 	twig,
-	txt,
 	typescriptdef,
 	ui,
 	unocss,
