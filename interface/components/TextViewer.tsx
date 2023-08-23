@@ -2,7 +2,7 @@ import Prism from 'prismjs';
 import { memo, useEffect, useState } from 'react';
 import './prism.css';
 
-export interface TEXTViewerProps {
+export interface TextViewerProps {
 	src: string;
 	onLoad?: (event: HTMLElementEventMap['load']) => void;
 	onError?: (event: HTMLElementEventMap['error']) => void;
@@ -10,8 +10,8 @@ export interface TEXTViewerProps {
 	syntaxHighlight?: boolean;
 }
 
-export const TEXTViewer = memo(
-	({ src, onLoad, onError, className, syntaxHighlight }: TEXTViewerProps) => {
+export const TextViewer = memo(
+	({ src, onLoad, onError, className, syntaxHighlight }: TextViewerProps) => {
 		// Ignore empty urls
 		const href = !src || src === '#' ? null : src;
 		const [quickPreviewContent, setQuickPreviewContent] = useState('');

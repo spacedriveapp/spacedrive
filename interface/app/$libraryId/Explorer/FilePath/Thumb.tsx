@@ -13,7 +13,7 @@ import {
 	useState
 } from 'react';
 import { ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
-import { PDFViewer, TEXTViewer } from '~/components';
+import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
@@ -181,7 +181,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 							case 'Text':
 							case 'Code':
 								return (
-									<TEXTViewer
+									<TextViewer
 										src={src}
 										onLoad={onLoad}
 										onError={onError}
