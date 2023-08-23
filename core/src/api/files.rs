@@ -53,7 +53,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?)
 				})
 		})
-		.procedure("getMediaData", {
+		.procedure("getImageMediaData", {
 			R.with2(library())
 				.query(|(_, library), args: GetArgs| async move {
 					Ok(library
