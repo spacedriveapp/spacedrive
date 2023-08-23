@@ -28,7 +28,7 @@ export const TEXTViewer = memo(
 		loadContent();
 
 		useEffect(() => {
-			Prism.highlightAll();
+			syntaxHighlight && Prism.highlightAll();
 		}, [quickPreviewContent]);
 
 		return (
