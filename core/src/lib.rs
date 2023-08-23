@@ -14,7 +14,7 @@ use notifications::Notifications;
 pub use sd_prisma::*;
 
 use std::{
-	fmt,
+	env, fmt,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -26,7 +26,12 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{fmt as tracing_fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{
+	filter::{Directive, LevelFilter},
+	fmt as tracing_fmt,
+	prelude::*,
+	EnvFilter,
+};
 
 pub mod api;
 pub mod custom_uri;
@@ -133,6 +138,17 @@ impl Node {
 				.expect("Error setting up log file!"),
 		);
 
+		// Set a default if the user hasn't set an override
+		if env::var("RUST_LOG") == Err(env::VarError::NotPresent) {
+			let directive: Directive = if cfg!(debug_assertions) {
+				LevelFilter::DEBUG
+			} else {
+				LevelFilter::INFO
+			}
+			.into();
+			env::set_var("RUST_LOG", directive.to_string());
+		}
+
 		let collector = tracing_subscriber::registry()
 			.with(
 				tracing_fmt::Subscriber::new()
@@ -142,49 +158,13 @@ impl Node {
 			.with(
 				tracing_fmt::Subscriber::new()
 					.with_writer(std::io::stdout)
-					.with_filter(if cfg!(debug_assertions) {
-						EnvFilter::from_default_env()
-							.add_directive(
-								"warn".parse().expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core::location::manager=info"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core_mobile=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd-p2p=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"server=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"spacedrive=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"rspc=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-					} else {
-						EnvFilter::from("info")
-					}),
+					.with_filter(
+						EnvFilter::builder()
+							.from_env()
+							.unwrap()
+							// We don't wanna blow up the logs
+							.add_directive("sd_core::location::manager=info".parse().unwrap()),
+					),
 			);
 
 		tracing::collect::set_global_default(collector)
@@ -194,9 +174,18 @@ impl Node {
 			.ok();
 
 		let prev_hook = std::panic::take_hook();
-		std::panic::set_hook(Box::new(move |panic_info| {
-			error!("{}", panic_info);
-			prev_hook(panic_info);
+		std::panic::set_hook(Box::new(move |panic| {
+			if let Some(location) = panic.location() {
+				tracing::error!(
+					message = %panic,
+					panic.file = location.file(),
+					panic.line = location.line(),
+					panic.column = location.column(),
+				);
+			} else {
+				tracing::error!(message = %panic);
+			}
+			prev_hook(panic);
 		}));
 
 		guard
