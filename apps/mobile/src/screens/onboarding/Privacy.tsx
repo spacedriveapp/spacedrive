@@ -39,12 +39,12 @@ const RadioButton = ({ title, description, isSelected, style }: RadioButtonProps
 };
 
 const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) => {
-	const [shareTelemetry, setShareTelemetry] = useState<'share-telemetry' | 'no-share-telemetry'>(
+	const [shareTelemetry, setShareTelemetry] = useState<'share-telemetry' | 'share-minimal'>(
 		'share-telemetry'
 	);
 
 	const onPress = () => {
-		getOnboardingStore().shareTelemetry = shareTelemetry === 'share-telemetry';
+		getOnboardingStore().shareFullTelemetry = shareTelemetry === 'share-telemetry';
 		navigation.navigate('CreatingLibrary');
 	};
 
@@ -65,13 +65,13 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 					/>
 				</Pressable>
 				<Pressable
-					testID="share-nothing"
-					onPress={() => setShareTelemetry('no-share-telemetry')}
+					testID="share-minimal"
+					onPress={() => setShareTelemetry('share-minimal')}
 				>
 					<RadioButton
-						title="Share nothing"
-						description="Do not share any telemetry data with the developers"
-						isSelected={shareTelemetry === 'no-share-telemetry'}
+						title="Share the bare minimum"
+						description="Only share that I am an active user of Spacedrive and a few technical bits"
+						isSelected={shareTelemetry === 'share-minimal'}
 					/>
 				</Pressable>
 			</View>
