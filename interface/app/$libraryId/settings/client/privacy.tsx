@@ -4,19 +4,21 @@ import { Heading } from '../Layout';
 import Setting from '../Setting';
 
 export const Component = () => {
-	const shareTelemetry = useTelemetryState().shareTelemetry;
+	const fullTelemetry = useTelemetryState().shareFullTelemetry;
 
 	return (
 		<>
 			<Heading title="Privacy" description="" />
 			<Setting
 				mini
-				title="Share Telemetry and Usage Data"
-				description="Share anonymous usage data to help us improve the app."
+				title="Share Additional Telemetry and Usage Data"
+				description="Enable to share extra usage information and telemetry with developers in order to further improve the app.
+				If disabled, the only data sent is that you are an active user, which version of the app and core you're using, and which platform you're on
+				(e.g. mobile, web or desktop)."
 			>
 				<Switch
-					checked={shareTelemetry}
-					onClick={() => (telemetryStore.shareTelemetry = !shareTelemetry)}
+					checked={fullTelemetry}
+					onClick={() => (telemetryStore.shareFullTelemetry = !fullTelemetry)}
 					className="m-2 ml-4"
 					size="md"
 				/>

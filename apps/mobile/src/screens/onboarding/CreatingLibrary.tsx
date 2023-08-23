@@ -34,7 +34,7 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 			]);
 			// Switch to the new library
 			currentLibraryStore.id = lib.uuid;
-			if (obStore.shareTelemetry) {
+			if (obStore.shareFullTelemetry) {
 				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 			}
 		},
@@ -48,7 +48,7 @@ const CreatingLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'Creat
 	const created = useRef(false);
 
 	const create = async () => {
-		telemetryStore.shareTelemetry = obStore.shareTelemetry;
+		telemetryStore.shareFullTelemetry = obStore.shareFullTelemetry;
 		createLibrary.mutate({ name: obStore.newLibraryName });
 	};
 
