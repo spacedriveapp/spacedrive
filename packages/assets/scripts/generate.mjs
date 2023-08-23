@@ -13,7 +13,7 @@ import { dirname, join } from 'path';
 import prettier from 'prettier';
 import { fileURLToPath } from 'url';
 
-const assetFolders = ['icons', 'images', 'svgs/brands'];
+const assetFolders = ['icons', 'images', 'svgs/brands', 'svgs/ext/Extras', 'svgs/ext/Code'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
