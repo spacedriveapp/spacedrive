@@ -33,16 +33,16 @@ export const useContextValue = () => {
 
 export const shareTelemetry = RadioGroupField.options([
 	z.literal('share-telemetry'),
-	z.literal('no-telemetry')
+	z.literal('minimal-telemetry')
 ]).details({
 	'share-telemetry': {
 		heading: 'Share anonymous usage',
 		description:
 			'Share completely anonymous telemetry data to help the developers improve the app'
 	},
-	'no-telemetry': {
-		heading: 'Share nothing',
-		description: 'Do not share any telemetry data with the developers'
+	'minimal-telemetry': {
+		heading: 'Share the bare minimum',
+		description: 'Only share that I am an active user of Spacedrive and a few technical bits'
 	}
 });
 
@@ -74,7 +74,7 @@ const useFormState = () => {
 
 		// opted to place this here as users could change their mind before library creation/onboarding finalization
 		// it feels more fitting to configure it here (once)
-		telemetryStore.shareTelemetry = getOnboardingStore().shareTelemetry;
+		telemetryStore.shareFullTelemetry = getOnboardingStore().shareFullTelemetry;
 
 		try {
 			// show creation screen for a bit for smoothness
@@ -90,7 +90,7 @@ const useFormState = () => {
 				library
 			]);
 
-			if (telemetryStore.shareTelemetry) {
+			if (telemetryStore.shareFullTelemetry) {
 				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 			}
 

@@ -47,13 +47,16 @@ export default () => {
 					description="Share telemetry, even in debug mode (telemetry sharing must also be enabled in your client settings)"
 				>
 					<Switch
-						checked={debugState.shareTelemetry}
+						checked={debugState.shareFullTelemetry}
 						onClick={() => {
 							// if debug telemetry sharing is about to be disabled, but telemetry logging is enabled
 							// then disable it
-							if (!debugState.shareTelemetry === false && debugState.telemetryLogging)
+							if (
+								!debugState.shareFullTelemetry === false &&
+								debugState.telemetryLogging
+							)
 								getDebugState().telemetryLogging = false;
-							getDebugState().shareTelemetry = !debugState.shareTelemetry;
+							getDebugState().shareFullTelemetry = !debugState.shareFullTelemetry;
 						}}
 					/>
 				</Setting>
@@ -67,8 +70,11 @@ export default () => {
 						onClick={() => {
 							// if telemetry logging is about to be enabled, but debug telemetry sharing is disabled
 							// then enable it
-							if (!debugState.telemetryLogging && debugState.shareTelemetry === false)
-								getDebugState().shareTelemetry = true;
+							if (
+								!debugState.telemetryLogging &&
+								debugState.shareFullTelemetry === false
+							)
+								getDebugState().shareFullTelemetry = true;
 							getDebugState().telemetryLogging = !debugState.telemetryLogging;
 						}}
 					/>
