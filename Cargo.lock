@@ -7077,6 +7077,7 @@ dependencies = [
  "sd-media-metadata",
  "sd-p2p",
  "sd-prisma",
+ "sd-svg",
  "sd-sync",
  "sd-utils",
  "serde",
