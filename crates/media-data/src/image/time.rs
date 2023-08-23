@@ -90,10 +90,10 @@ impl serde::Serialize for MediaTime {
 		match self {
 			Self::Naive(t) => serializer.collect_str(&t.to_string()),
 			Self::Utc(t) => {
-				let local = NaiveDateTime::from_timestamp_micros(t.timestamp_micros()).ok_or_else(
+				let local = NaiveDateTime::from_timestamp_millis(t.timestamp_millis()).ok_or_else(
 					|| serde::ser::Error::custom("Error converting UTC to Naive time"),
 				)?;
-				serializer.collect_str(&local.to_string())
+				serializer.collect_str(&local.format("%Y-%m-%d %H:%M:%S").to_string())
 			}
 			Self::Undefined => serializer.collect_str("Undefined"),
 		}
