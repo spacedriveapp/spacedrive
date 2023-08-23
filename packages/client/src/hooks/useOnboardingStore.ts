@@ -13,7 +13,7 @@ const onboardingStoreDefaults = () => ({
 	newLibraryName: '',
 	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
-	shareTelemetry: true,
+	shareFullTelemetry: true,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false
 });

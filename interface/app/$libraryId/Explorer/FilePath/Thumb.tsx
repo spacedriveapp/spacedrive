@@ -1,12 +1,15 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
+	CSSProperties,
 	ImgHTMLAttributes,
 	ReactNode,
+	RefObject,
 	VideoHTMLAttributes,
 	memo,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState
 } from 'react';
@@ -18,6 +21,7 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
+import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
 
 const THUMB_TYPE = {
@@ -36,6 +40,9 @@ export interface ThumbProps {
 	size?: number;
 	cover?: boolean;
 	frame?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
+	extension?: boolean;
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
 	className?: string | GetClassName;
@@ -117,7 +124,7 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 			default:
 				setSrc(
 					getIcon(
-						itemData.isDir ? 'Folder' : itemData.kind,
+						itemData.isDir || parent?.type === 'Node' ? 'Folder' : itemData.kind,
 						isDark,
 						itemData.extension,
 						itemData.isDir
@@ -144,8 +151,8 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 					: {})
 			}}
 			className={clsx(
-				'relative flex items-center justify-center',
-				loaded ? 'visible' : 'invisible',
+				'relative flex shrink-0 items-center justify-center',
+				!loaded && 'invisible',
 				!props.size && 'h-full w-full',
 				props.cover && 'overflow-hidden',
 				typeof props.className === 'function'
@@ -210,9 +217,13 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 												onError={onError}
 												paused={props.pauseVideo}
 												controls={props.mediaControls}
+												blackBars={props.blackBars}
+												blackBarsSize={props.blackBarsSize}
 												className={clsx(
 													className,
-													props.frame && frameClassName
+													props.frame &&
+														!props.blackBars &&
+														frameClassName
 												)}
 											/>
 										);
@@ -267,17 +278,21 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 												: className,
 
 											props.frame &&
-												(itemData.kind !== 'Video' ||
-													thumbType === 'original')
+												(itemData.kind !== 'Video' || !props.blackBars)
 												? frameClassName
 												: null
 										)}
 										crossOrigin={
 											thumbType !== 'original' ? 'anonymous' : undefined
 										} // Here it is ok, because it is not a react attr
-										videoBars={itemData.kind === 'Video' && !props.cover}
+										blackBars={
+											props.blackBars &&
+											itemData.kind === 'Video' &&
+											!props.cover
+										}
+										blackBarsSize={props.blackBarsSize}
 										extension={
-											showExtension &&
+											props.extension &&
 											itemData.extension &&
 											itemData.kind === 'Video'
 												? itemData.extension
@@ -305,27 +320,25 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 
 interface ThumbnailProps extends ImgHTMLAttributes<HTMLImageElement> {
 	cover?: boolean;
-	videoBars?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
 	extension?: string;
 }
 
 const Thumbnail = memo(
 	({
 		crossOrigin,
-		videoBars,
+		blackBars,
+		blackBarsSize,
 		extension,
 		cover,
-		onError,
 		className,
 		...props
 	}: ThumbnailProps) => {
 		const ref = useRef<HTMLImageElement>(null);
 
-		const [size, setSize] = useState<{ width: number; height: number }>();
-
-		useCallbackToWatchResize(({ width, height }) => setSize({ width, height }), [], ref);
-
-		const videoBarSize = (size: number) => Math.floor(size / 10);
+		const size = useSize(ref);
+		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
 		return (
 			<>
@@ -334,27 +347,9 @@ const Thumbnail = memo(
 					// https://github.com/facebook/react/issues/14035#issuecomment-642227899
 					{...(crossOrigin ? { crossOrigin } : {})}
 					ref={ref}
-					onError={(e) => {
-						onError?.(e);
-						setSize(undefined);
-					}}
 					draggable={false}
-					className={clsx(className, videoBars && 'rounded border-black')}
-					style={
-						videoBars
-							? size
-								? size.height >= size.width
-									? {
-											borderLeftWidth: videoBarSize(size.height),
-											borderRightWidth: videoBarSize(size.height)
-									  }
-									: {
-											borderTopWidth: videoBarSize(size.width),
-											borderBottomWidth: videoBarSize(size.width)
-									  }
-								: {}
-							: {}
-					}
+					style={{ ...(blackBars ? blackBarsStyle : {}) }}
+					className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 					{...props}
 				/>
 
@@ -384,10 +379,15 @@ const Thumbnail = memo(
 
 interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 	paused?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
 }
 
-const Video = memo(({ paused, ...props }: VideoProps) => {
+const Video = memo(({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
 	const ref = useRef<HTMLVideoElement>(null);
+
+	const size = useSize(ref);
+	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
 	useEffect(() => {
 		if (!ref.current) return;
@@ -414,9 +414,49 @@ const Video = memo(({ paused, ...props }: VideoProps) => {
 			}}
 			playsInline
 			draggable={false}
+			style={{ ...(blackBars ? blackBarsStyle : {}) }}
+			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 		>
 			<p>Video preview is not supported.</p>
 		</video>
 	);
 });
+
+const useSize = (ref: RefObject<Element>) => {
+	const [size, setSize] = useState({ width: 0, height: 0 });
+
+	useCallbackToWatchResize(({ width, height }) => setSize({ width, height }), [], ref);
+
+	return size;
+};
+
+const useBlackBars = (videoSize: { width: number; height: number }, blackBarsSize?: number) => {
+	return useMemo(() => {
+		const { width, height } = videoSize;
+
+		const orientation = height > width ? 'vertical' : 'horizontal';
+
+		const barSize =
+			blackBarsSize ||
+			Math.floor(Math.ceil(orientation === 'vertical' ? height : width) / 10);
+
+		const xBarSize = orientation === 'vertical' ? barSize : 0;
+		const yBarSize = orientation === 'horizontal' ? barSize : 0;
+
+		return {
+			size: {
+				x: xBarSize,
+				y: yBarSize
+			},
+			style: {
+				borderLeftWidth: xBarSize,
+				borderRightWidth: xBarSize,
+				borderTopWidth: yBarSize,
+				borderBottomWidth: yBarSize,
+				borderColor: 'black',
+				borderRadius: 4
+			} satisfies CSSProperties
+		};
+	}, [videoSize, blackBarsSize]);
+};
