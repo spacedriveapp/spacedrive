@@ -34,7 +34,7 @@ pre[class*='language-'] {
 	border-radius: 0.3em;
 }
 
-:not(pre)>code[class*='language-'],
+:not(pre) > code[class*='language-'],
 pre[class*='language-'] {
 	@apply bg-app-focus;
 }

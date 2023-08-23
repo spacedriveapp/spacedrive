@@ -1,5 +1,5 @@
 import Prism from 'prismjs';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import './prism.css';
 
 export interface TextViewerProps {
@@ -17,17 +17,23 @@ export const TextViewer = memo(
 		const [quickPreviewContent, setQuickPreviewContent] = useState('');
 
 		useEffect(() => {
-			const loadContent = async () => {
-				if (!href) return;
-				const response = await fetch(href);
-				if (!response.ok) return onError();
-				response.text().then((text) => {
-					onLoad();
+			if (!href) return;
+
+			const controller = new AbortController();
+
+			fetch(href, { signal: controller.signal })
+				.then((response) => {
+					if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
+					return response.text();
+				})
+				.then((text) => {
+					onLoad?.(new UIEvent('load', {}));
 					setQuickPreviewContent(text);
-					syntaxHighlight && Prism.highlightAll();
-				});
-			};
-			loadContent();
+					if (syntaxHighlight) Prism.highlightAll();
+				})
+				.catch((error) => onError?.(new ErrorEvent('error', { message: `${error}` })));
+
+			return () => controller.abort();
 		}, [href, onError, onLoad, syntaxHighlight, quickPreviewContent]);
 
 		return (
