@@ -1,6 +1,6 @@
 /* eslint-disable no-case-declarations */
 import clsx from 'clsx';
-import { ExplorerItem, getItemFilePath, getItemLocation } from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { RenameLocationTextBox, RenamePathTextBox } from '../FilePath/RenameTextBox';
 
 export default function RenamableItemText(props: {
@@ -22,32 +22,37 @@ export default function RenamableItemText(props: {
 		disabled: !selected || disabled
 	};
 
-	switch (item.type) {
-		case 'Path':
-		case 'Object':
-			const filePathData = getItemFilePath(item);
-			if (!filePathData) break;
+	if (item.type === 'Location') {
+		const locationData = item.item;
+		return (
+			<RenameLocationTextBox
+				locationId={locationData.id}
+				itemId={locationData.id}
+				text={locationData.name}
+				{...sharedProps}
+			/>
+		);
+	} else {
+		const filePathData =
+			item.type === 'Path' || item.type === 'NonIndexedPath'
+				? item.item
+				: item.type === 'Object'
+				? item.item.file_paths[0]
+				: null;
+
+		if (filePathData) {
 			return (
 				<RenamePathTextBox
-					itemId={filePathData.id}
+					itemId={'id' in filePathData ? filePathData.id : null}
 					text={filePathData.name}
 					extension={filePathData.extension}
 					isDir={filePathData.is_dir || false}
-					locationId={filePathData.location_id}
+					locationId={'location_id' in filePathData ? filePathData.location_id : null}
 					{...sharedProps}
 				/>
 			);
-		case 'Location':
-			const locationData = getItemLocation(item);
-			if (!locationData) break;
-			return (
-				<RenameLocationTextBox
-					locationId={locationData.id}
-					itemId={locationData.id}
-					text={locationData.name}
-					{...sharedProps}
-				/>
-			);
+		}
 	}
+
 	return <div />;
 }

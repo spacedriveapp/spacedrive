@@ -209,6 +209,12 @@ impl Node {
 		info!("Spacedrive Core shutdown successful!");
 	}
 
+	pub(crate) fn emit(&self, event: CoreEvent) {
+		if let Err(e) = self.event_bus.0.send(event) {
+			warn!("Error sending event to event bus: {e:?}");
+		}
+	}
+
 	pub async fn emit_notification(&self, data: NotificationData, expires: Option<DateTime<Utc>>) {
 		let notification = Notification {
 			id: NotificationId::Node(self.notifications._internal_next_id()),

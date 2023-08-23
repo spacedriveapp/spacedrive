@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Columns, GridFour, Icon, MonitorPlay, Rows } from 'phosphor-react';
+import { Columns, GridFour, type Icon, MonitorPlay, Rows } from 'phosphor-react';
 import {
 	type HTMLAttributes,
 	type PropsWithChildren,
@@ -17,8 +17,8 @@ import {
 	type ExplorerItem,
 	type FilePath,
 	type Location,
+	type NonIndexedPathItem,
 	type Object,
-	getItemFilePath,
 	getItemObject,
 	isPath,
 	useLibraryContext,
@@ -36,6 +36,7 @@ import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
 import { getExplorerStore } from '../store';
+import { uniqueId } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -56,39 +57,47 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
-	function updateList<T = FilePath | Location>(list: T[], item: T, push: boolean) {
-		return !push ? [item, ...list] : [...list, item];
-	}
-
 	const onDoubleClick = async () => {
 		const selectedItems = [...explorer.selectedItems].reduce(
 			(items, item) => {
-				const sameAsClicked = data.item.id === item.item.id;
+				const sameAsClicked = uniqueId(data) === uniqueId(item);
 
 				switch (item.type) {
-					case 'Path':
-					case 'Object': {
-						const filePath = getItemFilePath(item);
-						if (filePath) {
-							if (isPath(item) && item.item.is_dir) {
-								items.dirs = updateList(items.dirs, filePath, !sameAsClicked);
-							} else items.paths = updateList(items.paths, filePath, !sameAsClicked);
-						}
+					case 'Location': {
+						items.locations.splice(sameAsClicked ? 0 : -1, 0, item.item);
 						break;
 					}
-
-					case 'Location': {
-						items.locations = updateList(items.locations, item.item, !sameAsClicked);
+					case 'NonIndexedPath': {
+						items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, item.item);
+						break;
+					}
+					default: {
+						for (const filePath of item.type === 'Path'
+							? [item.item]
+							: item.item.file_paths) {
+							if (isPath(item) && item.item.is_dir) {
+								items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
+							} else {
+								items.paths.splice(sameAsClicked ? 0 : -1, 0, filePath);
+							}
+						}
+						break;
 					}
 				}
 
 				return items;
 			},
 			{
-				paths: [],
 				dirs: [],
-				locations: []
-			} as { paths: FilePath[]; dirs: FilePath[]; locations: Location[] }
+				paths: [],
+				locations: [],
+				non_indexed: []
+			} as {
+				dirs: FilePath[];
+				paths: FilePath[];
+				locations: Location[];
+				non_indexed: NonIndexedPathItem[];
+			}
 		);
 
 		if (selectedItems.paths.length > 0 && !explorerView.isRenaming) {
@@ -119,25 +128,39 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 		}
 
 		if (selectedItems.dirs.length > 0) {
-			const item = selectedItems.dirs[0];
-			if (!item) return;
+			const [item] = selectedItems.dirs;
+			if (item) {
+				navigate({
+					pathname: `../location/${item.location_id}`,
+					search: createSearchParams({
+						path: `${item.materialized_path}${item.name}/`
+					}).toString()
+				});
+				return;
+			}
+		}
 
-			navigate({
-				pathname: `../location/${item.location_id}`,
-				search: createSearchParams({
-					path: `${item.materialized_path}${item.name}/`
-				}).toString()
-			});
-		} else if (selectedItems.locations.length > 0) {
-			const location = selectedItems.locations[0];
-			if (!location) return;
+		if (selectedItems.locations.length > 0) {
+			const [location] = selectedItems.locations;
+			if (location) {
+				navigate({
+					pathname: `../location/${location.id}`,
+					search: createSearchParams({
+						path: `/`
+					}).toString()
+				});
+				return;
+			}
+		}
 
-			navigate({
-				pathname: `../location/${location.id}`,
-				search: createSearchParams({
-					path: `/`
-				}).toString()
-			});
+		if (selectedItems.non_indexed.length > 0) {
+			const [non_indexed] = selectedItems.non_indexed;
+			if (non_indexed) {
+				navigate({
+					search: createSearchParams({ path: non_indexed.path }).toString()
+				});
+				return;
+			}
 		}
 	};
 
@@ -307,11 +330,13 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 
 			const paths: number[] = [];
 
-			for (const item of explorer.selectedItems) {
-				const path = getItemFilePath(item);
-				if (!path) return;
-				paths.push(path.id);
-			}
+			for (const item of explorer.selectedItems)
+				for (const path of item.type === 'Path'
+					? [item.item]
+					: item.type === 'Object'
+					? item.item.file_paths
+					: [])
+					paths.push(path.id);
 
 			if (!isNonEmpty(paths)) return;
 
