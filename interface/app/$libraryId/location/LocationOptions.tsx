@@ -1,7 +1,7 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { Archive, Copy, FolderDotted, Gear, IconContext, Image } from 'phosphor-react';
 import { useNavigate } from 'react-router';
-import { Location, useLibraryMutation } from '@sd/client';
+import { type Location, useLibraryMutation } from '@sd/client';
 import {
 	Button,
 	Input,
@@ -73,12 +73,14 @@ export default function LocationOptions({ location, path }: { location: Location
 						</PopoverSection>
 						<PopoverDivider />
 						<PopoverSection>
-							<OptionButton onClick={() => scanLocationSubPath.mutate(
-								{
-									location_id: location.id,
-									sub_path: path ?? ''
+							<OptionButton
+								onClick={() =>
+									scanLocationSubPath.mutate({
+										location_id: location.id,
+										sub_path: path ?? ''
+									})
 								}
-							)}>
+							>
 								<FolderDotted />
 								Re-index
 							</OptionButton>

@@ -1,6 +1,6 @@
 import { ArrowBendUpRight, TagSimple } from 'phosphor-react';
 import { useMemo } from 'react';
-import { ObjectKind, useLibraryMutation } from '@sd/client';
+import { ObjectKind, type ObjectKindEnum, useLibraryMutation } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
@@ -66,7 +66,7 @@ export const ConvertObject = new ConditionalItem({
 		const { selectedObjects } = useContextMenuContext();
 
 		const kinds = useMemo(() => {
-			const set = new Set<ObjectKind>();
+			const set = new Set<ObjectKindEnum>();
 
 			for (const o of selectedObjects) {
 				if (o.kind === null || !ConvertableKinds.includes(o.kind)) break;

@@ -15,12 +15,18 @@ import {
 	Path,
 	Snowflake
 } from 'phosphor-react';
-import { HTMLAttributes, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-	ExplorerItem,
-	ObjectKind,
+	type HTMLAttributes,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState
+} from 'react';
+import {
+	type ExplorerItem,
 	byteSize,
-	bytesToNumber,
+	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
 	useItemsAsObjects,
@@ -30,10 +36,10 @@ import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
-import { stringify } from '~/util/uuid';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
+import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
 import Note from './Note';
 
@@ -43,7 +49,22 @@ export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow sha
 export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
 export const MetaTitle = tw.h5`text-xs font-bold`;
 
+type MetadataDate = Date | { from: Date; to: Date } | null;
+
 const DATE_FORMAT = 'D MMM YYYY';
+const formatDate = (date: MetadataDate | string | undefined) => {
+	if (!date) return;
+	if (date instanceof Date || typeof date === 'string') return dayjs(date).format(DATE_FORMAT);
+
+	const { from, to } = date;
+
+	const sameMonth = from.getMonth() === to.getMonth();
+	const sameYear = from.getFullYear() === to.getFullYear();
+
+	const format = ['D', !sameMonth && 'MMM', !sameYear && 'YYYY'].filter(Boolean).join(' ');
+
+	return `${dayjs(from).format(format)} - ${dayjs(to).format(DATE_FORMAT)}`;
+};
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	showThumbnail?: boolean;
@@ -92,7 +113,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 		<>
 			{lastThreeItems.map((item, i, thumbs) => (
 				<FileThumb
-					key={item.item.id}
+					key={uniqueId(item)}
 					data={item}
 					loadOriginal
 					frame
@@ -107,7 +128,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
-						type !== 'icon' && thumbs.length > 1
+						type !== 'ICON' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}
@@ -118,37 +139,48 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 };
 
 const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
-	const filePathData = getItemFilePath(item);
 	const objectData = getItemObject(item);
-
-	const isDir = item.type === 'Path' && item.item.is_dir;
-
 	const readyToFetch = useIsFetchReady(item);
+	const isNonIndexed = item.type === 'NonIndexedPath';
 
-	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
-		enabled: readyToFetch && !!objectData
+	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
+		enabled: !!objectData && readyToFetch
 	});
 
-	const object = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
-		enabled: readyToFetch && !!objectData
+	const object = useLibraryQuery(['files.get', { id: objectData?.id ?? -1 }], {
+		enabled: !!objectData && readyToFetch
 	});
 
-	const fileFullPath = useLibraryQuery(['files.getPath', filePathData?.id || -1], {
-		enabled: readyToFetch && !!filePathData
+	let { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
+		enabled: !!objectData && readyToFetch
 	});
 
-	const pubId = useMemo(
-		() => (object?.data?.pub_id ? stringify(object.data.pub_id) : null),
-		[object?.data?.pub_id]
-	);
+	if (fileFullPath == null) {
+		switch (item.type) {
+			case 'Location':
+			case 'NonIndexedPath':
+				fileFullPath = item.item.path;
+		}
+	}
 
-	const formatDate = (date: string | null | undefined) => date && dayjs(date).format(DATE_FORMAT);
+	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
+		useExplorerItemData(item);
+
+	const pubId = object?.data ? uniqueId(object?.data) : null;
+
+	let extension, integrityChecksum;
+	const filePathItem = getItemFilePath(item);
+	if (filePathItem) {
+		extension = 'extension' in filePathItem ? filePathItem.extension : null;
+		integrityChecksum =
+			'integrity_checksum' in filePathItem ? filePathItem.integrity_checksum : null;
+	}
 
 	return (
 		<>
 			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
-				{filePathData?.name}
-				{filePathData?.extension && `.${filePathData.extension}`}
+				{name}
+				{extension && `.${extension}`}
 			</h3>
 
 			{objectData && (
@@ -173,38 +205,27 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer>
-				<MetaData
-					icon={Cube}
-					label="Size"
-					value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
-				/>
+				<MetaData icon={Cube} label="Size" value={`${size}`} />
 
-				<MetaData icon={Clock} label="Created" value={formatDate(item.item.date_created)} />
+				<MetaData icon={Clock} label="Created" value={formatDate(dateCreated)} />
 
-				<MetaData
-					icon={Eraser}
-					label="Modified"
-					value={formatDate(filePathData?.date_modified)}
-				/>
+				<MetaData icon={Eraser} label="Modified" value={formatDate(dateModified)} />
 
-				<MetaData
-					icon={Barcode}
-					label="Indexed"
-					value={formatDate(filePathData?.date_indexed)}
-				/>
-				<MetaData
-					icon={FolderOpen}
-					label="Accessed"
-					value={formatDate(objectData?.date_accessed)}
-				/>
+				{isNonIndexed || (
+					<MetaData icon={Barcode} label="Indexed" value={formatDate(dateIndexed)} />
+				)}
+
+				{isNonIndexed || (
+					<MetaData icon={FolderOpen} label="Accessed" value={formatDate(dateAccessed)} />
+				)}
 
 				<MetaData
 					icon={Path}
 					label="Path"
-					value={fileFullPath.data}
+					value={fileFullPath}
 					onClick={() => {
 						// TODO: Add toast notification
-						fileFullPath.data && navigator.clipboard.writeText(fileFullPath.data);
+						fileFullPath && navigator.clipboard.writeText(fileFullPath);
 					}}
 				/>
 			</MetaContainer>
@@ -212,9 +233,9 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			<Divider />
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
-				<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
 
-				{filePathData?.extension && <InfoPill>{filePathData.extension}</InfoPill>}
+				{extension && <InfoPill>{extension}</InfoPill>}
 
 				{tags.data?.map((tag) => (
 					<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
@@ -246,29 +267,25 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					<Divider />
 
 					<MetaContainer>
-						<MetaData
-							icon={Snowflake}
-							label="Content ID"
-							value={filePathData?.cas_id}
-						/>
+						{isNonIndexed || (
+							<MetaData icon={Snowflake} label="Content ID" value={casId} />
+						)}
 
-						{filePathData?.integrity_checksum && (
+						{integrityChecksum && (
 							<MetaData
 								icon={CircleWavyCheck}
 								label="Checksum"
-								value={filePathData.integrity_checksum}
+								value={integrityChecksum}
 							/>
 						)}
 
-						<MetaData icon={Hash} label="Object ID" value={pubId} />
+						{isNonIndexed || <MetaData icon={Hash} label="Object ID" value={pubId} />}
 					</MetaContainer>
 				</>
 			)}
 		</>
 	);
 };
-
-type MetadataDate = Date | { from: Date; to: Date } | null;
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const explorerStore = useExplorerStore();
@@ -286,21 +303,6 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		['tags.getWithObjects', selectedObjects.map(({ id }) => id)],
 		{ enabled: readyToFetch && !explorerStore.isDragging }
 	);
-
-	const formatDate = (metadataDate: MetadataDate) => {
-		if (!metadataDate) return;
-
-		if (metadataDate instanceof Date) return dayjs(metadataDate).format(DATE_FORMAT);
-
-		const { from, to } = metadataDate;
-
-		const sameMonth = from.getMonth() === to.getMonth();
-		const sameYear = from.getFullYear() === to.getFullYear();
-
-		const format = ['D', !sameMonth && 'MMM', !sameYear && 'YYYY'].filter(Boolean).join(' ');
-
-		return `${dayjs(from).format(format)} - ${dayjs(to).format(DATE_FORMAT)}`;
-	};
 
 	const getDate = useCallback((metadataDate: MetadataDate, date: Date) => {
 		date.setHours(0, 0, 0, 0);
@@ -322,65 +324,45 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 		() =>
 			items.reduce(
 				(metadata, item) => {
-					const filePathData = getItemFilePath(item);
-					const objectData = getItemObject(item);
+					const { kind, size, dateCreated, dateAccessed, dateModified, dateIndexed } =
+						getExplorerItemData(item);
 
-					if (filePathData?.size_in_bytes_bytes) {
-						metadata.size += bytesToNumber(filePathData.size_in_bytes_bytes);
-					}
+					metadata.size += size.original;
 
-					if (filePathData?.date_created) {
-						metadata.created = getDate(
-							metadata.created,
-							new Date(filePathData.date_created)
-						);
-					}
+					if (dateCreated)
+						metadata.created = getDate(metadata.created, new Date(dateCreated));
 
-					if (filePathData?.date_modified) {
-						metadata.modified = getDate(
-							metadata.modified,
-							new Date(filePathData.date_modified)
-						);
-					}
+					if (dateModified)
+						metadata.modified = getDate(metadata.modified, new Date(dateModified));
 
-					if (filePathData?.date_indexed) {
-						metadata.indexed = getDate(
-							metadata.indexed,
-							new Date(filePathData.date_indexed)
-						);
-					}
+					if (dateIndexed)
+						metadata.indexed = getDate(metadata.indexed, new Date(dateIndexed));
 
-					if (objectData?.date_accessed) {
-						metadata.accessed = getDate(
-							metadata.accessed,
-							new Date(objectData.date_accessed)
-						);
-					}
+					if (dateAccessed)
+						metadata.accessed = getDate(metadata.accessed, new Date(dateAccessed));
 
-					const kind =
-						item.type === 'Path' && item.item.is_dir
-							? 'Folder'
-							: ObjectKind[objectData?.kind || 0];
+					metadata.types.add(item.type);
 
-					if (kind) {
-						const kindItems = metadata.kinds.get(kind);
-						if (!kindItems) metadata.kinds.set(kind, [item]);
-						else metadata.kinds.set(kind, [...kindItems, item]);
-					}
+					const kindItems = metadata.kinds.get(kind);
+					if (!kindItems) metadata.kinds.set(kind, [item]);
+					else metadata.kinds.set(kind, [...kindItems, item]);
 
 					return metadata;
 				},
-				{ size: BigInt(0), indexed: null, kinds: new Map() } as {
+				{ size: BigInt(0), indexed: null, types: new Set(), kinds: new Map() } as {
 					size: bigint;
 					created: MetadataDate;
 					modified: MetadataDate;
 					indexed: MetadataDate;
 					accessed: MetadataDate;
+					types: Set<ExplorerItem['type']>;
 					kinds: Map<string, ExplorerItem[]>;
 				}
 			),
 		[items, getDate]
 	);
+
+	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
 	return (
 		<>
@@ -388,12 +370,16 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				<MetaData icon={Cube} label="Size" value={`${byteSize(metadata.size)}`} />
 				<MetaData icon={Clock} label="Created" value={formatDate(metadata.created)} />
 				<MetaData icon={Eraser} label="Modified" value={formatDate(metadata.modified)} />
-				<MetaData icon={Barcode} label="Indexed" value={formatDate(metadata.indexed)} />
-				<MetaData
-					icon={FolderOpen}
-					label="Accessed"
-					value={formatDate(metadata.accessed)}
-				/>
+				{onlyNonIndexed || (
+					<MetaData icon={Barcode} label="Indexed" value={formatDate(metadata.indexed)} />
+				)}
+				{onlyNonIndexed || (
+					<MetaData
+						icon={FolderOpen}
+						label="Accessed"
+						value={formatDate(metadata.accessed)}
+					/>
+				)}
 			</MetaContainer>
 
 			<Divider />

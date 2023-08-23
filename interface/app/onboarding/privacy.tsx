@@ -10,7 +10,7 @@ export default function OnboardingPrivacy() {
 		<Form
 			form={form}
 			onSubmit={(e) => {
-				getOnboardingStore().shareTelemetry =
+				getOnboardingStore().shareFullTelemetry =
 					form.getValues('shareTelemetry') === 'share-telemetry';
 				return onSubmit(e);
 			}}

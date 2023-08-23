@@ -25,7 +25,9 @@ import {
 	initPlausible,
 	useClientContext,
 	useInvalidateQuery,
-	usePlausiblePageViewMonitor
+	usePlausibleEvent,
+	usePlausiblePageViewMonitor,
+	usePlausiblePingMonitor
 } from '@sd/client';
 import { GlobalModals } from './components/modal/GlobalModals';
 import { useTheme } from './hooks/useTheme';
@@ -46,6 +48,7 @@ changeTwTheme('dark');
 
 function AppNavigation() {
 	const { libraries, library } = useClientContext();
+	const plausibleEvent = usePlausibleEvent();
 
 	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
 	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
@@ -56,6 +59,19 @@ function AppNavigation() {
 	const [currentPath, setCurrentPath] = useState<string>('/');
 
 	usePlausiblePageViewMonitor({ currentPath });
+	usePlausiblePingMonitor({ currentPath });
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			plausibleEvent({
+				event: {
+					type: 'ping'
+				}
+			});
+		}, 270 * 1000);
+
+		return () => clearInterval(interval);
+	}, []);
 
 	if (library === null && libraries.data) {
 		currentLibraryStore.id = libraries.data[0]?.uuid ?? null;
