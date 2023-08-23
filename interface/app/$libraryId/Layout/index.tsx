@@ -17,7 +17,6 @@ import { usePlatform } from '~/util/Platform';
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import { LayoutContext } from './Context';
 import Sidebar from './Sidebar';
-import Toasts from './Toasts';
 
 const Layout = () => {
 	const { libraries, library } = useClientContext();
@@ -89,7 +88,6 @@ const Layout = () => {
 						</h1>
 					)}
 				</div>
-				<Toasts />
 			</div>
 		</LayoutContext.Provider>
 	);
