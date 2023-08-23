@@ -58,8 +58,8 @@ pub async fn svg_to_dynamic_image(path: &Path) -> SvgResult<DynamicImage> {
 	.ok_or(SvgError::InvalidSize)?;
 
 	let transform = tiny_skia::Transform::from_scale(
-		size.width() as f32 / rtree.size.width() as f32,
-		size.height() as f32 / rtree.size.height() as f32,
+		size.width() as f32 / rtree.size.width(),
+		size.height() as f32 / rtree.size.height(),
 	);
 
 	let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) else {
