@@ -48,6 +48,12 @@ pub enum P2PEvent {
 	ExpiredPeer {
 		peer_id: PeerId,
 	},
+	ConnectedPeer {
+		peer_id: PeerId,
+	},
+	DisconnectedPeer {
+		peer_id: PeerId,
+	},
 	SpacedropRequest {
 		id: Uuid,
 		peer_id: PeerId,
@@ -159,7 +165,13 @@ impl P2PManager {
 							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {
-							debug!("Peer '{}' connected", event.peer_id);
+							events
+								.send(P2PEvent::ConnectedPeer {
+									peer_id: event.peer_id,
+								})
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_connected(event.peer_id).await;
 
 							if event.establisher {
@@ -173,7 +185,11 @@ impl P2PManager {
 							}
 						}
 						Event::PeerDisconnected(peer_id) => {
-							debug!("Peer '{}' disconnected", peer_id);
+							events
+								.send(P2PEvent::DisconnectedPeer { peer_id })
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {

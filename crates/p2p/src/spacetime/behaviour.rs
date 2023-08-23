@@ -16,7 +16,7 @@ use libp2p::{
 use thiserror::Error;
 use tracing::debug;
 
-use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction, Metadata, PeerId};
+use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction2, Metadata, PeerId};
 
 use super::SpaceTimeConnection;
 
@@ -53,7 +53,7 @@ impl<TMetadata: Metadata> SpaceTime<TMetadata> {
 
 impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 	type ConnectionHandler = SpaceTimeConnection<TMetadata>;
-	type OutEvent = ManagerStreamAction<TMetadata>;
+	type OutEvent = ManagerStreamAction2<TMetadata>;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -116,13 +116,14 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 					debug!("sending establishment request to peer '{}'", peer_id);
 					if other_established == 0 {
 						self.pending_events.push_back(ToSwarm::GenerateEvent(
-							ManagerStreamAction::Event(Event::PeerConnected(ConnectedPeer {
+							Event::PeerConnected(ConnectedPeer {
 								peer_id,
 								establisher: match endpoint {
 									ConnectedPoint::Dialer { .. } => true,
 									ConnectedPoint::Listener { .. } => false,
 								},
-							})),
+							})
+							.into(),
 						));
 					}
 				}
@@ -136,7 +137,7 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 				if remaining_established == 0 {
 					debug!("Disconnected from peer '{}'", peer_id);
 					self.pending_events.push_back(ToSwarm::GenerateEvent(
-						ManagerStreamAction::Event(Event::PeerDisconnected(peer_id)),
+						Event::PeerDisconnected(peer_id).into(),
 					));
 				}
 			}
