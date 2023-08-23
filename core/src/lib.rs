@@ -173,7 +173,6 @@ impl Node {
 			})
 			.ok();
 
-		let prev_hook = std::panic::take_hook();
 		std::panic::set_hook(Box::new(move |panic| {
 			if let Some(location) = panic.location() {
 				tracing::error!(
@@ -185,7 +184,6 @@ impl Node {
 			} else {
 				tracing::error!(message = %panic);
 			}
-			prev_hook(panic);
 		}));
 
 		guard
