@@ -7145,7 +7145,6 @@ dependencies = [
  "chrono",
  "image",
  "kamadak-exif",
- "sd-prisma",
  "serde",
  "serde_json",
  "specta",

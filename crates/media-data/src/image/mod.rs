@@ -1,5 +1,4 @@
 use exif::Tag;
-use sd_prisma::prisma::media_data;
 use std::path::Path;
 
 mod composite;
@@ -122,46 +121,4 @@ impl MediaDataImage {
 
 		Ok(data)
 	}
-
-	/// This is only here as there's no easy impl from this foreign type to prisma's `CreateUnchecked`
-	pub fn to_query(
-		self,
-		object_id: sd_prisma::prisma::media_data::object_id::Type,
-	) -> Result<sd_prisma::prisma::media_data::CreateUnchecked> {
-		Ok(media_data::CreateUnchecked {
-			object_id,
-			dimensions: serde_json::to_vec(&self.dimensions)?,
-			media_date: serde_json::to_vec(&self.date_taken)?,
-			camera_data: serde_json::to_vec(&self.camera_data)?,
-			_params: vec![
-				media_data::media_location::set(serde_json::to_vec(&self.location).ok()),
-				media_data::artist::set(serde_json::to_vec(&self.artist).ok()),
-				media_data::copyright::set(serde_json::to_vec(&self.copyright).ok()),
-				media_data::exif_version::set(serde_json::to_vec(&self.exif_version).ok()),
-			],
-		})
-	}
-
-	pub fn from_prisma_data(data: sd_prisma::prisma::media_data::Data) -> Result<Self> {
-		Ok(Self {
-			dimensions: serde_json::from_slice(&data.dimensions)?,
-			camera_data: serde_json::from_slice(&data.camera_data)?,
-			date_taken: serde_json::from_slice(&data.media_date)?,
-			description: Some(String::new()),
-			// description: serde_json::from_slice(&data.description)?,
-			copyright: from_slice_option_to_option(data.copyright),
-			artist: from_slice_option_to_option(data.artist),
-			location: from_slice_option_to_option(data.media_location),
-			exif_version: from_slice_option_to_option(data.exif_version),
-		})
-	}
-}
-
-#[must_use]
-pub fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
-	value: Option<Vec<u8>>,
-) -> Option<T> {
-	value
-		.map(|x| serde_json::from_slice(&x).ok())
-		.unwrap_or_default()
 }

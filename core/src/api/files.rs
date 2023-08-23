@@ -9,9 +9,12 @@ use crate::{
 		},
 		find_location, LocationError,
 	},
-	object::fs::{
-		copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-		erase::FileEraserJobInit,
+	object::{
+		fs::{
+			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+			erase::FileEraserJobInit,
+		},
+		media::media_data_image_from_prisma_data,
 	},
 	prisma::{file_path, location, object},
 	util::{db::maybe_missing, error::FileIOError},
@@ -62,7 +65,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?
 						.into_iter()
 						.filter_map(|x| x.media_data)
-						.flat_map(MediaDataImage::from_prisma_data)
+						.flat_map(media_data_image_from_prisma_data)
 						.collect::<Vec<_>>()
 						.first()
 						.map(MediaDataImage::clone))

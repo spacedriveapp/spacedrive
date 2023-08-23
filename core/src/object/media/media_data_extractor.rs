@@ -17,6 +17,8 @@ use thiserror::Error;
 use tokio::task::spawn_blocking;
 use tracing::error;
 
+use super::media_data_image_to_query;
+
 #[derive(Error, Debug)]
 pub enum MediaDataError {
 	// Internal errors
@@ -140,8 +142,7 @@ pub async fn process(
 			media_datas
 				.into_iter()
 				.filter_map(|(media_data, object_id)| {
-					media_data
-						.to_query(object_id)
+					media_data_image_to_query(media_data, object_id)
 						.map_err(|e| error!("{e:#?}"))
 						.ok()
 				})

@@ -8,7 +8,6 @@ edition = "2021"
 kamadak-exif = "0.5.5"
 thiserror = "1.0.43"
 image-rs = { package = "image", version = '0.24.6' }
-sd-prisma = { path = "../prisma" }
 serde = { version = "1.0.183", features = ["derive"] }
 serde_json = { version = "1.0.104" }
 specta = { workspace = true }

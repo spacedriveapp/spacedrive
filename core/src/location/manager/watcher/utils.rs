@@ -18,6 +18,7 @@ use crate::{
 		file_identifier::FileMetadata,
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
+			media_data_image_to_query,
 			thumbnail::{
 				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path,
 			},
@@ -336,9 +337,10 @@ async fn inner_create_file(
 						.await
 						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 					{
-						if let Ok(media_data_params) = media_data.to_query(object.id).map_err(|e| {
-							error!("Failed to prepare media data create params: {e:#?}")
-						}) {
+						if let Ok(media_data_params) =
+							media_data_image_to_query(media_data, object.id).map_err(|e| {
+								error!("Failed to prepare media data create params: {e:#?}")
+							}) {
 							db.media_data()
 								.create_many(vec![media_data_params])
 								.exec()
@@ -611,7 +613,7 @@ async fn inner_update_file(
 								.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 							{
 								if let Ok(media_data_params) =
-									media_data.to_query(object.id).map_err(|e| {
+									media_data_image_to_query(media_data, object.id).map_err(|e| {
 										error!("Failed to prepare media data create params: {e:#?}")
 									}) {
 									db.media_data()
