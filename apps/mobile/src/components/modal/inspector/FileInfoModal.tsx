@@ -11,7 +11,7 @@ import {
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
-	ExplorerItem,
+	type ExplorerItem,
 	byteSize,
 	getItemFilePath,
 	getItemObject,
@@ -19,7 +19,7 @@ import {
 } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
-import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
+import { Modal, type ModalRef, ModalScrollView } from '~/components/layout/Modal';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
@@ -112,15 +112,15 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							title="Created"
 							value={dayjs(item?.date_created).format('MMM Do YYYY')}
 						/>
-						{/* Indexed */}
-						<MetaItem
-							icon={Barcode}
-							title="Indexed"
-							value={dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-						/>
 
-						{filePathData && (
+						{filePathData && 'cas_id' in filePathData && (
 							<>
+								{/* Indexed */}
+								<MetaItem
+									icon={Barcode}
+									title="Indexed"
+									value={dayjs(filePathData.date_indexed).format('MMM Do YYYY')}
+								/>
 								{/* TODO: Note */}
 								{filePathData.cas_id && (
 									<MetaItem

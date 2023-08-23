@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { type PropsWithChildren, createContext, useContext } from 'react';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -23,6 +23,7 @@ export type Platform = {
 	showDevtools?(): void;
 	openPath?(path: string): void;
 	openLogsDir?(): void;
+	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
 	revealItems?(

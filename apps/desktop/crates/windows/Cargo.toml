@@ -12,4 +12,4 @@ libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.48"
-features = ["Win32_UI_Shell", "Win32_System_Com"]
+features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_System_Com"]

@@ -10,7 +10,7 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, location_with_indexer_rules,
+		find_location, generate_thumbnail, location_with_indexer_rules,
 		manager::LocationManagerError,
 		scan_location_sub_path,
 	},
@@ -19,9 +19,7 @@ use crate::{
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query,
-			thumbnail::{
-				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path,
-			},
+			thumbnail::get_thumbnail_path,
 		},
 		validation::hash::file_checksum,
 	},
@@ -793,55 +791,6 @@ pub(super) async fn remove_by_file_path(
 	invalidate_query!(library, "search.paths");
 
 	Ok(())
-}
-
-async fn generate_thumbnail(
-	extension: &str,
-	cas_id: &str,
-	path: impl AsRef<Path>,
-	node: &Arc<Node>,
-) {
-	let path = path.as_ref();
-	let output_path = get_thumbnail_path(node, cas_id);
-
-	if let Err(e) = fs::metadata(&output_path).await {
-		if e.kind() != ErrorKind::NotFound {
-			error!(
-				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
-			);
-		}
-	// Otherwise we good, thumbnail doesn't exist so we can generate it
-	} else {
-		debug!(
-			"Skipping thumbnail generation for {} because it already exists",
-			path.display()
-		);
-		return;
-	}
-
-	if let Ok(extension) = ImageExtension::from_str(extension) {
-		if can_generate_thumbnail_for_image(&extension) {
-			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
-				error!("Failed to image thumbnail on location manager: {e:#?}");
-			}
-		}
-	}
-
-	#[cfg(feature = "ffmpeg")]
-	{
-		use crate::object::media::thumbnail::{
-			can_generate_thumbnail_for_video, generate_video_thumbnail,
-		};
-		use sd_file_ext::extensions::VideoExtension;
-
-		if let Ok(extension) = VideoExtension::from_str(extension) {
-			if can_generate_thumbnail_for_video(&extension) {
-				if let Err(e) = generate_video_thumbnail(path, &output_path).await {
-					error!("Failed to video thumbnail on location manager: {e:#?}");
-				}
-			}
-		}
-	}
 }
 
 pub(super) async fn extract_inode_and_device_from_path(

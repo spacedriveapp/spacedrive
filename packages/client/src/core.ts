@@ -26,6 +26,7 @@ export type Procedures = {
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
+        { key: "search.ephemeral-paths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
@@ -122,7 +123,14 @@ export type DoubleClickAction = "openFile" | "quickPreview"
 
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
-export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location }
+export type Error = { code: ErrorCode; message: string }
+
+/**
+ * TODO
+ */
+export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
+
+export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -235,7 +243,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; dimensions: number[]; media_date: number[]; media_location: number[] | null; camera_data: number[]; artist: number[] | null; copyright: number[] | null; exif_version: number[] | null; object_id: number }
+export type MediaData = { id: number; dimensions: number[]; media_date: number[]; media_location: number[] | null; camera_data: number[]; artist: number[] | null; description: number[] | null; copyright: number[] | null; exif_version: number[] | null; object_id: number }
 
 export type MediaDataImage = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: ImageData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
@@ -249,6 +257,12 @@ export type MediaLocation = { latitude: number; longitude: number; altitude: num
 export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+
+export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
+
+export type NonIndexedPath = { path: string; withHiddenFiles: boolean; order?: FilePathSearchOrdering | null }
+
+export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
 
 /**
  * Represents a single notification.

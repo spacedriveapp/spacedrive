@@ -165,6 +165,12 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		fs::create_dir_all(shard_dir)
 			.await
 			.map_err(|e| FileIOError::from((shard_dir, e)))?;
+	} else {
+		return Err(io::Error::new(
+			io::ErrorKind::InvalidInput,
+			"Cannot determine parent shard directory for thumbnail",
+		)
+		.into());
 	}
 
 	fs::write(output_path, &webp)
