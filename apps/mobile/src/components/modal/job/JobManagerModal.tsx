@@ -25,7 +25,7 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	// });
 
 	return (
-		<Modal ref={ref} snapPoints={['60']} title="Job Manager" showCloseButton>
+		<Modal ref={ref} snapPoints={['60']} title="Recent Jobs" showCloseButton>
 			<FlatList
 				data={jobGroups.data}
 				style={tw`flex-1`}

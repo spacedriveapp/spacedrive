@@ -14,6 +14,7 @@ import {
 	useTotalElapsedTimeText
 } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
+import { ProgressBar } from '../animation/ProgressBar';
 import { AnimatedHeight } from '../animation/layout';
 import { Button } from '../primitive/Button';
 import Job from './Job';
@@ -54,7 +55,10 @@ export default function ({ group, progress }: JobGroupProps) {
 
 		return (
 			<Animated.View
-				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
+				style={[
+					tw`flex flex-row items-center pr-4`,
+					{ transform: [{ translateX: translate }] }
+				]}
 			>
 				<Options activeJob={runningJob} group={group} />
 			</Animated.View>
@@ -72,11 +76,7 @@ export default function ({ group, progress }: JobGroupProps) {
 					<Pressable onPress={() => setShowChildJobs((v) => !v)}>
 						<JobContainer
 							icon={Folder}
-							// TODO:
-							containerStyle={tw.style(
-								'pl-8 pt-4',
-								showChildJobs && 'border-b-0 pb-0'
-							)}
+							containerStyle={tw.style('pb-2', showChildJobs && 'border-b-0 pb-1')}
 							name={getJobNiceActionName(
 								group.action ?? '',
 								group.status === 'Completed',
@@ -110,7 +110,15 @@ export default function ({ group, progress }: JobGroupProps) {
 								]
 							]}
 						>
-							{!showChildJobs && runningJob && <>{/* TODO: ProgressBar */}</>}
+							{!showChildJobs && runningJob && (
+								<View style={tw`mb-2 ml-1.5`}>
+									<ProgressBar
+										pending={tasks.completed === 0}
+										value={tasks.completed}
+										total={tasks.total}
+									/>
+								</View>
+							)}
 						</JobContainer>
 					</Pressable>
 					{showChildJobs && (
@@ -164,7 +172,7 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 				</Button>
 			)}
 			{/* TODO: This should remove the job from panel */}
-			{activeJob !== undefined ? (
+			{!activeJob !== undefined ? (
 				<Button variant="outline" size="sm">
 					<DotsThreeVertical size={16} color="white" />
 				</Button>

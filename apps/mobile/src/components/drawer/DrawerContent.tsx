@@ -10,7 +10,7 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
 import { PulseAnimation } from '../animation/lottie';
 import { ModalRef } from '../layout/Modal';
-import { JobManagerModal } from '../modal/JobManager/JobManagerModal';
+import { JobManagerModal } from '../modal/job/JobManagerModal';
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
 import DrawerTags from './DrawerTags';

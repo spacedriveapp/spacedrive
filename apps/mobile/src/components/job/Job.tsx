@@ -9,8 +9,10 @@ import {
 	Trash
 } from 'phosphor-react-native';
 import { memo } from 'react';
-import { ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
+import { tw } from '~/lib/tailwind';
+import { ProgressBar } from '../animation/ProgressBar';
 import JobContainer from './JobContainer';
 
 type JobProps = {
@@ -75,8 +77,13 @@ function Job({ job, isChild, progress }: JobProps) {
 			isChild={isChild}
 		>
 			{(jobData.isRunning || jobData.isPaused) && (
-				// TODO: Progress Bar
-				<></>
+				<View style={tw`my-1.5 ml-1.5 w-[300px]`}>
+					<ProgressBar
+						pending={jobData.taskCount == 0}
+						value={jobData.completedTaskCount}
+						total={jobData.taskCount}
+					/>
+				</View>
 			)}
 		</JobContainer>
 	);
