@@ -8,9 +8,7 @@ use std::fmt::Display;
 
 pub const NAIVE_FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
-#[derive(
-	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
-)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, serde::Deserialize, specta::Type)]
 /// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
 ///
 /// This may also be `undefined`.
@@ -80,6 +78,24 @@ impl Display for MediaTime {
 			Self::Undefined => f.write_str("Undefined"),
 			Self::Naive(l) => f.write_str(&l.to_string()),
 			Self::Utc(u) => f.write_str(&u.to_rfc3339()),
+		}
+	}
+}
+
+impl serde::Serialize for MediaTime {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		match self {
+			Self::Naive(t) => serializer.collect_str(&t.to_string()),
+			Self::Utc(t) => {
+				let local = NaiveDateTime::from_timestamp_micros(t.timestamp_micros()).ok_or_else(
+					|| serde::ser::Error::custom("Error converting UTC to Naive time"),
+				)?;
+				serializer.collect_str(&local.to_string())
+			}
+			Self::Undefined => serializer.collect_str("Undefined"),
 		}
 	}
 }
