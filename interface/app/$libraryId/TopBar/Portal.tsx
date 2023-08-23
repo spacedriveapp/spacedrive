@@ -1,14 +1,23 @@
-import { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTopBarContext } from './Layout';
 
-export const TopBarPortal = (props: { left?: ReactNode; right?: ReactNode }) => {
+interface Props {
+	left?: ReactNode;
+	right?: ReactNode;
+	noSearch?: boolean;
+}
+export const TopBarPortal = ({ left, right, noSearch }: Props) => {
 	const ctx = useTopBarContext();
+
+	useEffect(() => {
+		ctx.setNoSearch(noSearch ?? false);
+	}, [ctx, noSearch]);
 
 	return (
 		<>
-			{props.left && ctx.left && createPortal(props.left, ctx.left)}
-			{props.right && ctx.right && createPortal(props.right, ctx.right)}
+			{left && ctx.left && createPortal(left, ctx.left)}
+			{right && ctx.right && createPortal(right, ctx.right)}
 		</>
 	);
 };

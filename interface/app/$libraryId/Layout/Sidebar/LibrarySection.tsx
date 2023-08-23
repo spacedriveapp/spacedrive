@@ -65,12 +65,10 @@ export const LibrarySection = () => {
 			<Section
 				name="Nodes"
 				actionArea={
-					isPairingEnabled ? (
+					isPairingEnabled && (
 						<Link to="settings/library/nodes">
 							<SubtleButton />
 						</Link>
-					) : (
-						<SubtleButton />
 					)
 				}
 			>

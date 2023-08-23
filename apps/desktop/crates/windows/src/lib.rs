@@ -2,21 +2,22 @@
 
 use std::{
 	ffi::{OsStr, OsString},
-	os::windows::ffi::OsStrExt,
-	path::Path,
+	os::windows::{ffi::OsStrExt, prelude::OsStringExt},
+	path::{Path, PathBuf},
 };
 
 use normpath::PathExt;
 use windows::{
-	core::{HSTRING, PCWSTR},
+	core::{GUID, HSTRING, PCWSTR},
 	Win32::{
+		Foundation::HANDLE,
 		System::Com::{
 			CoInitializeEx, CoUninitialize, IDataObject, COINIT_APARTMENTTHREADED,
 			COINIT_DISABLE_OLE1DDE,
 		},
 		UI::Shell::{
-			BHID_DataObject, IAssocHandler, IShellItem, SHAssocEnumHandlers,
-			SHCreateItemFromParsingName, ASSOC_FILTER_RECOMMENDED,
+			BHID_DataObject, FOLDERID_Profile, IAssocHandler, IShellItem, SHAssocEnumHandlers,
+			SHCreateItemFromParsingName, SHGetKnownFolderPath, ASSOC_FILTER_RECOMMENDED,
 		},
 	},
 };

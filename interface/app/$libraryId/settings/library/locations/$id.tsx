@@ -228,7 +228,12 @@ const EditLocationForm = () => {
 					<FlexCol>
 						<div>
 							<Button
-								onClick={() => fullRescan.mutate({ location_id: locationId, reidentify_objects: true })}
+								onClick={() =>
+									fullRescan.mutate({
+										location_id: locationId,
+										reidentify_objects: true
+									})
+								}
 								size="sm"
 								variant="outline"
 							>
