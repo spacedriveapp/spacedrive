@@ -14,7 +14,11 @@ export const ProgressBar = memo((props: ProgressBarProps) => {
 
 	return (
 		<View style={tw`h-1 w-[94%] overflow-hidden rounded-full bg-app-button`}>
-			<MotiView style={tw`h-full bg-accent`} animate={{ width: `${percentage}%` }} />
+			<MotiView
+				style={tw`h-full bg-accent`}
+				animate={{ width: `${percentage}%` }}
+				transition={{ type: 'timing' }}
+			/>
 		</View>
 	);
 });
