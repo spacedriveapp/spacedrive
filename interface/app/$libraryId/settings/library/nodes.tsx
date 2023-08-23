@@ -1,4 +1,10 @@
-import { isEnabled, useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
+import {
+	isEnabled,
+	useBridgeMutation,
+	useConnectedPeers,
+	useDiscoveredPeers,
+	useFeatureFlag
+} from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
 import { Heading } from '../Layout';
@@ -23,6 +29,7 @@ export const Component = () => {
 // TODO: This entire component shows a UI which is pairing by node but that is just not how it works.
 function IncorrectP2PPairingPane() {
 	const onlineNodes = useDiscoveredPeers();
+	const connectedNodes = useConnectedPeers();
 	const p2pPair = useBridgeMutation('p2p.pair', {
 		onSuccess(data) {
 			console.log(data);
@@ -30,27 +37,37 @@ function IncorrectP2PPairingPane() {
 	});
 
 	return (
-		<>
-			<h1>Pairing</h1>
-			{[...onlineNodes.entries()].map(([id, node]) => (
-				<div key={id} className="flex space-x-2">
-					<p>{node.name}</p>
+		<div className="flex-space-4 flex w-full">
+			<div className="flex-[50%]">
+				<h1>Pairing</h1>
+				{[...onlineNodes.entries()].map(([id, node]) => (
+					<div key={id} className="flex space-x-2">
+						<p>{node.name}</p>
 
-					<Button
-						onClick={() => {
-							// TODO: This is not great
-							p2pPair.mutateAsync(id).then((id) =>
-								startPairing(id, {
-									name: node.name,
-									os: node.operating_system
-								})
-							);
-						}}
-					>
-						Pair
-					</Button>
-				</div>
-			))}
-		</>
+						<Button
+							onClick={() => {
+								// TODO: This is not great
+								p2pPair.mutateAsync(id).then((id) =>
+									startPairing(id, {
+										name: node.name,
+										os: node.operating_system
+									})
+								);
+							}}
+						>
+							Pair
+						</Button>
+					</div>
+				))}
+			</div>
+			<div className="flex-[50%]">
+				<h1 className="mt-4">Connected</h1>
+				{[...connectedNodes.entries()].map(([id, node]) => (
+					<div key={id} className="flex space-x-2">
+						<p>{id}</p>
+					</div>
+				))}
+			</div>
+		</div>
 	);
 }

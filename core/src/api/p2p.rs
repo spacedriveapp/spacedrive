@@ -23,11 +23,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 					}
 
-					// // TODO: Don't block subscription start
-					// for peer in ctx.p2p_manager.get_connected_peers().await.unwrap() {
-					// 	// TODO: Send to frontend
-					// }
+					// TODO: This is an annoying workaround but `ManagerStreamAction` indirectly holds a `!Sync` `libp2p` channel (though a `oneshot` and `UnicastStream`).
+					// TODO: Long term hopefully rspc can not enforce `Sync` but it would require fairly major internal changes.
+					let handle = tokio::task::spawn_local({
+						let node = node.clone();
 
+						async move {
+							node.p2p.manager.get_connected_peers().await.unwrap()
+						}
+					});
+
+					// TODO: Don't block subscription start
+					for peer_id in handle.await.unwrap_or_default() {
+						yield P2PEvent::ConnectedPeer {
+							peer_id,
+						};
+					}
 
 					while let Ok(event) = rx.recv().await {
 						yield event;

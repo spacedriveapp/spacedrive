@@ -12,6 +12,7 @@ import { useBridgeSubscription } from '../rspc';
 
 type Context = {
 	discoveredPeers: Map<string, PeerMetadata>;
+	connectedPeers: Map<string, undefined>;
 	pairingStatus: Map<number, PairingStatus>;
 	events: MutableRefObject<EventTarget>;
 };
@@ -21,6 +22,7 @@ const Context = createContext<Context>(null as any);
 export function P2PContextProvider({ children }: PropsWithChildren) {
 	const events = useRef(new EventTarget());
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
+	const [[connectedPeers], setConnectedPeers] = useState([new Map<string, undefined>()]);
 	const [[pairingStatus], setPairingStatus] = useState([new Map<number, PairingStatus>()]);
 
 	useBridgeSubscription(['p2p.events'], {
@@ -33,6 +35,12 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 			} else if (data.type === 'ExpiredPeer') {
 				discoveredPeers.delete(data.peer_id);
 				setDiscoveredPeer([discoveredPeers]);
+			} else if (data.type === 'ConnectedPeer') {
+				connectedPeers.set(data.peer_id, undefined);
+				setConnectedPeers([connectedPeers]);
+			} else if (data.type === 'DisconnectedPeer') {
+				connectedPeers.delete(data.peer_id);
+				setConnectedPeers([connectedPeers]);
 			} else if (data.type === 'PairingProgress') {
 				setPairingStatus([pairingStatus.set(data.id, data.status)]);
 			}
@@ -43,6 +51,7 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 		<Context.Provider
 			value={{
 				discoveredPeers,
+				connectedPeers,
 				pairingStatus,
 				events
 			}}
@@ -54,6 +63,10 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 
 export function useDiscoveredPeers() {
 	return useContext(Context).discoveredPeers;
+}
+
+export function useConnectedPeers() {
+	return useContext(Context).connectedPeers;
 }
 
 export function usePairingStatus(pairing_id: number) {
