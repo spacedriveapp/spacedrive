@@ -1,5 +1,5 @@
 import Prism from 'prismjs';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import './prism.css';
 
 export interface TEXTViewerProps {
