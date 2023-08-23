@@ -10,7 +10,7 @@ use std::{
 use libp2p::{core::muxing::StreamMuxerBox, swarm::SwarmBuilder, Transport};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, warn};
+use tracing::{error, trace, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
@@ -74,13 +74,13 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			let listener_id = swarm
             .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
             .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
+			trace!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 		{
 			let listener_id = swarm
         .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
         .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
+			trace!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 
 		Ok((

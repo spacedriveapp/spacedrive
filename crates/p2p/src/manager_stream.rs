@@ -17,7 +17,7 @@ use libp2p::{
 	Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
@@ -128,7 +128,7 @@ where
 						SwarmEvent::NewListenAddr { address, .. } => {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
-									debug!("listen address added: {}", addr);
+									trace!("listen address added: {}", addr);
 									self.mdns.register_addr(addr).await;
 									return Some(Event::AddListenAddr(addr));
 								},
@@ -141,7 +141,7 @@ where
 						SwarmEvent::ExpiredListenAddr { address, .. } => {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
-									debug!("listen address added: {}", addr);
+									trace!("listen address expired: {}", addr);
 									self.mdns.unregister_addr(&addr).await;
 									return Some(Event::RemoveListenAddr(addr));
 								},
@@ -152,11 +152,11 @@ where
 							}
 						}
 						SwarmEvent::ListenerClosed { listener_id, addresses, reason } => {
-							debug!("listener '{:?}' was closed due to: {:?}", listener_id, reason);
+							trace!("listener '{:?}' was closed due to: {:?}", listener_id, reason);
 							for address in addresses {
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
-										debug!("listen address added: {}", addr);
+										trace!("listen address closed: {}", addr);
 										self.mdns.unregister_addr(&addr).await;
 
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));

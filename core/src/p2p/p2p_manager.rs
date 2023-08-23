@@ -295,7 +295,7 @@ impl P2PManager {
 							shutdown = true;
 							break;
 						}
-						_ => debug!("event: {:?}", event),
+						_ => {}
 					}
 				}
 
