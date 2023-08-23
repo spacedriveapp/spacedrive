@@ -1,5 +1,5 @@
 import Prism from 'prismjs';
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import './prism.css';
 
 export interface TextViewerProps {
@@ -16,17 +16,19 @@ export const TextViewer = memo(
 		const href = !src || src === '#' ? null : src;
 		const [quickPreviewContent, setQuickPreviewContent] = useState('');
 
-		const loadContent = async () => {
-			if (!href) return;
-			const response = await fetch(href);
-			if (!response.ok) return onError();
-			response.text().then((text) => {
-				onLoad();
-				setQuickPreviewContent(text);
-				syntaxHighlight && Prism.highlightAll();
-			});
-		};
-		loadContent();
+		useEffect(() => {
+			const loadContent = async () => {
+				if (!href) return;
+				const response = await fetch(href);
+				if (!response.ok) return onError();
+				response.text().then((text) => {
+					onLoad();
+					setQuickPreviewContent(text);
+					syntaxHighlight && Prism.highlightAll();
+				});
+			};
+			loadContent();
+		}, [href, onError, onLoad, syntaxHighlight, quickPreviewContent]);
 
 		return (
 			<pre className={className} style={{ colorScheme: 'dark' }}>
