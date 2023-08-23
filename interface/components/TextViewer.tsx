@@ -1,5 +1,5 @@
 import Prism from 'prismjs';
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import './prism.css';
 
 export interface TextViewerProps {
@@ -23,19 +23,13 @@ export const TextViewer = memo(
 			response.text().then((text) => {
 				onLoad();
 				setQuickPreviewContent(text);
+				syntaxHighlight && Prism.highlightAll();
 			});
 		};
 		loadContent();
 
-		useEffect(() => {
-			syntaxHighlight && Prism.highlightAll();
-		}, [quickPreviewContent]);
-
 		return (
-			<pre
-				className={className}
-				style={{ wordWrap: 'break-word', whiteSpace: 'pre-wrap', colorScheme: 'dark' }}
-			>
+			<pre className={className} style={{ colorScheme: 'dark' }}>
 				{syntaxHighlight ? <code>{quickPreviewContent}</code> : quickPreviewContent}
 			</pre>
 		);
