@@ -1,0 +1,14 @@
+[package]
+name = "sd-pdf"
+version = "0.1.0"
+authors = ["Vítor Vasconcellos <vitor@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+image = "0.24.6"
+pdfium-render = "0.8.8"
+thiserror = "1.0.40"
+tokio = { workspace = true, features = ["fs", "io-util"] }
+tracing = "0.1.37"
