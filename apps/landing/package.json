@@ -27,7 +27,6 @@
 		"md5": "^2.3.0",
 		"next": "13.4.3",
 		"next-contentlayer": "^0.3.2",
-		"octokit": "^2.1.0",
 		"phosphor-react": "^1.4.1",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
