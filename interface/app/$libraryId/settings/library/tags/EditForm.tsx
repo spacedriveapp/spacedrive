@@ -68,11 +68,19 @@ export default ({ tag, onDelete }: Props) => {
 					</Tooltip>
 				</Button>
 			</div>
-			<div className='flex flex-col gap-2'>
-				<Setting mini title="Hide in Library search" description="Hide files with this tag from results when searching entire library.">
+			<div className="flex flex-col gap-2">
+				<Setting
+					mini
+					title="Hide in Library search"
+					description="Hide files with this tag from results when searching entire library."
+				>
 					<Switch />
 				</Setting>
-				<Setting mini title="Hide in sidebar" description="Prevent this tag from showing in the sidebar of the app.">
+				<Setting
+					mini
+					title="Hide in sidebar"
+					description="Prevent this tag from showing in the sidebar of the app."
+				>
 					<Switch />
 				</Setting>
 			</div>

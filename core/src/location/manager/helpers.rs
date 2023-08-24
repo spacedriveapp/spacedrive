@@ -67,8 +67,8 @@ pub(super) fn watch_location(
 	let location_id = location.id;
 	let location_path = location.path.as_ref();
 	let Some(location_path) = location_path.map(Path::new) else {
-        return
-    };
+		return;
+	};
 
 	if let Some(mut watcher) = locations_unwatched.remove(&(location_id, library_id)) {
 		if watcher.check_path(location_path) {
@@ -88,8 +88,8 @@ pub(super) fn unwatch_location(
 	let location_id = location.id;
 	let location_path = location.path.as_ref();
 	let Some(location_path) = location_path.map(Path::new) else {
-        return
-    };
+		return;
+	};
 
 	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
 		if watcher.check_path(location_path) {
