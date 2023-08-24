@@ -348,10 +348,9 @@ mod responder {
 	pub async fn run(mut tunnel: Tunnel, library: Arc<Library>) {
 		let ingest = &library.sync.ingest;
 
-		let Ok(mut rx) =
-			ingest.req_rx.try_lock() else {
-				return;
-			};
+		let Ok(mut rx) = ingest.req_rx.try_lock() else {
+			return;
+		};
 
 		ingest
 			.event_tx
@@ -364,7 +363,9 @@ mod responder {
 
 			const OPS_PER_REQUEST: u32 = 100;
 
-			let Request::Messages { timestamps }  = req else { continue };
+			let Request::Messages { timestamps } = req else {
+				continue;
+			};
 
 			tunnel
 				.write_all(

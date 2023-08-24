@@ -670,14 +670,18 @@ pub(super) async fn remove(
 	let location_path = extract_location_path(location_id, library).await?;
 
 	// if it doesn't exist either way, then we don't care
-	let Some(file_path) = library.db
+	let Some(file_path) = library
+		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-		location_id, &location_path, full_path,
+			location_id,
+			&location_path,
+			full_path,
 		)?)
 		.exec()
-		.await? else {
-			return Ok(());
+		.await?
+	else {
+		return Ok(());
 	};
 
 	remove_by_file_path(location_id, full_path, &file_path, library).await

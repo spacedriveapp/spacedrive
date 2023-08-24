@@ -255,10 +255,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(node, library), args: ObjectValidatorArgs| async move {
-					let Some(location) =  find_location(&library, args.id)
-						.exec()
-						.await?
-						else {
+					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
