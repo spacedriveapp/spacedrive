@@ -1,107 +1,103 @@
 {
-    "package": {
-        "productName": "Spacedrive",
-        "version": "0.1.0"
-    },
-    "build": {
-        "distDir": "../dist",
-        "devPath": "http://localhost:8001",
-        "beforeDevCommand": "pnpm dev-vite",
-        "beforeBuildCommand": "pnpm vite build"
-    },
-    "tauri": {
-        "macOSPrivateApi": true,
-        "bundle": {
-            "appimage": {
-                "bundleMediaFramework": true
-            },
-            "active": true,
-            "targets": "all",
-            "identifier": "com.spacedrive.desktop",
-            "icon": [
-                "icons/32x32.png",
-                "icons/128x128.png",
-                "icons/128x128@2x.png",
-                "icons/icon.icns",
-                "icons/icon.ico"
-            ],
-            "resources": [],
-            "externalBin": [],
-            "copyright": "Spacedrive Technology Inc.",
-            "shortDescription": "The universal file manager.",
-            "longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
-            "deb": {
-                "depends": []
-            },
-            "macOS": {
-                "frameworks": [],
-                "minimumSystemVersion": "10.15",
-                "exceptionDomain": "",
-                "entitlements": null
-            },
-            "windows": {
-                "certificateThumbprint": null,
-                "digestAlgorithm": "sha256",
-                "timestampUrl": "",
-                "wix": {
-                    "bannerPath": "icons/WindowsBanner.bmp",
-                    "dialogImagePath": "icons/WindowsDialogImage.bmp"
-                }
-            }
-        },
-        "updater": {
-            "active": true,
-            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-            "endpoints": [
-                "https://spacedrive.com/api/releases/alpha/{{target}}/{{arch}}"
-            ]
-        },
-        "allowlist": {
-            "all": false,
-            "window": {
-                "all": true
-            },
-            "path": {
-                "all": true
-            },
-            "shell": {
-                "all": true
-            },
-            "protocol": {
-                "all": true,
-                "assetScope": [
-                    "*"
-                ]
-            },
-            "os": {
-                "all": true
-            },
-            "dialog": {
-                "all": true,
-                "open": true,
-                "save": true
-            }
-        },
-        "windows": [
-            {
-                "title": "Spacedrive",
-                "width": 1400,
-                "height": 725,
-                "minWidth": 768,
-                "minHeight": 500,
-                "resizable": true,
-                "fullscreen": false,
-                "alwaysOnTop": false,
-                "focus": false,
-                "visible": false,
-                "fileDropEnabled": true,
-                "decorations": true,
-                "transparent": true,
-                "center": true
-            }
-        ],
-        "security": {
-            "csp": "default-src spacedrive: webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
-        }
-    }
+	"package": {
+		"productName": "Spacedrive",
+		"version": "0.1.0"
+	},
+	"build": {
+		"distDir": "../dist",
+		"devPath": "http://localhost:8001",
+		"beforeDevCommand": "pnpm dev-vite",
+		"beforeBuildCommand": "pnpm vite build"
+	},
+	"tauri": {
+		"macOSPrivateApi": true,
+		"bundle": {
+			"appimage": {
+				"bundleMediaFramework": true
+			},
+			"active": true,
+			"targets": "all",
+			"identifier": "com.spacedrive.desktop",
+			"icon": [
+				"icons/32x32.png",
+				"icons/128x128.png",
+				"icons/128x128@2x.png",
+				"icons/icon.icns",
+				"icons/icon.ico"
+			],
+			"resources": [],
+			"externalBin": [],
+			"copyright": "Spacedrive Technology Inc.",
+			"shortDescription": "The universal file manager.",
+			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
+			"deb": {
+				"depends": []
+			},
+			"macOS": {
+				"frameworks": [],
+				"minimumSystemVersion": "10.15",
+				"exceptionDomain": "",
+				"entitlements": null
+			},
+			"windows": {
+				"certificateThumbprint": null,
+				"digestAlgorithm": "sha256",
+				"timestampUrl": "",
+				"wix": {
+					"bannerPath": "icons/WindowsBanner.bmp",
+					"dialogImagePath": "icons/WindowsDialogImage.bmp"
+				}
+			}
+		},
+		"updater": {
+			"active": true,
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
+			"endpoints": ["https://spacedrive.com/api/releases/alpha/{{target}}/{{arch}}"]
+		},
+		"allowlist": {
+			"all": false,
+			"window": {
+				"all": true
+			},
+			"path": {
+				"all": true
+			},
+			"shell": {
+				"all": true
+			},
+			"protocol": {
+				"all": true,
+				"assetScope": ["*"]
+			},
+			"os": {
+				"all": true
+			},
+			"dialog": {
+				"all": true,
+				"open": true,
+				"save": true
+			}
+		},
+		"windows": [
+			{
+				"title": "Spacedrive",
+				"width": 1400,
+				"height": 725,
+				"minWidth": 768,
+				"minHeight": 500,
+				"resizable": true,
+				"fullscreen": false,
+				"alwaysOnTop": false,
+				"focus": false,
+				"visible": false,
+				"fileDropEnabled": true,
+				"decorations": true,
+				"transparent": true,
+				"center": true
+			}
+		],
+		"security": {
+			"csp": "default-src spacedrive: webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+		}
+	}
 }
