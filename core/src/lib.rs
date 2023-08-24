@@ -27,7 +27,7 @@ use tracing_appender::{
 	rolling::{RollingFileAppender, Rotation},
 };
 use tracing_subscriber::{
-	filter::{Directive, LevelFilter},
+	filter::{Directive, FromEnvError, LevelFilter},
 	fmt as tracing_fmt,
 	prelude::*,
 	EnvFilter,
@@ -129,7 +129,7 @@ impl Node {
 		Ok((node, router))
 	}
 
-	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
+	pub fn init_logger(data_dir: impl AsRef<Path>) -> Result<WorkerGuard, FromEnvError> {
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -161,10 +161,9 @@ impl Node {
 					.with_writer(std::io::stdout)
 					.with_filter(
 						EnvFilter::builder()
-							.from_env()
-							.unwrap()
+							.from_env()?
 							// We don't wanna blow up the logs
-							.add_directive("sd_core::location::manager=info".parse().unwrap()),
+							.add_directive("sd_core::location::manager=info".parse()?),
 					),
 			);
 
@@ -187,7 +186,7 @@ impl Node {
 			}
 		}));
 
-		guard
+		Ok(guard)
 	}
 
 	pub async fn shutdown(&self) {
@@ -242,4 +241,6 @@ pub enum NodeError {
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
+	#[error("logger error: {0}")]
+	Logger(#[from] FromEnvError),
 }
