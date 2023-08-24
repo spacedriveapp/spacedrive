@@ -188,7 +188,7 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div className="flex flex-row justify-end p-3 space-x-2 border-t border-app-line bg-app-selected">
+								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 									{form.formState.isSubmitting && <Loader />}
 									{props.buttonsSideContent && (
 										<div>{props.buttonsSideContent}</div>
