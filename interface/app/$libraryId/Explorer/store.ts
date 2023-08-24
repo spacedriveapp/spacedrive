@@ -1,12 +1,13 @@
+import type { ReadonlyDeep } from 'type-fest';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
-	DoubleClickAction,
-	ExplorerItem,
-	ExplorerLayout,
-	ExplorerSettings,
-	SortOrder,
+	type DoubleClickAction,
+	type ExplorerItem,
+	type ExplorerLayout,
+	type ExplorerSettings,
+	type SortOrder,
 	resetStore
 } from '@sd/client';
 
@@ -139,9 +140,10 @@ export function getExplorerStore() {
 	return explorerStore;
 }
 
-export function isCut(id: number) {
-	const state = explorerStore.cutCopyState;
-	return state.type === 'Cut' && state.sourcePathIds.includes(id);
+export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
+	return item.type === 'NonIndexedPath'
+		? false
+		: cutCopyState.type === 'Cut' && cutCopyState.sourcePathIds.includes(item.item.id);
 }
 
 export const filePathOrderingKeysSchema = z.union([

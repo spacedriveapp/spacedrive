@@ -49,7 +49,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.3.9
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   apps/desktop:
     dependencies:
@@ -569,7 +569,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -609,7 +609,7 @@ importers:
         version: 4.8.2
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(@types/node@18.15.1)
+        version: 4.3.9(less@4.1.3)
 
   interface:
     dependencies:
@@ -763,6 +763,9 @@ importers:
       ts-deepmerge:
         specifier: ^6.0.3
         version: 6.0.3
+      type-fest:
+        specifier: ^4.2.0
+        version: 4.2.0
       use-count-up:
         specifier: ^3.0.1
         version: 3.0.1(react@18.2.0)
@@ -977,6 +980,9 @@ importers:
       react-router-dom:
         specifier: 6.9.0
         version: 6.9.0(react-dom@18.2.0)(react@18.2.0)
+      sonner:
+        specifier: ^0.6.2
+        version: 0.6.2(react-dom@18.2.0)(react@18.2.0)
       tailwindcss-radix:
         specifier: ^2.6.0
         version: 2.6.0
@@ -8925,7 +8931,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.24.1
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -9527,7 +9533,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -10953,7 +10959,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.22.1)
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -22551,6 +22557,16 @@ packages:
       csstype: 3.1.2
     dev: false
 
+  /sonner@0.6.2(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-bh4FWhYoNN481ZIW94W4e0kSLBTMGislYg2YXvDS1px1AJJz4erQe9jHV8s5pS1VMVDgfh3CslNSFLaU6Ldrnw==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
   /source-map-js@1.0.2:
     resolution: {integrity: sha512-R0XvVJ9WusLiqTCEiGCmICCMplcCkIwwR11mOSD9CR5u+IXYdiseeEuXCVAjS54zqwkLcPNnmU4OeJ6tUrWhDw==}
     engines: {node: '>=0.10.0'}
@@ -23962,6 +23978,11 @@ packages:
     engines: {node: '>=14.16'}
     dev: false
 
+  /type-fest@4.2.0:
+    resolution: {integrity: sha512-5zknd7Dss75pMSED270A1RQS3KloqRJA9XbXLe0eCxyw7xXFb3rd+9B0UQ/0E+LQT6lnrLviEolYORlRWamn4w==}
+    engines: {node: '>=16'}
+    dev: false
+
   /type-is@1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
     engines: {node: '>= 0.6'}
@@ -24619,7 +24640,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.5.1
-      vite: 4.3.9(sass@1.55.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -24633,7 +24654,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.2.0
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true

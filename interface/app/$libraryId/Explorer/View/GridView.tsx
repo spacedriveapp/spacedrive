@@ -1,11 +1,10 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { type ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerViewContext } from '../ViewContext';
-import { useExplorerStore } from '../store';
 import GridList from './GridList';
 import RenamableItemText from './RenamableItemText';
 
@@ -35,7 +34,13 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>
-				<FileThumb data={data} frame className={clsx('px-2 py-1', cut && 'opacity-60')} />
+				<FileThumb
+					data={data}
+					frame
+					blackBars
+					extension
+					className={clsx('px-2 py-1', cut && 'opacity-60')}
+				/>
 			</div>
 
 			<div className="flex flex-col justify-center">

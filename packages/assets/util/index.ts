@@ -1,4 +1,5 @@
 import * as icons from '../icons';
+import { LayeredIcons } from '../svgs/ext';
 
 // Define a type for icon names. This filters out any names with underscores in them.
 // The use of 'never' is to make sure that icon types with underscores are not included.
@@ -54,4 +55,13 @@ export const getIcon = (
 			: // 4. Default to the document (or document light) icon.
 			  document) as keyof typeof icons
 	];
+};
+
+export const getLayeredIcon = (kind: string, extension?: string | null) => {
+	const iconKind =
+		LayeredIcons[
+			// Check if specific kind exists.
+			kind && kind in LayeredIcons ? kind : 'Extras'
+		];
+	return extension ? iconKind?.[extension] || LayeredIcons['Extras']?.[extension] : null;
 };
