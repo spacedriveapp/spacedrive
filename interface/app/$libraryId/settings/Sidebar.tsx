@@ -62,7 +62,7 @@ export default () => {
 						<Icon component={Database} />
 						Backups
 					</SidebarLink>
-					<SidebarLink to="client/keybindings" disabled>
+					<SidebarLink to="client/keybindings">
 						<Icon component={KeyReturn} />
 						Keybinds
 					</SidebarLink>

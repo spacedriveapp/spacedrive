@@ -28,7 +28,7 @@ export default ({ children, tagId }: Props) => {
 			<CM.Separator />
 			<CM.Item
 				onClick={() => {
-					// navigate(`settings/library/tags/${tagId}`);
+					navigate(`settings/library/tags/${tagId}`);
 					dialogManager.create((dp) => (
 						<DeleteDialog
 							{...dp}
