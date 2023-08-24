@@ -3,7 +3,7 @@ import { animated, useTransition } from '@react-spring/web';
 import { X } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 import { subscribeKey } from 'valtio/utils';
-import { type ExplorerItem } from '@sd/client';
+import { type ExplorerItem, getExplorerItemData } from '@sd/client';
 import { Button } from '@sd/ui';
 import { FileThumb } from '../FilePath/Thumb';
 import { getExplorerStore } from '../store';
@@ -65,7 +65,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 				{transitions((styles, show) => {
 					if (!show || explorerItem == null) return null;
 
-					const { item } = explorerItem;
+					const { name } = getExplorerItemData(explorerItem);
 
 					return (
 						<>
@@ -104,9 +104,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 											<Dialog.Title className="mx-auto my-2 font-bold">
 												Preview -{' '}
 												<span className="inline-block max-w-xs truncate align-sub text-sm text-ink-dull">
-													{'name' in item && item.name
-														? item.name
-														: 'Unknown Object'}
+													{name || 'Unknown Object'}
 												</span>
 											</Dialog.Title>
 										</nav>

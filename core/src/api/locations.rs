@@ -2,8 +2,9 @@ use crate::{
 	invalidate_query,
 	location::{
 		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, relink_location, scan_location, scan_location_sub_path,
-		LocationCreateArgs, LocationError, LocationUpdateArgs,
+		location_with_indexer_rules, non_indexed::NonIndexedPathItem, relink_location,
+		scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		LocationUpdateArgs,
 	},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -11,6 +12,7 @@ use crate::{
 
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -38,6 +40,94 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: location::Data,
 	},
+	NonIndexedPath {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: NonIndexedPathItem,
+	},
+}
+
+impl ExplorerItem {
+	pub fn name(&self) -> &str {
+		match self {
+			ExplorerItem::Path {
+				item: file_path_with_object::Data { name, .. },
+				..
+			}
+			| ExplorerItem::Location {
+				item: location::Data { name, .. },
+				..
+			} => name.as_deref().unwrap_or(""),
+			ExplorerItem::NonIndexedPath { item, .. } => item.name.as_str(),
+			_ => "",
+		}
+	}
+
+	pub fn size_in_bytes(&self) -> u64 {
+		match self {
+			ExplorerItem::Path {
+				item: file_path_with_object::Data {
+					size_in_bytes_bytes,
+					..
+				},
+				..
+			} => size_in_bytes_bytes
+				.as_ref()
+				.map(|size| {
+					u64::from_be_bytes([
+						size[0], size[1], size[2], size[3], size[4], size[5], size[6], size[7],
+					])
+				})
+				.unwrap_or(0),
+
+			ExplorerItem::NonIndexedPath {
+				item: NonIndexedPathItem {
+					size_in_bytes_bytes,
+					..
+				},
+				..
+			} => u64::from_be_bytes([
+				size_in_bytes_bytes[0],
+				size_in_bytes_bytes[1],
+				size_in_bytes_bytes[2],
+				size_in_bytes_bytes[3],
+				size_in_bytes_bytes[4],
+				size_in_bytes_bytes[5],
+				size_in_bytes_bytes[6],
+				size_in_bytes_bytes[7],
+			]),
+			_ => 0,
+		}
+	}
+
+	pub fn date_created(&self) -> DateTime<Utc> {
+		match self {
+			ExplorerItem::Path {
+				item: file_path_with_object::Data { date_created, .. },
+				..
+			}
+			| ExplorerItem::Object {
+				item: object_with_file_paths::Data { date_created, .. },
+				..
+			}
+			| ExplorerItem::Location {
+				item: location::Data { date_created, .. },
+				..
+			} => date_created.map(Into::into).unwrap_or_default(),
+
+			ExplorerItem::NonIndexedPath { item, .. } => item.date_created,
+		}
+	}
+
+	pub fn date_modified(&self) -> DateTime<Utc> {
+		match self {
+			ExplorerItem::Path { item, .. } => {
+				item.date_modified.map(Into::into).unwrap_or_default()
+			}
+			ExplorerItem::NonIndexedPath { item, .. } => item.date_modified,
+			_ => Default::default(),
+		}
+	}
 }
 
 file_path::include!(file_path_with_object { object });

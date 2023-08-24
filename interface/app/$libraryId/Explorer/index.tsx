@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { PropsWithChildren, ReactNode } from 'react';
+import { type PropsWithChildren, type ReactNode } from 'react';
 import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -44,7 +44,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={explorer.scrollRef}
-						className="explorer-scroll relative h-screen overflow-x-hidden overflow-y-auto"
+						className="explorer-scroll relative h-screen overflow-y-auto overflow-x-hidden"
 						style={{
 							paddingTop: TOP_BAR_HEIGHT,
 							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
