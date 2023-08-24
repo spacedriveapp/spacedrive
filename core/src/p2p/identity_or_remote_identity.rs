@@ -41,10 +41,8 @@ impl IdentityOrRemoteIdentity {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
-			Self::Identity(identity) => vec![&[b'I'], &*identity.to_bytes()].concat(),
-			Self::RemoteIdentity(identity) => {
-				vec![[b'R'].as_slice(), &identity.to_bytes()].concat()
-			}
+			Self::Identity(identity) => [&[b'I'], &*identity.to_bytes()].concat(),
+			Self::RemoteIdentity(identity) => [[b'R'].as_slice(), &identity.to_bytes()].concat(),
 		}
 	}
 }

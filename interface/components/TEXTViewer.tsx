@@ -64,7 +64,10 @@ export const TEXTViewer = memo(
 
 		// Use link to normalize URL
 		return link ? (
-			<pre className={className} style={{ wordWrap: 'break-word', whiteSpace: 'pre-wrap', colorScheme: 'dark' }}>
+			<pre
+				className={className}
+				style={{ wordWrap: 'break-word', whiteSpace: 'pre-wrap', colorScheme: 'dark' }}
+			>
 				{quickPreviewContent}
 			</pre>
 		) : null;
