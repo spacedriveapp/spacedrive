@@ -70,6 +70,7 @@ export const byteSize = (
 			(unit.from === 0n
 				? Number(bytes)
 				: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor),
+		original: value,
 		toString() {
 			return `${defaultFormat.format(this.value)} ${this.unit}`;
 		}

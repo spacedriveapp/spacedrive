@@ -6,19 +6,20 @@ use crate::{
 	library::{Category, Library},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		LocationError,
+		non_indexed, LocationError,
 	},
 	object::preview::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 };
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::trace;
 
 use super::{Ctx, R};
 
@@ -274,6 +275,83 @@ impl ObjectFilterArgs {
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
+		.procedure("ephemeral-paths", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct NonIndexedPath {
+				path: PathBuf,
+				with_hidden_files: bool,
+				#[specta(optional)]
+				order: Option<FilePathSearchOrdering>,
+			}
+
+			R.with2(library()).query(
+				|(node, library),
+				 NonIndexedPath {
+				     path,
+				     with_hidden_files,
+				     order,
+				 }| async move {
+					let mut paths =
+						non_indexed::walk(path, with_hidden_files, node, library).await?;
+
+					if let Some(order) = order {
+						match order {
+							FilePathSearchOrdering::Name(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2
+											.name()
+											.to_lowercase()
+											.cmp(&path1.name().to_lowercase())
+									} else {
+										path1
+											.name()
+											.to_lowercase()
+											.cmp(&path2.name().to_lowercase())
+									}
+								});
+							}
+							FilePathSearchOrdering::SizeInBytes(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.size_in_bytes().cmp(&path1.size_in_bytes())
+									} else {
+										path1.size_in_bytes().cmp(&path2.size_in_bytes())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateCreated(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.date_created().cmp(&path1.date_created())
+									} else {
+										path1.date_created().cmp(&path2.date_created())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateModified(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									if let SortOrder::Desc = order {
+										path2.date_modified().cmp(&path1.date_modified())
+									} else {
+										path1.date_modified().cmp(&path2.date_modified())
+									}
+								});
+							}
+							FilePathSearchOrdering::DateIndexed(_) => {
+								trace!("Can't order by indexed date on ephemeral paths route, ignoring...")
+							}
+							FilePathSearchOrdering::Object(_) => {
+								trace!("Receive an Object sort ordeding at ephemeral paths route, ignoring...")
+							}
+						}
+					}
+
+					Ok(paths)
+				},
+			)
+		})
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]

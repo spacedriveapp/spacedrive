@@ -155,8 +155,6 @@ impl PreferenceKVs {
 				acc
 			});
 
-		dbg!(&entries);
-
 		T::from_entries(entries)
 	}
 }

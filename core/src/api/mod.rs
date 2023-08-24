@@ -27,7 +27,7 @@ mod files;
 mod jobs;
 mod keys;
 mod libraries;
-mod locations;
+pub mod locations;
 mod nodes;
 pub mod notifications;
 mod p2p;
