@@ -1,46 +1,38 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { env } from '~/env';
-import * as schemas from './schemas';
-import { TauriResponse } from './schemas';
+
+const version = z.union([z.literal('stable'), z.literal('alpha')]);
+const tauriTarget = z.union([z.literal('linux'), z.literal('windows'), z.literal('darwin')]);
+const tauriArch = z.union([z.literal('x86_64'), z.literal('aarch64')]);
+
+const paramsSchema = z.object({
+	target: tauriTarget,
+	arch: tauriArch,
+	version: version.or(z.string())
+});
+
+type TauriResponse = {
+	// Must be > than the version in tauri.conf.json for update to be detected
+	version: string;
+	pub_date: string;
+	url: string;
+	signature: string;
+	notes: string;
+};
 
 export const runtime = 'edge';
 
-const ORG = 'brendonovich';
-const REPO = 'spacedrive';
-
-const FETCH_META = {
-	headers: {
-		Authorization: `Bearer ${env.GITHUB_PAT}`,
-		Accept: 'application/vnd.github+json'
-	},
-	next: {
-		revalidate: 60
+export async function GET(req: Request, extra: { params: Record<string, unknown> }) {
+	// handles old /api/releases/[target]/[arch]/[currentVersion] requests
+	// should be removed once stable release is out
+	if (tauriArch.safeParse(extra.params['target']).success) {
+		return NextResponse.redirect(
+			new URL(`/api/releases/alpha/${extra.params.version}/${extra.params.target}`, req.url)
+		);
 	}
-} as RequestInit;
 
-async function githubFetch(path: string) {
-	return fetch(`https://api.github.com${path}`, FETCH_META).then((r) => r.json());
-}
-
-async function getRelease({ version }: z.infer<typeof schemas.params>): Promise<any> {
-	switch (version) {
-		case 'alpha': {
-			const data = await githubFetch(`/repos/${ORG}/${REPO}/releases`);
-
-			return data.find((d: any) => d.tag_name.includes('alpha'));
-		}
-		case 'stable':
-			return githubFetch(`https://api.github.com/repos/${ORG}/${REPO}/releases/latest`);
-		default:
-			return githubFetch(
-				`https://api.github.com/repos/${ORG}/${REPO}/releases/tags/${version}`
-			);
-	}
-}
-
-export async function GET(_: Request, extra: { params: object }) {
-	const params = await schemas.params.parseAsync(extra.params);
+	const params = await paramsSchema.parseAsync(extra.params);
 
 	const release = await getRelease(params);
 
@@ -65,22 +57,51 @@ export async function GET(_: Request, extra: { params: object }) {
 		version: release.tag_name,
 		url: asset.browser_download_url,
 		signature,
-		notes: '',
-		pub_date: new Date().toISOString()
+		notes: release.body,
+		pub_date: release.published_at
 	};
-
-	console.log(response);
 
 	return NextResponse.json(response);
 }
 
-const extensionForTarget = (target: z.infer<typeof schemas.tauriTarget>) => {
-	if (target === 'windows') return 'zip';
-	else return 'tar.gz';
-};
+const ORG = 'spacedriveapp';
+const REPO = 'spacedrive';
 
-const binaryName = ({ version, target, arch }: z.infer<typeof schemas.params>) => {
+async function getRelease({ version }: z.infer<typeof paramsSchema>): Promise<any> {
+	switch (version) {
+		case 'alpha': {
+			const data = await githubFetch(`/repos/${ORG}/${REPO}/releases`);
+
+			return data.find((d: any) => d.tag_name.includes('alpha'));
+		}
+		case 'stable':
+			return githubFetch(`/repos/${ORG}/${REPO}/releases/latest`);
+		default:
+			return githubFetch(`/repos/${ORG}/${REPO}/releases/tags/${version}`);
+	}
+}
+
+const FETCH_META = {
+	headers: {
+		Authorization: `Bearer ${env.GITHUB_PAT}`,
+		Accept: 'application/vnd.github+json'
+	},
+	next: {
+		revalidate: 60
+	}
+} as RequestInit;
+
+async function githubFetch(path: string) {
+	return fetch(`https://api.github.com${path}`, FETCH_META).then((r) => r.json());
+}
+
+function binaryName({ version, target, arch }: z.infer<typeof paramsSchema>) {
 	const ext = extensionForTarget(target);
 
 	return `Spacedrive-Updater-${version}-${target}-${arch}.${ext}`;
-};
+}
+
+function extensionForTarget(target: z.infer<typeof tauriTarget>) {
+	if (target === 'windows') return 'zip';
+	else return 'tar.gz';
+}
