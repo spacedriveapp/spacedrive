@@ -1,5 +1,5 @@
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { type FilePathSearchOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { type NonIndexedPathOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
@@ -8,8 +8,8 @@ import { ExplorerContextProvider } from './Explorer/Context';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import {
 	createDefaultExplorerSettings,
-	filePathOrderingKeysSchema,
-	getExplorerStore
+	getExplorerStore,
+	nonIndexedPathOrderingSchema
 } from './Explorer/store';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
@@ -22,7 +22,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<FilePathSearchOrdering>({
+				createDefaultExplorerSettings<NonIndexedPathOrdering>({
 					order: {
 						field: 'name',
 						value: 'Asc'
@@ -30,14 +30,14 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 				}),
 			[]
 		),
-		orderingKeys: filePathOrderingKeysSchema
+		orderingKeys: nonIndexedPathOrderingSchema
 	});
 
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const query = useLibraryQuery(
 		[
-			'search.ephemeral-paths',
+			'search.ephemeralPaths',
 			{
 				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
 				withHiddenFiles: true,
