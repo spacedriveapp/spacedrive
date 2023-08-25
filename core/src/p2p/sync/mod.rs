@@ -361,6 +361,16 @@ mod responder {
 		let ingest = &library.sync.ingest;
 
 		let Ok(mut rx) = ingest.req_rx.try_lock() else {
+			println!("Rejected sync due to libraries lock being held!");
+
+			// TODO: Proper error returned to remote instead of this.
+			// TODO: We can't just abort the connection when the remote is expecting data.
+			tunnel
+				.write_all(&tx::GetOperations::Done.to_bytes())
+				.await
+				.unwrap();
+			tunnel.flush().await.unwrap();
+
 			return;
 		};
 
