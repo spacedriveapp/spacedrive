@@ -27,7 +27,12 @@ import { useIsDark, useOperatingSystem } from '~/hooks';
 import { useKeyBind } from '~/hooks/useKeyBind';
 import { usePlatform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
-import ExplorerContextMenu, { FilePathItems, ObjectItems, SharedItems } from '../ContextMenu';
+import ExplorerContextMenu, {
+	FilePathItems,
+	ObjectItems,
+	SeparatedConditional,
+	SharedItems
+} from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
@@ -181,17 +186,9 @@ export const QuickPreview = () => {
 			{transitions((styles, show) => {
 				if (!show || !item) return null;
 
-				const filePathData = getItemFilePath(item);
-
-				if (!filePathData) return null;
-
-				const { kind } = getExplorerItemData(item);
+				const { kind, name } = getExplorerItemData(item);
 
 				const fixedHeader = kind === 'Text' || kind === 'Document';
-
-				const name = `${filePathData.name}${
-					filePathData.extension ? `.${filePathData.extension}` : ''
-				}`;
 
 				return (
 					<Dialog.Portal forceMount>
@@ -272,7 +269,7 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex w-1/2 items-center justify-center truncate text-sm">
-										{isRenaming ? (
+										{isRenaming && name ? (
 											<RenameInput
 												name={name}
 												onRename={(newName) => {
@@ -311,64 +308,74 @@ export const QuickPreview = () => {
 											<>
 												<span
 													onClick={() =>
-														'id' in item.item && setIsRenaming(true)
+														name &&
+														item.type !== 'NonIndexedPath' &&
+														setIsRenaming(true)
 													}
-													className="truncate"
+													className={clsx(
+														'truncate',
+														item.type === 'NonIndexedPath' &&
+															'cursor-default'
+													)}
 												>
 													{newName || name}
 												</span>
-												<DropdownMenu.Root
-													trigger={
-														<CaretDown
-															size={16}
-															weight="bold"
-															className="ml-2 shrink-0 cursor-pointer transition-all hover:mt-1 radix-state-open:mt-1"
-														/>
-													}
-													onOpenChange={setIsContextMenuOpen}
-													usePortal={false}
-													modal={false}
-													align="center"
-												>
-													<ExplorerContextMenu items={[item]} custom>
-														<Conditional
-															items={[
-																FilePathItems.OpenOrDownload,
-																SharedItems.RevealInNativeExplorer
-															]}
-														/>
-														<DropdownMenu.Item
-															label="Rename"
-															onClick={() => setIsRenaming(true)}
-														/>
-														<DropdownMenu.Separator />
-														<Conditional
-															items={[ObjectItems.AssignTag]}
-														/>
-														<Conditional
-															items={[
-																FilePathItems.CopyAsPath,
-																FilePathItems.Crypto,
-																FilePathItems.Compress,
-																ObjectItems.ConvertObject,
-																FilePathItems.SecureDelete
-															]}
-														>
-															{(items) => (
-																<DropdownMenu.SubMenu
-																	label="More actions..."
-																	icon={Plus}
-																>
-																	{items}
-																</DropdownMenu.SubMenu>
-															)}
-														</Conditional>
-														<DropdownMenu.Separator />
-														<Conditional
-															items={[FilePathItems.Delete]}
-														/>
-													</ExplorerContextMenu>
-												</DropdownMenu.Root>
+												{item.type !== 'NonIndexedPath' && (
+													<DropdownMenu.Root
+														trigger={
+															<CaretDown
+																size={16}
+																weight="bold"
+																className="ml-2 shrink-0 cursor-pointer transition-all hover:mt-1 radix-state-open:mt-1"
+															/>
+														}
+														onOpenChange={setIsContextMenuOpen}
+														usePortal={false}
+														modal={false}
+														align="center"
+													>
+														<ExplorerContextMenu items={[item]} custom>
+															<Conditional
+																items={[
+																	FilePathItems.OpenOrDownload,
+																	SharedItems.RevealInNativeExplorer
+																]}
+															/>
+
+															<DropdownMenu.Item
+																label="Rename"
+																onClick={() => setIsRenaming(true)}
+															/>
+
+															<SeparatedConditional
+																items={[ObjectItems.AssignTag]}
+															/>
+
+															<Conditional
+																items={[
+																	FilePathItems.CopyAsPath,
+																	FilePathItems.Crypto,
+																	FilePathItems.Compress,
+																	ObjectItems.ConvertObject,
+																	FilePathItems.SecureDelete
+																]}
+															>
+																{(items) => (
+																	<DropdownMenu.SubMenu
+																		label="More actions..."
+																		icon={Plus}
+																	>
+																		{items}
+																	</DropdownMenu.SubMenu>
+																)}
+															</Conditional>
+
+															<SeparatedConditional
+																items={[FilePathItems.Delete]}
+															/>
+														</ExplorerContextMenu>
+													</DropdownMenu.Root>
+												)}
 											</>
 										)}
 									</div>
