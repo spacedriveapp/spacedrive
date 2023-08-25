@@ -1,11 +1,9 @@
-import dayjs from 'dayjs';
-import { Info, Question } from 'phosphor-react';
+import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
 import { memo } from 'react';
-import { JobProgressEvent, JobReport } from '@sd/client';
+import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
-import useJobInfo from './useJobInfo';
 
 interface JobProps {
 	job: JobReport;
@@ -14,21 +12,18 @@ interface JobProps {
 	progress: JobProgressEvent | null;
 }
 
+const JobIcon: Record<string, Icon> = {
+	indexer: Folder,
+	thumbnailer: Image,
+	file_identifier: Fingerprint,
+	file_copier: Copy,
+	file_deleter: Trash,
+	file_cutter: Scissors,
+	object_validator: Fingerprint
+};
+
 function Job({ job, className, isChild, progress }: JobProps) {
-	const info = useJobInfo(job, progress)[job.name] || {
-		name: job.name,
-		icon: Question,
-		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
-	};
-
-	const isRunning = job.status === 'Running';
-	const isPaused = job.status === 'Paused';
-
-	const task_count = progress?.task_count || job.task_count;
-	const completed_task_count = progress?.completed_task_count || job.completed_task_count;
-
-	// dayjs from seconds to time
-	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
+	const jobData = useJobInfo(job, progress);
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -44,7 +39,7 @@ function Job({ job, className, isChild, progress }: JobProps) {
 				))}
 			</pre>
 		);
-		info.textItems?.push([
+		jobData.textItems?.push([
 			{
 				text: 'Completed with errors',
 				icon: Info,
@@ -63,18 +58,19 @@ function Job({ job, className, isChild, progress }: JobProps) {
 	return (
 		<JobContainer
 			className={className}
-			name={info.name}
-			circleIcon={info.icon}
-			textItems={['Queued'].includes(job.status) ? [[{ text: job.status }]] : info.textItems}
-			// textItems={[[{ text: job.status }, { text: job.id, }]]}
+			name={jobData.name}
+			icon={JobIcon[job.name]}
+			textItems={
+				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
+			}
 			isChild={isChild}
 		>
-			{(isRunning || isPaused) && (
+			{(jobData.isRunning || jobData.isPaused) && (
 				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar
-						pending={task_count == 0}
-						value={completed_task_count}
-						total={task_count}
+						pending={jobData.taskCount == 0}
+						value={jobData.completedTaskCount}
+						total={jobData.taskCount}
 					/>
 				</div>
 			)}
@@ -83,15 +79,3 @@ function Job({ job, className, isChild, progress }: JobProps) {
 }
 
 export default memo(Job);
-
-function formatEstimatedRemainingTime(end_date: string) {
-	const duration = dayjs.duration(new Date(end_date).getTime() - Date.now());
-
-	if (duration.hours() > 0) {
-		return `${duration.hours()} hour${duration.hours() > 1 ? 's' : ''} remaining`;
-	} else if (duration.minutes() > 0) {
-		return `${duration.minutes()} minute${duration.minutes() > 1 ? 's' : ''} remaining`;
-	} else {
-		return `${duration.seconds()} second${duration.seconds() > 1 ? 's' : ''} remaining`;
-	}
-}

@@ -1,25 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash, X } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
-import {
-	JobGroup as JobGroupType,
-	JobProgressEvent,
-	useLibraryMutation,
-	useLibraryQuery,
-	useLibrarySubscription
-} from '@sd/client';
+import { useJobProgress, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, PopoverClose, Tooltip } from '@sd/ui';
 import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
-import { useJobManagerContext } from './context';
 
 export function JobManager() {
 	const queryClient = useQueryClient();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 
-	const progress = useProgress(jobGroups.data);
+	const progress = useJobProgress(jobGroups.data);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
@@ -84,49 +76,3 @@ export function JobManager() {
 }
 
 export { IsRunningJob };
-
-const useProgress = (jobGroups?: JobGroupType[]) => {
-	const ctx = useJobManagerContext();
-
-	// Create initial progress from cached progress
-	const [progress, setProgress] = useState<Record<string, JobProgressEvent>>(() => {
-		return {
-			...ctx.cachedJobProgress.current
-		};
-	});
-
-	useLibrarySubscription(['jobs.progress'], {
-		onData(data) {
-			console.log(`setting ${data.id} progress`);
-			setProgress((prev) => ({ ...prev, [data.id]: data }));
-		}
-	});
-
-	// Update cached progress when progress changes
-	useEffect(() => {
-		ctx.cachedJobProgress.current = progress;
-	}, [progress, ctx.cachedJobProgress]);
-
-	// Remove jobs that aren't running from progress
-	// This can happen kind of lazily since it's not a huge deal
-	useEffect(() => {
-		if (!jobGroups) return;
-
-		setProgress((prev) => {
-			const ret: typeof prev = {};
-
-			for (const group of jobGroups) {
-				for (const job of group.jobs) {
-					const prevEvent = prev[job.id];
-					if (job.status !== 'Running' || !prevEvent) continue;
-
-					ret[job.id] = prevEvent;
-				}
-			}
-
-			return ret;
-		});
-	}, [jobGroups]);
-
-	return progress;
-};

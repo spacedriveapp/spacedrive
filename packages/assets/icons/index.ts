@@ -82,6 +82,7 @@ import Text from './Text.png';
 import TextAlt from './TextAlt.png';
 import TextAlt_Light from './TextAlt_Light.png';
 import Text_Light from './Text_Light.png';
+import Text_txt from './Text_txt.png';
 import TexturedMesh from './TexturedMesh.png';
 import TexturedMesh_Light from './TexturedMesh_Light.png';
 import Trash from './Trash.png';
@@ -174,6 +175,7 @@ export {
 	TextAlt,
 	TextAlt_Light,
 	Text_Light,
+	Text_txt,
 	TexturedMesh,
 	TexturedMesh_Light,
 	Trash,

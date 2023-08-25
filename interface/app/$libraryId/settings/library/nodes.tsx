@@ -1,4 +1,4 @@
-import { isEnabled, useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
+import { useBridgeMutation, useDiscoveredPeers, useFeatureFlag } from '@sd/client';
 import { Button } from '@sd/ui';
 import { startPairing } from '~/app/p2p/pairing';
 import { Heading } from '../Layout';

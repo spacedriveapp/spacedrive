@@ -1,6 +1,7 @@
 import {
 	BottomSheetBackdrop,
 	BottomSheetBackdropProps,
+	BottomSheetFlatList,
 	BottomSheetHandle,
 	BottomSheetHandleProps,
 	BottomSheetModal,
@@ -72,6 +73,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 });
 
 export const ModalScrollView = BottomSheetScrollView;
+export const ModalFlatlist = BottomSheetFlatList;
 
 type ConfirmModalProps = {
 	title: string;
