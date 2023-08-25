@@ -7236,6 +7236,7 @@ dependencies = [
  "libheif-rs",
  "libheif-sys",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
