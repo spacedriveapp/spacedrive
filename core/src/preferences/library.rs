@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use tracing::error;
 use uuid::Uuid;
 
 use super::*;
@@ -31,9 +32,15 @@ impl LibraryPreferences {
 		let prefs = PreferenceKVs::new(
 			kvs.into_iter()
 				.filter_map(|data| {
-					let a = rmpv::decode::read_value(&mut data.value?.as_slice()).unwrap();
-
-					Some((PreferenceKey::new(data.key), PreferenceValue::from_value(a)))
+					rmpv::decode::read_value(&mut data.value?.as_slice())
+						.map_err(|e| error!("{e:#?}"))
+						.ok()
+						.map(|value| {
+							(
+								PreferenceKey::new(data.key),
+								PreferenceValue::from_value(value),
+							)
+						})
 				})
 				.collect(),
 		);

@@ -125,7 +125,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 			// Update mount point if not already present
 			let mount_points = &mut volume.mount_points;
-			if mount_point.iter().all(|p| p != &mount_point) {
+			if mount_point.iter().all(|p| *p != mount_point) {
 				mount_points.push(mount_point);
 				let mount_points_to_check = mount_points.clone();
 				mount_points.retain(|candidate| {
