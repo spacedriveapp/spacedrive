@@ -5,7 +5,7 @@ PODS:
     - ExpoModulesCore
   - EXConstants (14.4.2):
     - ExpoModulesCore
-  - EXFileSystem (15.4.2):
+  - EXFileSystem (15.4.3):
     - ExpoModulesCore
   - EXFont (11.4.0):
     - ExpoModulesCore
@@ -13,11 +13,11 @@ PODS:
     - ExpoModulesCore
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
-  - Expo (49.0.5):
+  - Expo (49.0.8):
     - ExpoModulesCore
   - ExpoKeepAwake (12.3.0):
     - ExpoModulesCore
-  - ExpoModulesCore (1.5.8):
+  - ExpoModulesCore (1.5.10):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
     - React-NativeModulesApple
@@ -42,7 +42,7 @@ PODS:
   - hermes-engine/Pre-built (0.72.3)
   - libevent (2.1.12)
   - lottie-ios (4.2.0)
-  - lottie-react-native (6.0.1):
+  - lottie-react-native (6.2.0):
     - lottie-ios (~> 4.2.0)
     - React-Core
   - RCT-Folly (2021.07.22.00):
@@ -467,9 +467,9 @@ PODS:
     - React-Core
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.12.0):
+  - RNGestureHandler (2.12.1):
     - React-Core
-  - RNReanimated (3.4.1):
+  - RNReanimated (3.4.2):
     - DoubleConversion
     - FBLazyVector
     - glog
@@ -698,26 +698,26 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  boost: 57d2868c099736d80fcd648bf211b4431e51a558
-  DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
+  boost: 20b6b3a53cb43939b6ffc2fd27d15ec7497167d0
+  DoubleConversion: 2d248a4174d78beaaa49735340c9bcc564091245
   EXApplication: 02655a251434d564bb0e73291f5a490c74b5b76f
   EXConstants: ce5bbea779da8031ac818c36bea41b10e14d04e1
-  EXFileSystem: d7f59869885cfeab3ac771e2a8d0f5ed98cd3fdb
+  EXFileSystem: 941b273758aee14be2ecc671dacb4f10dd28c833
   EXFont: 738c44c390953ebcbab075a4848bfbef025fd9ee
   EXMediaLibrary: 8ac14ce76f266026b10cac2ab049debe032d7ae7
-  Expo: f2485e8fab9988e5dcee34159df5e475c9c3730c
+  Expo: 900dc423a0e2c7e822b2c683a89426e82695fb27
   ExpoKeepAwake: be4cbd52d9b177cde0fd66daa1913afa3161fc1d
-  ExpoModulesCore: 924a69d9bffa2925c1f7eafab37764565f861d5d
+  ExpoModulesCore: e5a168deba84f74c0e558befa31dbaea06c00af0
   EXSplashScreen: 89586b0961acd173b04713b7457949b063a659da
   FBLazyVector: 4cce221dd782d3ff7c4172167bba09d58af67ccb
   FBReactNativeSpec: 60173e22b99be9ad9ac3842270d319de48e42817
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 04b94705f318337d7ead9e6d17c019bd9b1f6b1b
-  hermes-engine: 10fbd3f62405c41ea07e71973ea61e1878d07322
+  glog: 5b8834f2f3f7d36c1c73e5a9837f53f03cfe84eb
+  hermes-engine: 51d305855e02ee41d1b97d8b179ae88d01239906
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   lottie-ios: 809ecf2d460ed650a6aed7aa88b2ec45fab4779c
-  lottie-react-native: 646955b3212c448d59cf1895a0cb485a0a7be3cf
-  RCT-Folly: 424b8c9a7a0b9ab2886ffe9c3b041ef628fd4fb1
+  lottie-react-native: b04640d81bfc87915cd5c9058caa1112374691ff
+  RCT-Folly: 30d165d2e977f66793419c3314296392cb793f38
   RCTRequired: a2faf4bad4e438ca37b2040cb8f7799baa065c18
   RCTTypeSafety: cb09f3e4747b6d18331a15eb05271de7441ca0b3
   React: 13109005b5353095c052f26af37413340ccf7a5d
@@ -755,8 +755,8 @@ SPEC CHECKSUMS:
   RNCMaskedView: 949696f25ec596bfc697fc88e6f95cf0c79669b6
   RNFlashList: 25b0e092b4470c84db0386d4f5316dc34123bb6d
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
-  RNGestureHandler: dec4645026e7401a0899f2846d864403478ff6a5
-  RNReanimated: ee53561398b68a8b3d883c2453f85d33a4da3a56
+  RNGestureHandler: c0d04458598fcb26052494ae23dda8f8f5162b13
+  RNReanimated: 79025fdede9665be5b1eec93abcd95ce19bf5ad4
   RNScreens: 6a8a3c6b808aa48dca1780df7b73ea524f602c63
   RNSVG: 80584470ff1ffc7994923ea135a3e5ad825546b9
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17

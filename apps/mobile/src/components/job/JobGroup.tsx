@@ -13,7 +13,7 @@ import {
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
-import { tw, twStyle } from '~/lib/tailwind';
+import { tw } from '~/lib/tailwind';
 import { ProgressBar } from '../animation/ProgressBar';
 import { AnimatedHeight } from '../animation/layout';
 import { Button } from '../primitive/Button';
