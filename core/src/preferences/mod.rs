@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 
 use std::collections::HashMap;
-
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
@@ -35,7 +35,12 @@ where
 	fn from_entries(entries: Entries) -> Self {
 		entries
 			.into_iter()
-			.map(|(key, entry)| (Uuid::parse_str(&key).unwrap(), entry.expect_value()))
+			.filter_map(|(key, entry)| {
+				Uuid::parse_str(&key)
+					.map_err(|e| error!("{e:#?}"))
+					.ok()
+					.map(|uuid| (uuid, entry.expect_value()))
+			})
 			.collect()
 	}
 }
