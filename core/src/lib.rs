@@ -177,8 +177,7 @@ impl Node {
 			if let Some(location) = panic.location() {
 				tracing::error!(
 					message = %panic,
-					panic.file = location.file(),
-					panic.line = location.line(),
+					panic.file = format!("{}:{}", location.file(), location.line()),
 					panic.column = location.column(),
 				);
 			} else {
