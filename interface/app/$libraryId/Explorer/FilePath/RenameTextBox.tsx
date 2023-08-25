@@ -145,10 +145,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 
 		// Rename or blur on Enter key
 		useKey('Enter', (e) => {
-			e.preventDefault();
-
 			if (allowRename) blur();
 			else if (!disabled) {
+				e.preventDefault();
 				setAllowRename(true);
 				explorerView.setIsRenaming(true);
 			}

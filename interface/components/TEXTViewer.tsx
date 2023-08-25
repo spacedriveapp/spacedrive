@@ -66,7 +66,7 @@ export const TEXTViewer = memo(
 		// Use link to normalize URL
 		return link ? (
 			<pre
-				className={clsx('text-ink', className)}
+				className={clsx('custom-scroll default-scroll text-ink', className)}
 				style={{ wordWrap: 'break-word', whiteSpace: 'pre-wrap', colorScheme: 'dark' }}
 			>
 				{quickPreviewContent}

@@ -35,7 +35,7 @@ import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
-import { getExplorerStore } from '../store';
+import { getExplorerStore, useExplorerStore } from '../store';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -172,8 +172,9 @@ export interface ExplorerViewProps
 
 export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const explorer = useExplorerContext();
+	const explorerStore = useExplorerStore();
 
-	const quickPreviewCtx = useQuickPreviewContext();
+	const quickPreview = useQuickPreviewContext();
 
 	const { layoutMode } = explorer.useSettingsSnapshot();
 
@@ -183,14 +184,18 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 	const [isRenaming, setIsRenaming] = useState(false);
 
 	useKeyDownHandlers({
-		isRenaming
+		disabled: isRenaming || explorerStore.showQuickView
 	});
 
 	return (
 		<ViewContext.Provider
 			value={{
 				...contextProps,
-				selectable: explorer.selectable && !isContextMenuOpen && !isRenaming,
+				selectable:
+					explorer.selectable &&
+					!isContextMenuOpen &&
+					!isRenaming &&
+					!explorerStore.showQuickView,
 				setIsContextMenuOpen,
 				isRenaming,
 				setIsRenaming,
@@ -218,7 +223,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				)}
 			</div>
 
-			{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
+			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
 		</ViewContext.Provider>
 	);
 });
@@ -254,7 +259,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	);
 };
 
-const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
+const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	const explorer = useExplorerContext();
 
 	const os = useOperatingSystem();
@@ -286,7 +291,7 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	const handleOpenShortcut = useCallback(
 		async (event: KeyboardEvent) => {
 			if (
-				event.code.toUpperCase() !== 'O' ||
+				event.key.toUpperCase() !== 'O' ||
 				!event.getModifierState(
 					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
 				) ||
@@ -316,23 +321,6 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 		[os, library.uuid, openFilePaths, explorer.selectedItems]
 	);
 
-	const handleOpenQuickPreview = useCallback(
-		async (event: KeyboardEvent) => {
-			if (event.key !== ' ') return;
-
-			event.preventDefault();
-
-			if (!getExplorerStore().showQuickView) {
-				if (explorer.selectedItems.size === 0) return;
-
-				getExplorerStore().showQuickView = true;
-			} else {
-				getExplorerStore().showQuickView = false;
-			}
-		},
-		[explorer.selectedItems]
-	);
-
 	const handleExplorerShortcut = useCallback(
 		(event: KeyboardEvent) => {
 			if (
@@ -347,23 +335,12 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	);
 
 	useEffect(() => {
-		const handlers = [
-			handleNewTag,
-			handleOpenShortcut,
-			handleOpenQuickPreview,
-			handleExplorerShortcut
-		];
+		const handlers = [handleNewTag, handleOpenShortcut, handleExplorerShortcut];
 		const handler = (event: KeyboardEvent) => {
-			if (isRenaming) return;
+			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [
-		isRenaming,
-		handleNewTag,
-		handleOpenShortcut,
-		handleOpenQuickPreview,
-		handleExplorerShortcut
-	]);
+	}, [disabled, handleNewTag, handleOpenShortcut, handleExplorerShortcut]);
 };

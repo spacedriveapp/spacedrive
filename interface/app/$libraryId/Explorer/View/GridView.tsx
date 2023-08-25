@@ -68,6 +68,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 export default () => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const explorerStore = useExplorerStore();
 
 	return (
 		<GridList>
@@ -77,7 +78,7 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
-					renamable={explorer.selectedItems.size === 1}
+					renamable={explorer.selectedItems.size === 1 && !explorerStore.showQuickView}
 				/>
 			)}
 		</GridList>

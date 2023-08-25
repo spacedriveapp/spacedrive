@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import {
 	CSSProperties,
 	ImgHTMLAttributes,
-	ReactNode,
 	RefObject,
 	VideoHTMLAttributes,
 	memo,
@@ -21,7 +20,6 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
-import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
 
 const THUMB_TYPE = {
@@ -47,11 +45,9 @@ export interface ThumbProps {
 	pauseVideo?: boolean;
 	className?: string | GetClassName;
 	childClassName?: string | GetClassName;
-	showExtension?: boolean;
-	errorFallback?: ReactNode;
 }
 
-export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) => {
+export const FileThumb = memo((props: ThumbProps) => {
 	const isDark = useIsDark();
 	const platform = usePlatform();
 
@@ -63,7 +59,6 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 
 	const [src, setSrc] = useState<string>();
 	const [loaded, setLoaded] = useState(false);
-	const [failedToLoad, setFailedToLoad] = useState(false);
 	const [thumbType, setThumbType] = useState<ThumbType>('icon');
 
 	const childClassName = 'max-h-full max-w-full object-contain';
@@ -75,13 +70,10 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 	const onLoad = () => setLoaded(true);
 
 	const onError = () => {
-		if (props.errorFallback) setFailedToLoad(true);
-		else {
-			setLoaded(false);
-			setThumbType((prevThumbType) =>
-				prevThumbType === 'original' && itemData.hasLocalThumbnail ? 'thumbnail' : 'icon'
-			);
-		}
+		setLoaded(false);
+		setThumbType((prevThumbType) =>
+			prevThumbType === 'original' && itemData.hasLocalThumbnail ? 'thumbnail' : 'icon'
+		);
 	};
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
@@ -160,160 +152,151 @@ export const FileThumb = memo(({ showExtension = true, ...props }: ThumbProps) =
 					: props.className
 			)}
 		>
-			{failedToLoad
-				? props.errorFallback
-				: (() => {
-						if (!src) return;
+			{(() => {
+				if (!src) return;
 
-						const _childClassName =
-							typeof props.childClassName === 'function'
-								? props.childClassName({ type: thumbType, kind: itemData.kind })
-								: props.childClassName;
+				const _childClassName =
+					typeof props.childClassName === 'function'
+						? props.childClassName({ type: thumbType, kind: itemData.kind })
+						: props.childClassName;
 
-						const className = clsx(childClassName, _childClassName);
+				const className = clsx(childClassName, _childClassName);
 
-						switch (thumbType) {
-							case 'original': {
-								switch (itemData.extension === 'pdf' ? 'PDF' : itemData.kind) {
-									case 'PDF':
-										if (!pdfViewerEnabled()) return;
-										return (
-											<PDFViewer
-												src={src}
-												onLoad={onLoad}
-												onError={onError}
-												className={clsx(
-													'h-full w-full',
-													className,
-													props.frame && frameClassName
-												)}
-												crossOrigin="anonymous" // Here it is ok, because it is not a react attr
-											/>
-										);
-
-									case 'Text':
-										return (
-											<TEXTViewer
-												src={src}
-												onLoad={onLoad}
-												onError={onError}
-												className={clsx(
-													'h-full w-full font-mono',
-													!props.mediaControls
-														? 'overflow-hidden'
-														: 'overflow-auto',
-													className,
-													props.frame && [frameClassName, '!bg-none p-2']
-												)}
-												crossOrigin="anonymous"
-											/>
-										);
-
-									case 'Video':
-										return (
-											<Video
-												src={src}
-												onLoadedData={onLoad}
-												onError={onError}
-												paused={props.pauseVideo}
-												controls={props.mediaControls}
-												blackBars={props.blackBars}
-												blackBarsSize={props.blackBarsSize}
-												className={clsx(
-													className,
-													props.frame &&
-														!props.blackBars &&
-														frameClassName
-												)}
-											/>
-										);
-
-									case 'Audio':
-										return (
-											<>
-												<img
-													src={getIcon(
-														iconNames.Audio,
-														isDark,
-														itemData.extension
-													)}
-													onLoad={onLoad}
-													decoding={props.size ? 'async' : 'sync'}
-													className={childClassName}
-													draggable={false}
-												/>
-												{props.mediaControls && (
-													<audio
-														// Order matter for crossOrigin attr
-														crossOrigin="anonymous"
-														src={src}
-														onError={onError}
-														controls
-														autoPlay
-														className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
-													>
-														<p>Audio preview is not supported.</p>
-													</audio>
-												)}
-											</>
-										);
-								}
-							}
-
-							// eslint-disable-next-line no-fallthrough
-							case 'thumbnail':
+				switch (thumbType) {
+					case 'original': {
+						switch (itemData.extension === 'pdf' ? 'PDF' : itemData.kind) {
+							case 'PDF':
+								if (!pdfViewerEnabled()) return;
 								return (
-									<Thumbnail
+									<PDFViewer
 										src={src}
-										cover={props.cover}
 										onLoad={onLoad}
 										onError={onError}
-										decoding={props.size ? 'async' : 'sync'}
 										className={clsx(
-											props.cover
-												? [
-														'min-h-full min-w-full object-cover object-center',
-														_childClassName
-												  ]
-												: className,
-
-											props.frame &&
-												(itemData.kind !== 'Video' || !props.blackBars)
-												? frameClassName
-												: null
+											'h-full w-full',
+											className,
+											props.frame && frameClassName
 										)}
-										crossOrigin={
-											thumbType !== 'original' ? 'anonymous' : undefined
-										} // Here it is ok, because it is not a react attr
-										blackBars={
-											props.blackBars &&
-											itemData.kind === 'Video' &&
-											!props.cover
-										}
-										blackBarsSize={props.blackBarsSize}
-										extension={
-											props.extension &&
-											itemData.extension &&
-											itemData.kind === 'Video'
-												? itemData.extension
-												: undefined
-										}
+										crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 									/>
 								);
 
-							default:
+							case 'Text':
 								return (
-									<img
+									<TEXTViewer
 										src={src}
 										onLoad={onLoad}
-										onError={() => setLoaded(false)}
-										decoding={props.size ? 'async' : 'sync'}
-										className={className}
-										draggable={false}
+										onError={onError}
+										className={clsx(
+											'h-full w-full font-mono',
+											!props.mediaControls
+												? 'overflow-hidden'
+												: 'overflow-auto',
+											className,
+											props.frame && [frameClassName, '!bg-none p-2']
+										)}
+										crossOrigin="anonymous"
 									/>
 								);
+
+							case 'Video':
+								return (
+									<Video
+										src={src}
+										onLoadedData={onLoad}
+										onError={onError}
+										paused={props.pauseVideo}
+										controls={props.mediaControls}
+										blackBars={props.blackBars}
+										blackBarsSize={props.blackBarsSize}
+										className={clsx(
+											className,
+											props.frame && !props.blackBars && frameClassName
+										)}
+									/>
+								);
+
+							case 'Audio':
+								return (
+									<>
+										<img
+											src={getIcon(
+												iconNames.Audio,
+												isDark,
+												itemData.extension
+											)}
+											onLoad={onLoad}
+											decoding={props.size ? 'async' : 'sync'}
+											className={childClassName}
+											draggable={false}
+										/>
+										{props.mediaControls && (
+											<audio
+												// Order matter for crossOrigin attr
+												crossOrigin="anonymous"
+												src={src}
+												onError={onError}
+												controls
+												autoPlay
+												className="absolute left-2/4 top-full w-full -translate-x-1/2 translate-y-[-150%]"
+											>
+												<p>Audio preview is not supported.</p>
+											</audio>
+										)}
+									</>
+								);
 						}
-				  })()}
+					}
+
+					// eslint-disable-next-line no-fallthrough
+					case 'thumbnail':
+						return (
+							<Thumbnail
+								src={src}
+								cover={props.cover}
+								onLoad={onLoad}
+								onError={onError}
+								decoding={props.size ? 'async' : 'sync'}
+								className={clsx(
+									props.cover
+										? [
+												'min-h-full min-w-full object-cover object-center',
+												_childClassName
+										  ]
+										: className,
+
+									props.frame && (itemData.kind !== 'Video' || !props.blackBars)
+										? frameClassName
+										: null
+								)}
+								crossOrigin={thumbType !== 'original' ? 'anonymous' : undefined} // Here it is ok, because it is not a react attr
+								blackBars={
+									props.blackBars && itemData.kind === 'Video' && !props.cover
+								}
+								blackBarsSize={props.blackBarsSize}
+								extension={
+									props.extension &&
+									itemData.extension &&
+									itemData.kind === 'Video'
+										? itemData.extension
+										: undefined
+								}
+							/>
+						);
+
+					default:
+						return (
+							<img
+								src={src}
+								onLoad={onLoad}
+								onError={() => setLoaded(false)}
+								decoding={props.size ? 'async' : 'sync'}
+								className={className}
+								draggable={false}
+							/>
+						);
+				}
+			})()}
 		</div>
 	);
 });

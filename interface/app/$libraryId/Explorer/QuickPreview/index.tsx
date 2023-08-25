@@ -3,19 +3,32 @@ import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, CaretDown, Plus, SidebarSimple, X } from 'phosphor-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useKey } from 'rooks';
 import {
 	ExplorerItem,
 	getExplorerItemData,
 	getItemFilePath,
+	useLibraryContext,
 	useLibraryMutation,
 	useRspcLibraryContext
 } from '@sd/client';
-import { DropdownMenu, Form, Tooltip, tw, useZodForm, z } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import {
+	DropdownMenu,
+	Form,
+	ModifierKeys,
+	Tooltip,
+	dialogManager,
+	toast,
+	tw,
+	useZodForm,
+	z
+} from '@sd/ui';
+import { useIsDark, useOperatingSystem } from '~/hooks';
+import { useKeyBind } from '~/hooks/useKeyBind';
+import { usePlatform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import ExplorerContextMenu, { FilePathItems, ObjectItems, SharedItems } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
+import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -23,17 +36,18 @@ import { getExplorerStore, useExplorerStore } from '../store';
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-const ArrowButton = tw.button`flex h-9 w-9 shrink-0 items-center p-2 cursor-pointer justify-center rounded-full border border-app-line bg-app text-ink/80 text-xl`;
-const IconButton = tw.button`inline-flex h-8 w-8 items-center justify-center rounded-md text-md text-slate-300 hover:bg-white/10 hover:text-white outline-none`;
+const ArrowButton = tw.button`flex h-9 w-9 shrink-0 items-center shadow p-2 cursor-pointer justify-center rounded-full border border-app-line bg-app/80 text-ink/80 text-xl`;
+const IconButton = tw.button`inline-flex h-8 w-8 items-center justify-center rounded-md text-md text-slate-300 hover:bg-white/10 hover:text-white hover:backdrop-blur outline-none`;
 
-const fadeInClassName = `opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 animate-in fade-in fade-out duration-300`;
+const fadeInClassName =
+	'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 animate-in fade-in fade-out duration-300';
 
-export interface QuickPreviewProps {
-	transformOrigin?: string;
-}
-
-export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
+export const QuickPreview = () => {
 	const rspc = useRspcLibraryContext();
+	const isDark = useIsDark();
+	const os = useOperatingSystem();
+	const { library } = useLibraryContext();
+	const { openFilePaths, revealItems } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { showQuickView } = useExplorerStore();
@@ -45,23 +59,23 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
 
-	const renameFile = useLibraryMutation(['files.renameFile'], {
-		onError: () => setNewName(null),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
-	});
+	const item = useMemo(() => selectedItems[currentItemIndex], [selectedItems, currentItemIndex]);
 
 	const transitions = useTransition(showQuickView, {
 		from: {
 			opacity: 0,
 			transform: `translateY(20px) scale(0.9)`,
-			transformOrigin: transformOrigin || 'center top'
+			transformOrigin: 'center top'
 		},
 		enter: { opacity: 1, transform: `translateY(0px) scale(1)` },
 		leave: { opacity: 0, transform: `translateY(40px) scale(0.9)` },
 		config: { mass: 0.2, tension: 300, friction: 20, bounce: 0 }
 	});
 
-	const item = useMemo(() => selectedItems[currentItemIndex], [selectedItems, currentItemIndex]);
+	const renameFile = useLibraryMutation(['files.renameFile'], {
+		onError: () => setNewName(null),
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+	});
 
 	const changeCurrentItem = (index: number) => {
 		if (selectedItems[index]) {
@@ -70,6 +84,15 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 		}
 	};
 
+	// Update items
+	useEffect(() => {
+		if (showQuickView) {
+			if (explorer.selectedItems.size === 0) getExplorerStore().showQuickView = false;
+			else setSelectedItems([...explorer.selectedItems]);
+		}
+	}, [explorer.selectedItems, showQuickView]);
+
+	// Reset state
 	useEffect(() => {
 		if (showQuickView) {
 			setCurrentItemIndex(0);
@@ -78,20 +101,76 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 		}
 	}, [showQuickView]);
 
-	useEffect(() => {
-		if (showQuickView) {
-			if (explorer.selectedItems.size === 0) getExplorerStore().showQuickView = false;
-			else setSelectedItems([...explorer.selectedItems]);
-		}
-	}, [explorer.selectedItems, showQuickView]);
+	// Toggle quick preview
+	useKeyBind(['space'], (e) => {
+		if (isRenaming) return;
 
-	useKey(
-		['ArrowLeft', 'ArrowRight'],
-		(e) =>
-			!isContextMenuOpen &&
-			!isRenaming &&
-			changeCurrentItem(e.key === 'ArrowLeft' ? currentItemIndex - 1 : currentItemIndex + 1)
+		e.preventDefault();
+
+		getExplorerStore().showQuickView = !showQuickView;
+	});
+
+	// Move between items
+	useKeyBind([['left'], ['right']], (e) => {
+		if (isContextMenuOpen || isRenaming) return;
+		changeCurrentItem(e.key === 'ArrowLeft' ? currentItemIndex - 1 : currentItemIndex + 1);
+	});
+
+	// Toggle metadata
+	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
+		setShowMetadata(!showMetadata)
 	);
+
+	// Open file
+	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+		if (!item || !openFilePaths) return;
+
+		try {
+			const path = getItemFilePath(item);
+
+			if (!path) throw 'No path found';
+
+			openFilePaths(library.uuid, [path.id]);
+		} catch (error) {
+			toast.error({
+				title: 'Failed to open file',
+				description: `Couldn't open file, due to an error: ${error}`
+			});
+		}
+	});
+
+	// Reveal in native explorer
+	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
+		if (!item || !revealItems) return;
+
+		try {
+			const id = item.type === 'Location' ? item.item.id : getItemFilePath(item)?.id;
+
+			if (!id) throw 'No id found';
+
+			revealItems(library.uuid, [
+				{ ...(item.type === 'Location' ? { Location: { id } } : { FilePath: { id } }) }
+			]);
+		} catch (error) {
+			toast.error({
+				title: 'Failed to reveal',
+				description: `Couldn't reveal file, due to an error: ${error}`
+			});
+		}
+	});
+
+	// Open delete dialog
+	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
+		if (!item) return;
+
+		const path = getItemFilePath(item);
+
+		if (!path || path.location_id === null) return;
+
+		dialogManager.create((dp) => (
+			<DeleteDialog {...dp} locationId={path.location_id!} pathIds={[path.id]} />
+		));
+	});
 
 	return (
 		<Dialog.Root
@@ -101,23 +180,31 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 			{transitions((styles, show) => {
 				if (!show || !item) return null;
 
-				const itemData = getExplorerItemData(item);
 				const filePathData = getItemFilePath(item);
 
-				const name = filePathData
-					? `${filePathData.name}${
-							filePathData.extension ? `.${filePathData.extension}` : ''
-					  }`
-					: 'Unknown Object';
+				if (!filePathData) return null;
+
+				const { kind } = getExplorerItemData(item);
+
+				const fixedHeader = kind === 'Text' || kind === 'Document';
+
+				const name = `${filePathData.name}${
+					filePathData.extension ? `.${filePathData.extension}` : ''
+				}`;
 
 				return (
-					<Dialog.Portal forceMount onContextMenu={(e) => console.log(e)}>
+					<Dialog.Portal forceMount>
 						<AnimatedDialogOverlay
 							style={{
 								opacity: styles.opacity
 							}}
-							className="absolute inset-0 z-50 bg-black/75"
+							className={clsx(
+								'absolute inset-0 z-50',
+								isDark ? 'bg-black/75' : 'bg-black/60'
+							)}
 							onContextMenu={(e) => {
+								// Block explorer context menu
+								// should probably look for a better solution
 								e.stopPropagation();
 								e.preventDefault();
 							}}
@@ -125,19 +212,32 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 
 						<AnimatedDialogContent
 							style={styles}
-							className="fixed inset-8 z-50 flex overflow-hidden rounded-md border border-white/20 outline-none backdrop-blur"
+							className={clsx(
+								'fixed inset-8 z-50 flex overflow-hidden rounded-md border outline-none backdrop-blur',
+								isDark
+									? 'border-app-line/80'
+									: fixedHeader
+									? 'border-app-line'
+									: 'border-app-line/10'
+							)}
 							onOpenAutoFocus={(e) => e.preventDefault()}
 							onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
 							onContextMenu={(e) => {
+								// Block explorer context menu
+								// should probably look for a better solution
 								e.stopPropagation();
 								e.preventDefault();
 							}}
 						>
-							<div className="group relative flex flex-1 overflow-hidden">
+							<div
+								className={clsx(
+									'group relative flex flex-1 flex-col overflow-hidden',
+									fixedHeader ? 'bg-app' : 'bg-app/80'
+								)}
+							>
 								<FileThumb
 									data={item}
 									cover={true}
-									showExtension={false}
 									className={({ type, kind }) =>
 										clsx(
 											'!absolute inset-0',
@@ -151,8 +251,13 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 
 								<div
 									className={clsx(
-										'absolute inset-x-0 top-0 z-50 flex items-center bg-gradient-to-b from-black via-black/30 via-60% to-transparent p-3',
-										fadeInClassName
+										'z-50 flex items-center p-3 ',
+										fixedHeader
+											? 'border-b border-app-line bg-app-darkBox text-ink'
+											: [
+													'absolute inset-x-0 top-0 border-none bg-gradient-to-b from-black/50 to-transparent text-white',
+													fadeInClassName
+											  ]
 									)}
 								>
 									<div className="flex-1">
@@ -165,7 +270,7 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 										</Tooltip>
 									</div>
 
-									<div className="flex w-1/2 items-center justify-center truncate text-sm text-white">
+									<div className="flex w-1/2 items-center justify-center truncate text-sm">
 										{isRenaming ? (
 											<RenameInput
 												name={name}
@@ -264,7 +369,8 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 											<IconButton
 												onClick={() => setShowMetadata(!showMetadata)}
 												className={clsx(
-													showMetadata && 'bg-white/10 !text-ink'
+													showMetadata &&
+														'bg-white/10 !text-white !backdrop-blur'
 												)}
 											>
 												<SidebarSimple className="rotate-180" />
@@ -282,15 +388,16 @@ export const QuickPreview = ({ transformOrigin }: QuickPreviewProps) => {
 								<FileThumb
 									data={item}
 									loadOriginal
-									childClassName={({ kind }) =>
-										clsx(kind === 'Text' ? 'p-6 pt-16' : undefined)
-									}
 									mediaControls
+									className={clsx(
+										fixedHeader && '!h-auto flex-1 overflow-hidden'
+									)}
+									childClassName={clsx(kind === 'Text' && 'p-6')}
 								/>
 							</div>
 
 							{showMetadata && (
-								<div className="no-scrollbar w-64 shrink-0 border-l border-white/5 bg-app-darkBox py-1">
+								<div className="no-scrollbar w-64 shrink-0 border-l border-app-line bg-app-darkBox py-1">
 									<SingleItemMetadata item={item} />
 								</div>
 							)}
@@ -333,9 +440,10 @@ const Navigation = ({ showBack, showForward, onNav }: NavigationProps) => {
 interface RenameInputProps {
 	name: string;
 	onRename: (name: string) => void;
+	className?: string;
 }
 
-const RenameInput = ({ name, onRename }: RenameInputProps) => {
+const RenameInput = ({ name, onRename, className }: RenameInputProps) => {
 	const os = useOperatingSystem();
 
 	const _ref = useRef<HTMLInputElement | null>(null);
@@ -364,6 +472,7 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 			}
 
 			case 'Escape': {
+				form.reset();
 				onSubmit();
 				break;
 			}
@@ -382,7 +491,10 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 			<input
 				autoFocus
 				autoCorrect="off"
-				className="w-full rounded border border-white/[.12] bg-white/10 px-2 py-1 text-center outline-none backdrop-blur-sm"
+				className={clsx(
+					'w-full rounded border border-white/[.12] bg-white/10 px-2 py-1 text-center outline-none backdrop-blur-sm',
+					className
+				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName(name)}
 				ref={(e) => {

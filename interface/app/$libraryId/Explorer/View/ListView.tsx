@@ -94,7 +94,6 @@ type Range = [ExplorerItemHash, ExplorerItemHash];
 export default () => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
-	const { showQuickView } = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const layout = useLayoutContext();
 
@@ -788,7 +787,7 @@ export default () => {
 	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
-		if (!explorerView.selectable || showQuickView) return;
+		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
