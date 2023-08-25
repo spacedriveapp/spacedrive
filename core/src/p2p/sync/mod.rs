@@ -117,11 +117,11 @@ impl NetworkedLibraries {
 					.filter_map(|i| {
 						// TODO: Error handling
 						match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-							IdentityOrRemoteIdentity::Identity(identity) => {
-								Some((identity.to_remote_identity(), InstanceState::Unavailable))
-							}
 							// We don't own it so don't advertise it
-							IdentityOrRemoteIdentity::RemoteIdentity(_) => None,
+							IdentityOrRemoteIdentity::Identity(_) => None,
+							IdentityOrRemoteIdentity::RemoteIdentity(identity) => {
+								Some((identity, InstanceState::Unavailable))
+							}
 						}
 					})
 					.collect(),
