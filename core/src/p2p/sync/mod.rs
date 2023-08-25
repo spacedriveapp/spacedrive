@@ -291,7 +291,7 @@ mod originator {
 					.unwrap();
 				tunnel.flush().await.unwrap();
 
-				while let Ok(rx::GetOperations(args)) =
+				while let Ok(rx::GetOperations::Operations(args)) =
 					rx::GetOperations::from_stream(&mut tunnel).await
 				{
 					let ops = sync.get_ops(args).await.unwrap();
@@ -318,28 +318,31 @@ mod responder {
 	use originator::tx as rx;
 
 	pub mod tx {
+		use serde::{Deserialize, Serialize};
+
 		use super::*;
 
-		pub struct GetOperations(pub GetOpsArgs);
+		#[derive(Serialize, Deserialize)]
+		pub enum GetOperations {
+			Operations(GetOpsArgs),
+			Done,
+		}
 
 		impl GetOperations {
 			// TODO: Per field errors for better error handling
 			pub async fn from_stream(
 				stream: &mut (impl AsyncRead + Unpin),
 			) -> std::io::Result<Self> {
-				Ok(Self(
+				Ok(
 					// TODO: Error handling
 					rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
-				))
+				)
 			}
 
 			pub fn to_bytes(&self) -> Vec<u8> {
-				let Self(ops) = self;
-
 				let mut buf = vec![];
-
 				// TODO: Error handling
-				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&self).unwrap());
 				buf
 			}
 		}
@@ -368,7 +371,7 @@ mod responder {
 
 			tunnel
 				.write_all(
-					&tx::GetOperations(sync::GetOpsArgs {
+					&tx::GetOperations::Operations(sync::GetOpsArgs {
 						clocks: timestamps,
 						count: OPS_PER_REQUEST,
 					})
@@ -390,5 +393,11 @@ mod responder {
 				.await
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
 		}
+
+		tunnel
+			.write_all(&tx::GetOperations::Done.to_bytes())
+			.await
+			.unwrap();
+		tunnel.flush().await.unwrap();
 	}
 }
