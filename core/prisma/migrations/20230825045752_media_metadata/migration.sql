@@ -1,16 +1,34 @@
+/*
+  Warnings:
+
+  - You are about to drop the column `capture_device_make` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `capture_device_model` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `capture_device_software` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `codecs` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `duration_seconds` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `fps` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `latitude` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `longitude` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `pixel_height` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `pixel_width` on the `media_data` table. All the data in the column will be lost.
+  - You are about to drop the column `streams` on the `media_data` table. All the data in the column will be lost.
+  - Added the required column `object_id` to the `media_data` table without a default value. This is not possible if the table is not empty.
+
+*/
 -- RedefineTables
 PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_indexer_rule_in_location" (
-    "location_id" INTEGER NOT NULL,
-    "indexer_rule_id" INTEGER NOT NULL,
+CREATE TABLE "new_label_on_object" (
+    "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "label_id" INTEGER NOT NULL,
+    "object_id" INTEGER NOT NULL,
 
-    PRIMARY KEY ("location_id", "indexer_rule_id"),
-    CONSTRAINT "indexer_rule_in_location_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "indexer_rule_in_location_indexer_rule_id_fkey" FOREIGN KEY ("indexer_rule_id") REFERENCES "indexer_rule" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    PRIMARY KEY ("label_id", "object_id"),
+    CONSTRAINT "label_on_object_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "label" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "label_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_indexer_rule_in_location" ("indexer_rule_id", "location_id") SELECT "indexer_rule_id", "location_id" FROM "indexer_rule_in_location";
-DROP TABLE "indexer_rule_in_location";
-ALTER TABLE "new_indexer_rule_in_location" RENAME TO "indexer_rule_in_location";
+INSERT INTO "new_label_on_object" ("date_created", "label_id", "object_id") SELECT "date_created", "label_id", "object_id" FROM "label_on_object";
+DROP TABLE "label_on_object";
+ALTER TABLE "new_label_on_object" RENAME TO "label_on_object";
 CREATE TABLE "new_job" (
     "id" BLOB NOT NULL PRIMARY KEY,
     "name" TEXT,
@@ -31,6 +49,34 @@ CREATE TABLE "new_job" (
 INSERT INTO "new_job" ("action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count") SELECT "action", "completed_task_count", "data", "date_completed", "date_created", "date_estimated_completion", "date_started", "errors_text", "id", "metadata", "name", "parent_id", "status", "task_count" FROM "job";
 DROP TABLE "job";
 ALTER TABLE "new_job" RENAME TO "job";
+CREATE TABLE "new_media_data" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "dimensions" BLOB,
+    "media_date" BLOB,
+    "media_location" BLOB,
+    "camera_data" BLOB,
+    "artist" BLOB,
+    "description" BLOB,
+    "copyright" BLOB,
+    "exif_version" BLOB,
+    "object_id" INTEGER NOT NULL,
+    CONSTRAINT "media_data_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+INSERT INTO "new_media_data" ("id") SELECT "id" FROM "media_data";
+DROP TABLE "media_data";
+ALTER TABLE "new_media_data" RENAME TO "media_data";
+CREATE UNIQUE INDEX "media_data_object_id_key" ON "media_data"("object_id");
+CREATE TABLE "new_indexer_rule_in_location" (
+    "location_id" INTEGER NOT NULL,
+    "indexer_rule_id" INTEGER NOT NULL,
+
+    PRIMARY KEY ("location_id", "indexer_rule_id"),
+    CONSTRAINT "indexer_rule_in_location_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "indexer_rule_in_location_indexer_rule_id_fkey" FOREIGN KEY ("indexer_rule_id") REFERENCES "indexer_rule" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO "new_indexer_rule_in_location" ("indexer_rule_id", "location_id") SELECT "indexer_rule_id", "location_id" FROM "indexer_rule_in_location";
+DROP TABLE "indexer_rule_in_location";
+ALTER TABLE "new_indexer_rule_in_location" RENAME TO "indexer_rule_in_location";
 CREATE TABLE "new_file_path" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
@@ -80,18 +126,6 @@ INSERT INTO "new_location" ("available_capacity", "date_created", "generate_prev
 DROP TABLE "location";
 ALTER TABLE "new_location" RENAME TO "location";
 CREATE UNIQUE INDEX "location_pub_id_key" ON "location"("pub_id");
-CREATE TABLE "new_label_on_object" (
-    "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "label_id" INTEGER NOT NULL,
-    "object_id" INTEGER NOT NULL,
-
-    PRIMARY KEY ("label_id", "object_id"),
-    CONSTRAINT "label_on_object_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "label" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "label_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-);
-INSERT INTO "new_label_on_object" ("date_created", "label_id", "object_id") SELECT "date_created", "label_id", "object_id" FROM "label_on_object";
-DROP TABLE "label_on_object";
-ALTER TABLE "new_label_on_object" RENAME TO "label_on_object";
 CREATE TABLE "new_tag_on_object" (
     "tag_id" INTEGER NOT NULL,
     "object_id" INTEGER NOT NULL,
