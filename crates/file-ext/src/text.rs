@@ -269,6 +269,10 @@ fn looks_ucs32(buf: &[u8]) -> Option<UCS32> {
 }
 
 pub fn is_text(data: &[u8], partial: bool) -> Option<&'static str> {
+	if data.is_empty() {
+		return None;
+	}
+
 	if looks_utf8_with_bom(data, partial) || looks_utf8(data, partial) {
 		return Some("utf-8");
 	}

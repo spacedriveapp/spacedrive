@@ -6,15 +6,13 @@ use crate::{
 };
 
 use std::{
+	cmp::min,
 	io,
 	mem::take,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
-
-#[cfg(windows)]
-use std::cmp::min;
 
 use http_range::HttpRange;
 use httpz::{
@@ -293,21 +291,17 @@ async fn handle_file(
 		.len();
 
 	let mime_type = if mime_type == "text/plain" {
-		let mut text_buf =
-			Vec::with_capacity(usize::min(content_lenght as usize, MAX_TEXT_READ_LENGHT));
+		let mut text_buf = vec![0; min(content_lenght as usize, MAX_TEXT_READ_LENGHT)];
+		if !text_buf.is_empty() {
+			file.read_exact(&mut text_buf)
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
+			file.seek(SeekFrom::Start(0))
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
+		}
 
-		file.read_exact(&mut text_buf)
-			.await
-			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
-		file.seek(SeekFrom::Start(0))
-			.await
-			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
-
-		let Some(charset) = is_text(&text_buf, text_buf.len() == (content_lenght as usize)) else {
-			return Err(HandleCustomUriError::BadRequest(
-				"TODO: This filetype is not supported because of the missing mime type!",
-			));
-		};
+		let charset = is_text(&text_buf, text_buf.len() == (content_lenght as usize)).unwrap_or("");
 
 		// Only browser recognized types, everything else should be text/plain
 		// https://www.iana.org/assignments/media-types/media-types.xhtml#table-text
@@ -328,7 +322,16 @@ async fn handle_file(
 			"vtt" => "text/vtt",
 			// Extensible Markup Language
 			"xml" => "text/xml",
-			_ => mime_type,
+			// Text
+			"txt" => "text/plain",
+			_ => {
+				if charset.is_empty() {
+					return Err(HandleCustomUriError::BadRequest(
+						"TODO: This filetype is not supported because of the missing mime type!",
+					));
+				};
+				mime_type
+			}
 		};
 
 		format!("{mime_type}; charset={charset}")
