@@ -61,27 +61,28 @@ type AnimatedHeightProps = {
 	hide?: boolean;
 	onHeightDidAnimate?: (height: number) => void;
 	initialHeight?: number;
-} & React.ComponentProps<typeof MotiView>;
+	duration?: number;
+} & MotiViewProps;
 
 export function AnimatedHeight({
 	children,
 	hide = !children,
 	style,
 	onHeightDidAnimate,
-	transition = { duration: 200 },
+	duration = 200,
 	initialHeight = 0
 }: AnimatedHeightProps) {
 	const measuredHeight = useSharedValue(initialHeight);
 	const childStyle = useAnimatedStyle(
 		() => ({
-			opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition)
+			opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, { duration })
 		}),
 		[hide, measuredHeight]
 	);
 
 	const containerStyle = useAnimatedStyle(() => {
 		return {
-			height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
+			height: withTiming(hide ? 0 : measuredHeight.value, { duration }, () => {
 				if (onHeightDidAnimate) {
 					runOnJS(onHeightDidAnimate)(measuredHeight.value);
 				}
