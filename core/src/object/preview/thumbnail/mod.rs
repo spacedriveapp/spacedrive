@@ -155,6 +155,12 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
 	})?;
 
+	fs::create_dir_all(output_path.as_ref().parent().ok_or(io::Error::new(
+		io::ErrorKind::InvalidInput,
+		"Cannot determine parent directory",
+	))?)
+	.await?;
+
 	fs::write(output_path, &webp).await.map_err(Into::into)
 }
 

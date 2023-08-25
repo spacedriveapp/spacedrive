@@ -1,11 +1,15 @@
 use crate::{
+	api::CoreEvent,
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
 	library::Library,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		preview::{shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit},
+		preview::{
+			can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
+			get_thumbnail_path, shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
+		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::error::FileIOError,
@@ -15,8 +19,11 @@ use crate::{
 use std::{
 	collections::HashSet,
 	path::{Component, Path, PathBuf},
+	str::FromStr,
 	sync::Arc,
 };
+
+use sd_file_ext::extensions::ImageExtension;
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
@@ -29,7 +36,7 @@ use serde::Deserialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 mod error;
@@ -37,6 +44,7 @@ pub mod file_path_helper;
 pub mod indexer;
 mod manager;
 mod metadata;
+pub mod non_indexed;
 
 pub use error::LocationError;
 use indexer::IndexerJobInit;
@@ -510,17 +518,8 @@ pub struct CreatedLocationResult {
 	pub data: location_with_indexer_rules::Data,
 }
 
-async fn create_location(
-	library: &Arc<Library>,
-	location_pub_id: Uuid,
-	location_path: impl AsRef<Path>,
-	indexer_rules_ids: &[i32],
-	dry_run: bool,
-) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &**library;
-
-	let mut path = location_path.as_ref().to_path_buf();
-
+pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, String)> {
+	let mut path = path.as_ref().to_path_buf();
 	let (location_path, normalized_path) = path
 		// Normalize path and also check if it exists
 		.normalize()
@@ -542,8 +541,7 @@ async fn create_location(
 				))?,
 				normalized_path,
 			))
-		})
-		.map_err(|_| LocationError::DirectoryNotFound(path.clone()))?;
+		})?;
 
 	// Not needed on Windows because the normalization already handles it
 	if cfg!(not(windows)) {
@@ -554,24 +552,6 @@ async fn create_location(
 				path = normalized_path.as_path().to_path_buf();
 			}
 		}
-	}
-
-	if library
-		.db
-		.location()
-		.count(vec![location::path::equals(Some(location_path.clone()))])
-		.exec()
-		.await? > 0
-	{
-		return Err(LocationError::LocationAlreadyExists(path));
-	}
-
-	if check_nested_location(&location_path, &library.db).await? {
-		return Err(LocationError::NestedLocation(path));
-	}
-
-	if dry_run {
-		return Ok(None);
 	}
 
 	// Use `to_string_lossy` because a partially corrupted but identifiable name is better than nothing
@@ -586,6 +566,43 @@ async fn create_location(
 		name = "Unknown".to_string()
 	}
 
+	Ok((location_path, name))
+}
+
+async fn create_location(
+	library: &Arc<Library>,
+	location_pub_id: Uuid,
+	location_path: impl AsRef<Path>,
+	indexer_rules_ids: &[i32],
+	dry_run: bool,
+) -> Result<Option<CreatedLocationResult>, LocationError> {
+	let Library { db, sync, .. } = &**library;
+
+	let (path, name) = normalize_path(&location_path)
+		.map_err(|_| LocationError::DirectoryNotFound(location_path.as_ref().to_path_buf()))?;
+
+	if library
+		.db
+		.location()
+		.count(vec![location::path::equals(Some(path.clone()))])
+		.exec()
+		.await? > 0
+	{
+		return Err(LocationError::LocationAlreadyExists(
+			location_path.as_ref().to_path_buf(),
+		));
+	}
+
+	if check_nested_location(&location_path, &library.db).await? {
+		return Err(LocationError::NestedLocation(
+			location_path.as_ref().to_path_buf(),
+		));
+	}
+
+	if dry_run {
+		return Ok(None);
+	}
+
 	let date_created = Utc::now();
 
 	let location = sync
@@ -598,7 +615,7 @@ async fn create_location(
 					},
 					[
 						(location::name::NAME, json!(&name)),
-						(location::path::NAME, json!(&location_path)),
+						(location::path::NAME, json!(&path)),
 						(location::date_created::NAME, json!(date_created)),
 						(
 							location::instance::NAME,
@@ -613,7 +630,7 @@ async fn create_location(
 						location_pub_id.as_bytes().to_vec(),
 						vec![
 							location::name::set(Some(name.clone())),
-							location::path::set(Some(location_path)),
+							location::path::set(Some(path)),
 							location::date_created::set(Some(date_created.into())),
 							location::instance_id::set(Some(library.config.instance_id)),
 							// location::instance::connect(instance::id::equals(
@@ -797,7 +814,10 @@ async fn check_nested_location(
 	let comps = location_path.components().collect::<Vec<_>>();
 	let is_a_child_location = potential_children.into_iter().any(|v| {
 		let Some(location_path) = v.path else {
-			warn!("Missing location path on location <id='{}'> at check nested location", v.id);
+			warn!(
+				"Missing location path on location <id='{}'> at check nested location",
+				v.id
+			);
 			return false;
 		};
 		let comps2 = PathBuf::from(location_path);
@@ -817,4 +837,56 @@ async fn check_nested_location(
 	});
 
 	Ok(parents_count > 0 || is_a_child_location)
+}
+
+pub(super) async fn generate_thumbnail(
+	extension: &str,
+	cas_id: &str,
+	path: impl AsRef<Path>,
+	node: &Arc<Node>,
+) {
+	let path = path.as_ref();
+	let output_path = get_thumbnail_path(node, cas_id);
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != io::ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
+			);
+		}
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else {
+		debug!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return;
+	}
+
+	if let Ok(extension) = ImageExtension::from_str(extension) {
+		if can_generate_thumbnail_for_image(&extension) {
+			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
+				error!("Failed to image thumbnail on location manager: {e:#?}");
+			}
+		}
+	}
+
+	#[cfg(feature = "ffmpeg")]
+	{
+		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use sd_file_ext::extensions::VideoExtension;
+
+		if let Ok(extension) = VideoExtension::from_str(extension) {
+			if can_generate_thumbnail_for_video(&extension) {
+				if let Err(e) = generate_video_thumbnail(path, &output_path).await {
+					error!("Failed to video thumbnail on location manager: {e:#?}");
+				}
+			}
+		}
+	}
+
+	trace!("Emitting new thumbnail event");
+	node.emit(CoreEvent::NewThumbnail {
+		thumb_key: get_thumb_key(cas_id),
+	});
 }

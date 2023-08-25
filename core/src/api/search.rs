@@ -6,13 +6,13 @@ use crate::{
 	library::{Category, Library},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
-		LocationError,
+		non_indexed, LocationError,
 	},
 	object::preview::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 };
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or};
@@ -274,6 +274,88 @@ impl ObjectFilterArgs {
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
+		.procedure("ephemeralPaths", {
+			#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+			#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+			enum NonIndexedPathOrdering {
+				Name(SortOrder),
+				SizeInBytes(SortOrder),
+				DateCreated(SortOrder),
+				DateModified(SortOrder),
+			}
+
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			struct NonIndexedPath {
+				path: PathBuf,
+				with_hidden_files: bool,
+				#[specta(optional)]
+				order: Option<NonIndexedPathOrdering>,
+			}
+
+			R.with2(library()).query(
+				|(node, library),
+				 NonIndexedPath {
+				     path,
+				     with_hidden_files,
+				     order,
+				 }| async move {
+					let mut paths =
+						non_indexed::walk(path, with_hidden_files, node, library).await?;
+
+					if let Some(order) = order {
+						match order {
+							NonIndexedPathOrdering::Name(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									let one = path1.name().to_lowercase();
+									let two = path2.name().to_lowercase();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
+									}
+								});
+							}
+							NonIndexedPathOrdering::SizeInBytes(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									let one = path1.size_in_bytes();
+									let two = path2.size_in_bytes();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
+									}
+								});
+							}
+							NonIndexedPathOrdering::DateCreated(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									let one = path1.date_created();
+									let two = path2.date_created();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
+									}
+								});
+							}
+							NonIndexedPathOrdering::DateModified(order) => {
+								paths.entries.sort_unstable_by(|path1, path2| {
+									let one = path1.date_modified();
+									let two = path2.date_modified();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
+									}
+								});
+							}
+						}
+					}
+
+					Ok(paths)
+				},
+			)
+		})
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
@@ -362,6 +444,26 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(SearchData { items, cursor })
 				},
 			)
+		})
+		.procedure("pathsCount", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {
+				#[serde(default)]
+				filter: FilePathFilterArgs,
+			}
+
+			R.with2(library())
+				.query(|(_, library), Args { filter }| async move {
+					let Library { db, .. } = library.as_ref();
+
+					Ok(db
+						.file_path()
+						.count(filter.into_params(db).await?)
+						.exec()
+						.await? as u32)
+				})
 		})
 		.procedure("objects", {
 			#[derive(Deserialize, Type, Debug)]

@@ -10,14 +10,12 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, location_with_indexer_rules,
+		find_location, generate_thumbnail, location_with_indexer_rules,
 		manager::LocationManagerError,
 		scan_location_sub_path,
 	},
 	object::{
-		file_identifier::FileMetadata,
-		preview::{can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumbnail_path},
-		validation::hash::file_checksum,
+		file_identifier::FileMetadata, preview::get_thumbnail_path, validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
 	util::{
@@ -38,11 +36,8 @@ use std::{
 	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
-	str::FromStr,
 	sync::Arc,
 };
-
-use sd_file_ext::extensions::ImageExtension;
 
 use chrono::{DateTime, Local, Utc};
 use notify::Event;
@@ -51,7 +46,7 @@ use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, trace, warn};
 use uuid::Uuid;
 
 use super::INodeAndDevice;
@@ -675,14 +670,18 @@ pub(super) async fn remove(
 	let location_path = extract_location_path(location_id, library).await?;
 
 	// if it doesn't exist either way, then we don't care
-	let Some(file_path) = library.db
+	let Some(file_path) = library
+		.db
 		.file_path()
 		.find_first(loose_find_existing_file_path_params(
-		location_id, &location_path, full_path,
+			location_id,
+			&location_path,
+			full_path,
 		)?)
 		.exec()
-		.await? else {
-			return Ok(());
+		.await?
+	else {
+		return Ok(());
 	};
 
 	remove_by_file_path(location_id, full_path, &file_path, library).await
@@ -736,53 +735,6 @@ pub(super) async fn remove_by_file_path(
 	invalidate_query!(library, "search.paths");
 
 	Ok(())
-}
-
-async fn generate_thumbnail(
-	extension: &str,
-	cas_id: &str,
-	path: impl AsRef<Path>,
-	node: &Arc<Node>,
-) {
-	let path = path.as_ref();
-	let output_path = get_thumbnail_path(node, cas_id);
-
-	if let Err(e) = fs::metadata(&output_path).await {
-		if e.kind() != ErrorKind::NotFound {
-			error!(
-				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
-			);
-		}
-	// Otherwise we good, thumbnail doesn't exist so we can generate it
-	} else {
-		debug!(
-			"Skipping thumbnail generation for {} because it already exists",
-			path.display()
-		);
-		return;
-	}
-
-	if let Ok(extension) = ImageExtension::from_str(extension) {
-		if can_generate_thumbnail_for_image(&extension) {
-			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
-				error!("Failed to image thumbnail on location manager: {e:#?}");
-			}
-		}
-	}
-
-	#[cfg(feature = "ffmpeg")]
-	{
-		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
-		use sd_file_ext::extensions::VideoExtension;
-
-		if let Ok(extension) = VideoExtension::from_str(extension) {
-			if can_generate_thumbnail_for_video(&extension) {
-				if let Err(e) = generate_video_thumbnail(path, &output_path).await {
-					error!("Failed to video thumbnail on location manager: {e:#?}");
-				}
-			}
-		}
-	}
 }
 
 pub(super) async fn extract_inode_and_device_from_path(

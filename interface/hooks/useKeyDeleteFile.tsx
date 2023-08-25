@@ -1,5 +1,5 @@
 import { useKey } from 'rooks';
-import { ExplorerItem } from '@sd/client';
+import type { ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 

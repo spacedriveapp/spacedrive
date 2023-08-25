@@ -235,7 +235,7 @@ fn restore_backup(node: &Arc<Node>, path: PathBuf) -> Result<Header, BackupError
 
 	// TODO: Actually handle restoring into a library that exists. For now it's easier to error out.
 	let None = block_on(node.libraries.get_library(&header.library_id)) else {
-		return Err(BackupError::LibraryAlreadyExists)
+		return Err(BackupError::LibraryAlreadyExists);
 	};
 
 	let temp_dir = tempdir()?;

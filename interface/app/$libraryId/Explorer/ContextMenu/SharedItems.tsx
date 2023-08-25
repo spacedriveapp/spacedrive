@@ -4,7 +4,7 @@ import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { Platform } from '~/util/Platform';
+import { type Platform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { useExplorerViewContext } from '../ViewContext';
@@ -51,7 +51,12 @@ export const Rename = new ConditionalItem({
 
 		const settings = useExplorerContext().useSettingsSnapshot();
 
-		if (settings.layoutMode === 'media' || selectedItems.length > 1) return null;
+		if (
+			settings.layoutMode === 'media' ||
+			selectedItems.length > 1 ||
+			selectedItems.some((item) => item.type === 'NonIndexedPath')
+		)
+			return null;
 
 		return {};
 	},

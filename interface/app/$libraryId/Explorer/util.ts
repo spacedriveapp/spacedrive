@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
-import { ExplorerItem, getExplorerItemData } from '@sd/client';
+import { type ExplorerItem, getExplorerItemData } from '@sd/client';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 import { flattenThumbnailKey, useExplorerStore } from './store';
-import { ExplorerItemHash } from './useExplorer';
 
 export function useExplorerSearchParams() {
 	return useZodSearchParams(ExplorerParamsSchema);
@@ -28,6 +27,18 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 	}, [explorerItem, newThumbnail]);
 }
 
-export function explorerItemHash(item: ExplorerItem): ExplorerItemHash {
-	return `${item.type}:${item.item.id}`;
-}
+export const pubIdToString = (pub_id: number[]) =>
+	pub_id.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
+	if ('pub_id' in item) return pubIdToString(item.pub_id);
+
+	const { type } = item;
+
+	switch (type) {
+		case 'NonIndexedPath':
+			return item.item.path;
+		default:
+			return pubIdToString(item.item.pub_id);
+	}
+};

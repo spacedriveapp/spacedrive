@@ -4,8 +4,9 @@ import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, CaretDown, Plus, SidebarSimple, X } from 'phosphor-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-	ExplorerItem,
+	type ExplorerItem,
 	getExplorerItemData,
+	getIndexedItemFilePath,
 	getItemFilePath,
 	useLibraryContext,
 	useLibraryMutation,
@@ -126,7 +127,7 @@ export const QuickPreview = () => {
 		if (!item || !openFilePaths) return;
 
 		try {
-			const path = getItemFilePath(item);
+			const path = getIndexedItemFilePath(item);
 
 			if (!path) throw 'No path found';
 
@@ -144,7 +145,7 @@ export const QuickPreview = () => {
 		if (!item || !revealItems) return;
 
 		try {
-			const id = item.type === 'Location' ? item.item.id : getItemFilePath(item)?.id;
+			const id = item.type === 'Location' ? item.item.id : getIndexedItemFilePath(item)?.id;
 
 			if (!id) throw 'No id found';
 
@@ -163,7 +164,7 @@ export const QuickPreview = () => {
 	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
 		if (!item) return;
 
-		const path = getItemFilePath(item);
+		const path = getIndexedItemFilePath(item);
 
 		if (!path || path.location_id === null) return;
 
@@ -238,14 +239,14 @@ export const QuickPreview = () => {
 								<FileThumb
 									data={item}
 									cover={true}
-									className={({ type, kind }) =>
+									className={(type) =>
 										clsx(
 											'!absolute inset-0',
-											kind !== 'Text' && type !== 'icon' && 'bg-black'
+											kind !== 'Text' && type !== 'ICON' && 'bg-black'
 										)
 									}
-									childClassName={({ type }) =>
-										type === 'icon' ? 'hidden' : 'opacity-30 blur-md'
+									childClassName={(type) =>
+										type === 'ICON' ? 'hidden' : 'opacity-30 blur-md'
 									}
 								/>
 
@@ -277,9 +278,15 @@ export const QuickPreview = () => {
 												onRename={(newName) => {
 													setIsRenaming(false);
 
-													if (!newName || newName === name) return;
+													if (
+														!('id' in item.item) ||
+														!newName ||
+														newName === name
+													)
+														return;
 
-													const filePathData = getItemFilePath(item);
+													const filePathData =
+														getIndexedItemFilePath(item);
 
 													if (!filePathData) return;
 
@@ -303,7 +310,9 @@ export const QuickPreview = () => {
 										) : (
 											<>
 												<span
-													onClick={() => setIsRenaming(true)}
+													onClick={() =>
+														'id' in item.item && setIsRenaming(true)
+													}
 													className="truncate"
 												>
 													{newName || name}
