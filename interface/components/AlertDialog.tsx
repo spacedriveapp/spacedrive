@@ -39,7 +39,7 @@ const AlertDialog = (props: Props) => {
 							}}
 							size="icon"
 						>
-							<Clipboard className="w-4 h-4" />
+							<Clipboard className="h-4 w-4" />
 						</Button>
 					}
 				/>

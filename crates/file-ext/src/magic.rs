@@ -178,16 +178,16 @@ impl Extension {
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
 		let Some(ext_str) = path.as_ref().extension().and_then(OsStr::to_str) else {
-            return None
-        };
+			return None;
+		};
 
 		let Some(ext) = Extension::from_str(ext_str) else {
-			return None
+			return None;
 		};
 
 		let Ok(ref mut file) = File::open(&path).await else {
-            return None
-        };
+			return None;
+		};
 
 		match ext {
 			// we don't need to check the magic bytes unless there is conflict

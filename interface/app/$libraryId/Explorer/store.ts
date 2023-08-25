@@ -159,3 +159,10 @@ export const objectOrderingKeysSchema = z.union([
 	z.literal('dateAccessed').describe('Date Accessed'),
 	z.literal('kind').describe('Kind')
 ]);
+
+export const nonIndexedPathOrderingSchema = z.union([
+	z.literal('name').describe('Name'),
+	z.literal('sizeInBytes').describe('Size'),
+	z.literal('dateCreated').describe('Date Created'),
+	z.literal('dateModified').describe('Date Modified')
+]);

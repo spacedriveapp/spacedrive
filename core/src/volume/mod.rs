@@ -251,9 +251,9 @@ pub async fn get_volumes() -> Vec<Volume> {
 		#[cfg(windows)]
 		let Ok((disk_name, mount_point)) = ({
 			use normpath::PathExt;
-			mount_point.normalize_virtually().map(|p| {
-				(p.localize_name().to_os_string(), p.into_path_buf())
-			})
+			mount_point
+				.normalize_virtually()
+				.map(|p| (p.localize_name().to_os_string(), p.into_path_buf()))
 		}) else {
 			return None;
 		};

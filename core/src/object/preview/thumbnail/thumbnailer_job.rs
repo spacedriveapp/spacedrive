@@ -147,7 +147,7 @@ impl StatefulJob for ThumbnailerJobInit {
 
 			image_files
 				.into_iter()
-				.chain(video_files.into_iter())
+				.chain(video_files)
 				.collect::<Vec<_>>()
 		};
 		#[cfg(not(feature = "ffmpeg"))]
