@@ -43,7 +43,7 @@
 		"moti": "^0.26.0",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.2.0",
-		"react-hook-form": "^7.45.2",
+		"react-hook-form": "~7.45.2",
 		"react-native": "0.72.3",
 		"react-native-document-picker": "^9.0.1",
 		"react-native-fs": "^2.20.0",
@@ -58,7 +58,7 @@
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.4",
 		"valtio": "^1.10.4",
-		"zod": "^3.21.4"
+		"zod": "~3.22.2"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.22.1",

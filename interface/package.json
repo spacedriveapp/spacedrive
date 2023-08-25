@@ -53,7 +53,7 @@
 		"react-dnd-html5-backend": "^16.0.1",
 		"react-dom": "^18.2.0",
 		"react-error-boundary": "^3.1.4",
-		"react-hook-form": "^7.45.2",
+		"react-hook-form": "~7.45.2",
 		"react-json-view": "^1.21.3",
 		"react-loading-skeleton": "^3.1.0",
 		"react-qr-code": "^2.0.11",
