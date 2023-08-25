@@ -3,8 +3,6 @@ import React from 'react';
 const PlatformsArt = () => {
 	return (
 		<svg
-			width="auto"
-			height="302"
 			viewBox="0 0 504 302"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"

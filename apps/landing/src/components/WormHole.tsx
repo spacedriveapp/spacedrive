@@ -1,11 +1,14 @@
+'use client';
+
 import clsx from 'clsx';
 import Image from 'next/image';
 import React from 'react';
 
 const WormHole = () => {
+	console.log('rendering');
 	return (
 		<div
-			className="relative mb-[325px] mt-[240px] flex w-full max-w-[800px] items-center justify-center sm:mb-[220px]
+			className="relative mb-[225px] mt-[240px] flex w-full max-w-[800px] items-center justify-center sm:mb-[220px]
 					 sm:mt-[250px] md:mb-[280px] md:mt-[340px] lg:my-[400px]"
 		>
 			<div
@@ -32,7 +35,11 @@ const WormHole = () => {
 						src="/images/icons/game.svg"
 					/>
 				</div>
-				<div className="absolute left-[200px] top-[10px] z-10 h-full w-full">
+				<div
+					className="absolute top-[-100px] z-10
+				h-full w-full
+				sm:left-[200px] sm:top-[10px]"
+				>
 					<Image
 						width={40}
 						height={45}
@@ -42,7 +49,11 @@ const WormHole = () => {
 						src="/images/icons/image.svg"
 					/>
 				</div>
-				<div className="absolute left-[200px] top-[-10px] z-10 h-full w-full">
+				<div
+					className="absolute z-10
+				h-full w-full
+				sm:left-[200px] sm:top-[-10px]"
+				>
 					<Image
 						width={40}
 						height={45}
@@ -85,7 +96,7 @@ const WormHole = () => {
 						src="/images/icons/collection.svg"
 					/>
 				</div>
-				<div className="absolute left-[200px] top-[300px] z-10 h-full w-full lg:left-[200px] lg:top-[420px]">
+				<div className="absolute top-[50px] z-10 h-full w-full sm:left-[200px] sm:top-[300px] lg:left-[200px] lg:top-[420px]">
 					<Image
 						width={40}
 						height={45}
@@ -95,7 +106,11 @@ const WormHole = () => {
 						src="/images/icons/node.svg"
 					/>
 				</div>
-				<div className="top-[50px absolute left-[50px] z-10 h-full w-full lg:left-[200px] lg:top-[490px]">
+				<div
+					className="absolute
+					top-[-100px]
+				z-10 h-full w-full sm:left-[50px] sm:top-[50px] lg:left-[200px] lg:top-[490px]"
+				>
 					<Image
 						width={40}
 						height={45}
@@ -115,7 +130,7 @@ const WormHole = () => {
 						src="/images/icons/database.svg"
 					/>
 				</div>
-				<div className="absolute left-[150px] top-[50px] z-10 h-full w-full">
+				<div className="absolute left-[100px] top-[-200px] z-10 h-full w-full sm:left-[150px] sm:top-[50px]">
 					<Image
 						width={40}
 						height={45}

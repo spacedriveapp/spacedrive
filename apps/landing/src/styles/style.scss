@@ -944,8 +944,6 @@ pre {
 
 @media all and (max-width: 1024px) {
 
-
-
 	@keyframes heart {
 		0% {
 			opacity: 0;
@@ -1139,5 +1137,117 @@ pre {
 }
 }
 
+}
 
+@media all and (max-width: 639px) {
+
+	.node {
+		motion-path: path('M1 254.5C380.5 45.5 361.4 882.2 639 1');
+		offset-path: path('M1 254.5C380.5 45.5 361.4 882.2 639 1');
+		animation: node 11.2s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
+	}
+	@keyframes node {
+		0% {
+		opacity: 0;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		motion-offset: 30%;
+		transform: scale(1.1) rotate(720deg);
+		opacity: 0;
+		offset-distance: 30%;
+	}
+	}
+
+	.game {
+		motion-path: path('M1 254.5C80.5 145.5 361.4 382.2 339 1');
+		offset-path: path('M1 254.5C80.5 145.5 361.4 382.2 339 1');
+		animation: game 11.9s ease-in-out infinite;
+		transform: scale(0) rotate(-260deg);
+	}
+
+	@keyframes game {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 25%;
+			transform: scale(1.2) rotate(0);
+			opacity: 0;
+			offset-distance: 25%;
+		}
+	}
+
+
+	.heart {
+		motion-path: path('M1 254.5C140.5 45.5 261.4 182.2 149 1');
+		offset-path: path('M1 254.5C140.5 45.5 261.4 182.2 149 1');
+		animation: heart 12s ease-out infinite;
+		transform: scale(0) rotate(360deg);
+	}
+
+	@keyframes heart {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 65%;
+			transform: scale(1.3) rotate(0);
+			opacity: 0;
+			offset-distance: 65%;
+		}
+	}
+
+	.lock {
+		motion-path: path('M1 254.5C80.5 305.5 261.4 182.2 399 1');
+		offset-path: path('M1 254.5C80.5 305.5 261.4 182.2 399 1');
+		animation: lock 11.5s ease-in-out infinite;
+		transform: scale(0) rotate(-390deg);
+	}
+
+	@keyframes lock {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 80%;
+			transform: scale(1.1) rotate(0);
+			opacity: 0;
+			offset-distance: 80%;
+		}
+	}
+
+	.image {
+		motion-path: path('M1 354.5C50.5 445.5 361.4 102.2 229 1');
+		offset-path: path('M1 354.5C50.5 445.5 361.4 102.2 229 1');
+		animation: image 10s ease-in-out infinite;
+		transform: scale(0) rotate(-360deg);
+	}
+
+	@keyframes image {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 80%;
+			transform: scale(1.3) rotate(0);
+			opacity: 0;
+			offset-distance: 80%;
+		}
+	}
 }

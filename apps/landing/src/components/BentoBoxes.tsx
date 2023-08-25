@@ -185,39 +185,16 @@ const BentoBoxes = () => {
 				</div>
 			</BentoBox>
 			<BentoBox colSpan={3} className="relative p-6">
-				<div className="flex h-[80%] w-auto items-center justify-center">
-					<div
-						style={
-							{
-								'--floatduration': '4s'
-							} as React.CSSProperties
-						}
-						className="floating w-full max-w-[500px]"
-					>
-						<PlatformsArt />
-					</div>
-				</div>
-				<div className="absolute inset-x-0 bottom-0 mx-auto flex w-full justify-center gap-2">
-					{/* {Array.from({ length: particleCount }).map((_, i) => {
-						const widthHeight = `${Math.floor(Math.random() * 5)}px`;
-						return (
-							<div
-								key={i}
-								style={
-									{
-										'--particleduration': `${
-											Math.floor(Math.random() * 10) + 5
-										}s`,
-										'width': widthHeight,
-										'height': widthHeight,
-										'top': `${Math.floor(Math.random() * 100) + 1}px`,
-										'opacity': `${Math.random() * 0.5 + 0.1}`
-									} as React.CSSProperties
-								}
-								className="relative particle"
-							/>
-						);
-					})} */}
+				<div
+					style={
+						{
+							'--floatduration': '4s'
+						} as React.CSSProperties
+					}
+					className="floating mx-auto flex
+						h-[300px] w-full max-w-[500px]"
+				>
+					<PlatformsArt />
 				</div>
 				<div
 					className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
