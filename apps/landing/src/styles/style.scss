@@ -440,17 +440,17 @@ pre {
 
 .jamie-circle {
 	stroke: #729fe747;
-	animation: flashstroke 2s linear infinite;
+	animation: flashstroke 3.05s linear infinite;
 }
 
 .laura-circle {
-	stroke: #729fe7;
-	animation: flashstroke 2s linear infinite;
+	stroke: #729fe747;
+	animation: flashstroke 3.05s linear infinite;
 }
 
 .browns-circle {
-	stroke: #729fe7;
-	animation: flashstroke 2s linear infinite;
+	stroke: #729fe747;
+	animation: flashstroke 3.05s linear infinite;
 }
 
 @keyframes flashstroke {
@@ -464,7 +464,7 @@ pre {
 	}
 	90% {
 		stroke-width: 1;
-		stroke: #729fe7b0;
+		stroke: #729fe77f;
 	}
 	100% {
 		stroke: #729fe700;

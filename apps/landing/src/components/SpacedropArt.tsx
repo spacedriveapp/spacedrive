@@ -135,12 +135,12 @@ const SpacedropArt = () => {
 					fill="#2D67C3"
 					fill-opacity="0.2"
 				>
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#right-bottom-line" />
 					</animateMotion>
 				</ellipse>
 				<ellipse className="inner-circle" rx="2" ry="1.9696" fill="#729FE7">
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#right-bottom-line" />
 					</animateMotion>
 				</ellipse>
@@ -153,12 +153,12 @@ const SpacedropArt = () => {
 			</g>
 			<g filter="url(#filter7_b_404_119)">
 				<ellipse rx="5" ry="4.92401" fill="#2D67C3" fill-opacity="0.2">
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#right-top-line" />
 					</animateMotion>
 				</ellipse>
 				<ellipse rx="2" ry="1.9696" fill="#729FE7">
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#right-top-line" />
 					</animateMotion>
 				</ellipse>
@@ -409,12 +409,12 @@ const SpacedropArt = () => {
 			</g>
 			<g filter="url(#filter20_b_404_119)">
 				<ellipse rx="5" ry="4.92401" fill="#2D67C3" fill-opacity="0.2">
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#top-center-line" />
 					</animateMotion>
 				</ellipse>
 				<ellipse rx="2" ry="1.9696" fill="#729FE7">
-					<animateMotion dur="2s" repeatCount="indefinite">
+					<animateMotion dur="3s" repeatCount="indefinite">
 						<mpath href="#top-center-line" />
 					</animateMotion>
 				</ellipse>
