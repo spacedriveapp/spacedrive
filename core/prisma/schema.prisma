@@ -295,10 +295,10 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    dimensions     Bytes
-    media_date     Bytes
+    dimensions     Bytes?
+    media_date     Bytes?
     media_location Bytes?
-    camera_data    Bytes
+    camera_data    Bytes?
     artist         Bytes?
     description    Bytes?
     copyright      Bytes?
