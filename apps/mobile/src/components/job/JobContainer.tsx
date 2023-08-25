@@ -25,7 +25,7 @@ export default function JobContainer(props: JobContainerProps) {
 			style={twStyle(
 				'flex flex-row justify-center',
 				'border-b border-app-line/50 px-8 py-4',
-				isChild && 'my-0.5 border-b-0 p-2 pl-12',
+				isChild && 'my-1.5 border-b-0 p-2 pl-12',
 				restProps.containerStyle
 			)}
 		>
