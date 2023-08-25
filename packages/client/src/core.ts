@@ -24,6 +24,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
+        { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -176,6 +177,8 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
+export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
+
 export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
@@ -197,6 +200,8 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
 export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
+
+export type LibraryData = { instances: { [key: any]: InstanceState } }
 
 export type LibraryName = string
 

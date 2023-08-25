@@ -1,6 +1,7 @@
 import {
 	isEnabled,
 	useBridgeMutation,
+	useBridgeQuery,
 	useConnectedPeers,
 	useDiscoveredPeers,
 	useFeatureFlag
@@ -35,39 +36,45 @@ function IncorrectP2PPairingPane() {
 			console.log(data);
 		}
 	});
+	const nlmState = useBridgeQuery(['p2p.nlmState'], {
+		refetchInterval: 1000
+	});
 
 	return (
-		<div className="flex-space-4 flex w-full">
-			<div className="flex-[50%]">
-				<h1>Pairing</h1>
-				{[...onlineNodes.entries()].map(([id, node]) => (
-					<div key={id} className="flex space-x-2">
-						<p>{node.name}</p>
+		<>
+			<div className="flex-space-4 flex w-full">
+				<div className="flex-[50%]">
+					<h1>Pairing</h1>
+					{[...onlineNodes.entries()].map(([id, node]) => (
+						<div key={id} className="flex space-x-2">
+							<p>{node.name}</p>
 
-						<Button
-							onClick={() => {
-								// TODO: This is not great
-								p2pPair.mutateAsync(id).then((id) =>
-									startPairing(id, {
-										name: node.name,
-										os: node.operating_system
-									})
-								);
-							}}
-						>
-							Pair
-						</Button>
-					</div>
-				))}
+							<Button
+								onClick={() => {
+									// TODO: This is not great
+									p2pPair.mutateAsync(id).then((id) =>
+										startPairing(id, {
+											name: node.name,
+											os: node.operating_system
+										})
+									);
+								}}
+							>
+								Pair
+							</Button>
+						</div>
+					))}
+				</div>
+				<div className="flex-[50%]">
+					<h1 className="mt-4">Connected</h1>
+					{[...connectedNodes.entries()].map(([id, node]) => (
+						<div key={id} className="flex space-x-2">
+							<p>{id}</p>
+						</div>
+					))}
+				</div>
 			</div>
-			<div className="flex-[50%]">
-				<h1 className="mt-4">Connected</h1>
-				{[...connectedNodes.entries()].map(([id, node]) => (
-					<div key={id} className="flex space-x-2">
-						<p>{id}</p>
-					</div>
-				))}
-			</div>
-		</div>
+			<div>{JSON.stringify(nlmState.data || [], null, 2)}</div>
+		</>
 	);
 }

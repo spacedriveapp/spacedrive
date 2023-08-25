@@ -37,6 +37,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
+		.procedure("nlmState", {
+			R.query(|node, _: ()| async move { node.nlm.state().await })
+		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {

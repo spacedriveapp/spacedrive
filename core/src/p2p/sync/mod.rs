@@ -7,6 +7,8 @@ use sd_p2p::{
 	DiscoveredPeer, PeerId,
 };
 use sd_sync::CRDTOperation;
+use serde::Serialize;
+use specta::Type;
 use sync::GetOpsArgs;
 
 use tokio::{
@@ -26,16 +28,19 @@ use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 mod proto;
 pub use proto::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Type)]
 pub enum InstanceState {
 	Unavailable,
 	Discovered(PeerId),
 	Connected(PeerId),
 }
 
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct LibraryData {
 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
+
+type LibrariesMap = HashMap<Uuid /* Library ID */, LibraryData>;
 
 pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
@@ -211,6 +216,10 @@ impl NetworkedLibraries {
 				}
 			}
 		}
+	}
+
+	pub async fn state(&self) -> LibrariesMap {
+		self.libraries.read().await.clone()
 	}
 }
 
