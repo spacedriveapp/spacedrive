@@ -147,7 +147,7 @@ fn looks_utf8(buf: &[u8], partial: bool) -> bool {
 		}
 	}
 
-	return partial || !ctrl;
+	partial || !ctrl
 }
 
 fn looks_utf8_with_bom(buf: &[u8], partial: bool) -> bool {
@@ -187,13 +187,13 @@ fn looks_ucs16(buf: &[u8]) -> Option<UCS16> {
 		match uc {
 			0xfffe | 0xffff => return None,
 			// UCS16_NOCHAR
-			_ if uc >= 0xfdd0 && uc <= 0xfdef => return None,
+			_ if (0xfdd0..=0xfdef).contains(&uc) => return None,
 			_ => (),
 		}
 
 		if hi != 0 {
 			// UCS16_LOSURR
-			if uc >= 0xdc00 && uc <= 0xdfff {
+			if (0xdc00..=0xdfff).contains(&uc) {
 				return None;
 			}
 			uc = 0x10000 + 0x400 * (hi - 1) + (uc - 0xdc00);
@@ -205,12 +205,12 @@ fn looks_ucs16(buf: &[u8]) -> Option<UCS16> {
 		}
 
 		// UCS16_HISURR
-		if uc >= 0xd800 && uc <= 0xdbff {
+		if (0xd800..=0xdbff).contains(&uc) {
 			hi = uc - 0xd800 + 1;
 		}
 
 		// UCS16_LOSURR
-		if uc >= 0xdc00 && uc <= 0xdfff {
+		if (0xdc00..=0xdfff).contains(&uc) {
 			return None;
 		}
 	}
