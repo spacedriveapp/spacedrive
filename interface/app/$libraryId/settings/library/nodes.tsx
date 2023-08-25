@@ -77,10 +77,17 @@ function IncorrectP2PPairingPane() {
 			</div>
 			<div>NLM State: {JSON.stringify(nlmState.data || [], null, 2)}</div>
 			<div>
-				Libraries:{' '}
-				{libraries.data
-					?.map((v) => `${v.uuid}/${v.config.instance_id}/${v.instance_id}`)
-					.join(', ')}
+				<p>Libraries:</p>
+				{libraries.data?.map((v) => (
+					<div key={v.uuid}>
+						<p>{v.config.name}</p>
+						<div className="pl-4">
+							<p>ID: {v.uuid}</p>
+							<p>Instance: {`${v.config.instance_id}/${v.instance_id}`}</p>
+							<p>Instance PK: {`${v.instance_public_key}`}</p>
+						</div>
+					</div>
+				))}
 			</div>
 		</>
 	);

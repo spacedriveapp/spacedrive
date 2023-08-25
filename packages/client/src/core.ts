@@ -199,7 +199,7 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
  */
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
-export type LibraryConfigWrapped = { uuid: string; instance_id: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
 
 export type LibraryData = { instances: { [key: string]: InstanceState } }
 
