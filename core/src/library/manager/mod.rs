@@ -384,6 +384,7 @@ impl Libraries {
 		let library = Library::new(
 			id,
 			config,
+			instance_id,
 			identity,
 			// key_manager,
 			db,

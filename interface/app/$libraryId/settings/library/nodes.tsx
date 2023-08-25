@@ -39,6 +39,7 @@ function IncorrectP2PPairingPane() {
 	const nlmState = useBridgeQuery(['p2p.nlmState'], {
 		refetchInterval: 1000
 	});
+	const libraries = useBridgeQuery(['library.list']);
 
 	return (
 		<>
@@ -74,7 +75,13 @@ function IncorrectP2PPairingPane() {
 					))}
 				</div>
 			</div>
-			<div>{JSON.stringify(nlmState.data || [], null, 2)}</div>
+			<div>NLM State: {JSON.stringify(nlmState.data || [], null, 2)}</div>
+			<div>
+				Libraries:{' '}
+				{libraries.data
+					?.map((v) => `${v.uuid}/${v.config.instance_id}/${v.instance_id}`)
+					.join(', ')}
+			</div>
 		</>
 	);
 }

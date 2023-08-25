@@ -21,6 +21,7 @@ use super::{
 #[derive(Serialize, Deserialize, Type)]
 pub struct LibraryConfigWrapped {
 	pub uuid: Uuid,
+	pub instance_id: Uuid,
 	pub config: LibraryConfig,
 }
 
@@ -34,6 +35,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {
 						uuid: lib.id,
+						instance_id: lib.instance_uuid,
 						config: lib.config.clone(),
 					})
 					.collect::<Vec<_>>()
@@ -114,6 +116,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				Ok(LibraryConfigWrapped {
 					uuid: library.id,
+					instance_id: library.instance_uuid,
 					config: library.config.clone(),
 				})
 			})
