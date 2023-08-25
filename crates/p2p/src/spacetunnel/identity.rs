@@ -71,7 +71,7 @@ impl Type for RemoteIdentity {
 		_: specta::DefOpts,
 		_: &[specta::DataType],
 	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Any)
+		Ok(specta::DataType::Primitive(specta::PrimitiveType::String))
 	}
 }
 

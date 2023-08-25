@@ -201,7 +201,7 @@ export type LibraryConfig = { name: LibraryName; description: string | null; ins
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; config: LibraryConfig }
 
-export type LibraryData = { instances: { [key: any]: InstanceState } }
+export type LibraryData = { instances: { [key: string]: InstanceState } }
 
 export type LibraryName = string
 
