@@ -342,10 +342,9 @@ impl P2PManager {
 			.await
 			.unwrap();
 
-		let Header::Connected(identities) =
-			Header::from_stream(stream).await.unwrap() else {
-				panic!("unreachable but error handling")
-			};
+		let Header::Connected(identities) = Header::from_stream(stream).await.unwrap() else {
+			panic!("unreachable but error handling")
+		};
 
 		for identity in identities {
 			nlm.peer_connected2(identity, peer_id).await;
