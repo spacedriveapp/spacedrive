@@ -7,18 +7,22 @@ interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
 	extension: string | null;
 }
 
+const SUPPORTED_ICONS = ['Document', 'Code', 'Text', 'Config'];
+
+const positionConfig: Record<string, string> = {
+	Text: 'flex h-full w-full items-center justify-center',
+	Code: 'flex h-full w-full items-center justify-center',
+	Config: 'flex h-full w-full items-center justify-center'
+};
+
 const LayeredFileIcon = ({ kind, extension, ...props }: LayeredFileIconProps) => {
 	const iconImg = <img {...props} />;
 
-	if (['Document', 'Code', 'Text', 'Config'].includes(kind) === false) {
+	if (SUPPORTED_ICONS.includes(kind) === false) {
 		return iconImg;
 	}
 
 	const IconComponent = extension ? getLayeredIcon(kind, extension) : null;
-
-	const positionConfig: Record<string, string> = {
-		Text: 'flex h-full w-full items-center justify-center'
-	};
 
 	const positionClass =
 		positionConfig[kind] || 'flex h-full w-full items-end justify-end pb-4 pr-2';
