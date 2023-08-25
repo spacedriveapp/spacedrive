@@ -35,7 +35,7 @@ type DrawerTagsProp = {
 const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const tags = useLibraryQuery(['tags.list']);
 
 	const modalRef = useRef<ModalRef>(null);
 
@@ -46,7 +46,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			containerStyle={tw`mb-3 ml-1 mt-6`}
 		>
 			<View style={tw`mt-2`}>
-				{tags?.map((tag) => (
+				{tags.data?.map((tag) => (
 					<DrawerTagItem
 						key={tag.id}
 						tagName={tag.name!}

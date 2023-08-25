@@ -9,9 +9,9 @@ import * as ObjectItems from './Object/Items';
 import * as SharedItems from './SharedItems';
 import { ContextMenuContextProvider } from './context';
 
-export * as SharedItems from './SharedItems';
 export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
+export * as SharedItems from './SharedItems';
 
 const Items = ({ children }: { children?: () => ReactNode }) => (
 	<>
