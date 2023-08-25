@@ -8,6 +8,7 @@ import { tw } from '~/lib/tailwind';
 
 // TODO:
 // - When there is no job, make modal height smaller
+// - Add clear all jobs button
 
 export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const queryClient = useQueryClient();
