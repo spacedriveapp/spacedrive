@@ -1,8 +1,12 @@
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { Button, tw } from '@sd/ui';
+import { useWindowSize } from '~/hooks/useWindowSize';
 import { MagicCard, MagicContainer } from './MagicCard';
+import PlatformsArt from './PlatformsArt';
+import SpacedropArt from './SpacedropArt';
 
 const Heading = tw.h1`z-30 text-center font-semibold leading-tight text-white text-lg`;
 const Text = tw.p`leading-2 text-zinc-500 z-30 mb-8 mt-1 max-w-4xl text-center text-[14px] lg:leading-8"`;
@@ -38,13 +42,20 @@ const BentoBox = ({ rowSpan = 1, colSpan = 1, className = '', children, bgUrl = 
 const GitHubButton = dynamic(() => import('react-github-btn'), { ssr: false });
 
 const BentoBoxes = () => {
+	const { width } = useWindowSize();
+	const particleCount = useMemo(() => {
+		if (width) {
+			return width > 768 ? 50 : 25;
+		}
+		return 50;
+	}, [width]);
 	return (
 		<MagicContainer
 			className="flex h-fit w-full max-w-7xl auto-rows-[420px] flex-col gap-4
 		 lg:grid lg:grid-cols-6"
 		>
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				<div className="relative z-20">
 					<Heading>Encryption</Heading>
 					<Text className="mx-auto max-w-[417px]">
@@ -74,7 +85,7 @@ const BentoBoxes = () => {
 						src="/images/bento/tags.webp"
 					/>
 				</div>
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 
 				<div className="relative z-[40] mt-2 md:mt-7">
 					<Heading>Powerful tags</Heading>
@@ -91,7 +102,7 @@ const BentoBoxes = () => {
 						Easily find your files and folders through our search
 					</Text>
 				</div>
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				<div className="flex h-[80%] w-auto items-start justify-center">
 					<Image
 						className="mx-auto brightness-110"
@@ -104,7 +115,7 @@ const BentoBoxes = () => {
 				</div>
 			</BentoBox>
 			<BentoBox colSpan={2} className="p-6">
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				<div className="flex h-[80%] w-auto items-center justify-center">
 					<Image
 						className="mx-auto brightness-125"
@@ -127,16 +138,18 @@ const BentoBoxes = () => {
 						Send files to other devices quickly and easily
 					</Text>
 				</div>
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 				<div className="flex h-[80%] w-auto items-center justify-center">
-					<Image
-						className="mx-auto brightness-125"
-						alt="Spacedrop"
-						width={311}
-						height={300}
-						quality={100}
-						src="/images/bento/spacedrop.webp"
-					/>
+					<div
+						style={
+							{
+								'--floatduration': '4s'
+							} as React.CSSProperties
+						}
+						className="floating"
+					>
+						<SpacedropArt />
+					</div>
 				</div>
 			</BentoBox>
 			<BentoBox
@@ -171,16 +184,40 @@ const BentoBoxes = () => {
 					</GitHubButton>
 				</div>
 			</BentoBox>
-			<BentoBox colSpan={3} className="p-6">
+			<BentoBox colSpan={3} className="relative p-6">
 				<div className="flex h-[80%] w-auto items-center justify-center">
-					<Image
-						className="relative z-30 mx-auto bottom-2"
-						alt="crossplatform"
-						width={500}
-						height={100}
-						src="/images/bento/platforms.webp"
-						quality={100}
-					/>
+					<div
+						style={
+							{
+								'--floatduration': '4s'
+							} as React.CSSProperties
+						}
+						className="floating w-full max-w-[500px]"
+					>
+						<PlatformsArt />
+					</div>
+				</div>
+				<div className="absolute inset-x-0 bottom-0 mx-auto flex w-full justify-center gap-2">
+					{/* {Array.from({ length: particleCount }).map((_, i) => {
+						const widthHeight = `${Math.floor(Math.random() * 5)}px`;
+						return (
+							<div
+								key={i}
+								style={
+									{
+										'--particleduration': `${
+											Math.floor(Math.random() * 10) + 5
+										}s`,
+										'width': widthHeight,
+										'height': widthHeight,
+										'top': `${Math.floor(Math.random() * 100) + 1}px`,
+										'opacity': `${Math.random() * 0.5 + 0.1}`
+									} as React.CSSProperties
+								}
+								className="relative particle"
+							/>
+						);
+					})} */}
 				</div>
 				<div
 					className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
@@ -192,7 +229,7 @@ const BentoBoxes = () => {
 						Windows, macOS, Linux, iOS, Android, and the web. Spacedrive is everywhere.
 					</Text>
 				</div>
-				<div className="absolute top-0 right-0 z-20 w-full h-full bento-radial-gradient-fade" />
+				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 h-full w-full" />
 			</BentoBox>
 		</MagicContainer>
 	);

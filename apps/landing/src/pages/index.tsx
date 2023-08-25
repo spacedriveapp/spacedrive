@@ -6,12 +6,13 @@
 import { Apple } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { useInView } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
 import { AndroidLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
 import { IconProps } from 'phosphor-react';
-import { FunctionComponent, forwardRef, memo, useEffect, useState } from 'react';
+import { FunctionComponent, forwardRef, memo, useEffect, useRef, useState } from 'react';
 import { Tooltip, tw } from '@sd/ui';
 import BentoBoxes from '~/components/BentoBoxes';
 import CloudStorage from '~/components/CloudStorage';
@@ -19,6 +20,7 @@ import DownloadToday from '~/components/DownloadToday';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import Space from '~/components/Space';
+import WormHole from '~/components/WormHole';
 
 const Link = dynamic(() => import('next/link'), {
 	ssr: false
@@ -43,6 +45,11 @@ const platforms = [
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
+	const wormHoleRef = useRef<HTMLDivElement>(null);
+	const isInView = useInView(wormHoleRef, {
+		amount: 0.5,
+		once: true
+	});
 	const [deviceOs, setDeviceOs] = useState<null | {
 		isWindows: boolean;
 		isMacOs: boolean;
@@ -121,7 +128,7 @@ export default function HomePage() {
 					alt="l"
 					src="/images/headergradient.webp"
 				/>
-				<div className="flex flex-col items-center w-full px-4">
+				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -131,10 +138,10 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
+					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -152,7 +159,7 @@ export default function HomePage() {
 					>
 						<HomeCTA
 							icon={<Download />}
-							className="relative z-5"
+							className="z-5 relative"
 							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
@@ -163,7 +170,7 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-					<div className="relative z-10 flex gap-3 mt-5">
+					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
@@ -192,8 +199,7 @@ export default function HomePage() {
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="relative overflow-hidden fade-in-heading animation-delay-2">
-								<LineAnimation />
+							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
 								<AppFrameInner>
 									<Image
 										loading="eager"
@@ -207,41 +213,8 @@ export default function HomePage() {
 							</AppFrameOuter>
 						</div>
 					</div>
-					<div
-						className="relative mb-[125px] mt-[240px] flex w-full max-w-[700px] items-center justify-center  sm:mb-[150px] sm:mt-[250px]
-					 md:mb-[120px] md:mt-[260px] lg:my-[350px]"
-					>
-						<div
-							className="z-1 absolute top-[-150px] w-full max-w-[300px] rotate-[100deg] sm:top-[-200px]
-						 sm:max-w-[400px] md:top-[-200px] lg:top-auto lg:mr-[250px] lg:max-w-[700px] lg:rotate-0"
-						>
-							<Image
-								loading="eager"
-								width={700}
-								height={626}
-								quality={100}
-								alt="wormhole"
-								src="/images/wormhole.webp"
-							/>
-						</div>
-						<div
-							className="z-2 worm-hole-border-gradient relative flex w-full max-w-[500px] flex-col
-		 items-center justify-center gap-2 bg-gradient-to-r from-[#080710]/0 to-[#080710]/50 p-10 backdrop-blur-md"
-						>
-							<h1 className="bg-gradient-to-r from-white to-indigo-300 bg-clip-text text-[20px] font-bold text-transparent">
-								Heading
-							</h1>
-							<p className="text-sm text-center text-gray-400">
-								Lorem ipsum dolor sit amet consectetur adipisicing elit. Nam, iure
-								ea dolores atque unde fugit ad libero debitis nemo quis culpa sequi
-								illum aliquam iusto harum quo laborum ducimus voluptas Lorem, ipsum
-								dolor sit amet consectetur adipisicing elit. Similique eos,
-								voluptatum, ipsam facilis placeat tempore consequuntur officia
-								distinctio voluptate blanditiis tenetur, animi ut ea laboriosam
-								laborum culpa autem accusantium reprehenderit!
-							</p>
-						</div>
-					</div>
+
+					<WormHole />
 					<BentoBoxes />
 					<CloudStorage />
 					<DownloadToday isWindows={deviceOs?.isWindows} />
@@ -268,62 +241,3 @@ const Platform = forwardRef<HTMLAnchorElement, Props>(({ icon: Icon, url, label 
 });
 
 Platform.displayName = 'Platform';
-
-const LineAnimation = memo(() => {
-	const [numberOfLines, setNumberOfLines] = useState(1);
-	const [isMounted, setIsMounted] = useState(false);
-	useEffect(() => {
-		setIsMounted(true);
-		const randomlySetNumberOfLines = () => {
-			return setInterval(() => {
-				setNumberOfLines(Math.floor(Math.random() * 3));
-			}, 5000);
-		};
-		randomlySetNumberOfLines();
-		return () => clearInterval(randomlySetNumberOfLines());
-	}, []);
-	return (
-		<>
-			{[...Array(numberOfLines)].map((_, i) => (
-				<div
-					key={i}
-					style={{
-						animation: isMounted
-							? `left-line-animation-fade ${Math.floor(
-									Math.random() + Math.floor(Math.random() * 2) + 2
-							  )}s ease-in-out infinite`
-							: '',
-						animationDelay: `${Math.floor(Math.random() * 3)}s`,
-						width: `${isMounted && Math.floor(Math.random() * 50) + 50}px`,
-						height: '1px',
-						top: 0,
-						position: 'absolute',
-						zIndex: 50
-					}}
-					className="opacity-0 left-line bg-gradient-to-r from-transparent to-white/50"
-				/>
-			))}
-			{[...Array(numberOfLines)].map((_, i) => (
-				<div
-					key={i}
-					style={{
-						animation: isMounted
-							? `top-line-animation-fade ${Math.floor(
-									Math.random() + Math.floor(Math.random() * 2) + 2
-							  )}s ease-in-out infinite`
-							: '',
-						animationDelay: `${Math.floor(Math.random() * 3)}s`,
-						height: `${isMounted && Math.floor(Math.random() * 2) + 30}px`,
-						width: '1px',
-						right: 0,
-						position: 'absolute',
-						zIndex: 50
-					}}
-					className="opacity-0 bg-gradient-to-b from-transparent to-white/50"
-				/>
-			))}
-		</>
-	);
-});
-
-LineAnimation.displayName = 'LineAnimation';
