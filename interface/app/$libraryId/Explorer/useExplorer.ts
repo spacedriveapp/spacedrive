@@ -1,9 +1,16 @@
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
-import { ExplorerItem, ExplorerSettings, FilePath, Location, NodeState, Tag } from '@sd/client';
-import { Ordering, OrderingKeys, createDefaultExplorerSettings } from './store';
-import { explorerItemHash } from './util';
+import type {
+	ExplorerItem,
+	ExplorerSettings,
+	FilePath,
+	Location,
+	NodeState,
+	Tag
+} from '@sd/client';
+import { type Ordering, type OrderingKeys, createDefaultExplorerSettings } from './store';
+import { uniqueId } from './util';
 
 export type ExplorerParent =
 	| {
@@ -41,13 +48,6 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
 }
 
-export type ExplorerItemMeta = {
-	type: 'Location' | 'Path' | 'Object';
-	id: number;
-};
-
-export type ExplorerItemHash = `${ExplorerItemMeta['type']}:${ExplorerItemMeta['id']}`;
-
 /**
  * Controls top-level config and state for the explorer.
  * View- and inspector-specific state is not handled here.
@@ -80,7 +80,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	orderingKeys
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
-	onSettingsChanged: (settings: ExplorerSettings<TOrder>) => any;
+	onSettingsChanged?: (settings: ExplorerSettings<TOrder>) => any;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
@@ -94,7 +94,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	useEffect(
 		() =>
 			subscribe(store, () => {
-				onSettingsChanged(snapshot(store) as ExplorerSettings<TOrder>);
+				onSettingsChanged?.(snapshot(store) as ExplorerSettings<TOrder>);
 			}),
 		[onSettingsChanged, store]
 	);
@@ -113,12 +113,12 @@ export type UseExplorerSettings<TOrder extends Ordering> = ReturnType<
 function useSelectedItems(items: ExplorerItem[] | null) {
 	// Doing pointer lookups for hashes is a bit faster than assembling a bunch of strings
 	// WeakMap ensures that ExplorerItems aren't held onto after they're evicted from cache
-	const itemHashesWeakMap = useRef(new WeakMap<ExplorerItem, ExplorerItemHash>());
+	const itemHashesWeakMap = useRef(new WeakMap<ExplorerItem, string>());
 
 	// Store hashes of items instead as objects are unique by reference but we
 	// still need to differentate between item variants
 	const [selectedItemHashes, setSelectedItemHashes] = useState(() => ({
-		value: new Set<ExplorerItemHash>()
+		value: new Set<string>()
 	}));
 
 	const updateHashes = useCallback(
@@ -129,11 +129,11 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 	const itemsMap = useMemo(
 		() =>
 			(items ?? []).reduce((items, item) => {
-				const hash = itemHashesWeakMap.current.get(item) ?? explorerItemHash(item);
+				const hash = itemHashesWeakMap.current.get(item) ?? uniqueId(item);
 				itemHashesWeakMap.current.set(item, hash);
 				items.set(hash, item);
 				return items;
-			}, new Map<ExplorerItemHash, ExplorerItem>()),
+			}, new Map<string, ExplorerItem>()),
 		[items]
 	);
 
@@ -152,14 +152,14 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		selectedItemHashes,
 		addSelectedItem: useCallback(
 			(item: ExplorerItem) => {
-				selectedItemHashes.value.add(explorerItemHash(item));
+				selectedItemHashes.value.add(uniqueId(item));
 				updateHashes();
 			},
 			[selectedItemHashes.value, updateHashes]
 		),
 		removeSelectedItem: useCallback(
 			(item: ExplorerItem) => {
-				selectedItemHashes.value.delete(explorerItemHash(item));
+				selectedItemHashes.value.delete(uniqueId(item));
 				updateHashes();
 			},
 			[selectedItemHashes.value, updateHashes]
@@ -167,7 +167,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		resetSelectedItems: useCallback(
 			(items?: ExplorerItem[]) => {
 				selectedItemHashes.value.clear();
-				items?.forEach((item) => selectedItemHashes.value.add(explorerItemHash(item)));
+				items?.forEach((item) => selectedItemHashes.value.add(uniqueId(item)));
 				updateHashes();
 			},
 			[selectedItemHashes.value, updateHashes]

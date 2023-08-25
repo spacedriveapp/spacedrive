@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::{ffi::OsString, fmt::Display, path::PathBuf, sync::OnceLock};
+use std::{fmt::Display, path::PathBuf, sync::OnceLock};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -35,7 +35,7 @@ impl Display for DiskType {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
-	pub name: OsString,
+	pub name: String,
 	pub mount_points: Vec<PathBuf>,
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
@@ -124,8 +124,15 @@ pub async fn get_volumes() -> Vec<Volume> {
 				.expect("Volume index is present so the Volume must be present too");
 
 			// Update mount point if not already present
-			if volume.mount_points.iter().all(|p| p != &mount_point) {
-				volume.mount_points.push(mount_point);
+			let mount_points = &mut volume.mount_points;
+			if mount_point.iter().all(|p| p != &mount_point) {
+				mount_points.push(mount_point);
+				let mount_points_to_check = mount_points.clone();
+				mount_points.retain(|candidate| {
+					!mount_points_to_check
+						.iter()
+						.any(|path| candidate.starts_with(path) && candidate != path)
+				});
 				if !volume.is_root_filesystem {
 					volume.is_root_filesystem = is_root_filesystem;
 				}
@@ -147,8 +154,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 		// Assign volume to disk path
 		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
 
+		let mut name = disk_name.to_string_lossy().to_string();
+		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+			name = "Unknown".to_string()
+		}
+
 		volumes.push(Volume {
-			name: disk_name.to_os_string(),
+			name,
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
@@ -232,8 +244,19 @@ pub async fn get_volumes() -> Vec<Volume> {
 		});
 
 	future::join_all(sys.disks().iter().map(|disk| async {
+		#[cfg(not(windows))]
 		let disk_name = disk.name();
 		let mount_point = disk.mount_point().to_path_buf();
+
+		#[cfg(windows)]
+		let Ok((disk_name, mount_point)) = ({
+			use normpath::PathExt;
+			mount_point
+				.normalize_virtually()
+				.map(|p| (p.localize_name().to_os_string(), p.into_path_buf()))
+		}) else {
+			return None;
+		};
 
 		#[cfg(target_os = "macos")]
 		{
@@ -301,8 +324,13 @@ pub async fn get_volumes() -> Vec<Volume> {
 			}
 		}
 
+		let mut name = disk_name.to_string_lossy().to_string();
+		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
+			name = "Unknown".to_string()
+		}
+
 		Some(Volume {
-			name: disk_name.to_os_string(),
+			name,
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {

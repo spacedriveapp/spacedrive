@@ -17,7 +17,7 @@ import {
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useZodForm, z } from '~/hooks/useZodForm';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { type SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({
 	displayName: z.string().nullable(),

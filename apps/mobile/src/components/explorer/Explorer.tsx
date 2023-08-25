@@ -3,11 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { ExplorerItem, isPath } from '@sd/client';
+import { type ExplorerItem, isPath } from '@sd/client';
 import SortByMenu from '~/components/menu/SortByMenu';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
-import { SharedScreenProps } from '~/navigation/SharedScreens';
+import { type SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 import FileItem from './FileItem';
@@ -65,7 +65,9 @@ const Explorer = ({ items }: ExplorerProps) => {
 					key={layoutMode}
 					numColumns={layoutMode === 'grid' ? getExplorerStore().gridNumColumns : 1}
 					data={items}
-					keyExtractor={(item) => item.item.id.toString()}
+					keyExtractor={(item) =>
+						item.type === 'NonIndexedPath' ? item.item.path : item.item.id.toString()
+					}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
 							{layoutMode === 'grid' ? (
