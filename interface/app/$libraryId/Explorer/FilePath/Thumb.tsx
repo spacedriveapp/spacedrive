@@ -187,7 +187,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 										src={src}
 										onLoad={onLoad}
 										onError={onError}
-										syntaxHighlight={itemData.kind === 'Code'}
+										syntaxHighlight={itemData.kind === 'Code' && itemData.extension || ''}
 										className={clsx(
 											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 											!props.mediaControls
