@@ -10,7 +10,7 @@ interface LayeredFileIconProps extends ImgHTMLAttributes<HTMLImageElement> {
 const LayeredFileIcon = ({ kind, extension, ...props }: LayeredFileIconProps) => {
 	const iconImg = <img {...props} />;
 
-	if (kind !== 'Document' && kind !== 'Code' && kind !== 'Text' && kind !== 'Config') {
+	if (['Document', 'Code', 'Text', 'Config'].includes(kind) === false) {
 		return iconImg;
 	}
 
@@ -18,7 +18,6 @@ const LayeredFileIcon = ({ kind, extension, ...props }: LayeredFileIconProps) =>
 
 	const positionConfig: Record<string, string> = {
 		Text: 'flex h-full w-full items-center justify-center'
-		// Add more kinds here as needed
 	};
 
 	const positionClass =
