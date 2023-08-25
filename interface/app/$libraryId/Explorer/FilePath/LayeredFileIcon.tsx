@@ -1,4 +1,5 @@
 import { getLayeredIcon } from '@sd/assets/util';
+import clsx from 'clsx';
 import { type ImgHTMLAttributes } from 'react';
 import { type ObjectKindKey } from '@sd/client';
 
@@ -32,7 +33,7 @@ const LayeredFileIcon = ({ kind, extension, ...props }: LayeredFileIconProps) =>
 	) : (
 		<div className="relative">
 			{iconImg}
-			<div className={`absolute bottom-0 right-0 ${positionClass}`}>
+			<div className={clsx('absolute bottom-0 right-0', positionClass)}>
 				<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
 			</div>
 		</div>
