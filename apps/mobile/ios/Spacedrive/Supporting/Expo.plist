@@ -9,7 +9,7 @@
     <key>EXUpdatesLaunchWaitMs</key>
     <integer>0</integer>
     <key>EXUpdatesSDKVersion</key>
-    <string>48.0.0</string>
+    <string>49.0.0</string>
     <key>EXUpdatesURL</key>
     <string>https://exp.host/@spacedrive/spacedrive</string>
   </dict>

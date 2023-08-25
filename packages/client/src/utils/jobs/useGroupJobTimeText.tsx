@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import { useEffect, useMemo } from 'react';
-import { JobReport } from '@sd/client';
-import { useForceUpdate } from '~/util';
+import { JobReport } from '../../core';
+import { useForceUpdate } from '../../hooks';
 
 dayjs.extend(duration);
 
