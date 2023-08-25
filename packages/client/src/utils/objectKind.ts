@@ -23,7 +23,8 @@ export enum ObjectKindEnum {
 	Mesh,
 	Code,
 	Database,
-	Book
+	Book,
+	Config
 }
 
 export type ObjectKindKey = keyof typeof ObjectKindEnum;
