@@ -123,7 +123,7 @@ pub async fn list_apps_associated_with_ext(file_path: impl AsRef<Path>) -> Vec<A
 
 pub fn open_files_path_with(file_paths: &[impl AsRef<Path>], id: &str) -> Result<(), GlibError> {
 	let Some(app) = DesktopAppInfo::new(id) else {
-		return Err(GlibError::new(ResourceError::NotFound, "App not found"))
+		return Err(GlibError::new(ResourceError::NotFound, "App not found"));
 	};
 
 	LAUNCH_CTX.with(|ctx| {

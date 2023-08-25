@@ -105,7 +105,8 @@ pub async fn walk(
 
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
 		let Ok((entry_path, name)) = normalize_path(entry.path())
-			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into())) else {
+			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
+		else {
 			continue;
 		};
 
@@ -124,10 +125,11 @@ pub async fn walk(
 			continue;
 		}
 
-		let Ok(metadata) = entry.metadata()
+		let Ok(metadata) = entry
+			.metadata()
 			.await
 			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
-			else {
+		else {
 			continue;
 		};
 
@@ -136,9 +138,10 @@ pub async fn walk(
 		} else {
 			let path = Path::new(&entry_path);
 
-			let Some(name) = path.file_stem()
+			let Some(name) = path
+				.file_stem()
 				.and_then(|s| s.to_str().map(str::to_string))
-				else {
+			else {
 				warn!("Failed to extract name from path: {}", &entry_path);
 				continue;
 			};
