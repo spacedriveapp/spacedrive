@@ -50,8 +50,8 @@ const WormHole = () => {
 					/>
 				</div>
 				<div
-					className="absolute z-10
-				h-full w-full
+					className="absolute left-[120px] top-[-50px]
+				z-10 h-full w-full
 				sm:left-[200px] sm:top-[-10px]"
 				>
 					<Image
@@ -86,7 +86,7 @@ const WormHole = () => {
 						src="/images/icons/application.svg"
 					/>
 				</div>
-				<div className="absolute left-[200px] top-[120px] z-10 h-full w-full">
+				<div className="absolute left-[120px] top-[50px] z-10 h-full w-full lg:left-[200px] lg:top-[120px]">
 					<Image
 						width={40}
 						height={45}
@@ -96,7 +96,7 @@ const WormHole = () => {
 						src="/images/icons/collection.svg"
 					/>
 				</div>
-				<div className="absolute top-[50px] z-10 h-full w-full sm:left-[200px] sm:top-[300px] lg:left-[200px] lg:top-[420px]">
+				<div className="absolute left-[120px] top-[50px] z-10 h-full w-full sm:left-[200px] sm:top-[300px] lg:left-[200px] lg:top-[420px]">
 					<Image
 						width={40}
 						height={45}
@@ -108,7 +108,7 @@ const WormHole = () => {
 				</div>
 				<div
 					className="absolute
-					top-[-100px]
+					left-[60px] top-[-190px]
 				z-10 h-full w-full sm:left-[50px] sm:top-[50px] lg:left-[200px] lg:top-[490px]"
 				>
 					<Image
@@ -120,7 +120,10 @@ const WormHole = () => {
 						src="/images/icons/texturedmesh.png"
 					/>
 				</div>
-				<div className="absolute left-[200px] top-[350px] z-10 h-full w-full">
+				<div
+					className="absolute left-[120px] top-[50px]
+				 z-10 h-full w-full md:left-[200px] md:top-[350px]"
+				>
 					<Image
 						width={40}
 						height={45}

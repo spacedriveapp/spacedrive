@@ -453,6 +453,26 @@ pre {
 	animation: flashstroke 3.05s linear infinite;
 }
 
+#right-top-line, #right-bottom-line, #top-center-line {
+	animation: linemove 55s linear infinite;
+			stroke-dasharray: 3;
+			animation-direction: reverse;
+}
+
+@keyframes linemove {
+	0% {
+		stroke-dashoffset: 0;
+		stroke-dasharray: 3;
+	}
+	50% {
+			stroke-dasharray: 4;
+	}
+	100% {
+		stroke-dashoffset: 1000;
+			stroke-dasharray: 3;
+	}
+}
+
 @keyframes flashstroke {
 	0% {
 		stroke-width: 0;
@@ -1164,8 +1184,8 @@ pre {
 }
 
 	.node {
-		motion-path: path('M1 254.5C380.5 45.5 361.4 882.2 639 1');
-		offset-path: path('M1 254.5C380.5 45.5 361.4 882.2 639 1');
+		motion-path: path('M1 234.5C300.5 45.5 61.4 1282.2 639 1');
+		offset-path: path('M1 234.5C300.5 45.5 61.4 1282.2 639 1');
 		animation: node 11.2s ease-in-out infinite;
 		transform: scale(0) rotate(0deg);
 	}
@@ -1177,10 +1197,10 @@ pre {
 		opacity: 1;
 	}
 	100% {
-		motion-offset: 30%;
+		motion-offset: 13%;
 		transform: scale(1.1) rotate(720deg);
 		opacity: 0;
-		offset-distance: 30%;
+		offset-distance: 13%;
 	}
 	}
 
@@ -1230,8 +1250,8 @@ pre {
 	}
 
 	.lock {
-		motion-path: path('M1 254.5C80.5 305.5 261.4 182.2 399 1');
-		offset-path: path('M1 254.5C80.5 305.5 261.4 182.2 399 1');
+		motion-path: path('M1 254.5C80.5 305.5 261.4 82.2 399 1');
+		offset-path: path('M1 254.5C80.5 305.5 261.4 82.2 399 1');
 		animation: lock 11.5s ease-in-out infinite;
 		transform: scale(0) rotate(-390deg);
 	}
@@ -1244,10 +1264,10 @@ pre {
 			opacity: 1;
 		}
 		100% {
-			motion-offset: 80%;
+			motion-offset: 55%;
 			transform: scale(1.1) rotate(0);
 			opacity: 0;
-			offset-distance: 80%;
+			offset-distance: 55%;
 		}
 	}
 
@@ -1294,4 +1314,71 @@ pre {
 	offset-distance: 71%;
 }
 }
+
+.collection {
+	motion-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
+	offset-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
+	animation: collection 11.5s ease-in-out infinite;
+	transform: scale(0) rotate(-390deg);
+}
+
+@keyframes collection {
+		0% {
+		opacity: 0;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		motion-offset: 36%;
+		transform: scale(1.1) rotate(0);
+		opacity: 0;
+		offset-distance: 36%;
+	}
+}
+
+.texturedmesh {
+  motion-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
+  offset-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
+	animation: texturedmesh 10.4s ease-in-out infinite;
+	transform: scale(0) rotate(0deg);
+}
+
+@keyframes texturedmesh {
+	0% {
+	opacity: 0;
+}
+90% {
+	opacity: 1;
+}
+100% {
+	motion-offset: 45%;
+	transform: scale(1.1) rotate(720deg);
+	opacity: 0;
+	offset-distance: 45%;
+}
+}
+
+.database {
+	motion-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
+	offset-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
+	animation: database 13.8s ease-in-out infinite;
+	transform: scale(0) rotate(0deg);
+}
+
+@keyframes database {
+	0% {
+		opacity: 0;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		motion-offset: 12%;
+		transform: scale(1) rotate(690deg);
+		opacity: 0;
+		offset-distance: 12%;
+	}
+}
+
 }
