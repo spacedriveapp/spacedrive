@@ -43,15 +43,10 @@ export const Component = () => {
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<div className="group flex flex-row items-center space-x-2">
-						<span className="flex flex-row items-center">
-							<img
-								src={Laptop}
-								className="ml-3 mr-2 mt-[-1px] inline-block h-6 w-6"
-							/>
-							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{nodeState.data?.name || 'Node'}
-							</span>
+					<div className="flex items-center gap-2">
+						<img src={Laptop} className="mt-[-1px] h-6 w-6" />
+						<span className="truncate text-sm font-medium">
+							{nodeState.data?.name || 'Node'}
 						</span>
 					</div>
 				}
