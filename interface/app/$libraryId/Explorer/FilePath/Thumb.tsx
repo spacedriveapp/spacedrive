@@ -182,24 +182,26 @@ export const FileThumb = memo((props: ThumbProps) => {
 								);
 							case 'Text':
 							case 'Code':
+							case 'Config':
 								return (
 									<TextViewer
 										src={src}
 										onLoad={onLoad}
 										onError={onError}
-										syntaxHighlight={
-											(itemData.kind === 'Code' && itemData.extension) || ''
-										}
 										className={clsx(
 											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 											!props.mediaControls
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
-											itemData.kind === 'Code' &&
-												`language-${itemData.extension}`,
 											props.frame && [frameClassName, '!bg-none']
 										)}
+										codeExtension={
+											((itemData.kind === 'Code' ||
+												itemData.kind === 'Config') &&
+												itemData.extension) ||
+											''
+										}
 									/>
 								);
 

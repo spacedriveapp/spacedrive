@@ -75,7 +75,6 @@ struct AcceptRange {
 static EMPTY_ACCEPT_RANGE: AcceptRange = AcceptRange { lo: 0, hi: 0 };
 
 static ACCEPT_RANGES: [AcceptRange; 5] = [
-	// acceptRanges has size 16 to avoid bounds checks in the code that uses it.
 	AcceptRange { lo: LOCB, hi: HICB },
 	AcceptRange { lo: 0xA0, hi: HICB },
 	AcceptRange { lo: LOCB, hi: 0x9F },

@@ -38,7 +38,7 @@ type NameAndExtension = (PathBuf, String);
 static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
 
-static MAX_TEXT_READ_LENGHT: usize = 10 * 1024 * 1024; // 10Kb
+static MAX_TEXT_READ_LENGHT: usize = 10 * 1024; // 10KB
 
 // TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
 // TODO: Probs use this cache in rspc queries too!
