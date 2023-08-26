@@ -8,7 +8,7 @@ Prism.manual = true;
 // Only for those that are not already internally resolved by prismjs
 // https://prismjs.com/#supported-languages
 const languageMapping = Object.entries({
-	applescript: ['Scpt', 'Scptd'],
+	applescript: ['scpt', 'scptd'],
 	// This is not entirely correct, but better than nothing:
 	// https://github.com/PrismJS/prism/issues/3656
 	// https://github.com/PrismJS/prism/issues/3660
