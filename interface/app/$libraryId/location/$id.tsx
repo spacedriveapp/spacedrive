@@ -180,7 +180,11 @@ const useItems = ({
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: {
+						cursor: {
+							pub_id: cursor
+						}
+					}
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,

@@ -7,8 +7,7 @@ import {
 	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
-import { useExplorerContext } from '../Explorer/Context';
-import { getExplorerStore, useExplorerStore } from '../Explorer/store';
+import { getExplorerStore } from '../Explorer/store';
 import { UseExplorerSettings } from '../Explorer/useExplorer';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
@@ -87,7 +86,11 @@ export function useItems(
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: {
+						cursor: {
+							pub_id: cursor
+						}
+					}
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -116,7 +119,11 @@ export function useItems(
 				'search.objects',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: {
+						cursor: {
+							pub_id: cursor
+						}
+					}
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
