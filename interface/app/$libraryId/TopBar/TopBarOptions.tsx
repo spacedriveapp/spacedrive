@@ -37,7 +37,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region className="flex flex-row">
+		<div data-tauri-drag-region className="flex flex-1 justify-end">
 			<div data-tauri-drag-region className={`flex gap-0`}>
 				{options?.map((group, groupIndex) => {
 					return group.map(
