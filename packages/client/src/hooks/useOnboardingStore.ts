@@ -10,12 +10,11 @@ export enum UseCase {
 }
 
 const onboardingStoreDefaults = () => ({
-	newLibraryName: '',
 	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
-	shareFullTelemetry: true,
 	useCases: [] as UseCase[],
-	grantedFullDiskAccess: false
+	grantedFullDiskAccess: false,
+	data: {} as Record<string, any>
 });
 
 const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults());
