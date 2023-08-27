@@ -13,6 +13,7 @@ use crate::{
 		migrator::Migrate,
 		mpscrr, MaybeUndefined,
 	},
+	volume::watcher::spawn_volume_watcher,
 	Node,
 };
 
@@ -122,8 +123,11 @@ impl Libraries {
 					Err(e) => return Err(FileIOError::from((db_path, e)).into()),
 				}
 
-				self.load(library_id, &db_path, config_path, None, true, node)
+				let library_arc = self
+					.load(library_id, &db_path, config_path, None, true, node)
 					.await?;
+
+				spawn_volume_watcher(library_arc.clone());
 			}
 		}
 

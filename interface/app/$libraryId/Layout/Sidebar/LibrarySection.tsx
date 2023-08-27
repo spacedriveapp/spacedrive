@@ -1,5 +1,10 @@
 import { Laptop, Mobile, Server } from '@sd/assets/icons';
+import { SD } from '@sd/assets/icons';
+import { Globe } from '@sd/assets/icons';
+import { Drive } from '@sd/assets/icons';
+import { Node } from '@sd/assets/icons';
 import clsx from 'clsx';
+import { Eject, EjectSimple } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
@@ -18,6 +23,18 @@ import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
 import TagsContextMenu from './TagsContextMenu';
 
+type SidebarGroup = {
+	name: string;
+	items: SidebarItem[];
+};
+
+type SidebarItem = {
+	name: string;
+	icon: React.ReactNode;
+	to: string;
+	position: number;
+};
+
 type TriggeredContextItem =
 	| {
 			type: 'location';
@@ -29,6 +46,12 @@ type TriggeredContextItem =
 	  };
 
 const SEE_MORE_LOCATIONS_COUNT = 5;
+
+const EjectButton = ({ className }: { className?: string }) => (
+	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
+		<EjectSimple weight="bold" size={18} className="h-3 w-3 opacity-70" />
+	</Button>
+);
 
 export const LibrarySection = () => {
 	const debugState = useDebugState();
@@ -63,7 +86,7 @@ export const LibrarySection = () => {
 	return (
 		<>
 			<Section
-				name="Nodes"
+				name="Devices"
 				actionArea={
 					isPairingEnabled && (
 						<Link to="settings/library/nodes">
@@ -82,6 +105,7 @@ export const LibrarySection = () => {
 							<img src={Laptop} className="mr-1 h-5 w-5" />
 							<span className="truncate">{node.data.name}</span>
 						</SidebarLink>
+
 						{debugState.enabled && (
 							<>
 								<SidebarLink
@@ -110,10 +134,11 @@ export const LibrarySection = () => {
 					position="right"
 				>
 					<Button disabled variant="dotted" className="mt-1 w-full">
-						Connect Node
+						Add Device
 					</Button>
 				</Tooltip>
 			</Section>
+
 			<Section
 				name="Locations"
 				actionArea={

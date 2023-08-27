@@ -1,9 +1,19 @@
+import { Drive, Globe, SD } from '@sd/assets/icons';
+import clsx from 'clsx';
+import { EjectSimple } from 'phosphor-react';
 import { useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
+import { Button } from '@sd/ui';
 import { Folder } from '~/components';
 import { usePlatform } from '~/util/Platform';
 import SidebarLink from './Link';
 import Section from './Section';
+
+const EjectButton = ({ className }: { className?: string }) => (
+	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
+		<EjectSimple weight="fill" size={18} className="h-3 w-3 opacity-70" />
+	</Button>
+);
 
 export const EphemeralSection = () => {
 	const [home, setHome] = useState<string | null>(null);
@@ -15,7 +25,11 @@ export const EphemeralSection = () => {
 
 	return home == null && volumes.length < 1 ? null : (
 		<>
-			<Section name="Explore">
+			<Section name="Local">
+				<SidebarLink className="group relative w-full" to={`network/34`} key={24}>
+					<img src={Globe} className="mr-1 h-5 w-5" />
+					<span className="truncate">Network</span>
+				</SidebarLink>
 				{home && (
 					<SidebarLink
 						to={`ephemeral/0?path=${home}`}
@@ -43,11 +57,14 @@ export const EphemeralSection = () => {
 								key={key}
 								className="group relative w-full border border-transparent"
 							>
-								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-									<Folder size={18} />
-								</div>
+								<img
+									src={volume.file_system === 'exfat' ? SD : Drive}
+									className="mr-1 h-5 w-5"
+								/>
 
 								<span className="truncate">{name}</span>
+
+								{volume.disk_type === 'Removable' && <EjectButton />}
 							</SidebarLink>
 						);
 					});

@@ -45,6 +45,8 @@ import FolderGrey_Light from './FolderGrey_Light.png';
 import Folder_Light from './Folder_Light.png';
 import Game from './Game.png';
 import Game_Light from './Game_Light.png';
+import Globe from './Globe.png';
+import GlobeAlt from './GlobeAlt.png';
 import Heart from './Heart.png';
 import Heart_Light from './Heart_Light.png';
 import Image from './Image.png';
@@ -69,8 +71,11 @@ import Node from './Node.png';
 import Node_Light from './Node_Light.png';
 import Package from './Package.png';
 import Package_Light from './Package_Light.png';
+import SD from './SD.png';
 import Scrapbook from './Scrapbook.png';
 import Scrapbook_Light from './Scrapbook_Light.png';
+import Screenshot from './Screenshot.png';
+import ScreenshotAlt from './ScreenshotAlt.png';
 import Server from './Server.png';
 import Server_Light from './Server_Light.png';
 import Tablet from './Tablet.png';
@@ -139,6 +144,8 @@ export {
 	Folder_Light,
 	Game,
 	Game_Light,
+	Globe,
+	GlobeAlt,
 	Heart,
 	Heart_Light,
 	Image,
@@ -163,8 +170,11 @@ export {
 	Node_Light,
 	Package,
 	Package_Light,
+	SD,
 	Scrapbook,
 	Scrapbook_Light,
+	Screenshot,
+	ScreenshotAlt,
 	Server,
 	Server_Light,
 	Tablet,

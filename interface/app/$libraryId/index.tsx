@@ -25,6 +25,7 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
+	{ path: 'network/:id', lazy: () => import('./network') },
 	{ path: 'search', lazy: () => import('./search') }
 ];
 

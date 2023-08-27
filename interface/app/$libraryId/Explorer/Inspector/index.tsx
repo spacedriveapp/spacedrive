@@ -23,6 +23,7 @@ import {
 	useMemo,
 	useState
 } from 'react';
+import Sticky from 'react-sticky-el';
 import {
 	type ExplorerItem,
 	byteSize,
@@ -79,27 +80,33 @@ export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
 
 	return (
 		<div {...props}>
-			{showThumbnail && (
-				<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
-					{isNonEmpty(selectedItems) ? (
-						<Thumbnails items={selectedItems} />
+			<Sticky
+				scrollElement={explorer.scrollRef.current || undefined}
+				stickyClassName="!top-[40px]"
+				topOffset={-40}
+			>
+				{showThumbnail && (
+					<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
+						{isNonEmpty(selectedItems) ? (
+							<Thumbnails items={selectedItems} />
+						) : (
+							<img src={isDark ? Image : Image_Light} />
+						)}
+					</div>
+				)}
+
+				<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+					{!isNonEmpty(selectedItems) ? (
+						<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
+							Nothing selected
+						</div>
+					) : selectedItems.length === 1 ? (
+						<SingleItemMetadata item={selectedItems[0]} />
 					) : (
-						<img src={isDark ? Image : Image_Light} />
+						<MultiItemMetadata items={selectedItems} />
 					)}
 				</div>
-			)}
-
-			<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-				{!isNonEmpty(selectedItems) ? (
-					<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-						Nothing selected
-					</div>
-				) : selectedItems.length === 1 ? (
-					<SingleItemMetadata item={selectedItems[0]} />
-				) : (
-					<MultiItemMetadata items={selectedItems} />
-				)}
-			</div>
+			</Sticky>
 		</div>
 	);
 };

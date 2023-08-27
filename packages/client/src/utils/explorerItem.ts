@@ -15,6 +15,9 @@ export function getItemFilePath(data: ExplorerItem) {
 export function getItemLocation(data: ExplorerItem) {
 	return data.type === 'Location' ? data.item : null;
 }
+export function getItemSpacedropPeer(data: ExplorerItem) {
+	return data.type === 'SpacedropPeer' ? data.item : null;
+}
 
 export function getExplorerItemData(data?: null | ExplorerItem) {
 	const itemObj = data ? getItemObject(data) : null;
@@ -34,7 +37,8 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		dateModified: null as string | null,
 		dateAccessed: itemObj?.date_accessed ?? null,
 		thumbnailKey: data?.thumbnail_key ?? [],
-		hasLocalThumbnail: data?.has_local_thumbnail ?? false // this will be overwritten if new thumbnail is generated
+		hasLocalThumbnail: data?.has_local_thumbnail ?? false, // this will be overwritten if new thumbnail is generated
+		customIcon: null as string | null
 	};
 
 	if (!data) return itemData;
@@ -60,6 +64,9 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		itemData.isDir = true;
 		itemData.locationId = location.id;
 		itemData.dateIndexed = location.date_created;
+	} else if (data.type === 'SpacedropPeer') {
+		itemData.name = data.item.name;
+		itemData.customIcon = 'Laptop';
 	}
 
 	if (data.type == 'Path' && itemData.isDir) itemData.kind = 'Folder';

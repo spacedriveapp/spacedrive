@@ -1,4 +1,13 @@
-import { ArrowsClockwise, CopySimple, Crosshair, Eraser, FilmStrip, Planet } from 'phosphor-react';
+import {
+	ArchiveBox,
+	ArrowsClockwise,
+	Broadcast,
+	CopySimple,
+	Crosshair,
+	Eraser,
+	FilmStrip,
+	Planet
+} from 'phosphor-react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { SubtleButton } from '~/components/SubtleButton';
 import { EphemeralSection } from './EphemeralSection';
@@ -17,11 +26,11 @@ export default () => {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
-				{/* <SidebarLink to="spacedrop">
+				<SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
 				</SidebarLink>
-				<SidebarLink to="imports">
+				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
@@ -38,10 +47,10 @@ export default () => {
 					<LibrarySection />
 				</LibraryContextProvider>
 			)}
-			<Section name="Tools" actionArea={<SubtleButton />}>
+			{/* <Section name="Tools" actionArea={<SubtleButton />}>
 				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
-					Duplicate Finder
+					Duplicates
 				</SidebarLink>
 				<SidebarLink disabled to="lost-and-found">
 					<Icon component={Crosshair} />
@@ -55,7 +64,7 @@ export default () => {
 					<Icon component={FilmStrip} />
 					Media Encoder
 				</SidebarLink>
-			</Section>
+			</Section> */}
 			<div className="grow" />
 		</div>
 	);

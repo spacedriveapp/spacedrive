@@ -9,6 +9,8 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::error;
 
+pub mod watcher;
+
 fn sys_guard() -> &'static Mutex<System> {
 	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
 	SYS.get_or_init(|| Mutex::new(System::new_all()))
