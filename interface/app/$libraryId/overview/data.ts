@@ -7,7 +7,8 @@ import {
 	useLibraryContext,
 	useRspcLibraryContext
 } from '@sd/client';
-import { getExplorerStore } from '../Explorer/store';
+import { useExplorerContext } from '../Explorer/Context';
+import { getExplorerStore, useExplorerStore } from '../Explorer/store';
 import { UseExplorerSettings } from '../Explorer/useExplorer';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
