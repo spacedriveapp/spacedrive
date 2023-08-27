@@ -23,7 +23,7 @@
 		"@zxcvbn-ts/language-en": "^2.1.0",
 		"plausible-tracker": "^0.3.8",
 		"valtio": "^1.7.4",
-		"zod": "^3.21.4"
+		"zod": "~3.22.2"
 	},
 	"devDependencies": {
 		"@types/react": "^18.0.21",

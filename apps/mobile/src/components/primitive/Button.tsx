@@ -50,6 +50,7 @@ export const AnimatedButton: FC<AnimatedButtonProps> = ({ variant, size, disable
 	return (
 		<MotiPressable
 			disabled={disabled}
+			// @ts-ignore
 			animate={useMemo(
 				() =>
 					({ hovered, pressed }) => {
