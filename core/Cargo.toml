@@ -70,8 +70,8 @@ include_dir = { version = "0.7.3", features = ["glob"] }
 async-trait = "^0.1.68"
 image = "0.24.6"
 webp = "0.2.2"
-tracing = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # To work with tracing-appender
-tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e", features = [
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = [
 	"env-filter",
 ] }
 async-stream = "0.3.5"
@@ -90,7 +90,7 @@ notify = { version = "5.2.0", default-features = false, features = [
 static_assertions = "1.1.0"
 serde-hashkey = "0.4.5"
 normpath = { version = "1.1.1", features = ["localization"] }
-tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for log deletion
+tracing-appender = { workspace = true }
 strum = { version = "0.24", features = ["derive"] }
 strum_macros = "0.24"
 regex = "1.8.4"
