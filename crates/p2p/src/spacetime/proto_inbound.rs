@@ -11,7 +11,7 @@ use tracing::debug;
 
 use crate::{
 	spacetime::{BroadcastStream, UnicastStream},
-	Manager, ManagerStreamAction, Metadata, PeerId, PeerMessageEvent,
+	Manager, ManagerStreamAction2, Metadata, PeerId, PeerMessageEvent,
 };
 
 use super::SpaceTimeProtocolName;
@@ -31,7 +31,7 @@ impl<TMetadata: Metadata> UpgradeInfo for InboundProtocol<TMetadata> {
 }
 
 impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtocol<TMetadata> {
-	type Output = ManagerStreamAction<TMetadata>;
+	type Output = ManagerStreamAction2<TMetadata>;
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
@@ -48,7 +48,7 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 			match discriminator {
 				crate::spacetime::BROADCAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): broadcast stream accepted", self.peer_id);
-					Ok(ManagerStreamAction::Event(
+					Ok(ManagerStreamAction2::Event(
 						PeerMessageEvent {
 							stream_id: id,
 							peer_id: self.peer_id,
@@ -62,7 +62,7 @@ impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtoco
 				crate::spacetime::UNICAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
 
-					Ok(ManagerStreamAction::Event(
+					Ok(ManagerStreamAction2::Event(
 						PeerMessageEvent {
 							stream_id: id,
 							peer_id: self.peer_id,

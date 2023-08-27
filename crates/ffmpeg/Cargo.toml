@@ -11,7 +11,7 @@ edition = { workspace = true }
 
 [dependencies]
 ffmpeg-sys-next = "6.0.1"
-tracing = "0.1.37"
+tracing = { workspace = true }
 
 thiserror = "1.0.40"
 webp = "0.2.2"
