@@ -3,8 +3,11 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
 	Category,
+	FilePathFilterArgs,
+	ObjectFilterArgs,
 	ObjectSearchOrdering,
 	useLibraryContext,
+	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
 import { useExplorerContext } from '../Explorer/Context';
@@ -66,7 +69,38 @@ export function useItems(
 
 	const isObjectQuery = OBJECT_CATEGORIES.includes(category);
 
-	const objectFilter = { category, kind };
+	const objectFilter: ObjectFilterArgs = { category, kind };
+
+	const objectsCount = useLibraryQuery(['search.objectsCount', { filter: objectFilter }]);
+
+	const objectsQuery = useInfiniteQuery({
+		enabled: isObjectQuery,
+		queryKey: [
+			'search.objects',
+			{
+				library_id: library.uuid,
+				arg: { take: 50, filter: objectFilter }
+			}
+		] as const,
+		queryFn: ({ pageParam: cursor, queryKey }) =>
+			rspc.client.query([
+				'search.objects',
+				{
+					...queryKey[1].arg,
+					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
+				}
+			]),
+		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+	});
+
+	const objectsItems = useMemo(
+		() => objectsQuery.data?.pages?.flatMap((d) => d.items),
+		[objectsQuery.data]
+	);
+
+	const pathsFilter: FilePathFilterArgs = { object: objectFilter };
+
+	const pathsCount = useLibraryQuery(['search.pathsCount', { filter: pathsFilter }]);
 
 	// TODO: Make a custom double click handler for directories to take users to the location explorer.
 	// For now it's not needed because folders shouldn't show.
@@ -76,10 +110,7 @@ export function useItems(
 			'search.paths',
 			{
 				library_id: library.uuid,
-				arg: {
-					take: 50,
-					filter: { object: objectFilter }
-				}
+				arg: { take: 50, filter: pathsFilter }
 			}
 		] as const,
 		queryFn: ({ pageParam: cursor, queryKey }) =>
@@ -87,7 +118,7 @@ export function useItems(
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -99,34 +130,6 @@ export function useItems(
 		[pathsQuery.data]
 	);
 
-	const objectsQuery = useInfiniteQuery({
-		enabled: isObjectQuery,
-		queryKey: [
-			'search.objects',
-			{
-				library_id: library.uuid,
-				arg: {
-					take: 50,
-					filter: objectFilter
-				}
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			rspc.client.query([
-				'search.objects',
-				{
-					...queryKey[1].arg,
-					cursor
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
-	});
-
-	const objectsItems = useMemo(
-		() => objectsQuery.data?.pages?.flatMap((d) => d.items),
-		[objectsQuery.data]
-	);
-
 	const loadMore = () => {
 		const query = isObjectQuery ? objectsQuery : pathsQuery;
 		if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
@@ -135,11 +138,13 @@ export function useItems(
 	return isObjectQuery
 		? {
 				items: objectsItems ?? null,
+				count: objectsCount.data,
 				query: objectsQuery,
 				loadMore
 		  }
 		: {
 				items: pathsItems ?? null,
+				count: pathsCount.data,
 				query: pathsQuery,
 				loadMore
 		  };

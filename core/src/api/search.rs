@@ -359,13 +359,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
+			enum FilePathPagination {
+				Cursor { pub_id: file_path::pub_id::Type },
+				Offset(i32),
+			}
+
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
 				order: Option<FilePathSearchOrdering>,
 				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
+				pagination: Option<FilePathPagination>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
@@ -381,7 +388,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 FilePathSearchArgs {
 				     take,
 				     order,
-				     cursor,
+				     pagination,
 				     filter,
 				     group_directories,
 				 }| async move {
@@ -404,8 +411,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						query = query.order_by(order.into_param());
 					}
 
-					if let Some(cursor) = cursor {
-						query = query.cursor(file_path::pub_id::equals(cursor));
+					if let Some(pagination) = pagination {
+						match pagination {
+							FilePathPagination::Cursor { pub_id } => {
+								query = query.cursor(file_path::pub_id::equals(pub_id));
+							}
+							FilePathPagination::Offset(offset) => query = query.skip(offset as i64),
+						}
 					}
 
 					let (file_paths, cursor) = {
@@ -468,13 +480,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("objects", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
+			enum ObjectPagination {
+				Cursor { pub_id: object::pub_id::Type },
+				Offset(i32),
+			}
+
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
 			struct ObjectSearchArgs {
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
 				order: Option<ObjectSearchOrdering>,
 				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
+				pagination: Option<ObjectPagination>,
 				#[serde(default)]
 				filter: ObjectFilterArgs,
 			}
@@ -484,7 +503,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 ObjectSearchArgs {
 				     take,
 				     order,
-				     cursor,
+				     pagination,
 				     filter,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
@@ -500,8 +519,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						query = query.order_by(order.into_param());
 					}
 
-					if let Some(cursor) = cursor {
-						query = query.cursor(object::pub_id::equals(cursor));
+					if let Some(pagination) = pagination {
+						match pagination {
+							ObjectPagination::Cursor { pub_id } => {
+								query = query.cursor(object::pub_id::equals(pub_id));
+							}
+							ObjectPagination::Offset(offset) => {
+								query = query.skip(offset as i64);
+							}
+						}
 					}
 
 					let (objects, cursor) = {
@@ -549,5 +575,21 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(SearchData { items, cursor })
 				},
 			)
+		})
+		.procedure("objectsCount", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {
+				#[serde(default)]
+				filter: ObjectFilterArgs,
+			}
+
+			R.with2(library())
+				.query(|(_, library), Args { filter }| async move {
+					let Library { db, .. } = library.as_ref();
+
+					Ok(db.object().count(filter.into_params()).exec().await? as u32)
+				})
 		})
 }

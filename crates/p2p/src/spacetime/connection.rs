@@ -14,7 +14,7 @@ use std::{
 };
 use tracing::error;
 
-use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
+use crate::{Manager, ManagerStreamAction2, Metadata, PeerId};
 
 use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRINK_THRESHOLD};
 
@@ -49,7 +49,7 @@ impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
 
 impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 	type InEvent = OutboundRequest;
-	type OutEvent = ManagerStreamAction<TMetadata>;
+	type OutEvent = ManagerStreamAction2<TMetadata>;
 	type Error = ConnectionHandlerUpgrErr<io::Error>;
 	type InboundProtocol = InboundProtocol<TMetadata>;
 	type OutboundProtocol = OutboundProtocol;
