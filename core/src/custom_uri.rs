@@ -1,222 +1,265 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	prisma::{file_path, location},
-	util::{db::*, error::FileIOError},
+	util::db::*,
 	Node,
 };
 
 use std::{
-	io,
-	mem::take,
+	ffi::OsStr,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
+	time::UNIX_EPOCH,
 };
 
-#[cfg(windows)]
-use std::cmp::min;
-
+use axum::{
+	body::{self, Body, BoxBody, Full, StreamBody},
+	extract::{self, State},
+	http::Response,
+	middleware::{self, Next},
+	routing::get,
+	Router,
+};
+use http::{request, response, HeaderValue, Method, Request, StatusCode};
 use http_range::HttpRange;
-use httpz::{
-	http::{response::Builder, Method, Response, StatusCode},
-	Endpoint, GenericEndpoint, HttpEndpoint, Request,
-};
 use mini_moka::sync::Cache;
-use once_cell::sync::Lazy;
-use prisma_client_rust::QueryError;
-use thiserror::Error;
-use tokio::{
-	fs::File,
-	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
-};
-use tracing::error;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
-// This LRU cache allows us to avoid doing a DB lookup on every request.
-// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
-static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
-	Lazy::new(|| Cache::new(100));
 
-// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
-// TODO: Probs use this cache in rspc queries too!
+#[derive(Clone)]
+struct LocalState {
+	node: Arc<Node>,
 
-async fn handler(node: Arc<Node>, req: Request) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
-	let path = req
-		.uri()
-		.path()
-		.strip_prefix('/')
-		.unwrap_or_else(|| req.uri().path())
-		.split('/')
-		.collect::<Vec<_>>();
-
-	match path.first() {
-		Some(&"thumbnail") => handle_thumbnail(&node, &path, &req).await,
-		Some(&"file") => handle_file(&node, &path, &req).await,
-		_ => Err(HandleCustomUriError::BadRequest("Invalid operation!")),
-	}
+	// This LRU cache allows us to avoid doing a DB lookup on every request.
+	// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
+	// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
+	file_metadata_cache: Cache<MetadataCacheKey, NameAndExtension>,
 }
 
-async fn read_file(mut file: File, length: u64, start: Option<u64>) -> io::Result<Vec<u8>> {
-	let mut buf = Vec::with_capacity(length as usize);
-	if let Some(start) = start {
-		file.seek(SeekFrom::Start(start)).await?;
-		file.take(length).read_to_end(&mut buf).await?;
-	} else {
-		file.read_to_end(&mut buf).await?;
-	}
+// We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
+// TODO(@Oscar): Long-term hopefully this can be moved into rspc but streaming files is a hard thing for rspc to solve (Eg. how does batching work, dyn-safe handler, etc).
+pub fn router(node: Arc<Node>) -> Router<()> {
+	Router::new()
+		.route(
+			"/thumbnail/*path",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path(path): extract::Path<String>,
+				 request: Request<Body>| async move {
+					let thumbnail_path = state.node.config.data_directory().join("thumbnails");
+					let path = thumbnail_path.join(path);
 
-	Ok(buf)
-}
+					// Prevent directory traversal attacks (Eg. requesting `../../../etc/passwd`)
+					if !path.starts_with(&thumbnail_path) {
+						todo!(); // TODO: Error handling
+					}
 
-fn cors(
-	method: &Method,
-	builder: &mut Builder,
-) -> Option<Result<Response<Vec<u8>>, httpz::http::Error>> {
-	*builder = take(builder).header("Access-Control-Allow-Origin", "*");
-	if method == Method::OPTIONS {
-		Some(
-			take(builder)
-				.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
-				.header("Access-Control-Allow-Headers", "*")
-				.header("Access-Control-Max-Age", "86400")
-				.status(StatusCode::OK)
-				.body(vec![]),
+					// For now we only support `webp` thumbnails.
+					if path.extension() != Some(OsStr::new("webp")) {
+						todo!(); // TODO: Error handling
+					}
+
+					let file = File::open(&path).await.unwrap(); // TODO: Error handling
+
+					serve_file(
+						file,
+						request.into_parts().0,
+						Response::builder().header("Content-Type", "image/webp"),
+					)
+					.await
+					.unwrap() // TODO: Error handling
+				},
+			),
 		)
-	} else {
-		None
-	}
+		.route(
+			"/file/:lib_id/:loc_id/:path_id",
+			get(
+				|State(state): State<LocalState>,
+				 extract::Path((lib_id, loc_id, path_id)): extract::Path<(
+					String,
+					String,
+					String,
+				)>,
+				 request: Request<Body>| async move {
+					let Ok(library_id) = Uuid::from_str(&lib_id) else {
+						return Response::builder().status(400).body(body::boxed(Full::from("Library ID is not valid"))).unwrap(); // TODO: Error handling
+					};
+					let Ok(location_id) = loc_id.parse::<location::id::Type>() else {
+						return Response::builder().status(400).body(body::boxed(Full::from("Location ID is not valid"))).unwrap(); // TODO: Error handling
+					};
+					let Ok(file_path_id) = path_id.parse::<file_path::id::Type>() else {
+						return Response::builder().status(400).body(body::boxed(Full::from("Path ID is not valid"))).unwrap(); // TODO: Error handling
+					};
+
+					let lru_cache_key = (library_id, file_path_id);
+
+					let (file_path_full_path, extension) = if let Some(entry) =
+						state.file_metadata_cache.get(&lru_cache_key)
+					{
+						entry
+					} else {
+						let library = state.node.libraries.get_library(&library_id).await.unwrap(); // TODO: Error handling
+																			// .ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
+
+						let file_path = library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(file_path_id))
+							.select(file_path_to_handle_custom_uri::select())
+							.exec()
+							.await
+							.unwrap()
+							.unwrap(); // TODO: Error handling
+		   // .ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
+
+						let location =
+							maybe_missing(&file_path.location, "file_path.location").unwrap(); // TODO: Error handling
+						let path =
+							maybe_missing(&location.path, "file_path.location.path").unwrap(); // TODO: Error handling
+
+						let lru_entry = (
+							Path::new(path).join(
+								IsolatedFilePathData::try_from((location_id, &file_path)).unwrap(), // TODO: Error handling
+							),
+							maybe_missing(file_path.extension, "extension").unwrap(), // TODO: Error handling
+						);
+
+						state
+							.file_metadata_cache
+							.insert(lru_cache_key, lru_entry.clone());
+
+						lru_entry
+					};
+
+					let file = File::open(&file_path_full_path).await.unwrap(); // TODO: Error handling
+															// .map_err(|err| {
+															// 	if err.kind() == io::ErrorKind::NotFound {
+															// 		HandleCustomUriError::NotFound("file")
+															// 	} else {
+															// 		FileIOError::from((&file_path_full_path, err)).into()
+															// 	}
+															// })?;
+
+					serve_file(file, request.into_parts().0, Response::builder().header("Content-Type", plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension)))
+						.await
+						.unwrap() // TODO: Error handling
+				},
+			),
+		)
+		.route_layer(middleware::from_fn(cors_middleware))
+		.with_state(LocalState {
+			node,
+			file_metadata_cache: Cache::new(100),
+		})
 }
 
-async fn handle_thumbnail(
-	node: &Node,
-	path: &[&str],
-	req: &Request,
-) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
-	let method = req.method();
-	let mut builder = Response::builder();
-	if let Some(response) = cors(method, &mut builder) {
-		return Ok(response?);
+async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Response<BoxBody> {
+	if req.method() == Method::OPTIONS {
+		return Response::builder()
+			.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
+			.header("Access-Control-Allow-Headers", "*")
+			.header("Access-Control-Max-Age", "86400")
+			.status(StatusCode::OK)
+			.body(body::boxed(Full::from("")))
+			.expect("Invalid static response!");
 	}
 
-	if path.len() < 3 {
-		return Err(HandleCustomUriError::BadRequest(
-			"Invalid number of parameters!",
-		));
-	}
+	let mut response = next.run(req).await;
 
-	let mut thumbnail_path = node.config.data_directory().join("thumbnails");
-	// if we ever wish to support multiple levels of sharding, we need only supply more params here
-	for path_part in &path[1..] {
-		thumbnail_path = thumbnail_path.join(path_part);
-	}
-	let filename = thumbnail_path.with_extension("webp");
+	response
+		.headers_mut()
+		.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
 
-	let file = File::open(&filename).await.map_err(|err| {
-		if err.kind() == io::ErrorKind::NotFound {
-			HandleCustomUriError::NotFound("file")
-		} else {
-			FileIOError::from((&filename, err)).into()
-		}
-	})?;
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection
+	response
+		.headers_mut()
+		.insert("Connection", HeaderValue::from_static("Keep-Alive"));
 
-	let content_length = file
-		.metadata()
-		.await
-		.map_err(|e| FileIOError::from((&filename, e)))?
-		.len();
+	response
+		.headers_mut()
+		.insert("Server", HeaderValue::from_static("Spacedrive"));
 
-	Ok(builder
-		.header("Content-Type", "image/webp")
-		.header("Content-Length", content_length)
-		.status(StatusCode::OK)
-		.body(if method == Method::HEAD {
-			vec![]
-		} else {
-			read_file(file, content_length, None)
-				.await
-				.map_err(|e| FileIOError::from((&filename, e)))?
-		})?)
+	response
 }
 
-async fn handle_file(
-	node: &Node,
-	path: &[&str],
-	req: &Request,
-) -> Result<Response<Vec<u8>>, HandleCustomUriError> {
-	let method = req.method();
-	let mut builder = Response::builder();
-	if let Some(response) = cors(method, &mut builder) {
-		return Ok(response?);
-	}
+/// Serve a Tokio file as a HTTP response.
+///
+/// This function takes care of:
+///  - 304 Not Modified using ETag's
+///  - Range requests for partial content
+///
+/// BE AWARE this function does not do any path traversal protection so that's up to the caller!
+async fn serve_file(
+	file: File,
+	req: request::Parts,
+	mut resp: response::Builder,
+) -> http::Result<Response<BoxBody>> {
+	// Handle `ETag` and `Content-Length` headers
+	if let Ok(metadata) = file.metadata().await {
+		// We only accept range queries if `files.metadata() == Ok(_)`
+		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
+		resp = resp.header("Accept-Ranges", "bytes");
 
-	let library_id = path
-		.get(1)
-		.and_then(|id| Uuid::from_str(id).ok())
-		.ok_or_else(|| {
-			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing library_id!")
-		})?;
-
-	let location_id = path
-		.get(2)
-		.and_then(|id| id.parse::<location::id::Type>().ok())
-		.ok_or_else(|| {
-			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing location_id!")
-		})?;
-
-	let file_path_id = path
-		.get(3)
-		.and_then(|id| id.parse::<file_path::id::Type>().ok())
-		.ok_or_else(|| {
-			HandleCustomUriError::BadRequest("Invalid number of parameters. Missing file_path_id!")
-		})?;
-
-	let lru_cache_key = (library_id, file_path_id);
-
-	let (file_path_full_path, extension) =
-		if let Some(entry) = FILE_METADATA_CACHE.get(&lru_cache_key) {
-			entry
-		} else {
-			let library = node
-				.libraries
-				.get_library(&library_id)
-				.await
-				.ok_or_else(|| HandleCustomUriError::NotFound("library"))?;
-
-			let file_path = library
-				.db
-				.file_path()
-				.find_unique(file_path::id::equals(file_path_id))
-				.select(file_path_to_handle_custom_uri::select())
-				.exec()
-				.await?
-				.ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
-
-			let location = maybe_missing(&file_path.location, "file_path.location")?;
-			let path = maybe_missing(&location.path, "file_path.location.path")?;
-
-			let lru_entry = (
-				Path::new(path).join(IsolatedFilePathData::try_from((location_id, &file_path))?),
-				maybe_missing(file_path.extension, "extension")?,
+		if let Ok(time) = metadata.modified() {
+			let etag_header = format!(
+				r#""{}""#,
+				// The ETag's can be any value so we just use the modified time to make it easy.
+				time.duration_since(UNIX_EPOCH).unwrap().as_millis()
 			);
 
-			FILE_METADATA_CACHE.insert(lru_cache_key, lru_entry.clone());
+			if let Some(etag) = req.headers.get("If-None-Match") {
+				if etag.as_bytes() == etag_header.as_bytes() {
+					return resp
+						.status(StatusCode::NOT_MODIFIED)
+						.body(body::boxed(Full::from("")));
+				}
+			}
 
-			lru_entry
-		};
-
-	let file = File::open(&file_path_full_path).await.map_err(|err| {
-		if err.kind() == io::ErrorKind::NotFound {
-			HandleCustomUriError::NotFound("file")
-		} else {
-			FileIOError::from((&file_path_full_path, err)).into()
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+			resp = resp.header("etag", etag_header);
 		}
-	})?;
 
-	// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-	let mime_type = match extension.as_str() {
+		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+		if req.method == Method::GET {
+			if let Some(range) = req.headers.get("range") {
+				// TODO: Error handling
+				let ranges = HttpRange::parse(range.to_str().unwrap(), metadata.len()).unwrap();
+
+				// TODO: Multipart requests are not support, yet
+				if ranges.len() != 1 {
+					todo!(); // TODO: Error handling
+				}
+				let range = ranges.first().expect("checked above");
+
+				resp = resp
+					.status(StatusCode::PARTIAL_CONTENT)
+					.header(
+						"Content-Range",
+						format!(
+							"bytes {}-{}/{}",
+							range.start,
+							range.start + metadata.len() - 1,
+							metadata.len()
+						),
+					)
+					.header("Content-Length", range.length.to_string());
+			}
+		}
+	}
+
+	resp.body(body::boxed(StreamBody::new(ReaderStream::new(file))))
+}
+
+// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
+fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(
+	ext: &str,
+) -> &'static str {
+	match ext {
 		// AAC audio
 		"aac" => "audio/aac",
 		// Musical Instrument Digital Interface (MIDI)
@@ -281,179 +324,7 @@ async fn handle_file(
 		// TEXT document
 		"txt" => "text/plain",
 		_ => {
-			return Err(HandleCustomUriError::BadRequest(
-				"TODO: This filetype is not supported because of the missing mime type!",
-			));
+			todo!(); // TODO: Error handling
 		}
-	};
-
-	let mut content_lenght = file
-		.metadata()
-		.await
-		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
-		.len();
-
-	// GET is the only method for which range handling is defined, according to the spec
-	// https://httpwg.org/specs/rfc9110.html#field.range
-	let range = if method == Method::GET {
-		if let Some(range) = req.headers().get("range") {
-			range
-				.to_str()
-				.ok()
-				.and_then(|range| HttpRange::parse(range, content_lenght).ok())
-				.ok_or_else(|| {
-					HandleCustomUriError::RangeNotSatisfiable("Error decoding range header!")
-				})
-				.and_then(|range| {
-					// Let's support only 1 range for now
-					if range.len() > 1 {
-						Err(HandleCustomUriError::RangeNotSatisfiable(
-							"Multiple ranges are not supported!",
-						))
-					} else {
-						Ok(range.first().cloned())
-					}
-				})?
-		} else {
-			None
-		}
-	} else {
-		None
-	};
-
-	let mut status_code = 200;
-	let buf = match range {
-		Some(range) => {
-			let file_size = content_lenght;
-			content_lenght = range.length;
-
-			// TODO: For some reason webkit2gtk doesn't like this at all.
-			// It causes it to only stream random pieces of any given audio file.
-			// TODO: This causes macOS to freeze streaming mp4
-			#[cfg(windows)]
-			// prevent max_length;
-			// specially on webview2
-			if mime_type != "application/pdf" && range.length > file_size / 3 {
-				// max size sent (400kb / request)
-				// as it's local file system we can afford to read more often
-				content_lenght = min(file_size - range.start, 1024 * 400);
-			}
-
-			// last byte we are reading, the length of the range include the last byte
-			// who should be skipped on the header
-			let last_byte = range.start + content_lenght - 1;
-
-			// if the webview sent a range header, we need to send a 206 in return
-			status_code = 206;
-
-			// macOS and Windows supports audio and video, linux only supports audio
-			builder = builder
-				.header("Connection", "Keep-Alive")
-				.header("Accept-Ranges", "bytes")
-				.header(
-					"Content-Range",
-					format!("bytes {}-{}/{}", range.start, last_byte, file_size),
-				);
-
-			// FIXME: Add ETag support (caching on the webview)
-
-			read_file(file, content_lenght, Some(range.start))
-				.await
-				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
-		}
-		_ if method == Method::HEAD => {
-			builder = builder.header("Accept-Ranges", "bytes");
-			vec![]
-		}
-		_ => read_file(file, content_lenght, None)
-			.await
-			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?,
-	};
-
-	Ok(builder
-		.header("Content-type", mime_type)
-		.header("Content-Length", content_lenght)
-		.status(status_code)
-		.body(buf)?)
-}
-
-pub fn create_custom_uri_endpoint(node: Arc<Node>) -> Endpoint<impl HttpEndpoint> {
-	GenericEndpoint::new(
-		"/*any",
-		[Method::HEAD, Method::OPTIONS, Method::GET, Method::POST],
-		move |req: Request| {
-			let node = node.clone();
-			async move { handler(node, req).await.unwrap_or_else(Into::into) }
-		},
-	)
-}
-
-#[derive(Error, Debug)]
-pub enum HandleCustomUriError {
-	#[error("HandleCustomUriError::Http - {0}")]
-	Http(#[from] httpz::http::Error),
-	#[error("HandleCustomUriError::FileIO - {0}")]
-	FileIO(#[from] FileIOError),
-	#[error("HandleCustomUriError::QueryError - {0}")]
-	QueryError(#[from] QueryError),
-	#[error("HandleCustomUriError::BadRequest - {0}")]
-	BadRequest(&'static str),
-	#[error("HandleCustomUriError::RangeNotSatisfiable - invalid range {0}")]
-	RangeNotSatisfiable(&'static str),
-	#[error("HandleCustomUriError::NotFound - resource '{0}'")]
-	NotFound(&'static str),
-	#[error("HandleCustomUriError::MissingField - '{0}'")]
-	MissingField(#[from] MissingFieldError),
-}
-
-impl From<HandleCustomUriError> for Response<Vec<u8>> {
-	fn from(value: HandleCustomUriError) -> Self {
-		let builder = Response::builder().header("Content-Type", "text/plain");
-
-		(match value {
-			HandleCustomUriError::Http(err) => {
-				error!("Error creating http request/response: {:#?}", err);
-				builder
-					.status(StatusCode::INTERNAL_SERVER_ERROR)
-					.body(b"Internal Server Error".to_vec())
-			}
-			HandleCustomUriError::FileIO(err) => {
-				error!("IO error: {:#?}", err);
-				builder
-					.status(StatusCode::INTERNAL_SERVER_ERROR)
-					.body(b"Internal Server Error".to_vec())
-			}
-			HandleCustomUriError::QueryError(err) => {
-				error!("Query error: {:#?}", err);
-				builder
-					.status(StatusCode::INTERNAL_SERVER_ERROR)
-					.body(b"Internal Server Error".to_vec())
-			}
-			HandleCustomUriError::BadRequest(msg) => {
-				error!("Bad request: {}", msg);
-				builder
-					.status(StatusCode::BAD_REQUEST)
-					.body(msg.as_bytes().to_vec())
-			}
-			HandleCustomUriError::RangeNotSatisfiable(msg) => {
-				error!("Invalid Range header in request: {}", msg);
-				builder
-					.status(StatusCode::RANGE_NOT_SATISFIABLE)
-					.body(msg.as_bytes().to_vec())
-			}
-			HandleCustomUriError::NotFound(resource) => builder.status(StatusCode::NOT_FOUND).body(
-				format!("Resource '{resource}' not found")
-					.as_bytes()
-					.to_vec(),
-			),
-			HandleCustomUriError::MissingField(id) => {
-				error!("Location <id = {id}> has no path");
-				builder
-					.status(StatusCode::INTERNAL_SERVER_ERROR)
-					.body(b"Internal Server Error".to_vec())
-			}
-		})
-		// SAFETY: This unwrap is ok as we have an hardcoded the response builders.
-		.expect("internal error building hardcoded HTTP error response")
 	}
 }

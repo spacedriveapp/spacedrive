@@ -41,7 +41,6 @@ rspc = { workspace = true, features = [
 	"alpha",
 	"unstable",
 ] }
-httpz = { workspace = true }
 prisma-client-rust = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = [
@@ -71,9 +70,7 @@ async-trait = "^0.1.68"
 image = "0.24.6"
 webp = "0.2.2"
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = [
-	"env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-stream = "0.3.5"
 once_cell = "1.17.2"
 ctor = "0.1.26"
@@ -105,6 +102,8 @@ aovec = "1.1.0"
 flate2 = "1.0.26"
 tar = "0.4.40"
 tempfile = "^3.5.0"
+http = "0.2.9"
+axum = "0.6.20"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
