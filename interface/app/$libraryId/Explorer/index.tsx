@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { type PropsWithChildren, type ReactNode } from 'react';
+import { type PropsWithChildren, type ReactNode, useEffect } from 'react';
 import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -9,6 +9,7 @@ import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -24,6 +25,7 @@ const INSPECTOR_WIDTH = 260;
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
+	const [{ path }] = useExplorerSearchParams();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -41,27 +43,29 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	return (
 		<>
 			<ExplorerContextMenu>
-				<div
-					ref={explorer.scrollRef}
-					className="custom-scroll explorer-scroll flex-1 overflow-x-hidden"
-					style={{
-						paddingTop: TOP_BAR_HEIGHT,
-						paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
-					}}
-				>
-					{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
+				<div className="flex-1 overflow-hidden">
+					<div
+						ref={explorer.scrollRef}
+						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
+						style={{
+							paddingTop: TOP_BAR_HEIGHT,
+							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+						}}
+					>
+						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-					<View
-						contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
-						emptyNotice={
-							props.emptyNotice ?? (
-								<EmptyNotice
-									icon={FolderNotchOpen}
-									message="This folder is empty"
-								/>
-							)
-						}
-					/>
+						<View
+							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
+							emptyNotice={
+								props.emptyNotice ?? (
+									<EmptyNotice
+										icon={FolderNotchOpen}
+										message="This folder is empty"
+									/>
+								)
+							}
+						/>
+					</div>
 				</div>
 			</ExplorerContextMenu>
 
