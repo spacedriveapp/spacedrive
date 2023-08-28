@@ -1117,26 +1117,6 @@ export default () => {
 									}}
 								>
 									{virtualRows.map((virtualRow) => {
-										if (!explorer.items) {
-											return (
-												<div
-													key={virtualRow.index}
-													className="absolute left-0 top-0 flex w-full py-px"
-													style={{
-														height: `${virtualRow.size}px`,
-														transform: `translateY(${
-															virtualRow.start -
-															rowVirtualizer.options.scrollMargin
-														}px)`,
-														paddingLeft: `${paddingX}px`,
-														paddingRight: `${paddingX}px`
-													}}
-												>
-													<div className="relative flex h-full w-full animate-pulse rounded-md bg-app-box" />
-												</div>
-											);
-										}
-
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 
