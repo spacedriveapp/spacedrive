@@ -576,4 +576,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("objectsCount", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {
+				#[serde(default)]
+				filter: ObjectFilterArgs,
+			}
+
+			R.with2(library())
+				.query(|(_, library), Args { filter }| async move {
+					let Library { db, .. } = library.as_ref();
+
+					Ok(db.object().count(filter.into_params()).exec().await? as u32)
+				})
+		})
 }

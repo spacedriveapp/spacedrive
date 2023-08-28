@@ -29,6 +29,7 @@ export type Procedures = {
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
