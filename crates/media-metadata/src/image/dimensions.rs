@@ -19,7 +19,7 @@ impl Dimensions {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::Dimensions;
+	/// use sd_media_metadata::image::Dimensions;
 	///
 	/// Dimensions::new(1920, 1080);
 	/// ```

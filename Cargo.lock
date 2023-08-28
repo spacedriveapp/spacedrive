@@ -6967,7 +6967,7 @@ dependencies = [
  "sd-ffmpeg",
  "sd-file-ext",
  "sd-heif",
- "sd-media-data",
+ "sd-media-metadata",
  "sd-p2p",
  "sd-prisma",
  "sd-sync",
@@ -7138,7 +7138,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-media-data"
+name = "sd-media-metadata"
 version = "0.0.0"
 dependencies = [
  "chrono",

@@ -9,7 +9,7 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_media_data::image::Orientation;
+use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};

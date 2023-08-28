@@ -26,7 +26,7 @@ use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_media_data::MediaDataImage;
+use sd_media_metadata::MediaDataImage;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};

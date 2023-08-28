@@ -18,7 +18,7 @@ location-watcher = ["dep:notify"]
 heif = ["dep:sd-heif"]
 
 [dependencies]
-sd-media-data = { path = "../crates/media-data" }
+sd-media-metadata = { path = "../crates/media-metadata" }
 sd-prisma = { path = "../crates/prisma" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = [

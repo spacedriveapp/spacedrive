@@ -33,7 +33,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let x = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// ```
@@ -59,7 +59,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```ignore
-	/// use sd_media_data::image::{ExifReader, Location};
+	/// use sd_media_metadata::image::{ExifReader, Location};
 	///
 	/// let mut reader = ExifReader::from_path("path").unwrap();
 	/// MediaLocation::from_exif_reader(&mut reader).unwrap();
@@ -112,7 +112,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_latitude(60_f64);
@@ -124,7 +124,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_longitude(20_f64);
@@ -136,7 +136,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_altitude(20);
@@ -148,7 +148,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_direction(233);
@@ -166,7 +166,7 @@ impl TryFrom<String> for MediaLocation {
 	/// # Examples:
 	///
 	/// ```
-	/// use sd_media_data::image::MediaLocation;
+	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let s = String::from("32.47583923, -28.49238495");
 	/// MediaLocation::try_from(s).unwrap();

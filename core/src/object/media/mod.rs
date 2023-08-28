@@ -3,7 +3,7 @@ pub mod media_processor;
 pub mod thumbnail;
 
 pub use media_processor::MediaProcessorJobInit;
-use sd_media_data::MediaDataImage;
+use sd_media_metadata::MediaDataImage;
 use sd_prisma::prisma::media_data::*;
 
 use self::media_data_extractor::MediaDataError;

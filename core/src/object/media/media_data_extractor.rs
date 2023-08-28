@@ -6,7 +6,7 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_media_data::MediaDataImage;
+use sd_media_metadata::MediaDataImage;
 
 use std::{collections::HashSet, path::Path};
 
@@ -27,7 +27,7 @@ pub enum MediaDataError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
-	MediaData(#[from] sd_media_data::Error),
+	MediaData(#[from] sd_media_metadata::Error),
 	#[error("failed to join tokio task: {0}")]
 	TokioJoinHandle(#[from] tokio::task::JoinError),
 }
@@ -125,7 +125,9 @@ pub async fn process(
 			|(mut media_datas, mut errors), (maybe_media_data, path, object_id)| {
 				match maybe_media_data {
 					Ok(media_data) => media_datas.push((media_data, object_id)),
-					Err(MediaDataError::MediaData(sd_media_data::Error::NoExifDataOnPath(_))) => {
+					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
+						_,
+					))) => {
 						// No exif data on path, skipping
 						run_metadata.skipped += 1;
 					}
