@@ -120,6 +120,8 @@ export const Component = () => {
 
 	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
 
+	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal

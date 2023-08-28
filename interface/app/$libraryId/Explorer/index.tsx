@@ -40,8 +40,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
-
 	return (
 		<>
 			<ExplorerContextMenu>
