@@ -274,7 +274,7 @@ export default () => {
 	const tableLength = table.getTotalSize();
 
 	const rowVirtualizer = useVirtualizer({
-		count: explorer.count ?? explorer.items ? rows.length : 100,
+		count: explorer.count ?? rows.length,
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => rowHeight, []),
 		paddingStart: paddingY + (isScrolled ? 35 : 0),
