@@ -29,6 +29,7 @@ export type ExplorerParent =
 
 export interface UseExplorerProps<TOrder extends Ordering> {
 	items: ExplorerItem[] | null;
+	count?: number;
 	parent?: ExplorerParent;
 	loadMore?: () => void;
 	scrollRef?: RefObject<HTMLDivElement>;
@@ -64,6 +65,7 @@ export function useExplorer<TOrder extends Ordering>({
 		rowsBeforeLoadMore: 5,
 		selectable: true,
 		scrollRef,
+		count: props.items?.length,
 		...settings,
 		// Provided values
 		...props,

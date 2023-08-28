@@ -115,7 +115,7 @@ impl Node {
 		if let Some(init_data) = init_data {
 			init_data.apply(&node.libraries, &node).await?;
 		}
-
+  
 		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
