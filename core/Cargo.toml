@@ -102,8 +102,8 @@ aovec = "1.1.0"
 flate2 = "1.0.26"
 tar = "0.4.40"
 tempfile = "^3.5.0"
-http = "0.2.9"
 axum = "0.6.20"
+http-body = "0.4.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

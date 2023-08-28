@@ -6,7 +6,6 @@ use axum::{
 	http::{Request, StatusCode},
 	middleware::{self, Next},
 	response::Response,
-	routing::get,
 	RequestPartsExt,
 };
 use rand::{distributions::Alphanumeric, Rng};

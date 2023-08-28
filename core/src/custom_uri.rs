@@ -7,6 +7,7 @@ use crate::{
 
 use std::{
 	ffi::OsStr,
+	io::SeekFrom,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -16,15 +17,18 @@ use std::{
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::Response,
+	http::{self, request, response, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
 	routing::get,
 	Router,
 };
-use http::{request, response, HeaderValue, Method, Request, StatusCode};
+use http_body::Limited;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
-use tokio::fs::File;
+use tokio::{
+	fs::File,
+	io::{AsyncReadExt, AsyncSeekExt},
+};
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
@@ -137,13 +141,13 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					};
 
 					let file = File::open(&file_path_full_path).await.unwrap(); // TODO: Error handling
-															// .map_err(|err| {
-															// 	if err.kind() == io::ErrorKind::NotFound {
-															// 		HandleCustomUriError::NotFound("file")
-															// 	} else {
-															// 		FileIOError::from((&file_path_full_path, err)).into()
-															// 	}
-															// })?;
+					// .map_err(|err| {
+					// 	if err.kind() == io::ErrorKind::NotFound {
+					// 		HandleCustomUriError::NotFound("file")
+					// 	} else {
+					// 		FileIOError::from((&file_path_full_path, err)).into()
+					// 	}
+					// })?;
 
 					serve_file(file, request.into_parts().0, Response::builder().header("Content-Type", plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension)))
 						.await
@@ -195,7 +199,7 @@ async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Response<BoxBody>
 ///
 /// BE AWARE this function does not do any path traversal protection so that's up to the caller!
 async fn serve_file(
-	file: File,
+	mut file: File,
 	req: request::Parts,
 	mut resp: response::Builder,
 ) -> http::Result<Response<BoxBody>> {
@@ -236,18 +240,30 @@ async fn serve_file(
 				}
 				let range = ranges.first().expect("checked above");
 
-				resp = resp
+				file.seek(SeekFrom::Start(range.start)).await.unwrap(); // TODO: Error handling
+
+				// TODO: Serve using streaming body instead of loading the entire chunk. - Right now my impl is not working correctly
+				let mut buf = Vec::with_capacity(range.length as usize);
+				file.take(range.length).read_to_end(&mut buf).await.unwrap();
+
+				return resp
 					.status(StatusCode::PARTIAL_CONTENT)
 					.header(
 						"Content-Range",
 						format!(
 							"bytes {}-{}/{}",
 							range.start,
-							range.start + metadata.len() - 1,
+							range.start + range.length - 1,
 							metadata.len()
 						),
 					)
-					.header("Content-Length", range.length.to_string());
+					.header("Content-Length", range.length.to_string())
+					.body(body::boxed(Full::from(buf)));
+				// TODO: Scope stream to range
+				// .body(body::boxed(Limited::new(
+				// 	StreamBody::new(ReaderStream::new(file)),
+				// 	range.length.try_into().expect("integer overflow"),
+				// )));
 			}
 		}
 	}
