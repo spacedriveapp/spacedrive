@@ -4,6 +4,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	ExplorerSettings,
+	FilePathFilterArgs,
 	FilePathSearchOrdering,
 	useLibraryContext,
 	useLibraryMutation,
@@ -85,10 +86,11 @@ export const Component = () => {
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const { items, loadMore } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore } = useItems({ locationId, settings: explorerSettings });
 
 	const explorer = useExplorer({
 		items,
+		count,
 		loadMore,
 		parent: location.data
 			? {
@@ -156,6 +158,15 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
+	const filter: FilePathFilterArgs = {
+		locationId,
+		...(explorerSettings.layoutMode === 'media'
+			? { object: { kind: [5, 7] } }
+			: { path: path ?? '' })
+	};
+
+	const count = useLibraryQuery(['search.pathsCount', { filter }]);
+
 	const query = useInfiniteQuery({
 		queryKey: [
 			'search.paths',
@@ -163,12 +174,7 @@ const useItems = ({
 				library_id: library.uuid,
 				arg: {
 					order: explorerSettings.order,
-					filter: {
-						locationId,
-						...(explorerSettings.layoutMode === 'media'
-							? { object: { kind: [5, 7] } }
-							: { path: path ?? '' })
-					},
+					filter,
 					take
 				}
 			}
@@ -178,13 +184,7 @@ const useItems = ({
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					pagination: cursor
-						? {
-								cursor: {
-									pub_id: cursor
-								}
-						  }
-						: undefined
+					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -200,7 +200,12 @@ const useItems = ({
 		}
 	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-	return { query, items, loadMore };
+	return {
+		query,
+		items,
+		loadMore,
+		count: count.data
+	};
 };
 
 function getLastSectionOfPath(path: string): string | undefined {
