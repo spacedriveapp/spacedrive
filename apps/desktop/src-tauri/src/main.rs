@@ -97,11 +97,11 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
-	// Initialize and configure app logging
-	// Return value must be assigned to variable for flushing remaining logs on main exit throught Drop
-	let _guard = Node::init_logger(&data_dir);
-
-	let result = Node::new(data_dir).await;
+	// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
+	let (_guard, result) = match Node::init_logger(&data_dir) {
+		Ok(guard) => (Some(guard), Node::new(data_dir).await),
+		Err(err) => (None, Err(NodeError::Logger(err))),
+	};
 
 	let app = tauri::Builder::default();
 
@@ -144,7 +144,6 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.setup(|app| {
-			#[cfg(feature = "updater")]
 			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
 
 			let app = app.handle();

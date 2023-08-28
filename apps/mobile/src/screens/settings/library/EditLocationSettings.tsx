@@ -6,7 +6,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
-import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
+import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import {

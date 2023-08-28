@@ -257,11 +257,14 @@ impl PairingManager {
 			.unwrap()
 			.insert(pairing_id, tx);
 		let PairingDecision::Accept(library_id) = rx.await.unwrap() else {
-    			info!("The user rejected pairing '{pairing_id}'!");
-    			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
-    			stream.write_all(&PairingResponse::Rejected.to_bytes()).await.unwrap();
-    			return;
-    		};
+			info!("The user rejected pairing '{pairing_id}'!");
+			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
+			stream
+				.write_all(&PairingResponse::Rejected.to_bytes())
+				.await
+				.unwrap();
+			return;
+		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
 		let library = library_manager.get_library(&library_id).await.unwrap();
@@ -283,6 +286,7 @@ impl PairingManager {
 		.exec()
 		.await
 		.unwrap();
+		library_manager.update_instances(library.clone()).await;
 
 		stream
 			.write_all(
@@ -323,7 +327,8 @@ impl PairingManager {
 		// node.re
 		// library_manager.node.nlm.load_library(&library).await;
 
-		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap() else {
+		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap()
+		else {
 			todo!("unreachable; todo error handling");
 		};
 

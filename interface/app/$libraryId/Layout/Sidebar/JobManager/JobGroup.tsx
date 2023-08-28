@@ -1,19 +1,24 @@
-/* eslint-disable no-case-declarations */
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
 import { useMemo, useState } from 'react';
-import { JobGroup, JobProgressEvent, JobReport, useLibraryMutation } from '@sd/client';
+import {
+	JobGroup,
+	JobProgressEvent,
+	JobReport,
+	getJobNiceActionName,
+	getTotalTasks,
+	useLibraryMutation,
+	useTotalElapsedTimeText
+} from '@sd/client';
 import { Button, ProgressBar, Tooltip } from '@sd/ui';
 import Job from './Job';
 import JobContainer from './JobContainer';
-import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 
 interface JobGroupProps {
 	group: JobGroup;
 	progress: Record<string, JobProgressEvent>;
-	clearJob?: (arg: string) => void;
 }
 
 export default function ({ group, progress }: JobGroupProps) {
@@ -23,7 +28,7 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	const runningJob = jobs.find((job) => job.status === 'Running');
 
-	const tasks = calculateTasks(jobs);
+	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
 	const dateStarted = useMemo(() => {
@@ -46,8 +51,8 @@ export default function ({ group, progress }: JobGroupProps) {
 							'pb-2 hover:bg-app-selected/10',
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
-						iconImg={Folder}
-						name={niceActionName(
+						icon={Folder}
+						name={getJobNiceActionName(
 							group.action ?? '',
 							group.status === 'Completed',
 							jobs[0]
@@ -118,6 +123,7 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 
 	return (
 		<>
+			{/* Resume */}
 			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
 				<Button
 					className="cursor-pointer"
@@ -130,6 +136,7 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 					</Tooltip>
 				</Button>
 			)}
+			{/* TODO: Fix this */}
 			{activeJob === undefined ? (
 				<Button
 					className="cursor-pointer"
@@ -143,6 +150,7 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 				</Button>
 			) : (
 				<>
+					{/* Pause / Stop */}
 					<Tooltip label="Pause">
 						<Button
 							className="cursor-pointer"
@@ -171,29 +179,4 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 			)}
 		</>
 	);
-}
-
-function calculateTasks(jobs: JobReport[]) {
-	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
-
-	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
-		tasks.total += task_count;
-		tasks.completed += status === 'Completed' ? task_count : completed_task_count;
-		if (status === 'Completed') {
-			tasks.timeOfLastFinishedJob = completed_at || '';
-		}
-	});
-
-	return tasks;
-}
-
-function niceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = job?.metadata?.location?.name || 'Unknown';
-	switch (action) {
-		case 'scan_location':
-			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
-		case 'scan_location_sub_path':
-			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
-	}
-	return action;
 }

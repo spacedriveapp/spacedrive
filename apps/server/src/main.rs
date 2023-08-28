@@ -32,7 +32,12 @@ async fn main() {
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
-	let _guard = Node::init_logger(&data_dir);
+	let _guard = match Node::init_logger(&data_dir) {
+		Ok(guard) => guard,
+		Err(e) => {
+			panic!("{}", e.to_string())
+		}
+	};
 
 	let (node, router) = match Node::new(data_dir).await {
 		Ok(d) => d,

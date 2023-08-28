@@ -18,7 +18,7 @@ rspc = { workspace = true, features = ["axum"] }
 httpz = { workspace = true, features = ["axum"] }
 axum = "0.6.18"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 ctrlc = "3.3.1"
 http = "0.2.9"
 tower-http = { version = "0.4.0", features = ["fs"] }

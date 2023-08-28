@@ -2,6 +2,8 @@ use std::hash::{Hash, Hasher};
 
 use ed25519_dalek::PublicKey;
 use rand_core::OsRng;
+use serde::Serialize;
+use specta::Type;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -55,6 +57,21 @@ impl std::fmt::Debug for RemoteIdentity {
 		f.debug_tuple("RemoteIdentity")
 			.field(&hex::encode(self.0.as_bytes()))
 			.finish()
+	}
+}
+
+impl Serialize for RemoteIdentity {
+	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_str(&hex::encode(self.0.as_bytes()))
+	}
+}
+
+impl Type for RemoteIdentity {
+	fn inline(
+		_: specta::DefOpts,
+		_: &[specta::DataType],
+	) -> Result<specta::DataType, specta::ExportError> {
+		Ok(specta::DataType::Primitive(specta::PrimitiveType::String))
 	}
 }
 

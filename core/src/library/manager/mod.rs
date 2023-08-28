@@ -98,15 +98,15 @@ impl Libraries {
 					.is_file()
 			{
 				let Some(Ok(library_id)) = config_path
-				.file_stem()
-				.and_then(|v| v.to_str().map(Uuid::from_str))
+					.file_stem()
+					.and_then(|v| v.to_str().map(Uuid::from_str))
 				else {
 					warn!(
 						"Attempted to load library from path '{}' \
 						but it has an invalid filename. Skipping...",
 						config_path.display()
 					);
-						continue;
+					continue;
 				};
 
 				let db_path = config_path.with_extension("db");
@@ -384,6 +384,7 @@ impl Libraries {
 		let library = Library::new(
 			id,
 			config,
+			instance_id,
 			identity,
 			// key_manager,
 			db,
@@ -399,7 +400,9 @@ impl Libraries {
 
 			async move {
 				loop {
-					let Ok(SyncMessage::Created) = sync.rx.recv().await else { continue };
+					let Ok(SyncMessage::Created) = sync.rx.recv().await else {
+						continue;
+					};
 
 					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
 				}

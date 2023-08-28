@@ -19,7 +19,6 @@ use prisma_client_rust::{operator, or};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::trace;
 
 use super::{Ctx, R};
 
@@ -275,14 +274,23 @@ impl ObjectFilterArgs {
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
-		.procedure("ephemeral-paths", {
+		.procedure("ephemeralPaths", {
+			#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+			#[serde(rename_all = "camelCase", tag = "field", content = "value")]
+			enum NonIndexedPathOrdering {
+				Name(SortOrder),
+				SizeInBytes(SortOrder),
+				DateCreated(SortOrder),
+				DateModified(SortOrder),
+			}
+
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct NonIndexedPath {
 				path: PathBuf,
 				with_hidden_files: bool,
 				#[specta(optional)]
-				order: Option<FilePathSearchOrdering>,
+				order: Option<NonIndexedPathOrdering>,
 			}
 
 			R.with2(library()).query(
@@ -297,53 +305,49 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					if let Some(order) = order {
 						match order {
-							FilePathSearchOrdering::Name(order) => {
+							NonIndexedPathOrdering::Name(order) => {
 								paths.entries.sort_unstable_by(|path1, path2| {
-									if let SortOrder::Desc = order {
-										path2
-											.name()
-											.to_lowercase()
-											.cmp(&path1.name().to_lowercase())
-									} else {
-										path1
-											.name()
-											.to_lowercase()
-											.cmp(&path2.name().to_lowercase())
+									let one = path1.name().to_lowercase();
+									let two = path2.name().to_lowercase();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
 									}
 								});
 							}
-							FilePathSearchOrdering::SizeInBytes(order) => {
+							NonIndexedPathOrdering::SizeInBytes(order) => {
 								paths.entries.sort_unstable_by(|path1, path2| {
-									if let SortOrder::Desc = order {
-										path2.size_in_bytes().cmp(&path1.size_in_bytes())
-									} else {
-										path1.size_in_bytes().cmp(&path2.size_in_bytes())
+									let one = path1.size_in_bytes();
+									let two = path2.size_in_bytes();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
 									}
 								});
 							}
-							FilePathSearchOrdering::DateCreated(order) => {
+							NonIndexedPathOrdering::DateCreated(order) => {
 								paths.entries.sort_unstable_by(|path1, path2| {
-									if let SortOrder::Desc = order {
-										path2.date_created().cmp(&path1.date_created())
-									} else {
-										path1.date_created().cmp(&path2.date_created())
+									let one = path1.date_created();
+									let two = path2.date_created();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
 									}
 								});
 							}
-							FilePathSearchOrdering::DateModified(order) => {
+							NonIndexedPathOrdering::DateModified(order) => {
 								paths.entries.sort_unstable_by(|path1, path2| {
-									if let SortOrder::Desc = order {
-										path2.date_modified().cmp(&path1.date_modified())
-									} else {
-										path1.date_modified().cmp(&path2.date_modified())
+									let one = path1.date_modified();
+									let two = path2.date_modified();
+
+									match order {
+										SortOrder::Desc => two.cmp(&one),
+										SortOrder::Asc => one.cmp(&two),
 									}
 								});
-							}
-							FilePathSearchOrdering::DateIndexed(_) => {
-								trace!("Can't order by indexed date on ephemeral paths route, ignoring...")
-							}
-							FilePathSearchOrdering::Object(_) => {
-								trace!("Receive an Object sort ordeding at ephemeral paths route, ignoring...")
 							}
 						}
 					}
@@ -355,13 +359,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
+			enum FilePathPagination {
+				Cursor { pub_id: file_path::pub_id::Type },
+				Offset(i32),
+			}
+
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
 				order: Option<FilePathSearchOrdering>,
 				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
+				pagination: Option<FilePathPagination>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
@@ -377,7 +388,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 FilePathSearchArgs {
 				     take,
 				     order,
-				     cursor,
+				     pagination,
 				     filter,
 				     group_directories,
 				 }| async move {
@@ -400,8 +411,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						query = query.order_by(order.into_param());
 					}
 
-					if let Some(cursor) = cursor {
-						query = query.cursor(file_path::pub_id::equals(cursor));
+					if let Some(pagination) = pagination {
+						match pagination {
+							FilePathPagination::Cursor { pub_id } => {
+								query = query.cursor(file_path::pub_id::equals(pub_id));
+							}
+							FilePathPagination::Offset(offset) => query = query.skip(offset as i64),
+						}
 					}
 
 					let (file_paths, cursor) = {
@@ -441,7 +457,34 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("pathsCount", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {
+				#[serde(default)]
+				filter: FilePathFilterArgs,
+			}
+
+			R.with2(library())
+				.query(|(_, library), Args { filter }| async move {
+					let Library { db, .. } = library.as_ref();
+
+					Ok(db
+						.file_path()
+						.count(filter.into_params(db).await?)
+						.exec()
+						.await? as u32)
+				})
+		})
 		.procedure("objects", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			enum ObjectPagination {
+				Cursor { pub_id: object::pub_id::Type },
+				Offset(i32),
+			}
+
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct ObjectSearchArgs {
@@ -450,7 +493,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order: Option<ObjectSearchOrdering>,
 				#[specta(optional)]
-				cursor: Option<Vec<u8>>,
+				pagination: Option<ObjectPagination>,
 				#[serde(default)]
 				filter: ObjectFilterArgs,
 			}
@@ -460,7 +503,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 ObjectSearchArgs {
 				     take,
 				     order,
-				     cursor,
+				     pagination,
 				     filter,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
@@ -476,8 +519,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						query = query.order_by(order.into_param());
 					}
 
-					if let Some(cursor) = cursor {
-						query = query.cursor(object::pub_id::equals(cursor));
+					if let Some(pagination) = pagination {
+						match pagination {
+							ObjectPagination::Cursor { pub_id } => {
+								query = query.cursor(object::pub_id::equals(pub_id));
+							}
+							ObjectPagination::Offset(offset) => {
+								query = query.skip(offset as i64);
+							}
+						}
 					}
 
 					let (objects, cursor) = {

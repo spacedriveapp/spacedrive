@@ -6,6 +6,7 @@ use crate::{
 
 use chrono::Utc;
 use rspc::alpha::AlphaRouter;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use sd_prisma::prisma::statistics;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -18,9 +19,11 @@ use super::{
 };
 
 // TODO(@Oscar): Replace with `specta::json`
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Type)]
 pub struct LibraryConfigWrapped {
 	pub uuid: Uuid,
+	pub instance_id: Uuid,
+	pub instance_public_key: RemoteIdentity,
 	pub config: LibraryConfig,
 }
 
@@ -34,6 +37,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {
 						uuid: lib.id,
+						instance_id: lib.instance_uuid,
+						instance_public_key: lib.identity.to_remote_identity(),
 						config: lib.config.clone(),
 					})
 					.collect::<Vec<_>>()
@@ -114,6 +119,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				Ok(LibraryConfigWrapped {
 					uuid: library.id,
+					instance_id: library.instance_uuid,
+					instance_public_key: library.identity.to_remote_identity(),
 					config: library.config.clone(),
 				})
 			})

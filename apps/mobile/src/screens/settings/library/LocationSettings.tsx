@@ -12,7 +12,7 @@ import {
 import FolderIcon from '~/components/icons/FolderIcon';
 import { ModalRef } from '~/components/layout/Modal';
 import ImportModal from '~/components/modal/ImportModal';
-import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
+import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';

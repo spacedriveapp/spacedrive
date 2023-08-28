@@ -45,6 +45,15 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		metadata: PeerMetadata,
 	},
+	ExpiredPeer {
+		peer_id: PeerId,
+	},
+	ConnectedPeer {
+		peer_id: PeerId,
+	},
+	DisconnectedPeer {
+		peer_id: PeerId,
+	},
 	SpacedropRequest {
 		id: Uuid,
 		peer_id: PeerId,
@@ -108,10 +117,6 @@ impl P2PManager {
 
 		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
 
-		// TODO: proper shutdown
-		// https://docs.rs/ctrlc/latest/ctrlc/
-		// https://docs.rs/system_shutdown/latest/system_shutdown/
-
 		Ok((
 			Arc::new(Self {
 				pairing,
@@ -141,11 +146,6 @@ impl P2PManager {
 				while let Some(event) = stream.next().await {
 					match event {
 						Event::PeerDiscovered(event) => {
-							debug!(
-								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-								event.peer_id, event.addresses, event.metadata
-							);
-
 							events
 								.send(P2PEvent::DiscoveredPeer {
 									peer_id: event.peer_id,
@@ -156,12 +156,22 @@ impl P2PManager {
 
 							node.nlm.peer_discovered(event).await;
 						}
-						Event::PeerExpired { id, metadata } => {
-							debug!("Peer '{}' expired with metadata: {:?}", id, metadata);
+						Event::PeerExpired { id, .. } => {
+							events
+								.send(P2PEvent::ExpiredPeer { peer_id: id })
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_expired(id).await;
 						}
 						Event::PeerConnected(event) => {
-							debug!("Peer '{}' connected", event.peer_id);
+							events
+								.send(P2PEvent::ConnectedPeer {
+									peer_id: event.peer_id,
+								})
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_connected(event.peer_id).await;
 
 							if event.establisher {
@@ -175,7 +185,11 @@ impl P2PManager {
 							}
 						}
 						Event::PeerDisconnected(peer_id) => {
-							debug!("Peer '{}' disconnected", peer_id);
+							events
+								.send(P2PEvent::DisconnectedPeer { peer_id })
+								.map_err(|_| error!("Failed to send event to p2p event stream!"))
+								.ok();
+
 							node.nlm.peer_disconnected(peer_id).await;
 						}
 						Event::PeerMessage(event) => {
@@ -297,7 +311,7 @@ impl P2PManager {
 							shutdown = true;
 							break;
 						}
-						_ => debug!("event: {:?}", event),
+						_ => {}
 					}
 				}
 
@@ -342,10 +356,9 @@ impl P2PManager {
 			.await
 			.unwrap();
 
-		let Header::Connected(identities) =
-			Header::from_stream(stream).await.unwrap() else {
-				panic!("unreachable but error handling")
-			};
+		let Header::Connected(identities) = Header::from_stream(stream).await.unwrap() else {
+			panic!("unreachable but error handling")
+		};
 
 		for identity in identities {
 			nlm.peer_connected2(identity, peer_id).await;

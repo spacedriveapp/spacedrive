@@ -2,14 +2,14 @@ appId: com.spacedrive.app
 ---
 - launchApp:
     clearState: true
-- tapOn: "Get Started"
+- tapOn: 'Get Started'
 - tapOn:
-    id: "library-name"
-- inputText: "TestLib"
-- tapOn: "New Library"
+    id: 'library-name'
+- inputText: 'TestLib'
+- tapOn: 'New Library'
 - tapOn:
-    id: "share-minimal"
-- tapOn: "Continue"
+    id: 'share-minimal'
+- tapOn: 'Continue'
 - tapOn:
-    id: "drawer-toggle"
-- assertVisible: "TestLib"
+    id: 'drawer-toggle'
+- assertVisible: 'TestLib'

@@ -122,14 +122,12 @@ export const Component = () => {
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<div className="group flex flex-row items-center space-x-2">
-						<span className="flex flex-row items-center">
-							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="max-w-[100px] truncate text-sm font-medium">
-								{path && path?.length > 1
-									? getLastSectionOfPath(path)
-									: location.data?.name}
-							</span>
+					<div className="flex items-center gap-2">
+						<Folder size={22} className="mt-[-1px]" />
+						<span className="truncate text-sm font-medium">
+							{path && path?.length > 1
+								? getLastSectionOfPath(path)
+								: location.data?.name}
 						</span>
 						{location.data && (
 							<LocationOptions location={location.data} path={path || ''} />
@@ -180,7 +178,13 @@ const useItems = ({
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: cursor
+						? {
+								cursor: {
+									pub_id: cursor
+								}
+						  }
+						: undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
