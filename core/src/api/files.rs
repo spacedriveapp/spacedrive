@@ -34,29 +34,38 @@ use tracing::{error, warn};
 
 use super::{Ctx, R};
 
-#[derive(Type, Deserialize)]
-pub struct GetArgs {
-	pub id: i32,
-}
-
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
+			#[derive(Type, Deserialize)]
+			pub struct GetArgs {
+				pub id: i32,
+			}
 			R.with2(library())
 				.query(|(_, library), args: GetArgs| async move {
 					Ok(library
 						.db
 						.object()
 						.find_unique(object::id::equals(args.id))
-						.include(object::include!({ file_paths media_data }))
+						.include(object::include!({ file_paths }))
 						.exec()
 						.await?)
 				})
 		})
-		.procedure("getImageMediaData", {
+		.procedure("getMediaData", {
+			pub enum MediaDataType {
+				Image,
+				Video,
+			}
+
+			#[derive(Type, Deserialize)]
+			pub struct GetMediaDataArgs {
+				pub id: i32,
+				pub md_type: MediaDataType,
+			}
 			R.with2(library())
-				.query(|(_, library), args: GetArgs| async move {
-					Ok(library
+				.query(|(_, library), args: GetMediaDataArgs| async move {
+					let i = library
 						.db
 						.object()
 						.find_unique(object::id::equals(args.id))
@@ -64,11 +73,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 						.into_iter()
-						.filter_map(|x| x.media_data)
-						.flat_map(media_data_image_from_prisma_data)
-						.collect::<Vec<_>>()
-						.first()
-						.map(ImageMetadata::clone))
+						.filter_map(|x| x.media_data);
+
+					let media_data = match args.md_type {
+						MediaDataType::Image => i
+							.flat_map(media_data_image_from_prisma_data)
+							.collect::<Vec<_>>()
+							.first()
+							.map(ImageMetadata::clone),
+						MediaDataType::Video => todo!(),
+					};
+
+					Ok(media_data)
 				})
 		})
 		.procedure("getPath", {
