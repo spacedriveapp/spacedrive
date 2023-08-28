@@ -8,7 +8,8 @@ edition = { workspace = true }
 
 [dependencies]
 image = "0.24.6"
-pdfium-render = "0.8.8"
+lazy_static = "1.4.0"
+pdfium-render = { version ="0.8.8", features = ["sync", "image", "thread_safe"] }
 thiserror = "1.0.40"
 tokio = { workspace = true, features = ["fs", "io-util"] }
 tracing = "0.1.37"
