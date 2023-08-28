@@ -41,13 +41,11 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 				className={clsx('w-full', className)}
 				onClick={async () => {
 					if (!path) {
-						try {
-							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
-						} catch (error) {
-							showAlertDialog({ title: 'Error', value: String(error) });
-						}
+						path = (await openDirectoryPickerDialog(platform)) ?? undefined;
 					}
-					if (path)
+
+					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
+					if (path !== '')
 						dialogManager.create((dp) => (
 							<AddLocationDialog path={path ?? ''} {...dp} />
 						));
