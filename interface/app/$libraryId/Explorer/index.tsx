@@ -69,8 +69,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{explorerStore.showInspector && (
 				<Inspector
-					className="custom-scroll inspector-scroll absolute inset-y-0 right-0 pb-4 pl-1.5 pr-1"
-					style={{ paddingTop: TOP_BAR_HEIGHT + 16, width: INSPECTOR_WIDTH }}
+					className="no-scrollbar absolute inset-y-0 right-1.5 pb-3 pl-3 pr-1.5"
+					style={{ paddingTop: TOP_BAR_HEIGHT + 12, width: INSPECTOR_WIDTH }}
 				/>
 			)}
 		</>
