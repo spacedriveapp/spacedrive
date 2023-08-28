@@ -6,7 +6,7 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_media_metadata::MediaDataImage;
+use sd_media_metadata::ImageMetadata;
 
 use std::{collections::HashSet, path::Path};
 
@@ -55,11 +55,11 @@ pub const fn can_extract_media_data_for_image(image_extension: &ImageExtension) 
 	)
 }
 
-pub async fn extract_media_data(path: impl AsRef<Path>) -> Result<MediaDataImage, MediaDataError> {
+pub async fn extract_media_data(path: impl AsRef<Path>) -> Result<ImageMetadata, MediaDataError> {
 	let path = path.as_ref().to_path_buf();
 
 	// Running in a separated blocking thread due to MediaData blocking behavior (due to sync exif lib)
-	spawn_blocking(|| MediaDataImage::from_path(path))
+	spawn_blocking(|| ImageMetadata::from_path(path))
 		.await?
 		.map_err(Into::into)
 }

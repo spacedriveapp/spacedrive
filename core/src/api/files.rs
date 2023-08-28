@@ -26,7 +26,7 @@ use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_media_metadata::MediaDataImage;
+use sd_media_metadata::ImageMetadata;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
@@ -68,7 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.flat_map(media_data_image_from_prisma_data)
 						.collect::<Vec<_>>()
 						.first()
-						.map(MediaDataImage::clone))
+						.map(ImageMetadata::clone))
 				})
 		})
 		.procedure("getPath", {

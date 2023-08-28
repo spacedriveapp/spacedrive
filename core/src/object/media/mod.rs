@@ -3,13 +3,13 @@ pub mod media_processor;
 pub mod thumbnail;
 
 pub use media_processor::MediaProcessorJobInit;
-use sd_media_metadata::MediaDataImage;
+use sd_media_metadata::ImageMetadata;
 use sd_prisma::prisma::media_data::*;
 
 use self::media_data_extractor::MediaDataError;
 
 pub fn media_data_image_to_query(
-	mdi: MediaDataImage,
+	mdi: ImageMetadata,
 	object_id: object_id::Type,
 ) -> Result<CreateUnchecked, MediaDataError> {
 	Ok(CreateUnchecked {
@@ -29,8 +29,8 @@ pub fn media_data_image_to_query(
 
 pub fn media_data_image_from_prisma_data(
 	data: sd_prisma::prisma::media_data::Data,
-) -> Result<MediaDataImage, MediaDataError> {
-	Ok(MediaDataImage {
+) -> Result<ImageMetadata, MediaDataError> {
+	Ok(ImageMetadata {
 		dimensions: from_slice_option_to_option(data.dimensions).unwrap_or_default(),
 		camera_data: from_slice_option_to_option(data.camera_data).unwrap_or_default(),
 		date_taken: from_slice_option_to_option(data.media_date).unwrap_or_default(),

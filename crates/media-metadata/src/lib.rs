@@ -26,4 +26,4 @@ pub mod image;
 pub mod video;
 
 pub use error::{Error, Result};
-pub use image::MediaDataImage;
+pub use image::ImageMetadata;

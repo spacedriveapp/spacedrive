@@ -24,7 +24,7 @@ pub use time::MediaTime;
 use crate::Result;
 
 #[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct MediaDataImage {
+pub struct ImageMetadata {
 	pub dimensions: Dimensions,
 	pub date_taken: MediaTime,
 	pub location: Option<MediaLocation>,
@@ -60,7 +60,7 @@ pub struct ImageData {
 	pub composite: Option<Composite>,
 }
 
-impl MediaDataImage {
+impl ImageMetadata {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
 		Self::from_reader(&ExifReader::from_path(path)?)
 	}
