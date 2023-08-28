@@ -17,7 +17,7 @@ const SpacedropArt = () => {
 				stroke-linecap="round"
 				stroke-dasharray="2 2"
 			/>
-			<g opacity="0.3" filter="url(#filter0_f_404_119)">
+			<g className="matts-circle" opacity="0.3" filter="url(#filter0_f_404_119)">
 				<g filter="url(#filter1_bi_404_119)">
 					<rect
 						x="177.747"
@@ -49,7 +49,7 @@ const SpacedropArt = () => {
 					fill="url(#pattern10)"
 				/>
 			</g>
-			<g opacity="0.4" filter="url(#filter2_f_404_119)">
+			<g className="lillys-circle" opacity="0.4" filter="url(#filter2_f_404_119)">
 				<g filter="url(#filter3_bi_404_119)">
 					<rect
 						x="26.999"
@@ -81,7 +81,7 @@ const SpacedropArt = () => {
 					fill="url(#pattern1)"
 				/>
 			</g>
-			<g opacity="0.1" filter="url(#filter4_f_404_119)">
+			<g className="way-behind-circle" opacity="0.3" filter="url(#filter4_f_404_119)">
 				<g filter="url(#filter5_bi_404_119)">
 					<rect
 						x="42.999"
@@ -169,7 +169,7 @@ const SpacedropArt = () => {
 					stroke-width="0.2"
 				/>
 			</g>
-			<g opacity="0.4">
+			<g opacity="0.4" className="jacks-circle">
 				<g filter="url(#filter8_bi_404_119)">
 					<rect
 						x="229.999"
@@ -244,7 +244,7 @@ const SpacedropArt = () => {
 					/>
 				</g>
 			</g>
-			<g opacity="0.2" filter="url(#filter11_f_404_119)">
+			<g className="second-behind-circle" opacity="0.2" filter="url(#filter11_f_404_119)">
 				<g filter="url(#filter12_bi_404_119)">
 					<rect
 						x="160.999"
@@ -276,7 +276,7 @@ const SpacedropArt = () => {
 					fill="url(#pattern5)"
 				/>
 			</g>
-			<g opacity="0.1" filter="url(#filter13_f_404_119)">
+			<g className="third-behind-circle" opacity="0.3" filter="url(#filter13_f_404_119)">
 				<g filter="url(#filter14_bi_404_119)">
 					<rect
 						x="99.999"

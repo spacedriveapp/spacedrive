@@ -453,6 +453,30 @@ pre {
 	animation: flashstroke 3.05s linear infinite;
 }
 
+.jacks-circle {
+	animation: floating 3s ease-in-out infinite;
+}
+
+.lillys-circle {
+	animation: floating 3.4s ease-in-out infinite;
+}
+
+.way-behind-circle {
+	animation: floating 2.9s ease-in-out infinite;
+}
+
+.second-behind-circle {
+	animation: floating 2.6s ease-in-out infinite;
+}
+
+.third-behind-circle {
+	animation: floating 2.45s ease-in-out infinite;
+}
+
+.matts-circle {
+	animation: floating 2.8s ease-in-out infinite;
+}
+
 #right-top-line, #right-bottom-line, #top-center-line {
 	animation: linemove 55s linear infinite;
 			stroke-dasharray: 3;
