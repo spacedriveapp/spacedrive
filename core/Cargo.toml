@@ -15,7 +15,7 @@ mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 ffmpeg = ["dep:sd-ffmpeg"]
 location-watcher = ["dep:notify"]
-heif = ["dep:sd-heif"]
+images = ["dep:sd-images"]
 
 [dependencies]
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
@@ -25,7 +25,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"serde",
 	"keymanager",
 ] }
-sd-heif = { path = "../crates/heif", optional = true }
+sd-images = { path = "../crates/images", optional = true }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }

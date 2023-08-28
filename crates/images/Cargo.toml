@@ -1,5 +1,5 @@
 [package]
-name = "sd-heif"
+name = "sd-images"
 version = "0.1.0"
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 license = { workspace = true }
@@ -11,3 +11,4 @@ libheif-rs = "0.19.2"
 libheif-sys = "=1.14.2"
 image = "0.24.6"
 thiserror = "1.0.40"
+rawloader = { git = "https://github.com/spacedriveapp/rawloader", rev = "68a29592092dd6faf770447831dd8e855dc36c35" }

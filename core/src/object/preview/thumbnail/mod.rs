@@ -19,6 +19,8 @@ use sd_file_ext::extensions::{Extension, ImageExtension};
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::VideoExtension;
 
+use sd_images::HEIF_EXTENSIONS;
+
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -105,10 +107,6 @@ pub struct ThumbnailerJobStep {
 	kind: ThumbnailerJobStepKind,
 }
 
-// TOOD(brxken128): validate avci and avcs
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
-const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
-
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
@@ -122,11 +120,11 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 				.extension()
 				.unwrap_or_default()
 				.to_ascii_lowercase();
-			if HEIF_EXTENSIONS
+			if sd_images::HEIF_EXTENSIONS
 				.iter()
 				.any(|e| ext == std::ffi::OsStr::new(e))
 			{
-				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
+				sd_images::heif_to_dynamic_image(file_path.as_ref())?
 			} else {
 				image::open(file_path)?
 			}

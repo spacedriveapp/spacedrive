@@ -6307,6 +6307,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
+name = "rawloader"
+version = "0.37.1"
+source = "git+https://github.com/spacedriveapp/rawloader?rev=68a29592092dd6faf770447831dd8e855dc36c35#68a29592092dd6faf770447831dd8e855dc36c35"
+dependencies = [
+ "byteorder",
+ "enumn",
+ "glob",
+ "lazy_static",
+ "rayon",
+ "rustc_version",
+ "toml 0.5.11",
+]
+
+[[package]]
 name = "rayon"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6950,7 +6964,7 @@ dependencies = [
  "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
- "sd-heif",
+ "sd-images",
  "sd-p2p",
  "sd-prisma",
  "sd-sync",
@@ -7104,12 +7118,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-heif"
+name = "sd-images"
 version = "0.1.0"
 dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
+ "rawloader",
  "thiserror",
 ]
 
