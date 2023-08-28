@@ -116,11 +116,9 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
-		// Finally load the libraries from disk into the library manager
-		node.libraries.init(&node).await?;
-
-		// It's import these are run after libraries are loaded!
+		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 		locations_actor.start(node.clone());
+		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		node.p2p.start(p2p_stream, node.clone());
 
