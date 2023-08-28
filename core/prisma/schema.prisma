@@ -299,10 +299,10 @@ model MediaData {
     media_date     Bytes?
     media_location Bytes?
     camera_data    Bytes?
-    artist         Bytes?
-    description    Bytes?
-    copyright      Bytes?
-    exif_version   Bytes?
+    artist         String?
+    description    String?
+    copyright      String?
+    exif_version   String?
 
     // video-specific
     // duration Int?

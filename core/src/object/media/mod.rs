@@ -20,9 +20,9 @@ pub fn media_data_image_to_query(
 			dimensions::set(serde_json::to_vec(&mdi.dimensions).ok()),
 			media_location::set(serde_json::to_vec(&mdi.location).ok()),
 			artist::set(serde_json::to_vec(&mdi.artist).ok()),
-			description::set(serde_json::to_vec(&mdi.description).ok()),
-			copyright::set(serde_json::to_vec(&mdi.copyright).ok()),
-			exif_version::set(serde_json::to_vec(&mdi.exif_version).ok()),
+			description::set(serde_json::to_string(&mdi.description).ok()),
+			copyright::set(serde_json::to_string(&mdi.copyright).ok()),
+			exif_version::set(serde_json::to_string(&mdi.exif_version).ok()),
 		],
 	})
 }
@@ -34,11 +34,11 @@ pub fn media_data_image_from_prisma_data(
 		dimensions: from_slice_option_to_option(data.dimensions).unwrap_or_default(),
 		camera_data: from_slice_option_to_option(data.camera_data).unwrap_or_default(),
 		date_taken: from_slice_option_to_option(data.media_date).unwrap_or_default(),
-		description: from_slice_option_to_option(data.description),
-		copyright: from_slice_option_to_option(data.copyright),
-		artist: from_slice_option_to_option(data.artist),
+		description: from_string_option_to_option(data.description),
+		copyright: from_string_option_to_option(data.copyright),
+		artist: from_string_option_to_option(data.artist),
 		location: from_slice_option_to_option(data.media_location),
-		exif_version: from_slice_option_to_option(data.exif_version),
+		exif_version: from_string_option_to_option(data.exif_version),
 	})
 }
 
@@ -48,5 +48,14 @@ fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned
 ) -> Option<T> {
 	value
 		.map(|x| serde_json::from_slice(&x).ok())
+		.unwrap_or_default()
+}
+
+#[must_use]
+fn from_string_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
+	value: Option<Vec<u8>>,
+) -> Option<T> {
+	value
+		.map(|x| serde_json::from_str(&x).ok())
 		.unwrap_or_default()
 }
