@@ -41,29 +41,27 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	return (
 		<>
 			<ExplorerContextMenu>
-				<div className="flex-1 overflow-hidden">
-					<div
-						ref={explorer.scrollRef}
-						className="custom-scroll explorer-scroll relative h-screen overflow-x-hidden"
-						style={{
-							paddingTop: TOP_BAR_HEIGHT,
-							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
-						}}
-					>
-						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
+				<div
+					ref={explorer.scrollRef}
+					className="custom-scroll explorer-scroll flex-1 overflow-x-hidden"
+					style={{
+						paddingTop: TOP_BAR_HEIGHT,
+						paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+					}}
+				>
+					{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-						<View
-							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
-							emptyNotice={
-								props.emptyNotice ?? (
-									<EmptyNotice
-										icon={FolderNotchOpen}
-										message="This folder is empty"
-									/>
-								)
-							}
-						/>
-					</div>
+					<View
+						contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
+						emptyNotice={
+							props.emptyNotice ?? (
+								<EmptyNotice
+									icon={FolderNotchOpen}
+									message="This folder is empty"
+								/>
+							)
+						}
+					/>
 				</div>
 			</ExplorerContextMenu>
 
