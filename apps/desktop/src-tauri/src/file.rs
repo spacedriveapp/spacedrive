@@ -92,17 +92,15 @@ pub async fn get_file_path_open_with_apps(
 	ids: Vec<i32>,
 	node: NodeState<'_>,
 ) -> Result<Vec<OpenWithApplication>, ()> {
-	let Some(library) = node.libraries.get_library(&library).await
-		else {
-			return Ok(vec![]);
-		};
+	let Some(library) = node.libraries.get_library(&library).await else {
+		return Ok(vec![]);
+	};
 
-	let Ok(paths) = library
-		.get_file_paths(ids).await
-		.map_err(|e| {error!("{e:#?}");})
-		else {
-			return Ok(vec![]);
-		};
+	let Ok(paths) = library.get_file_paths(ids).await.map_err(|e| {
+		error!("{e:#?}");
+	}) else {
+		return Ok(vec![]);
+	};
 
 	#[cfg(target_os = "macos")]
 	return {
@@ -110,10 +108,10 @@ pub async fn get_file_path_open_with_apps(
 			.into_values()
 			.flat_map(|path| {
 				let Some(path) = path.and_then(|path| path.into_os_string().into_string().ok())
-					else {
-						error!("File not found in database");
-						return None;
-					};
+				else {
+					error!("File not found in database");
+					return None;
+				};
 
 				Some(
 					unsafe { sd_desktop_macos::get_open_with_applications(&path.as_str().into()) }
@@ -137,11 +135,10 @@ pub async fn get_file_path_open_with_apps(
 		use sd_desktop_linux::list_apps_associated_with_ext;
 
 		let apps = future::join_all(paths.into_values().map(|path| async {
-			let Some(path) = path
-					else {
-						error!("File not found in database");
-						return None;
-					};
+			let Some(path) = path else {
+				error!("File not found in database");
+				return None;
+			};
 
 			Some(
 				list_apps_associated_with_ext(&path)
@@ -168,17 +165,15 @@ pub async fn get_file_path_open_with_apps(
 	return Ok(paths
 		.into_values()
 		.filter_map(|path| {
-			let Some(path) = path
-				else {
-					error!("File not found in database");
-					return None;
-				};
+			let Some(path) = path else {
+				error!("File not found in database");
+				return None;
+			};
 
-			let Some(ext) = path.extension()
-				else {
-					error!("Failed to extract file extension");
-					return None;
-				};
+			let Some(ext) = path.extension() else {
+				error!("Failed to extract file extension");
+				return None;
+			};
 
 			sd_desktop_windows::list_apps_associated_with_ext(ext)
 				.map_err(|e| {
@@ -191,15 +186,27 @@ pub async fn get_file_path_open_with_apps(
 				.iter()
 				.filter_map(|handler| {
 					let (Ok(name), Ok(url)) = (
-						unsafe { handler.GetUIName() }.map_err(|e| { error!("{e:#?}");})
-							.and_then(|name| unsafe { name.to_string() }
-							.map_err(|e| { error!("{e:#?}");})),
-						unsafe { handler.GetName() }.map_err(|e| { error!("{e:#?}");})
-							.and_then(|name| unsafe { name.to_string() }
-							.map_err(|e| { error!("{e:#?}");})),
+						unsafe { handler.GetUIName() }
+							.map_err(|e| {
+								error!("{e:#?}");
+							})
+							.and_then(|name| {
+								unsafe { name.to_string() }.map_err(|e| {
+									error!("{e:#?}");
+								})
+							}),
+						unsafe { handler.GetName() }
+							.map_err(|e| {
+								error!("{e:#?}");
+							})
+							.and_then(|name| {
+								unsafe { name.to_string() }.map_err(|e| {
+									error!("{e:#?}");
+								})
+							}),
 					) else {
 						error!("Failed to get handler info");
-						return None
+						return None;
 					};
 
 					Some(OpenWithApplication { name, url })
@@ -223,10 +230,9 @@ pub async fn open_file_path_with(
 	file_ids_and_urls: Vec<FileIdAndUrl>,
 	node: NodeState<'_>,
 ) -> Result<(), ()> {
-	let Some(library) = node.libraries.get_library(&library).await
-		else {
-			return Err(())
-		};
+	let Some(library) = node.libraries.get_library(&library).await else {
+		return Err(());
+	};
 
 	let url_by_id = file_ids_and_urls.into_iter().collect::<HashMap<_, _>>();
 	let ids = url_by_id.keys().copied().collect::<Vec<_>>();
@@ -246,12 +252,11 @@ pub async fn open_file_path_with(
 						path.as_ref(),
 						#[cfg(not(windows))]
 						path.as_ref().and_then(|path| path.to_str()),
-						url_by_id.get(id)
-					)
-						else {
-							error!("File not found in database");
-							return Err(());
-						};
+						url_by_id.get(id),
+					) else {
+						error!("File not found in database");
+						return Err(());
+					};
 
 					#[cfg(target_os = "macos")]
 					return {
@@ -290,10 +295,9 @@ pub async fn reveal_items(
 	items: Vec<RevealItem>,
 	node: NodeState<'_>,
 ) -> Result<(), ()> {
-	let Some(library) = node.libraries.get_library(&library).await
-		else {
-			return Err(())
-		};
+	let Some(library) = node.libraries.get_library(&library).await else {
+		return Err(());
+	};
 
 	let (paths, locations): (Vec<_>, Vec<_>) =
 		items

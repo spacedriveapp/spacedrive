@@ -250,6 +250,9 @@ impl Actor {
 		//└── <cas_id>[0..2]/ # sharding
 		//    └── <cas_id>.webp
 
+		fs::create_dir_all(&thumbnails_directory)
+			.await
+			.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;
 		let mut read_dir = fs::read_dir(thumbnails_directory)
 			.await
 			.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;

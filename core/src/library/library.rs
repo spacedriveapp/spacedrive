@@ -49,6 +49,8 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
+	// The UUID which matches `config.instance_id`'s primary key.
+	pub instance_uuid: Uuid,
 
 	notifications: notifications::Notifications,
 
@@ -63,6 +65,7 @@ impl Debug for Library {
 		// troublesome to implement Debug trait
 		f.debug_struct("LibraryContext")
 			.field("id", &self.id)
+			.field("instance_uuid", &self.instance_uuid)
 			.field("config", &self.config)
 			.field("db", &self.db)
 			.finish()
@@ -73,6 +76,7 @@ impl Library {
 	pub async fn new(
 		id: Uuid,
 		config: LibraryConfig,
+		instance_uuid: Uuid,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
@@ -87,6 +91,7 @@ impl Library {
 			identity: identity.clone(),
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
+			instance_uuid,
 			event_bus_tx: node.event_bus.0.clone(),
 		})
 	}

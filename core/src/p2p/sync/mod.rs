@@ -7,6 +7,8 @@ use sd_p2p::{
 	DiscoveredPeer, PeerId,
 };
 use sd_sync::CRDTOperation;
+use serde::Serialize;
+use specta::Type;
 use sync::GetOpsArgs;
 
 use tokio::{
@@ -26,16 +28,19 @@ use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 mod proto;
 pub use proto::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Type)]
 pub enum InstanceState {
 	Unavailable,
 	Discovered(PeerId),
 	Connected(PeerId),
 }
 
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct LibraryData {
 	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
+
+type LibrariesMap = HashMap<Uuid /* Library ID */, LibraryData>;
 
 pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
@@ -112,11 +117,11 @@ impl NetworkedLibraries {
 					.filter_map(|i| {
 						// TODO: Error handling
 						match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-							IdentityOrRemoteIdentity::Identity(identity) => {
-								Some((identity.to_remote_identity(), InstanceState::Unavailable))
-							}
 							// We don't own it so don't advertise it
-							IdentityOrRemoteIdentity::RemoteIdentity(_) => None,
+							IdentityOrRemoteIdentity::Identity(_) => None,
+							IdentityOrRemoteIdentity::RemoteIdentity(identity) => {
+								Some((identity, InstanceState::Unavailable))
+							}
 						}
 					})
 					.collect(),
@@ -212,6 +217,10 @@ impl NetworkedLibraries {
 			}
 		}
 	}
+
+	pub async fn state(&self) -> LibrariesMap {
+		self.libraries.read().await.clone()
+	}
 }
 
 // These functions could be moved to some separate protocol abstraction
@@ -291,7 +300,7 @@ mod originator {
 					.unwrap();
 				tunnel.flush().await.unwrap();
 
-				while let Ok(rx::GetOperations(args)) =
+				while let Ok(rx::GetOperations::Operations(args)) =
 					rx::GetOperations::from_stream(&mut tunnel).await
 				{
 					let ops = sync.get_ops(args).await.unwrap();
@@ -318,28 +327,31 @@ mod responder {
 	use originator::tx as rx;
 
 	pub mod tx {
+		use serde::{Deserialize, Serialize};
+
 		use super::*;
 
-		pub struct GetOperations(pub GetOpsArgs);
+		#[derive(Serialize, Deserialize)]
+		pub enum GetOperations {
+			Operations(GetOpsArgs),
+			Done,
+		}
 
 		impl GetOperations {
 			// TODO: Per field errors for better error handling
 			pub async fn from_stream(
 				stream: &mut (impl AsyncRead + Unpin),
 			) -> std::io::Result<Self> {
-				Ok(Self(
+				Ok(
 					// TODO: Error handling
 					rmp_serde::from_slice(&decode::buf(stream).await.unwrap()).unwrap(),
-				))
+				)
 			}
 
 			pub fn to_bytes(&self) -> Vec<u8> {
-				let Self(ops) = self;
-
 				let mut buf = vec![];
-
 				// TODO: Error handling
-				encode::buf(&mut buf, &rmp_serde::to_vec_named(&ops).unwrap());
+				encode::buf(&mut buf, &rmp_serde::to_vec_named(&self).unwrap());
 				buf
 			}
 		}
@@ -348,10 +360,19 @@ mod responder {
 	pub async fn run(mut tunnel: Tunnel, library: Arc<Library>) {
 		let ingest = &library.sync.ingest;
 
-		let Ok(mut rx) =
-			ingest.req_rx.try_lock() else {
-				return;
-			};
+		let Ok(mut rx) = ingest.req_rx.try_lock() else {
+			println!("Rejected sync due to libraries lock being held!");
+
+			// TODO: Proper error returned to remote instead of this.
+			// TODO: We can't just abort the connection when the remote is expecting data.
+			tunnel
+				.write_all(&tx::GetOperations::Done.to_bytes())
+				.await
+				.unwrap();
+			tunnel.flush().await.unwrap();
+
+			return;
+		};
 
 		ingest
 			.event_tx
@@ -364,11 +385,13 @@ mod responder {
 
 			const OPS_PER_REQUEST: u32 = 100;
 
-			let Request::Messages { timestamps }  = req else { continue };
+			let Request::Messages { timestamps } = req else {
+				continue;
+			};
 
 			tunnel
 				.write_all(
-					&tx::GetOperations(sync::GetOpsArgs {
+					&tx::GetOperations::Operations(sync::GetOpsArgs {
 						clocks: timestamps,
 						count: OPS_PER_REQUEST,
 					})
@@ -390,5 +413,11 @@ mod responder {
 				.await
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
 		}
+
+		tunnel
+			.write_all(&tx::GetOperations::Done.to_bytes())
+			.await
+			.unwrap();
+		tunnel.flush().await.unwrap();
 	}
 }

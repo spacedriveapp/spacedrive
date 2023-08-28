@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{Event, Keypair, Manager, Metadata, MetadataManager};
+use sd_p2p::{Event, Keypair, Manager, Metadata, MetadataManager, PeerId};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
@@ -14,7 +14,7 @@ impl Metadata for PeerMetadata {
 		HashMap::from([("name".to_owned(), self.name)])
 	}
 
-	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(_: &PeerId, data: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{

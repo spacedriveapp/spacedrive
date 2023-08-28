@@ -818,7 +818,10 @@ async fn check_nested_location(
 	let comps = location_path.components().collect::<Vec<_>>();
 	let is_a_child_location = potential_children.into_iter().any(|v| {
 		let Some(location_path) = v.path else {
-			warn!("Missing location path on location <id='{}'> at check nested location", v.id);
+			warn!(
+				"Missing location path on location <id='{}'> at check nested location",
+				v.id
+			);
 			return false;
 		};
 		let comps2 = PathBuf::from(location_path);

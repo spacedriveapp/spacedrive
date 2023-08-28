@@ -7064,7 +7064,7 @@ dependencies = [
  "tauri-build",
  "tauri-specta",
  "tokio",
- "tracing 0.1.37",
+ "tracing 0.2.0",
  "uuid",
  "window-shadows",
 ]
@@ -7104,7 +7104,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tracing 0.1.37",
+ "tracing 0.2.0",
  "webp",
 ]
 
@@ -7156,7 +7156,7 @@ version = "0.1.0"
 dependencies = [
  "jni 0.19.0",
  "sd-mobile-core",
- "tracing 0.1.37",
+ "tracing 0.2.0",
 ]
 
 [[package]]
@@ -7173,7 +7173,7 @@ dependencies = [
  "sd-core",
  "serde_json",
  "tokio",
- "tracing 0.1.37",
+ "tracing 0.2.0",
 ]
 
 [[package]]
@@ -7205,8 +7205,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "tracing 0.1.37",
- "tracing-subscriber 0.3.17",
+ "tracing 0.2.0",
+ "tracing-subscriber 0.3.0",
  "uuid",
 ]
 
@@ -7234,7 +7234,7 @@ dependencies = [
  "sd-core",
  "tokio",
  "tower-http",
- "tracing 0.1.37",
+ "tracing 0.2.0",
 ]
 
 [[package]]

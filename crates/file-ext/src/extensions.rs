@@ -24,6 +24,7 @@ extension_enum! {
 		Code(CodeExtension),
 		Database(DatabaseExtension),
 		Book(BookExtension),
+		Config(ConfigExtension),
 	}
 }
 
@@ -180,6 +181,11 @@ extension_category_enum! {
 		Txt,
 		Rtf,
 		Md,
+	}
+}
+// config file extensions
+extension_category_enum! {
+	ConfigExtension _ALL_CONFIG_EXTENSIONS {
 		Json,
 		Yaml,
 		Yml,

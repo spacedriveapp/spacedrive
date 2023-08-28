@@ -63,7 +63,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 				emptyNotice={
 					<EmptyNotice
 						icon={
-							search ? (
+							!search ? (
 								<MagnifyingGlass
 									size={110}
 									className="mb-5 text-ink-faint"
