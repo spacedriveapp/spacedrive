@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { type PropsWithChildren, type ReactNode } from 'react';
+import { type PropsWithChildren, type ReactNode, useEffect } from 'react';
 import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -9,6 +9,7 @@ import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -24,6 +25,7 @@ const INSPECTOR_WIDTH = 260;
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
+	const [{ path }] = useExplorerSearchParams();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -37,6 +39,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
+
+	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
 
 	return (
 		<>
