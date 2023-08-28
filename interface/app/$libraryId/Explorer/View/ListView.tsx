@@ -685,6 +685,8 @@ export default () => {
 					}
 				}
 			} else {
+				if (isSelected(item)) return;
+
 				explorer.resetSelectedItems([item]);
 				const hash = uniqueId(item);
 				setRanges([[hash, hash]]);
