@@ -1,9 +1,10 @@
 use std::{collections::HashMap, env, str::FromStr};
 
 use itertools::Itertools;
-use sd_p2p::{spacetunnel::RemoteIdentity, Metadata};
+use sd_p2p::{spacetunnel::RemoteIdentity, Metadata, PeerId};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::warn;
 
 use crate::node::Platform;
 
@@ -54,7 +55,7 @@ impl Metadata for PeerMetadata {
 		map
 	}
 
-	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(peer_id: &PeerId, data: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{
@@ -81,20 +82,31 @@ impl Metadata for PeerMetadata {
 					i += 1;
 				}
 
-				if instances.is_empty() {
-					return Err("DNS record for field 'instances' missing. Unable to decode 'PeerMetadata'!"
-					.to_owned());
-				}
-
 				instances
 					.split(',')
-					.map(|s| {
+					.filter_map(|s| {
+						// "".split(",").collect::<Vec<_>>() == [""]
+						if s.is_empty() {
+							return None;
+						}
+
 						RemoteIdentity::from_bytes(
-							&hex::decode(s).map_err(|_| "Unable to decode instance!")?,
+							&hex::decode(s)
+								.map_err(|e| {
+									warn!(
+										"Unable to parse instance from peer '{peer_id}'s metadata!"
+									);
+									e
+								})
+								.ok()?,
 						)
-						.map_err(|_| "Unable to parse instance!")
+						.map_err(|e| {
+							warn!("Unable to parse instance from peer '{peer_id}'s metadata!");
+							e
+						})
+						.ok()
 					})
-					.collect::<Result<Vec<_>, _>>()?
+					.collect::<Vec<_>>()
 			},
 		})
 	}

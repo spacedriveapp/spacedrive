@@ -87,7 +87,13 @@ export function useItems(
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: cursor
+						? {
+								cursor: {
+									pub_id: cursor
+								}
+						  }
+						: undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -116,7 +122,13 @@ export function useItems(
 				'search.objects',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: cursor
+						? {
+								cursor: {
+									pub_id: cursor
+								}
+						  }
+						: undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined

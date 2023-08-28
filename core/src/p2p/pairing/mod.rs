@@ -286,6 +286,7 @@ impl PairingManager {
 		.exec()
 		.await
 		.unwrap();
+		library_manager.update_instances(library.clone()).await;
 
 		stream
 			.write_all(

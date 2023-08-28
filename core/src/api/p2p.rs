@@ -23,17 +23,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 					}
 
-					// // TODO: Don't block subscription start
-					// for peer in ctx.p2p_manager.get_connected_peers().await.unwrap() {
-					// 	// TODO: Send to frontend
-					// }
 
+					// TODO: Don't block subscription start
+					for peer_id in node.p2p.manager.get_connected_peers().await.unwrap() {
+						yield P2PEvent::ConnectedPeer {
+							peer_id,
+						};
+					}
 
 					while let Ok(event) = rx.recv().await {
 						yield event;
 					}
 				}
 			})
+		})
+		.procedure("nlmState", {
+			R.query(|node, _: ()| async move { node.nlm.state().await })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
