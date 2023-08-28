@@ -6,8 +6,8 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
-        { key: "files.getImageMediaData", input: LibraryArgs<GetArgs>, result: ImageMetadata | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "files.getMediaData", input: LibraryArgs<GetMediaDataArgs>, result: ImageMetadata | null } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
@@ -173,6 +173,8 @@ export type GetAll = { backups: Backup[]; directory: string }
 
 export type GetArgs = { id: number }
 
+export type GetMediaDataArgs = { id: number; md_type: MediaDataType }
+
 export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
@@ -254,7 +256,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; dimensions: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: number[] | null; description: number[] | null; copyright: number[] | null; exif_version: number[] | null; object_id: number }
+export type MediaDataType = "Image" | "Video" | "Audio"
 
 export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
 

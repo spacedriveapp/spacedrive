@@ -53,9 +53,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
+			#[derive(Type, Deserialize)]
 			pub enum MediaDataType {
 				Image,
 				Video,
+				Audio,
 			}
 
 			#[derive(Type, Deserialize)]
@@ -82,7 +84,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.collect::<Vec<_>>()
 							.first()
 							.map(ImageMetadata::clone),
-						MediaDataType::Video => todo!(),
+						MediaDataType::Video | MediaDataType::Audio => todo!(),
 					};
 
 					Ok(media_data)

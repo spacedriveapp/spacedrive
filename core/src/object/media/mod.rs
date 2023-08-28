@@ -19,7 +19,7 @@ pub fn media_data_image_to_query(
 			media_date::set(serde_json::to_vec(&mdi.date_taken).ok()),
 			dimensions::set(serde_json::to_vec(&mdi.dimensions).ok()),
 			media_location::set(serde_json::to_vec(&mdi.location).ok()),
-			artist::set(serde_json::to_vec(&mdi.artist).ok()),
+			artist::set(serde_json::to_string(&mdi.artist).ok()),
 			description::set(serde_json::to_string(&mdi.description).ok()),
 			copyright::set(serde_json::to_string(&mdi.copyright).ok()),
 			exif_version::set(serde_json::to_string(&mdi.exif_version).ok()),
@@ -53,7 +53,7 @@ fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned
 
 #[must_use]
 fn from_string_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
-	value: Option<Vec<u8>>,
+	value: Option<String>,
 ) -> Option<T> {
 	value
 		.map(|x| serde_json::from_str(&x).ok())
