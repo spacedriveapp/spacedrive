@@ -50,7 +50,7 @@ To quickly run only the desktop app after `prep`, you can use:
 
 - `pnpm desktop dev`
 
-  If necessary, react-devtools can be launched using `pnpm react-devtools`.
+  If necessary, react-devtools can be launched using `pnpm dlx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
 To run the web app:
