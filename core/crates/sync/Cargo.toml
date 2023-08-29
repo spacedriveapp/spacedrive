@@ -4,8 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [features]
-default = ["emit-messages"]
-emit-messages = []
+default = []
 
 [dependencies]
 sd-prisma = { path = "../../../crates/prisma" }

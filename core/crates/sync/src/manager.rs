@@ -10,7 +10,6 @@ use std::{
 		atomic::{self, AtomicBool},
 		Arc,
 	},
-	time::Instant,
 };
 use tokio::sync::broadcast;
 use tracing::*;
@@ -66,7 +65,7 @@ impl Manager {
 		tx: &PrismaClient,
 		(_ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		let start = Instant::now();
+		// let start = Instant::now();
 
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			macro_rules! variant {
@@ -95,7 +94,7 @@ impl Manager {
 			tx._batch([queries]).await?.remove(0)
 		};
 
-		debug!("time: {}", start.elapsed().as_millis());
+		// debug!("time: {}", start.elapsed().as_millis());
 
 		Ok(ret)
 	}
