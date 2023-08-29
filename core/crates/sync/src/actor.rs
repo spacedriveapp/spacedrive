@@ -16,6 +16,7 @@ impl<T: ActorTypes> ActorIO<T> {
 		self.req_tx.send(value).await
 	}
 
+	#[allow(unused)]
 	pub fn try_send(&self, value: T::Request) -> Result<(), TrySendError<T::Request>> {
 		self.req_tx.try_send(value)
 	}

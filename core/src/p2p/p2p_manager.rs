@@ -30,7 +30,7 @@ use crate::{
 };
 
 use super::{
-	sync::{InstanceState, LibraryData, NetworkedLibraries, SyncMessage},
+	sync::{NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -178,45 +178,53 @@ impl P2PManager {
 								let manager = manager.clone();
 								let nlm = node.nlm.clone();
 								let instances = metadata_manager.get().instances;
+								let node = node.clone();
 								tokio::spawn(async move {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
-									Self::resync(nlm, &mut stream, event.peer_id, instances).await;
+									Self::resync(
+										nlm.clone(),
+										&mut stream,
+										event.peer_id,
+										instances,
+									)
+									.await;
 
-									for (library_id, data) in nlm.state().await {
-										let mut library = None;
+									// TODO: Send sync events when connecting to a peer
+									// for (library_id, data) in nlm.state().await {
+									// 	let mut library = None;
 
-										for (instance_id, data) in data.instances {
-											let InstanceState::Connected(instance_peer_id) = data else { continue };
+									// 	for (instance_id, data) in data.instances {
+									// 		let InstanceState::Connected(instance_peer_id) = data else { continue };
 
-											if instance_peer_id != event.peer_id {
-												continue;
-											};
+									// 		if instance_peer_id != event.peer_id {
+									// 			continue;
+									// 		};
 
-											let library = match library.clone() {
-												Some(library) => library,
-												None => match node
-													.libraries
-													.get_library(&library_id)
-													.await
-												{
-													Some(new_library) => {
-														library = Some(new_library.clone());
+									// 		let library = match library.clone() {
+									// 			Some(library) => library,
+									// 			None => match node
+									// 				.libraries
+									// 				.get_library(&library_id)
+									// 				.await
+									// 			{
+									// 				Some(new_library) => {
+									// 					library = Some(new_library.clone());
 
-														new_library
-													}
-													None => continue,
-												},
-											};
+									// 					new_library
+									// 				}
+									// 				None => continue,
+									// 			},
+									// 		};
 
-											super::sync::originator(
-												library_id,
-												&library.sync,
-												&node.nlm,
-												&node.p2p,
-											)
-											.await;
-										}
-									}
+									// 		super::sync::originator(
+									// 			library_id,
+									// 			&library.sync,
+									// 			&node.nlm,
+									// 			&node.p2p,
+									// 		)
+									// 		.await;
+									// 	}
+									// }
 								});
 							}
 						}

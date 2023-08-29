@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use itertools::{Either, Itertools};
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::{RemoteIdentity, Tunnel},
@@ -44,6 +45,8 @@ type LibrariesMap = HashMap<Uuid /* Library ID */, LibraryData>;
 pub struct NetworkedLibraries {
 	p2p: Arc<P2PManager>,
 	pub(crate) libraries: RwLock<HashMap<Uuid /* Library ID */, LibraryData>>,
+	// A list of all instances that this node owns (has the private key for)
+	owned_instances: RwLock<HashMap<Uuid /* Library ID */, RemoteIdentity>>,
 }
 
 impl NetworkedLibraries {
@@ -51,6 +54,7 @@ impl NetworkedLibraries {
 		let this = Arc::new(Self {
 			p2p,
 			libraries: Default::default(),
+			owned_instances: Default::default(),
 		});
 
 		tokio::spawn({
@@ -90,44 +94,61 @@ impl NetworkedLibraries {
 
 	// TODO: Error handling
 	async fn load_library(self: &Arc<Self>, library: &Library) {
-		let instances = library
+		let (db_owned_instances, db_instances): (Vec<_>, Vec<_>) = library
 			.db
 			.instance()
 			.find_many(vec![])
 			.exec()
 			.await
-			.unwrap();
+			.unwrap()
+			.into_iter()
+			.partition_map(
+				// TODO: Error handling
+				|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
+					IdentityOrRemoteIdentity::Identity(identity) => Either::Left(identity),
+					IdentityOrRemoteIdentity::RemoteIdentity(identity) => Either::Right(identity),
+				},
+			);
 
-		let metadata_instances = instances
-			.iter()
-			.map(|i| {
-				IdentityOrRemoteIdentity::from_bytes(&i.identity)
-					.unwrap()
-					.remote_identity()
-			})
-			.collect();
-
+		// Lock them together to ensure changes to both become visible to readers at the same time
 		let mut libraries = self.libraries.write().await;
+		let mut owned_instances = self.owned_instances.write().await;
+
+		// `self.owned_instances` exists so this call to `load_library` does override instances of other libraries.
+		if db_owned_instances.len() != 1 {
+			panic!(
+				"Library has '{}' owned instance! Something has gone very wrong!",
+				db_owned_instances.len()
+			);
+		}
+		owned_instances.insert(library.id, db_owned_instances[0].to_remote_identity());
+
+		let mut old_data = libraries.remove(&library.id);
 		libraries.insert(
 			library.id,
 			LibraryData {
-				instances: instances
+				// We register all remote instances to track connection state(`IdentityOrRemoteIdentity::RemoteIdentity`'s only).
+				instances: db_instances
 					.into_iter()
-					.filter_map(|i| {
-						// TODO: Error handling
-						match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-							// We don't own it so don't advertise it
-							IdentityOrRemoteIdentity::Identity(_) => None,
-							IdentityOrRemoteIdentity::RemoteIdentity(identity) => {
-								Some((identity, InstanceState::Unavailable))
-							}
-						}
+					.filter_map(|identity| {
+						Some((
+							identity.clone(),
+							match old_data
+								.as_mut()
+								.and_then(|d| d.instances.remove(&identity))
+							{
+								Some(data) => data,
+								None => InstanceState::Unavailable,
+							},
+						))
 					})
 					.collect(),
 			},
 		);
 
-		self.p2p.update_metadata(metadata_instances).await;
+		self.p2p
+			.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
+			.await;
 	}
 
 	async fn edit_library(&self, _library: &Library) {
@@ -137,10 +158,16 @@ impl NetworkedLibraries {
 	}
 
 	async fn delete_library(&self, library: &Library) {
-		// TODO: Do proper library delete/unpair procedure.
-		self.libraries.write().await.remove(&library.id);
+		// Lock them together to ensure changes to both become visible to readers at the same time
+		let mut libraries = self.libraries.write().await;
+		let mut owned_instances = self.owned_instances.write().await;
 
-		// TODO: Update mdns
+		// TODO: Do proper library delete/unpair procedure.
+		libraries.remove(&library.id);
+		owned_instances.remove(&library.id);
+		self.p2p
+			.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
+			.await;
 	}
 
 	// TODO: Replace all these follow events with a pub/sub system????
@@ -267,9 +294,6 @@ mod originator {
 		let libraries = nlm.libraries.read().await;
 		let library = libraries.get(&library_id).unwrap();
 
-		// libraries only connecting one-way atm
-		dbg!(&library.instances);
-
 		// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
 		for instance in library.instances.values() {
 			let InstanceState::Connected(peer_id) = *instance else {
@@ -367,7 +391,7 @@ mod responder {
 		}
 
 		let Ok(mut rx) = ingest.req_rx.try_lock() else {
-			println!("Rejected sync due to libraries lock being held!");
+			warn!("Rejected sync due to libraries lock being held!");
 
 			return early_return(tunnel).await;
 		};
