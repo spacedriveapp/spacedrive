@@ -59,23 +59,26 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 					]
 				]
 			};
-		case 'thumbnailer':
+		case 'media_processor':
 			return {
 				...data,
 				name: `${
-					isQueued ? 'Generate' : isRunning ? 'Generating' : 'Generated'
-				} thumbnails`,
+					isQueued ? 'Process' : isRunning ? 'Processing' : 'Processed'
+				} media files`,
 				textItems: [
 					[
 						{
 							text:
 								output?.thumbnails_created === 0
-									? 'None generated'
+									? 'None processed'
 									: `${
 											completedTaskCount
 												? formatNumber(completedTaskCount || 0)
 												: formatNumber(output?.thumbnails_created)
-									  } of ${taskCount} ${plural(taskCount, 'thumbnail')} generated`
+									  } of ${taskCount} ${plural(
+											taskCount,
+											'media file'
+									  )} processed`
 						},
 						{
 							text:
