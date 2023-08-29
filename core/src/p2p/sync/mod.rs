@@ -285,6 +285,7 @@ mod originator {
 		}
 	}
 
+	/// REMEMBER: This only syncs one direction!
 	pub async fn run(
 		library_id: Uuid,
 		sync: &Arc<sync::Manager>,
