@@ -21,7 +21,9 @@ body {
 	inset: 0px;
 	border-radius: inherit;
 	padding: 1px;
-	mask: linear-gradient(black, black) content-box content-box, linear-gradient(black, black);
+	mask:
+		linear-gradient(black, black) content-box content-box,
+		linear-gradient(black, black);
 	mask-composite: xor;
 	z-index: 9999;
 }
@@ -54,6 +56,10 @@ body {
 	overflow-y: scroll;
 }
 
+::-webkit-scrollbar-corner {
+	background-color: transparent;
+}
+
 .explorer-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
@@ -65,10 +71,8 @@ body {
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-box;
 	}
-	&::-webkit-scrollbar-corner {
-		background-color: transparent;
-	}
 }
+
 .default-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
@@ -154,6 +158,18 @@ body {
 		}
 	}
 }
+.textviewer-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply bg-app-box;
+	}
+}
 
 @keyframes fadeIn {
 	from {
@@ -217,7 +233,9 @@ body {
 	height: 28px;
 	border-radius: 8px;
 	border: 3px solid #fff;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.1),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 	cursor: pointer;
 }
 
