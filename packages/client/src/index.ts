@@ -14,6 +14,12 @@ if (
 )
 	throw new Error('Please ensure you have patched `globalThis` before importing `@sd/client`!');
 
+declare global {
+	// Tauri is cringe and returns a Promise breaking compatibility with the browser API
+	// export function confirm(): never; // boolean | Promise<boolean>;
+	export function confirm(): boolean | Promise<boolean>;
+}
+
 export * from './hooks';
 export * from './rspc';
 export * from './core';
