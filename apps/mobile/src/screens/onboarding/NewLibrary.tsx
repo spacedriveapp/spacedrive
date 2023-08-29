@@ -1,32 +1,17 @@
 import { Database } from '@sd/assets/icons';
 import { Controller } from 'react-hook-form';
 import { Alert, Image, Text, View } from 'react-native';
-import { getOnboardingStore, useOnboardingStore } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Button } from '~/components/primitive/Button';
-import { useZodForm, z } from '~/hooks/useZodForm';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
-
-const schema = z.object({
-	name: z.string().min(1, { message: 'Library name is required' })
-});
+import { useOnboardingContext } from './context';
 
 const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {
-	const obStore = useOnboardingStore();
+	const form = useOnboardingContext().forms.useForm('NewLibrary');
 
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			name: obStore.newLibraryName
-		}
-	});
-
-	const handleNewLibrary = form.handleSubmit(async (data) => {
-		getOnboardingStore().newLibraryName = data.name;
-		navigation.navigate('Privacy');
-	});
+	const handleNewLibrary = form.handleSubmit(() => navigation.navigate('Privacy'));
 
 	const handleImport = () => {
 		Alert.alert('TODO');

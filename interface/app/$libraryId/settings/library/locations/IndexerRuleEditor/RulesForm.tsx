@@ -8,10 +8,11 @@ import {
 	RuleKind,
 	UnionToTuple,
 	extractInfoRSPCError,
-	useLibraryMutation
+	useLibraryMutation,
+	useZodForm
 } from '@sd/client';
 import { Button, Card, Divider, Input, Select, SelectOption, Tooltip } from '@sd/ui';
-import { ErrorMessage, Form, useZodForm, z } from '@sd/ui/src/forms';
+import { ErrorMessage, Form, z } from '@sd/ui/src/forms';
 import { InputKinds, RuleInput, validateInput } from './RuleInput';
 
 const ruleKinds: UnionToTuple<RuleKind> = [

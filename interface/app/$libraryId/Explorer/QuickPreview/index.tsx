@@ -80,7 +80,7 @@ export function QuickPreview({ transformOrigin }: QuickPreviewProps) {
 									style={styles}
 									className="!pointer-events-none absolute inset-0 z-50 grid h-screen place-items-center"
 								>
-									<div className="!pointer-events-auto flex h-5/6 max-h-screen w-11/12 flex-col rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
+									<div className="!pointer-events-auto flex h-5/6 max-h-screen w-11/12 flex-col overflow-y-auto rounded-md border border-app-line bg-app-box text-ink shadow-app-shade">
 										<nav className="relative flex w-full flex-row">
 											<Dialog.Close
 												asChild

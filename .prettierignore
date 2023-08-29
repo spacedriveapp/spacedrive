@@ -19,5 +19,8 @@ apps/desktop/src/index.tsx
 /packages/client/src/core.ts
 apps/desktop/src/commands.ts
 
+# Import only file, which order is relevant
+interface/components/TextViewer/prism.ts
+
 .next/
 .contentlayer/
