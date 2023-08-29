@@ -180,18 +180,24 @@ extension_category_enum! {
 		Txt,
 		Rtf,
 		Md,
+		Markdown,
 	}
 }
 // config file extensions
 extension_category_enum! {
 	ConfigExtension _ALL_CONFIG_EXTENSIONS {
+		Ini,
 		Json,
 		Yaml,
 		Yml,
 		Toml,
 		Xml,
+		Mathml,
+		Rss,
 		Csv,
 		Cfg,
+		Compose,
+		Tsconfig,
 	}
 }
 
@@ -240,32 +246,96 @@ extension_category_enum! {
 // code extensions
 extension_category_enum! {
 	CodeExtension _ALL_CODE_EXTENSIONS {
-		Rs,
-		Ts,
-		Tsx,
-		Js,
-		Jsx,
-		Vue,
-		Php,
-		Py,
-		Rb,
+		// AppleScript
+		Scpt,
+		Scptd,
+		Applescript,
+		// Shell script
 		Sh,
-		Html,
-		Css,
-		Sass,
-		Scss,
-		Less,
-		Bash,
 		Zsh,
+		Fish,
+		Bash,
+		// C, C++
 		C,
 		Cpp,
 		H,
 		Hpp,
-		Java,
-		Scala,
-		Go,
+		// Ruby
+		Rb,
+		// Javascript
+		Js,
+		Mjs,
+		Jsx,
+		// Markup
+		Html,
+		// Stylesheet
+		Css,
+		Sass,
+		Scss,
+		Less,
+		// Crystal
+		Cr,
+		// C#
+		Cs,
+		Csx,
+		D,
 		Dart,
+		// Docker
+		Dockerfile,
+		Go,
+		// Haskell
+		Hs,
+		Java,
+		// Kotlin
+		Kt,
+		Kts,
+		Lua,
+		// Makefile
+		Make,
+		Nim,
+		Nims,
+		// Objective-C
+		M,
+		Mm,
+		// Ocaml
+		Ml,
+		Mli,
+		Mll,
+		Mly,
+		// Perl
+		Pl,
+		// PHP
+		Php,
+		Php1,
+		Php2,
+		Php3,
+		Php4,
+		Php5,
+		Php6,
+		Phps,
+		Phpt,
+		Phtml,
+		// Powershell
+		Ps1,
+		Psd1,
+		Psm1,
+		// Python
+		Py,
+		Qml,
+		R,
+		// Rust
+		Rs,
+		// Solidity
+		Sol,
+		Sql,
 		Swift,
+		// Typescript
+		Ts,
+		Tsx,
+		Vala,
+		Zig,
+		Vue,
+		Scala,
 		Mdx,
 		Astro,
 		Mts,

@@ -6,15 +6,13 @@ use crate::{
 };
 
 use std::{
+	cmp::min,
 	io,
 	mem::take,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
-
-#[cfg(windows)]
-use std::cmp::min;
 
 use http_range::HttpRange;
 use httpz::{
@@ -24,6 +22,7 @@ use httpz::{
 use mini_moka::sync::Cache;
 use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
+use sd_file_ext::text::is_text;
 use thiserror::Error;
 use tokio::{
 	fs::File,
@@ -38,6 +37,8 @@ type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
 static FILE_METADATA_CACHE: Lazy<Cache<MetadataCacheKey, NameAndExtension>> =
 	Lazy::new(|| Cache::new(100));
+
+static MAX_TEXT_READ_LENGHT: usize = 10 * 1024; // 10KB
 
 // TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
 // TODO: Probs use this cache in rspc queries too!
@@ -206,7 +207,7 @@ async fn handle_file(
 			lru_entry
 		};
 
-	let file = File::open(&file_path_full_path).await.map_err(|err| {
+	let mut file = File::open(&file_path_full_path).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
 			HandleCustomUriError::NotFound("file")
 		} else {
@@ -214,9 +215,11 @@ async fn handle_file(
 		}
 	})?;
 
+	let extension = extension.as_str();
+
 	// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-	let mime_type = match extension.as_str() {
+	let mime_type = match extension {
 		// AAC audio
 		"aac" => "audio/aac",
 		// Musical Instrument Digital Interface (MIDI)
@@ -278,13 +281,7 @@ async fn handle_file(
 		"heic" | "heics" => "image/heic,image/heic-sequence",
 		// AVIF images
 		"avif" | "avci" | "avcs" => "image/avif",
-		// TEXT document
-		"txt" => "text/plain",
-		_ => {
-			return Err(HandleCustomUriError::BadRequest(
-				"TODO: This filetype is not supported because of the missing mime type!",
-			));
-		}
+		_ => "text/plain",
 	};
 
 	let mut content_lenght = file
@@ -292,6 +289,55 @@ async fn handle_file(
 		.await
 		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		.len();
+
+	let mime_type = if mime_type == "text/plain" {
+		let mut text_buf = vec![0; min(content_lenght as usize, MAX_TEXT_READ_LENGHT)];
+		if !text_buf.is_empty() {
+			file.read_exact(&mut text_buf)
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
+			file.seek(SeekFrom::Start(0))
+				.await
+				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
+		}
+
+		let charset = is_text(&text_buf, text_buf.len() == (content_lenght as usize)).unwrap_or("");
+
+		// Only browser recognized types, everything else should be text/plain
+		// https://www.iana.org/assignments/media-types/media-types.xhtml#table-text
+		let mime_type = match extension {
+			// HyperText Markup Language
+			"html" | "htm" => "text/html",
+			// Cascading Style Sheets
+			"css" => "text/css",
+			// Javascript
+			"js" | "mjs" => "text/javascript",
+			// Comma-separated values
+			"csv" => "text/csv",
+			// Markdown
+			"md" | "markdown" => "text/markdown",
+			// Rich text format
+			"rtf" => "text/rtf",
+			// Web Video Text Tracks
+			"vtt" => "text/vtt",
+			// Extensible Markup Language
+			"xml" => "text/xml",
+			// Text
+			"txt" => "text/plain",
+			_ => {
+				if charset.is_empty() {
+					return Err(HandleCustomUriError::BadRequest(
+						"TODO: This filetype is not supported because of the missing mime type!",
+					));
+				};
+				mime_type
+			}
+		};
+
+		format!("{mime_type}; charset={charset}")
+	} else {
+		mime_type.to_owned()
+	};
 
 	// GET is the only method for which range handling is defined, according to the spec
 	// https://httpwg.org/specs/rfc9110.html#field.range
