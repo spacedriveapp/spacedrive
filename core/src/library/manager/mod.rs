@@ -20,7 +20,7 @@ use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::AtomicBool, Arc},
 };
 
 use chrono::Utc;
@@ -57,6 +57,7 @@ pub struct Libraries {
 	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
 	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
+	pub emit_messages_flag: Arc<AtomicBool>,
 }
 
 impl Libraries {
@@ -71,6 +72,7 @@ impl Libraries {
 			libraries: Default::default(),
 			tx,
 			rx,
+			emit_messages_flag: Arc::new(AtomicBool::new(false)),
 		}))
 	}
 
@@ -380,7 +382,7 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let mut sync = sync::Manager::new(&db, instance_id);
+		let mut sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag);
 
 		let library = Library::new(
 			id,

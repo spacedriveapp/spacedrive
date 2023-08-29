@@ -21,7 +21,6 @@ pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	shared: Arc<SharedState>,
-	pub emit_messages_flag: AtomicBool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -36,7 +35,11 @@ pub struct New<T> {
 }
 
 impl Manager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> New<Self> {
+	pub fn new(
+		db: &Arc<PrismaClient>,
+		instance: Uuid,
+		emit_messages_flag: &Arc<AtomicBool>,
+	) -> New<Self> {
 		let (tx, rx) = broadcast::channel(64);
 
 		let timestamps: Timestamps = Default::default();
@@ -47,17 +50,13 @@ impl Manager {
 			instance,
 			timestamps,
 			clock,
+			emit_messages_flag: emit_messages_flag.clone(),
 		});
 
 		let ingest = ingest::Actor::spawn(shared.clone());
 
 		New {
-			manager: Self {
-				shared,
-				tx,
-				ingest,
-				emit_messages_flag: AtomicBool::new(false),
-			},
+			manager: Self { shared, tx, ingest },
 			rx,
 		}
 	}

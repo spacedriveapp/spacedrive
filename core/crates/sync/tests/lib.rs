@@ -47,7 +47,7 @@ impl Instance {
 			.await
 			.unwrap();
 
-		let sync = sd_core_sync::Manager::new(&db, id);
+		let sync = sd_core_sync::Manager::new(&db, id, &Default::default());
 
 		(
 			Arc::new(Self {
