@@ -62,8 +62,8 @@ const useFormState = () => {
 	const { handleSubmit, ...forms } = useMultiZodForm({
 		schemas,
 		defaultValues: {
-			'new-library': obStore.data['new-library'] ?? undefined,
-			'privacy': obStore.data.privacy ?? {
+			'new-library': obStore.data?.['new-library'] ?? undefined,
+			'privacy': obStore.data?.privacy ?? {
 				shareTelemetry: 'share-telemetry'
 			}
 		},

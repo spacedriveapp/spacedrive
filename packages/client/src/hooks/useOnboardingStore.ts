@@ -14,7 +14,7 @@ const onboardingStoreDefaults = () => ({
 	lastActiveScreen: null as string | null,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false,
-	data: {} as Record<string, any>
+	data: {} as Record<string, any> | undefined
 });
 
 const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults());
