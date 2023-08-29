@@ -402,7 +402,7 @@ impl P2PManager {
 
 			for (_, data) in data.instances {
 				let InstanceState::Connected(instance_peer_id) = data else {
-					continue
+					continue;
 				};
 
 				if instance_peer_id != *connected_with_peer_id {
