@@ -1,4 +1,5 @@
 use crate::{
+	api::{utils::InvalidateOperationEvent, CoreEvent},
 	invalidate_query,
 	location::indexer,
 	node::Platform,
@@ -400,11 +401,19 @@ impl Libraries {
 
 			async move {
 				loop {
-					let Ok(SyncMessage::Created) = sync.rx.recv().await else {
+					let Ok(msg) = sync.rx.recv().await else {
 						continue;
 					};
 
-					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
+					match msg {
+						// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
+						SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+							InvalidateOperationEvent::all(),
+						)),
+						SyncMessage::Created => {
+							p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await
+						}
+					}
 				}
 			}
 		});

@@ -25,15 +25,19 @@ use std::sync::Mutex;
 pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
 	Mutex::new(InvalidRequests::new());
 
+// fwi: This exists to keep the enum fields private.
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct SingleInvalidateOperationEvent {
+	/// This fields are intentionally private.
+	key: &'static str,
+	arg: Value,
+	result: Option<Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum InvalidateOperationEvent {
-	Single {
-		/// This fields are intentionally private.
-		key: &'static str,
-		arg: Value,
-		result: Option<Value>,
-	},
+	Single(SingleInvalidateOperationEvent),
 	// TODO: A temporary hack used with Brendan's sync system until the v2 invalidation system is implemented.
 	All,
 }
@@ -41,7 +45,7 @@ pub enum InvalidateOperationEvent {
 impl InvalidateOperationEvent {
 	/// If you are using this function, your doing it wrong.
 	pub fn dangerously_create(key: &'static str, arg: Value, result: Option<Value>) -> Self {
-		Self::Single { key, arg, result }
+		Self::Single(SingleInvalidateOperationEvent { key, arg, result })
 	}
 
 	pub fn all() -> Self {
@@ -308,7 +312,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 										}
 
 										match &op {
-											InvalidateOperationEvent::Single { key, arg, .. } => {
+											InvalidateOperationEvent::Single(SingleInvalidateOperationEvent { key, arg, .. }) => {
 												// Newer data replaces older data in the buffer
 												match to_key(&(key, &arg)) {
 													Ok(key) => {

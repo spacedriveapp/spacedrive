@@ -182,7 +182,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
 
-export type InvalidateOperationEvent = { type: "single"; data: { key: string; arg: any; result: any | null } } | { type: "all" }
+export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
@@ -328,6 +328,8 @@ export type SetNoteArgs = { id: number; note: string | null }
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
+
+export type SingleInvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type SortOrder = "Asc" | "Desc"
 
