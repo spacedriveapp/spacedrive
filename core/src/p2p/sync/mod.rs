@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use sd_core_sync::ingest;
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::{RemoteIdentity, Tunnel},
@@ -15,7 +14,7 @@ use tokio::{
 	io::{AsyncRead, AsyncWriteExt},
 	sync::RwLock,
 };
-use tracing::{debug, error};
+use tracing::*;
 use uuid::Uuid;
 
 use crate::{
@@ -37,7 +36,7 @@ pub enum InstanceState {
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct LibraryData {
-	instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
+	pub instances: HashMap<RemoteIdentity /* Identity public key */, InstanceState>,
 }
 
 type LibrariesMap = HashMap<Uuid /* Library ID */, LibraryData>;
@@ -300,15 +299,10 @@ mod originator {
 					.unwrap();
 				tunnel.flush().await.unwrap();
 
-				while let Ok(rx::GetOperations::Operations(args)) =
-					rx::GetOperations::from_stream(&mut tunnel).await
+				while let Ok(rx::MainRequest::GetOperations(args)) =
+					rx::MainRequest::from_stream(&mut tunnel).await
 				{
 					let ops = sync.get_ops(args).await.unwrap();
-
-					debug!(
-						"Sending '{}' sync ops from peer '{peer_id:?}' for library '{library_id:?}'",
-						ops.len()
-					);
 
 					tunnel
 						.write_all(&tx::Operations(ops).to_bytes())
@@ -332,12 +326,12 @@ mod responder {
 		use super::*;
 
 		#[derive(Serialize, Deserialize)]
-		pub enum GetOperations {
-			Operations(GetOpsArgs),
+		pub enum MainRequest {
+			GetOperations(GetOpsArgs),
 			Done,
 		}
 
-		impl GetOperations {
+		impl MainRequest {
 			// TODO: Per field errors for better error handling
 			pub async fn from_stream(
 				stream: &mut (impl AsyncRead + Unpin),
@@ -360,38 +354,42 @@ mod responder {
 	pub async fn run(mut tunnel: Tunnel, library: Arc<Library>) {
 		let ingest = &library.sync.ingest;
 
-		let Ok(mut rx) = ingest.req_rx.try_lock() else {
-			println!("Rejected sync due to libraries lock being held!");
-
+		async fn early_return(mut tunnel: Tunnel) {
 			// TODO: Proper error returned to remote instead of this.
 			// TODO: We can't just abort the connection when the remote is expecting data.
 			tunnel
-				.write_all(&tx::GetOperations::Done.to_bytes())
+				.write_all(&tx::MainRequest::Done.to_bytes())
 				.await
 				.unwrap();
 			tunnel.flush().await.unwrap();
 
 			return;
+		}
+
+		let Ok(mut rx) = ingest.req_rx.try_lock() else {
+			println!("Rejected sync due to libraries lock being held!");
+
+			return early_return(tunnel).await;
 		};
 
-		ingest
-			.event_tx
-			.send(ingest::Event::Notification)
-			.await
-			.unwrap();
+		use sync::ingest::*;
+
+		ingest.event_tx.send(Event::Notification).await.unwrap();
 
 		while let Some(req) = rx.recv().await {
-			use sync::ingest::*;
+			const OPS_PER_REQUEST: u32 = 1000;
 
-			const OPS_PER_REQUEST: u32 = 100;
-
-			let Request::Messages { timestamps } = req else {
-				continue;
+			let timestamps = match req {
+				Request::FinishedIngesting => break,
+				Request::Messages { timestamps } => timestamps,
+				_ => continue,
 			};
+
+			debug!("Getting ops for timestamps {timestamps:?}");
 
 			tunnel
 				.write_all(
-					&tx::GetOperations::Operations(sync::GetOpsArgs {
+					&tx::MainRequest::GetOperations(sync::GetOpsArgs {
 						clocks: timestamps,
 						count: OPS_PER_REQUEST,
 					})
@@ -414,8 +412,10 @@ mod responder {
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
 		}
 
+		debug!("Sync responder done");
+
 		tunnel
-			.write_all(&tx::GetOperations::Done.to_bytes())
+			.write_all(&tx::MainRequest::Done.to_bytes())
 			.await
 			.unwrap();
 		tunnel.flush().await.unwrap();

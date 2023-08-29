@@ -3,8 +3,9 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
-use std::{cmp::Ordering, ops::Deref, sync::Arc};
+use std::{cmp::Ordering, ops::Deref, sync::Arc, time::Instant};
 use tokio::sync::broadcast;
+use tracing::*;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
@@ -52,6 +53,8 @@ impl Manager {
 		tx: &PrismaClient,
 		(_ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
+		let start = Instant::now();
+
 		#[cfg(feature = "emit-messages")]
 		let res = {
 			macro_rules! variant {
@@ -79,6 +82,8 @@ impl Manager {
 		};
 		#[cfg(not(feature = "emit-messages"))]
 		let res = tx._batch([queries]).await?.remove(0);
+
+		debug!("time: {}", start.elapsed().as_millis());
 
 		Ok(res)
 	}

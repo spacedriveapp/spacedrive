@@ -6992,6 +6992,7 @@ dependencies = [
  "serde_json",
  "slotmap",
  "tokio",
+ "tracing 0.2.0",
  "uhlc",
  "uuid",
 ]

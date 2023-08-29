@@ -10,11 +10,13 @@ use uuid::Uuid;
 
 use crate::{actor::*, wait, SharedState};
 
+#[derive(Debug)]
 #[must_use]
 /// Stuff that can be handled outside the actor
 pub enum Request {
 	Messages { timestamps: Vec<(Uuid, NTP64)> },
 	Ingested,
+	FinishedIngesting,
 }
 
 /// Stuff that the actor consumes
@@ -63,18 +65,18 @@ impl Actor {
 				State::Ingesting(wait!(self.io.event_rx, Event::Messages(event) => event))
 			}
 			State::Ingesting(event) => {
-				let count = event.messages.len();
-
 				for op in event.messages {
 					let fut = self.receive_crdt_operation(op);
 					fut.await;
 				}
 
-				println!("Ingested {count} messages!");
-
 				match event.has_more {
 					true => State::RetrievingMessages,
-					false => State::WaitingForNotification,
+					false => {
+						self.io.send(Request::FinishedIngesting).await.ok();
+
+						State::WaitingForNotification
+					}
 				}
 			}
 		};

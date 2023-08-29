@@ -30,7 +30,7 @@ use crate::{
 };
 
 use super::{
-	sync::{NetworkedLibraries, SyncMessage},
+	sync::{InstanceState, LibraryData, NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -181,6 +181,42 @@ impl P2PManager {
 								tokio::spawn(async move {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
 									Self::resync(nlm, &mut stream, event.peer_id, instances).await;
+
+									for (library_id, data) in nlm.state().await {
+										let mut library = None;
+
+										for (instance_id, data) in data.instances {
+											let InstanceState::Connected(instance_peer_id) = data else { continue };
+
+											if instance_peer_id != event.peer_id {
+												continue;
+											};
+
+											let library = match library.clone() {
+												Some(library) => library,
+												None => match node
+													.libraries
+													.get_library(&library_id)
+													.await
+												{
+													Some(new_library) => {
+														library = Some(new_library.clone());
+
+														new_library
+													}
+													None => continue,
+												},
+											};
+
+											super::sync::originator(
+												library_id,
+												&library.sync,
+												&node.nlm,
+												&node.p2p,
+											)
+											.await;
+										}
+									}
 								});
 							}
 						}
@@ -282,8 +318,6 @@ impl P2PManager {
 
 										let library =
 											node.libraries.get_library(&library_id).await.unwrap();
-
-										dbg!(&msg);
 
 										match msg {
 											SyncMessage::NewOperations => {

@@ -1,4 +1,4 @@
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, error::TrySendError};
 
 pub trait ActorTypes {
 	type Event;
@@ -14,6 +14,10 @@ pub struct ActorIO<T: ActorTypes> {
 impl<T: ActorTypes> ActorIO<T> {
 	pub async fn send(&self, value: T::Request) -> Result<(), mpsc::error::SendError<T::Request>> {
 		self.req_tx.send(value).await
+	}
+
+	pub fn try_send(&self, value: T::Request) -> Result<(), TrySendError<T::Request>> {
+		self.req_tx.try_send(value)
 	}
 }
 
