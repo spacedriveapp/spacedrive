@@ -51,13 +51,17 @@ export default function OnboardingNewLibrary() {
 							{...form.register('name')}
 							size="lg"
 							autoFocus
-							disabled={form.formState.isValid}
 							className="mt-6 w-[300px]"
 							placeholder={'e.g. "James\' Library"'}
 						/>
 						<div className="flex grow" />
 						<div className="mt-7 space-x-2">
-							<Button type="submit" variant="accent" size="sm">
+							<Button
+								type="submit"
+								variant="accent"
+								size="sm"
+								disabled={!form.formState.isValid}
+							>
 								New library
 							</Button>
 							{/* <span className="px-2 text-xs font-bold text-ink-faint">OR</span>
