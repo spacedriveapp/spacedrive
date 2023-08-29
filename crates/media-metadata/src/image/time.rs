@@ -26,7 +26,7 @@ impl MediaTime {
 	pub fn from_reader(reader: &ExifReader) -> Self {
 		let z = TIME_TAGS
 			.into_iter()
-			.zip(OFFSET_TAGS.into_iter())
+			.zip(OFFSET_TAGS)
 			.filter_map(|(time_tag, offset_tag)| {
 				let time = reader.get_tag::<String>(time_tag);
 				let offset = reader.get_tag::<String>(offset_tag);

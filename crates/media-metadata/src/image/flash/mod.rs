@@ -1,4 +1,4 @@
-pub(self) mod consts;
+pub mod consts;
 mod data;
 mod values;
 

@@ -32,7 +32,8 @@ pub use image::ImageMetadata;
 pub use video::VideoMetadata;
 
 #[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-pub enum MediaData {
+#[serde(tag = "type")]
+pub enum MediaMetadata {
 	Image(Box<ImageMetadata>),
 	Video(Box<VideoMetadata>),
 	Audio(Box<AudioMetadata>),

@@ -2,7 +2,7 @@ use exif::Tag;
 use std::path::Path;
 
 mod composite;
-pub(self) mod consts;
+mod consts;
 mod dimensions;
 mod flash;
 mod location;
