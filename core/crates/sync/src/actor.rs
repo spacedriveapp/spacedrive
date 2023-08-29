@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::{self, error::TrySendError};
+use tokio::sync::mpsc;
 
 pub trait ActorTypes {
 	type Event;

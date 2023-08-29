@@ -1,5 +1,4 @@
 import { Plugin, mergeConfig } from 'vite';
-import { comlink } from 'vite-plugin-comlink';
 import baseConfig from '../../packages/config/vite';
 
 const devtoolsPlugin: Plugin = {
@@ -21,8 +20,5 @@ export default mergeConfig(baseConfig, {
 	server: {
 		port: 8001
 	},
-	plugins: [devtoolsPlugin, comlink()],
-	worker: {
-		plugins: [comlink()]
-	}
+	plugins: [devtoolsPlugin],
 });
