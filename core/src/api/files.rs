@@ -26,6 +26,7 @@ use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_file_ext::kind::ObjectKind;
 use sd_media_metadata::ImageMetadata;
 use serde::Deserialize;
 use specta::Type;
@@ -53,41 +54,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
-			#[derive(Type, Deserialize)]
-			pub enum MediaDataType {
-				Image,
-				Video,
-				Audio,
-			}
-
-			#[derive(Type, Deserialize)]
-			pub struct GetMediaDataArgs {
-				pub id: i32,
-				pub md_type: MediaDataType,
-			}
-
 			R.with2(library())
-				.query(|(_, library), args: GetMediaDataArgs| async move {
-					let i = library
+				.query(|(_, library), args: object::id::Type| async move {
+					let object = library
 						.db
 						.object()
-						.find_unique(object::id::equals(args.id))
-						.include(object::include!({ media_data }))
+						.find_unique(object::id::equals(args))
+						.select(object::select!({ id kind media_data }))
 						.exec()
-						.await?
-						.into_iter()
-						.filter_map(|x| x.media_data);
+						.await?;
 
-					let media_data = match args.md_type {
-						MediaDataType::Image => i
-							.flat_map(media_data_image_from_prisma_data)
-							.collect::<Vec<_>>()
-							.first()
-							.map(ImageMetadata::clone),
-						MediaDataType::Video | MediaDataType::Audio => todo!(),
-					};
+					if let Some(obj) = &object {
+						let md = match obj.kind {
+							Some(v) if v == ObjectKind::Image as i32 => object
+								.into_iter()
+								.filter_map(|x| x.media_data)
+								.flat_map(media_data_image_from_prisma_data)
+								.collect::<Vec<_>>()
+								.first()
+								.map(ImageMetadata::clone),
+							_ => todo!(), // TODO(brxken128): audio and video
+						};
 
-					Ok(media_data)
+						Ok(md)
+					} else {
+						Err(rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"unable to find and media data for the requested object".to_string(),
+						))
+					}
 				})
 		})
 		.procedure("getPath", {
