@@ -7,7 +7,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
-        { key: "files.getMediaData", input: LibraryArgs<GetMediaDataArgs>, result: ImageMetadata | null } | 
+        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
@@ -97,6 +97,8 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
+export type AudioMetadata = { duration: number | null; audio_codec: string | null }
+
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
 export type BuildInfo = { version: string; commit: string }
@@ -172,8 +174,6 @@ export type GenerateThumbsForLocationArgs = { id: number; path: string }
 export type GetAll = { backups: Backup[]; directory: string }
 
 export type GetArgs = { id: number }
-
-export type GetMediaDataArgs = { id: number; md_type: MediaDataType }
 
 export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
@@ -256,9 +256,9 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaDataType = "Image" | "Video" | "Audio"
-
 export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
+
+export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
 /**
  * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
@@ -370,5 +370,7 @@ export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: bo
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }

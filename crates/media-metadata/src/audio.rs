@@ -1,4 +1,4 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use crate::Result;
 
@@ -6,7 +6,7 @@ use crate::Result;
 	Default, Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize, specta::Type,
 )]
 pub struct AudioMetadata {
-	duration: Option<Duration>,
+	duration: Option<i32>, // can't use `Duration` due to bigint
 	audio_codec: Option<String>,
 }
 
