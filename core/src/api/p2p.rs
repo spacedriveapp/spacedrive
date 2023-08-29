@@ -25,6 +25,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 
 					// TODO: Don't block subscription start
+					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
 					for peer_id in node.p2p.manager.get_connected_peers().await.unwrap() {
 						yield P2PEvent::ConnectedPeer {
 							peer_id,

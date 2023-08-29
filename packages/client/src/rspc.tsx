@@ -3,6 +3,7 @@ import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
 import { Context, createReactQueryHooks } from '@rspc/react/v2';
 import { QueryClient } from '@tanstack/react-query';
 import { PropsWithChildren, createContext, useContext } from 'react';
+import { P, match } from 'ts-pattern';
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
 
@@ -96,16 +97,23 @@ export function useInvalidateQuery() {
 	useBridgeSubscription(['invalidation.listen'], {
 		onData: (ops) => {
 			for (const op of ops) {
-				let key = [op.key];
-				if (op.arg !== null) {
-					key = key.concat(op.arg);
-				}
+				match(op)
+					.with({ type: 'single', data: P.select() }, (op) => {
+						let key = [op.key];
+						if (op.arg !== null) {
+							key = key.concat(op.arg);
+						}
 
-				if (op.result !== null) {
-					context.queryClient.setQueryData(key, op.result);
-				} else {
-					context.queryClient.invalidateQueries(key);
-				}
+						if (op.result !== null) {
+							context.queryClient.setQueryData(key, op.result);
+						} else {
+							context.queryClient.invalidateQueries(key);
+						}
+					})
+					.with({ type: 'all' }, (op) => {
+						context.queryClient.invalidateQueries();
+					})
+					.exhaustive();
 			}
 		}
 	});

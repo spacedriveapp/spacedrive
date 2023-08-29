@@ -40,7 +40,6 @@
 		"vite": "^4.0.4",
 		"vite-plugin-svgr": "^2.2.1",
 		"vite-tsconfig-paths": "^4.0.3",
-		"vite-plugin-comlink": "^3.0.5",
 		"vite-plugin-html": "^3.2.0"
 	}
 }

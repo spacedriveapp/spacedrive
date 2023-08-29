@@ -8,6 +8,7 @@ pub enum SyncMessage {
 
 impl SyncMessage {
 	// TODO: Per field errors for better error handling
+	// TODO: Using `decode::Error` instead of `io::Result`
 	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
 		match stream.read_u8().await? {
 			b'N' => Ok(Self::NewOperations),

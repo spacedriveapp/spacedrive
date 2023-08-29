@@ -120,9 +120,6 @@ importers:
       vite:
         specifier: ^4.0.4
         version: 4.3.9(sass@1.55.0)
-      vite-plugin-comlink:
-        specifier: ^3.0.5
-        version: 3.0.5(comlink@4.4.1)(vite@4.3.9)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -908,6 +905,9 @@ importers:
       regexpp:
         specifier: ^3.2.0
         version: 3.2.0
+      vite-plugin-comlink:
+        specifier: ^3.0.5
+        version: 3.0.5(comlink@4.4.1)(vite@3.2.7)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@3.2.7)
@@ -6909,7 +6909,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.0.4)
       typescript: 5.0.4
-      vite: 4.3.9(less@4.2.0)
+      vite: 4.3.9(@types/node@18.15.1)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9935,7 +9935,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.28.1
       typescript: 5.0.4
-      vite: 4.3.9(less@4.2.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -10535,7 +10535,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(less@4.2.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -24603,7 +24603,7 @@ packages:
       vfile-message: 3.1.4
     dev: false
 
-  /vite-plugin-comlink@3.0.5(comlink@4.4.1)(vite@4.3.9):
+  /vite-plugin-comlink@3.0.5(comlink@4.4.1)(vite@3.2.7):
     resolution: {integrity: sha512-my8BE9GFJEaLc7l3e2SfRUL8JJsN9On8PiW7q4Eyq3g6DHUsNqo5WlS7Butuzc8ngrs24Tf1RC8Xfdda+E5T9w==}
     peerDependencies:
       comlink: ^4.3.1
@@ -24612,7 +24612,7 @@ packages:
       comlink: 4.4.1
       json5: 2.2.1
       magic-string: 0.26.7
-      vite: 4.3.9(sass@1.55.0)
+      vite: 3.2.7
     dev: true
 
   /vite-plugin-html@3.2.0(vite@3.2.7):
@@ -24771,7 +24771,6 @@ packages:
       rollup: 3.28.1
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vite@4.3.9(less@4.2.0):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}
