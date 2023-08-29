@@ -65,8 +65,6 @@ impl Actor {
 			State::Ingesting(event) => {
 				let count = event.messages.len();
 
-				dbg!(&event.messages);
-
 				for op in event.messages {
 					let fut = self.receive_crdt_operation(op);
 					fut.await;
