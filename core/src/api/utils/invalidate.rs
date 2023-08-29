@@ -26,17 +26,26 @@ pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
 	Mutex::new(InvalidRequests::new());
 
 #[derive(Debug, Clone, Serialize, Type)]
-pub struct InvalidateOperationEvent {
-	/// This fields are intentionally private.
-	key: &'static str,
-	arg: Value,
-	result: Option<Value>,
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum InvalidateOperationEvent {
+	Single {
+		/// This fields are intentionally private.
+		key: &'static str,
+		arg: Value,
+		result: Option<Value>,
+	},
+	// TODO: A temporary hack used with Brendan's sync system until the v2 invalidation system is implemented.
+	All,
 }
 
 impl InvalidateOperationEvent {
 	/// If you are using this function, your doing it wrong.
 	pub fn dangerously_create(key: &'static str, arg: Value, result: Option<Value>) -> Self {
-		Self { key, arg, result }
+		Self::Single { key, arg, result }
+	}
+
+	pub fn all() -> Self {
+		Self::All
 	}
 }
 
@@ -287,31 +296,46 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 				let manager_thread_active = manager_thread_active.clone();
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
+					let mut invalidate_all = false;
 
 					loop {
 						tokio::select! {
 							event = event_bus_rx.recv() => {
 								if let Ok(event) = event {
 									if let CoreEvent::InvalidateOperation(op) = event {
-										// Newer data replaces older data in the buffer
-										match to_key(&(op.key, &op.arg)) {
-											Ok(key) => {
-												buf.insert(key, op);
-											},
-											Err(err) => {
-												warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
-											},
+										if invalidate_all {
+											continue;
 										}
 
+										match &op {
+											InvalidateOperationEvent::Single { key, arg, .. } => {
+												// Newer data replaces older data in the buffer
+												match to_key(&(key, &arg)) {
+													Ok(key) => {
+														buf.insert(key, op);
+													},
+													Err(err) => {
+														warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+													},
+												}
+											},
+											InvalidateOperationEvent::All => {
+												invalidate_all = true;
+												buf.clear();
+											}
+										}
 									}
 								} else {
 									warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
 									break;
 								}
 							},
-							// THROTTLE: Given human reaction time of ~250 milli this should be a good ballance.
 							_ = tokio::time::sleep(Duration::from_millis(10)) => {
-								let events = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
+								let events = match invalidate_all {
+									true => vec![InvalidateOperationEvent::all()],
+									false => buf.drain().map(|(_k, v)| v).collect::<Vec<_>>(),
+								};
+
 								if !events.is_empty() {
 									match tx.send(events) {
 										Ok(_) => {},

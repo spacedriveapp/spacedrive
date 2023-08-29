@@ -182,7 +182,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
 
-export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+export type InvalidateOperationEvent = { type: "single"; data: { key: string; arg: any; result: any | null } } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
