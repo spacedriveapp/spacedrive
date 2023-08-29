@@ -27,7 +27,7 @@ use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_file_ext::kind::ObjectKind;
-use sd_media_metadata::{ImageMetadata, MediaData};
+use sd_media_metadata::MediaMetadata;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
@@ -66,7 +66,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.and_then(|obj| {
 							Some(match obj.kind {
 								Some(v) if v == ObjectKind::Image as i32 => {
-									MediaData::Image(Box::new(
+									MediaMetadata::Image(Box::new(
 										media_data_image_from_prisma_data(obj.media_data?).ok()?,
 									))
 								}
