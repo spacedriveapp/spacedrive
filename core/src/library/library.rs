@@ -5,7 +5,7 @@ use crate::{
 	},
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
-	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
+	object::{media::thumbnail::get_thumbnail_path, orphan_remover::OrphanRemoverActor},
 	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::maybe_missing, error::FileIOError},

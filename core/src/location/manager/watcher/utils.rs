@@ -15,7 +15,13 @@ use crate::{
 		scan_location_sub_path,
 	},
 	object::{
-		file_identifier::FileMetadata, preview::get_thumbnail_path, validation::hash::file_checksum,
+		file_identifier::FileMetadata,
+		media::{
+			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
+			media_data_image_to_query,
+			thumbnail::get_thumbnail_path,
+		},
+		validation::hash::file_checksum,
 	},
 	prisma::{file_path, location, object},
 	util::{
@@ -36,8 +42,11 @@ use std::{
 	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
+	str::FromStr,
 	sync::Arc,
 };
+
+use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
 
 use chrono::{DateTime, Local, Utc};
 use notify::Event;
@@ -46,7 +55,7 @@ use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde_json::json;
 use tokio::{fs, io::ErrorKind};
-use tracing::{debug, trace, warn};
+use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
 use super::INodeAndDevice;
@@ -309,14 +318,36 @@ async fn inner_create_file(
 		.exec()
 		.await?;
 
-	if !extension.is_empty() {
+	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-		let path = path.to_path_buf();
+		let inner_path = path.to_path_buf();
 		let node = node.clone();
-
+		let inner_extension = extension.clone();
 		tokio::spawn(async move {
-			generate_thumbnail(&extension, &cas_id, path, &node).await;
+			generate_thumbnail(&inner_extension, &cas_id, inner_path, &node).await;
 		});
+
+		// TODO: Currently we only extract media data for images, remove this if later
+		if matches!(kind, ObjectKind::Image) {
+			if let Ok(image_extension) = ImageExtension::from_str(&extension) {
+				if can_extract_media_data_for_image(&image_extension) {
+					if let Ok(media_data) = extract_media_data(path)
+						.await
+						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+					{
+						if let Ok(media_data_params) =
+							media_data_image_to_query(media_data, object.id).map_err(|e| {
+								error!("Failed to prepare media data create params: {e:#?}")
+							}) {
+							db.media_data()
+								.create_many(vec![media_data_params])
+								.exec()
+								.await?;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	invalidate_query!(library, "search.paths");
@@ -533,8 +564,13 @@ async fn inner_update_file(
 			if let Some(ref object) = file_path.object {
 				// if this file had a thumbnail previously, we update it to match the new content
 				if library.thumbnail_exists(node, old_cas_id).await? {
-					if let Some(ext) = &file_path.extension {
-						generate_thumbnail(ext, &cas_id, full_path, node).await;
+					if let Some(ext) = file_path.extension.clone() {
+						// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
+						let inner_path = full_path.to_path_buf();
+						let inner_node = node.clone();
+						tokio::spawn(async move {
+							generate_thumbnail(&ext, &cas_id, inner_path, &inner_node).await;
+						});
 
 						// remove the old thumbnail as we're generating a new one
 						let thumb_path = get_thumbnail_path(node, old_cas_id);
@@ -562,6 +598,30 @@ async fn inner_update_file(
 						),
 					)
 					.await?;
+				}
+
+				// TODO: Change this if to include ObjectKind::Video in the future
+				if let Some(ext) = &file_path.extension {
+					if let Ok(image_extension) = ImageExtension::from_str(ext) {
+						if can_extract_media_data_for_image(&image_extension)
+							&& matches!(kind, ObjectKind::Image)
+						{
+							if let Ok(media_data) = extract_media_data(full_path)
+								.await
+								.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+							{
+								if let Ok(media_data_params) =
+									media_data_image_to_query(media_data, object.id).map_err(|e| {
+										error!("Failed to prepare media data create params: {e:#?}")
+									}) {
+									db.media_data()
+										.create_many(vec![media_data_params])
+										.exec()
+										.await?;
+								}
+							}
+						}
+					}
 				}
 			}
 
