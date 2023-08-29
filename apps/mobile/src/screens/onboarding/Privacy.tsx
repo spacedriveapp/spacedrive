@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Controller } from 'react-hook-form';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-import { getOnboardingStore } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
+import { useOnboardingContext } from './context';
 
 type RadioButtonProps = {
 	title: string;
@@ -38,15 +39,10 @@ const RadioButton = ({ title, description, isSelected, style }: RadioButtonProps
 	);
 };
 
-const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) => {
-	const [shareTelemetry, setShareTelemetry] = useState<'share-telemetry' | 'share-minimal'>(
-		'share-telemetry'
-	);
+const PrivacyScreen = () => {
+	const { forms, submit } = useOnboardingContext();
 
-	const onPress = () => {
-		getOnboardingStore().shareFullTelemetry = shareTelemetry === 'share-telemetry';
-		navigation.navigate('CreatingLibrary');
-	};
+	const form = forms.useForm('Privacy');
 
 	return (
 		<OnboardingContainer>
@@ -56,26 +52,34 @@ const PrivacyScreen = ({ navigation }: OnboardingStackScreenProps<'Privacy'>) =>
 				we'll make it very clear what data is shared with us.
 			</OnboardingDescription>
 			<View style={tw`w-full`}>
-				<Pressable onPress={() => setShareTelemetry('share-telemetry')}>
-					<RadioButton
-						title="Share anonymous usage"
-						description="Share completely anonymous telemetry data to help the developers improve the app"
-						isSelected={shareTelemetry === 'share-telemetry'}
-						style={tw`mb-3 mt-4`}
-					/>
-				</Pressable>
-				<Pressable
-					testID="share-minimal"
-					onPress={() => setShareTelemetry('share-minimal')}
-				>
-					<RadioButton
-						title="Share the bare minimum"
-						description="Only share that I am an active user of Spacedrive and a few technical bits"
-						isSelected={shareTelemetry === 'share-minimal'}
-					/>
-				</Pressable>
+				<Controller
+					name="shareTelemetry"
+					control={form.control}
+					render={({ field: { onChange, value } }) => (
+						<>
+							<Pressable onPress={() => onChange('share-telemetry')}>
+								<RadioButton
+									title="Share anonymous usage"
+									description="Share completely anonymous telemetry data to help the developers improve the app"
+									isSelected={value === 'share-telemetry'}
+									style={tw`mb-3 mt-4`}
+								/>
+							</Pressable>
+							<Pressable
+								testID="share-minimal"
+								onPress={() => onChange('minimal-telemetry')}
+							>
+								<RadioButton
+									title="Share the bare minimum"
+									description="Only share that I am an active user of Spacedrive and a few technical bits"
+									isSelected={value === 'minimal-telemetry'}
+								/>
+							</Pressable>
+						</>
+					)}
+				/>
 			</View>
-			<Button variant="accent" size="sm" onPress={onPress} style={tw`mt-6`}>
+			<Button variant="accent" size="sm" onPress={form.handleSubmit(submit)} style={tw`mt-6`}>
 				<Text style={tw`text-center text-base font-medium text-ink`}>Continue</Text>
 			</Button>
 		</OnboardingContainer>
