@@ -2,7 +2,8 @@ import { Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, View } from 'react-native';
-import { useBridgeMutation, useLibraryContext } from '@sd/client';
+import { z } from 'zod';
+import { useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
@@ -11,15 +12,12 @@ import { Divider } from '~/components/primitive/Divider';
 import { SettingsContainer, SettingsTitle } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
-import { useZodForm, z } from '~/hooks/useZodForm';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({ name: z.string(), description: z.string() });
 
-const LibraryGeneralSettingsScreen = ({
-	navigation
-}: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
+const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
 	const { library } = useLibraryContext();
 
 	const form = useZodForm({

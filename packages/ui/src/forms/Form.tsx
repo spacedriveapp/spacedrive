@@ -1,4 +1,3 @@
-import { zodResolver } from '@hookform/resolvers/zod';
 import { animated, useTransition } from '@react-spring/web';
 import { VariantProps, cva } from 'class-variance-authority';
 import { Warning } from 'phosphor-react';
@@ -8,13 +7,10 @@ import {
 	FieldValues,
 	FormProvider,
 	UseFormHandleSubmit,
-	UseFormProps,
 	UseFormReturn,
 	get,
-	useForm,
 	useFormContext
 } from 'react-hook-form';
-import { z } from 'zod';
 
 export interface FormProps<T extends FieldValues> extends Omit<ComponentProps<'form'>, 'onSubmit'> {
 	form: UseFormReturn<T>;
@@ -51,22 +47,6 @@ export const Form = <T extends FieldValues>({
 			</form>
 		</FormProvider>
 	);
-};
-
-interface UseZodFormProps<S extends z.ZodSchema>
-	extends Exclude<UseFormProps<z.infer<S>>, 'resolver'> {
-	schema?: S;
-}
-
-export const useZodForm = <S extends z.ZodSchema = z.ZodObject<Record<string, never>>>(
-	props?: UseZodFormProps<S>
-) => {
-	const { schema, ...formProps } = props ?? {};
-
-	return useForm<z.infer<S>>({
-		...formProps,
-		resolver: zodResolver(schema || z.object({}))
-	});
 };
 
 export const errorStyles = cva(
