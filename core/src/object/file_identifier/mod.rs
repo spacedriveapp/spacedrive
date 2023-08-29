@@ -10,17 +10,19 @@ use crate::{
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
+
 use sd_prisma::prisma_sync;
 use sd_sync::{CRDTOperation, OperationFactory};
+use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{HashMap, HashSet},
+	fmt::Debug,
 	path::Path,
 };
 
 use futures::future::join_all;
 use serde_json::json;
-use thiserror::Error;
 use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
@@ -33,7 +35,7 @@ pub use shallow::*;
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum FileIdentifierJobError {
 	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
@@ -227,7 +229,6 @@ async fn identifier_job_step(
 				.iter()
 				.map(|(file_path_pub_id, (meta, fp))| {
 					let object_pub_id = Uuid::new_v4();
-
 					let sync_id = || prisma_sync::object::SyncId {
 						pub_id: sd_utils::uuid_to_bytes(object_pub_id),
 					};
@@ -249,7 +250,7 @@ async fn identifier_job_step(
 
 					let object_creation_args = (
 						sync.shared_create(sync_id(), sync_params),
-						object::create_unchecked(sd_utils::uuid_to_bytes(object_pub_id), db_params),
+						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 					);
 
 					(object_creation_args, {

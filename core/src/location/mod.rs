@@ -6,9 +6,13 @@ use crate::{
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		preview::{
-			can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
-			get_thumbnail_path, shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
+		media::{
+			media_processor,
+			thumbnail::{
+				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
+				get_thumbnail_path,
+			},
+			MediaProcessorJobInit,
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
@@ -405,7 +409,7 @@ pub async fn scan_location(
 		location: location_base_data.clone(),
 		sub_path: None,
 	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
 	})
@@ -443,7 +447,7 @@ pub async fn scan_location_sub_path(
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
 	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
 	})
@@ -469,7 +473,7 @@ pub async fn light_scan_location(
 
 	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
+	media_processor::shallow(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }
@@ -873,7 +877,9 @@ pub(super) async fn generate_thumbnail(
 
 	#[cfg(feature = "ffmpeg")]
 	{
-		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use crate::object::media::thumbnail::{
+			can_generate_thumbnail_for_video, generate_video_thumbnail,
+		};
 		use sd_file_ext::extensions::VideoExtension;
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {

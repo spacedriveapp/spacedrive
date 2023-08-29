@@ -1,7 +1,7 @@
 use crate::{
 	api::locations::ExplorerItem,
 	library::Library,
-	object::{cas::generate_cas_id, preview::get_thumb_key},
+	object::{cas::generate_cas_id, media::thumbnail::get_thumb_key},
 	prisma::location,
 	util::error::FileIOError,
 	Node,
