@@ -12,7 +12,7 @@ use specta::Type;
 use sync::GetOpsArgs;
 
 use tokio::{
-	io::{AsyncRead, AsyncWriteExt},
+	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::RwLock,
 };
 use tracing::*;
@@ -375,17 +375,17 @@ mod responder {
 		}
 	}
 
-	pub async fn run(mut tunnel: Tunnel, library: Arc<Library>) {
+	pub async fn run(stream: &mut (impl AsyncRead + AsyncWrite + Unpin), library: Arc<Library>) {
 		let ingest = &library.sync.ingest;
 
-		async fn early_return(mut tunnel: Tunnel) {
+		async fn early_return(stream: &mut (impl AsyncRead + AsyncWrite + Unpin)) {
 			// TODO: Proper error returned to remote instead of this.
 			// TODO: We can't just abort the connection when the remote is expecting data.
-			tunnel
+			stream
 				.write_all(&tx::MainRequest::Done.to_bytes())
 				.await
 				.unwrap();
-			tunnel.flush().await.unwrap();
+			stream.flush().await.unwrap();
 
 			return;
 		}
@@ -393,7 +393,7 @@ mod responder {
 		let Ok(mut rx) = ingest.req_rx.try_lock() else {
 			warn!("Rejected sync due to libraries lock being held!");
 
-			return early_return(tunnel).await;
+			return early_return(stream).await;
 		};
 
 		use sync::ingest::*;
@@ -411,7 +411,7 @@ mod responder {
 
 			debug!("Getting ops for timestamps {timestamps:?}");
 
-			tunnel
+			stream
 				.write_all(
 					&tx::MainRequest::GetOperations(sync::GetOpsArgs {
 						clocks: timestamps,
@@ -421,9 +421,9 @@ mod responder {
 				)
 				.await
 				.unwrap();
-			tunnel.flush().await.unwrap();
+			stream.flush().await.unwrap();
 
-			let rx::Operations(ops) = rx::Operations::from_stream(&mut tunnel).await.unwrap();
+			let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
 
 			ingest
 				.event_tx
@@ -438,10 +438,10 @@ mod responder {
 
 		debug!("Sync responder done");
 
-		tunnel
+		stream
 			.write_all(&tx::MainRequest::Done.to_bytes())
 			.await
 			.unwrap();
-		tunnel.flush().await.unwrap();
+		stream.flush().await.unwrap();
 	}
 }

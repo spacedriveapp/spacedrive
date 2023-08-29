@@ -30,7 +30,7 @@ use crate::{
 };
 
 use super::{
-	sync::{NetworkedLibraries, SyncMessage},
+	sync::{InstanceState, NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
@@ -189,42 +189,8 @@ impl P2PManager {
 									)
 									.await;
 
-									// TODO: Send sync events when connecting to a peer
-									// for (library_id, data) in nlm.state().await {
-									// 	let mut library = None;
-
-									// 	for (instance_id, data) in data.instances {
-									// 		let InstanceState::Connected(instance_peer_id) = data else { continue };
-
-									// 		if instance_peer_id != event.peer_id {
-									// 			continue;
-									// 		};
-
-									// 		let library = match library.clone() {
-									// 			Some(library) => library,
-									// 			None => match node
-									// 				.libraries
-									// 				.get_library(&library_id)
-									// 				.await
-									// 			{
-									// 				Some(new_library) => {
-									// 					library = Some(new_library.clone());
-
-									// 					new_library
-									// 				}
-									// 				None => continue,
-									// 			},
-									// 		};
-
-									// 		super::sync::originator(
-									// 			library_id,
-									// 			&library.sync,
-									// 			&node.nlm,
-									// 			&node.p2p,
-									// 		)
-									// 		.await;
-									// 	}
-									// }
+									drop(stream);
+									Self::resync_part2(nlm, node, &event.peer_id).await;
 								});
 							}
 						}
@@ -329,7 +295,7 @@ impl P2PManager {
 
 										match msg {
 											SyncMessage::NewOperations => {
-												super::sync::responder(tunnel, library).await;
+												super::sync::responder(&mut tunnel, library).await;
 											}
 										};
 									}
@@ -341,7 +307,7 @@ impl P2PManager {
 											metadata_manager.get().instances,
 											identities,
 										)
-										.await
+										.await;
 									}
 								}
 							});
@@ -422,6 +388,40 @@ impl P2PManager {
 			.write_all(&Header::Connected(local_identities).to_bytes())
 			.await
 			.unwrap();
+	}
+
+	// TODO: Using tunnel for security - Right now all sync events here are unencrypted
+	pub async fn resync_part2(
+		nlm: Arc<NetworkedLibraries>,
+		node: Arc<Node>,
+		connected_with_peer_id: &PeerId,
+	) {
+		for (library_id, data) in nlm.state().await {
+			let mut library = None;
+
+			for (_, data) in data.instances {
+				let InstanceState::Connected(instance_peer_id) = data else { continue };
+
+				if instance_peer_id != *connected_with_peer_id {
+					continue;
+				};
+
+				let library = match library.clone() {
+					Some(library) => library,
+					None => match node.libraries.get_library(&library_id).await {
+						Some(new_library) => {
+							library = Some(new_library.clone());
+
+							new_library
+						}
+						None => continue,
+					},
+				};
+
+				// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
+				super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+			}
+		}
 	}
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
