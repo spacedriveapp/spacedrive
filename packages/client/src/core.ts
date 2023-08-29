@@ -84,7 +84,8 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
@@ -98,6 +99,13 @@ export type Procedures = {
 };
 
 export type AudioMetadata = { duration: number | null; audio_codec: string | null }
+
+/**
+ * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+ * 
+ * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+ */
+export type BackendFeature = "syncEmitMessages"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -199,7 +207,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
 
-export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
@@ -267,7 +275,7 @@ export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Vide
  */
 export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -345,7 +353,7 @@ export type RescanArgs = { location_id: number; sub_path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
+export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -356,6 +364,8 @@ export type SetNoteArgs = { id: number; note: string | null }
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
+
+export type SingleInvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type SortOrder = "Asc" | "Desc"
 
