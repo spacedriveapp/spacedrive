@@ -174,12 +174,12 @@ impl P2PManager {
 
 							node.nlm.peer_connected(event.peer_id).await;
 
-							if event.establisher {
-								let manager = manager.clone();
-								let nlm = node.nlm.clone();
-								let instances = metadata_manager.get().instances;
-								let node = node.clone();
-								tokio::spawn(async move {
+							let manager = manager.clone();
+							let nlm = node.nlm.clone();
+							let instances = metadata_manager.get().instances;
+							let node = node.clone();
+							tokio::spawn(async move {
+								if event.establisher {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
 									Self::resync(
 										nlm.clone(),
@@ -190,9 +190,10 @@ impl P2PManager {
 									.await;
 
 									drop(stream);
-									Self::resync_part2(nlm, node, &event.peer_id).await;
-								});
-							}
+								}
+
+								Self::resync_part2(nlm, node, &event.peer_id).await;
+							});
 						}
 						Event::PeerDisconnected(peer_id) => {
 							events
