@@ -13,7 +13,7 @@ import {
 	useState
 } from 'react';
 import { type ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
-import { PDFViewer, TEXTViewer } from '~/components';
+import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
@@ -181,20 +181,27 @@ export const FileThumb = memo((props: ThumbProps) => {
 									/>
 								);
 							case 'Text':
+							case 'Code':
+							case 'Config':
 								return (
-									<TEXTViewer
+									<TextViewer
 										src={src}
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full px-4 font-mono',
+											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 											!props.mediaControls
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
 											props.frame && [frameClassName, '!bg-none']
 										)}
-										crossOrigin="anonymous"
+										codeExtension={
+											((itemData.kind === 'Code' ||
+												itemData.kind === 'Config') &&
+												itemData.extension) ||
+											''
+										}
 									/>
 								);
 

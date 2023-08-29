@@ -5,6 +5,7 @@ import {
 	useDiscoveredPeers,
 	useFeatureFlag,
 	useP2PEvents,
+	useZodForm,
 	withFeatureFlag
 } from '@sd/client';
 import {
@@ -15,7 +16,6 @@ import {
 	UseDialogProps,
 	dialogManager,
 	useDialog,
-	useZodForm,
 	z
 } from '@sd/ui';
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';

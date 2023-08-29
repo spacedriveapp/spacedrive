@@ -1,6 +1,7 @@
+import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
-import { useNavigate } from 'react-router';
+import { z } from 'zod';
 import {
 	currentLibraryCache,
 	getOnboardingStore,
@@ -12,7 +13,8 @@ import {
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
-import { RadioGroupField, z } from '@sd/ui';
+import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
+import { currentLibraryStore } from '~/utils/nav';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -32,27 +34,17 @@ export const useContextValue = () => {
 	};
 };
 
-export const shareTelemetry = RadioGroupField.options([
+export const shareTelemetrySchema = z.union([
 	z.literal('share-telemetry'),
 	z.literal('minimal-telemetry')
-]).details({
-	'share-telemetry': {
-		heading: 'Share anonymous usage',
-		description:
-			'Share completely anonymous telemetry data to help the developers improve the app'
-	},
-	'minimal-telemetry': {
-		heading: 'Share the bare minimum',
-		description: 'Only share that I am an active user of Spacedrive and a few technical bits'
-	}
-});
+]);
 
 const schemas = {
-	'new-library': z.object({
+	NewLibrary: z.object({
 		name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 	}),
-	'privacy': z.object({
-		shareTelemetry: shareTelemetry.schema
+	Privacy: z.object({
+		shareTelemetry: shareTelemetrySchema
 	})
 };
 
@@ -62,15 +54,15 @@ const useFormState = () => {
 	const { handleSubmit, ...forms } = useMultiZodForm({
 		schemas,
 		defaultValues: {
-			'new-library': obStore.data?.['new-library'] ?? undefined,
-			'privacy': obStore.data?.privacy ?? {
+			NewLibrary: obStore.data?.['new-library'] ?? undefined,
+			Privacy: obStore.data?.privacy ?? {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
 		onData: (data) => (getOnboardingStore().data = data)
 	});
 
-	const navigate = useNavigate();
+	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
 
@@ -78,17 +70,17 @@ const useFormState = () => {
 
 	const submit = handleSubmit(
 		async (data) => {
-			navigate('./creating-library', { replace: true });
+			navigation.navigate('CreatingLibrary');
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryStore.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
+			telemetryStore.shareFullTelemetry = data.Privacy.shareTelemetry === 'share-telemetry';
 
 			try {
 				// show creation screen for a bit for smoothness
 				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
-						name: data['new-library'].name
+						name: data.NewLibrary.name
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
@@ -103,15 +95,16 @@ const useFormState = () => {
 				}
 
 				resetOnboardingStore();
-				navigate(`/${library.uuid}/overview`, { replace: true });
+
+				// Switch to the new library
+				currentLibraryStore.id = library.uuid;
 			} catch (e) {
-				if (e instanceof Error) {
-					alert(`Failed to create library. Error: ${e.message}`);
-				}
-				navigate('./privacy');
+				// TODO: Show toast
+				resetOnboardingStore();
+				navigation.navigate('GetStarted');
 			}
 		},
-		(key) => navigate(`./${key}`)
+		(key) => navigation.navigate(key)
 	);
 
 	return { submit, forms };
