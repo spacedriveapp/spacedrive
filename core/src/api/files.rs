@@ -27,7 +27,7 @@ use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_file_ext::kind::ObjectKind;
-use sd_media_metadata::ImageMetadata;
+use sd_media_metadata::{ImageMetadata, MediaData};
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
@@ -56,33 +56,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("getMediaData", {
 			R.with2(library())
 				.query(|(_, library), args: object::id::Type| async move {
-					let object = library
+					library
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
 						.select(object::select!({ id kind media_data }))
 						.exec()
-						.await?;
-
-					if let Some(obj) = &object {
-						let md = match obj.kind {
-							Some(v) if v == ObjectKind::Image as i32 => object
-								.into_iter()
-								.filter_map(|x| x.media_data)
-								.flat_map(media_data_image_from_prisma_data)
-								.collect::<Vec<_>>()
-								.first()
-								.map(ImageMetadata::clone),
-							_ => todo!(), // TODO(brxken128): audio and video
-						};
-
-						Ok(md)
-					} else {
-						Err(rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"unable to find and media data for the requested object".to_string(),
-						))
-					}
+						.await?
+						.and_then(|obj| {
+							Some(match obj.kind {
+								Some(v) if v == ObjectKind::Image as i32 => {
+									MediaData::Image(Box::new(
+										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+									))
+								}
+								_ => return None, // TODO(brxken128): audio and video
+							})
+						})
+						.ok_or_else(|| {
+							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
+						})
 				})
 		})
 		.procedure("getPath", {
