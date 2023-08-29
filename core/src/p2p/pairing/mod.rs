@@ -203,9 +203,7 @@ impl PairingManager {
 						.unwrap();
 
 					// Called again so the new instances are picked up
-					println!("PLZ ACTUALLY UPDATE THEM");
 					node.libraries.update_instances(library).await;
-					println!("I DID THE THING");
 
 					P2PManager::resync(
 						node.nlm.clone(),
