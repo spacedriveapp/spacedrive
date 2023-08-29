@@ -3,7 +3,15 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
-use std::{cmp::Ordering, ops::Deref, sync::Arc, time::Instant};
+use std::{
+	cmp::Ordering,
+	ops::Deref,
+	sync::{
+		atomic::{self, AtomicBool},
+		Arc,
+	},
+	time::Instant,
+};
 use tokio::sync::broadcast;
 use tracing::*;
 use uhlc::{HLCBuilder, HLC};
@@ -13,6 +21,7 @@ pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	shared: Arc<SharedState>,
+	pub emit_messages_flag: AtomicBool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -43,7 +52,12 @@ impl Manager {
 		let ingest = ingest::Actor::spawn(shared.clone());
 
 		New {
-			manager: Self { shared, tx, ingest },
+			manager: Self {
+				shared,
+				tx,
+				ingest,
+				emit_messages_flag: AtomicBool::new(false),
+			},
 			rx,
 		}
 	}
@@ -55,8 +69,7 @@ impl Manager {
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let start = Instant::now();
 
-		#[cfg(feature = "emit-messages")]
-		let res = {
+		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			macro_rules! variant {
 				($var:ident, $variant:ident, $fn:ident) => {
 					let $var = _ops
@@ -79,13 +92,13 @@ impl Manager {
 			self.tx.send(SyncMessage::Created).ok();
 
 			res
+		} else {
+			tx._batch([queries]).await?.remove(0)
 		};
-		#[cfg(not(feature = "emit-messages"))]
-		let res = tx._batch([queries]).await?.remove(0);
 
 		debug!("time: {}", start.elapsed().as_millis());
 
-		Ok(res)
+		Ok(ret)
 	}
 
 	#[allow(unused_variables)]
@@ -95,8 +108,7 @@ impl Manager {
 		op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		#[cfg(feature = "emit-messages")]
-		let ret = {
+		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			macro_rules! exec {
 				($fn:ident, $inner:ident) => {
 					tx._batch(($fn(&op, $inner).to_query(tx), query)).await?.1
@@ -111,9 +123,9 @@ impl Manager {
 			self.tx.send(SyncMessage::Created).ok();
 
 			ret
+		} else {
+			tx._batch(vec![query]).await?.remove(0)
 		};
-		#[cfg(not(feature = "emit-messages"))]
-		let ret = tx._batch(vec![query]).await?.remove(0);
 
 		Ok(ret)
 	}
