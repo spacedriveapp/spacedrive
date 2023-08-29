@@ -130,8 +130,8 @@ impl NetworkedLibraries {
 				// We register all remote instances to track connection state(`IdentityOrRemoteIdentity::RemoteIdentity`'s only).
 				instances: db_instances
 					.into_iter()
-					.filter_map(|identity| {
-						Some((
+					.map(|identity| {
+						(
 							identity.clone(),
 							match old_data
 								.as_mut()
@@ -140,7 +140,7 @@ impl NetworkedLibraries {
 								Some(data) => data,
 								None => InstanceState::Unavailable,
 							},
-						))
+						)
 					})
 					.collect(),
 			},
@@ -387,8 +387,6 @@ mod responder {
 				.await
 				.unwrap();
 			stream.flush().await.unwrap();
-
-			return;
 		}
 
 		let Ok(mut rx) = ingest.req_rx.try_lock() else {

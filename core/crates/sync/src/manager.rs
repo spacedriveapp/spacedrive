@@ -12,7 +12,6 @@ use std::{
 	},
 };
 use tokio::sync::broadcast;
-use tracing::*;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
