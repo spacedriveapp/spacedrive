@@ -39,7 +39,6 @@ export function useLoadBackendFeatureFlags() {
 
 			...(nodeConfig.data?.features ?? [])
 		];
-		console.log(nodeConfig.data?.features ?? [], [...featureFlagState.enabled]); // TODO
 	}, [nodeConfig.data?.features]);
 }
 
