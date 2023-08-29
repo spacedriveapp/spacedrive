@@ -356,6 +356,33 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endCo
 	}
 }
 
+//Pricing page
+
+.pro-card-border-gradient::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 6px;
+	z-index: 0;
+	padding: 1px;
+	background: linear-gradient(120deg, #B266FF, #6AA6FF);
+	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+}
+
+.popular-shadow {
+	box-shadow: 0px 0px 10px 0px rgba(147, 96, 255, 0.80) inset;
+}
+
+.pro-card-shadow {
+	box-shadow: 0px 0px 50px 0px rgba(147, 96, 255, 0.20) inset;
+}
+
+
+
+
+
 // Gradient colors
 // #3916BA
 // #7A1D77

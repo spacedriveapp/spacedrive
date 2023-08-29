@@ -45,11 +45,6 @@ const platforms = [
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
-	const wormHoleRef = useRef<HTMLDivElement>(null);
-	const isInView = useInView(wormHoleRef, {
-		amount: 0.5,
-		once: true
-	});
 	const [deviceOs, setDeviceOs] = useState<null | {
 		isWindows: boolean;
 		isMacOs: boolean;
@@ -128,7 +123,7 @@ export default function HomePage() {
 					alt="l"
 					src="/images/headergradient.webp"
 				/>
-				<div className="flex w-full flex-col items-center px-4">
+				<div className="flex flex-col items-center w-full px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -138,10 +133,10 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
+					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -159,7 +154,7 @@ export default function HomePage() {
 					>
 						<HomeCTA
 							icon={<Download />}
-							className="z-5 relative"
+							className="relative z-5"
 							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
@@ -170,7 +165,7 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-					<div className="relative z-10 mt-5 flex gap-3">
+					<div className="relative z-10 flex gap-3 mt-5">
 						{platforms.map((platform, i) => (
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
@@ -199,7 +194,7 @@ export default function HomePage() {
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
+							<AppFrameOuter className="relative overflow-hidden fade-in-heading animation-delay-2">
 								<AppFrameInner>
 									<Image
 										loading="eager"

@@ -60,13 +60,14 @@ export default function NavBar() {
 		<div className={'navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition'}>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
-					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />
+					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 w-8 h-8 mr-3" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</Link>
 
-				<div className="m-auto hidden space-x-4 text-white lg:block ">
+				<div className="hidden m-auto space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
+					<NavLink link="/pricing">Pricing</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
 					<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
 					<div className="relative inline">
@@ -86,10 +87,10 @@ export default function NavBar() {
 							className="ml-[140px] hover:!bg-transparent"
 							size="icon"
 						>
-							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
+							<DotsThreeVertical weight="bold" className="w-6 h-6 " />
 						</Button>
 					}
-					className="right-4 top-2 block h-6 w-44 text-white lg:hidden"
+					className="block h-6 text-white right-4 top-2 w-44 lg:hidden"
 					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500 text-[15px]"
 				>
 					<Dropdown.Section>
@@ -133,14 +134,14 @@ export default function NavBar() {
 					</Dropdown.Section>
 				</Dropdown.Root>
 
-				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
+				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
 					<Link
 						aria-label="discord"
 						href="https://discord.gg/gTaF2Z44f5"
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Discord className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
+						<Discord className="w-6 h-6 text-white duration-300 opacity-100 hover:opacity-50" />
 					</Link>
 					<Link
 						aria-label="github"
@@ -148,11 +149,11 @@ export default function NavBar() {
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
+						<Github className="w-6 h-6 text-white duration-300 opacity-100 hover:opacity-50" />
 					</Link>
 				</div>
 			</div>
-			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
+			<div className="absolute bottom-0 flex flex-row items-center justify-center w-full h-1 pt-4 opacity-100">
 				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
 				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
