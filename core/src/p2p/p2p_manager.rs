@@ -401,7 +401,9 @@ impl P2PManager {
 			let mut library = None;
 
 			for (_, data) in data.instances {
-				let InstanceState::Connected(instance_peer_id) = data else { continue };
+				let InstanceState::Connected(instance_peer_id) = data else {
+					continue
+				};
 
 				if instance_peer_id != *connected_with_peer_id {
 					continue;
