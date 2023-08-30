@@ -36,6 +36,7 @@ import Entity from './Entity.png';
 import Entity_Light from './Entity_Light.png';
 import Executable from './Executable.png';
 import Executable_Light from './Executable_Light.png';
+import Executable_Light_old from './Executable_Light_old.png';
 import Executable_old from './Executable_old.png';
 import Face_Light from './Face_Light.png';
 import Folder from './Folder.png';
@@ -129,6 +130,7 @@ export {
 	Entity_Light,
 	Executable,
 	Executable_Light,
+	Executable_Light_old,
 	Executable_old,
 	Face_Light,
 	Folder,
