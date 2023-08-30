@@ -2,7 +2,10 @@ use std::{
 	borrow::Cow,
 	collections::HashMap,
 	path::PathBuf,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::{Duration, Instant},
 };
 
@@ -79,6 +82,7 @@ pub struct P2PManager {
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
+	spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub pairing: Arc<PairingManager>,
 	node_config_manager: Arc<config::Manager>,
@@ -121,6 +125,7 @@ impl P2PManager {
 				events: (tx, rx),
 				manager,
 				spacedrop_pairing_reqs: Default::default(),
+				spacedrop_cancelations: Default::default(),
 				metadata_manager,
 				node_config_manager: node_config,
 			}),
@@ -134,6 +139,7 @@ impl P2PManager {
 			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
+			let spacedrop_cancelations = self.spacedrop_cancelations.clone();
 
 			let pairing = self.pairing.clone();
 			let node = node.clone();
@@ -205,6 +211,7 @@ impl P2PManager {
 							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
 							let pairing = pairing.clone();
+							let spacedrop_cancelations = spacedrop_cancelations.clone();
 							let node = node.clone();
 
 							tokio::spawn(async move {
@@ -245,13 +252,19 @@ impl P2PManager {
 													Ok(Some(file_path)) => {
 														info!("spacedrop({id}): accepted saving to '{:?}'", file_path);
 
+														let cancelled = Arc::new(AtomicBool::new(false));
+														spacedrop_cancelations
+															.lock()
+															.await
+															.insert(id, cancelled.clone());
+
 														stream.write_all(&[1]).await.unwrap();
 
 														let f = File::create(file_path).await.unwrap();
 
 														Transfer::new(&req, |percent| {
 															events.send(P2PEvent::SpacedropProgress { id, percent }).ok();
-														}).receive(&mut stream, f).await;
+														}, &cancelled).receive(&mut stream, f).await;
 
 														info!("spacedrop({id}): complete");
 													}
@@ -429,6 +442,12 @@ impl P2PManager {
 		}
 	}
 
+	pub async fn cancel_spacedrop(&self, id: Uuid) {
+		if let Some(cancelled) = self.spacedrop_cancelations.lock().await.remove(&id) {
+			cancelled.store(true, Ordering::Relaxed);
+		}
+	}
+
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
 	}
@@ -438,11 +457,7 @@ impl P2PManager {
 	}
 
 	// TODO: Proper error handling
-	pub async fn big_bad_spacedrop(
-		&self,
-		peer_id: PeerId,
-		path: PathBuf,
-	) -> Result<Option<Uuid>, ()> {
+	pub async fn spacedrop(&self, peer_id: PeerId, path: PathBuf) -> Result<Option<Uuid>, ()> {
 		let id = Uuid::new_v4();
 		let mut stream = self.manager.stream(peer_id).await.map_err(|_| ())?; // TODO: handle providing incorrect peer id
 
@@ -469,6 +484,12 @@ impl P2PManager {
 			return Ok(None);
 		}
 
+		let cancelled = Arc::new(AtomicBool::new(false));
+		self.spacedrop_cancelations
+			.lock()
+			.await
+			.insert(id, cancelled.clone());
+
 		debug!("Starting Spacedrop to peer '{peer_id}'");
 		let i = Instant::now();
 
@@ -484,6 +505,7 @@ impl P2PManager {
 					.send(P2PEvent::SpacedropProgress { id, percent })
 					.ok();
 			},
+			&cancelled,
 		)
 		.send(&mut stream, file)
 		.await;

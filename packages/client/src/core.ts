@@ -77,6 +77,7 @@ export type Procedures = {
         { key: "notifications.test", input: never, result: null } | 
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
+        { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 

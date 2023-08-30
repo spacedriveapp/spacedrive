@@ -39,6 +39,8 @@ function SpacedropProgress({ toastId, dropId }: { toastId: string | number; drop
 }
 
 export function SpacedropUI() {
+	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
+
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
@@ -55,7 +57,13 @@ export function SpacedropUI() {
 						description: (id) => <SpacedropProgress toastId={id} dropId={data.id} />
 					},
 					{
-						duration: Infinity
+						duration: Infinity,
+						cancel: {
+							label: 'Cancel',
+							onClick() {
+								cancelSpacedrop.mutate(data.id);
+							}
+						}
 					}
 				);
 				spacedropToasts.set(data.id, null);

@@ -51,7 +51,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|node, args: SpacedropArgs| async move {
 				// TODO: Handle multiple files path and error if zero paths
 				node.p2p
-					.big_bad_spacedrop(
+					.spacedrop(
 						args.peer_id,
 						PathBuf::from(
 							args.file_path
@@ -72,6 +72,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					None => node.p2p.reject_spacedrop(id).await,
 				}
 			})
+		})
+		.procedure("cancelSpacedrop", {
+			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: PeerId| async move {
