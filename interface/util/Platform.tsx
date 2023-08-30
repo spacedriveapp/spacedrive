@@ -19,7 +19,7 @@ export type Platform = {
 	getOs?(): Promise<OperatingSystem>;
 	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
-	saveFilePickerDialog?(): Promise<string | null>;
+	saveFilePickerDialog?(opts?: { title?: string; defaultPath?: string }): Promise<string | null>;
 	showDevtools?(): void;
 	openPath?(path: string): void;
 	openLogsDir?(): void;
