@@ -1,13 +1,17 @@
+use std::num::TryFromIntError;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+	#[cfg(not(target_os = "linux"))]
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
+
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),
-	#[error("io error: {0}")]
-	Io(#[from] std::io::Error),
+	#[error("io error")]
+	Io,
 	#[error("there was an error while converting the image to an `RgbImage`")]
 	RgbImageConversion,
 	#[error("the image provided is unsupported")]
@@ -20,4 +24,8 @@ pub enum Error {
 	InvalidPath,
 	#[error("invalid path provided (it had no file extension)")]
 	NoExtension,
+	#[error("error while converting from raw")]
+	RawConversion,
+	#[error("error while parsing integers")]
+	TryFromInt(#[from] TryFromIntError),
 }

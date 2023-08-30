@@ -7142,6 +7142,7 @@ dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
+ "png",
  "rawloader",
  "thiserror",
 ]

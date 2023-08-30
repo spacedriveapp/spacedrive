@@ -10,43 +10,9 @@ use std::{
 	path::Path,
 };
 
-use image::DynamicImage;
-use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
-use thiserror::Error;
-
-type HeifResult<T> = Result<T, HeifError>;
-
-/// The maximum file size that an image can be in order to have a thumbnail generated.
-///
-/// This value is in MiB.
-const HEIF_MAXIMUM_FILE_SIZE: u64 = 1048576 * 20;
-
-#[derive(Error, Debug)]
-pub enum HeifError {
-	#[error("error with libheif: {0}")]
-	LibHeif(#[from] libheif_rs::HeifError),
-	#[error("error while loading the image (via the `image` crate): {0}")]
-	Image(#[from] image::ImageError),
-	#[error("io error: {0} at {}", .1.display())]
-	Io(std::io::Error, Box<Path>),
-	#[error("there was an error while converting the image to an `RgbImage`")]
-	RgbImageConversion,
-	#[error("the image provided is unsupported")]
-	Unsupported,
-	#[error("the image provided is too large (over 20MiB)")]
-	TooLarge,
-	#[error("the provided bit depth is invalid")]
-	InvalidBitDepth,
-	#[error("invalid path provided (non UTF-8)")]
-	InvalidPath,
-}
-
-pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
-	if fs::metadata(path)
-		.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?
-		.len() > HEIF_MAXIMUM_FILE_SIZE
-	{
-		return Err(HeifError::TooLarge);
+pub fn heif_to_dynamic_image(path: &Path) -> Result<DynamicImage> {
+	if fs::metadata(path).map_err(|_| Error::Io)?.len() > HEIF_MAXIMUM_FILE_SIZE {
+		return Err(Error::TooLarge);
 	}
 
 	let img = {
@@ -76,12 +42,10 @@ pub fn heif_to_dynamic_image(path: &Path) -> HeifResult<DynamicImage> {
 		for y in 0..img.height() {
 			reader
 				.seek(SeekFrom::Start((i.stride * y as usize) as u64))
-				.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?;
+				.map_err(|_| Error::Io)?;
 
 			for _ in 0..img.width() {
-				reader
-					.read_exact(&mut buffer)
-					.map_err(|e| HeifError::Io(e, path.to_path_buf().into_boxed_path()))?;
+				reader.read_exact(&mut buffer).map_err(|_| Error::Io)?;
 				sequence.extend_from_slice(&buffer);
 			}
 		}

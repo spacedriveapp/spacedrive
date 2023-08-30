@@ -1,33 +1,40 @@
+use crate::{
+	consts::RAW_MAXIMUM_FILE_SIZE,
+	error::{Error, Result},
+};
+use image::DynamicImage;
 use std::{
-	fs::File,
+	fs,
 	io::{Cursor, Write},
 	path::Path,
 };
 
-use image::{DynamicImage, ImageDecoder};
+pub fn raw_to_dynamic_image(path: &Path) -> Result<DynamicImage> {
+	if fs::metadata(path).map_err(|_| Error::Io)?.len() > RAW_MAXIMUM_FILE_SIZE {
+		return Err(Error::TooLarge);
+	}
 
-use crate::error::{Error, Result};
-
-pub fn raw_to_dynamic_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 	let image = rawloader::decode_file(path).unwrap();
+	let mut writer = Cursor::new(vec![]);
 
-	// let mut writer = Cursor::new(vec![]);
+	if let rawloader::RawImageData::Integer(i) = image.data {
+		for px in i {
+			let high = (px >> 8) as u8;
+			let lo = (px & 0x0ff) as u8;
+			writer
+				.write_all(&[high, lo, high, lo, high, lo])
+				.map_err(|_| Error::Io)?;
+		}
 
-	// let x = image::ImageBuffer::from_raw(
-	// 	image.width.try_into().expect("unable to convert usize"),
-	// 	image.height.try_into().expect("unable to convert usize"),
-	// 	&image.xyz_to_cam[..],
-	// );
+		let image = image::RgbImage::from_raw(
+			image.width.try_into().map_err(Error::TryFromInt)?,
+			image.height.try_into().map_err(Error::TryFromInt)?,
+			writer.into_inner(),
+		)
+		.ok_or_else(|| Error::RawConversion)?;
 
-	// if let rawloader::RawImageData::Integer(i) = image.data {
-	// 	for px in i {
-	// 		let pixhigh = (px >> 8) as u8;
-	// 		let pixlow = (px & 0x0ff) as u8;
-	// 		writer
-	// 			.write_all(&[pixhigh, pixlow, pixhigh, pixlow, pixhigh, pixlow])
-	// 			.unwrap()
-	// 	}
-	// }
-
-	todo!()
+		Ok(DynamicImage::ImageRgb8(image))
+	} else {
+		Err(Error::RawConversion)
+	}
 }
