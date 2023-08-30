@@ -156,6 +156,7 @@ async fn bruh() -> Result<(), Box<dyn std::error::Error>> {
 					ingest::Request::Ingested => {
 						instance2.sync.tx.send(SyncMessage::Ingested).ok();
 					}
+					_ => todo!(),
 				}
 			}
 		}
