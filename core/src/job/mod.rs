@@ -30,6 +30,12 @@ pub type JobMetadata = Option<serde_json::Value>;
 #[derive(Debug, Default)]
 pub struct JobRunErrors(pub Vec<String>);
 
+impl JobRunErrors {
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+}
+
 impl<I: IntoIterator<Item = String>> From<I> for JobRunErrors {
 	fn from(errors: I) -> Self {
 		Self(errors.into_iter().collect())
