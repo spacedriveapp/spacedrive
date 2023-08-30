@@ -55,7 +55,7 @@ where
 		loop {
 			let read = file.read(&mut buf[..]).await.unwrap(); // TODO: Error handling
 			offset += read as u64;
-			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
+			(self.on_progress)(((offset as f64 / self.req.size as f64) * 100.0) as u8); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
 				if offset != self.req.size {
@@ -92,7 +92,7 @@ where
 			// TODO: Timeout if nothing is being received
 			let block = Block::from_stream(stream, &mut data_buf).await.unwrap(); // TODO: Error handling
 			offset += block.size;
-			(self.on_progress)(((self.req.size / offset) * 100) as u8); // SAFETY: Percent must be between 0 and 100
+			(self.on_progress)(((offset as f64 / self.req.size as f64) * 100.0) as u8); // SAFETY: Percent must be between 0 and 100
 
 			debug!(
 				"Received block at offset {} of size {}",
