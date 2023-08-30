@@ -121,6 +121,15 @@ export function SpacedropUI() {
 				);
 				spacedropToasts.set(data.id, null);
 			}
+		} else if (data.type === "SpacedropRejected") {
+			// TODO: Add more information to this like peer name, etc in future
+
+			// TODO: We need a `toast.warn` for this
+			toast.info(
+				{
+					title: 'Spacedrop Rejected',
+				}
+			);
 		}
 	});
 

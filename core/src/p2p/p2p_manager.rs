@@ -66,6 +66,9 @@ pub enum P2PEvent {
 		id: Uuid,
 		percent: u8,
 	},
+	SpacedropRejected {
+		id: Uuid,
+	},
 	// Pairing was reuqest has come in.
 	// This will fire on the responder only.
 	PairingRequest {
@@ -279,6 +282,10 @@ impl P2PManager {
 													}
 													Ok(None) => {
 														info!("spacedrop({id}): rejected");
+
+														stream.write_all(&[0]).await.unwrap();
+														stream.flush().await.unwrap();
+
 													}
 													Err(_) => {
 														info!("spacedrop({id}): error with Spacedrop pairing request receiver!");
@@ -490,6 +497,7 @@ impl P2PManager {
 		stream.read_exact(&mut buf).await.map_err(|_| ())?;
 		if buf[0] != 1 {
 			debug!("Spacedrop was rejected from peer '{peer_id}'");
+			self.events.0.send(P2PEvent::SpacedropRejected { id }).ok();
 			return Ok(None);
 		}
 
