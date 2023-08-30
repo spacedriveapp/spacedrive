@@ -14,7 +14,7 @@ type Context = {
 	discoveredPeers: Map<string, PeerMetadata>;
 	connectedPeers: Map<string, undefined>;
 	pairingStatus: Map<number, PairingStatus>;
-	spacedropProgress: Map<string, number>;
+	spacedropProgresses: Map<string, number>;
 	events: MutableRefObject<EventTarget>;
 };
 
@@ -25,7 +25,7 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 	const [[discoveredPeers], setDiscoveredPeer] = useState([new Map<string, PeerMetadata>()]);
 	const [[connectedPeers], setConnectedPeers] = useState([new Map<string, undefined>()]);
 	const [[pairingStatus], setPairingStatus] = useState([new Map<number, PairingStatus>()]);
-	const [[spacedropProgress], setSpacedropProgress] = useState([new Map<string, number>()]);
+	const [[spacedropProgresses], setSpacedropProgresses] = useState([new Map<string, number>()]);
 
 	useBridgeSubscription(['p2p.events'], {
 		onData(data) {
@@ -46,8 +46,8 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 			} else if (data.type === 'PairingProgress') {
 				setPairingStatus([pairingStatus.set(data.id, data.status)]);
 			} else if (data.type === 'SpacedropProgress') {
-				spacedropProgress.set(data.id, data.percent);
-				setSpacedropProgress([spacedropProgress]);
+				spacedropProgresses.set(data.id, data.percent);
+				setSpacedropProgresses([spacedropProgresses]);
 			}
 		}
 	});
@@ -58,7 +58,7 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 				discoveredPeers,
 				connectedPeers,
 				pairingStatus,
-				spacedropProgress,
+				spacedropProgresses,
 				events
 			}}
 		>
@@ -80,7 +80,7 @@ export function usePairingStatus(pairing_id: number) {
 }
 
 export function useSpacedropProgress(id: string) {
-	return useContext(Context).spacedropProgress.get(id);
+	return useContext(Context).spacedropProgresses.get(id);
 }
 
 export function useP2PEvents(fn: (event: P2PEvent) => void) {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	useBridgeMutation,
 	useDiscoveredPeers,
@@ -10,15 +10,33 @@ import {
 	Button,
 	Dialog,
 	InputField,
+	ProgressBar,
 	Select,
 	SelectOption,
 	UseDialogProps,
 	dialogManager,
+	toast,
 	useDialog,
 	z
 } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
+
+function SpacedropProgress({ toastId, dropId }: { toastId: string | number; dropId: string }) {
+	const progress = useSpacedropProgress(dropId);
+
+	useEffect(() => {
+		if (progress === 100) {
+			setTimeout(() => toast.dismiss(toastId), 750);
+		}
+	});
+
+	return (
+		<div className="pt-1">
+			<ProgressBar percent={progress ?? 0} />
+		</div>
+	);
+}
 
 export function SpacedropUI() {
 	useEffect(() =>
@@ -26,6 +44,24 @@ export function SpacedropUI() {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
 		})
 	);
+
+	const [[spacedropToasts], _] = useState([new Map<string, null>()]);
+	useP2PEvents((data) => {
+		if (data.type === 'SpacedropProgress') {
+			if (!spacedropToasts.has(data.id)) {
+				toast.info(
+					{
+						title: 'Spacedrop',
+						description: (id) => <SpacedropProgress toastId={id} dropId={data.id} />
+					},
+					{
+						duration: Infinity
+					}
+				);
+				spacedropToasts.set(data.id, null);
+			}
+		}
+	});
 
 	useP2PEvents((data) => {
 		if (data.type === 'SpacedropRequest') {
