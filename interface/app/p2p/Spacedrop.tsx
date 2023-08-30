@@ -97,11 +97,8 @@ function SpacedropRequestDialog(
 	});
 
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
-	const progress = useSpacedropProgress(props.dropId);
 
 	// TODO: Automatically close this after 60 seconds cause the Spacedrop would have expired
-
-	console.log(progress);
 
 	return (
 		<Dialog
@@ -109,37 +106,32 @@ function SpacedropRequestDialog(
 			dialog={useDialog(props)}
 			title="Received Spacedrop"
 			loading={acceptSpacedrop.isLoading}
-			ctaLabel="Send"
-			closeLabel="Cancel"
-			onSubmit={form.handleSubmit((data) =>
-				acceptSpacedrop.mutateAsync([props.dropId, data.file_path])
-			)}
+			ctaLabel="Accept"
+			closeLabel="Decline"
+			onSubmit={async (data) => {
+				if (platform.saveFilePickerDialog) {
+					const result = await platform.saveFilePickerDialog({
+						title: 'Save Spacedrop',
+						defaultPath: props.name
+					});
+
+					if (!result) {
+						return;
+					}
+
+					form.setValue('file_path', result);
+				}
+
+				return await form.handleSubmit((data) =>
+					acceptSpacedrop.mutateAsync([props.dropId, data.file_path])
+				)(data);
+			}}
 			onCancelled={() => acceptSpacedrop.mutate([props.dropId, null])}
 		>
 			<div className="space-y-2 py-2">
 				<p>File Name: {props.name}</p>
 				<p>Peer Id: {props.peerId}</p>
-				{platform.saveFilePickerDialog ? (
-					<Button
-						onClick={() => {
-							if (!platform.saveFilePickerDialog) return;
-							platform
-								.saveFilePickerDialog({
-									title: 'Save Spacedrop',
-									defaultPath: props.name
-								})
-								.then((result) => {
-									if (!result) {
-										return;
-									}
-
-									form.setValue('file_path', result);
-								});
-						}}
-					>
-						Pick Save Location
-					</Button>
-				) : (
+				{platform.saveFilePickerDialog ? null : (
 					<InputField
 						size="sm"
 						placeholder="/Users/oscar/Desktop/demo.txt"
