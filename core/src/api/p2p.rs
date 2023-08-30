@@ -1,4 +1,4 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::alpha::AlphaRouter;
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -50,7 +50,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.mutation(|node, args: SpacedropArgs| async move {
 				// TODO: Handle multiple files path and error if zero paths
-				node.p2p
+
+				#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
+				tokio::spawn(async move {
+					node.p2p
 					.spacedrop(
 						args.peer_id,
 						PathBuf::from(
@@ -60,9 +63,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						),
 					)
 					.await
-					.map_err(|_| {
-						rspc::Error::new(ErrorCode::InternalServerError, "todo".to_string())
-					})
+					.unwrap();
+				});
 			})
 		})
 		.procedure("acceptSpacedrop", {

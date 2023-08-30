@@ -33,6 +33,7 @@ pub use block::*;
 pub use block_size::*;
 pub use sb_request::*;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Msg<'a> {
 	Block(Block<'a>),
 	Cancelled,
@@ -130,9 +131,19 @@ where
 				.unwrap(); // TODO: Error handling
 			stream.flush().await.unwrap(); // TODO: Error handling
 
-			if stream.read_u8().await.unwrap() == 1 {
-				debug!("Receiver cancelled Spacedrop transfer!");
-				return;
+			match stream.read_u8().await.unwrap() {
+				// Continue sending
+				0 => {}
+				// Cancelled by user
+				1 => {
+					debug!("Receiver cancelled Spacedrop transfer!");
+					return;
+				}
+				// Transfer complete
+				2 => {
+					return;
+				}
+				_ => todo!(),
 			}
 		}
 	}
@@ -180,6 +191,9 @@ where
 				}
 			}
 		}
+
+		stream.write_u8(2).await.unwrap();
+		stream.flush().await.unwrap(); // TODO: Error handling
 	}
 }
 
@@ -282,8 +296,8 @@ mod tests {
 
 	// TODO: Unit test the condition when the sender sets the `cancelled` flag
 
-	#[test]
-	fn test_msg() {
+	#[tokio::test]
+	async fn test_msg() {
 		let block = Block {
 			offset: 0,
 			size: 10,

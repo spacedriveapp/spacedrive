@@ -59,7 +59,8 @@ pub enum P2PEvent {
 	SpacedropRequest {
 		id: Uuid,
 		peer_id: PeerId,
-		name: String,
+		peer_name: String,
+		file_name: String,
 	},
 	SpacedropProgress {
 		id: Uuid,
@@ -213,6 +214,7 @@ impl P2PManager {
 							let pairing = pairing.clone();
 							let spacedrop_cancelations = spacedrop_cancelations.clone();
 							let node = node.clone();
+							let manager = manager.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -234,7 +236,14 @@ impl P2PManager {
 											.send(P2PEvent::SpacedropRequest {
 												id,
 												peer_id: event.peer_id,
-												name: req.name.clone(),
+												peer_name: manager
+													.get_discovered_peers()
+													.await
+													.into_iter()
+													.find(|p| p.peer_id == event.peer_id)
+													.map(|p| p.metadata.name)
+													.unwrap_or_else(|| "Unknown".to_string()),
+												file_name: req.name.clone(),
 											})
 											.is_err()
 										{

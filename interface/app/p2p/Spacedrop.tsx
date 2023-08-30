@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	useBridgeMutation,
 	useDiscoveredPeers,
@@ -7,9 +7,8 @@ import {
 	useZodForm
 } from '@sd/client';
 import {
-	Button,
 	Dialog,
-	InputField,
+	Input,
 	ProgressBar,
 	Select,
 	SelectOption,
@@ -39,17 +38,71 @@ function SpacedropProgress({ toastId, dropId }: { toastId: string | number; drop
 }
 
 export function SpacedropUI() {
+	const platform = usePlatform();
 	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
-
-	useEffect(() =>
-		subscribeSpacedropState(() => {
-			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
-		})
-	);
-
+	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
 	const [[spacedropToasts], _] = useState([new Map<string, null>()]);
+	const filePathInput = useRef<HTMLInputElement>(null);
+
 	useP2PEvents((data) => {
-		if (data.type === 'SpacedropProgress') {
+		if (data.type === 'SpacedropRequest') {
+			toast.info(
+				{
+					title: 'Incoming Spacedrop',
+					// TODO: Make this pretty
+					description: () => {
+						return (
+							<>
+								<p>
+									File '{data.file_name}' from '{data.peer_name}'
+								</p>
+								{/* TODO: This will be removed in the future for now it's just a hack */}
+								{platform.saveFilePickerDialog ? null : (
+									<Input
+										ref={filePathInput}
+										name="file_path"
+										size="sm"
+										placeholder="/Users/oscar/Desktop/demo.txt"
+										className="w-full"
+									/>
+								)}
+								{/* TODO: Button to expand the toast and show the entire PeerID for manual verification? */}
+							</>
+						);
+					}
+				},
+				{
+					duration: 30 * 1000,
+					onDismiss: () => {
+						acceptSpacedrop.mutate([data.id, null]);
+					},
+					action: {
+						label: 'Accept',
+						async onClick() {
+							let destinationFilePath = filePathInput.current?.value ?? '';
+							if (platform.saveFilePickerDialog) {
+								const result = await platform.saveFilePickerDialog({
+									title: 'Save Spacedrop',
+									defaultPath: data.file_name
+								});
+								if (!result) {
+									return;
+								}
+								destinationFilePath = result;
+							}
+
+							await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
+						}
+					},
+					cancel: {
+						label: 'Reject',
+						onClick() {
+							acceptSpacedrop.mutate([data.id, null]);
+						}
+					}
+				}
+			);
+		} else if (data.type === 'SpacedropProgress') {
 			if (!spacedropToasts.has(data.id)) {
 				toast.info(
 					{
@@ -71,18 +124,11 @@ export function SpacedropUI() {
 		}
 	});
 
-	useP2PEvents((data) => {
-		if (data.type === 'SpacedropRequest') {
-			dialogManager.create((dp) => (
-				<SpacedropRequestDialog
-					dropId={data.id}
-					name={data.name}
-					peerId={data.peer_id}
-					{...dp}
-				/>
-			));
-		}
-	});
+	useEffect(() =>
+		subscribeSpacedropState(() => {
+			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
+		})
+	);
 
 	return null;
 }
@@ -124,65 +170,6 @@ function SpacedropDialog(props: UseDialogProps) {
 						</SelectOption>
 					))}
 				</Select>
-			</div>
-		</Dialog>
-	);
-}
-
-function SpacedropRequestDialog(
-	props: { dropId: string; name: string; peerId: string } & UseDialogProps
-) {
-	const platform = usePlatform();
-	const form = useZodForm({
-		// We aren't using this but it's required for the Dialog :(
-		schema: z.object({
-			file_path: z.string()
-		})
-	});
-
-	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
-
-	// TODO: Automatically close this after 60 seconds cause the Spacedrop would have expired
-
-	return (
-		<Dialog
-			form={form}
-			dialog={useDialog(props)}
-			title="Received Spacedrop"
-			loading={acceptSpacedrop.isLoading}
-			ctaLabel="Accept"
-			closeLabel="Decline"
-			onSubmit={async (data) => {
-				if (platform.saveFilePickerDialog) {
-					const result = await platform.saveFilePickerDialog({
-						title: 'Save Spacedrop',
-						defaultPath: props.name
-					});
-
-					if (!result) {
-						return;
-					}
-
-					form.setValue('file_path', result);
-				}
-
-				return await form.handleSubmit((data) =>
-					acceptSpacedrop.mutateAsync([props.dropId, data.file_path])
-				)(data);
-			}}
-			onCancelled={() => acceptSpacedrop.mutate([props.dropId, null])}
-		>
-			<div className="space-y-2 py-2">
-				<p>File Name: {props.name}</p>
-				<p>Peer Id: {props.peerId}</p>
-				{platform.saveFilePickerDialog ? null : (
-					<InputField
-						size="sm"
-						placeholder="/Users/oscar/Desktop/demo.txt"
-						className="w-full"
-						{...form.register('file_path')}
-					/>
-				)}
 			</div>
 		</Dialog>
 	);

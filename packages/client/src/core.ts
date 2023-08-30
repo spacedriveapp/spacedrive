@@ -80,7 +80,7 @@ export type Procedures = {
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
-        { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
+        { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -327,7 +327,7 @@ export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVe
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; peer_name: string; file_name: string } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
 
 export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
 
