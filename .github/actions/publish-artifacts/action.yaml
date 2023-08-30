@@ -50,13 +50,13 @@ runs:
         if-no-files-found: error
         retention-days: 1
 
-    - name: Publish updater binaries
-      uses: actions/upload-artifact@v3
-      with:
-        name: Spacedrive-Updaters-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
-        path: |
-          target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.tar.gz*
-          target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.zip*
-          !target/**/deb/**/*.tar.gz
-        if-no-files-found: error
-        retention-days: 1
+    # - name: Publish updater binaries
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: Spacedrive-Updaters-${{ inputs.target }}-${{ env.GITHUB_SHA_SHORT }}
+    #     path: |
+    #       target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.tar.gz*
+    #       target/${{ inputs.target }}/${{ inputs.profile }}/bundle/**/*.zip*
+    #       !target/**/deb/**/*.tar.gz
+    #     if-no-files-found: error
+    #     retention-days: 1
