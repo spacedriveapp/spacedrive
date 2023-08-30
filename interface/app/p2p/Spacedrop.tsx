@@ -10,7 +10,7 @@ import {
 	Dialog,
 	Input,
 	ProgressBar,
-	Select,
+	SelectField,
 	SelectOption,
 	UseDialogProps,
 	dialogManager,
@@ -74,6 +74,9 @@ export function SpacedropUI() {
 				{
 					duration: 30 * 1000,
 					onDismiss: () => {
+						acceptSpacedrop.mutate([data.id, null]);
+					},
+					onAutoClose: () => {
 						acceptSpacedrop.mutate([data.id, null]);
 					},
 					action: {
@@ -147,11 +150,20 @@ function SpacedropDialog(props: UseDialogProps) {
 	const form = useZodForm({
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
-			target_peer: z.string()
+			targetPeer: z.string()
 		})
 	});
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
+
+	useEffect(() => {
+		if (!form.getValues("targetPeer")) {
+			const [peerId] = [...discoveredPeers.entries()][0] ?? [];
+			if (peerId) {
+				form.setValue("targetPeer", peerId);
+			}
+		}
+	}, [form, discoveredPeers]);
 
 	return (
 		<Dialog
@@ -164,21 +176,18 @@ function SpacedropDialog(props: UseDialogProps) {
 			onSubmit={form.handleSubmit((data) =>
 				doSpacedrop.mutateAsync({
 					file_path: getSpacedropState().droppedFiles,
-					peer_id: data.target_peer
+					peer_id: data.targetPeer
 				})
 			)}
 		>
 			<div className="space-y-2 py-2">
-				<Select
-					onChange={(e) => form.setValue('target_peer', e)}
-					value={form.watch('target_peer')}
-				>
+				<SelectField name="targetPeer">
 					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
-						<SelectOption default={index === 0} key={peerId} value={peerId}>
+						<SelectOption key={peerId} value={peerId}>
 							{metadata.name}
 						</SelectOption>
 					))}
-				</Select>
+				</SelectField>
 			</div>
 		</Dialog>
 	);

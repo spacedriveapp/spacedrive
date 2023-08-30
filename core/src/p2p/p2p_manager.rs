@@ -258,6 +258,9 @@ impl P2PManager {
 										tokio::select! {
 											_ = sleep(SPACEDROP_TIMEOUT) => {
 												info!("spacedrop({id}): timeout, rejecting!");
+
+												stream.write_all(&[0]).await.unwrap();
+												stream.flush().await.unwrap();
 											}
 											file_path = rx => {
 												match file_path {
@@ -285,7 +288,6 @@ impl P2PManager {
 
 														stream.write_all(&[0]).await.unwrap();
 														stream.flush().await.unwrap();
-
 													}
 													Err(_) => {
 														info!("spacedrop({id}): error with Spacedrop pairing request receiver!");
