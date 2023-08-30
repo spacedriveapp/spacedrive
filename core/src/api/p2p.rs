@@ -73,14 +73,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
-		// TODO: Send this over `p2p.events`
-		.procedure("spacedropProgress", {
-			R.subscription(|node, id: Uuid| async move {
-				node.p2p.spacedrop_progress(id).await.ok_or_else(|| {
-					rspc::Error::new(ErrorCode::BadRequest, "Spacedrop not found!".into())
-				})
-			})
-		})
 		.procedure("pair", {
 			R.mutation(|node, id: PeerId| async move {
 				node.p2p.pairing.clone().originator(id, node).await

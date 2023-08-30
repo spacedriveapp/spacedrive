@@ -6,7 +6,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use futures::Stream;
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
@@ -59,6 +58,10 @@ pub enum P2PEvent {
 		peer_id: PeerId,
 		name: String,
 	},
+	SpacedropProgress {
+		id: Uuid,
+		percent: u8,
+	},
 	// Pairing was reuqest has come in.
 	// This will fire on the responder only.
 	PairingRequest {
@@ -77,7 +80,6 @@ pub struct P2PManager {
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
-	pub spacedrop_progress: Arc<Mutex<HashMap<Uuid, broadcast::Sender<u8>>>>,
 	pub pairing: Arc<PairingManager>,
 	node_config_manager: Arc<config::Manager>,
 }
@@ -111,10 +113,6 @@ impl P2PManager {
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
-
-		let spacedrop_pairing_reqs = Arc::new(Mutex::new(HashMap::new()));
-		let spacedrop_progress = Arc::new(Mutex::new(HashMap::new()));
-
 		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
 
 		Ok((
@@ -122,9 +120,8 @@ impl P2PManager {
 				pairing,
 				events: (tx, rx),
 				manager,
-				spacedrop_pairing_reqs,
+				spacedrop_pairing_reqs: Default::default(),
 				metadata_manager,
-				spacedrop_progress,
 				node_config_manager: node_config,
 			}),
 			stream,
@@ -137,7 +134,7 @@ impl P2PManager {
 			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
 			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
-			let spacedrop_progress = self.spacedrop_progress.clone();
+
 			let pairing = self.pairing.clone();
 			let node = node.clone();
 
@@ -207,7 +204,6 @@ impl P2PManager {
 							let events = events.clone();
 							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
-							let spacedrop_progress = spacedrop_progress.clone();
 							let pairing = pairing.clone();
 							let node = node.clone();
 
@@ -226,12 +222,6 @@ impl P2PManager {
 										info!("spacedrop({id}): received from peer '{}' for file '{}' with file length '{}'", event.peer_id, req.name, req.size);
 
 										spacedrop_pairing_reqs.lock().await.insert(id, tx);
-
-										let (process_tx, _) = broadcast::channel(100);
-										spacedrop_progress
-											.lock()
-											.await
-											.insert(id, process_tx.clone());
 
 										if events
 											.send(P2PEvent::SpacedropRequest {
@@ -260,7 +250,7 @@ impl P2PManager {
 														let f = File::create(file_path).await.unwrap();
 
 														Transfer::new(&req, |percent| {
-															process_tx.send(percent).ok();
+															events.send(P2PEvent::SpacedropProgress { id, percent }).ok();
 														}).receive(&mut stream, f).await;
 
 														info!("spacedrop({id}): complete");
@@ -454,7 +444,6 @@ impl P2PManager {
 		path: PathBuf,
 	) -> Result<Option<Uuid>, ()> {
 		let id = Uuid::new_v4();
-		let (tx, _) = broadcast::channel(25);
 		let mut stream = self.manager.stream(peer_id).await.map_err(|_| ())?; // TODO: handle providing incorrect peer id
 
 		let file = File::open(&path).await.map_err(|_| ())?;
@@ -484,14 +473,16 @@ impl P2PManager {
 		let i = Instant::now();
 
 		let file = BufReader::new(file);
-		self.spacedrop_progress.lock().await.insert(id, tx.clone());
 		Transfer::new(
 			&match header {
 				Header::Spacedrop(req) => req,
 				_ => unreachable!(),
 			},
 			|percent| {
-				tx.send(percent).ok();
+				self.events
+					.0
+					.send(P2PEvent::SpacedropProgress { id, percent })
+					.ok();
 			},
 		)
 		.send(&mut stream, file)
@@ -503,17 +494,6 @@ impl P2PManager {
 		);
 
 		Ok(Some(id))
-	}
-
-	pub async fn spacedrop_progress(&self, id: Uuid) -> Option<impl Stream<Item = u8>> {
-		self.spacedrop_progress.lock().await.get(&id).map(|v| {
-			let mut v = v.subscribe();
-			async_stream::stream! {
-				while let Ok(item) = v.recv().await {
-					yield item;
-				}
-			}
-		})
 	}
 
 	pub async fn shutdown(&self) {
