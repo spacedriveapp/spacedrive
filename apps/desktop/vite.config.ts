@@ -20,5 +20,5 @@ export default mergeConfig(baseConfig, {
 	server: {
 		port: 8001
 	},
-	plugins: [devtoolsPlugin],
+	plugins: [devtoolsPlugin]
 });
