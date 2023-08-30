@@ -45,6 +45,8 @@ const toastClassName =
 
 const actionButtonClassName = '!rounded !px-1.5 !py-0.5 !font-normal';
 
+export const TOAST_TIMEOUT = 4000;
+
 interface ToastProps {
 	id: ToastId;
 	type?: ToastType;
