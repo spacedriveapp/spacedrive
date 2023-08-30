@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 import {
 	useBridgeMutation,
-	useBridgeSubscription,
 	useDiscoveredPeers,
-	useFeatureFlag,
 	useP2PEvents,
-	useZodForm,
-	withFeatureFlag
+	useSpacedropProgress,
+	useZodForm
 } from '@sd/client';
 import {
+	Button,
 	Dialog,
 	InputField,
 	Select,
@@ -18,6 +17,7 @@ import {
 	useDialog,
 	z
 } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
 
 export function SpacedropUI() {
@@ -88,6 +88,7 @@ function SpacedropDialog(props: UseDialogProps) {
 function SpacedropRequestDialog(
 	props: { dropId: string; name: string; peerId: string } & UseDialogProps
 ) {
+	const platform = usePlatform();
 	const form = useZodForm({
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
@@ -96,8 +97,11 @@ function SpacedropRequestDialog(
 	});
 
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
+	const progress = useSpacedropProgress(props.dropId);
 
 	// TODO: Automatically close this after 60 seconds cause the Spacedrop would have expired
+
+	console.log(progress);
 
 	return (
 		<Dialog
@@ -115,12 +119,34 @@ function SpacedropRequestDialog(
 			<div className="space-y-2 py-2">
 				<p>File Name: {props.name}</p>
 				<p>Peer Id: {props.peerId}</p>
-				<InputField
-					size="sm"
-					placeholder="/Users/oscar/Desktop/demo.txt"
-					className="w-full"
-					{...form.register('file_path')}
-				/>
+				{platform.saveFilePickerDialog ? (
+					<Button
+						onClick={() => {
+							if (!platform.saveFilePickerDialog) return;
+							platform
+								.saveFilePickerDialog({
+									title: 'Save Spacedrop',
+									defaultPath: props.name
+								})
+								.then((result) => {
+									if (!result) {
+										return;
+									}
+
+									form.setValue('file_path', result);
+								});
+						}}
+					>
+						Pick Save Location
+					</Button>
+				) : (
+					<InputField
+						size="sm"
+						placeholder="/Users/oscar/Desktop/demo.txt"
+						className="w-full"
+						{...form.register('file_path')}
+					/>
+				)}
 			</div>
 		</Dialog>
 	);
