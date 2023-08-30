@@ -10,9 +10,7 @@ export const currentLibraryStore = valtioPersist('sdActiveLibrary', {
 	id: null as string | null
 });
 
-export const getActiveRouteFromState = function (
-	state: any
-): Partial<Route<string, object | undefined>> {
+export const getActiveRouteFromState = (state: any): Partial<Route<string, object | undefined>> => {
 	if (!state.routes || state.routes.length === 0 || state.index >= state.routes.length) {
 		return state;
 	}
@@ -20,6 +18,6 @@ export const getActiveRouteFromState = function (
 	return getActiveRouteFromState(childActiveRoute);
 };
 
-export const getStackNameFromState = function (state: DrawerNavigationState<ParamListBase>) {
+export const getStackNameFromState = (state: DrawerNavigationState<ParamListBase>) => {
 	return getFocusedRouteNameFromRoute(getActiveRouteFromState(state)) ?? 'OverviewStack';
 };

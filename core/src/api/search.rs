@@ -8,7 +8,7 @@ use crate::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		non_indexed, LocationError,
 	},
-	object::preview::get_thumb_key,
+	object::media::thumbnail::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 };
 
@@ -575,5 +575,21 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(SearchData { items, cursor })
 				},
 			)
+		})
+		.procedure("objectsCount", {
+			#[derive(Deserialize, Type, Debug)]
+			#[serde(rename_all = "camelCase")]
+			#[specta(inline)]
+			struct Args {
+				#[serde(default)]
+				filter: ObjectFilterArgs,
+			}
+
+			R.with2(library())
+				.query(|(_, library), Args { filter }| async move {
+					let Library { db, .. } = library.as_ref();
+
+					Ok(db.object().count(filter.into_params()).exec().await? as u32)
+				})
 		})
 }

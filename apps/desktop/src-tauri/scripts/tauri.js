@@ -37,15 +37,8 @@ switch (args[0]) {
 		const env = setupPlatformEnv();
 
 		const tauriPatch = {
-			build: { features: [] },
-			tauri: { bundle: { macOS: {} }, updater: {} }
+			tauri: { bundle: { macOS: {} } }
 		};
-
-		if (process.env.TAURI_PRIVATE_KEY) {
-			console.log('Tauri Private Key detected, enabling updater');
-			tauriPatch.build.features.push('updater');
-			tauriPatch.tauri.updater.active = true;
-		}
 
 		switch (platform) {
 			case 'darwin': {

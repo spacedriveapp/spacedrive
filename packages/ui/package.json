@@ -49,7 +49,7 @@
 		"zod": "~3.22.2"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.19.3",
+		"@babel/core": "^7.22.11",
 		"@sd/config": "workspace:*",
 		"@storybook/types": "^7.0.24",
 		"@tailwindcss/typography": "^0.5.7",

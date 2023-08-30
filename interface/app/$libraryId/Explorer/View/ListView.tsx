@@ -274,7 +274,7 @@ export default () => {
 	const tableLength = table.getTotalSize();
 
 	const rowVirtualizer = useVirtualizer({
-		count: explorer.items ? rows.length : 100,
+		count: explorer.count ?? rows.length,
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => rowHeight, []),
 		paddingStart: paddingY + (isScrolled ? 35 : 0),
@@ -685,6 +685,8 @@ export default () => {
 					}
 				}
 			} else {
+				if (isSelected(item)) return;
+
 				explorer.resetSelectedItems([item]);
 				const hash = uniqueId(item);
 				setRanges([[hash, hash]]);
@@ -762,20 +764,22 @@ export default () => {
 
 	// Load more items
 	useEffect(() => {
-		if (!explorer.loadMore) return;
+		if (!explorer.loadMore || !explorer.items) return;
 
 		const lastRow = virtualRows[virtualRows.length - 1];
 		if (!lastRow) return;
 
-		const rowsBeforeLoadMore = explorer.rowsBeforeLoadMore || 1;
+		const rowsBeforeLoadMore = explorer.rowsBeforeLoadMore;
 
 		const loadMoreOnIndex =
 			rowsBeforeLoadMore > rows.length || lastRow.index > rows.length - rowsBeforeLoadMore
 				? rows.length - 1
 				: rows.length - rowsBeforeLoadMore;
 
-		if (lastRow.index === loadMoreOnIndex) explorer.loadMore.call(undefined);
-	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
+		if (lastRow.index === loadMoreOnIndex || lastRow.index > explorer.items.length) {
+			explorer.loadMore.call(undefined);
+		}
+	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore, explorer.items]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
 		if (!explorerView.selectable) return;
@@ -1117,26 +1121,6 @@ export default () => {
 									}}
 								>
 									{virtualRows.map((virtualRow) => {
-										if (!explorer.items) {
-											return (
-												<div
-													key={virtualRow.index}
-													className="absolute left-0 top-0 flex w-full py-px"
-													style={{
-														height: `${virtualRow.size}px`,
-														transform: `translateY(${
-															virtualRow.start -
-															rowVirtualizer.options.scrollMargin
-														}px)`,
-														paddingLeft: `${paddingX}px`,
-														paddingRight: `${paddingX}px`
-													}}
-												>
-													<div className="relative flex h-full w-full animate-pulse rounded-md bg-app-box" />
-												</div>
-											);
-										}
-
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 

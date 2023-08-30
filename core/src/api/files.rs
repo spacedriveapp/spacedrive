@@ -9,9 +9,12 @@ use crate::{
 		},
 		find_location, LocationError,
 	},
-	object::fs::{
-		copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-		erase::FileEraserJobInit,
+	object::{
+		fs::{
+			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+			erase::FileEraserJobInit,
+		},
+		media::media_data_image_from_prisma_data,
 	},
 	prisma::{file_path, location, object},
 	util::{db::maybe_missing, error::FileIOError},
@@ -23,6 +26,8 @@ use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_file_ext::kind::ObjectKind;
+use sd_media_metadata::MediaMetadata;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
@@ -43,9 +48,34 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.object()
 						.find_unique(object::id::equals(args.id))
-						.include(object::include!({ file_paths media_data }))
+						.include(object::include!({ file_paths }))
 						.exec()
 						.await?)
+				})
+		})
+		.procedure("getMediaData", {
+			R.with2(library())
+				.query(|(_, library), args: object::id::Type| async move {
+					library
+						.db
+						.object()
+						.find_unique(object::id::equals(args))
+						.select(object::select!({ id kind media_data }))
+						.exec()
+						.await?
+						.and_then(|obj| {
+							Some(match obj.kind {
+								Some(v) if v == ObjectKind::Image as i32 => {
+									MediaMetadata::Image(Box::new(
+										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+									))
+								}
+								_ => return None, // TODO(brxken128): audio and video
+							})
+						})
+						.ok_or_else(|| {
+							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
+						})
 				})
 		})
 		.procedure("getPath", {

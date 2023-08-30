@@ -1,6 +1,5 @@
-import { MaybeUndefined, useBridgeMutation, useLibraryContext } from '@sd/client';
-import { Button, Input, Switch, Tooltip, dialogManager } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
+import { MaybeUndefined, useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
+import { Button, Input, Switch, Tooltip, dialogManager, z } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
 import Setting from '../Setting';

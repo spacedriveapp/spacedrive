@@ -7,7 +7,9 @@ import { Loader } from './Loader';
 
 type ToastId = ToastT['id'];
 type ToastType = 'info' | 'success' | 'error';
-type ToastMessage = ReactNode | { title: string; description?: string };
+type ToastMessage =
+	| ReactNode
+	| { title: string; description?: string | ((id: string | number) => JSX.Element) };
 type ToastPromiseData = unknown;
 type ToastPromise<T = ToastPromiseData> = Promise<T> | (() => Promise<T>);
 type ToastAction = { label: string; onClick: () => void; className?: string };
@@ -42,6 +44,8 @@ const toastClassName =
 	'w-full cursor-default select-none overflow-hidden rounded-md border border-app-line bg-app-darkBox/90 shadow-lg p-3 text-sm text-ink-faint backdrop-blur';
 
 const actionButtonClassName = '!rounded !px-1.5 !py-0.5 !font-normal';
+
+export const TOAST_TIMEOUT = 4000;
 
 interface ToastProps {
 	id: ToastId;
@@ -98,7 +102,13 @@ const Toast = ({ id, type, message, icon, action, cancel, closable = true }: Toa
 			<div className="flex grow flex-col">
 				{title && <span className="font-medium text-ink">{title}</span>}
 
-				{description && <span className="mt-0.5">{description}</span>}
+				<div className="mt-0.5">
+					{typeof description === 'function' ? (
+						description(id)
+					) : (
+						<span>{description}</span>
+					)}
+				</div>
 
 				{(action || cancel) && (
 					<div className="mt-2.5 flex gap-2">

@@ -8,7 +8,12 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
-import { NotificationContextProvider, P2PContextProvider, useDebugState } from '@sd/client';
+import {
+	NotificationContextProvider,
+	P2PContextProvider,
+	useDebugState,
+	useLoadBackendFeatureFlags
+} from '@sd/client';
 import ErrorFallback from './ErrorFallback';
 import { P2P } from './app/p2p';
 
@@ -46,6 +51,8 @@ const Devtools = () => {
 };
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
+	useLoadBackendFeatureFlags();
+
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<P2PContextProvider>

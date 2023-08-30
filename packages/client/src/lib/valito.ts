@@ -11,9 +11,24 @@ export function resetStore<T extends Record<string, any>, E extends Record<strin
 }
 
 // The `valtio-persist` library is not working so this is a small alternative for us to use.
-export function valtioPersist<T extends object>(localStorageKey: string, initialObject?: T): T {
+export function valtioPersist<T extends object>(
+	localStorageKey: string,
+	initialObject?: T,
+	opts?: {
+		saveFn?: (data: T) => any;
+		restoreFn?: (data: any) => T;
+	}
+): T {
 	const d = localStorage.getItem(localStorageKey);
-	const p = proxy(d !== null ? JSON.parse(d) : initialObject);
-	subscribe(p, () => localStorage.setItem(localStorageKey, JSON.stringify(p)));
+	const p = proxy(
+		d !== null
+			? opts?.restoreFn
+				? opts.restoreFn(JSON.parse(d))
+				: JSON.parse(d)
+			: initialObject
+	);
+	subscribe(p, () =>
+		localStorage.setItem(localStorageKey, JSON.stringify(opts?.saveFn ? opts.saveFn(p) : p))
+	);
 	return p;
 }

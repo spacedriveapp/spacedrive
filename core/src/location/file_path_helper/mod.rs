@@ -45,12 +45,14 @@ file_path::select!(file_path_for_object_validator {
 	extension
 	integrity_checksum
 });
-file_path::select!(file_path_for_thumbnailer {
+file_path::select!(file_path_for_media_processor {
+	id
 	materialized_path
 	is_dir
 	name
 	extension
 	cas_id
+	object_id
 });
 file_path::select!(file_path_to_isolate {
 	location_id

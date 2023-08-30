@@ -1,16 +1,16 @@
+use crate::util::{error::FileIOError, version_manager::VersionManager};
+
 use std::path::PathBuf;
-use tokio::fs as async_fs;
 
 use int_enum::IntEnum;
+use tokio::fs;
 use tracing::{debug, error, trace};
-
-use crate::util::{error::FileIOError, version_manager::VersionManager};
 
 use super::{get_shard_hex, ThumbnailerError, THUMBNAIL_CACHE_DIR_NAME};
 
 #[derive(IntEnum, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(i32)]
-pub enum ThumbnailVersion {
+enum ThumbnailVersion {
 	V1 = 1,
 	V2 = 2,
 	Unknown = 0,
@@ -27,7 +27,7 @@ pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, Thumbnaile
 	debug!("Thumbnail directory: {:?}", thumbnail_dir);
 
 	// create all necessary directories if they don't exist
-	async_fs::create_dir_all(&thumbnail_dir)
+	fs::create_dir_all(&thumbnail_dir)
 		.await
 		.map_err(|e| FileIOError::from((&thumbnail_dir, e)))?;
 
@@ -63,7 +63,7 @@ pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, Thumbnaile
 /// This function moves all webp files in the thumbnail directory to their respective shard folders.
 /// It is used to migrate from V1 to V2.
 async fn move_webp_files(dir: &PathBuf) -> Result<(), ThumbnailerError> {
-	let mut dir_entries = async_fs::read_dir(dir)
+	let mut dir_entries = fs::read_dir(dir)
 		.await
 		.map_err(|source| FileIOError::from((dir, source)))?;
 	let mut count = 0;
@@ -81,12 +81,12 @@ async fn move_webp_files(dir: &PathBuf) -> Result<(), ThumbnailerError> {
 					let shard_folder = get_shard_hex(filename);
 
 					let new_dir = dir.join(shard_folder);
-					async_fs::create_dir_all(&new_dir)
+					fs::create_dir_all(&new_dir)
 						.await
 						.map_err(|source| FileIOError::from((new_dir.clone(), source)))?;
 
 					let new_path = new_dir.join(filename);
-					async_fs::rename(&path, &new_path)
+					fs::rename(&path, &new_path)
 						.await
 						.map_err(|source| FileIOError::from((path.clone(), source)))?;
 					count += 1;

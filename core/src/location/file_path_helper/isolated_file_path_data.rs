@@ -14,7 +14,7 @@ use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
+	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
 	file_path_to_isolate_with_id, file_path_walker, file_path_with_object, FilePathError,
 };
@@ -454,7 +454,7 @@ impl_from_db!(
 impl_from_db_without_location_id!(
 	file_path_for_file_identifier,
 	file_path_to_full_path,
-	file_path_for_thumbnailer,
+	file_path_for_media_processor,
 	file_path_for_object_validator,
 	file_path_to_handle_custom_uri
 );

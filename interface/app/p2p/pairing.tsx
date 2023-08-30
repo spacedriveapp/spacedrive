@@ -4,7 +4,8 @@ import {
 	OperatingSystem,
 	useBridgeMutation,
 	useCachedLibraries,
-	usePairingStatus
+	usePairingStatus,
+	useZodForm
 } from '@sd/client';
 import {
 	Button,
@@ -15,7 +16,6 @@ import {
 	UseDialogProps,
 	dialogManager,
 	useDialog,
-	useZodForm,
 	z
 } from '@sd/ui';
 
