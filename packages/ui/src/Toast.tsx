@@ -7,7 +7,9 @@ import { Loader } from './Loader';
 
 type ToastId = ToastT['id'];
 type ToastType = 'info' | 'success' | 'error';
-type ToastMessage = ReactNode | { title: string; description?: string };
+type ToastMessage =
+	| ReactNode
+	| { title: string; description?: string | ((id: string | number) => JSX.Element) };
 type ToastPromiseData = unknown;
 type ToastPromise<T = ToastPromiseData> = Promise<T> | (() => Promise<T>);
 type ToastAction = { label: string; onClick: () => void; className?: string };
@@ -98,7 +100,13 @@ const Toast = ({ id, type, message, icon, action, cancel, closable = true }: Toa
 			<div className="flex grow flex-col">
 				{title && <span className="font-medium text-ink">{title}</span>}
 
-				{description && <span className="mt-0.5">{description}</span>}
+				<div className="mt-0.5">
+					{typeof description === 'function' ? (
+						description(id)
+					) : (
+						<span>{description}</span>
+					)}
+				</div>
 
 				{(action || cancel) && (
 					<div className="mt-2.5 flex gap-2">
