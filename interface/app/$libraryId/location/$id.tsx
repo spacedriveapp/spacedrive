@@ -198,13 +198,12 @@ const useItems = ({
 			} else {
 				let cursor: FilePathCursorOrdering | undefined;
 
-				const cItem = c.items[c.items.length - 1]! as Extract<
-					ExplorerItem,
-					{ type: 'Path' }
-				>;
+				const cItem = c.items[c.items.length - 1] as
+					| Extract<ExplorerItem, { type: 'Path' }>
+					| undefined;
 
 				if (!order) cursor = { none: [] };
-				else {
+				else if (cItem) {
 					switch (order.field) {
 						case 'name': {
 							const data = cItem.item.name;
