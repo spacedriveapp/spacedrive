@@ -389,7 +389,9 @@ async fn handle_file(
 				if mime_type != "application/pdf" && range.length > file_size / 3 {
 					// max size sent (400kb / request)
 					// as it's local file system we can afford to read more often
-					cropped_length = min(file_size - range.start, 1024 * 400);
+					min(file_size - range.start, 1024 * 400)
+				} else {
+					cropped_length
 				}
 			};
 
