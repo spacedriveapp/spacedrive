@@ -28,7 +28,7 @@ function SpacedropProgress({ toastId, dropId }: { toastId: string | number; drop
 		if (progress === 100) {
 			setTimeout(() => toast.dismiss(toastId), 750);
 		}
-	});
+	}, [progress, toastId]);
 
 	return (
 		<div className="pt-1">
@@ -124,15 +124,13 @@ export function SpacedropUI() {
 				);
 				spacedropToasts.set(data.id, null);
 			}
-		} else if (data.type === "SpacedropRejected") {
+		} else if (data.type === 'SpacedropRejected') {
 			// TODO: Add more information to this like peer name, etc in future
 
 			// TODO: We need a `toast.warn` for this
-			toast.info(
-				{
-					title: 'Spacedrop Rejected',
-				}
-			);
+			toast.info({
+				title: 'Spacedrop Rejected'
+			});
 		}
 	});
 
@@ -157,10 +155,10 @@ function SpacedropDialog(props: UseDialogProps) {
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
 	useEffect(() => {
-		if (!form.getValues("targetPeer")) {
+		if (!form.getValues('targetPeer')) {
 			const [peerId] = [...discoveredPeers.entries()][0] ?? [];
 			if (peerId) {
-				form.setValue("targetPeer", peerId);
+				form.setValue('targetPeer', peerId);
 			}
 		}
 	}, [form, discoveredPeers]);
