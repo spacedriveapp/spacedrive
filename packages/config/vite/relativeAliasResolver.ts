@@ -5,6 +5,9 @@ import { Alias } from 'vite';
 const projectPath = path.resolve(__dirname, '../../../');
 const pkgJsonCache = new Map();
 
+// /src/ or \src\, depending on platform
+const SRC_DIR_PATH = `${path.sep}src${path.sep}`;
+
 const resolver: Alias = {
 	find: /^(~\/.+)/,
 	replacement: '$1',
@@ -17,10 +20,9 @@ const resolver: Alias = {
 		const [_, sourcePath] = source.split('~/');
 
 		const relativeImporter = importer?.replace(projectPath, '');
-		if (relativeImporter && relativeImporter.includes(`${path.sep}src${path.sep}`)) {
-			const [pkg] = relativeImporter.split(`${path.sep}src${path.sep}`);
-
-			root = `${projectPath}${pkg}${path.sep}src`;
+		if (relativeImporter && relativeImporter.includes(SRC_DIR_PATH)) {
+			const [pkg] = relativeImporter.split(SRC_DIR_PATH);
+			root = path.join(projectPath, pkg, 'src');
 		} else if (importer) {
 			const pathObj = path.parse(importer);
 
@@ -32,7 +34,7 @@ const resolver: Alias = {
 
 				if (hasPkgJson === undefined)
 					try {
-						await fs.stat(`${parent}${path.sep}package.json`);
+						await fs.stat(path.join(parent, 'package.json'));
 						pkgJsonCache.set(parent, (hasPkgJson = true));
 					} catch {
 						pkgJsonCache.set(parent, (hasPkgJson = false));
@@ -50,7 +52,7 @@ const resolver: Alias = {
 			throw new Error(`Failed to resolve import path ${source} in file ${importer}`);
 		}
 
-		const absolutePath = `${root}${path.sep}${sourcePath}`;
+		const absolutePath = path.join(root, sourcePath);
 
 		const folderItems = await fs.readdir(path.join(absolutePath, '..'));
 
@@ -65,8 +67,10 @@ const resolver: Alias = {
 			const directoryItems = await fs.readdir(absolutePath + path.extname(item));
 
 			const indexFile = directoryItems.find((i) => i.startsWith('index'));
+			if (!indexFile)
+				throw new Error(`Failed to resolve import path ${source} in file ${importer}`);
 
-			return `${absolutePath}${path.sep}${indexFile}`;
+			return path.join(absolutePath, indexFile);
 		} else {
 			return fullPath;
 		}
