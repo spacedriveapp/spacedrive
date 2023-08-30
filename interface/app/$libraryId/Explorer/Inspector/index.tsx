@@ -18,6 +18,7 @@ import {
 import {
 	type HTMLAttributes,
 	type ReactNode,
+	forwardRef,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -49,6 +50,8 @@ export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow sha
 export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
 export const MetaTitle = tw.h5`text-xs font-bold`;
 
+export const INSPECTOR_WIDTH = 260;
+
 type MetadataDate = Date | { from: Date; to: Date } | null;
 
 const DATE_FORMAT = 'D MMM YYYY';
@@ -70,39 +73,41 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	showThumbnail?: boolean;
 }
 
-export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
-	const explorer = useExplorerContext();
+export const Inspector = forwardRef<HTMLDivElement, Props>(
+	({ showThumbnail = true, style, ...props }, ref) => {
+		const explorer = useExplorerContext();
 
-	const isDark = useIsDark();
+		const isDark = useIsDark();
 
-	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
+		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
-	return (
-		<div {...props}>
-			{showThumbnail && (
-				<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
-					{isNonEmpty(selectedItems) ? (
-						<Thumbnails items={selectedItems} />
+		return (
+			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
+				{showThumbnail && (
+					<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
+						{isNonEmpty(selectedItems) ? (
+							<Thumbnails items={selectedItems} />
+						) : (
+							<img src={isDark ? Image : Image_Light} />
+						)}
+					</div>
+				)}
+
+				<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+					{!isNonEmpty(selectedItems) ? (
+						<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
+							Nothing selected
+						</div>
+					) : selectedItems.length === 1 ? (
+						<SingleItemMetadata item={selectedItems[0]} />
 					) : (
-						<img src={isDark ? Image : Image_Light} />
+						<MultiItemMetadata items={selectedItems} />
 					)}
 				</div>
-			)}
-
-			<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-				{!isNonEmpty(selectedItems) ? (
-					<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-						Nothing selected
-					</div>
-				) : selectedItems.length === 1 ? (
-					<SingleItemMetadata item={selectedItems[0]} />
-				) : (
-					<MultiItemMetadata items={selectedItems} />
-				)}
 			</div>
-		</div>
-	);
-};
+		);
+	}
+);
 
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	const explorerStore = useExplorerStore();
