@@ -3,9 +3,15 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
+	ExplorerItem,
 	ExplorerSettings,
+	FilePathCursorOrdering,
 	FilePathFilterArgs,
+	FilePathOrderAndPaginationArgs,
+	FilePathSearchArgs,
 	FilePathSearchOrdering,
+	ObjectCursorOrdering,
+	SearchData,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -169,27 +175,134 @@ const useItems = ({
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
+	const arg: FilePathSearchArgs = {
+		filter,
+		take,
+		orderAndPagination: explorerSettings.order
+			? {
+					orderOnly: explorerSettings.order
+			  }
+			: undefined
+	};
+
 	const query = useInfiniteQuery({
-		queryKey: [
-			'search.paths',
-			{
-				library_id: library.uuid,
-				arg: {
-					order: explorerSettings.order,
-					filter,
-					take
+		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
+		queryFn: ({ pageParam, queryKey }) => {
+			const c: SearchData<ExplorerItem> | undefined = pageParam;
+			const { order } = explorerSettings;
+
+			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
+
+			if (!c) {
+				if (order) orderAndPagination = { orderOnly: order };
+			} else {
+				let cursor: FilePathCursorOrdering | undefined;
+
+				const cItem = c.items[c.items.length - 1]! as Extract<
+					ExplorerItem,
+					{ type: 'Path' }
+				>;
+
+				if (!order) cursor = { none: [] };
+				else {
+					switch (order.field) {
+						case 'name': {
+							const data = cItem.item.name;
+							if (data !== null)
+								cursor = {
+									name: {
+										order: order.value,
+										data
+									}
+								};
+							break;
+						}
+						case 'dateCreated': {
+							const data = cItem.item.date_created;
+							if (data !== null)
+								cursor = {
+									dateCreated: {
+										order: order.value,
+										data
+									}
+								};
+							break;
+						}
+						case 'dateModified': {
+							const data = cItem.item.date_modified;
+							if (data !== null)
+								cursor = {
+									dateModified: {
+										order: order.value,
+										data
+									}
+								};
+							break;
+						}
+						case 'dateIndexed': {
+							const data = cItem.item.date_indexed;
+							if (data !== null)
+								cursor = {
+									dateIndexed: {
+										order: order.value,
+										data
+									}
+								};
+							break;
+						}
+						case 'object': {
+							const object = cItem.item.object;
+							if (!object) break;
+
+							let objectCursor: ObjectCursorOrdering | undefined;
+
+							switch (order.value.field) {
+								case 'dateAccessed': {
+									const data = object.date_accessed;
+									if (data !== null)
+										objectCursor = {
+											dateAccessed: {
+												order: order.value.value,
+												data
+											}
+										};
+									break;
+								}
+								case 'kind': {
+									const data = object.kind;
+									if (data !== null)
+										objectCursor = {
+											kind: {
+												order: order.value.value,
+												data
+											}
+										};
+									break;
+								}
+							}
+
+							if (objectCursor)
+								cursor = {
+									object: objectCursor
+								};
+
+							break;
+						}
+					}
 				}
+
+				if (cursor) orderAndPagination = { cursor };
 			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			ctx.client.query([
+
+			return ctx.client.query([
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
+					orderAndPagination
 				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+			]);
+		},
+		getNextPageParam: (lastPage) => lastPage,
 		keepPreviousData: true,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});

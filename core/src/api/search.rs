@@ -15,7 +15,7 @@ use crate::{
 use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::{operator, or};
+use prisma_client_rust::{operator, or, WhereQuery};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -182,6 +182,32 @@ impl FilePathFilterArgs {
 			))
 		}
 	}
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CursorOrderingItem<T> {
+	order: SortOrder,
+	data: T,
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum ObjectCursorOrdering {
+	DateAccessed(CursorOrderingItem<DateTime<FixedOffset>>),
+	Kind(CursorOrderingItem<i32>),
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum FilePathCursorOrdering {
+	None(file_path::pub_id::Type),
+	Name(CursorOrderingItem<String>),
+	// SizeInBytes(CursorOrderingItem<Vec<u8>>),
+	DateCreated(CursorOrderingItem<DateTime<FixedOffset>>),
+	DateModified(CursorOrderingItem<DateTime<FixedOffset>>),
+	DateIndexed(CursorOrderingItem<DateTime<FixedOffset>>),
+	Object(ObjectCursorOrdering),
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
@@ -359,9 +385,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
-			enum FilePathPagination {
-				Cursor { pub_id: file_path::pub_id::Type },
-				Offset(i32),
+			enum FilePathOrderAndPaginationArgs {
+				OrderOnly(FilePathSearchOrdering),
+				Cursor(FilePathCursorOrdering),
+				Offset {
+					offset: i32,
+					order: Option<FilePathSearchOrdering>,
+				},
 			}
 
 			#[derive(Deserialize, Type, Debug)]
@@ -370,9 +400,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				take: Option<i32>,
 				#[specta(optional)]
-				order: Option<FilePathSearchOrdering>,
-				#[specta(optional)]
-				pagination: Option<FilePathPagination>,
+				order_and_pagination: Option<FilePathOrderAndPaginationArgs>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
@@ -387,8 +415,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				|(node, library),
 				 FilePathSearchArgs {
 				     take,
-				     order,
-				     pagination,
+				     order_and_pagination,
 				     filter,
 				     group_directories,
 				 }| async move {
@@ -399,7 +426,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut query = db
 						.file_path()
 						.find_many(filter.into_params(db).await?)
-						.take(take as i64 + 1);
+						.take(take as i64);
 
 					// WARN: this order_by for grouping directories MUST always come before the other order_by
 					if group_directories {
@@ -407,32 +434,83 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					// WARN: this order_by for sorting data MUST always come after the other order_by
-					if let Some(order) = order {
-						query = query.order_by(order.into_param());
-					}
-
-					if let Some(pagination) = pagination {
-						match pagination {
-							FilePathPagination::Cursor { pub_id } => {
-								query = query.cursor(file_path::pub_id::equals(pub_id));
+					if let Some(order_and_pagination) = order_and_pagination {
+						match order_and_pagination {
+							FilePathOrderAndPaginationArgs::OrderOnly(order) => {
+								query = query.order_by(order.into_param());
 							}
-							FilePathPagination::Offset(offset) => query = query.skip(offset as i64),
+							FilePathOrderAndPaginationArgs::Cursor(cursor_ordering) => {
+								macro_rules! arm {
+									($field:ident, $item:ident) => {{
+										let item = $item;
+
+										query.add_where(match item.order {
+											SortOrder::Asc => file_path::$field::gt(item.data),
+											SortOrder::Desc => file_path::$field::lt(item.data),
+										});
+
+										query = query
+											.order_by(file_path::$field::order(item.order.into()))
+											.order_by(file_path::pub_id::order(item.order.into()));
+									}};
+								}
+
+								use FilePathCursorOrdering::*;
+								match cursor_ordering {
+									None(item) => {
+										query = query.cursor(file_path::pub_id::equals(item));
+									}
+									Name(item) => arm!(name, item),
+									DateCreated(item) => arm!(date_created, item),
+									DateModified(item) => arm!(date_modified, item),
+									DateIndexed(item) => arm!(date_indexed, item),
+									Object(obj) => {
+										macro_rules! arm {
+											($field:ident, $item:ident) => {{
+												let item = $item;
+
+												query.add_where(match item.order {
+													SortOrder::Asc => file_path::object::is(vec![
+														object::$field::gt(item.data),
+													]),
+													SortOrder::Desc => file_path::object::is(vec![
+														object::$field::lt(item.data),
+													]),
+												});
+
+												query = query
+													.order_by(file_path::object::order(vec![
+														object::$field::order(item.order.into()),
+													]))
+													.order_by(file_path::pub_id::order(
+														item.order.into(),
+													));
+											}};
+										}
+
+										match obj {
+											ObjectCursorOrdering::Kind(item) => arm!(kind, item),
+											ObjectCursorOrdering::DateAccessed(item) => {
+												arm!(date_accessed, item)
+											}
+										}
+									}
+								};
+							}
+							FilePathOrderAndPaginationArgs::Offset { offset, order } => {
+								query = query.skip(offset as i64);
+
+								if let Some(order) = order {
+									query = query.order_by(order.into_param())
+								}
+							}
 						}
 					}
 
-					let (file_paths, cursor) = {
-						let mut paths = query
-							.include(file_path_with_object::include())
-							.exec()
-							.await?;
-
-						let cursor = (paths.len() as i32 > take)
-							.then(|| paths.pop())
-							.flatten()
-							.map(|r| r.pub_id);
-
-						(paths, cursor)
-					};
+					let file_paths = query
+						.include(file_path_with_object::include())
+						.exec()
+						.await?;
 
 					let mut items = Vec::with_capacity(file_paths.len());
 
@@ -453,7 +531,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
-					Ok(SearchData { items, cursor })
+					Ok(SearchData {
+						items,
+						cursor: None,
+					})
 				},
 			)
 		})

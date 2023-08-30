@@ -128,6 +128,8 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type CreateLibraryArgs = { name: LibraryName }
 
+export type CursorOrderingItem<T> = { order: SortOrder; data: T }
+
 export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
@@ -159,11 +161,13 @@ export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; 
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
+export type FilePathCursorOrdering = { none: number[] } | { name: CursorOrderingItem<string> } | { dateCreated: CursorOrderingItem<string> } | { dateModified: CursorOrderingItem<string> } | { dateIndexed: CursorOrderingItem<string> } | { object: ObjectCursorOrdering }
+
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
-export type FilePathPagination = { cursor: { pub_id: number[] } } | { offset: number }
+export type FilePathOrderAndPaginationArgs = { orderOnly: FilePathSearchOrdering } | { cursor: FilePathCursorOrdering } | { offset: { offset: number; order: FilePathSearchOrdering | null } }
 
-export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; pagination?: FilePathPagination | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: FilePathOrderAndPaginationArgs | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
 export type FilePathSearchOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectSearchOrdering }
 
@@ -299,6 +303,8 @@ export type NotificationData = { PairingRequest: { id: string; pairing_id: numbe
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
+
+export type ObjectCursorOrdering = { dateAccessed: CursorOrderingItem<string> } | { kind: CursorOrderingItem<number> }
 
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
 

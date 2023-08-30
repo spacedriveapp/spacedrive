@@ -3,15 +3,18 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
 	Category,
+	ExplorerItem,
 	FilePathFilterArgs,
+	FilePathOrderAndPaginationArgs,
+	FilePathSearchArgs,
 	ObjectFilterArgs,
 	ObjectSearchOrdering,
+	SearchData,
 	useLibraryContext,
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { useExplorerContext } from '../Explorer/Context';
-import { getExplorerStore, useExplorerStore } from '../Explorer/store';
+import { getExplorerStore } from '../Explorer/store';
 import { UseExplorerSettings } from '../Explorer/useExplorer';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
@@ -99,6 +102,7 @@ export function useItems(
 	);
 
 	const pathsFilter: FilePathFilterArgs = { object: objectFilter };
+	const pathsArgs: FilePathSearchArgs = { take: 50, filter: pathsFilter };
 
 	const pathsCount = useLibraryQuery(['search.pathsCount', { filter: pathsFilter }]);
 
@@ -106,22 +110,28 @@ export function useItems(
 	// For now it's not needed because folders shouldn't show.
 	const pathsQuery = useInfiniteQuery({
 		enabled: !isObjectQuery,
-		queryKey: [
-			'search.paths',
-			{
-				library_id: library.uuid,
-				arg: { take: 50, filter: pathsFilter }
+		queryKey: ['search.paths', { library_id: library.uuid, arg: pathsArgs }] as const,
+		queryFn: ({ pageParam, queryKey }) => {
+			const cursor: SearchData<ExplorerItem> | undefined = pageParam;
+
+			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
+
+			if (cursor) {
+				const cItem = cursor.items[cursor.items.length - 1] as
+					| Extract<ExplorerItem, { type: 'Path' }>
+					| undefined;
+
+				if (cItem)
+					orderAndPagination = {
+						cursor: {
+							none: cItem.item.pub_id
+						}
+					};
 			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			rspc.client.query([
-				'search.paths',
-				{
-					...queryKey[1].arg,
-					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
+
+			return rspc.client.query(['search.paths', { ...queryKey[1].arg, orderAndPagination }]);
+		},
+		getNextPageParam: (lastPage) => lastPage,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 
