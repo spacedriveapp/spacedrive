@@ -18,7 +18,6 @@ function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>)
 			target={props.blank ? '_blank' : ''}
 			className="text-gray-300 duration-300 hover:text-white hover:opacity-50"
 			rel="noreferrer"
-			aria-label="link"
 			{...props}
 		>
 			{props.children}

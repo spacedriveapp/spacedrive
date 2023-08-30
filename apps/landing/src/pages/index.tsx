@@ -123,7 +123,7 @@ export default function HomePage() {
 					alt="l"
 					src="/images/headergradient.webp"
 				/>
-				<div className="flex flex-col items-center w-full px-4">
+				<div className="flex w-full flex-col items-center px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -133,10 +133,10 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent fade-in-heading bg-gradient-to-r from-white to-indigo-400 bg-clip-text md:text-5xl lg:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
+					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -154,7 +154,7 @@ export default function HomePage() {
 					>
 						<HomeCTA
 							icon={<Download />}
-							className="relative z-5"
+							className="z-5 relative"
 							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
 						/>
 					</Link>
@@ -165,7 +165,7 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-					<div className="relative z-10 flex gap-3 mt-5">
+					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
@@ -194,7 +194,7 @@ export default function HomePage() {
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="relative overflow-hidden fade-in-heading animation-delay-2">
+							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
 								<AppFrameInner>
 									<Image
 										loading="eager"
@@ -225,14 +225,12 @@ interface Props {
 	label: string;
 }
 
-const Platform = forwardRef<HTMLAnchorElement, Props>(({ icon: Icon, url, label }, ref) => {
+const Platform = ({ icon: Icon, url, label }: Props) => {
 	return (
 		<Tooltip label={label}>
-			<Link ref={ref} href={url} target="_blank">
+			<Link aria-label={label} href={url} target="_blank">
 				<Icon size={20} className="opacity-80" weight="fill" />
 			</Link>
 		</Tooltip>
 	);
-});
-
-Platform.displayName = 'Platform';
+};

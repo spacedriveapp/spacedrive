@@ -31,9 +31,9 @@ const CloudStorageArt = () => {
 					width="32"
 					height="32"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -66,9 +66,9 @@ const CloudStorageArt = () => {
 					width="32"
 					height="32"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -102,9 +102,9 @@ const CloudStorageArt = () => {
 					y2="0.547463"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#343259" stop-opacity="0" />
-					<stop offset="0.593922" stop-color="#25273E" />
-					<stop offset="1" stop-color="#343259" stop-opacity="0" />
+					<stop stopColor="#343259" stopOpacity="0" />
+					<stop offset="0.593922" stopColor="#25273E" />
+					<stop offset="1" stopColor="#343259" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint1_linear_630_169"
@@ -114,9 +114,9 @@ const CloudStorageArt = () => {
 					y2="74"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#4AA8FF" stop-opacity="0" />
-					<stop offset="0.552083" stop-color="#4AA8FF" />
-					<stop offset="1" stop-color="#4AA8FF" stop-opacity="0" />
+					<stop stopColor="#4AA8FF" stopOpacity="0" />
+					<stop offset="0.552083" stopColor="#4AA8FF" />
+					<stop offset="1" stopColor="#4AA8FF" stopOpacity="0" />
 				</linearGradient>
 			</defs>
 		</svg>

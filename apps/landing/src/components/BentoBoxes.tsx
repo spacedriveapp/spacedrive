@@ -67,6 +67,7 @@ const BentoBoxes = () => {
 					<Image
 						className="mx-auto"
 						alt="Encryption"
+						loading="lazy"
 						width={200}
 						height={300}
 						quality={100}
@@ -81,6 +82,7 @@ const BentoBoxes = () => {
 						alt="Powerful tags"
 						width={300}
 						quality={100}
+						loading="lazy"
 						height={100}
 						src="/images/bento/tags.webp"
 					/>
@@ -108,6 +110,7 @@ const BentoBoxes = () => {
 						className="mx-auto brightness-110"
 						alt="Search"
 						width={340}
+						loading="lazy"
 						height={300}
 						quality={100}
 						src="/images/bento/search.webp"
@@ -122,6 +125,7 @@ const BentoBoxes = () => {
 						alt="Library"
 						width={340}
 						height={300}
+						loading="lazy"
 						quality={100}
 						src="/images/bento/library.webp"
 					/>

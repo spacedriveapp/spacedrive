@@ -48,7 +48,7 @@ const PlatformsArt = () => {
 					id="Vector 45"
 					d="M216.064 79.9951C194.505 55.534 135.342 22.2836 71.1631 84.9702"
 					stroke="url(#paint1_linear_643_248)"
-					stroke-width="2"
+					strokeWidth="2"
 				/>
 				<g
 					style={
@@ -63,7 +63,7 @@ const PlatformsArt = () => {
 						id="Vector 39"
 						d="M218.553 91.811C206.115 126.844 163.826 213.204 89.1992 213.702"
 						stroke="url(#paint2_linear_643_248)"
-						stroke-width="2"
+						strokeWidth="2"
 					/>
 					<circle className="circle" id="left-bottom-circle" cx="1" cy="2" r="3" />
 				</g>
@@ -80,7 +80,7 @@ const PlatformsArt = () => {
 						id="Vector 41"
 						d="M274.523 96.1643C290.9 129.954 341.439 195.294 402.633 201.264"
 						stroke="url(#paint4_linear_643_248)"
-						stroke-width="2"
+						strokeWidth="2"
 					/>
 					<circle id="right-bottom-circle" className="circle" cx="1" cy="2" r="3" />
 				</g>
@@ -88,7 +88,7 @@ const PlatformsArt = () => {
 					id="Vector 44"
 					d="M102.258 204.374C139.986 197.325 216.313 153.13 219.795 102.383"
 					stroke="url(#paint6_linear_643_248)"
-					stroke-width="2"
+					strokeWidth="2"
 					style={
 						{
 							'--lineduration': '3s'
@@ -100,7 +100,7 @@ const PlatformsArt = () => {
 					id="Vector 43"
 					d="M256.488 107.358C264.158 113.37 258.105 145.294 252.135 217.433"
 					stroke="url(#paint7_linear_643_248)"
-					stroke-width="2"
+					strokeWidth="2"
 					style={
 						{
 							'--lineduration': '4.5s'
@@ -112,7 +112,7 @@ const PlatformsArt = () => {
 					id="Vector 46"
 					d="M283.229 96.7864C303.336 130.161 347.781 212.583 394.547 205.617"
 					stroke="url(#paint8_linear_643_248)"
-					stroke-width="2"
+					strokeWidth="2"
 					style={
 						{
 							'--lineduration': '4.2s'
@@ -133,7 +133,7 @@ const PlatformsArt = () => {
 						id="Vector 40"
 						d="M216.687 65.0698C191.811 55.9487 132.731 44.5474 95.418 71.9106"
 						stroke="url(#paint9_linear_643_248)"
-						stroke-width="2"
+						strokeWidth="2"
 					/>
 					<circle id="left-top-circle" className="circle" cx="1" cy="2" r="3" />
 				</g>
@@ -150,7 +150,7 @@ const PlatformsArt = () => {
 						id="middlelineparent"
 						d="M249.648 93.6768C246.331 121.04 260.841 124.149 257.732 213.08"
 						stroke="url(#paint11_linear_643_248)"
-						stroke-width="2"
+						strokeWidth="2"
 					/>
 					<circle id="middlecircle" className="circle" cx="1" cy="2" r="3" />
 				</g>
@@ -164,7 +164,7 @@ const PlatformsArt = () => {
 					id="Vector 47"
 					d="M281.986 68.1792C304.582 45.3765 369.424 20.2935 428.131 79.9951"
 					stroke="url(#paint13_linear_643_248)"
-					stroke-width="2"
+					strokeWidth="2"
 				/>
 				<g
 					className="floating"
@@ -236,7 +236,7 @@ const PlatformsArt = () => {
 						id="Vector 42"
 						d="M289.448 59.4728C309.763 50.3517 365.692 40.4429 426.886 73.7763"
 						stroke="url(#paint16_linear_643_248)"
-						stroke-width="2"
+						strokeWidth="2"
 					/>
 					<circle id="right-top-circle" className="circle" cx="1" cy="2" r="3" />
 				</g>
@@ -354,7 +354,7 @@ const PlatformsArt = () => {
 							width="38.9942"
 							height="38.9942"
 							fill="url(#pattern0)"
-							shape-rendering="crispEdges"
+							shapeRendering="crispEdges"
 						/>
 					</g>
 				</g>
@@ -492,9 +492,9 @@ const PlatformsArt = () => {
 					width="38.8262"
 					height="38.8259"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -529,9 +529,9 @@ const PlatformsArt = () => {
 					width="40.0693"
 					height="40.0698"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -566,9 +566,9 @@ const PlatformsArt = () => {
 					width="56.5078"
 					height="56.5076"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -604,9 +604,9 @@ const PlatformsArt = () => {
 					width="56.5078"
 					height="56.5076"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -642,9 +642,9 @@ const PlatformsArt = () => {
 					width="35.3633"
 					height="35.3633"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -680,9 +680,9 @@ const PlatformsArt = () => {
 					width="32.876"
 					height="32.8757"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -718,9 +718,9 @@ const PlatformsArt = () => {
 					width="212.976"
 					height="216.331"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -736,9 +736,9 @@ const PlatformsArt = () => {
 					width="87.333"
 					height="87.3335"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -773,9 +773,9 @@ const PlatformsArt = () => {
 					width="68.9521"
 					height="72.5239"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -822,9 +822,9 @@ const PlatformsArt = () => {
 					width="58.9941"
 					height="58.9941"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -874,9 +874,9 @@ const PlatformsArt = () => {
 					width="71.1641"
 					height="71.1643"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -911,9 +911,9 @@ const PlatformsArt = () => {
 					width="62.9463"
 					height="65.8252"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -960,9 +960,9 @@ const PlatformsArt = () => {
 					width="70.2832"
 					height="70.2832"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -997,9 +997,9 @@ const PlatformsArt = () => {
 					width="62.6191"
 					height="62.6194"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -1046,9 +1046,9 @@ const PlatformsArt = () => {
 					width="74.8955"
 					height="74.8958"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -1083,9 +1083,9 @@ const PlatformsArt = () => {
 					width="64.333"
 					height="63.3201"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -1132,9 +1132,9 @@ const PlatformsArt = () => {
 					width="71.1641"
 					height="71.1643"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -1169,9 +1169,9 @@ const PlatformsArt = () => {
 					width="64.8662"
 					height="57.1904"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -1218,9 +1218,9 @@ const PlatformsArt = () => {
 					width="72.4082"
 					height="72.408"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feBlend
 						mode="normal"
 						in="SourceGraphic"
@@ -1255,9 +1255,9 @@ const PlatformsArt = () => {
 					width="67.3174"
 					height="67.3176"
 					filterUnits="userSpaceOnUse"
-					color-interpolation-filters="sRGB"
+					colorInterpolationFilters="sRGB"
 				>
-					<feFlood flood-opacity="0" result="BackgroundImageFix" />
+					<feFlood floodOpacity="0" result="BackgroundImageFix" />
 					<feColorMatrix
 						in="SourceAlpha"
 						type="matrix"
@@ -1305,8 +1305,8 @@ const PlatformsArt = () => {
 					y2="107.358"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint1_linear_643_248"
@@ -1316,9 +1316,9 @@ const PlatformsArt = () => {
 					y2="-29.9391"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint2_linear_643_248"
@@ -1328,9 +1328,9 @@ const PlatformsArt = () => {
 					y2="148.954"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint3_linear_643_248"
@@ -1340,9 +1340,9 @@ const PlatformsArt = () => {
 					y2="192.95"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#29263F" stop-opacity="0" />
-					<stop offset="0.5" stop-color="white" />
-					<stop offset="1" stop-color="#29263F" stop-opacity="0" />
+					<stop stopColor="#29263F" stopOpacity="0" />
+					<stop offset="0.5" stopColor="white" />
+					<stop offset="1" stopColor="#29263F" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint4_linear_643_248"
@@ -1352,9 +1352,9 @@ const PlatformsArt = () => {
 					y2="147.134"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint5_linear_643_248"
@@ -1364,9 +1364,9 @@ const PlatformsArt = () => {
 					y2="176.198"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#29263F" stop-opacity="0" />
-					<stop offset="0.489583" stop-color="white" />
-					<stop offset="1" stop-color="#29263F" stop-opacity="0" />
+					<stop stopColor="#29263F" stopOpacity="0" />
+					<stop offset="0.489583" stopColor="white" />
+					<stop offset="1" stopColor="#29263F" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint6_linear_643_248"
@@ -1376,9 +1376,9 @@ const PlatformsArt = () => {
 					y2="50.3275"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint7_linear_643_248"
@@ -1388,9 +1388,9 @@ const PlatformsArt = () => {
 					y2="200.638"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.673033" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.673033" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint8_linear_643_248"
@@ -1400,9 +1400,9 @@ const PlatformsArt = () => {
 					y2="52.0606"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint9_linear_643_248"
@@ -1412,9 +1412,9 @@ const PlatformsArt = () => {
 					y2="19.8763"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint10_linear_643_248"
@@ -1424,9 +1424,9 @@ const PlatformsArt = () => {
 					y2="74.6276"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#29263F" stop-opacity="0" />
-					<stop offset="0.523042" stop-color="white" />
-					<stop offset="1" stop-color="#29263F" stop-opacity="0" />
+					<stop stopColor="#29263F" stopOpacity="0" />
+					<stop offset="0.523042" stopColor="white" />
+					<stop offset="1" stopColor="#29263F" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint11_linear_643_248"
@@ -1436,9 +1436,9 @@ const PlatformsArt = () => {
 					y2="206.825"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint12_linear_643_248"
@@ -1448,9 +1448,9 @@ const PlatformsArt = () => {
 					y2="170.241"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" stop-opacity="0" />
-					<stop offset="0.612817" stop-color="white" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0" />
+					<stop stopColor="#080710" stopOpacity="0" />
+					<stop offset="0.612817" stopColor="white" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint13_linear_643_248"
@@ -1460,9 +1460,9 @@ const PlatformsArt = () => {
 					y2="-31.1101"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint14_linear_643_248"
@@ -1472,8 +1472,8 @@ const PlatformsArt = () => {
 					y2="178.254"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint15_linear_643_248"
@@ -1483,8 +1483,8 @@ const PlatformsArt = () => {
 					y2="164.573"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint16_linear_643_248"
@@ -1494,9 +1494,9 @@ const PlatformsArt = () => {
 					y2="8.78604"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#080710" />
-					<stop offset="0.442708" stop-color="#363350" />
-					<stop offset="1" stop-color="#232229" stop-opacity="0.32" />
+					<stop stopColor="#080710" />
+					<stop offset="0.442708" stopColor="#363350" />
+					<stop offset="1" stopColor="#232229" stopOpacity="0.32" />
 				</linearGradient>
 				<linearGradient
 					id="paint17_linear_643_248"
@@ -1506,9 +1506,9 @@ const PlatformsArt = () => {
 					y2="60.0583"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#29263F" stop-opacity="0" />
-					<stop offset="0.523042" stop-color="white" />
-					<stop offset="1" stop-color="#29263F" stop-opacity="0" />
+					<stop stopColor="#29263F" stopOpacity="0" />
+					<stop offset="0.523042" stopColor="white" />
+					<stop offset="1" stopColor="#29263F" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint18_linear_643_248"
@@ -1518,8 +1518,8 @@ const PlatformsArt = () => {
 					y2="297.657"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint19_linear_643_248"
@@ -1529,8 +1529,8 @@ const PlatformsArt = () => {
 					y2="257.856"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint20_linear_643_248"
@@ -1540,8 +1540,8 @@ const PlatformsArt = () => {
 					y2="175.767"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint21_linear_643_248"
@@ -1551,8 +1551,8 @@ const PlatformsArt = () => {
 					y2="112.333"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint22_linear_643_248"
@@ -1562,8 +1562,8 @@ const PlatformsArt = () => {
 					y2="270.294"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint23_linear_643_248"
@@ -1573,8 +1573,8 @@ const PlatformsArt = () => {
 					y2="107.721"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint24_linear_643_248"
@@ -1584,8 +1584,8 @@ const PlatformsArt = () => {
 					y2="244.175"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint25_linear_643_248"
@@ -1595,8 +1595,8 @@ const PlatformsArt = () => {
 					y2="239.2"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<linearGradient
 					id="paint26_linear_643_248"
@@ -1606,8 +1606,8 @@ const PlatformsArt = () => {
 					y2="107.359"
 					gradientUnits="userSpaceOnUse"
 				>
-					<stop stop-color="#6864AD" />
-					<stop offset="1" stop-color="#282640" stop-opacity="0" />
+					<stop stopColor="#6864AD" />
+					<stop offset="1" stopColor="#282640" stopOpacity="0" />
 				</linearGradient>
 				<image
 					id="image0_643_248"

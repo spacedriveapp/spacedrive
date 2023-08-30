@@ -5,7 +5,6 @@ import Image from 'next/image';
 import React from 'react';
 
 const WormHole = () => {
-	console.log('rendering');
 	return (
 		<div
 			className="relative mb-[225px] mt-[240px] flex w-full max-w-[800px] items-center justify-center sm:mb-[220px]
