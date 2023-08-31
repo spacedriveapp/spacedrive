@@ -25,7 +25,7 @@ use prisma_client_rust::QueryError;
 use sd_file_ext::text::is_text;
 use thiserror::Error;
 use tokio::{
-	fs::File,
+	fs::{self, File},
 	io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 use tracing::error;
@@ -207,6 +207,18 @@ async fn handle_file(
 			lru_entry
 		};
 
+	let metadata = fs::metadata(&file_path_full_path)
+		.await
+		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?;
+
+	if metadata.is_dir() {
+		return Err(HandleCustomUriError::BadRequest(
+			"Tried to query a directory",
+		));
+	}
+
+	let content_lenght = metadata.len();
+
 	let mut file = File::open(&file_path_full_path).await.map_err(|err| {
 		if err.kind() == io::ErrorKind::NotFound {
 			HandleCustomUriError::NotFound("file")
@@ -284,12 +296,6 @@ async fn handle_file(
 		_ => "text/plain",
 	};
 
-	let mut content_lenght = file
-		.metadata()
-		.await
-		.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
-		.len();
-
 	let mime_type = if mime_type == "text/plain" {
 		let mut text_buf = vec![0; min(content_lenght as usize, MAX_TEXT_READ_LENGHT)];
 		if !text_buf.is_empty() {
@@ -341,7 +347,7 @@ async fn handle_file(
 
 	// GET is the only method for which range handling is defined, according to the spec
 	// https://httpwg.org/specs/rfc9110.html#field.range
-	let range = if method == Method::GET {
+	let range = if method == Method::GET && content_lenght > 0 {
 		if let Some(range) = req.headers().get("range") {
 			range
 				.to_str()
@@ -371,23 +377,27 @@ async fn handle_file(
 	let buf = match range {
 		Some(range) => {
 			let file_size = content_lenght;
-			content_lenght = range.length;
+			let cropped_length = range.length;
 
 			// TODO: For some reason webkit2gtk doesn't like this at all.
 			// It causes it to only stream random pieces of any given audio file.
 			// TODO: This causes macOS to freeze streaming mp4
 			#[cfg(windows)]
-			// prevent max_length;
-			// specially on webview2
-			if mime_type != "application/pdf" && range.length > file_size / 3 {
-				// max size sent (400kb / request)
-				// as it's local file system we can afford to read more often
-				content_lenght = min(file_size - range.start, 1024 * 400);
-			}
+			let cropped_length = {
+				// prevent max_length;
+				// specially on webview2
+				if mime_type != "application/pdf" && range.length > file_size / 3 {
+					// max size sent (400kb / request)
+					// as it's local file system we can afford to read more often
+					min(file_size - range.start, 1024 * 400)
+				} else {
+					cropped_length
+				}
+			};
 
 			// last byte we are reading, the length of the range include the last byte
 			// who should be skipped on the header
-			let last_byte = range.start + content_lenght - 1;
+			let last_byte = range.start + cropped_length - 1;
 
 			// if the webview sent a range header, we need to send a 206 in return
 			status_code = 206;
@@ -403,7 +413,7 @@ async fn handle_file(
 
 			// FIXME: Add ETag support (caching on the webview)
 
-			read_file(file, content_lenght, Some(range.start))
+			read_file(file, cropped_length, Some(range.start))
 				.await
 				.map_err(|e| FileIOError::from((&file_path_full_path, e)))?
 		}
@@ -411,9 +421,13 @@ async fn handle_file(
 			builder = builder.header("Accept-Ranges", "bytes");
 			vec![]
 		}
-		_ => read_file(file, content_lenght, None)
+		_ if content_lenght > 0 => read_file(file, content_lenght, None)
 			.await
 			.map_err(|e| FileIOError::from((&file_path_full_path, e)))?,
+		_ => {
+			// Empty file
+			vec![]
+		}
 	};
 
 	Ok(builder

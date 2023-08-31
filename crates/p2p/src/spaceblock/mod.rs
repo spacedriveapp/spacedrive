@@ -305,14 +305,14 @@ mod tests {
 		};
 		let msg = Msg::Block(block);
 		let bytes = msg.to_bytes();
-		let msg2 = Msg::from_stream(&mut Cursor::new(bytes), &mut vec![0u8; 64])
+		let msg2 = Msg::from_stream(&mut Cursor::new(bytes), &mut [0u8; 64])
 			.await
 			.unwrap();
 		assert_eq!(msg, msg2);
 
 		let msg = Msg::Cancelled;
 		let bytes = msg.to_bytes();
-		let msg2 = Msg::from_stream(&mut Cursor::new(bytes), &mut vec![0u8; 64])
+		let msg2 = Msg::from_stream(&mut Cursor::new(bytes), &mut [0u8; 64])
 			.await
 			.unwrap();
 		assert_eq!(msg, msg2);

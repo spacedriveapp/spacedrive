@@ -21,7 +21,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use super::{
 	get_files_by_extensions, process, MediaProcessorEntry, MediaProcessorEntryKind,
@@ -130,10 +130,12 @@ pub async fn shallow(
 		.await?;
 		run_metadata.update(more_run_metadata);
 
-		error!("Errors processing chunk of media data shallow extraction:\n{errors}");
+		if !errors.is_empty() {
+			error!("Errors processing chunk of media data shallow extraction:\n{errors}");
+		}
 	}
 
-	info!("Media shallow processor run metadata: {run_metadata:#?}");
+	debug!("Media shallow processor run metadata: {run_metadata:#?}");
 
 	if run_metadata.media_data.extracted > 0 || run_metadata.thumbnailer.created > 0 {
 		invalidate_query!(library, "search.paths");
