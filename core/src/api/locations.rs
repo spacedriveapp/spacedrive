@@ -236,8 +236,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								vec![
 									file_path::location_id::equals(Some(location_id)),
 									file_path::object_id::not(None),
+									file_path::cas_id::not(None),
 								],
-								vec![file_path::object::disconnect()],
+								vec![
+									file_path::object::disconnect(),
+									file_path::cas_id::set(None),
+								],
 							)
 							.exec()
 							.await?;

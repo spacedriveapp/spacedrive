@@ -48,33 +48,26 @@ let customUriServerUrl = (window as any).__SD_CUSTOM_URI_SERVER__ as string | un
 const customUriAuthToken = (window as any).__SD_CUSTOM_SERVER_AUTH_TOKEN__ as string | undefined;
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
+if (customUriServerUrl === undefined || customUriServerUrl === '')
+	console.warn("'window.__SD_CUSTOM_URI_SERVER__' may have not been injected correctly!");
 if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 	customUriServerUrl += '/';
 }
+const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
 const platform: Platform = {
 	platform: 'tauri',
 	getThumbnailUrlByThumbKey: (keyParts) =>
-		convertFileSrc(
-			`thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}`,
-			'spacedrive'
-		),
-	getFileUrl: (libraryId, locationLocalId, filePathId, _linux_workaround) => {
-		const path = `file/${libraryId}/${locationLocalId}/${filePathId}`;
-		if (_linux_workaround && customUriServerUrl) {
-			const queryParams = customUriAuthToken
-				? `?token=${encodeURIComponent(customUriAuthToken)}`
-				: '';
-			return `${customUriServerUrl}spacedrive/${path}${queryParams}`;
-		} else {
-			return convertFileSrc(path, 'spacedrive');
-		}
-	},
+		`${customUriServerUrl}thumbnail/${keyParts
+			.map((i) => encodeURIComponent(i))
+			.join('/')}.webp${queryParams}`,
+	getFileUrl: (libraryId, locationLocalId, filePathId) =>
+		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
 	openFilePickerDialog: () => dialog.open(),
-	saveFilePickerDialog: () => dialog.save(),
+	saveFilePickerDialog: (opts) => dialog.save(opts),
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
