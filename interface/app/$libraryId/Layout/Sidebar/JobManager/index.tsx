@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Check, Trash, X } from 'phosphor-react';
 import { useJobProgress, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, PopoverClose, Tooltip, toast } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 import { useState } from 'react';

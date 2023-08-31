@@ -44,6 +44,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 
 	return (
 		<Dialog
+			invertButtonFocus
 			title="Feedback"
 			dialog={useDialog(props)}
 			form={form}

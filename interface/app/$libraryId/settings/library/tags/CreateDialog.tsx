@@ -38,6 +38,7 @@ export default (props: UseDialogProps & { objects?: Object[] }) => {
 
 	return (
 		<Dialog
+			invertButtonFocus
 			form={form}
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}
