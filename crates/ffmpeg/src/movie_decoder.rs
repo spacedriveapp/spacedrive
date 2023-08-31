@@ -260,7 +260,7 @@ impl MovieDecoder {
 		Ok(())
 	}
 
-	// SAFETY: this should always be positive, so clippy doesn't need to alert om them
+	// SAFETY: this should always be positive, so clippy doesn't need to alert on them
 	#[allow(clippy::cast_sign_loss)]
 	pub fn get_video_duration(&self) -> Duration {
 		Duration::from_secs(unsafe { (*self.format_context).duration as u64 / AV_TIME_BASE as u64 })
