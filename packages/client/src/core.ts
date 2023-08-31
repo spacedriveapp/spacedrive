@@ -165,7 +165,7 @@ export type FilePathCursorOrdering = { none: number[] } | { name: CursorOrdering
 
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
-export type FilePathOrderAndPaginationArgs = { orderOnly: FilePathSearchOrdering } | { cursor: FilePathCursorOrdering } | { offset: { offset: number; order: FilePathSearchOrdering | null } }
+export type FilePathOrderAndPaginationArgs = { orderOnly: FilePathSearchOrdering } | { cursor: { is_dir: boolean; cursor_ordering: FilePathCursorOrdering } } | { offset: { offset: number; order: FilePathSearchOrdering | null } }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: FilePathOrderAndPaginationArgs | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 

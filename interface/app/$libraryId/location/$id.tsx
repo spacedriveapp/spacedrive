@@ -188,27 +188,23 @@ const useItems = ({
 	const query = useInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
 		queryFn: ({ pageParam, queryKey }) => {
-			const c: SearchData<ExplorerItem> | undefined = pageParam;
+			const cItem: Extract<ExplorerItem, { type: 'Path' }> | undefined = pageParam;
 			const { order } = explorerSettings;
 
 			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
 
-			if (!c) {
+			if (!cItem) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
-				let cursor: FilePathCursorOrdering | undefined;
+				let cursor_ordering: FilePathCursorOrdering | undefined;
 
-				const cItem = c.items[c.items.length - 1] as
-					| Extract<ExplorerItem, { type: 'Path' }>
-					| undefined;
-
-				if (!order) cursor = { none: [] };
+				if (!order) cursor_ordering = { none: [] };
 				else if (cItem) {
 					switch (order.field) {
 						case 'name': {
 							const data = cItem.item.name;
 							if (data !== null)
-								cursor = {
+								cursor_ordering = {
 									name: {
 										order: order.value,
 										data
@@ -219,7 +215,7 @@ const useItems = ({
 						case 'dateCreated': {
 							const data = cItem.item.date_created;
 							if (data !== null)
-								cursor = {
+								cursor_ordering = {
 									dateCreated: {
 										order: order.value,
 										data
@@ -230,7 +226,7 @@ const useItems = ({
 						case 'dateModified': {
 							const data = cItem.item.date_modified;
 							if (data !== null)
-								cursor = {
+								cursor_ordering = {
 									dateModified: {
 										order: order.value,
 										data
@@ -241,7 +237,7 @@ const useItems = ({
 						case 'dateIndexed': {
 							const data = cItem.item.date_indexed;
 							if (data !== null)
-								cursor = {
+								cursor_ordering = {
 									dateIndexed: {
 										order: order.value,
 										data
@@ -281,7 +277,7 @@ const useItems = ({
 							}
 
 							if (objectCursor)
-								cursor = {
+								cursor_ordering = {
 									object: objectCursor
 								};
 
@@ -290,7 +286,12 @@ const useItems = ({
 					}
 				}
 
-				if (cursor) orderAndPagination = { cursor };
+				if (cItem.item.is_dir === undefined) throw new Error();
+
+				if (cursor_ordering)
+					orderAndPagination = {
+						cursor: { cursor_ordering, is_dir: cItem.item.is_dir }
+					};
 			}
 
 			return ctx.client.query([
@@ -301,7 +302,7 @@ const useItems = ({
 				}
 			]);
 		},
-		getNextPageParam: (lastPage) => lastPage,
+		getNextPageParam: (lastPage) => lastPage.items[lastPage.items.length - 1],
 		keepPreviousData: true,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});

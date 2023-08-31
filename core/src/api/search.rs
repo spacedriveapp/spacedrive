@@ -387,7 +387,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[serde(rename_all = "camelCase")]
 			enum FilePathOrderAndPaginationArgs {
 				OrderOnly(FilePathSearchOrdering),
-				Cursor(FilePathCursorOrdering),
+				Cursor {
+					is_dir: bool,
+					cursor_ordering: FilePathCursorOrdering,
+				},
 				Offset {
 					offset: i32,
 					order: Option<FilePathSearchOrdering>,
@@ -439,7 +442,20 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							FilePathOrderAndPaginationArgs::OrderOnly(order) => {
 								query = query.order_by(order.into_param());
 							}
-							FilePathOrderAndPaginationArgs::Cursor(cursor_ordering) => {
+							FilePathOrderAndPaginationArgs::Cursor {
+								is_dir,
+								cursor_ordering,
+							} => {
+								// This may seem dumb but it's vital!
+								// If we're grouping by directories + all directories have been fetched,
+								// we don't want to include them in the results.
+								// It's important to keep in mind that since the `order_by` for
+								// `group_directories` comes before all other orderings,
+								// all other orderings will be applied independently to directories and paths.
+								if group_directories && !is_dir {
+									query.add_where(file_path::is_dir::not(Some(true)))
+								}
+
 								macro_rules! arm {
 									($field:ident, $item:ident) => {{
 										let item = $item;
