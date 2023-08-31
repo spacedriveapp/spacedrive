@@ -217,7 +217,7 @@ impl MovieDecoder {
 			));
 		}
 
-		// SAFETY: these should always be positive, so clippy doesn't need to alert om them
+		// SAFETY: these should always be positive, so clippy doesn't need to alert on them
 		#[allow(clippy::cast_sign_loss)]
 		{
 			video_frame.width = unsafe { (*new_frame.as_mut_ptr()).width as u32 };
