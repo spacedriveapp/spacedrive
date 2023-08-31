@@ -16,7 +16,7 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::FromStr,
-	sync::{atomic::Ordering, Arc},
+	sync::Arc,
 	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
@@ -192,9 +192,10 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
-							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-								return Ok(not_found(()))
-							}
+							// TODO: Disable it when feature flag not on - right now they are kinda broke
+							// if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
+							// 	return Ok(not_found(()))
+							// }
 
 							// TODO: Support `Range` requests and `ETag` headers
 
