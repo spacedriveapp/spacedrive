@@ -80,6 +80,8 @@ impl<'a, F> Transfer<'a, F>
 where
 	F: Fn(u8) + 'a,
 {
+	// TODO: Handle `req.range` correctly in this code
+
 	pub fn new(req: &'a SpaceblockRequest, on_progress: F, cancelled: &'a AtomicBool) -> Self {
 		Self {
 			req,

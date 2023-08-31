@@ -81,6 +81,7 @@ file_path::select!(file_path_walker {
 	device
 });
 file_path::select!(file_path_to_handle_custom_uri {
+	pub_id
 	materialized_path
 	is_dir
 	name

@@ -1,6 +1,6 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
-	p2p::IdentityOrRemoteIdentity,
+	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -14,11 +14,14 @@ use std::{
 	io::{self, SeekFrom},
 	panic::Location,
 	path::{Path, PathBuf},
+	pin::Pin,
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
+	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
 
+use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
@@ -27,15 +30,16 @@ use axum::{
 	routing::get,
 	Router,
 };
+use bytes::Bytes;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
 use sd_file_ext::text::is_text;
-use sd_p2p::spacetunnel::RemoteIdentity;
+use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncSeekExt},
+	io::{AsyncReadExt, AsyncSeekExt, AsyncWrite},
 };
-use tokio_util::io::ReaderStream;
+use tokio_util::{io::ReaderStream, sync::PollSender};
 use tracing::{debug, error};
 use uuid::Uuid;
 
@@ -43,6 +47,7 @@ type CacheKey = (Uuid, file_path::id::Type);
 type CacheValue = (
 	/* Name */ PathBuf,
 	/* Extension */ String,
+	/* File Path Pub Id */ Uuid,
 	ServeFrom,
 );
 
@@ -118,14 +123,13 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					let file_path_id = path_id.parse::<file_path::id::Type>().map_err(bad_request)?;
 
 					let lru_cache_key = (library_id, file_path_id);
+					let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
 
-					let (file_path_full_path, extension, serve_from) = if let Some(entry) =
+					let (file_path_full_path, extension, file_path_pub_id, serve_from) = if let Some(entry) =
 						state.file_metadata_cache.get(&lru_cache_key)
 					{
 						entry
 					} else {
-						let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
-
 						let file_path = library
 							.db
 							.file_path()
@@ -152,6 +156,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						let lru_entry = (
 							path,
 							maybe_missing(file_path.extension, "extension").map_err(not_found)?,
+							Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
 							(identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
 						);
 
@@ -186,7 +191,42 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
-						ServeFrom::Remote(identity) => Ok(not_found(())),
+						ServeFrom::Remote(identity) => {
+							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
+								return Ok(not_found(()))
+							}
+
+							// TODO: Support `Range` requests and `ETag` headers
+
+							match state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap().clone() {
+								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
+								InstanceState::Connected(peer_id) => {
+									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
+									let node = state.node.clone();
+									tokio::spawn(async move {
+										node.p2p
+											.request_file(
+												peer_id,
+												&library,
+												file_path_pub_id,
+												Range::Full,
+												Bruh(PollSender::new(tx)),
+											)
+											.await;
+									});
+
+									// TODO: Content Type
+									Ok(InfallibleResponse::builder()
+										.status(StatusCode::OK)
+										.body(body::boxed(StreamBody::new(stream! {
+											while let Some(item) = rx.recv().await {
+												yield item;
+											}
+										}))))
+								}
+							}
+						},
 					}
 				},
 			),
@@ -490,4 +530,31 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	} else {
 		mime_type.to_string()
 	})
+}
+
+pub struct Bruh(PollSender<io::Result<Bytes>>);
+
+impl AsyncWrite for Bruh {
+	fn poll_write(
+		mut self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &[u8],
+	) -> Poll<Result<usize, io::Error>> {
+		match self.0.poll_reserve(cx) {
+			Poll::Ready(Ok(())) => {
+				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
+				Poll::Ready(Ok(buf.len()))
+			}
+			Poll::Ready(Err(_)) => todo!(),
+			Poll::Pending => Poll::Pending,
+		}
+	}
+
+	fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
+	}
+
+	fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
+	}
 }

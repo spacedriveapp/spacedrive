@@ -14,6 +14,35 @@ pub enum Range {
 	Partial(std::ops::Range<u64>),
 }
 
+impl Range {
+	// TODO: Per field and proper error handling
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
+		match stream.read_u8().await.unwrap() {
+			0 => Ok(Self::Full),
+			1 => {
+				let start = stream.read_u64_le().await.unwrap();
+				let end = stream.read_u64_le().await.unwrap();
+				Ok(Self::Partial(start..end))
+			}
+			_ => todo!(),
+		}
+	}
+
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let mut buf = Vec::new();
+
+		match self {
+			Self::Full => buf.push(0),
+			Self::Partial(range) => {
+				buf.push(1);
+				buf.extend_from_slice(&range.start.to_le_bytes());
+				buf.extend_from_slice(&range.end.to_le_bytes());
+			}
+		}
+		buf
+	}
+}
+
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpaceblockRequest {
@@ -46,22 +75,11 @@ impl SpaceblockRequest {
 			.map_err(SpacedropRequestError::Size)?;
 		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
 
-		// TODO: Error handling
-		let range = match stream.read_u8().await.unwrap() {
-			0 => Range::Full,
-			1 => {
-				let start = stream.read_u64_le().await.unwrap();
-				let end = stream.read_u64_le().await.unwrap();
-				Range::Partial(start..end)
-			}
-			_ => todo!(),
-		};
-
 		Ok(Self {
 			name,
 			size,
 			block_size,
-			range,
+			range: Range::from_stream(stream).await.unwrap(),
 		})
 	}
 
@@ -76,15 +94,7 @@ impl SpaceblockRequest {
 
 		encode::string(&mut buf, name);
 		buf.extend_from_slice(&self.size.to_le_bytes());
-
-		match range {
-			Range::Full => buf.push(0),
-			Range::Partial(range) => {
-				buf.push(1);
-				buf.extend_from_slice(&range.start.to_le_bytes());
-				buf.extend_from_slice(&range.end.to_le_bytes());
-			}
-		}
+		buf.extend_from_slice(&self.range.to_bytes());
 		buf
 	}
 }
