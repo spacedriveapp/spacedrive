@@ -10,13 +10,12 @@ use crate::{
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::image::{ExifReader, Orientation};
-use std::collections::HashSet;
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
