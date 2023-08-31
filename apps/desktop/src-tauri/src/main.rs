@@ -5,17 +5,14 @@
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
-use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
+use sd_core::{Node, NodeError};
 
-use tauri::{
-	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin,
-	AppHandle, Manager, RunEvent, Runtime,
-};
-use tokio::{task::block_in_place, time::sleep};
-use tracing::{debug, error};
+use tauri::{api::path, ipc::RemoteDomainAccessScope, AppHandle, Manager};
+use tauri_plugins::{sd_error_plugin, sd_server_plugin};
+use tokio::time::sleep;
+use tracing::error;
 
-#[cfg(target_os = "linux")]
-mod app_linux;
+mod tauri_plugins;
 
 mod theme;
 
@@ -64,15 +61,7 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	})
 }
 
-pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
-	tauri::plugin::Builder::new("spacedrive")
-		.js_init_script(format!(
-			r#"window.__SD_ERROR__ = `{}`;"#,
-			err.to_string().replace('`', "\"")
-		))
-		.build()
-}
-
+// TODO(@Oscar): A helper like this should probs exist in tauri-specta
 macro_rules! tauri_handlers {
 	($($name:path),+) => {{
 		#[cfg(debug_assertions)]
@@ -86,9 +75,6 @@ macro_rules! tauri_handlers {
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
-
-	#[cfg(target_os = "linux")]
-	let (tx, rx) = tokio::sync::mpsc::channel(1);
 
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
@@ -104,29 +90,17 @@ async fn main() -> tauri::Result<()> {
 	};
 
 	let app = tauri::Builder::default();
-
-	let (node, app) = match result {
-		Ok((node, router)) => {
-			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-			#[cfg(target_os = "linux")]
-			let app = app_linux::setup(app, rx, create_custom_uri_endpoint(node.clone()).axum()).await;
-
-			let app = app
-				.register_uri_scheme_protocol(
-					"spacedrive",
-					create_custom_uri_endpoint(node.clone()).tauri_uri_scheme("spacedrive"),
-				)
-				.plugin(rspc::integrations::tauri::plugin(router, {
-					let node = node.clone();
-					move || node.clone()
-				}))
-				.manage(node.clone());
-
-			(Some(node), app)
-		}
+	let app = match result {
+		Ok((node, router)) => app
+			.plugin(rspc::integrations::tauri::plugin(router, {
+				let node = node.clone();
+				move || node.clone()
+			}))
+			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+			.manage(node.clone()),
 		Err(err) => {
-			tracing::error!("Error starting up the node: {err}");
-			(None, app.plugin(tauri_error_plugin(err)))
+			error!("Error starting up the node: {err}");
+			app.plugin(sd_error_plugin(err))
 		}
 	};
 
@@ -150,13 +124,12 @@ async fn main() -> tauri::Result<()> {
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
-				// window.hide().unwrap();
-
 				tokio::spawn({
 					let window = window.clone();
 					async move {
 						sleep(Duration::from_secs(3)).await;
 						if !window.is_visible().unwrap_or(true) {
+							// This happens if the JS bundle crashes and hence doesn't send ready event.
 							println!(
 							"Window did not emit `app_ready` event fast enough. Showing window..."
 						);
@@ -183,8 +156,7 @@ async fn main() -> tauri::Result<()> {
 			app.ipc_scope().configure_remote_access(
 				RemoteDomainAccessScope::new("localhost")
 					.allow_on_scheme("spacedrive")
-					.add_window("main")
-					.enable_tauri_api(),
+					.add_window("main"),
 			);
 
 			Ok(())
@@ -203,29 +175,6 @@ async fn main() -> tauri::Result<()> {
 		])
 		.build(tauri::generate_context!())?;
 
-	app.run(move |app_handler, event| {
-		if let RunEvent::ExitRequested { .. } = event {
-			debug!("Closing all open windows...");
-			app_handler
-				.windows()
-				.iter()
-				.for_each(|(window_name, window)| {
-					debug!("closing window: {window_name}");
-					if let Err(e) = window.close() {
-						error!("failed to close window '{}': {:#?}", window_name, e);
-					}
-				});
-
-			if let Some(node) = &node {
-				block_in_place(|| block_on(node.shutdown()));
-			}
-
-			#[cfg(target_os = "linux")]
-			block_in_place(|| block_on(tx.send(()))).ok();
-
-			app_handler.exit(0);
-		}
-	});
-
+	app.run(|_, _| {});
 	Ok(())
 }
