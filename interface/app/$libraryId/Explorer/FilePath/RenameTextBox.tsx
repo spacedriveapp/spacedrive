@@ -141,15 +141,15 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		}, [ref]);
 
 		// Rename or blur on Enter key
-		// useKey('Enter', (e) => {
-		// 	e.preventDefault();
+		useKey('Enter', (e) => {
+			e.preventDefault();
 
-		// 	if (allowRename) blur();
-		// 	else if (!disabled) {
-		// 		setAllowRename(true);
-		// 		explorerView.setIsRenaming(true);
-		// 	}
-		// });
+			if (allowRename) blur();
+			else if (!disabled) {
+				setAllowRename(true);
+				explorerView.setIsRenaming(true);
+			}
+		});
 
 		useEffect(() => {
 			const elem = ref.current;
