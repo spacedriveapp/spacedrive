@@ -16,7 +16,7 @@ pub use sd_prisma::*;
 use std::{
 	env, fmt,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{atomic::AtomicBool, Arc},
 };
 
 use thiserror::Error;
@@ -62,6 +62,7 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnail_remover: thumbnail_remover::Actor,
+	pub files_over_p2p_flag: Arc<AtomicBool>,
 }
 
 impl fmt::Debug for Node {
@@ -108,6 +109,7 @@ impl Node {
 				libraries.clone(),
 			),
 			libraries,
+			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 		});
 
 		// Setup start actors that depend on the `Node`

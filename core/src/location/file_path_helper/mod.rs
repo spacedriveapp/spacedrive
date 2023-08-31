@@ -88,6 +88,9 @@ file_path::select!(file_path_to_handle_custom_uri {
 	location: select {
 		id
 		path
+		instance: select {
+			identity
+		}
 	}
 });
 file_path::select!(file_path_to_full_path {

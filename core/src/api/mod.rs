@@ -29,6 +29,7 @@ pub enum CoreEvent {
 #[serde(rename_all = "camelCase")]
 pub enum BackendFeature {
 	SyncEmitMessages,
+	FilesOverP2P,
 }
 
 mod backups;
@@ -138,6 +139,9 @@ pub(crate) fn mount() -> Arc<Router> {
 						node.libraries
 							.emit_messages_flag
 							.store(enabled, Ordering::Relaxed);
+					}
+					BackendFeature::FilesOverP2P => {
+						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
 					}
 				}
 

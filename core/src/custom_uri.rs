@@ -130,6 +130,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							.db
 							.file_path()
 							.find_unique(file_path::id::equals(file_path_id))
+							// TODO: This query could be seen as a security issue as it could load the private key (`identity`) when we 100% don't need it. We are gonna wanna fix that!
 							.select(file_path_to_handle_custom_uri::select())
 							.exec()
 							.await
@@ -140,44 +141,18 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							maybe_missing(&file_path.location, "file_path.location").map_err(internal_server_error)?;
 						let path =
 							maybe_missing(&location.path, "file_path.location.path").map_err(internal_server_error)?;
+						let instance =
+							maybe_missing(&location.instance, "file_path.location.instance").map_err(internal_server_error)?;
 
 						let path = Path::new(path).join(
 							IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
 						);
 
-
-
-						// TODO: Inner LRU cache for this?
-						// TODO: This query could be seen as a security issue as it could load the private key when we 100% don't need it. We are gonna wanna fix that!
-						let locations = library
-							.db
-							.location()
-							.find_many(vec![location::instance_id::equals(Some(library.config.instance_id))])
-							.select(location::select!({
-								path
-								instance: select {
-									identity
-								}
-							}))
-							.exec()
-							.await
-							.map_err(internal_server_error)?;
-
-							let mut serve_from = ServeFrom::Local;
-						for location in locations {
-							let location_path = PathBuf::from(location.path.unwrap());
-
-							if !path.starts_with(location_path) {
-								serve_from = ServeFrom::Remote(
-									IdentityOrRemoteIdentity::from_bytes(&location.instance.unwrap().identity).unwrap().remote_identity()
-								)
-							}
-						}
-
+						let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity).map_err(internal_server_error)?.remote_identity();
 						let lru_entry = (
 							path,
 							maybe_missing(file_path.extension, "extension").map_err(not_found)?,
-							serve_from,
+							(identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
 						);
 
 						state
@@ -189,25 +164,30 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 					println!("Serving from: {:?}", serve_from); // TODO
 
-					let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
-					(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
+					match serve_from {
+						ServeFrom::Local => {
+							let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
+							(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
 
-					let mut file = File::open(&file_path_full_path).await.map_err(|err| {
-						InfallibleResponse::builder()
-								.status(if err.kind() == io::ErrorKind::NotFound {
-									StatusCode::NOT_FOUND
-								} else {
-									StatusCode::INTERNAL_SERVER_ERROR
-								})
-								.body(body::boxed(Full::from("")))
-					})?;
+							let mut file = File::open(&file_path_full_path).await.map_err(|err| {
+								InfallibleResponse::builder()
+										.status(if err.kind() == io::ErrorKind::NotFound {
+											StatusCode::NOT_FOUND
+										} else {
+											StatusCode::INTERNAL_SERVER_ERROR
+										})
+										.body(body::boxed(Full::from("")))
+							})?;
 
-					let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
-						error!("Error converting mime-type into header value: {}", err);
-						internal_server_error(())
-					})?);
+							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
+								error!("Error converting mime-type into header value: {}", err);
+								internal_server_error(())
+							})?);
 
-					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+						}
+						ServeFrom::Remote(identity) => Ok(not_found(())),
+					}
 				},
 			),
 		)
