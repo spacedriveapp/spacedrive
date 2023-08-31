@@ -95,6 +95,7 @@ impl Thumbnailer {
 /// `ThumbnailerBuilder` struct holds data to build a `Thumbnailer` struct, exposing many methods
 /// to configure how a thumbnail must be generated.
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct ThumbnailerBuilder {
 	maintain_aspect_ratio: bool,
 	size: ThumbnailSize,
@@ -125,27 +126,23 @@ impl ThumbnailerBuilder {
 	/// - `quality`: 80
 	/// - `prefer_embedded_metadata`: true
 	/// - `with_film_strip`: true
-	#[must_use]
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	/// To respect or not the aspect ratio from the video file in the generated thumbnail
-	#[must_use]
 	pub const fn maintain_aspect_ratio(mut self, maintain_aspect_ratio: bool) -> Self {
 		self.maintain_aspect_ratio = maintain_aspect_ratio;
 		self
 	}
 
 	/// To set a thumbnail size, respecting or not its aspect ratio, according to `maintain_aspect_ratio` value
-	#[must_use]
 	pub const fn size(mut self, size: u32) -> Self {
 		self.size = ThumbnailSize::Size(size);
 		self
 	}
 
 	/// To specify width and height of the thumbnail
-	#[must_use]
 	pub const fn width_and_height(mut self, width: u32, height: u32) -> Self {
 		self.size = ThumbnailSize::Dimensions { width, height };
 		self
@@ -171,14 +168,12 @@ impl ThumbnailerBuilder {
 
 	/// To use embedded metadata in the video file, if available, instead of getting a frame as a
 	/// thumbnail
-	#[must_use]
 	pub const fn prefer_embedded_metadata(mut self, prefer_embedded_metadata: bool) -> Self {
 		self.prefer_embedded_metadata = prefer_embedded_metadata;
 		self
 	}
 
 	/// If `with_film_strip` is true, a film strip will be added to the thumbnail borders
-	#[must_use]
 	pub const fn with_film_strip(mut self, with_film_strip: bool) -> Self {
 		self.with_film_strip = with_film_strip;
 		self
