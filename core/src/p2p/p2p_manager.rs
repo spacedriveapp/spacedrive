@@ -10,7 +10,7 @@ use std::{
 };
 
 use sd_p2p::{
-	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
+	spaceblock::{BlockSize, Range, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };

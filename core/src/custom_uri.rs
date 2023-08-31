@@ -1,5 +1,6 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
+	p2p::IdentityOrRemoteIdentity,
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -29,6 +30,7 @@ use axum::{
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
 use sd_file_ext::text::is_text;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncSeekExt},
@@ -37,10 +39,22 @@ use tokio_util::io::ReaderStream;
 use tracing::{debug, error};
 use uuid::Uuid;
 
-type MetadataCacheKey = (Uuid, file_path::id::Type);
-type NameAndExtension = (PathBuf, String);
+type CacheKey = (Uuid, file_path::id::Type);
+type CacheValue = (
+	/* Name */ PathBuf,
+	/* Extension */ String,
+	ServeFrom,
+);
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
+
+#[derive(Debug, Clone)]
+pub enum ServeFrom {
+	/// Serve from the local filesystem
+	Local,
+	/// Serve from a specific instance
+	Remote(RemoteIdentity),
+}
 
 #[derive(Clone)]
 struct LocalState {
@@ -49,7 +63,7 @@ struct LocalState {
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
 	// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 	// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
-	file_metadata_cache: Cache<MetadataCacheKey, NameAndExtension>,
+	file_metadata_cache: Cache<CacheKey, CacheValue>,
 }
 
 // We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
@@ -105,7 +119,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 					let lru_cache_key = (library_id, file_path_id);
 
-					let (file_path_full_path, extension) = if let Some(entry) =
+					let (file_path_full_path, extension, serve_from) = if let Some(entry) =
 						state.file_metadata_cache.get(&lru_cache_key)
 					{
 						entry
@@ -127,11 +141,43 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						let path =
 							maybe_missing(&location.path, "file_path.location.path").map_err(internal_server_error)?;
 
+						let path = Path::new(path).join(
+							IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
+						);
+
+
+
+						// TODO: Inner LRU cache for this?
+						// TODO: This query could be seen as a security issue as it could load the private key when we 100% don't need it. We are gonna wanna fix that!
+						let locations = library
+							.db
+							.location()
+							.find_many(vec![location::instance_id::equals(Some(library.config.instance_id))])
+							.select(location::select!({
+								path
+								instance: select {
+									identity
+								}
+							}))
+							.exec()
+							.await
+							.map_err(internal_server_error)?;
+
+							let mut serve_from = ServeFrom::Local;
+						for location in locations {
+							let location_path = PathBuf::from(location.path.unwrap());
+
+							if !path.starts_with(location_path) {
+								serve_from = ServeFrom::Remote(
+									IdentityOrRemoteIdentity::from_bytes(&location.instance.unwrap().identity).unwrap().remote_identity()
+								)
+							}
+						}
+
 						let lru_entry = (
-							Path::new(path).join(
-								IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
-							),
-							maybe_missing(file_path.extension, "extension").map_err(not_found)?
+							path,
+							maybe_missing(file_path.extension, "extension").map_err(not_found)?,
+							serve_from,
 						);
 
 						state
@@ -140,6 +186,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 						lru_entry
 					};
+
+					println!("Serving from: {:?}", serve_from); // TODO
 
 					let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
 					(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
