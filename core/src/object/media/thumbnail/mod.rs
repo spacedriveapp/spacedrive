@@ -136,6 +136,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	if metadata.len()
 		> (match ext {
 			"svg" => sd_svg::MAXIMUM_FILE_SIZE,
+			#[cfg(all(feature = "heif", not(target_os = "linux")))]
 			_ if HEIF_EXTENSIONS.contains(ext) => sd_heif::MAXIMUM_FILE_SIZE,
 			_ => MAXIMUM_FILE_SIZE,
 		}) {
