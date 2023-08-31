@@ -3156,22 +3156,6 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "httpz"
-version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz?rev=a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6#a5185f2ed2fdefeb2f582dce38a692a1bf76d1d6"
-dependencies = [
- "axum",
- "form_urlencoded",
- "futures",
- "http",
- "hyper",
- "percent-encoding",
- "tauri",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "httpz"
 version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6769d2cb10425c442c41a787d1a3719744770a188cfa7885cd4d8126fa13f37a"
@@ -5591,9 +5575,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cc1b0bf1727a77a54b6654e7b5f1af8604923edc8b81885f8ec92f9e3f0a05"
+checksum = "8afb450f006bf6385ca15ef45d71d2288452bc3683ce2e2cacc0d18e4be60b58"
 
 [[package]]
 name = "pin-utils"
@@ -6622,7 +6606,7 @@ dependencies = [
  "futures",
  "futures-channel",
  "futures-locks",
- "httpz 0.0.4",
+ "httpz",
  "nougat",
  "pin-project",
  "serde",
@@ -6932,6 +6916,7 @@ dependencies = [
  "async-channel",
  "async-stream",
  "async-trait",
+ "axum",
  "base64 0.21.2",
  "blake3",
  "chrono",
@@ -6944,8 +6929,8 @@ dependencies = [
  "globset",
  "hex",
  "hostname",
+ "http-body",
  "http-range",
- "httpz 0.0.3",
  "image",
  "include_dir",
  "int-enum",
@@ -7048,7 +7033,6 @@ dependencies = [
  "axum",
  "futures",
  "http",
- "httpz 0.0.3",
  "opener",
  "percent-encoding",
  "prisma-client-rust",
@@ -7228,7 +7212,6 @@ dependencies = [
  "axum",
  "ctrlc",
  "http",
- "httpz 0.0.3",
  "include_dir",
  "mime_guess",
  "rspc",
