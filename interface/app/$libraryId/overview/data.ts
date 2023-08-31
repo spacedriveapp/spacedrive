@@ -112,26 +112,26 @@ export function useItems(
 		enabled: !isObjectQuery,
 		queryKey: ['search.paths', { library_id: library.uuid, arg: pathsArgs }] as const,
 		queryFn: ({ pageParam, queryKey }) => {
-			const cursor: SearchData<ExplorerItem> | undefined = pageParam;
+			const cItem: Extract<ExplorerItem, { type: 'Path' }> | undefined = pageParam;
 
 			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
 
-			if (cursor) {
-				const cItem = cursor.items[cursor.items.length - 1] as
-					| Extract<ExplorerItem, { type: 'Path' }>
-					| undefined;
+			if (cItem) {
+				if (cItem.item.is_dir === null) throw new Error();
 
-				if (cItem)
-					orderAndPagination = {
-						cursor: {
+				orderAndPagination = {
+					cursor: {
+						is_dir: cItem.item.is_dir,
+						cursor_ordering: {
 							none: cItem.item.pub_id
 						}
-					};
+					}
+				};
 			}
 
 			return rspc.client.query(['search.paths', { ...queryKey[1].arg, orderAndPagination }]);
 		},
-		getNextPageParam: (lastPage) => lastPage,
+		getNextPageParam: (lastPage) => lastPage.items[lastPage.items.length - 1],
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
 

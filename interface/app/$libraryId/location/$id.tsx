@@ -11,7 +11,6 @@ import {
 	FilePathSearchArgs,
 	FilePathSearchOrdering,
 	ObjectCursorOrdering,
-	SearchData,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -286,7 +285,7 @@ const useItems = ({
 					}
 				}
 
-				if (cItem.item.is_dir === undefined) throw new Error();
+				if (cItem.item.is_dir === null) throw new Error();
 
 				if (cursor_ordering)
 					orderAndPagination = {
