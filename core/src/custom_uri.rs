@@ -242,12 +242,20 @@ async fn serve_file(
 	req: request::Parts,
 	mut resp: InfallibleResponse,
 ) -> Result<Response<BoxBody>, Response<BoxBody>> {
-	// Handle `ETag` and `Content-Length` headers
 	if let Ok(metadata) = metadata {
 		// We only accept range queries if `files.metadata() == Ok(_)`
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
 		resp = resp.header("Accept-Ranges", HeaderValue::from_static("bytes"));
 
+		// Empty files
+		if metadata.len() == 0 {
+			return Ok(resp
+				.status(StatusCode::OK)
+				.header("Content-Length", HeaderValue::from_static("0"))
+				.body(body::boxed(Full::from(""))));
+		}
+
+		// ETag
 		if let Ok(time) = metadata.modified() {
 			let etag_header = format!(
 				r#""{}""#,
@@ -257,6 +265,13 @@ async fn serve_file(
 					.as_millis()
 			);
 
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+			if let Ok(etag_header) = HeaderValue::from_str(&etag_header) {
+				resp = resp.header("etag", etag_header);
+			} else {
+				error!("Failed to convert ETag into header value!");
+			}
+
 			if let Some(etag) = req.headers.get("If-None-Match") {
 				if etag.as_bytes() == etag_header.as_bytes() {
 					return Ok(resp
@@ -264,21 +279,6 @@ async fn serve_file(
 						.body(body::boxed(Full::from(""))));
 				}
 			}
-
-			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
-			if let Ok(etag_header) = HeaderValue::from_str(&etag_header) {
-				resp = resp.header("etag", etag_header);
-			} else {
-				error!("Failed to convert ETag into header value!");
-			}
-		}
-
-		// Empty files
-		if metadata.len() == 0 {
-			return Ok(resp
-				.status(StatusCode::OK)
-				.header("Content-Length", HeaderValue::from_static("0"))
-				.body(body::boxed(Full::from(""))));
 		}
 
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
