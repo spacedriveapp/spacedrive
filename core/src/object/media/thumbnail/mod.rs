@@ -9,7 +9,8 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_media_metadata::image::Orientation;
+use sd_media_metadata::image::{ExifReader, Orientation};
+use std::collections::HashSet;
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
@@ -19,14 +20,15 @@ use std::{
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use futures_concurrency::future::{Join, TryJoin};
-use image::{self, imageops, DynamicImage, GenericImageView};
+use image::{self, imageops, DynamicImage, GenericImageView, ImageFormat};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, task::block_in_place};
+use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -86,6 +88,10 @@ pub enum ThumbnailerError {
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
+	#[error("failed to encode webp")]
+	Encoding,
+	#[error("the image provided is too large")]
+	TooLarge,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -101,39 +107,65 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-// TOOD(brxken128): validate avci and avcs
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
-const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
+static HEIF_EXTENSIONS: Lazy<HashSet<String>> = Lazy::new(|| {
+	["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"]
+		.into_iter()
+		.map(|s| s.to_string())
+		.collect()
+});
+
+// The maximum file size that an image can be in order to have a thumbnail generated.
+const MAXIMUM_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
 
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	// Webp creation has blocking code
-	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		#[cfg(all(feature = "heif", not(target_os = "linux")))]
-		let img = {
-			let ext = file_path
-				.as_ref()
-				.extension()
-				.unwrap_or_default()
-				.to_ascii_lowercase();
-			if HEIF_EXTENSIONS
-				.iter()
-				.any(|e| ext == std::ffi::OsStr::new(e))
-			{
-				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
-			} else {
-				image::open(file_path.as_ref())?
-			}
-		};
+	let file_path = file_path.as_ref();
 
-		#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-		let img = image::open(file_path.as_ref())?;
+	let ext = file_path
+		.extension()
+		.and_then(|ext| ext.to_str())
+		.unwrap_or_default()
+		.to_ascii_lowercase();
+	let ext = ext.as_str();
 
-		let orientation = Orientation::source_orientation(&file_path);
+	let metadata = fs::metadata(file_path)
+		.await
+		.map_err(|e| FileIOError::from((file_path, e)))?;
 
+	if metadata.len()
+		> (match ext {
+			"svg" => sd_svg::MAXIMUM_FILE_SIZE,
+			_ if HEIF_EXTENSIONS.contains(ext) => sd_heif::MAXIMUM_FILE_SIZE,
+			_ => MAXIMUM_FILE_SIZE,
+		}) {
+		return Err(ThumbnailerError::TooLarge.into());
+	}
+
+	let data = Arc::new(
+		fs::read(file_path)
+			.await
+			.map_err(|e| FileIOError::from((file_path, e)))?,
+	);
+
+	let img = match ext {
+		"svg" => sd_svg::svg_to_dynamic_image(data.clone()).await?,
+		_ if HEIF_EXTENSIONS.contains(ext) => {
+			#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
+			return Err("HEIF not supported".into());
+			#[cfg(all(feature = "heif", not(target_os = "linux")))]
+			sd_heif::heif_to_dynamic_image(data.clone()).await?
+		}
+		_ => image::load_from_memory_with_format(
+			&fs::read(file_path).await?,
+			ImageFormat::from_path(file_path)?,
+		)?,
+	};
+
+	let webp = spawn_blocking(move || -> Result<_, ThumbnailerError> {
 		let (w, h) = img.dimensions();
+
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
@@ -143,13 +175,20 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			imageops::FilterType::Triangle,
 		));
 
-		// this corrects the rotation/flip of the image based on the available exif data
-		if let Some(x) = orientation {
-			img = x.correct_thumbnail(img);
+		match ExifReader::from_slice(data.as_ref()) {
+			Ok(exif_reader) => {
+				// this corrects the rotation/flip of the image based on the available exif data
+				if let Some(orientation) = Orientation::from_reader(&exif_reader) {
+					img = orientation.correct_thumbnail(img);
+				}
+			}
+			Err(e) => warn!("Unable to extract EXIF: {:?}", e),
 		}
 
 		// Create the WebP encoder for the above image
-		let encoder = Encoder::from_image(&img)?;
+		let Ok(encoder) = Encoder::from_image(&img) else {
+			return Err(ThumbnailerError::Encoding);
+		};
 
 		// Encode the image at a specified quality 0-100
 
@@ -157,7 +196,8 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
 		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
-	})?;
+	})
+	.await??;
 
 	let output_path = output_path.as_ref();
 
@@ -204,11 +244,11 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 	#[cfg(all(feature = "heif", not(target_os = "linux")))]
 	let res = matches!(
 		image_extension,
-		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
+		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif
 	);
 
 	#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif);
+	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif | Svg);
 
 	res
 }

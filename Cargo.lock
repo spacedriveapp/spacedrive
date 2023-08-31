@@ -7235,6 +7235,7 @@ dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
+ "once_cell",
  "thiserror",
  "tokio",
 ]
