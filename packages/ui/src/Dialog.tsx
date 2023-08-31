@@ -3,10 +3,10 @@ import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
+import { useKey } from 'rooks';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
-import {useKey} from 'rooks';
 
 export function createDialogState(open = false) {
 	return proxy({
@@ -149,20 +149,6 @@ export function Dialog<S extends FieldValues>({
 
 	const setOpen = (v: boolean) => (dialog.state.open = v);
 
-	const formSubmitHandler = async (e: any) => {
-		e.preventDefault();
-		await onSubmit?.(e);
-		dialog.onSubmit?.();
-		setOpen(false);
-	};
-
-	useKey('Enter', async (e) => {
-		if (stateSnap.open) {
-			await formSubmitHandler(e);
-		}
-	});
-
-
 	return (
 		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>
 			{props.trigger && <RDialog.Trigger asChild>{props.trigger}</RDialog.Trigger>}
@@ -182,7 +168,12 @@ export function Dialog<S extends FieldValues>({
 						>
 							<Form
 								form={form}
-								onSubmit={formSubmitHandler}
+								onSubmit={async (e) => {
+									e?.preventDefault();
+									await onSubmit?.(e);
+									dialog.onSubmit?.();
+									setOpen(false);
+								}}
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>
 								<div className="p-5">
@@ -198,7 +189,7 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div className="flex flex-row justify-end p-3 space-x-2 border-t border-app-line bg-app-selected">
+								<div className="flex flex-row justify-end space-x-2 border-t border-app-line bg-app-selected p-3">
 									{form.formState.isSubmitting && <Loader />}
 									{props.buttonsSideContent && (
 										<div>{props.buttonsSideContent}</div>

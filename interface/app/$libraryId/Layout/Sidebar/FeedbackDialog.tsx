@@ -25,20 +25,21 @@ export default function FeedbackDialog(props: UseDialogProps) {
 		form.setValue('emoji', EMOJIS[index] as string);
 	};
 
-	const formSubmit = form.handleSubmit(async (data) => {
-		try {
-			await fetch(FEEDBACK_URL, {
-				method: 'POST',
-				body: JSON.stringify(data),
-				mode: 'no-cors'
-			});
-		} catch (error) {
-			showAlertDialog({
-				title: 'Error',
-				value: 'There was an error submitting your feedback. Please try again.'
-			});
-		}
-	});
+	const formSubmit = () => {
+		return console.log('subbmitted');
+		// try {
+		// 	await fetch(FEEDBACK_URL, {
+		// 		method: 'POST',
+		// 		body: JSON.stringify(data),
+		// 		mode: 'no-cors'
+		// 	});
+		// } catch (error) {
+		// 	showAlertDialog({
+		// 		title: 'Error',
+		// 		value: 'There was an error submitting your feedback. Please try again.'
+		// 	});
+		// }
+	};
 
 	const watchForm = form.watch();
 
@@ -48,7 +49,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 			dialog={useDialog(props)}
 			form={form}
 			onSubmit={formSubmit}
-			submitDisabled={form.formState.isSubmitting || !watchForm.feedback}
+			// submitDisabled={form.formState.isSubmitting || !watchForm.feedback}
 			ctaLabel="Submit"
 			closeLabel="Cancel"
 			buttonsSideContent={
@@ -68,11 +69,11 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				</div>
 			}
 		>
-			<TextArea
+			{/* <TextArea
 				placeholder="Your feedback..."
 				className="w-full"
 				{...form.register('feedback')}
-			/>
+			/> */}
 		</Dialog>
 	);
 }
