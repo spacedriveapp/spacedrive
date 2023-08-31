@@ -203,7 +203,7 @@ impl PairingManager {
 						.unwrap();
 
 					// Called again so the new instances are picked up
-					node.libraries.update_instances(library);
+					node.libraries.update_instances(library.clone()).await;
 
 					P2PManager::resync(
 						node.nlm.clone(),
@@ -216,6 +216,9 @@ impl PairingManager {
 					// TODO: Done message to frontend
 					self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 					stream.flush().await.unwrap();
+
+					// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
+					super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 				}
 				PairingResponse::Rejected => {
 					info!("Pairing '{pairing_id}' rejected by remote");
@@ -342,10 +345,10 @@ impl PairingManager {
 		.await;
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
-
-		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
-
 		stream.flush().await.unwrap();
+
+		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
+		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 	}
 }
 

@@ -9,7 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "updater", "window-all"] }
+tauri = { version = "1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "window-all"] }
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
@@ -48,3 +48,4 @@ tauri-build = { version = "1.3.0", features = [] }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+updater = ["tauri/updater"]

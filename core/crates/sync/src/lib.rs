@@ -8,7 +8,10 @@ mod manager;
 use sd_prisma::prisma::*;
 use sd_sync::*;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::HashMap,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 pub use ingest::*;
 pub use manager::*;
@@ -24,6 +27,7 @@ pub type Timestamps = Arc<tokio::sync::RwLock<HashMap<uuid::Uuid, NTP64>>>;
 
 pub struct SharedState {
 	pub db: Arc<PrismaClient>,
+	pub emit_messages_flag: Arc<AtomicBool>,
 	pub instance: uuid::Uuid,
 	pub timestamps: Timestamps,
 	pub clock: uhlc::HLC,

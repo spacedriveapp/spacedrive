@@ -1,19 +1,16 @@
 import { Button, Form, RadioGroupField } from '@sd/ui';
-import { getOnboardingStore } from '~/../packages/client/src';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 import { shareTelemetry, useOnboardingContext } from './context';
 
 export default function OnboardingPrivacy() {
-	const { form, onSubmit } = useOnboardingContext();
+	const { forms, submit } = useOnboardingContext();
+
+	const form = forms.useForm('privacy');
 
 	return (
 		<Form
 			form={form}
-			onSubmit={(e) => {
-				getOnboardingStore().shareFullTelemetry =
-					form.getValues('shareTelemetry') === 'share-telemetry';
-				return onSubmit(e);
-			}}
+			onSubmit={form.handleSubmit(submit)}
 			className="flex flex-col items-center"
 		>
 			<OnboardingContainer>

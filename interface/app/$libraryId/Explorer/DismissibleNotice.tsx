@@ -91,6 +91,7 @@ export default () => {
 			description={notice.description}
 			className="m-5"
 			storageKey={notice.key}
+			onContextMenu={(e) => e.preventDefault()}
 		/>
 	);
 };

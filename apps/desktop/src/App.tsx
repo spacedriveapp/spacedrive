@@ -67,7 +67,7 @@ const platform: Platform = {
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
 	openFilePickerDialog: () => dialog.open(),
-	saveFilePickerDialog: () => dialog.save(),
+	saveFilePickerDialog: (opts) => dialog.save(opts),
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,

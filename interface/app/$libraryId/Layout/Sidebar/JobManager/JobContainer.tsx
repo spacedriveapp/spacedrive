@@ -43,8 +43,8 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 				)
 			)}
 			<MetaContainer>
-				<Tooltip tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
-					<span className="truncate pl-1.5 font-semibold">{name}</span>
+				<Tooltip asChild tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
+					<p className="truncate w-fit max-w-[83%] pl-1.5 font-semibold">{name}</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {
 					// filter out undefined text so we don't render empty TextItems

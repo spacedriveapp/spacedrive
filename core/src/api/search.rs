@@ -8,7 +8,7 @@ use crate::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		non_indexed, LocationError,
 	},
-	object::preview::get_thumb_key,
+	object::media::thumbnail::get_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
 };
 

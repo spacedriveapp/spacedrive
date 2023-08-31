@@ -293,20 +293,25 @@ model Object {
 // }
 
 model MediaData {
-    id                      Int     @id
-    pixel_width             Int?
-    pixel_height            Int?
-    longitude               Float?
-    latitude                Float?
-    fps                     Int?
-    capture_device_make     String? // eg: "Apple"
-    capture_device_model    String? // eg: "iPhone 12"
-    capture_device_software String? // eg: "12.1.1"
-    duration_seconds        Int?
-    codecs                  String? // eg: "h264,acc"
-    streams                 Int?
+    id Int @id @default(autoincrement())
 
-    object Object? @relation(fields: [id], references: [id], onDelete: Cascade)
+    dimensions     Bytes?
+    media_date     Bytes?
+    media_location Bytes?
+    camera_data    Bytes?
+    artist         String?
+    description    String?
+    copyright      String?
+    exif_version   String?
+
+    // video-specific
+    // duration Int?
+    // fps      Int?
+    // streams  Int?
+    // codecs   String? // eg: "h264,acc"
+
+    object_id Int    @unique
+    object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
 
     @@map("media_data")
 }

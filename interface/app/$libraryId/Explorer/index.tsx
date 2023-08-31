@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from 'phosphor-react';
-import { type PropsWithChildren, type ReactNode } from 'react';
+import { type PropsWithChildren, type ReactNode, useEffect } from 'react';
 import { useLibrarySubscription } from '@sd/client';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -9,6 +9,7 @@ import { Inspector } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
+import { useExplorerSearchParams } from './util';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -24,6 +25,7 @@ const INSPECTOR_WIDTH = 260;
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
+	const [{ path }] = useExplorerSearchParams();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -44,7 +46,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={explorer.scrollRef}
-						className="explorer-scroll relative h-screen overflow-y-auto overflow-x-hidden"
+						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
 						style={{
 							paddingTop: TOP_BAR_HEIGHT,
 							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
@@ -69,8 +71,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{explorerStore.showInspector && (
 				<Inspector
-					className="custom-scroll inspector-scroll absolute inset-y-0 right-0 pb-4 pl-1.5 pr-1"
-					style={{ paddingTop: TOP_BAR_HEIGHT + 16, width: INSPECTOR_WIDTH }}
+					className="no-scrollbar absolute inset-y-0 right-1.5 pb-3 pl-3 pr-1.5"
+					style={{ paddingTop: TOP_BAR_HEIGHT + 12, width: INSPECTOR_WIDTH }}
 				/>
 			)}
 		</>

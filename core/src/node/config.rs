@@ -9,7 +9,7 @@ use tokio::sync::{RwLock, RwLockWriteGuard};
 use uuid::Uuid;
 
 use crate::{
-	api::notifications::Notification,
+	api::{notifications::Notification, BackendFeature},
 	util::migrator::{Migrate, MigratorError},
 };
 
@@ -31,6 +31,9 @@ pub struct NodeConfig {
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	pub keypair: Keypair,
+	/// Feature flags enabled on the node
+	#[serde(default)]
+	pub features: Vec<BackendFeature>,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
@@ -55,6 +58,7 @@ impl Migrate for NodeConfig {
 			},
 			p2p_port: None,
 			keypair: Keypair::generate(),
+			features: vec![],
 			p2p_email: None,
 			p2p_img_url: None,
 			notifications: vec![],
@@ -86,10 +90,11 @@ impl Default for NodeConfig {
 				}
 			},
 			p2p_port: None,
+			features: vec![],
 			keypair: Keypair::generate(),
 			p2p_email: None,
 			p2p_img_url: None,
-			notifications: Vec::new(),
+			notifications: vec![],
 		}
 	}
 }
