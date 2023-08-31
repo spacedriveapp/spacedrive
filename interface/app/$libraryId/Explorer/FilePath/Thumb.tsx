@@ -103,15 +103,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 					'id' in filePath &&
 					(itemData.extension !== 'pdf' || pdfViewerEnabled())
 				) {
-					setSrc(
-						platform.getFileUrl(
-							library.uuid,
-							locationId,
-							filePath.id,
-							// Workaround Linux webview not supporting playing video and audio through custom protocol urls
-							itemData.kind === 'Video' || itemData.kind === 'Audio'
-						)
-					);
+					setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}

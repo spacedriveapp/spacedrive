@@ -79,6 +79,7 @@ async fn get_all_children_files_by_extensions(
 	db.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(parent_iso_file_path.location_id())),
+			file_path::cas_id::not(None),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
 			file_path::materialized_path::starts_with(
 				parent_iso_file_path
@@ -100,6 +101,7 @@ async fn get_files_by_extensions(
 	db.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(parent_iso_file_path.location_id())),
+			file_path::cas_id::not(None),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
 			file_path::materialized_path::equals(Some(
 				parent_iso_file_path

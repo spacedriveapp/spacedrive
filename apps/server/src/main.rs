@@ -1,7 +1,7 @@
 use std::{env, net::SocketAddr, path::Path};
 
 use axum::routing::get;
-use sd_core::{custom_uri::create_custom_uri_endpoint, Node};
+use sd_core::{custom_uri, Node};
 use tracing::info;
 
 mod utils;
@@ -49,10 +49,7 @@ async fn main() {
 
 	let app = axum::Router::new()
 		.route("/health", get(|| async { "OK" }))
-		.nest(
-			"/spacedrive",
-			create_custom_uri_endpoint(node.clone()).axum(),
-		)
+		.nest("/spacedrive", custom_uri::router(node.clone()))
 		.nest("/rspc", router.endpoint(move || node.clone()).axum());
 
 	#[cfg(feature = "assets")]
