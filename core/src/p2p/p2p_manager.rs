@@ -490,6 +490,7 @@ impl P2PManager {
 				.to_string(),
 			size: metadata.len(),
 			block_size: BlockSize::from_size(metadata.len()), // TODO: This should be dynamic
+			range: Range::Full,                               // range: None,
 		});
 		stream.write_all(&header.to_bytes()).await.map_err(|_| ())?;
 

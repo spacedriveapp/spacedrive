@@ -211,6 +211,20 @@ mod tests {
 			name: "Demo".to_string(),
 			size: 42069,
 			block_size: BlockSize::from_size(42069),
+			range: Range::Full,
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpaceblockRequest::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+
+		let req = SpaceblockRequest {
+			name: "Demo".to_string(),
+			size: 42069,
+			block_size: BlockSize::from_size(42069),
+			range: Range::Partial(0..420),
 		};
 
 		let bytes = req.to_bytes();
@@ -230,6 +244,7 @@ mod tests {
 			name: "Demo".to_string(),
 			size: data.len() as u64,
 			block_size: BlockSize::from_size(data.len() as u64),
+			range: Range::Full,
 		};
 
 		let (tx, rx) = oneshot::channel();
@@ -268,6 +283,7 @@ mod tests {
 			name: "Demo".to_string(),
 			size: data.len() as u64,
 			block_size,
+			range: Range::Full,
 		};
 
 		let (tx, rx) = oneshot::channel();
