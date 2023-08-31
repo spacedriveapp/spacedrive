@@ -6,8 +6,10 @@ use crate::{
 };
 
 use std::{
+	cmp::min,
 	ffi::OsStr,
-	io::SeekFrom,
+	fs::Metadata,
+	io::{self, SeekFrom},
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -24,6 +26,7 @@ use axum::{
 };
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
+use sd_file_ext::text::is_text;
 use tokio::{
 	fs::File,
 	io::{AsyncReadExt, AsyncSeekExt},
@@ -33,6 +36,8 @@ use uuid::Uuid;
 
 type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
+
+const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
 
 #[derive(Clone)]
 struct LocalState {
@@ -68,9 +73,10 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					}
 
 					let file = File::open(&path).await.unwrap(); // TODO: Error handling
-
+					let metadata = file.metadata().await;
 					serve_file(
 						file,
+						metadata,
 						request.into_parts().0,
 						Response::builder().header("Content-Type", "image/webp"),
 					)
@@ -118,7 +124,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							.await
 							.unwrap()
 							.unwrap(); // TODO: Error handling
-		   // .ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
+		   					// .ok_or_else(|| HandleCustomUriError::NotFound("object"))?;
 
 						let location =
 							maybe_missing(&file_path.location, "file_path.location").unwrap(); // TODO: Error handling
@@ -139,7 +145,12 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						lru_entry
 					};
 
-					let file = File::open(&file_path_full_path).await.unwrap(); // TODO: Error handling
+					let metadata = file_path_full_path.metadata().unwrap(); // TODO: Error handling
+					if metadata.is_dir() {
+						todo!(); // TODO: Error handling
+					}
+
+					let mut file = File::open(&file_path_full_path).await.unwrap(); // TODO: Error handling
 					// .map_err(|err| {
 					// 	if err.kind() == io::ErrorKind::NotFound {
 					// 		HandleCustomUriError::NotFound("file")
@@ -148,7 +159,9 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					// 	}
 					// })?;
 
-					serve_file(file, request.into_parts().0, Response::builder().header("Content-Type", plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension)))
+					let resp = Response::builder().header("Content-Type", plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await);
+
+					serve_file(file, Ok(metadata), request.into_parts().0, resp)
 						.await
 						.unwrap() // TODO: Error handling
 				},
@@ -199,11 +212,12 @@ async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Response<BoxBody>
 /// BE AWARE this function does not do any path traversal protection so that's up to the caller!
 async fn serve_file(
 	mut file: File,
+	metadata: io::Result<Metadata>,
 	req: request::Parts,
 	mut resp: response::Builder,
 ) -> http::Result<Response<BoxBody>> {
 	// Handle `ETag` and `Content-Length` headers
-	if let Ok(metadata) = file.metadata().await {
+	if let Ok(metadata) = metadata {
 		// We only accept range queries if `files.metadata() == Ok(_)`
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
 		resp = resp.header("Accept-Ranges", "bytes");
@@ -225,6 +239,14 @@ async fn serve_file(
 
 			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
 			resp = resp.header("etag", etag_header);
+		}
+
+		// Empty files
+		if metadata.len() == 0 {
+			return resp
+				.status(StatusCode::OK)
+				.header("Content-Length", "0")
+				.body(body::boxed(Full::from("")));
 		}
 
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
@@ -271,10 +293,12 @@ async fn serve_file(
 }
 
 // TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
-fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(
+async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(
 	ext: &str,
-) -> &'static str {
-	match ext {
+	file: &mut File,
+	metadata: &Metadata,
+) -> String {
+	let mime_type = match ext {
 		// AAC audio
 		"aac" => "audio/aac",
 		// Musical Instrument Digital Interface (MIDI)
@@ -295,10 +319,13 @@ fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_addi
 		"avi" => "video/x-msvideo",
 		// MP4 video
 		"mp4" | "m4v" => "video/mp4",
+		// TODO: Bruh
 		#[cfg(not(target_os = "macos"))]
+		// TODO: Bruh
 		// FIX-ME: This media types break macOS video rendering
 		// MPEG transport stream
 		"ts" => "video/mp2t",
+		// TODO: Bruh
 		#[cfg(not(target_os = "macos"))]
 		// FIX-ME: This media types break macOS video rendering
 		// MPEG Video
@@ -336,10 +363,56 @@ fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_addi
 		"heic" | "heics" => "image/heic,image/heic-sequence",
 		// AVIF images
 		"avif" | "avci" | "avcs" => "image/avif",
-		// TEXT document
-		"txt" => "text/plain",
-		_ => {
-			todo!(); // TODO: Error handling
+		_ => "text/plain",
+	};
+
+	if mime_type == "text/plain" {
+		let mut text_buf = vec![
+			0;
+			min(
+				metadata.len().try_into().unwrap_or(usize::MAX),
+				MAX_TEXT_READ_LENGTH
+			)
+		];
+		if !text_buf.is_empty() {
+			file.read_exact(&mut text_buf).await.unwrap(); // TODO: Error handling
+			file.seek(SeekFrom::Start(0)).await.unwrap(); // TODO: Error handling
 		}
+
+		let charset = is_text(&text_buf, text_buf.len() == (metadata.len() as usize)).unwrap_or("");
+
+		// Only browser recognized types, everything else should be text/plain
+		// https://www.iana.org/assignments/media-types/media-types.xhtml#table-text
+		let mime_type = match ext {
+			// HyperText Markup Language
+			"html" | "htm" => "text/html",
+			// Cascading Style Sheets
+			"css" => "text/css",
+			// Javascript
+			"js" | "mjs" => "text/javascript",
+			// Comma-separated values
+			"csv" => "text/csv",
+			// Markdown
+			"md" | "markdown" => "text/markdown",
+			// Rich text format
+			"rtf" => "text/rtf",
+			// Web Video Text Tracks
+			"vtt" => "text/vtt",
+			// Extensible Markup Language
+			"xml" => "text/xml",
+			// Text
+			"txt" => "text/plain",
+			_ => {
+				if charset.is_empty() {
+					todo!();
+					// "TODO: This filetype is not supported because of the missing mime type!",
+				};
+				mime_type
+			}
+		};
+
+		format!("{mime_type}; charset={charset}")
+	} else {
+		mime_type.to_string()
 	}
 }
