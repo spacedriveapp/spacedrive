@@ -101,7 +101,6 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-// TOOD(brxken128): validate avci and avcs
 #[cfg(all(feature = "heif", not(target_os = "linux")))]
 const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
 
@@ -109,7 +108,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	// Webp creation has blocking code
+	// Thumbnail creation has blocking code
 	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
 		#[cfg(all(feature = "heif", not(target_os = "linux")))]
 		let img = {

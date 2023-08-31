@@ -1,4 +1,3 @@
-#[allow(warnings, unused)]
+#![allow(clippy::all)]
 pub mod prisma;
-#[allow(warnings, unused)]
 pub mod prisma_sync;
