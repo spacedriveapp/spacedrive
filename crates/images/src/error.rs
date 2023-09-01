@@ -1,4 +1,5 @@
 use std::num::TryFromIntError;
+// use tokio::task::JoinError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -8,10 +9,15 @@ pub enum Error {
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
 
+	#[error("error with usvg: {0}")]
+	USvg(#[from] resvg::usvg::Error),
+	#[error("failed to allocate `Pixbuf` while converting an SVG")]
+	Pixbuf,
+
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),
-	#[error("io error")]
-	Io,
+	#[error("there was an i/o error: {0}")]
+	Io(#[from] std::io::Error),
 	#[error("there was an error while converting the image to an `RgbImage`")]
 	RgbImageConversion,
 	#[error("the image provided is unsupported")]
@@ -22,10 +28,16 @@ pub enum Error {
 	InvalidBitDepth,
 	#[error("invalid path provided (non UTF-8)")]
 	InvalidPath,
+	#[error("the image has an invalid length to be RGB")]
+	InvalidLength,
 	#[error("invalid path provided (it had no file extension)")]
 	NoExtension,
 	#[error("error while converting from raw")]
 	RawConversion,
 	#[error("error while parsing integers")]
 	TryFromInt(#[from] TryFromIntError),
+	// #[error("there was an error with asynchronous i/o: {0}")]
+	// AsyncIo(#[from] tokio::io::Error),
+	// #[error("a blocking task failed to execute to completion")]
+	// Join(#[from] JoinError),
 }

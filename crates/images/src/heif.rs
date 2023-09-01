@@ -1,60 +1,115 @@
-use crate::{
-	consts::HEIF_MAXIMUM_FILE_SIZE,
-	error::{Error, Result},
-};
+pub use crate::consts::HEIF_EXTENSIONS;
+use crate::consts::HEIF_MAXIMUM_FILE_SIZE;
+pub use crate::error::{Error, Result};
+use crate::ConvertImage;
 use image::DynamicImage;
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
-use std::{
-	fs,
-	io::{Cursor, Read, Seek, SeekFrom},
-	path::Path,
-};
+use std::io::{Cursor, SeekFrom};
+use std::io::{Read, Seek};
+use std::path::Path;
 
-pub fn heif_to_dynamic_image(path: &Path) -> Result<DynamicImage> {
-	if fs::metadata(path).map_err(|_| Error::Io)?.len() > HEIF_MAXIMUM_FILE_SIZE {
-		return Err(Error::TooLarge);
+pub struct HeifHandler {}
+
+impl ConvertImage for HeifHandler {
+	fn maximum_size(&self) -> u64 {
+		HEIF_MAXIMUM_FILE_SIZE
 	}
 
-	let img = {
-		// do this in a separate block so we drop the raw (potentially huge) image handle
-		let ctx = HeifContext::read_from_file(path.to_str().ok_or(Error::InvalidPath)?)?;
-		let heif = LibHeif::new();
-		let handle = ctx.primary_image_handle()?;
-
-		heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)?
-	};
-
-	// TODO(brxken128): add support for images with individual r/g/b channels
-	// i'm unable to find a sample to test with, but it should follow the same principles as this one
-	if let Some(i) = img.planes().interleaved {
-		if i.bits_per_pixel != 8 {
+	fn validate_image(&self, bits_per_pixel: u8, length: usize) -> Result<()> {
+		if bits_per_pixel != 8 {
 			return Err(Error::InvalidBitDepth);
+		} else if length % 3 != 0 || length % 4 != 0 {
+			return Err(Error::InvalidLength);
 		}
 
-		let data = i.data.to_vec();
-		let mut reader = Cursor::new(data);
+		Ok(())
+	}
 
-		let mut sequence = vec![];
-		let mut buffer = [0u8; 3]; // [r, g, b]
+	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
+		let img = {
+			let data = self.get_data(path)?;
+			let handle = HeifContext::read_from_bytes(&data)?.primary_image_handle()?;
+			LibHeif::new().decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)
+		}?;
 
-		// this is the interpolation stuff, it essentially just makes the image correct
-		// in regards to stretching/resolution, etc
-		for y in 0..img.height() {
-			reader
-				.seek(SeekFrom::Start((i.stride * y as usize) as u64))
-				.map_err(|_| Error::Io)?;
+		let planes = img.planes();
 
-			for _ in 0..img.width() {
-				reader.read_exact(&mut buffer).map_err(|_| Error::Io)?;
-				sequence.extend_from_slice(&buffer);
+		// TODO(brxken128): add support for images with individual r/g/b channels
+		// i'm unable to find a sample to test with, but it should follow the same principles as this one
+		if let Some(i) = planes.interleaved {
+			self.validate_image(i.bits_per_pixel, i.data.len())?;
+
+			let mut reader = Cursor::new(i.data);
+			let mut sequence = vec![];
+			let mut buffer = [0u8; 3]; // [r, g, b]
+
+			// this is the interpolation stuff, it essentially just makes the image correct
+			// in regards to stretching/resolution, etc
+			(0..img.height()).try_for_each(|x| {
+				reader.seek(SeekFrom::Start((i.stride * x as usize) as u64))?;
+				(0..img.width()).try_for_each(|_| {
+					reader.read_exact(&mut buffer)?;
+					sequence.extend_from_slice(&buffer);
+					Ok::<(), Error>(())
+				})?;
+				Ok::<(), Error>(())
+			})?;
+
+			image::RgbImage::from_raw(img.width(), img.height(), sequence).map_or_else(
+				|| Err(Error::RgbImageConversion),
+				|x| Ok(DynamicImage::ImageRgb8(x)),
+			)
+		} else if let (Some(r), Some(g), Some(b)) = (planes.r, planes.g, planes.b) {
+			self.validate_image(r.bits_per_pixel, r.data.len())?;
+			self.validate_image(g.bits_per_pixel, g.data.len())?;
+			self.validate_image(b.bits_per_pixel, b.data.len())?;
+
+			let mut red = Cursor::new(r.data);
+			let mut green = Cursor::new(g.data);
+			let mut blue = Cursor::new(b.data);
+
+			let (mut alpha, has_alpha) = if let Some(a) = planes.a {
+				self.validate_image(a.bits_per_pixel, a.data.len())?;
+				(Cursor::new(a.data), true)
+			} else {
+				(Cursor::new([].as_ref()), false)
+			};
+
+			let mut sequence = vec![];
+			let mut buffer: [u8; 4] = [0u8; 4];
+
+			// this is the interpolation stuff, it essentially just makes the image correct
+			// in regards to stretching/resolution, etc
+			(0..img.height()).try_for_each(|x| {
+				red.seek(SeekFrom::Start((r.stride * x as usize) as u64))?;
+				(0..img.width()).try_for_each(|_| {
+					red.read_exact(&mut buffer[0..1])?;
+					green.read_exact(&mut buffer[1..2])?;
+					blue.read_exact(&mut buffer[2..3])?;
+					sequence.extend_from_slice(&buffer[..3]);
+
+					if has_alpha {
+						alpha.read_exact(&mut buffer[3..4])?;
+						sequence.extend_from_slice(&buffer[3..4]);
+					}
+					Ok::<(), Error>(())
+				})?;
+				Ok::<(), Error>(())
+			})?;
+
+			if has_alpha {
+				image::RgbaImage::from_raw(img.width(), img.height(), sequence).map_or_else(
+					|| Err(Error::RgbImageConversion),
+					|x| Ok(DynamicImage::ImageRgba8(x)),
+				)
+			} else {
+				image::RgbImage::from_raw(img.width(), img.height(), sequence).map_or_else(
+					|| Err(Error::RgbImageConversion),
+					|x| Ok(DynamicImage::ImageRgb8(x)),
+				)
 			}
+		} else {
+			Err(Error::Unsupported)
 		}
-
-		let rgb_img = image::RgbImage::from_raw(img.width(), img.height(), sequence)
-			.ok_or(Error::RgbImageConversion)?;
-
-		Ok(DynamicImage::ImageRgb8(rgb_img))
-	} else {
-		Err(Error::Unsupported)
 	}
 }
