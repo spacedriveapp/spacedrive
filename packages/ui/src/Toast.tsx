@@ -61,7 +61,7 @@ type CustomToastOptions = Omit<
 interface ToastProps
 	extends Pick<ToastOptions, 'type' | 'icon' | 'action' | 'cancel' | 'onDismiss' | 'onClose'> {
 	id: ToastId;
-	message: ToastMessage;
+	message: ToastMessage | ((id: ToastId) => ToastMessage);
 	closable?: boolean;
 }
 
@@ -73,15 +73,13 @@ const icons: Record<ToastType, Icon> = {
 };
 
 const Toast = ({ closable = true, action, cancel, ...props }: ToastProps) => {
+	const message = typeof props.message === 'function' ? props.message(props.id) : props.message;
+
 	const title =
-		props.message && typeof props.message === 'object' && 'title' in props.message
-			? props.message.title
-			: props.message;
+		message && typeof message === 'object' && 'title' in message ? message.title : message;
 
 	const body =
-		props.message && typeof props.message === 'object' && 'body' in props.message
-			? props.message.body
-			: undefined;
+		message && typeof message === 'object' && 'body' in message ? message.body : undefined;
 
 	const typeIcon = (type: ToastType) => {
 		const Icon = icons[type];
@@ -235,7 +233,7 @@ const PromiseToast = <T extends ToastPromiseData>({
 };
 
 const renderToast = (
-	message: ToastMessage,
+	message: ToastMessage | ((id: ToastId) => ToastMessage),
 	{
 		type,
 		icon,
@@ -324,16 +322,28 @@ const renderPromiseToast = <T extends ToastPromiseData>(
 };
 
 export const toast = Object.assign(renderToast, {
-	info: (message: ToastMessage, options?: Omit<ToastOptions, 'type'>) => {
+	info: (
+		message: ToastMessage | ((id: ToastId) => ToastMessage),
+		options?: Omit<ToastOptions, 'type'>
+	) => {
 		return renderToast(message, { ...options, type: 'info' });
 	},
-	success: (message: ToastMessage, options?: Omit<ToastOptions, 'type'>) => {
+	success: (
+		message: ToastMessage | ((id: ToastId) => ToastMessage),
+		options?: Omit<ToastOptions, 'type'>
+	) => {
 		return renderToast(message, { ...options, type: 'success' });
 	},
-	error: (message: ToastMessage, options?: Omit<ToastOptions, 'type'>) => {
+	error: (
+		message: ToastMessage | ((id: ToastId) => ToastMessage),
+		options?: Omit<ToastOptions, 'type'>
+	) => {
 		return renderToast(message, { ...options, type: 'error' });
 	},
-	warning: (message: ToastMessage, options?: Omit<ToastOptions, 'type'>) => {
+	warning: (
+		message: ToastMessage | ((id: ToastId) => ToastMessage),
+		options?: Omit<ToastOptions, 'type'>
+	) => {
 		return renderToast(message, { ...options, type: 'warning' });
 	},
 	custom: renderCustomToast,

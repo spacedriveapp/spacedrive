@@ -97,10 +97,10 @@ export function SpacedropUI() {
 			);
 		} else if (data.type === 'SpacedropProgress') {
 			toast.info(
-				{
+				(id) => ({
 					title: 'Spacedrop',
-					body: <SpacedropProgress toastId={data.id} dropId={data.id} />
-				},
+					body: <SpacedropProgress toastId={id} dropId={data.id} />
+				}),
 				{
 					id: data.id,
 					duration: Infinity,
