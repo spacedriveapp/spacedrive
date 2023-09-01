@@ -210,9 +210,7 @@ export function Dialog<S extends FieldValues>({
 									e?.preventDefault();
 									await onSubmit?.(e);
 									dialog.onSubmit?.();
-									if (form.formState.isValid) {
-										setOpen(false);
-									}
+									setOpen(false);
 								}}
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>
