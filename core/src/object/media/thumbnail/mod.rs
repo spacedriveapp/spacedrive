@@ -182,6 +182,9 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 					img = orientation.correct_thumbnail(img);
 				}
 			}
+			Err(sd_media_metadata::Error::NoExifDataOnSlice) => {
+				// No can do if we don't have exif data
+			}
 			Err(e) => warn!("Unable to extract EXIF: {:?}", e),
 		}
 

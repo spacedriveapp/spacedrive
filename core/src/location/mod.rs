@@ -860,7 +860,7 @@ pub(super) async fn generate_thumbnail(
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
-		debug!(
+		trace!(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);

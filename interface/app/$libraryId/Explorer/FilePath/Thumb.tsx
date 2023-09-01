@@ -110,7 +110,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 				break;
 
 			case ThumbType.Thumbnail:
-				if (itemData.thumbnailKey) {
+				if (itemData.thumbnailKey.length > 0) {
 					setSrc(platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);
