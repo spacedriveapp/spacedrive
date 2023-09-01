@@ -1,6 +1,7 @@
 use tokio::io::AsyncReadExt;
 
 /// TODO
+#[derive(Debug, PartialEq, Eq)]
 pub struct Block<'a> {
 	// TODO: File content, checksum, source location so it can be resent!
 	pub offset: u64,
@@ -44,3 +45,5 @@ impl<'a> Block<'a> {
 		})
 	}
 }
+
+// TODO: Unit test `Block`

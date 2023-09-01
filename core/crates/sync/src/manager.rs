@@ -3,7 +3,14 @@ use sd_sync::*;
 use sd_utils::uuid_to_bytes;
 
 use crate::{db_operation::*, *};
-use std::{cmp::Ordering, ops::Deref, sync::Arc};
+use std::{
+	cmp::Ordering,
+	ops::Deref,
+	sync::{
+		atomic::{self, AtomicBool},
+		Arc,
+	},
+};
 use tokio::sync::broadcast;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
@@ -26,7 +33,11 @@ pub struct New<T> {
 }
 
 impl Manager {
-	pub fn new(db: &Arc<PrismaClient>, instance: Uuid) -> New<Self> {
+	pub fn new(
+		db: &Arc<PrismaClient>,
+		instance: Uuid,
+		emit_messages_flag: &Arc<AtomicBool>,
+	) -> New<Self> {
 		let (tx, rx) = broadcast::channel(64);
 
 		let timestamps: Timestamps = Default::default();
@@ -37,6 +48,7 @@ impl Manager {
 			instance,
 			timestamps,
 			clock,
+			emit_messages_flag: emit_messages_flag.clone(),
 		});
 
 		let ingest = ingest::Actor::spawn(shared.clone());
@@ -52,8 +64,9 @@ impl Manager {
 		tx: &PrismaClient,
 		(_ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		#[cfg(feature = "emit-messages")]
-		let res = {
+		// let start = Instant::now();
+
+		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			macro_rules! variant {
 				($var:ident, $variant:ident, $fn:ident) => {
 					let $var = _ops
@@ -76,11 +89,13 @@ impl Manager {
 			self.tx.send(SyncMessage::Created).ok();
 
 			res
+		} else {
+			tx._batch([queries]).await?.remove(0)
 		};
-		#[cfg(not(feature = "emit-messages"))]
-		let res = tx._batch([queries]).await?.remove(0);
 
-		Ok(res)
+		// debug!("time: {}", start.elapsed().as_millis());
+
+		Ok(ret)
 	}
 
 	#[allow(unused_variables)]
@@ -90,8 +105,7 @@ impl Manager {
 		op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
-		#[cfg(feature = "emit-messages")]
-		let ret = {
+		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
 			macro_rules! exec {
 				($fn:ident, $inner:ident) => {
 					tx._batch(($fn(&op, $inner).to_query(tx), query)).await?.1
@@ -106,9 +120,9 @@ impl Manager {
 			self.tx.send(SyncMessage::Created).ok();
 
 			ret
+		} else {
+			tx._batch(vec![query]).await?.remove(0)
 		};
-		#[cfg(not(feature = "emit-messages"))]
-		let ret = tx._batch(vec![query]).await?.remove(0);
 
 		Ok(ret)
 	}

@@ -147,10 +147,11 @@ To set up your machine for Spacedrive development, this script will do the follo
 2) Install Edge Webview 2
 3) Install Rust and Cargo
 4) Install Rust tools
-5) Install Node.js, npm and pnpm
-6) Install LLVM $llvmVersion (compiler for ffmpeg-rust)
-7) Download the protbuf compiler
-8) Download a compatible ffmpeg build
+5) Install Strawberry perl (used by to build the openssl-sys crate)
+6) Install Node.js, npm and pnpm
+7) Install LLVM $llvmVersion (compiler for ffmpeg-rust)
+8) Download the protbuf compiler
+9) Download a compatible ffmpeg build
 "@
 
 # Install System dependencies (GitHub Actions already has all of those installed)
@@ -214,7 +215,14 @@ https://learn.microsoft.com/windows/package-manager/winget/
         $LASTEXITCODE = 0
     }
 
-    # TODO: Install Strawberry perl, required by debug build of openssl-sys
+    Write-Host
+    Write-Host 'Installing Strawberry perl...' -ForegroundColor Yellow
+    winget install -e --accept-source-agreements --disable-interactivity --id StrawberryPerl.StrawberryPerl
+    if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
+        Exit-WithError 'Failed to install Strawberry perl'
+    } else {
+        $LASTEXITCODE = 0
+    }
 
     Write-Host
     Write-Host 'Installing NodeJS...' -ForegroundColor Yellow
