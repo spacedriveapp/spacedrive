@@ -33,6 +33,6 @@ export const SearchParamsSchema = PathParamsSchema.extend({
 export type SearchParams = z.infer<typeof SearchParamsSchema>;
 
 export const ExplorerParamsSchema = PathParamsSchema.extend({
-	take: z.coerce.number().default(10)
+	take: z.coerce.number().default(100)
 });
 export type ExplorerParams = z.infer<typeof ExplorerParamsSchema>;
