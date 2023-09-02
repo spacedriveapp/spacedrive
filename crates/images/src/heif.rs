@@ -34,8 +34,6 @@ impl ConvertImage for HeifHandler {
 
 		let planes = img.planes();
 
-		// TODO(brxken128): add support for images with individual r/g/b channels
-		// i'm unable to find a sample to test with, but it should follow the same principles as this one
 		if let Some(i) = planes.interleaved {
 			self.validate_image(i.bits_per_pixel, i.data.len())?;
 
@@ -60,6 +58,11 @@ impl ConvertImage for HeifHandler {
 				|x| Ok(DynamicImage::ImageRgb8(x)),
 			)
 		} else if let (Some(r), Some(g), Some(b)) = (planes.r, planes.g, planes.b) {
+			// This implementation is **ENTIRELY** untested, as I'm unable to source
+			// a HEIF image that has separate r/g/b channels, let alone r/g/b/a.
+			// This was hand-crafted using my best judgement, and I think it should work.
+			// I'm sure we'll get a GH issue opened regarding it if not - brxken128
+
 			self.validate_image(r.bits_per_pixel, r.data.len())?;
 			self.validate_image(g.bits_per_pixel, g.data.len())?;
 			self.validate_image(b.bits_per_pixel, b.data.len())?;

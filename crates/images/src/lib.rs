@@ -7,8 +7,8 @@ mod heif;
 mod svg;
 
 pub use error::{Error, Result};
-pub use formatter::ImageFormatter;
-use image::DynamicImage;
+pub use formatter::format_image;
+pub use image::DynamicImage;
 use std::{fs, io::Read, path::Path};
 
 pub trait ConvertImage {

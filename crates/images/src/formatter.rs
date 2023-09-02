@@ -14,28 +14,24 @@ use std::{
 #[cfg(not(target_os = "linux"))]
 use crate::heif::HeifHandler;
 
-pub struct ImageFormatter;
+pub fn format_image(path: &Path) -> Result<DynamicImage> {
+	let ext = path.extension().ok_or(Error::NoExtension)?;
+	match_to_handler(ext).handle_image(path)
+}
 
-impl ImageFormatter {
-	fn match_to_handler(ext: &OsStr) -> Box<dyn ConvertImage> {
-		let mut handler: Box<dyn ConvertImage> = Box::new(GenericHandler {});
+fn match_to_handler(ext: &OsStr) -> Box<dyn ConvertImage> {
+	let mut handler: Box<dyn ConvertImage> = Box::new(GenericHandler {});
 
-		#[cfg(not(target_os = "linux"))]
-		if HEIF_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
-			handler = Box::new(HeifHandler {})
-		}
-
-		// raw next
-
-		if SVG_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
-			handler = Box::new(SvgHandler {})
-		}
-
-		handler
+	#[cfg(not(target_os = "linux"))]
+	if HEIF_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
+		handler = Box::new(HeifHandler {})
 	}
 
-	pub fn format_image(path: &Path) -> Result<DynamicImage> {
-		let ext = path.extension().ok_or(Error::NoExtension)?;
-		Self::match_to_handler(ext).handle_image(path)
+	// raw next
+
+	if SVG_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
+		handler = Box::new(SvgHandler {})
 	}
+
+	handler
 }
