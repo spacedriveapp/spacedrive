@@ -124,6 +124,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const grid = useGridList({
 		ref: explorerView.ref,
 		count: explorer.items?.length ?? 0,
+		totalCount: explorer.count,
 		overscan: explorer.overscan,
 		onLoadMore: explorer.loadMore,
 		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,

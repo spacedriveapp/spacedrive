@@ -6,8 +6,8 @@ use specta::Type;
 pub mod cas;
 pub mod file_identifier;
 pub mod fs;
+pub mod media;
 pub mod orphan_remover;
-pub mod preview;
 pub mod tag;
 pub mod thumbnail_remover;
 pub mod validation;
@@ -19,7 +19,7 @@ pub mod validation;
 // Object selectables!
 object::select!(object_for_file_identifier {
 	pub_id
-	file_paths: select { pub_id cas_id }
+	file_paths: select { pub_id cas_id extension is_dir materialized_path name }
 });
 
 // The response to provide the Explorer when looking at Objects

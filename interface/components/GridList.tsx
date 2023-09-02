@@ -1,6 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
-import { RefObject, useEffect, useMemo, useState } from 'react';
+import React, {
+	ReactNode,
+	RefObject,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState
+} from 'react';
 import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 
@@ -18,6 +26,7 @@ export interface GridListItem<IdT extends ItemId = number, DataT extends ItemDat
 
 export interface UseGridListProps<IdT extends ItemId = number, DataT extends ItemData = undefined> {
 	count: number;
+	totalCount?: number;
 	ref: RefObject<HTMLElement>;
 	padding?: number | { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
@@ -43,6 +52,8 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 }: UseGridListProps<IdT, DataT>) => {
 	const { width } = useResizeObserver({ ref });
 
+	const count = props.totalCount ?? props.count;
+
 	const paddingX = (typeof padding === 'object' ? padding.x : padding) || 0;
 	const paddingY = (typeof padding === 'object' ? padding.y : padding) || 0;
 
@@ -63,6 +74,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 	}
 
 	const rowCount = columnCount > 0 ? Math.ceil(props.count / columnCount) : 0;
+	const totalRowCount = columnCount > 0 ? Math.ceil(count / columnCount) : 0;
 
 	const virtualItemWidth =
 		columnCount > 0 ? (gridWidth - (columnCount - 1) * gapX) / columnCount : 0;
@@ -71,7 +83,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 
 	const getItem = useCallback(
 		(index: number) => {
-			if (index < 0 || index >= props.count) return;
+			if (index < 0 || index >= count) return;
 
 			const id = getItemId?.(index) || index;
 
@@ -105,7 +117,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 		},
 		[
 			columnCount,
-			props.count,
+			count,
 			gapX,
 			gapY,
 			getItemId,
@@ -120,6 +132,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 	return {
 		columnCount,
 		rowCount,
+		totalRowCount,
 		width: gridWidth,
 		padding: { x: paddingX, y: paddingY },
 		gap: { x: gapX, y: gapY },
@@ -154,7 +167,7 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 	);
 
 	const rowVirtualizer = useVirtualizer({
-		count: grid.rowCount,
+		count: grid.totalRowCount,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: getHeight,
 		paddingStart: grid.padding.y,
@@ -193,20 +206,19 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 	}, [rowVirtualizer, columnVirtualizer, grid.columnCount, grid.rowCount]);
 
 	useEffect(() => {
-		if (grid.onLoadMore) {
-			const lastRow = virtualRows[virtualRows.length - 1];
-			if (lastRow) {
-				const rowsBeforeLoadMore = grid.rowsBeforeLoadMore || 1;
+		if (!grid.onLoadMore) return;
 
-				const loadMoreOnIndex =
-					rowsBeforeLoadMore > grid.rowCount ||
-					lastRow.index > grid.rowCount - rowsBeforeLoadMore
-						? grid.rowCount - 1
-						: grid.rowCount - rowsBeforeLoadMore;
+		const lastRow = virtualRows[virtualRows.length - 1];
+		if (!lastRow) return;
 
-				if (lastRow.index === loadMoreOnIndex) grid.onLoadMore();
-			}
-		}
+		const rowsBeforeLoadMore = grid.rowsBeforeLoadMore || 1;
+
+		const loadMoreOnIndex =
+			rowsBeforeLoadMore > grid.rowCount || lastRow.index > grid.rowCount - rowsBeforeLoadMore
+				? grid.rowCount - 1
+				: grid.rowCount - rowsBeforeLoadMore;
+
+		if (lastRow.index === loadMoreOnIndex || lastRow.index > grid.rowCount) grid.onLoadMore();
 	}, [virtualRows, grid.rowCount, grid.rowsBeforeLoadMore, grid.onLoadMore, grid]);
 
 	useMutationObserver(scrollRef, () => setListOffset(ref.current?.offsetTop ?? 0));

@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import {
 	Button,
 	Divider,
@@ -14,7 +14,6 @@ import {
 	SwitchField,
 	Tooltip,
 	tw,
-	useZodForm,
 	z
 } from '@sd/ui';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';

@@ -26,7 +26,7 @@ use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, trace};
 use uuid::Uuid;
 
-use super::preview::THUMBNAIL_CACHE_DIR_NAME;
+use super::media::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 
 const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
@@ -250,6 +250,9 @@ impl Actor {
 		//└── <cas_id>[0..2]/ # sharding
 		//    └── <cas_id>.webp
 
+		fs::create_dir_all(&thumbnails_directory)
+			.await
+			.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;
 		let mut read_dir = fs::read_dir(thumbnails_directory)
 			.await
 			.map_err(|e| FileIOError::from((thumbnails_directory, e)))?;

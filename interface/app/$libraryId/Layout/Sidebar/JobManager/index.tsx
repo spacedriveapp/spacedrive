@@ -1,70 +1,79 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Trash, X } from 'phosphor-react';
-import { useEffect, useRef, useState } from 'react';
-import {
-	JobGroup as JobGroupType,
-	JobProgressEvent,
-	useLibraryMutation,
-	useLibraryQuery,
-	useLibrarySubscription
-} from '@sd/client';
-import { Button, PopoverClose, Tooltip } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import { Check, Trash, X } from 'phosphor-react';
+import { useState } from 'react';
+import { useJobProgress, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, PopoverClose, Tooltip, toast } from '@sd/ui';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
-import { useJobManagerContext } from './context';
 
 export function JobManager() {
 	const queryClient = useQueryClient();
+	const [toggleConfirmation, setToggleConfirmation] = useState(false);
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 
-	const progress = useProgress(jobGroups.data);
+	const progress = useJobProgress(jobGroups.data);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
-			showAlertDialog({
+			toast.error({
 				title: 'Error',
-				value: 'There was an error clearing all jobs. Please try again.'
+				body: 'Failed to clear all jobs.'
 			});
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries(['jobs.reports ']);
+			setToggleConfirmation((t) => !t);
+			toast.success({
+				title: 'Success',
+				body: 'All jobs have been cleared.'
+			});
 		}
 	});
 
 	const clearAllJobsHandler = () => {
-		showAlertDialog({
-			title: 'Clear Jobs',
-			value: 'Are you sure you want to clear all jobs? This cannot be undone.',
-			label: 'Clear',
-			onSubmit: () => clearAllJobs.mutate(null)
-		});
+		clearAllJobs.mutate(null);
 	};
 
 	return (
 		<div className="h-full overflow-hidden pb-10">
-			<PopoverClose asChild>
-				<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-					<span className=" ml-1.5 font-medium">Recent Jobs</span>
-
-					<div className="grow" />
+			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
+				<span className=" ml-1.5 font-medium">Recent Jobs</span>
+				<div className="grow" />
+				{toggleConfirmation ? (
+					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
+						<p className="text-[10px]">Are you sure?</p>
+						<PopoverClose asChild>
+							<Check
+								onClick={clearAllJobsHandler}
+								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
+								color="white"
+							/>
+						</PopoverClose>
+						<X
+							className="h-3 w-3 transition-opacity hover:opacity-70"
+							onClick={() => setToggleConfirmation((t) => !t)}
+						/>
+					</div>
+				) : (
 					<Button
 						className="opacity-70"
-						onClick={() => clearAllJobsHandler()}
+						onClick={() => setToggleConfirmation((t) => !t)}
 						size="icon"
 					>
 						<Tooltip label="Clear out finished jobs">
 							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
+				)}
+				<PopoverClose asChild>
 					<Button className="opacity-70" size="icon">
 						<Tooltip label="Close">
 							<X className="h-4 w-4" />
 						</Tooltip>
 					</Button>
-				</div>
-			</PopoverClose>
+				</PopoverClose>
+			</div>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className="h-full border-r border-app-line/50">
 					{jobGroups.data &&
@@ -84,49 +93,3 @@ export function JobManager() {
 }
 
 export { IsRunningJob };
-
-const useProgress = (jobGroups?: JobGroupType[]) => {
-	const ctx = useJobManagerContext();
-
-	// Create initial progress from cached progress
-	const [progress, setProgress] = useState<Record<string, JobProgressEvent>>(() => {
-		return {
-			...ctx.cachedJobProgress.current
-		};
-	});
-
-	useLibrarySubscription(['jobs.progress'], {
-		onData(data) {
-			console.log(`setting ${data.id} progress`);
-			setProgress((prev) => ({ ...prev, [data.id]: data }));
-		}
-	});
-
-	// Update cached progress when progress changes
-	useEffect(() => {
-		ctx.cachedJobProgress.current = progress;
-	}, [progress, ctx.cachedJobProgress]);
-
-	// Remove jobs that aren't running from progress
-	// This can happen kind of lazily since it's not a huge deal
-	useEffect(() => {
-		if (!jobGroups) return;
-
-		setProgress((prev) => {
-			const ret: typeof prev = {};
-
-			for (const group of jobGroups) {
-				for (const job of group.jobs) {
-					const prevEvent = prev[job.id];
-					if (job.status !== 'Running' || !prevEvent) continue;
-
-					ret[job.id] = prevEvent;
-				}
-			}
-
-			return ret;
-		});
-	}, [jobGroups]);
-
-	return progress;
-};

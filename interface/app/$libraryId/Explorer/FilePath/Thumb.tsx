@@ -13,7 +13,7 @@ import {
 	useState
 } from 'react';
 import { type ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
-import { PDFViewer, TEXTViewer } from '~/components';
+import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
@@ -104,15 +104,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 					'id' in filePath &&
 					(itemData.extension !== 'pdf' || pdfViewerEnabled())
 				) {
-					setSrc(
-						platform.getFileUrl(
-							library.uuid,
-							locationId,
-							filePath.id,
-							// Workaround Linux webview not supporting playing video and audio through custom protocol urls
-							itemData.kind === 'Video' || itemData.kind === 'Audio'
-						)
-					);
+					setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}
@@ -182,20 +174,27 @@ export const FileThumb = memo((props: ThumbProps) => {
 									/>
 								);
 							case 'Text':
+							case 'Code':
+							case 'Config':
 								return (
-									<TEXTViewer
+									<TextViewer
 										src={src}
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full font-mono',
+											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 											!props.mediaControls
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
 											props.frame && [frameClassName, '!bg-none p-2']
 										)}
-										crossOrigin="anonymous"
+										codeExtension={
+											((itemData.kind === 'Code' ||
+												itemData.kind === 'Config') &&
+												itemData.extension) ||
+											''
+										}
 									/>
 								);
 

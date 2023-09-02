@@ -20,6 +20,10 @@ if (typeof globalThis.CustomEvent !== 'function') {
 	};
 }
 
+globalThis.confirm = () => {
+	throw new Error("TODO: Implement 'confirm' for mobile");
+};
+
 const _localStorage = new Map<string, string>();
 
 // We patch stuff onto `globalThis` so that `@sd/client` can use it. This is super hacky but as far as I can tell, there's no better way to do this.

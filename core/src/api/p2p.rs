@@ -1,4 +1,4 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::alpha::AlphaRouter;
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -23,17 +23,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 					}
 
-					// // TODO: Don't block subscription start
-					// for peer in ctx.p2p_manager.get_connected_peers().await.unwrap() {
-					// 	// TODO: Send to frontend
-					// }
 
+					// TODO: Don't block subscription start
+					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
+					for peer_id in node.p2p.manager.get_connected_peers().await.unwrap() {
+						yield P2PEvent::ConnectedPeer {
+							peer_id,
+						};
+					}
 
 					while let Ok(event) = rx.recv().await {
 						yield event;
 					}
 				}
 			})
+		})
+		.procedure("nlmState", {
+			R.query(|node, _: ()| async move { node.nlm.state().await })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
@@ -44,8 +50,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.mutation(|node, args: SpacedropArgs| async move {
 				// TODO: Handle multiple files path and error if zero paths
-				node.p2p
-					.big_bad_spacedrop(
+
+				#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
+				tokio::spawn(async move {
+					node.p2p
+					.spacedrop(
 						args.peer_id,
 						PathBuf::from(
 							args.file_path
@@ -54,9 +63,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						),
 					)
 					.await
-					.map_err(|_| {
-						rspc::Error::new(ErrorCode::InternalServerError, "todo".to_string())
-					})
+					.unwrap();
+				});
 			})
 		})
 		.procedure("acceptSpacedrop", {
@@ -67,13 +75,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
-		// TODO: Send this over `p2p.events`
-		.procedure("spacedropProgress", {
-			R.subscription(|node, id: Uuid| async move {
-				node.p2p.spacedrop_progress(id).await.ok_or_else(|| {
-					rspc::Error::new(ErrorCode::BadRequest, "Spacedrop not found!".into())
-				})
-			})
+		.procedure("cancelSpacedrop", {
+			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: PeerId| async move {

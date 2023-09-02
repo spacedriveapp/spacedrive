@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useState } from 'react';
-import { Dialog, TextArea, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
+import { useZodForm } from '@sd/client';
+import { Dialog, TextArea, UseDialogProps, useDialog, z } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 
 const schema = z.object({
@@ -44,6 +44,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 
 	return (
 		<Dialog
+			invertButtonFocus
 			title="Feedback"
 			dialog={useDialog(props)}
 			form={form}

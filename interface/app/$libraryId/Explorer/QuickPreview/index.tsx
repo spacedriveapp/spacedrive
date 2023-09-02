@@ -7,22 +7,12 @@ import {
 	type ExplorerItem,
 	getExplorerItemData,
 	getIndexedItemFilePath,
-	getItemFilePath,
 	useLibraryContext,
 	useLibraryMutation,
-	useRspcLibraryContext
+	useRspcLibraryContext,
+	useZodForm
 } from '@sd/client';
-import {
-	DropdownMenu,
-	Form,
-	ModifierKeys,
-	Tooltip,
-	dialogManager,
-	toast,
-	tw,
-	useZodForm,
-	z
-} from '@sd/ui';
+import { DropdownMenu, Form, ModifierKeys, Tooltip, dialogManager, toast, tw, z } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 import { useKeyBind } from '~/hooks/useKeyBind';
 import { usePlatform } from '~/util/Platform';
@@ -140,7 +130,7 @@ export const QuickPreview = () => {
 		} catch (error) {
 			toast.error({
 				title: 'Failed to open file',
-				description: `Couldn't open file, due to an error: ${error}`
+				body: `Couldn't open file, due to an error: ${error}`
 			});
 		}
 	});
@@ -160,7 +150,7 @@ export const QuickPreview = () => {
 		} catch (error) {
 			toast.error({
 				title: 'Failed to reveal',
-				description: `Couldn't reveal file, due to an error: ${error}`
+				body: `Couldn't reveal file, due to an error: ${error}`
 			});
 		}
 	});

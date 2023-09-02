@@ -202,12 +202,13 @@ async fn execute_indexer_update_step(
 			let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
 
 			let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-				// As this file was updated while Spacedrive was offline, we mark the object_id as null
+				// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
 				// So this file_path will be updated at file identifier job
 				(
 					(object_id::NAME, serde_json::Value::Null),
 					object::disconnect(),
 				),
+				((cas_id::NAME, serde_json::Value::Null), cas_id::set(None)),
 				((is_dir::NAME, json!(*is_dir)), is_dir::set(Some(*is_dir))),
 				(
 					(

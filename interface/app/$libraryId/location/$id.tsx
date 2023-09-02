@@ -4,6 +4,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
 	ExplorerSettings,
+	FilePathFilterArgs,
 	FilePathSearchOrdering,
 	useLibraryContext,
 	useLibraryMutation,
@@ -85,10 +86,11 @@ export const Component = () => {
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const { items, loadMore } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore } = useItems({ locationId, settings: explorerSettings });
 
 	const explorer = useExplorer({
 		items,
+		count,
 		loadMore,
 		parent: location.data
 			? {
@@ -118,18 +120,18 @@ export const Component = () => {
 
 	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
 
+	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<div className="group flex flex-row items-center space-x-2">
-						<span className="flex flex-row items-center">
-							<Folder size={22} className="ml-3 mr-2 mt-[-1px] inline-block" />
-							<span className="max-w-[100px] truncate text-sm font-medium">
-								{path && path?.length > 1
-									? getLastSectionOfPath(path)
-									: location.data?.name}
-							</span>
+					<div className="flex items-center gap-2">
+						<Folder size={22} className="mt-[-1px]" />
+						<span className="truncate text-sm font-medium">
+							{path && path?.length > 1
+								? getLastSectionOfPath(path)
+								: location.data?.name}
 						</span>
 						{location.data && (
 							<LocationOptions location={location.data} path={path || ''} />
@@ -158,6 +160,15 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
+	const filter: FilePathFilterArgs = {
+		locationId,
+		...(explorerSettings.layoutMode === 'media'
+			? { object: { kind: [5, 7] } }
+			: { path: path ?? '' })
+	};
+
+	const count = useLibraryQuery(['search.pathsCount', { filter }]);
+
 	const query = useInfiniteQuery({
 		queryKey: [
 			'search.paths',
@@ -165,12 +176,7 @@ const useItems = ({
 				library_id: library.uuid,
 				arg: {
 					order: explorerSettings.order,
-					filter: {
-						locationId,
-						...(explorerSettings.layoutMode === 'media'
-							? { object: { kind: [5, 7] } }
-							: { path: path ?? '' })
-					},
+					filter,
 					take
 				}
 			}
@@ -180,7 +186,7 @@ const useItems = ({
 				'search.paths',
 				{
 					...queryKey[1].arg,
-					cursor
+					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
 				}
 			]),
 		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -196,7 +202,12 @@ const useItems = ({
 		}
 	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-	return { query, items, loadMore };
+	return {
+		query,
+		items,
+		loadMore,
+		count: count.data
+	};
 };
 
 function getLastSectionOfPath(path: string): string | undefined {

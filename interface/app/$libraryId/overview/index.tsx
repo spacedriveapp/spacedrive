@@ -41,10 +41,11 @@ export const Component = () => {
 
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const { items, loadMore } = useItems(selectedCategory, explorerSettings);
+	const { items, count, loadMore } = useItems(selectedCategory, explorerSettings);
 
 	const explorer = useExplorer({
 		items,
+		count,
 		loadMore,
 		scrollRef: page.ref,
 		settings: explorerSettings

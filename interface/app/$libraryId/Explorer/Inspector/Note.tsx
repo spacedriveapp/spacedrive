@@ -3,6 +3,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Divider, TextArea } from '@sd/ui';
 import { MetaContainer, MetaTitle } from '../Inspector';
+import { useExplorerStore } from '../store';
 
 interface Props {
 	data: SDObject;
@@ -10,6 +11,8 @@ interface Props {
 
 export default function Note(props: Props) {
 	const setNote = useLibraryMutation('files.setNote');
+
+	const explorerStore = useExplorerStore();
 
 	const debouncedSetNote = useDebouncedCallback((note: string) => {
 		setNote.mutate({
