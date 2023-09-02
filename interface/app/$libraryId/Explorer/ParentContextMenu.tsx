@@ -133,7 +133,8 @@ export default (props: PropsWithChildren) => {
 								try {
 									await generateThumbsForLocation.mutateAsync({
 										id: parent.location.id,
-										path: currentPath ?? '/'
+										path: currentPath ?? '/',
+										regenerate: true,
 									});
 								} catch (error) {
 									showAlertDialog({

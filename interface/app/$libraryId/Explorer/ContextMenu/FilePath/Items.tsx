@@ -209,7 +209,8 @@ export const ParentFolderActions = new ConditionalItem({
 						try {
 							await generateThumbnails.mutateAsync({
 								id: parent.location.id,
-								path: selectedFilePaths[0]?.materialized_path ?? '/'
+								path: selectedFilePaths[0]?.materialized_path ?? '/',
+								regenerate: true,
 							});
 						} catch (error) {
 							showAlertDialog({

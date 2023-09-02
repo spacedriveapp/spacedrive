@@ -88,7 +88,15 @@ pub async fn process(
 		)])
 		.select(media_data::select!({ object_id }))
 		.exec()
-		.await?
+		.await?;
+
+	if files_paths.len() == objects_already_with_media_data.len() {
+		// All files already have media data, skipping
+		run_metadata.skipped = files_paths.len() as u32;
+		return Ok((run_metadata, JobRunErrors::default()));
+	}
+
+	let objects_already_with_media_data = objects_already_with_media_data
 		.into_iter()
 		.map(|media_data| media_data.object_id)
 		.collect::<HashSet<_>>();
