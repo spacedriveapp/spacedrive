@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { ChangeEvent, ChangeEventHandler, forwardRef, memo } from 'react';
-import { Input } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Input, toast } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { openDirectoryPickerDialog } from '../AddLocationDialog';
@@ -132,10 +131,7 @@ export const RuleInput = memo(
 									props.onChange?.(event);
 								}
 							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: String(error)
-								});
+								toast.error(String(error));
 							}
 						}}
 						{...props}
