@@ -44,20 +44,12 @@ function Job({ job, className, isChild, progress }: JobProps) {
 				text: 'Completed with errors',
 				icon: Info,
 				onClick: () => {
-					toast.error(
-						{
-							title: 'The job completed with errors',
-							body: 'Please see the error log for more information. If you need help, please contact support and provide this error.'
-						},
-						{
-							action: {
-								label: 'View logs',
-								onClick: () => {
-									showAlertDialog({ title: 'Error logs', children: JobError });
-								}
-							}
-						}
-					);
+					showAlertDialog({
+						title: 'Error',
+						description:
+							'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
+						children: JobError
+					});
 				}
 			}
 		]);
