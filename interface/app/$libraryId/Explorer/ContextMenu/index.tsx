@@ -78,7 +78,7 @@ export default (props: PropsWithChildren<{ items?: ExplorerItem[]; custom?: bool
 /**
  * A `Conditional` that inserts a `<ContextMenu.Separator />` above its items.
  */
-const SeparatedConditional = ({ items, children }: ConditionalGroupProps) => (
+export const SeparatedConditional = ({ items, children }: ConditionalGroupProps) => (
 	<Conditional items={items}>
 		{(c) => (
 			<>
