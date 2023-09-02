@@ -36,10 +36,7 @@ export const Component = () => {
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
-			order: {
-				field: 'name',
-				value: 'Asc'
-			}
+			order: { field: 'name', value: 'Asc' }
 		});
 
 		if (!location.data) return defaults;
@@ -63,11 +60,7 @@ export const Component = () => {
 			const pubId = stringify(location.data.pub_id);
 			try {
 				await updatePreferences.mutateAsync({
-					location: {
-						[pubId]: {
-							explorer: settings
-						}
-					}
+					location: { [pubId]: { explorer: settings } }
 				});
 				queryClient.invalidateQueries(['preferences.get']);
 			} catch (e) {
@@ -91,21 +84,12 @@ export const Component = () => {
 		loadMore,
 		settings: explorerSettings,
 		...(location.data && {
-			parent: {
-				type: 'Location',
-				location: location.data
-			}
+			parent: { type: 'Location', location: location.data }
 		})
 	});
 
 	useLibrarySubscription(
-		[
-			'locations.quickRescan',
-			{
-				sub_path: path ?? '',
-				location_id: locationId
-			}
-		],
+		['locations.quickRescan', { sub_path: path ?? '', location_id: locationId }],
 		{ onData() {} }
 	);
 
@@ -179,12 +163,7 @@ const useItems = ({
 		}
 	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-	return {
-		query,
-		items,
-		loadMore,
-		count: count.data
-	};
+	return { query, items, loadMore, count: count.data };
 };
 
 function getLastSectionOfPath(path: string): string | undefined {

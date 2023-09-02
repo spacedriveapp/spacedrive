@@ -17,9 +17,7 @@ export const Component = () => {
 	const explorerData = useLibraryQuery([
 		'search.objects',
 		{
-			filter: {
-				tags: [tagId]
-			},
+			filter: { tags: [tagId] },
 			take: 100
 		}
 	]);
@@ -42,10 +40,7 @@ export const Component = () => {
 		items: explorerData.data?.items || null,
 		settings: explorerSettings,
 		...(tag.data && {
-			parent: {
-				type: 'Tag',
-				tag: tag.data
-			}
+			parent: { type: 'Tag', tag: tag.data }
 		})
 	});
 
