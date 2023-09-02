@@ -16,9 +16,9 @@ export const useExplorerContext = () => {
 	return ctx;
 };
 
-export const ExplorerContextProvider = <TOrdering extends Ordering>({
+export const ExplorerContextProvider = <TExplorer extends UseExplorer<any>>({
 	explorer,
 	children
 }: PropsWithChildren<{
-	explorer: UseExplorer<TOrdering>;
+	explorer: TExplorer;
 }>) => <ExplorerContext.Provider value={explorer as any}>{children}</ExplorerContext.Provider>;

@@ -65,13 +65,11 @@ export function getOrderingDirection(ordering: Ordering): SortOrder {
 	else return ordering.value;
 }
 
-export const createDefaultExplorerSettings = <TOrder extends Ordering>({
-	order
-}: {
-	order: TOrder | null;
+export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
+	order?: TOrder | null;
 }) =>
 	({
-		order,
+		order: args?.order ?? null,
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
 		showBytesInGridView: true as boolean,
@@ -109,7 +107,6 @@ const state = {
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
 	quickViewObject: null as ExplorerItem | null,
-	groupBy: 'none',
 	isDragging: false,
 	gridGap: 8
 };

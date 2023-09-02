@@ -167,7 +167,7 @@ export type FilePathFilterArgs = { locationId?: number | null; search?: string |
 
 export type FilePathOrderAndPaginationArgs = { orderOnly: FilePathSearchOrdering } | { cursor: { is_dir: boolean; cursor_ordering: FilePathCursorOrdering } } | { offset: { offset: number; order: FilePathSearchOrdering | null } }
 
-export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: FilePathOrderAndPaginationArgs | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathSearchArgs = { take: number; orderAndPagination?: FilePathOrderAndPaginationArgs | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
 export type FilePathSearchOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectSearchOrdering }
 
@@ -312,7 +312,7 @@ export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectPagination = { cursor: { pub_id: number[] } } | { offset: number }
 
-export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; pagination?: ObjectPagination | null; filter?: ObjectFilterArgs }
+export type ObjectSearchArgs = { take: number; order?: ObjectSearchOrdering | null; pagination?: ObjectPagination | null; filter?: ObjectFilterArgs }
 
 export type ObjectSearchOrdering = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
 

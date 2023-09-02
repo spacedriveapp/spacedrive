@@ -1,33 +1,24 @@
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
-	ExplorerItem,
 	ExplorerSettings,
-	FilePathCursorOrdering,
 	FilePathFilterArgs,
-	FilePathOrderAndPaginationArgs,
-	FilePathSearchArgs,
 	FilePathSearchOrdering,
-	ObjectCursorOrdering,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
-	useLibrarySubscription,
-	useRspcLibraryContext
+	useLibrarySubscription
 } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { usePathsInfiniteQuery } from '~/hooks/usePathsInfiniteQuery';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import {
-	createDefaultExplorerSettings,
-	filePathOrderingKeysSchema,
-	getExplorerStore
-} from '../Explorer/store';
+import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { UseExplorerSettings, useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
@@ -160,7 +151,6 @@ const useItems = ({
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
-	const ctx = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 
 	const explorerSettings = settings.useSettingsSnapshot();
@@ -174,136 +164,10 @@ const useItems = ({
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
-	const arg: FilePathSearchArgs = {
-		filter,
-		take,
-		orderAndPagination: explorerSettings.order
-			? {
-					orderOnly: explorerSettings.order
-			  }
-			: undefined
-	};
-
-	const query = useInfiniteQuery({
-		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
-		queryFn: ({ pageParam, queryKey }) => {
-			const cItem: Extract<ExplorerItem, { type: 'Path' }> | undefined = pageParam;
-			const { order } = explorerSettings;
-
-			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
-
-			if (!cItem) {
-				if (order) orderAndPagination = { orderOnly: order };
-			} else {
-				let cursor_ordering: FilePathCursorOrdering | undefined;
-
-				if (!order) cursor_ordering = { none: [] };
-				else if (cItem) {
-					switch (order.field) {
-						case 'name': {
-							const data = cItem.item.name;
-							if (data !== null)
-								cursor_ordering = {
-									name: {
-										order: order.value,
-										data
-									}
-								};
-							break;
-						}
-						case 'dateCreated': {
-							const data = cItem.item.date_created;
-							if (data !== null)
-								cursor_ordering = {
-									dateCreated: {
-										order: order.value,
-										data
-									}
-								};
-							break;
-						}
-						case 'dateModified': {
-							const data = cItem.item.date_modified;
-							if (data !== null)
-								cursor_ordering = {
-									dateModified: {
-										order: order.value,
-										data
-									}
-								};
-							break;
-						}
-						case 'dateIndexed': {
-							const data = cItem.item.date_indexed;
-							if (data !== null)
-								cursor_ordering = {
-									dateIndexed: {
-										order: order.value,
-										data
-									}
-								};
-							break;
-						}
-						case 'object': {
-							const object = cItem.item.object;
-							if (!object) break;
-
-							let objectCursor: ObjectCursorOrdering | undefined;
-
-							switch (order.value.field) {
-								case 'dateAccessed': {
-									const data = object.date_accessed;
-									if (data !== null)
-										objectCursor = {
-											dateAccessed: {
-												order: order.value.value,
-												data
-											}
-										};
-									break;
-								}
-								case 'kind': {
-									const data = object.kind;
-									if (data !== null)
-										objectCursor = {
-											kind: {
-												order: order.value.value,
-												data
-											}
-										};
-									break;
-								}
-							}
-
-							if (objectCursor)
-								cursor_ordering = {
-									object: objectCursor
-								};
-
-							break;
-						}
-					}
-				}
-
-				if (cItem.item.is_dir === null) throw new Error();
-
-				if (cursor_ordering)
-					orderAndPagination = {
-						cursor: { cursor_ordering, is_dir: cItem.item.is_dir }
-					};
-			}
-
-			return ctx.client.query([
-				'search.paths',
-				{
-					...queryKey[1].arg,
-					orderAndPagination
-				}
-			]);
-		},
-		getNextPageParam: (lastPage) => lastPage.items[lastPage.items.length - 1],
-		keepPreviousData: true,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	const query = usePathsInfiniteQuery({
+		arg: { filter, take },
+		library,
+		settings
 	});
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);

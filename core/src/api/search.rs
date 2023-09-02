@@ -22,6 +22,8 @@ use specta::Type;
 
 use super::{Ctx, R};
 
+const MAX_TAKE: u8 = 100;
+
 #[derive(Serialize, Type, Debug)]
 struct SearchData<T> {
 	cursor: Option<Vec<u8>>,
@@ -400,8 +402,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
-				#[specta(optional)]
-				take: Option<i32>,
+				take: u8,
 				#[specta(optional)]
 				order_and_pagination: Option<FilePathOrderAndPaginationArgs>,
 				#[serde(default)]
@@ -424,7 +425,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.unwrap_or(100);
+					let take = take.min(MAX_TAKE);
 
 					let mut query = db
 						.file_path()
@@ -585,8 +586,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct ObjectSearchArgs {
-				#[specta(optional)]
-				take: Option<i32>,
+				take: u8,
 				#[specta(optional)]
 				order: Option<ObjectSearchOrdering>,
 				#[specta(optional)]
@@ -605,7 +605,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.unwrap_or(100);
+					let take = take.max(MAX_TAKE);
 
 					let mut query = db
 						.object()
@@ -633,7 +633,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?;
 
-						let cursor = (objects.len() as i32 > take)
+						let cursor = (objects.len() as u8 > take)
 							.then(|| objects.pop())
 							.flatten()
 							.map(|r| r.pub_id);
