@@ -14,9 +14,9 @@ use std::{
 #[cfg(not(target_os = "linux"))]
 use crate::heif::HeifHandler;
 
-pub fn format_image(path: &Path) -> Result<DynamicImage> {
-	let ext = path.extension().ok_or(Error::NoExtension)?;
-	match_to_handler(ext).handle_image(path)
+pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
+	let ext = path.as_ref().extension().ok_or(Error::NoExtension)?;
+	match_to_handler(ext).handle_image(path.as_ref())
 }
 
 fn match_to_handler(ext: &OsStr) -> Box<dyn ConvertImage> {

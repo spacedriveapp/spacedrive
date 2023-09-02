@@ -9,21 +9,21 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
+use sd_images::format_image;
 use sd_media_metadata::image::{ExifReader, Orientation};
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
-	sync::Arc,
 };
 
 use futures_concurrency::future::{Join, TryJoin};
-use image::{self, imageops, DynamicImage, GenericImageView, ImageFormat};
+use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -89,8 +89,8 @@ pub enum ThumbnailerError {
 	VersionManager(#[from] VersionManagerError),
 	#[error("failed to encode webp")]
 	Encoding,
-	#[error("the image provided is too large")]
-	TooLarge,
+	#[error("error while converting the image: {0}")]
+	SdImages(#[from] sd_images::Error),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -106,64 +106,15 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-static HEIF_EXTENSIONS: Lazy<HashSet<String>> = Lazy::new(|| {
-	["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"]
-		.into_iter()
-		.map(|s| s.to_string())
-		.collect()
-});
-
-// The maximum file size that an image can be in order to have a thumbnail generated.
-const MAXIMUM_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
-
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	let file_path = file_path.as_ref();
-
-	let ext = file_path
-		.extension()
-		.and_then(|ext| ext.to_str())
-		.unwrap_or_default()
-		.to_ascii_lowercase();
-	let ext = ext.as_str();
-
-	let metadata = fs::metadata(file_path)
-		.await
-		.map_err(|e| FileIOError::from((file_path, e)))?;
-
-	if metadata.len()
-		> (match ext {
-			"svg" => sd_svg::MAXIMUM_FILE_SIZE,
-			#[cfg(all(feature = "heif", not(target_os = "linux")))]
-			_ if HEIF_EXTENSIONS.contains(ext) => sd_heif::MAXIMUM_FILE_SIZE,
-			_ => MAXIMUM_FILE_SIZE,
-		}) {
-		return Err(ThumbnailerError::TooLarge.into());
-	}
-
-	let data = Arc::new(
-		fs::read(file_path)
-			.await
-			.map_err(|e| FileIOError::from((file_path, e)))?,
-	);
-
-	let img = match ext {
-		"svg" => sd_svg::svg_to_dynamic_image(data.clone()).await?,
-		_ if HEIF_EXTENSIONS.contains(ext) => {
-			#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-			return Err("HEIF not supported".into());
-			#[cfg(all(feature = "heif", not(target_os = "linux")))]
-			sd_heif::heif_to_dynamic_image(data.clone()).await?
-		}
-		_ => image::load_from_memory_with_format(
-			&fs::read(file_path).await?,
-			ImageFormat::from_path(file_path)?,
-		)?,
-	};
+	let file_path = file_path.as_ref().to_path_buf();
 
 	let webp = spawn_blocking(move || -> Result<_, ThumbnailerError> {
+		let img = format_image(&file_path)?;
+
 		let (w, h) = img.dimensions();
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
@@ -175,7 +126,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			imageops::FilterType::Triangle,
 		));
 
-		match ExifReader::from_slice(data.as_ref()) {
+		match ExifReader::from_path(&file_path) {
 			Ok(exif_reader) => {
 				// this corrects the rotation/flip of the image based on the available exif data
 				if let Some(orientation) = Orientation::from_reader(&exif_reader) {
