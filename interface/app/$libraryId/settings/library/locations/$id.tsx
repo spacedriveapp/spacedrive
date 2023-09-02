@@ -13,12 +13,12 @@ import {
 	RadioGroupField,
 	SwitchField,
 	Tooltip,
+	toast,
 	tw,
 	z
 } from '@sd/ui';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { showAlertDialog } from '~/components';
 import { useZodRouteParams } from '~/hooks';
 import IndexerRuleEditor from './IndexerRuleEditor';
 
@@ -86,10 +86,7 @@ const EditLocationForm = () => {
 
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: () => {
-			showAlertDialog({
-				title: 'Error',
-				value: 'Failed to update location settings'
-			});
+			toast.error('Failed to update location settings');
 		},
 		onSuccess: () => {
 			form.reset(form.getValues());

@@ -1,7 +1,7 @@
 import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
 import { memo } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
-import { ProgressBar } from '@sd/ui';
+import { ProgressBar, toast } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 
@@ -44,12 +44,20 @@ function Job({ job, className, isChild, progress }: JobProps) {
 				text: 'Completed with errors',
 				icon: Info,
 				onClick: () => {
-					showAlertDialog({
-						title: 'Error',
-						description:
-							'The job completed with errors. Please see the error log below for more information. If you need help, please contact support and provide this error.',
-						children: JobError
-					});
+					toast.error(
+						{
+							title: 'The job completed with errors',
+							body: 'Please see the error log for more information. If you need help, please contact support and provide this error.'
+						},
+						{
+							action: {
+								label: 'View logs',
+								onClick: () => {
+									showAlertDialog({ title: 'Error logs', children: JobError });
+								}
+							}
+						}
+					);
 				}
 			}
 		]);

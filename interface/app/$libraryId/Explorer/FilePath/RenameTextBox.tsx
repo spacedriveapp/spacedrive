@@ -10,8 +10,7 @@ import {
 } from 'react';
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { Tooltip } from '~/../packages/ui/src';
-import { showAlertDialog } from '~/components';
+import { Tooltip, toast } from '@sd/ui';
 import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -245,9 +244,9 @@ export const RenamePathTextBox = ({
 			});
 		} catch (e) {
 			reset();
-			showAlertDialog({
-				title: 'Error',
-				value: `Could not rename ${fileName} to ${newName}, due to an error: ${e}`
+			toast.error({
+				title: `Could not rename ${fileName} to ${newName}`,
+				body: `Error: ${e}.`
 			});
 		}
 	}
@@ -288,10 +287,7 @@ export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
 			});
 		} catch (e) {
 			reset();
-			showAlertDialog({
-				title: 'Error',
-				value: String(e)
-			});
+			toast.error({ title: 'Failed to rename', body: `Error: ${e}.` });
 		}
 	}
 
