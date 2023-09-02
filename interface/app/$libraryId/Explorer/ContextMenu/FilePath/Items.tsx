@@ -1,7 +1,6 @@
 import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
 import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
@@ -195,9 +194,9 @@ export const ParentFolderActions = new ConditionalItem({
 								reidentify_objects: false
 							});
 						} catch (error) {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to rescan location, due to an error: ${error}`
+							toast.error({
+								title: `Failed to rescan location`,
+								body: `Error: ${error}.`
 							});
 						}
 					}}
@@ -213,9 +212,9 @@ export const ParentFolderActions = new ConditionalItem({
 								regenerate: true,
 							});
 						} catch (error) {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to generate thumbnails, due to an error: ${error}`
+							toast.error({
+								title: `Failed to generate thumbnails`,
+								body: `Error: ${error}.`
 							});
 						}
 					}}
@@ -265,9 +264,9 @@ export const OpenOrDownload = new ConditionalItem({
 									selectedFilePaths.map((p) => p.id)
 								);
 							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to open file, due to an error: ${error}`
+								toast.error({
+									title: `Failed to open file`,
+									body: `Error: ${error}.`
 								});
 							}
 						}}
