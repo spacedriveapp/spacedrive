@@ -1,17 +1,18 @@
 import { UseInfiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
 import {
 	ExplorerItem,
-	FilePathCursorOrdering,
-	FilePathOrderAndPaginationArgs,
+	FilePathCursor,
+	FilePathCursorVariant,
+	FilePathObjectCursor,
+	FilePathOrder,
 	FilePathSearchArgs,
-	FilePathSearchOrdering,
 	LibraryConfigWrapped,
-	ObjectCursorOrdering,
+	OrderAndPagination,
 	SearchData,
 	useRspcLibraryContext
 } from '@sd/client';
-import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
-import { UseExplorerSettings } from '~/app/$libraryId/Explorer/useExplorer';
+import { getExplorerStore } from './store';
+import { UseExplorerSettings } from './useExplorer';
 
 export function usePathsInfiniteQuery({
 	library,
@@ -21,7 +22,7 @@ export function usePathsInfiniteQuery({
 }: {
 	library: LibraryConfigWrapped;
 	arg: FilePathSearchArgs;
-	settings: UseExplorerSettings<FilePathSearchOrdering>;
+	settings: UseExplorerSettings<FilePathOrder>;
 } & Pick<UseInfiniteQueryOptions<SearchData<ExplorerItem>>, 'enabled'>) {
 	const ctx = useRspcLibraryContext();
 	const explorerSettings = settings.useSettingsSnapshot();
@@ -36,20 +37,20 @@ export function usePathsInfiniteQuery({
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
 			const { order } = explorerSettings;
 
-			let orderAndPagination: FilePathOrderAndPaginationArgs | undefined;
+			let orderAndPagination: OrderAndPagination<FilePathOrder, FilePathCursor> | undefined;
 
 			if (!cItem) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
-				let cursor_ordering: FilePathCursorOrdering | undefined;
+				let variant: FilePathCursorVariant | undefined;
 
-				if (!order) cursor_ordering = { none: [] };
+				if (!order) variant = { none: [] };
 				else if (cItem) {
 					switch (order.field) {
 						case 'name': {
 							const data = cItem.item.name;
 							if (data !== null)
-								cursor_ordering = {
+								variant = {
 									name: {
 										order: order.value,
 										data
@@ -60,7 +61,7 @@ export function usePathsInfiniteQuery({
 						case 'dateCreated': {
 							const data = cItem.item.date_created;
 							if (data !== null)
-								cursor_ordering = {
+								variant = {
 									dateCreated: {
 										order: order.value,
 										data
@@ -71,7 +72,7 @@ export function usePathsInfiniteQuery({
 						case 'dateModified': {
 							const data = cItem.item.date_modified;
 							if (data !== null)
-								cursor_ordering = {
+								variant = {
 									dateModified: {
 										order: order.value,
 										data
@@ -82,7 +83,7 @@ export function usePathsInfiniteQuery({
 						case 'dateIndexed': {
 							const data = cItem.item.date_indexed;
 							if (data !== null)
-								cursor_ordering = {
+								variant = {
 									dateIndexed: {
 										order: order.value,
 										data
@@ -94,7 +95,7 @@ export function usePathsInfiniteQuery({
 							const object = cItem.item.object;
 							if (!object) break;
 
-							let objectCursor: ObjectCursorOrdering | undefined;
+							let objectCursor: FilePathObjectCursor | undefined;
 
 							switch (order.value.field) {
 								case 'dateAccessed': {
@@ -122,7 +123,7 @@ export function usePathsInfiniteQuery({
 							}
 
 							if (objectCursor)
-								cursor_ordering = {
+								variant = {
 									object: objectCursor
 								};
 
@@ -133,9 +134,9 @@ export function usePathsInfiniteQuery({
 
 				if (cItem.item.is_dir === null) throw new Error();
 
-				if (cursor_ordering)
+				if (variant)
 					orderAndPagination = {
-						cursor: { cursor_ordering, is_dir: cItem.item.is_dir }
+						cursor: { variant, isDir: cItem.item.is_dir }
 					};
 			}
 

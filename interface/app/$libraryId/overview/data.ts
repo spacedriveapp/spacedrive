@@ -1,25 +1,24 @@
 import { iconNames } from '@sd/assets/util';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
 	Category,
 	FilePathFilterArgs,
-	FilePathSearchArgs,
-	FilePathSearchOrdering,
+	FilePathOrder,
 	ObjectFilterArgs,
 	ObjectKindEnum,
-	ObjectSearchOrdering,
+	ObjectOrder,
 	useLibraryContext,
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { usePathsInfiniteQuery } from '~/hooks/usePathsInfiniteQuery';
 import {
 	createDefaultExplorerSettings,
 	filePathOrderingKeysSchema,
 	objectOrderingKeysSchema
 } from '../Explorer/store';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useObjectsInfiniteQuery } from '../Explorer/useObjectsInfiniteQuery';
+import { usePathsInfiniteQuery } from '../Explorer/usePathsInfiniteQuery';
 import { usePageLayoutContext } from '../PageLayout/Context';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
@@ -73,12 +72,12 @@ export function useCategoryExplorer(category: Category) {
 	const isObjectQuery = OBJECT_CATEGORIES.includes(category);
 
 	const pathsExplorerSettings = useExplorerSettings({
-		settings: useMemo(() => createDefaultExplorerSettings<FilePathSearchOrdering>(), []),
+		settings: useMemo(() => createDefaultExplorerSettings<FilePathOrder>(), []),
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
 	const objectsExplorerSettings = useExplorerSettings({
-		settings: useMemo(() => createDefaultExplorerSettings<ObjectSearchOrdering>(), []),
+		settings: useMemo(() => createDefaultExplorerSettings<ObjectOrder>(), []),
 		orderingKeys: objectOrderingKeysSchema
 	});
 
@@ -96,24 +95,11 @@ export function useCategoryExplorer(category: Category) {
 
 	const objectsCount = useLibraryQuery(['search.objectsCount', { filter: objectFilter }]);
 
-	const objectsQuery = useInfiniteQuery({
+	const objectsQuery = useObjectsInfiniteQuery({
 		enabled: isObjectQuery,
-		queryKey: [
-			'search.objects',
-			{
-				library_id: library.uuid,
-				arg: { take, filter: objectFilter }
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			rspc.client.query([
-				'search.objects',
-				{
-					...queryKey[1].arg,
-					pagination: cursor ? { cursor: { pub_id: cursor } } : undefined
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		library,
+		arg: { take, filter: objectFilter },
+		settings: objectsExplorerSettings
 	});
 
 	const objectsItems = useMemo(
@@ -122,7 +108,6 @@ export function useCategoryExplorer(category: Category) {
 	);
 
 	const pathsFilter: FilePathFilterArgs = { object: objectFilter };
-	const pathsArgs: FilePathSearchArgs = { take, filter: pathsFilter };
 
 	const pathsCount = useLibraryQuery(['search.pathsCount', { filter: pathsFilter }]);
 
@@ -131,7 +116,7 @@ export function useCategoryExplorer(category: Category) {
 	const pathsQuery = usePathsInfiniteQuery({
 		enabled: !isObjectQuery,
 		library,
-		arg: pathsArgs,
+		arg: { take, filter: pathsFilter },
 		settings: pathsExplorerSettings
 	});
 

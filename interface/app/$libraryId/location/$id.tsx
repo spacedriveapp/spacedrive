@@ -5,7 +5,8 @@ import { stringify } from 'uuid';
 import {
 	ExplorerSettings,
 	FilePathFilterArgs,
-	FilePathSearchOrdering,
+	FilePathOrder,
+	ObjectKindEnum,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -14,12 +15,12 @@ import {
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
-import { usePathsInfiniteQuery } from '~/hooks/usePathsInfiniteQuery';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { UseExplorerSettings, useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { usePathsInfiniteQuery } from '../Explorer/usePathsInfiniteQuery';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
@@ -34,7 +35,7 @@ export const Component = () => {
 	const updatePreferences = useLibraryMutation('preferences.update');
 
 	const settings = useMemo(() => {
-		const defaults = createDefaultExplorerSettings<FilePathSearchOrdering>({
+		const defaults = createDefaultExplorerSettings<FilePathOrder>({
 			order: {
 				field: 'name',
 				value: 'Asc'
@@ -57,7 +58,7 @@ export const Component = () => {
 	}, [location.data, preferences.data?.location]);
 
 	const onSettingsChanged = useDebouncedCallback(
-		async (settings: ExplorerSettings<FilePathSearchOrdering>) => {
+		async (settings: ExplorerSettings<FilePathOrder>) => {
 			if (!location.data) return;
 			const pubId = stringify(location.data.pub_id);
 			try {
@@ -76,7 +77,7 @@ export const Component = () => {
 		500
 	);
 
-	const explorerSettings = useExplorerSettings<FilePathSearchOrdering>({
+	const explorerSettings = useExplorerSettings({
 		settings,
 		onSettingsChanged,
 		orderingKeys: filePathOrderingKeysSchema
@@ -88,13 +89,13 @@ export const Component = () => {
 		items,
 		count,
 		loadMore,
-		parent: location.data
-			? {
-					type: 'Location',
-					location: location.data
-			  }
-			: undefined,
-		settings: explorerSettings
+		settings: explorerSettings,
+		...(location.data && {
+			parent: {
+				type: 'Location',
+				location: location.data
+			}
+		})
 	});
 
 	useLibrarySubscription(
@@ -147,7 +148,7 @@ const useItems = ({
 	settings
 }: {
 	locationId: number;
-	settings: UseExplorerSettings<FilePathSearchOrdering>;
+	settings: UseExplorerSettings<FilePathOrder>;
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();
 
@@ -158,7 +159,7 @@ const useItems = ({
 	const filter: FilePathFilterArgs = {
 		locationId,
 		...(explorerSettings.layoutMode === 'media'
-			? { object: { kind: [5, 7] } }
+			? { object: { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] } }
 			: { path: path ?? '' })
 	};
 
