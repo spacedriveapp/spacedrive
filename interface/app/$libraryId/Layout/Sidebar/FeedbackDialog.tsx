@@ -1,10 +1,10 @@
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useZodForm } from '@sd/client';
-import { Dialog, TextArea, UseDialogProps, toast, useDialog, z } from '@sd/ui';
+import { Dialog, TextAreaField, UseDialogProps, toast, useDialog, z } from '@sd/ui';
 
 const schema = z.object({
-	feedback: z.string().min(1),
+	feedback: z.string().min(1, { message: 'Feedback is required' }),
 	emoji: z.string().emoji().max(2).optional()
 });
 
@@ -12,7 +12,7 @@ const EMOJIS = ['🤩', '😀', '🙁', '😭'];
 const FEEDBACK_URL = 'https://spacedrive.com/api/feedback';
 
 export default function FeedbackDialog(props: UseDialogProps) {
-	const form = useZodForm({ schema });
+	const form = useZodForm({ schema, mode: 'onBlur' });
 	const [emojiSelected, setEmojiSelected] = useState<string | undefined>(undefined);
 
 	const emojiSelectHandler = (index: number) => {
@@ -36,8 +36,6 @@ export default function FeedbackDialog(props: UseDialogProps) {
 		}
 	});
 
-	const watchForm = form.watch();
-
 	return (
 		<Dialog
 			invertButtonFocus
@@ -45,11 +43,10 @@ export default function FeedbackDialog(props: UseDialogProps) {
 			dialog={useDialog(props)}
 			form={form}
 			onSubmit={formSubmit}
-			submitDisabled={form.formState.isSubmitting || !watchForm.feedback}
 			ctaLabel="Submit"
 			closeLabel="Cancel"
 			buttonsSideContent={
-				<div className="flex w-full items-center justify-center gap-1">
+				<div className="flex items-center justify-center w-full gap-1">
 					{EMOJIS.map((emoji, i) => (
 						<div
 							onClick={() => emojiSelectHandler(i)}
@@ -65,10 +62,10 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				</div>
 			}
 		>
-			<TextArea
+			<TextAreaField
+				{...form.register('feedback', { required: true })}
 				placeholder="Your feedback..."
 				className="w-full"
-				{...form.register('feedback')}
 			/>
 		</Dialog>
 	);
