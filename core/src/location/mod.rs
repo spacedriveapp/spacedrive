@@ -412,6 +412,7 @@ pub async fn scan_location(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -450,6 +451,7 @@ pub async fn scan_location_sub_path(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await

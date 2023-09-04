@@ -178,7 +178,7 @@ export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
-export type GenerateThumbsForLocationArgs = { id: number; path: string }
+export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
 
