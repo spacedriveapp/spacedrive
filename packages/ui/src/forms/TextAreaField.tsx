@@ -3,11 +3,11 @@ import * as Root from '../Input';
 import { useFormField } from './FormField';
 import { FormField, UseFormFieldProps } from './FormField';
 
-export interface TextareaProps extends UseFormFieldProps, Root.TextareaProps {
+export interface TextAreaFieldProps extends UseFormFieldProps, Root.TextareaProps {
 	name: string;
 }
 
-export const TextAreaField = forwardRef<HTMLTextAreaElement, TextareaProps>((props, ref) => {
+export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>((props, ref) => {
 	const { formFieldProps, childProps } = useFormField(props);
 
 	return (
