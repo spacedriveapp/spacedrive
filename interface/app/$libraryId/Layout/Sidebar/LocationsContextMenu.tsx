@@ -1,12 +1,11 @@
 import { Pencil, Plus, Trash } from 'phosphor-react';
 import { useNavigate } from 'react-router';
-import { ContextMenu as CM, dialogManager } from '@sd/ui';
+import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
 import {
 	AddLocationDialog,
 	openDirectoryPickerDialog
 } from '~/app/$libraryId/settings/library/locations/AddLocationDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/locations/DeleteDialog';
-import { showAlertDialog } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 interface Props {
@@ -29,10 +28,7 @@ export default ({ children, locationId }: Props) => {
 							));
 						}
 					} catch (error) {
-						showAlertDialog({
-							title: 'Error',
-							value: String(error)
-						});
+						toast.error(`${error}`);
 					}
 				}}
 				icon={Plus}
