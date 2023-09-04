@@ -49,7 +49,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.3.9
-        version: 4.3.9(less@4.2.0)
+        version: 4.3.9(@types/node@18.15.1)
 
   apps/desktop:
     dependencies:
@@ -463,6 +463,9 @@ importers:
       '@storybook/testing-library':
         specifier: ^0.1.0
         version: 0.1.0
+      postcss-pseudo-companion-classes:
+        specifier: ^0.1.1
+        version: 0.1.1(postcss@8.4.23)
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -566,7 +569,7 @@ importers:
         version: 5.0.4
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(less@4.2.0)
+        version: 4.3.9(@types/node@18.15.1)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.3.9)
@@ -606,7 +609,7 @@ importers:
         version: 4.8.2
       vite:
         specifier: ^4.0.4
-        version: 4.3.9(less@4.2.0)
+        version: 4.3.9(@types/node@18.15.1)
 
   interface:
     dependencies:
@@ -19521,6 +19524,15 @@ packages:
       postcss: 8.4.28
       postcss-selector-parser: 6.0.13
 
+  /postcss-pseudo-companion-classes@0.1.1(postcss@8.4.23):
+    resolution: {integrity: sha512-CJqiANNTMXqKKzaQHANdYGdpqoRbUvsXGWHEbzJ4hsTf2TF/Jj2fONWdsaXANIXIPjlfoIn/++W7FnKKrnZkNg==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      postcss: ^8.3.0
+    dependencies:
+      postcss: 8.4.23
+    dev: false
+
   /postcss-selector-parser@6.0.10:
     resolution: {integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w==}
     engines: {node: '>=4'}
@@ -23545,7 +23557,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.2.0
-      vite: 4.3.9(less@4.2.0)
+      vite: 4.3.9(@types/node@18.15.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
