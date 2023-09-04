@@ -11,8 +11,7 @@ import {
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
-import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, z } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Dialog, ErrorMessage, InputField, UseDialogProps, toast, useDialog, z } from '@sd/ui';
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
@@ -192,10 +191,7 @@ export const AddLocationDialog = ({
 				throw error;
 			}
 
-			showAlertDialog({
-				title: 'Error',
-				value: String(error) || 'Failed to add location'
-			});
+			toast.error({ title: 'Failed to add location', body: `Error: ${error}.` });
 
 			return;
 		}
@@ -217,7 +213,7 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
 			<InputField
 				size="md"
@@ -225,7 +221,7 @@ export const AddLocationDialog = ({
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => path && form.setValue('path', path))
-						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
+						.catch((error) => toast.error(String(error)))
 				}
 				readOnly={platform.platform !== 'web'}
 				className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}

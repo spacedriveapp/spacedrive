@@ -1,8 +1,7 @@
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useZodForm } from '@sd/client';
-import { Dialog, TextArea, UseDialogProps, useDialog, z } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Dialog, TextArea, UseDialogProps, toast, useDialog, z } from '@sd/ui';
 
 const schema = z.object({
 	feedback: z.string().min(1),
@@ -33,10 +32,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				mode: 'no-cors'
 			});
 		} catch (error) {
-			showAlertDialog({
-				title: 'Error',
-				value: 'There was an error submitting your feedback. Please try again.'
-			});
+			toast.error('There was an error submitting your feedback. Please try again.');
 		}
 	});
 
