@@ -17,7 +17,7 @@ export function useZodSearchParams<Z extends z.AnyZodObject>(schema: Z) {
 		typedSearchParams.data as z.infer<Z>,
 		useCallback(
 			(
-				data: z.input<Z> | ((data: z.input<Z>) => z.infer<Z>),
+				data: z.input<Z> | ((data: z.input<Z>) => z.input<Z>),
 				navigateOpts?: NavigateOptions
 			) => {
 				if (typeof data === 'function') {
@@ -26,7 +26,7 @@ export function useZodSearchParams<Z extends z.AnyZodObject>(schema: Z) {
 
 						if (!typedPrevParams.success) throw typedPrevParams.errors;
 
-						return data(typedPrevParams.data);
+						return schema.parse(data(typedPrevParams.data));
 					}, navigateOpts);
 				} else {
 					setSearchParams(data as any, navigateOpts);
