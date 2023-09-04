@@ -181,7 +181,10 @@ export function Dialog<S extends FieldValues>({
 			size="sm"
 			disabled={form.formState.isSubmitting || props.submitDisabled}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
-			className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+			className={clsx(
+				props.ctaDanger &&
+					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+			)}
 		>
 			{props.ctaLabel}
 		</Button>
