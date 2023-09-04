@@ -1,6 +1,6 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
-import { ObjectSearchOrdering, useLibraryQuery } from '@sd/client';
+import { ObjectOrder, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
@@ -17,9 +17,8 @@ export const Component = () => {
 	const explorerData = useLibraryQuery([
 		'search.objects',
 		{
-			filter: {
-				tags: [tagId]
-			}
+			filter: { tags: [tagId] },
+			take: 100
 		}
 	]);
 
@@ -28,7 +27,7 @@ export const Component = () => {
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<ObjectSearchOrdering>({
+				createDefaultExplorerSettings<ObjectOrder>({
 					order: null
 				}),
 			[]
@@ -39,13 +38,10 @@ export const Component = () => {
 
 	const explorer = useExplorer({
 		items: explorerData.data?.items || null,
-		parent: tag.data
-			? {
-					type: 'Tag',
-					tag: tag.data
-			  }
-			: undefined,
-		settings: explorerSettings
+		settings: explorerSettings,
+		...(tag.data && {
+			parent: { type: 'Tag', tag: tag.data }
+		})
 	});
 
 	return (
