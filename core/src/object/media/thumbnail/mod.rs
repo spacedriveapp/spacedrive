@@ -126,14 +126,10 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			imageops::FilterType::Triangle,
 		));
 
-		match ExifReader::from_path(&file_path) {
-			Ok(exif_reader) => {
-				// this corrects the rotation/flip of the image based on the available exif data
-				if let Some(orientation) = Orientation::from_reader(&exif_reader) {
-					img = orientation.correct_thumbnail(img);
-				}
-			}
-			Err(e) => warn!("Unable to extract EXIF: {:?}", e),
+		// this corrects the rotation/flip of the image based on the *available* exif data
+		// not all images have exif data
+		if let Some(orientation) = Orientation::from_path(&path) {
+			img = orientation.correct_thumbnail(img);
 		}
 
 		// Create the WebP encoder for the above image
