@@ -44,7 +44,9 @@ impl ToImage for HeifHandler {
 			// this is the interpolation stuff, it essentially just makes the image correct
 			// in regards to stretching/resolution, etc
 			(0..img.height()).try_for_each(|x| {
-				reader.seek(SeekFrom::Start((i.stride * x as usize) as u64))?;
+				let x: usize = x.try_into()?;
+				let start: u64 = (i.stride * x).try_into()?;
+				reader.seek(SeekFrom::Start(start))?;
 				(0..img.width()).try_for_each(|_| {
 					reader.read_exact(&mut buffer)?;
 					sequence.extend_from_slice(&buffer);
@@ -84,7 +86,9 @@ impl ToImage for HeifHandler {
 			// this is the interpolation stuff, it essentially just makes the image correct
 			// in regards to stretching/resolution, etc
 			(0..img.height()).try_for_each(|x| {
-				red.seek(SeekFrom::Start((r.stride * x as usize) as u64))?;
+				let x: usize = x.try_into()?;
+				let start: u64 = (r.stride * x).try_into()?;
+				red.seek(SeekFrom::Start(start))?;
 				(0..img.width()).try_for_each(|_| {
 					red.read_exact(&mut buffer[0..1])?;
 					green.read_exact(&mut buffer[1..2])?;

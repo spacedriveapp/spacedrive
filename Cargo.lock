@@ -7291,6 +7291,7 @@ dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
+ "once_cell",
  "png",
  "rawloader",
  "resvg",

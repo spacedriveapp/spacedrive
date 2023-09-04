@@ -1,11 +1,10 @@
 use std::num::TryFromIntError;
-// use tokio::task::JoinError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	#[cfg(not(target_os = "linux"))]
+	#[cfg(all(feature = "heif", not(target_os = "linux")))]
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
 
@@ -13,6 +12,9 @@ pub enum Error {
 	USvg(#[from] resvg::usvg::Error),
 	#[error("failed to allocate `Pixbuf` while converting an SVG")]
 	Pixbuf,
+
+	#[error("there was an error while converting a raw image: {0}")]
+	RawLoader(#[from] rawloader::RawLoaderError),
 
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),

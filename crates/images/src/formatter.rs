@@ -1,17 +1,15 @@
 use crate::{
-	consts::{HEIF_EXTENSIONS, SVG_EXTENSIONS},
+	consts,
 	error::{Error, Result},
 	generic::GenericHandler,
+	raw::RawHandler,
 	svg::SvgHandler,
 	ToImage,
 };
 use image::DynamicImage;
-use std::{
-	ffi::{OsStr, OsString},
-	path::Path,
-};
+use std::{ffi::OsStr, path::Path};
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(feature = "heif", not(target_os = "linux")))]
 use crate::heif::HeifHandler;
 
 pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
@@ -19,18 +17,21 @@ pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 	match_to_handler(ext).handle_image(path.as_ref())
 }
 
+#[allow(clippy::useless_let_if_seq)]
 fn match_to_handler(ext: &OsStr) -> Box<dyn ToImage> {
 	let mut handler: Box<dyn ToImage> = Box::new(GenericHandler {});
 
-	#[cfg(not(target_os = "linux"))]
-	if HEIF_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
-		handler = Box::new(HeifHandler {})
+	#[cfg(all(feature = "heif", not(target_os = "linux")))]
+	if consts::HEIF_EXTENSIONS.iter().any(|x| x == ext) {
+		handler = Box::new(HeifHandler {});
 	}
 
-	// raw next
+	if consts::RAW_EXTENSIONS.iter().any(|x| x == ext) {
+		handler = Box::new(RawHandler {});
+	}
 
-	if SVG_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
-		handler = Box::new(SvgHandler {})
+	if consts::SVG_EXTENSIONS.iter().any(|x| x == ext) {
+		handler = Box::new(SvgHandler {});
 	}
 
 	handler

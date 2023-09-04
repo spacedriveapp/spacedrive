@@ -36,6 +36,9 @@ impl ToImage for SvgHandler {
 
 		let transform = tiny_skia::Transform::from_scale(rtree.size.width(), rtree.size.height());
 
+		#[allow(clippy::cast_possible_truncation)]
+		#[allow(clippy::cast_sign_loss)]
+		#[allow(clippy::as_conversions)]
 		let Some(mut pixmap) =
 			tiny_skia::Pixmap::new(rtree.size.width() as u32, rtree.size.height() as u32)
 		else {
