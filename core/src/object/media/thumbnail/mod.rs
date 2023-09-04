@@ -15,7 +15,7 @@ use sd_media_metadata::image::{ExifReader, Orientation};
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
@@ -107,7 +107,7 @@ pub struct ThumbnailerMetadata {
 }
 
 #[cfg(all(feature = "heif", not(target_os = "linux")))]
-static HEIF_EXTENSIONS: Lazy<HashSet<String>> = Lazy::new(|| {
+static HEIF_EXTENSIONS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
 	["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"]
 		.into_iter()
 		.map(|s| s.to_string())
@@ -141,6 +141,11 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			_ if HEIF_EXTENSIONS.contains(ext) => sd_heif::MAXIMUM_FILE_SIZE,
 			_ => MAXIMUM_FILE_SIZE,
 		}) {
+		return Err(ThumbnailerError::TooLarge.into());
+	}
+
+	#[cfg(all(feature = "heif", not(target_os = "linux")))]
+	if metadata.len() > sd_heif::MAXIMUM_FILE_SIZE && HEIF_EXTENSIONS.contains(ext) {
 		return Err(ThumbnailerError::TooLarge.into());
 	}
 
