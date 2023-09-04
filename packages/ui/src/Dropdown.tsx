@@ -29,14 +29,13 @@ const itemIconStyles = cva('mr-2 h-4 w-4', {
 	variants: {}
 });
 
-type DropdownItemProps =
-	| PropsWithChildren<{
-			to?: string;
-			className?: string;
-			icon?: any;
-			onClick?: () => void;
-	  }> &
-			VariantProps<typeof itemStyles>;
+type DropdownItemProps = PropsWithChildren<{
+	to?: string;
+	className?: string;
+	icon?: any;
+	onClick?: () => void;
+}> &
+	VariantProps<typeof itemStyles>;
 
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
 	const content = (

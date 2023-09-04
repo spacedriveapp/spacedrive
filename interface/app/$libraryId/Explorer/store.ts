@@ -89,7 +89,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>({
 			contentId: 180,
 			objectId: 180
 		}
-	} satisfies ExplorerSettings<TOrder>);
+	}) satisfies ExplorerSettings<TOrder>;
 
 type CutCopyState =
 	| {

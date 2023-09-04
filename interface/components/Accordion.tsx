@@ -23,7 +23,7 @@ const Accordion = ({ title, className, children }: Props) => {
 				/>
 			</div>
 			{toggle && (
-				<div className="p-3 pt-2 border-t rounded-b-md border-app-line bg-app-box">
+				<div className="rounded-b-md border-t border-app-line bg-app-box p-3 pt-2">
 					{children}
 				</div>
 			)}

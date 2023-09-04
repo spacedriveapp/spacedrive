@@ -36,9 +36,7 @@ export const Component = () => {
 
 	return (
 		<ul className="space-y-4 p-4">
-			{groups?.map((group, index) => (
-				<OperationGroup key={index} group={group} />
-			))}
+			{groups?.map((group, index) => <OperationGroup key={index} group={group} />)}
 		</ul>
 	);
 };
