@@ -258,6 +258,7 @@ pub(super) async fn process(
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	thumbnails_base_dir: impl AsRef<Path>,
+	regenerate: bool,
 	library: &Library,
 	ctx_update_fn: impl Fn(usize),
 ) -> Result<(ThumbnailerMetadata, JobRunErrors), ThumbnailerError> {
@@ -354,12 +355,29 @@ pub(super) async fn process(
 		ctx_update_fn(idx + 1);
 		match metadata_res {
 			Ok(_) => {
-				trace!(
-					"Thumb already exists, skipping generation for {}",
-					output_path.display()
-				);
-				run_metadata.skipped += 1;
-				continue;
+				if !regenerate {
+					trace!(
+						"Thumbnail already exists, skipping generation for {}",
+						input_path.display()
+					);
+					run_metadata.skipped += 1;
+				} else {
+					tracing::debug!(
+						"Renegerating thumbnail {} to {}",
+						input_path.display(),
+						output_path.display()
+					);
+					process_single_thumbnail(
+						cas_id,
+						kind,
+						&input_path,
+						&output_path,
+						&mut errors,
+						&mut run_metadata,
+						library,
+					)
+					.await;
+				}
 			}
 
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -369,41 +387,16 @@ pub(super) async fn process(
 					output_path.display()
 				);
 
-				match kind {
-					ThumbnailerEntryKind::Image => {
-						if let Err(e) = generate_image_thumbnail(&input_path, &output_path).await {
-							error!(
-								"Error generating thumb for image \"{}\": {e:#?}",
-								input_path.display()
-							);
-							errors.push(format!(
-								"Had an error generating thumbnail for \"{}\"",
-								input_path.display()
-							));
-							continue;
-						}
-					}
-					#[cfg(feature = "ffmpeg")]
-					ThumbnailerEntryKind::Video => {
-						if let Err(e) = generate_video_thumbnail(&input_path, &output_path).await {
-							error!(
-								"Error generating thumb for video \"{}\": {e:#?}",
-								input_path.display()
-							);
-							errors.push(format!(
-								"Had an error generating thumbnail for \"{}\"",
-								input_path.display()
-							));
-							continue;
-						}
-					}
-				}
-
-				trace!("Emitting new thumbnail event");
-				library.emit(CoreEvent::NewThumbnail {
-					thumb_key: get_thumb_key(cas_id),
-				});
-				run_metadata.created += 1;
+				process_single_thumbnail(
+					cas_id,
+					kind,
+					&input_path,
+					&output_path,
+					&mut errors,
+					&mut run_metadata,
+					library,
+				)
+				.await;
 			}
 			Err(e) => {
 				error!(
@@ -419,4 +412,54 @@ pub(super) async fn process(
 	}
 
 	Ok((run_metadata, errors.into()))
+}
+
+// Using &Path as this function if private only to this module, always being used with a &Path, so we
+// don't pay the compile price for generics
+async fn process_single_thumbnail(
+	cas_id: &str,
+	kind: ThumbnailerEntryKind,
+	input_path: &Path,
+	output_path: &Path,
+	errors: &mut Vec<String>,
+	run_metadata: &mut ThumbnailerMetadata,
+	library: &Library,
+) {
+	match kind {
+		ThumbnailerEntryKind::Image => {
+			if let Err(e) = generate_image_thumbnail(&input_path, &output_path).await {
+				error!(
+					"Error generating thumb for image \"{}\": {e:#?}",
+					input_path.display()
+				);
+				errors.push(format!(
+					"Had an error generating thumbnail for \"{}\"",
+					input_path.display()
+				));
+
+				return;
+			}
+		}
+		#[cfg(feature = "ffmpeg")]
+		ThumbnailerEntryKind::Video => {
+			if let Err(e) = generate_video_thumbnail(&input_path, &output_path).await {
+				error!(
+					"Error generating thumb for video \"{}\": {e:#?}",
+					input_path.display()
+				);
+				errors.push(format!(
+					"Had an error generating thumbnail for \"{}\"",
+					input_path.display()
+				));
+
+				return;
+			}
+		}
+	}
+
+	trace!("Emitting new thumbnail event");
+	library.emit(CoreEvent::NewThumbnail {
+		thumb_key: get_thumb_key(cas_id),
+	});
+	run_metadata.created += 1;
 }

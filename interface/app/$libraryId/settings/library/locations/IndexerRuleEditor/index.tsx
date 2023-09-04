@@ -3,7 +3,7 @@ import { Trash } from 'phosphor-react';
 import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
 import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Divider, Label } from '@sd/ui';
+import { Button, Divider, Label, toast } from '@sd/ui';
 import { InfoText } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
 import RuleButton from './RuleButton';
@@ -50,10 +50,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 				try {
 					await deleteIndexerRule.mutateAsync(selectedRule.id);
 				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: String(error) || 'Failed to delete rule'
-					});
+					toast.error({ title: 'Failed to delete rule', body: `Error: ${error}.` });
 				} finally {
 					setIsDeleting(false);
 					setSelectedRule(undefined);

@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { FolderSimplePlus } from 'phosphor-react';
 import { useRef, useState } from 'react';
 import { Button, type ButtonProps, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { AddLocationDialog, openDirectoryPickerDialog } from './AddLocationDialog';

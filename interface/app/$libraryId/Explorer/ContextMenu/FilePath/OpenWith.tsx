@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { useLibraryContext } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, toast } from '@sd/ui';
 import { Platform, usePlatform } from '~/util/Platform';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
@@ -61,11 +60,7 @@ const Items = ({
 									ids.map((id) => [id, data.url])
 								);
 							} catch (e) {
-								console.error(e);
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to open file, with: ${data.url}`
-								});
+								toast.error(`Failed to open file, with: ${data.url}`);
 							}
 						}}
 					>

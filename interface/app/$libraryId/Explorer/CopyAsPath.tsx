@@ -1,6 +1,5 @@
 import { ClipboardText } from 'phosphor-react';
-import { ContextMenu } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, toast } from '@sd/ui';
 
 export const CopyAsPathBase = (
 	props: { path: string } | { getPath: () => Promise<string | null> }
@@ -22,9 +21,9 @@ export const CopyAsPathBase = (
 
 					navigator.clipboard.writeText(path);
 				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: `Failed to copy file path: ${error}`
+					toast.error({
+						title: `Failed to copy file path`,
+						body: `Error: ${error}.`
 					});
 				}
 			}}
