@@ -121,26 +121,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	// Thumbnail creation has blocking code
-	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		#[cfg(all(feature = "heif", not(target_os = "linux")))]
-		let img = {
-			let ext = file_path
-				.as_ref()
-				.extension()
-				.unwrap_or_default()
-				.to_ascii_lowercase();
-			if HEIF_EXTENSIONS
-				.iter()
-				.any(|e| ext == std::ffi::OsStr::new(e))
-			{
-				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
-			} else {
-				image::open(file_path.as_ref())?
-			}
-		};
-
-  let file_path = file_path.as_ref();
+	let file_path = file_path.as_ref();
 
 	let ext = file_path
 		.extension()
@@ -240,7 +221,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 }
 
 #[cfg(feature = "ffmpeg")]
-pub async fn generate_video_thumbnail<P: AsRef<Path>>(
+pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
