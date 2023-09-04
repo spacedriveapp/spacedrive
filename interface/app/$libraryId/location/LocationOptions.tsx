@@ -66,7 +66,7 @@ export default function LocationOptions({ location, path }: { location: Location
 
 												toast.info({
 													title: 'Path copied to clipboard',
-													description: `Path for location "${location.name}" copied to clipboard.`
+													body: `Path for location "${location.name}" copied to clipboard.`
 												});
 
 												setCopied(true);
