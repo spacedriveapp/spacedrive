@@ -15,7 +15,6 @@ export default () => {
 	const navigate = useNavigate();
 	const location = useLocation();
 
-	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
 

@@ -46,15 +46,19 @@ const platform: Platform = {
 
 const queryClient = new QueryClient({
 	defaultOptions: {
-		queries: import.meta.env.VITE_SD_DEMO_MODE
-			? {
-					refetchOnWindowFocus: false,
-					staleTime: Infinity,
-					cacheTime: Infinity,
-					networkMode: 'offlineFirst',
-					enabled: false
-			  }
-			: undefined
+		queries: {
+			...(import.meta.env.VITE_SD_DEMO_MODE && {
+				refetchOnWindowFocus: false,
+				staleTime: Infinity,
+				cacheTime: Infinity,
+				networkMode: 'offlineFirst',
+				enabled: false
+			}),
+			networkMode: 'always'
+		},
+		mutations: {
+			networkMode: 'always'
+		}
 		// TODO: Mutations can't be globally disable which is annoying!
 	}
 });

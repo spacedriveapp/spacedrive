@@ -1,6 +1,6 @@
 import { MagnifyingGlass } from 'phosphor-react';
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { type FilePathSearchOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { FilePathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { type SearchParams, SearchParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
@@ -27,7 +27,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<FilePathSearchOrdering>({
+				createDefaultExplorerSettings<FilePathOrder>({
 					order: {
 						field: 'name',
 						value: 'Asc'

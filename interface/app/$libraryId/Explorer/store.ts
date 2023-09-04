@@ -65,13 +65,11 @@ export function getOrderingDirection(ordering: Ordering): SortOrder {
 	else return ordering.value;
 }
 
-export const createDefaultExplorerSettings = <TOrder extends Ordering>({
-	order
-}: {
-	order: TOrder | null;
+export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
+	order?: TOrder | null;
 }) =>
 	({
-		order,
+		order: args?.order ?? null,
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
 		showBytesInGridView: true as boolean,
@@ -109,7 +107,6 @@ const state = {
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
 	quickViewObject: null as ExplorerItem | null,
-	groupBy: 'none',
 	isDragging: false,
 	gridGap: 8
 };
@@ -148,7 +145,7 @@ export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyStat
 
 export const filePathOrderingKeysSchema = z.union([
 	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
+	// z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateModified').describe('Date Modified'),
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),
@@ -162,7 +159,7 @@ export const objectOrderingKeysSchema = z.union([
 
 export const nonIndexedPathOrderingSchema = z.union([
 	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
+	// z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateCreated').describe('Date Created'),
 	z.literal('dateModified').describe('Date Modified')
 ]);
