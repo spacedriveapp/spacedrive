@@ -1,7 +1,7 @@
 import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
 import { memo } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
-import { ProgressBar } from '@sd/ui';
+import { ProgressBar, toast } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 
@@ -14,7 +14,7 @@ interface JobProps {
 
 const JobIcon: Record<string, Icon> = {
 	indexer: Folder,
-	thumbnailer: Image,
+	media_processor: Image,
 	file_identifier: Fingerprint,
 	file_copier: Copy,
 	file_deleter: Trash,

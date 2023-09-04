@@ -179,7 +179,9 @@ export function Dialog<S extends FieldValues>({
 		<Button
 			type="submit"
 			size="sm"
-			disabled={form.formState.isSubmitting || props.submitDisabled}
+			disabled={
+				form.formState.isSubmitting || props.submitDisabled || !form.formState.isValid
+			}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
 		>
@@ -210,9 +212,7 @@ export function Dialog<S extends FieldValues>({
 									e?.preventDefault();
 									await onSubmit?.(e);
 									dialog.onSubmit?.();
-									if (form.formState.isValid) {
-										setOpen(false);
-									}
+									setOpen(false);
 								}}
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>

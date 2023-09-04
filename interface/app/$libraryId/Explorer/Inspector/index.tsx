@@ -237,6 +237,11 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 			<Divider />
 
+			{
+				// TODO: Call `files.getMediaData` for indexed locations when we have media data UI
+				// TODO: Call `files.getEphemeralMediaData` for ephemeral locations when we have media data UI
+			}
+
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
 

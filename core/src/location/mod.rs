@@ -412,6 +412,7 @@ pub async fn scan_location(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -450,6 +451,7 @@ pub async fn scan_location_sub_path(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -860,7 +862,7 @@ pub(super) async fn generate_thumbnail(
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
-		debug!(
+		trace!(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);

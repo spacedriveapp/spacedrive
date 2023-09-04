@@ -1,50 +1,28 @@
 import { getIcon } from '@sd/assets/util';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { useSnapshot } from 'valtio';
-import { Category, ObjectSearchOrdering } from '@sd/client';
+import { Category } from '@sd/client';
 import { useIsDark } from '../../../hooks';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
-import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
 import Inspector from './Inspector';
-import { IconForCategory, IconToDescription, useItems } from './data';
+import { IconForCategory, IconToDescription, useCategoryExplorer } from './data';
 
 export const Component = () => {
 	const isDark = useIsDark();
 	const page = usePageLayoutContext();
 
-	const explorerSettings = useExplorerSettings({
-		settings: useMemo(
-			() =>
-				createDefaultExplorerSettings<ObjectSearchOrdering>({
-					order: null
-				}),
-			[]
-		),
-		onSettingsChanged: () => {},
-		orderingKeys: objectOrderingKeysSchema
-	});
-
 	const [selectedCategory, setSelectedCategory] = useState<Category>('Recents');
 
-	const { items, count, loadMore } = useItems(selectedCategory, explorerSettings);
-
-	const explorer = useExplorer({
-		items,
-		count,
-		loadMore,
-		scrollRef: page.ref,
-		settings: explorerSettings
-	});
+	const explorer = useCategoryExplorer(selectedCategory);
 
 	useEffect(() => {
 		if (!page.ref.current) return;
