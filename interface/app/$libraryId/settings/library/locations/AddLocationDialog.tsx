@@ -75,7 +75,10 @@ export const AddLocationDialog = ({
 		[listIndexerRules.data]
 	);
 
-	const form = useZodForm({ schema, defaultValues: { path, method, indexerRulesIds } });
+	const form = useZodForm({
+		schema,
+		defaultValues: { path, method, indexerRulesIds }
+	});
 
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
@@ -213,7 +216,7 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
 
 			<InputField
 				size="md"

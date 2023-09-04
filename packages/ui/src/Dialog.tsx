@@ -179,7 +179,9 @@ export function Dialog<S extends FieldValues>({
 		<Button
 			type="submit"
 			size="sm"
-			disabled={form.formState.isSubmitting || props.submitDisabled}
+			disabled={
+				form.formState.isSubmitting || props.submitDisabled || !form.formState.isValid
+			}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
 		>
