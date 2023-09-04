@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{consts::SVG_MAXIMUM_FILE_SIZE, ConvertImage, Error, Result};
+use crate::{consts::SVG_MAXIMUM_FILE_SIZE, Error, Result, ToImage};
 use image::DynamicImage;
 use resvg::{
 	tiny_skia::{self},
@@ -10,7 +10,7 @@ use usvg::{fontdb, TreeParsing, TreeTextToPath};
 
 pub struct SvgHandler {}
 
-impl ConvertImage for SvgHandler {
+impl ToImage for SvgHandler {
 	fn maximum_size(&self) -> u64 {
 		SVG_MAXIMUM_FILE_SIZE
 	}

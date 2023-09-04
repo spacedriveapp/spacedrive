@@ -13,9 +13,7 @@ edition = { workspace = true }
 libheif-rs = "0.19.2"
 libheif-sys = "=1.14.2"
 image = "0.24.7"
-# tokio = { workspace = true, features = ["fs", "io-util"] }
 thiserror = "1.0.45"
-rawloader = { git = "https://github.com/spacedriveapp/rawloader", rev = "68a29592092dd6faf770447831dd8e855dc36c35" }
+# rawloader = { git = "https://github.com/spacedriveapp/rawloader", rev = "4c00f5a6201272dc824142f7641c8f765f5ce19e" }
 png = "0.17.9"
 resvg = "0.35.0"
-# tracing = "0.1.37"

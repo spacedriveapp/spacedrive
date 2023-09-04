@@ -1,12 +1,12 @@
 use crate::consts::GENERIC_MAXIMUM_FILE_SIZE;
 pub use crate::error::{Error, Result};
-use crate::ConvertImage;
+use crate::ToImage;
 use image::DynamicImage;
 use std::path::Path;
 
 pub struct GenericHandler {}
 
-impl ConvertImage for GenericHandler {
+impl ToImage for GenericHandler {
 	fn maximum_size(&self) -> u64 {
 		GENERIC_MAXIMUM_FILE_SIZE
 	}

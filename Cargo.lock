@@ -6415,7 +6415,7 @@ checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 [[package]]
 name = "rawloader"
 version = "0.37.1"
-source = "git+https://github.com/spacedriveapp/rawloader?rev=68a29592092dd6faf770447831dd8e855dc36c35#68a29592092dd6faf770447831dd8e855dc36c35"
+source = "git+https://github.com/spacedriveapp/rawloader?rev=4c00f5a6201272dc824142f7641c8f765f5ce19e#4c00f5a6201272dc824142f7641c8f765f5ce19e"
 dependencies = [
  "byteorder",
  "enumn",

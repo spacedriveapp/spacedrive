@@ -11,7 +11,7 @@ pub use formatter::format_image;
 pub use image::DynamicImage;
 use std::{fs, io::Read, path::Path};
 
-pub trait ConvertImage {
+pub trait ToImage {
 	fn maximum_size(&self) -> u64
 	where
 		Self: Sized; // thanks vtables

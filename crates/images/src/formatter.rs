@@ -3,7 +3,7 @@ use crate::{
 	error::{Error, Result},
 	generic::GenericHandler,
 	svg::SvgHandler,
-	ConvertImage,
+	ToImage,
 };
 use image::DynamicImage;
 use std::{
@@ -19,8 +19,8 @@ pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 	match_to_handler(ext).handle_image(path.as_ref())
 }
 
-fn match_to_handler(ext: &OsStr) -> Box<dyn ConvertImage> {
-	let mut handler: Box<dyn ConvertImage> = Box::new(GenericHandler {});
+fn match_to_handler(ext: &OsStr) -> Box<dyn ToImage> {
+	let mut handler: Box<dyn ToImage> = Box::new(GenericHandler {});
 
 	#[cfg(not(target_os = "linux"))]
 	if HEIF_EXTENSIONS.iter().map(OsString::from).any(|x| x == ext) {
