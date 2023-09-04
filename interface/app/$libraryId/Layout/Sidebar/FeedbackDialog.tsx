@@ -63,7 +63,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 			}
 		>
 			<TextAreaField
-				{...form.register('feedback', { required: true })}
+				{...form.register('feedback')}
 				placeholder="Your feedback..."
 				className="w-full"
 			/>
