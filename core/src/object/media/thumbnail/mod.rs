@@ -109,7 +109,7 @@ pub struct ThumbnailerMetadata {
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), ThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
 	let webp = spawn_blocking(move || -> Result<_, ThumbnailerError> {
