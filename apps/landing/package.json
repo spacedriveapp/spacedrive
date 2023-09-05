@@ -10,7 +10,6 @@
 		"push": "drizzle-kit push:mysql"
 	},
 	"dependencies": {
-		"@auth/core": "^0.7.1",
 		"@aws-sdk/client-ses": "^3.337.0",
 		"@planetscale/database": "^1.7.0",
 		"@react-three/drei": "^9.78.1",

@@ -1,5 +1,5 @@
 import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { type NonIndexedPathOrdering, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import { type EphemeralPathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
@@ -22,7 +22,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<NonIndexedPathOrdering>({
+				createDefaultExplorerSettings<EphemeralPathOrder>({
 					order: {
 						field: 'name',
 						value: 'Asc'

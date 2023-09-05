@@ -16,7 +16,7 @@ use crate::{
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	Node,
 };
 
@@ -94,19 +94,33 @@ impl LocationCreateArgs {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
-		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if let Some(old_path) = metadata.location_path(library.id) {
-				if old_path == self.path {
-					Err(LocationError::LocationAlreadyExists(self.path))
+		if let Some(mut metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
+			metadata
+				.clean_stale_libraries(
+					&node
+						.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|library| library.id)
+						.collect(),
+				)
+				.await?;
+
+			if !metadata.is_empty() {
+				return if let Some(old_path) = metadata.location_path(library.id) {
+					if old_path == self.path {
+						Err(LocationError::LocationAlreadyExists(self.path))
+					} else {
+						Err(LocationError::NeedRelink {
+							old_path: old_path.to_path_buf(),
+							new_path: self.path,
+						})
+					}
 				} else {
-					Err(LocationError::NeedRelink {
-						old_path: old_path.to_path_buf(),
-						new_path: self.path,
-					})
-				}
-			} else {
-				Err(LocationError::AddLibraryToMetadata(self.path))
-			};
+					Err(LocationError::AddLibraryToMetadata(self.path))
+				};
+			}
 		}
 
 		debug!(
@@ -167,6 +181,18 @@ impl LocationCreateArgs {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
+
+		metadata
+			.clean_stale_libraries(
+				&node
+					.libraries
+					.get_all()
+					.await
+					.into_iter()
+					.map(|library| library.id)
+					.collect(),
+			)
+			.await?;
 
 		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
@@ -310,7 +336,7 @@ impl LocationUpdateArgs {
 						SpacedriveLocationMetadataFile::try_load(path).await?
 					{
 						metadata
-							.update(library.id, self.name.expect("TODO"))
+							.update(library.id, maybe_missing(self.name, "location.name")?)
 							.await?;
 					}
 				}
@@ -701,6 +727,18 @@ pub async fn delete_location(
 	if location.instance_id == Some(library.config.instance_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+				metadata
+					.clean_stale_libraries(
+						&node
+							.libraries
+							.get_all()
+							.await
+							.into_iter()
+							.map(|library| library.id)
+							.collect(),
+					)
+					.await?;
+
 				metadata.remove_library(library.id).await?;
 			}
 		}
@@ -862,7 +900,7 @@ pub(super) async fn generate_thumbnail(
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
-		debug!(
+		trace!(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);

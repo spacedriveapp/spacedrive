@@ -25,7 +25,6 @@ const INSPECTOR_WIDTH = 260;
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
-	const [{ path }] = useExplorerSearchParams();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
