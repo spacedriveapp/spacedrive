@@ -29,7 +29,7 @@ impl ToImage for SvgHandler {
 		})?;
 
 		let size = if rtree.size.width() > rtree.size.height() {
-			rtree.size.to_int_size().scale_to_width(512)
+			rtree.size.to_int_size().scale_to_width(512) // make this a const
 		} else {
 			rtree.size.to_int_size().scale_to_height(512)
 		}
