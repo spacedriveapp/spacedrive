@@ -24,7 +24,6 @@ mod consts;
 mod error;
 mod formatter;
 mod generic;
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
 mod heif;
 mod raw;
 mod svg;

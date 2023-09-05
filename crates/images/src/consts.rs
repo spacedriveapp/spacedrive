@@ -4,7 +4,6 @@ use std::ffi::OsString;
 /// The size of 1MiB in bytes
 const MIB: u64 = 1_048_576;
 
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
 pub static HEIF_EXTENSIONS: Lazy<Vec<OsString>> = Lazy::new(|| {
 	["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"]
 		.iter()
@@ -15,7 +14,6 @@ pub static HEIF_EXTENSIONS: Lazy<Vec<OsString>> = Lazy::new(|| {
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
 pub const HEIF_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 
 pub static SVG_EXTENSIONS: Lazy<Vec<OsString>> =
