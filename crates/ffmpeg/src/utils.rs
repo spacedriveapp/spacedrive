@@ -2,7 +2,7 @@ use crate::error::ThumbnailerError;
 use std::ffi::CString;
 use std::path::Path;
 
-pub(crate) fn from_path(path: impl AsRef<Path>) -> Result<CString, ThumbnailerError> {
+pub fn from_path(path: impl AsRef<Path>) -> Result<CString, ThumbnailerError> {
 	let path = path.as_ref();
 	let path_str = path.as_os_str();
 

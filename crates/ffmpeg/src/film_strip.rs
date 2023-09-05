@@ -625,7 +625,7 @@ struct FilmStrip {
 	strip: Option<&'static [u8]>,
 }
 
-pub(crate) fn film_strip_filter(video_frame: &mut VideoFrame) {
+pub fn film_strip_filter(video_frame: &mut VideoFrame) {
 	let FilmStrip {
 		width,
 		height,
