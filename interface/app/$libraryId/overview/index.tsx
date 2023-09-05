@@ -7,18 +7,16 @@ import { useIsDark } from '../../../hooks';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
-import { Inspector } from '../Explorer/Inspector';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
-import { useExplorerStore } from '../Explorer/store';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
 import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
+import Inspector from './Inspector';
 import { IconForCategory, IconToDescription, useCategoryExplorer } from './data';
 
 export const Component = () => {
-	const explorerStore = useExplorerStore();
 	const isDark = useIsDark();
 	const page = usePageLayoutContext();
 
@@ -68,13 +66,7 @@ export const Component = () => {
 						</div>
 					}
 				/>
-
-				{explorerStore.showInspector && (
-					<Inspector
-						showThumbnail={settings.layoutMode !== 'media'}
-						className="custom-scroll inspector-scroll sticky top-[68px] h-full w-[260px] shrink-0 bg-app pb-4 pl-1.5 pr-1"
-					/>
-				)}
+				<Inspector />
 			</div>
 		</ExplorerContextProvider>
 	);
