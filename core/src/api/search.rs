@@ -203,7 +203,7 @@ pub enum FilePathObjectCursor {
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum FilePathCursorVariant {
-	None(file_path::pub_id::Type),
+	None,
 	Name(CursorOrderItem<String>),
 	// SizeInBytes(CursorOrderItem<Vec<u8>>),
 	DateCreated(CursorOrderItem<DateTime<FixedOffset>>),
@@ -222,7 +222,7 @@ pub struct FilePathCursor {
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum ObjectCursor {
-	None(object::pub_id::Type),
+	None,
 	DateAccessed(CursorOrderItem<DateTime<FixedOffset>>),
 	Kind(CursorOrderItem<i32>),
 }
@@ -256,10 +256,10 @@ impl ObjectOrder {
 
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
-pub enum OrderAndPagination<TOrder, TCursor> {
+pub enum OrderAndPagination<TId, TOrder, TCursor> {
 	OrderOnly(TOrder),
 	Offset { offset: i32, order: Option<TOrder> },
-	Cursor(TCursor),
+	Cursor { id: TId, cursor: TCursor },
 }
 
 #[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
@@ -396,7 +396,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			struct FilePathSearchArgs {
 				take: u8,
 				#[specta(optional)]
-				order_and_pagination: Option<OrderAndPagination<FilePathOrder, FilePathCursor>>,
+				order_and_pagination:
+					Option<OrderAndPagination<file_path::id::Type, FilePathOrder, FilePathCursor>>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
@@ -442,7 +443,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 									query = query.order_by(order.into_param())
 								}
 							}
-							OrderAndPagination::Cursor(cursor) => {
+							OrderAndPagination::Cursor { id, cursor } => {
 								// This may seem dumb but it's vital!
 								// If we're grouping by directories + all directories have been fetched,
 								// we don't want to include them in the results.
@@ -457,10 +458,21 @@ pub fn mount() -> AlphaRouter<Ctx> {
 									($field:ident, $item:ident) => {{
 										let item = $item;
 
-										query.add_where(match item.order {
-											SortOrder::Asc => file_path::$field::gt(item.data),
-											SortOrder::Desc => file_path::$field::lt(item.data),
-										});
+										let data = item.data.clone();
+
+										query.add_where(or![
+											match item.order {
+												SortOrder::Asc => file_path::$field::gt(data),
+												SortOrder::Desc => file_path::$field::lt(data),
+											},
+											prisma_client_rust::and![
+												file_path::$field::equals(Some(item.data)),
+												match item.order {
+													SortOrder::Asc => file_path::id::gt(id),
+													SortOrder::Desc => file_path::id::lt(id),
+												}
+											]
+										]);
 
 										query = query
 											.order_by(file_path::$field::order(item.order.into()));
@@ -468,8 +480,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								}
 
 								match cursor.variant {
-									FilePathCursorVariant::None(item) => {
-										query = query.cursor(file_path::pub_id::equals(item));
+									FilePathCursorVariant::None => {
+										query.add_where(file_path::id::gt(id));
 									}
 									FilePathCursorVariant::Name(item) => arm!(name, item),
 									FilePathCursorVariant::DateCreated(item) => {
@@ -511,8 +523,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 									}
 								};
 
-								query = query
-									.order_by(file_path::pub_id::order(prisma::SortOrder::Asc));
+								query =
+									query.order_by(file_path::id::order(prisma::SortOrder::Asc));
 							}
 						}
 					}
@@ -574,7 +586,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			struct ObjectSearchArgs {
 				take: u8,
 				#[specta(optional)]
-				order_and_pagination: Option<OrderAndPagination<ObjectOrder, ObjectCursor>>,
+				order_and_pagination:
+					Option<OrderAndPagination<object::id::Type, ObjectOrder, ObjectCursor>>,
 				#[serde(default)]
 				filter: ObjectFilterArgs,
 			}
@@ -607,15 +620,26 @@ pub fn mount() -> AlphaRouter<Ctx> {
 									query = query.order_by(order.into_param())
 								}
 							}
-							OrderAndPagination::Cursor(cursor) => {
+							OrderAndPagination::Cursor { id, cursor } => {
 								macro_rules! arm {
 									($field:ident, $item:ident) => {{
 										let item = $item;
 
-										query.add_where(match item.order {
-											SortOrder::Asc => object::$field::gt(item.data),
-											SortOrder::Desc => object::$field::lt(item.data),
-										});
+										let data = item.data.clone();
+
+										query.add_where(or![
+											match item.order {
+												SortOrder::Asc => object::$field::gt(data),
+												SortOrder::Desc => object::$field::lt(data),
+											},
+											prisma_client_rust::and![
+												object::$field::equals(Some(item.data)),
+												match item.order {
+													SortOrder::Asc => object::id::gt(id),
+													SortOrder::Desc => object::id::lt(id),
+												}
+											]
+										]);
 
 										query = query
 											.order_by(object::$field::order(item.order.into()));
@@ -623,8 +647,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								}
 
 								match cursor {
-									ObjectCursor::None(item) => {
-										query = query.cursor(object::pub_id::equals(item));
+									ObjectCursor::None => {
+										query.add_where(object::id::gt(id));
 									}
 									ObjectCursor::Kind(item) => arm!(kind, item),
 									ObjectCursor::DateAccessed(item) => arm!(date_accessed, item),
