@@ -140,11 +140,11 @@ export function Label({ slug, children, className, ...props }: LabelProps) {
 	);
 }
 
-interface PasswordInputProps extends InputProps {
+interface Props extends InputProps {
 	buttonClassnames?: string;
 }
 
-export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((props, ref) => {
+export const PasswordInput = forwardRef<HTMLInputElement, Props>((props, ref) => {
 	const [showPassword, setShowPassword] = useState(false);
 
 	const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
