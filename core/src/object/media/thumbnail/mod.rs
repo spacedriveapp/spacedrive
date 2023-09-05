@@ -15,7 +15,7 @@ use sd_media_metadata::image::{ExifReader, Orientation};
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
@@ -106,8 +106,7 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
-static HEIF_EXTENSIONS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
+static HEIF_EXTENSIONS: Lazy<HashSet<String>> = Lazy::new(|| {
 	["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"]
 		.into_iter()
 		.map(|s| s.to_string())
