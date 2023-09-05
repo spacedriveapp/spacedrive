@@ -88,7 +88,7 @@ impl Library {
 			sync,
 			db: db.clone(),
 			// key_manager,
-			identity: identity.clone(),
+			identity,
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
 			instance_uuid,
