@@ -7286,12 +7286,11 @@ dependencies = [
 
 [[package]]
 name = "sd-images"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
- "once_cell",
  "png",
  "rawloader",
  "resvg",

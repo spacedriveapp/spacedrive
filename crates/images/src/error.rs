@@ -4,8 +4,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+	#[cfg(feature = "heif")]
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
+
 	#[error("error with usvg: {0}")]
 	USvg(#[from] resvg::usvg::Error),
 	#[error("failed to allocate `Pixbuf` while converting an SVG")]

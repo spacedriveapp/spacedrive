@@ -24,6 +24,7 @@ mod consts;
 mod error;
 mod formatter;
 mod generic;
+#[cfg(feature = "heif")]
 mod heif;
 mod raw;
 mod svg;

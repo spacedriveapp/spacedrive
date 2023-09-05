@@ -1,4 +1,3 @@
-use crate::heif::HeifHandler;
 use crate::{
 	consts,
 	error::{Error, Result},
@@ -8,7 +7,13 @@ use crate::{
 	ToImage,
 };
 use image::DynamicImage;
-use std::{ffi::OsStr, path::Path};
+use std::{
+	ffi::{OsStr, OsString},
+	path::Path,
+};
+
+#[cfg(feature = "heif")]
+use crate::heif::HeifHandler;
 
 pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 	let ext = path
@@ -22,15 +27,28 @@ pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 fn match_to_handler(ext: &OsStr) -> Box<dyn ToImage> {
 	let mut handler: Box<dyn ToImage> = Box::new(GenericHandler {});
 
-	if consts::HEIF_EXTENSIONS.iter().any(|x| x == ext) {
+	#[cfg(feature = "heif")]
+	if consts::HEIF_EXTENSIONS
+		.iter()
+		.map(OsString::from)
+		.any(|x| x == ext)
+	{
 		handler = Box::new(HeifHandler {});
 	}
 
-	if consts::RAW_EXTENSIONS.iter().any(|x| x == ext) {
+	if consts::RAW_EXTENSIONS
+		.iter()
+		.map(OsString::from)
+		.any(|x| x == ext)
+	{
 		handler = Box::new(RawHandler {});
 	}
 
-	if consts::SVG_EXTENSIONS.iter().any(|x| x == ext) {
+	if consts::SVG_EXTENSIONS
+		.iter()
+		.map(OsString::from)
+		.any(|x| x == ext)
+	{
 		handler = Box::new(SvgHandler {});
 	}
 

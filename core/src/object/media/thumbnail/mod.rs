@@ -10,7 +10,7 @@ use crate::{
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_images::format_image;
-use sd_media_metadata::image::{ExifReader, Orientation};
+use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
@@ -27,7 +27,7 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, task::spawn_blocking};
+use tokio::{fs, io};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -112,8 +112,8 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 ) -> Result<(), ThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
-	let webp = spawn_blocking(move || -> Result<_, ThumbnailerError> {
-		let img = format_image(&file_path)?;
+	let webp = tokio::task::block_in_place(move || -> Result<_, ThumbnailerError> {
+		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
 
@@ -128,7 +128,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 
 		// this corrects the rotation/flip of the image based on the *available* exif data
 		// not all images have exif data
-		if let Some(orientation) = Orientation::from_path(&path) {
+		if let Some(orientation) = Orientation::from_path(file_path) {
 			img = orientation.correct_thumbnail(img);
 		}
 
@@ -143,8 +143,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
 		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
-	})
-	.await??;
+	})?;
 
 	let output_path = output_path.as_ref();
 
@@ -153,11 +152,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			.await
 			.map_err(|e| FileIOError::from((shard_dir, e)))?;
 	} else {
-		return Err(io::Error::new(
-			io::ErrorKind::InvalidInput,
-			"Cannot determine parent shard directory for thumbnail",
-		)
-		.into());
+		return Err(ThumbnailerError::Encoding);
 	}
 
 	fs::write(output_path, &webp)
