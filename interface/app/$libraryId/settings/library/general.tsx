@@ -50,7 +50,7 @@ export const Component = () => {
 				<input type="hidden" {...form.register('id')} />
 
 				<div className="flex flex-row space-x-5 pb-3">
-					<div className="flex grow flex-col">
+					<div className="flex w-[50%] flex-col">
 						<span className="mb-1 text-sm font-medium">Name</span>
 						<InputField
 							size="md"
@@ -58,7 +58,7 @@ export const Component = () => {
 							{...form.register('name', { required: true })}
 						/>
 					</div>
-					<div className="flex grow flex-col">
+					<div className="flex w-[50%] grow flex-col">
 						<span className="mb-1 text-sm font-medium">Description</span>
 						<InputField size="md" {...form.register('description')} placeholder="" />
 					</div>
