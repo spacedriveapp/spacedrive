@@ -143,6 +143,11 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		return Err(ThumbnailerError::TooLarge.into());
 	}
 
+	#[cfg(all(feature = "heif", not(target_os = "linux")))]
+	if metadata.len() > sd_heif::MAXIMUM_FILE_SIZE && HEIF_EXTENSIONS.contains(ext) {
+		return Err(ThumbnailerError::TooLarge.into());
+	}
+
 	let data = Arc::new(
 		fs::read(file_path)
 			.await
@@ -223,7 +228,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 }
 
 #[cfg(feature = "ffmpeg")]
-pub async fn generate_video_thumbnail<P: AsRef<Path>>(
+pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {

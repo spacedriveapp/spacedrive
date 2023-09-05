@@ -1,5 +1,5 @@
-use std::ffi::c_int;
 use std::path::PathBuf;
+use std::{ffi::c_int, num::TryFromIntError};
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -38,11 +38,13 @@ pub enum ThumbnailerError {
 	BackgroundTaskFailed(#[from] JoinError),
 	#[error("The video is most likely corrupt and will be skipped")]
 	CorruptVideo,
+	#[error("Error while casting an integer to another integer type")]
+	IntCastError(#[from] TryFromIntError),
 }
 
-/// Enum to represent possible errors from FFmpeg library
+/// Enum to represent possible errors from `FFmpeg` library
 ///
-/// Extracted from https://ffmpeg.org/doxygen/trunk/group__lavu__error.html
+/// Extracted from <https://ffmpeg.org/doxygen/trunk/group__lavu__error.html>
 #[derive(Error, Debug)]
 pub enum FfmpegError {
 	#[error("Bitstream filter not found")]
@@ -114,31 +116,31 @@ pub enum FfmpegError {
 impl From<c_int> for FfmpegError {
 	fn from(code: c_int) -> Self {
 		match code {
-			AVERROR_BSF_NOT_FOUND => FfmpegError::BitstreamFilterNotFound,
-			AVERROR_BUG => FfmpegError::InternalBug,
-			AVERROR_BUFFER_TOO_SMALL => FfmpegError::BufferTooSmall,
-			AVERROR_DECODER_NOT_FOUND => FfmpegError::DecoderNotFound,
-			AVERROR_DEMUXER_NOT_FOUND => FfmpegError::DemuxerNotFound,
-			AVERROR_ENCODER_NOT_FOUND => FfmpegError::EncoderNotFound,
-			AVERROR_EOF => FfmpegError::Eof,
-			AVERROR_EXIT => FfmpegError::Exit,
-			AVERROR_EXTERNAL => FfmpegError::External,
-			AVERROR_FILTER_NOT_FOUND => FfmpegError::FilterNotFound,
-			AVERROR_INVALIDDATA => FfmpegError::InvalidData,
-			AVERROR_MUXER_NOT_FOUND => FfmpegError::MuxerNotFound,
-			AVERROR_OPTION_NOT_FOUND => FfmpegError::OptionNotFound,
-			AVERROR_PATCHWELCOME => FfmpegError::NotImplemented,
-			AVERROR_PROTOCOL_NOT_FOUND => FfmpegError::ProtocolNotFound,
-			AVERROR_STREAM_NOT_FOUND => FfmpegError::StreamNotFound,
-			AVERROR_BUG2 => FfmpegError::InternalBug2,
-			AVERROR_UNKNOWN => FfmpegError::Unknown,
-			AVERROR_HTTP_BAD_REQUEST => FfmpegError::HttpBadRequest,
-			AVERROR_HTTP_UNAUTHORIZED => FfmpegError::HttpUnauthorized,
-			AVERROR_HTTP_FORBIDDEN => FfmpegError::HttpForbidden,
-			AVERROR_HTTP_NOT_FOUND => FfmpegError::HttpNotFound,
-			AVERROR_HTTP_OTHER_4XX => FfmpegError::HttpOther4xx,
-			AVERROR_HTTP_SERVER_ERROR => FfmpegError::HttpServerError,
-			other => FfmpegError::OtherOSError(AVUNERROR(other)),
+			AVERROR_BSF_NOT_FOUND => Self::BitstreamFilterNotFound,
+			AVERROR_BUG => Self::InternalBug,
+			AVERROR_BUFFER_TOO_SMALL => Self::BufferTooSmall,
+			AVERROR_DECODER_NOT_FOUND => Self::DecoderNotFound,
+			AVERROR_DEMUXER_NOT_FOUND => Self::DemuxerNotFound,
+			AVERROR_ENCODER_NOT_FOUND => Self::EncoderNotFound,
+			AVERROR_EOF => Self::Eof,
+			AVERROR_EXIT => Self::Exit,
+			AVERROR_EXTERNAL => Self::External,
+			AVERROR_FILTER_NOT_FOUND => Self::FilterNotFound,
+			AVERROR_INVALIDDATA => Self::InvalidData,
+			AVERROR_MUXER_NOT_FOUND => Self::MuxerNotFound,
+			AVERROR_OPTION_NOT_FOUND => Self::OptionNotFound,
+			AVERROR_PATCHWELCOME => Self::NotImplemented,
+			AVERROR_PROTOCOL_NOT_FOUND => Self::ProtocolNotFound,
+			AVERROR_STREAM_NOT_FOUND => Self::StreamNotFound,
+			AVERROR_BUG2 => Self::InternalBug2,
+			AVERROR_UNKNOWN => Self::Unknown,
+			AVERROR_HTTP_BAD_REQUEST => Self::HttpBadRequest,
+			AVERROR_HTTP_UNAUTHORIZED => Self::HttpUnauthorized,
+			AVERROR_HTTP_FORBIDDEN => Self::HttpForbidden,
+			AVERROR_HTTP_NOT_FOUND => Self::HttpNotFound,
+			AVERROR_HTTP_OTHER_4XX => Self::HttpOther4xx,
+			AVERROR_HTTP_SERVER_ERROR => Self::HttpServerError,
+			other => Self::OtherOSError(AVUNERROR(other)),
 		}
 	}
 }
