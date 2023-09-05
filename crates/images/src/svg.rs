@@ -15,13 +15,7 @@ impl ToImage for SvgHandler {
 		SVG_MAXIMUM_FILE_SIZE
 	}
 
-	fn validate_image(&self, bits_per_pixel: u8, length: usize) -> Result<()> {
-		if bits_per_pixel != 8 {
-			return Err(Error::InvalidBitDepth);
-		} else if length % 3 != 0 {
-			return Err(Error::InvalidLength);
-		}
-
+	fn validate_image(&self, _bits_per_pixel: u8, _length: usize) -> Result<()> {
 		Ok(())
 	}
 
@@ -34,7 +28,19 @@ impl ToImage for SvgHandler {
 			resvg::Tree::from_usvg(&tree)
 		})?;
 
-		let transform = tiny_skia::Transform::from_scale(rtree.size.width(), rtree.size.height());
+		let size = if rtree.size.width() > rtree.size.height() {
+			rtree.size.to_int_size().scale_to_width(512)
+		} else {
+			rtree.size.to_int_size().scale_to_height(512)
+		}
+		.ok_or(Error::InvalidLength)?;
+
+		#[allow(clippy::cast_precision_loss)]
+		#[allow(clippy::as_conversions)]
+		let transform = tiny_skia::Transform::from_scale(
+			size.width() as f32 / rtree.size.width(),
+			size.height() as f32 / rtree.size.height(),
+		);
 
 		#[allow(clippy::cast_possible_truncation)]
 		#[allow(clippy::cast_sign_loss)]
