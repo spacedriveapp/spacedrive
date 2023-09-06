@@ -1,5 +1,6 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
+	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -15,11 +16,12 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
 	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
 
+use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
 	extract::{self, State},
@@ -29,25 +31,42 @@ use axum::{
 	Router,
 };
 use futures::Stream;
+use bytes::Bytes;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
 use pin_project_lite::pin_project;
 use sd_file_ext::text::is_text;
+use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, Take},
+	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, Take, AsyncWrite}
 };
-use tokio_util::io::ReaderStream;
+use tokio_util::{io::ReaderStream, sync::PollSender};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-type MetadataCacheKey = (Uuid, file_path::id::Type);
-type NameAndExtension = (PathBuf, String);
+type CacheKey = (Uuid, file_path::id::Type);
+
+#[derive(Debug, Clone)]
+struct CacheValue {
+	name: PathBuf,
+	ext: String,
+	file_path_pub_id: Uuid,
+	serve_from: ServeFrom,
+}
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
 
 // default capacity 64KiB
 const DEFAULT_CAPACITY: usize = 65536;
+
+#[derive(Debug, Clone)]
+pub enum ServeFrom {
+	/// Serve from the local filesystem
+	Local,
+	/// Serve from a specific instance
+	Remote(RemoteIdentity),
+}
 
 #[derive(Clone)]
 struct LocalState {
@@ -56,7 +75,7 @@ struct LocalState {
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
 	// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 	// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
-	file_metadata_cache: Cache<MetadataCacheKey, NameAndExtension>,
+	file_metadata_cache: Cache<CacheKey, CacheValue>,
 }
 
 // We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
@@ -111,18 +130,18 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					let file_path_id = path_id.parse::<file_path::id::Type>().map_err(bad_request)?;
 
 					let lru_cache_key = (library_id, file_path_id);
+					let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
 
-					let (file_path_full_path, extension) = if let Some(entry) =
+					let CacheValue { name: file_path_full_path, ext: extension, file_path_pub_id, serve_from } = if let Some(entry) =
 						state.file_metadata_cache.get(&lru_cache_key)
 					{
 						entry
 					} else {
-						let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
-
 						let file_path = library
 							.db
 							.file_path()
 							.find_unique(file_path::id::equals(file_path_id))
+							// TODO: This query could be seen as a security issue as it could load the private key (`identity`) when we 100% don't need it. We are gonna wanna fix that!
 							.select(file_path_to_handle_custom_uri::select())
 							.exec()
 							.await
@@ -133,13 +152,20 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							maybe_missing(&file_path.location, "file_path.location").map_err(internal_server_error)?;
 						let path =
 							maybe_missing(&location.path, "file_path.location.path").map_err(internal_server_error)?;
+						let instance =
+							maybe_missing(&location.instance, "file_path.location.instance").map_err(internal_server_error)?;
 
-						let lru_entry = (
-							Path::new(path).join(
-								IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
-							),
-							maybe_missing(file_path.extension, "extension").map_err(not_found)?
+						let path = Path::new(path).join(
+							IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
 						);
+
+						let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity).map_err(internal_server_error)?.remote_identity();
+						let lru_entry = CacheValue {
+							name: path,
+							ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
+							file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
+							serve_from: (identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
+						};
 
 						state
 							.file_metadata_cache
@@ -148,25 +174,67 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						lru_entry
 					};
 
-					let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
-					(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
+					println!("Serving from: {:?}", serve_from); // TODO
 
-					let mut file = File::open(&file_path_full_path).await.map_err(|err| {
-						InfallibleResponse::builder()
-								.status(if err.kind() == io::ErrorKind::NotFound {
-									StatusCode::NOT_FOUND
-								} else {
-									StatusCode::INTERNAL_SERVER_ERROR
-								})
-								.body(body::boxed(Full::from("")))
-					})?;
+					match serve_from {
+						ServeFrom::Local => {
+							let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
+							(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
 
-					let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
-						error!("Error converting mime-type into header value: {}", err);
-						internal_server_error(())
-					})?);
+							let mut file = File::open(&file_path_full_path).await.map_err(|err| {
+								InfallibleResponse::builder()
+										.status(if err.kind() == io::ErrorKind::NotFound {
+											StatusCode::NOT_FOUND
+										} else {
+											StatusCode::INTERNAL_SERVER_ERROR
+										})
+										.body(body::boxed(Full::from("")))
+							})?;
 
-					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
+								error!("Error converting mime-type into header value: {}", err);
+								internal_server_error(())
+							})?);
+
+							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+						}
+						ServeFrom::Remote(identity) => {
+							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
+								return Ok(not_found(()))
+							}
+
+							// TODO: Support `Range` requests and `ETag` headers
+
+							match state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap().clone() {
+								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
+								InstanceState::Connected(peer_id) => {
+									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
+									let node = state.node.clone();
+									tokio::spawn(async move {
+										node.p2p
+											.request_file(
+												peer_id,
+												&library,
+												file_path_pub_id,
+												Range::Full,
+												MpscToAsyncWrite(PollSender::new(tx)),
+											)
+											.await;
+									});
+
+									// TODO: Content Type
+									Ok(InfallibleResponse::builder()
+										.status(StatusCode::OK)
+										.body(body::boxed(StreamBody::new(stream! {
+											while let Some(item) = rx.recv().await {
+												yield item;
+											}
+										}))))
+								}
+							}
+						},
+					}
 				},
 			),
 		)
@@ -542,5 +610,33 @@ where
 		_cx: &mut Context<'_>,
 	) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
 		Poll::Ready(Ok(None))
+  }
+}
+
+/// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
+pub struct MpscToAsyncWrite(PollSender<io::Result<Bytes>>);
+
+impl AsyncWrite for MpscToAsyncWrite {
+	fn poll_write(
+		mut self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &[u8],
+	) -> Poll<Result<usize, io::Error>> {
+		match self.0.poll_reserve(cx) {
+			Poll::Ready(Ok(())) => {
+				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
+				Poll::Ready(Ok(buf.len()))
+			}
+			Poll::Ready(Err(_)) => todo!(),
+			Poll::Pending => Poll::Pending,
+		}
+	}
+
+	fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
+	}
+
+	fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
 	}
 }
