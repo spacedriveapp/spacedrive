@@ -5,8 +5,6 @@ import DragRegion from '../../../components/DragRegion';
 import Sidebar from './Sidebar';
 
 export const Component = () => {
-	const os = useOperatingSystem();
-
 	return (
 		<div className="app-background flex w-full flex-row">
 			<Sidebar />
