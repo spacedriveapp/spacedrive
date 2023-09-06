@@ -1,7 +1,7 @@
 use crate::consts::RAW_MAXIMUM_FILE_SIZE;
 pub use crate::error::{Error, Result};
 use crate::ToImage;
-use image::{DynamicImage, Rgb};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use std::{io::Cursor, path::Path};
 
 #[derive(PartialEq, Eq)]
@@ -25,32 +25,25 @@ impl ToImage for RawHandler {
 		let mut data = Cursor::new(self.get_data(path)?); // this also makes sure the file isn't above the maximum size
 
 		let image = rawloader::decode(&mut data)?;
-		let mut writer = image::ImageBuffer::new(image.width.try_into()?, image.height.try_into()?);
+		let width = image.width;
+		let height = image.height;
+
+		let mut buffer = image::ImageBuffer::new(width.try_into()?, height.try_into()?);
 
 		#[allow(clippy::as_conversions)]
 		match image.cpp {
 			3 => {
-				for px in writer.pixels_mut() {
-					if let rawloader::RawImageData::Integer(ref i) = image.data {
-						let mut first = FirstPx::Hi;
-						for raw_px in i {
-							if first == FirstPx::Hi {
-								let hi = (raw_px >> 8) as u8;
-								let lo = (raw_px & 0x0ff) as u8;
+				if let rawloader::RawImageData::Integer(data) = image.data {
+					for (x, y, px) in buffer.enumerate_pixels_mut() {
+						let i = (y as usize * width + x as usize) * 3; // get the current pixel lcoation, assuming rgb
 
-								*px = Rgb([hi, lo, hi]);
-								first = FirstPx::Lo;
-							} else {
-								let lo = (raw_px & 0x0ff) as u8;
-								let hi = (raw_px >> 8) as u8;
-								*px = Rgb([lo, hi, lo]);
-								first = FirstPx::Hi;
-							}
-						}
+						*px = Rgb([data[i] as u8, data[i + 1] as u8, data[i + 2] as u8]);
 					}
 				}
 
-				Ok(DynamicImage::ImageRgb8(writer))
+				Ok(DynamicImage::ImageRgb8(buffer))
+
+				// todo!()
 			}
 			1 => todo!(),
 			_ => unreachable!(),
