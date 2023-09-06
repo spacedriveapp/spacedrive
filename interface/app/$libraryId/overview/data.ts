@@ -83,7 +83,7 @@ export function useCategoryExplorer(category: Category) {
 	const explorerSettings = isObjectQuery ? objectsExplorerSettings : pathsExplorerSettings;
 	const settings = explorerSettings.useSettingsSnapshot();
 
-	const take = 10;
+	const take = 100;
 
 	const objectFilter: ObjectFilterArgs = {
 		category,
