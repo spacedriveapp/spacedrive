@@ -26,6 +26,7 @@ import {
 } from 'react';
 import {
 	type ExplorerItem,
+	ObjectKindEnum,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
@@ -158,16 +159,16 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: !!objectData && readyToFetch
 	});
 
-	let { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
+	const filePath = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
 		enabled: !!objectData && readyToFetch
 	});
 
 	//Images are only supported currently - kind = 5
-	const { data: filesMediaData } = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
-		enabled: !!objectData && objectData.kind === 5 && !isNonIndexed && readyToFetch
+	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
+		enabled: objectData?.kind === ObjectKindEnum.Image && !isNonIndexed && readyToFetch
 	});
 
-	const { data: ephemeralLocationMediaData } = useBridgeQuery(
+	const ephemeralLocationMediaData = useBridgeQuery(
 		['files.getEphemeralMediaData', isNonIndexed ? item.item.path : ''],
 		{
 			enabled: isNonIndexed && item.item.kind === 5 && readyToFetch
@@ -176,12 +177,8 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const mediaData = filesMediaData ?? ephemeralLocationMediaData ?? null;
 
-	if (fileFullPath == null) {
-		switch (item.type) {
-			case 'Location':
-			case 'NonIndexedPath':
-				fileFullPath = item.item.path;
-		}
+	if (filePath.data == null && item.type === 'NonIndexedPath') {
+		filePath.data = item.item.path;
 	}
 
 	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
@@ -189,10 +186,11 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const pubId = object?.data ? uniqueId(object?.data) : null;
 
-	let extension, integrityChecksum;
 	const filePathItem = getItemFilePath(item);
+	let extension, integrityChecksum;
+
 	if (filePathItem) {
-		extension = 'extension' in filePathItem ? filePathItem.extension : null;
+		extension = filePathItem.extension;
 		integrityChecksum =
 			'integrity_checksum' in filePathItem ? filePathItem.integrity_checksum : null;
 	}
@@ -243,15 +241,15 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaData
 					icon={Path}
 					label="Path"
-					value={fileFullPath}
+					value={filePath.data}
 					onClick={() => {
 						// TODO: Add toast notification
-						fileFullPath && navigator.clipboard.writeText(fileFullPath);
+						filePath.data && navigator.clipboard.writeText(filePath.data);
 					}}
 				/>
 			</MetaContainer>
 
-			{mediaData && <MediaData data={mediaData} />}
+			{mediaData.data && <MediaData data={mediaData.data} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
