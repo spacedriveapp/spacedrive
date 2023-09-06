@@ -30,6 +30,7 @@ import {
 	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
+	useBridgeQuery,
 	useItemsAsObjects,
 	useLibraryQuery
 } from '@sd/client';
@@ -42,6 +43,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
+import MediaData from './MediaData';
 import Note from './Note';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
@@ -160,6 +162,20 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: !!objectData && readyToFetch
 	});
 
+	//Images are only supported currently - kind = 5
+	const { data: filesMediaData } = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
+		enabled: !!objectData && objectData.kind === 5 && !isNonIndexed && readyToFetch
+	});
+
+	const { data: ephemeralLocationMediaData } = useBridgeQuery(
+		['files.getEphemeralMediaData', isNonIndexed ? item.item.path : ''],
+		{
+			enabled: isNonIndexed && item.item.kind === 5 && readyToFetch
+		}
+	);
+
+	const mediaData = filesMediaData ?? ephemeralLocationMediaData ?? null;
+
 	if (fileFullPath == null) {
 		switch (item.type) {
 			case 'Location':
@@ -235,12 +251,7 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				/>
 			</MetaContainer>
 
-			<Divider />
-
-			{
-				// TODO: Call `files.getMediaData` for indexed locations when we have media data UI
-				// TODO: Call `files.getEphemeralMediaData` for ephemeral locations when we have media data UI
-			}
+			{mediaData && <MediaData data={mediaData} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
@@ -436,19 +447,21 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 };
 
 interface MetaDataProps {
-	icon: Icon;
+	icon?: Icon;
 	label: string;
 	value: ReactNode;
 	onClick?: () => void;
 }
 
-const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
+export const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
 	return (
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
-			<Icon weight="bold" className="mr-2 shrink-0" />
+			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
 			<Tooltip label={value} asChild>
-				<span className="truncate break-all text-ink">{value || '--'}</span>
+				<span className="truncate break-all text-ink">
+					{value === 'Undefined' ? '--' : value || '--'}
+				</span>
 			</Tooltip>
 		</div>
 	);
