@@ -1,10 +1,19 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
-import { ArrowLeft, ArrowRight, CaretDown, Plus, SidebarSimple, X } from 'phosphor-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from 'phosphor-react';
+import {
+	ButtonHTMLAttributes,
+	createContext,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState
+} from 'react';
 import {
 	type ExplorerItem,
+	ObjectKindKey,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	useLibraryContext,
@@ -12,7 +21,7 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { DropdownMenu, Form, ModifierKeys, Tooltip, dialogManager, toast, tw, z } from '@sd/ui';
+import { DropdownMenu, Form, ModifierKeys, Tooltip, dialogManager, toast, z } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 import { useKeyBind } from '~/hooks/useKeyBind';
 import { usePlatform } from '~/util/Platform';
@@ -32,16 +41,30 @@ import { getExplorerStore, useExplorerStore } from '../store';
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-const ArrowButton = tw.button`flex h-9 w-9 shrink-0 items-center shadow p-2 cursor-pointer justify-center rounded-full border border-app-line bg-app/80 text-ink/80 text-xl`;
-const IconButton = tw.button`inline-flex h-8 w-8 items-center justify-center rounded-md text-md text-slate-300 hover:bg-white/10 hover:text-white hover:backdrop-blur outline-none`;
+const heavyKinds: ObjectKindKey[] = ['Image', 'Video'];
+const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
+const withoutBackgroundKinds: ObjectKindKey[] = [
+	...iconKinds,
+	'Document',
+	'Config',
+	'Code',
+	'Text'
+];
 
-const fadeInClassName =
-	'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 animate-in fade-in fade-out duration-300';
+const QuickPreviewContext = createContext<{ background: boolean } | null>(null);
+
+const useQuickPreviewContext = () => {
+	const context = useContext(QuickPreviewContext);
+
+	if (!context) throw new Error('QuickPreviewContext.Provider not found!');
+
+	return context;
+};
 
 export const QuickPreview = () => {
+	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
-	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
 	const { openFilePaths, revealItems } = usePlatform();
 
@@ -50,6 +73,7 @@ export const QuickPreview = () => {
 
 	const [selectedItems, setSelectedItems] = useState<ExplorerItem[]>([]);
 	const [currentItemIndex, setCurrentItemIndex] = useState(0);
+	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
@@ -64,7 +88,7 @@ export const QuickPreview = () => {
 			transformOrigin: 'center top'
 		},
 		enter: { opacity: 1, transform: `translateY(0px) scale(1)` },
-		leave: { opacity: 0, transform: `translateY(40px) scale(0.9)` },
+		leave: { opacity: 0, immediate: true },
 		config: { mass: 0.2, tension: 300, friction: 20, bounce: 0 }
 	});
 
@@ -74,28 +98,40 @@ export const QuickPreview = () => {
 	});
 
 	const changeCurrentItem = (index: number) => {
-		if (selectedItems[index]) {
-			setCurrentItemIndex(index);
-			setNewName(null);
-		}
+		if (!selectedItems[index]) return;
+
+		setCurrentItemIndex(index);
+		setNewName(null);
+		setLoadOriginal(false);
 	};
 
-	// Update items
 	useEffect(() => {
-		if (showQuickView) {
-			if (explorer.selectedItems.size === 0) getExplorerStore().showQuickView = false;
-			else setSelectedItems([...explorer.selectedItems]);
-		}
-	}, [explorer.selectedItems, showQuickView]);
-
-	// Reset state
-	useEffect(() => {
-		if (showQuickView) {
+		if (!showQuickView) {
 			setCurrentItemIndex(0);
 			setShowMetadata(false);
 			setNewName(null);
+			return;
 		}
-	}, [showQuickView]);
+
+		if (explorer.selectedItems.size === 0) getExplorerStore().showQuickView = false;
+		else setSelectedItems([...explorer.selectedItems]);
+	}, [explorer.selectedItems, showQuickView]);
+
+	useEffect(() => {
+		setLoadOriginal(false);
+
+		if (!showQuickView || !item) return;
+
+		const { kind } = getExplorerItemData(item);
+
+		if (iconKinds.includes(kind) || !heavyKinds.includes(kind)) {
+			setLoadOriginal(true);
+			return;
+		}
+
+		const timeout = setTimeout(() => setLoadOriginal(true), 350);
+		return () => clearTimeout(timeout);
+	}, [item, showQuickView]);
 
 	// Toggle quick preview
 	useKeyBind(['space'], (e) => {
@@ -176,153 +212,170 @@ export const QuickPreview = () => {
 			{transitions((styles, show) => {
 				if (!show || !item) return null;
 
-				const { kind, name } = getExplorerItemData(item);
+				const { kind, ...itemData } = getExplorerItemData(item);
 
-				const fixedHeader = kind === 'Text' || kind === 'Document';
+				const name =
+					newName ||
+					`${itemData.name}${itemData.extension ? `.${itemData.extension}` : ''}`;
+
+				const background = !withoutBackgroundKinds.includes(kind);
+				const icon = iconKinds.includes(kind);
 
 				return (
-					<Dialog.Portal forceMount>
-						<AnimatedDialogOverlay
-							style={{
-								opacity: styles.opacity
-							}}
-							className={clsx(
-								'absolute inset-0 z-50',
-								isDark ? 'bg-black/75' : 'bg-black/60'
-							)}
-							onContextMenu={(e) => {
-								// Block explorer context menu
-								// should probably look for a better solution
-								e.stopPropagation();
-								e.preventDefault();
-							}}
-						/>
-
-						<AnimatedDialogContent
-							style={styles}
-							className={clsx(
-								'fixed inset-8 z-50 flex overflow-hidden rounded-md border outline-none backdrop-blur',
-								isDark
-									? 'border-app-line/80'
-									: fixedHeader
-									? 'border-app-line'
-									: 'border-app-line/10'
-							)}
-							onOpenAutoFocus={(e) => e.preventDefault()}
-							onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
-							onContextMenu={(e) => {
-								// Block explorer context menu
-								// should probably look for a better solution
-								e.stopPropagation();
-								e.preventDefault();
-							}}
-						>
-							<div
+					<QuickPreviewContext.Provider value={{ background }}>
+						<Dialog.Portal forceMount>
+							<AnimatedDialogOverlay
 								className={clsx(
-									'group relative flex flex-1 flex-col overflow-hidden',
-									fixedHeader ? 'bg-app' : 'bg-app/80'
+									'absolute inset-0 z-50',
+									isDark ? 'bg-black/80' : 'bg-black/60'
 								)}
-							>
-								<FileThumb
-									data={item}
-									cover={true}
-									className={(type) =>
-										clsx(
-											'!absolute inset-0',
-											kind !== 'Text' && type !== 'ICON' && 'bg-black'
-										)
-									}
-									childClassName={(type) =>
-										type === 'ICON' ? 'hidden' : 'opacity-30 blur-md'
-									}
-								/>
+								style={{ opacity: styles.opacity }}
+								onContextMenu={(e) => e.preventDefault()}
+							/>
 
+							<AnimatedDialogContent
+								className="fixed inset-[5%] z-50 outline-none"
+								style={styles}
+								onOpenAutoFocus={(e) => e.preventDefault()}
+								onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
+								onContextMenu={(e) => e.preventDefault()}
+							>
 								<div
 									className={clsx(
-										'z-50 flex items-center p-3 ',
-										fixedHeader
-											? 'border-b border-app-line bg-app-darkBox text-ink'
-											: [
-													'absolute inset-x-0 top-0 border-none bg-gradient-to-b from-black/50 to-transparent text-white',
-													fadeInClassName
-											  ]
+										'flex h-full overflow-hidden rounded-md border',
+										isDark ? 'border-app-line/80' : 'border-app-line/10'
 									)}
 								>
-									<div className="flex-1">
-										<Tooltip label="Close" hoverable={false}>
-											<Dialog.Close asChild>
-												<IconButton>
-													<X weight="bold" />
-												</IconButton>
-											</Dialog.Close>
-										</Tooltip>
-									</div>
+									<div className="relative flex flex-1 flex-col overflow-hidden bg-app/80 backdrop-blur">
+										{background && (
+											<div className="absolute inset-0 overflow-hidden bg-black/90">
+												<FileThumb
+													data={item}
+													cover={true}
+													childClassName="opacity-75 blur-3xl scale-125"
+												/>
+											</div>
+										)}
 
-									<div className="flex w-1/2 items-center justify-center truncate text-sm">
-										{isRenaming && name ? (
-											<RenameInput
-												name={name}
-												onRename={(newName) => {
-													setIsRenaming(false);
+										<div
+											className={clsx(
+												'z-50 flex items-center p-2',
+												background ? 'text-white' : 'text-ink'
+											)}
+										>
+											<div className="flex flex-1">
+												<Tooltip className="mr-2" label="Close">
+													<Dialog.Close asChild>
+														<IconButton>
+															<X weight="bold" />
+														</IconButton>
+													</Dialog.Close>
+												</Tooltip>
 
-													if (
-														!('id' in item.item) ||
-														!newName ||
-														newName === name
-													)
-														return;
-
-													const filePathData =
-														getIndexedItemFilePath(item);
-
-													if (!filePathData) return;
-
-													const locationId = filePathData.location_id;
-
-													if (locationId === null) return;
-
-													renameFile.mutate({
-														location_id: locationId,
-														kind: {
-															One: {
-																from_file_path_id: item.item.id,
-																to: newName
-															}
+												<Tooltip label="Back">
+													<IconButton
+														disabled={
+															!selectedItems[currentItemIndex - 1]
 														}
-													});
+														onClick={() =>
+															changeCurrentItem(currentItemIndex - 1)
+														}
+													>
+														<ArrowLeft weight="bold" />
+													</IconButton>
+												</Tooltip>
 
-													setNewName(newName);
-												}}
-											/>
-										) : (
-											<>
-												<span
-													onClick={() =>
-														name &&
-														item.type !== 'NonIndexedPath' &&
-														setIsRenaming(true)
-													}
-													className={clsx(
-														'truncate',
-														item.type === 'NonIndexedPath' &&
-															'cursor-default'
-													)}
-												>
-													{newName || name}
-												</span>
+												<Tooltip label="Forward">
+													<IconButton
+														disabled={
+															!selectedItems[currentItemIndex + 1]
+														}
+														onClick={() =>
+															changeCurrentItem(currentItemIndex + 1)
+														}
+													>
+														<ArrowRight weight="bold" />
+													</IconButton>
+												</Tooltip>
+											</div>
+
+											<div className="flex w-1/2 items-center justify-center truncate text-sm">
+												{isRenaming && name ? (
+													<RenameInput
+														name={name}
+														onRename={(newName) => {
+															setIsRenaming(false);
+
+															if (
+																!('id' in item.item) ||
+																!newName ||
+																newName === name
+															)
+																return;
+
+															const filePathData =
+																getIndexedItemFilePath(item);
+
+															if (!filePathData) return;
+
+															const locationId =
+																filePathData.location_id;
+
+															if (locationId === null) return;
+
+															renameFile.mutate({
+																location_id: locationId,
+																kind: {
+																	One: {
+																		from_file_path_id:
+																			item.item.id,
+																		to: newName
+																	}
+																}
+															});
+
+															setNewName(newName);
+														}}
+													/>
+												) : (
+													<>
+														<span
+															onClick={() =>
+																name &&
+																item.type !== 'NonIndexedPath' &&
+																setIsRenaming(true)
+															}
+															className={clsx(
+																'cursor-text truncate',
+																item.type === 'NonIndexedPath' &&
+																	'cursor-default'
+															)}
+														>
+															{name}
+														</span>
+													</>
+												)}
+											</div>
+
+											<div className="flex flex-1 justify-end gap-1">
 												{item.type !== 'NonIndexedPath' && (
 													<DropdownMenu.Root
 														trigger={
-															<CaretDown
-																size={16}
-																weight="bold"
-																className="ml-2 shrink-0 cursor-pointer transition-all hover:mt-1 radix-state-open:mt-1"
-															/>
+															<div className="flex">
+																<Tooltip label="More">
+																	<IconButton>
+																		<DotsThree
+																			size={20}
+																			weight="bold"
+																		/>
+																	</IconButton>
+																</Tooltip>
+															</div>
 														}
 														onOpenChange={setIsContextMenuOpen}
+														align="end"
+														sideOffset={-10}
 														usePortal={false}
-														modal={false}
-														align="center"
 													>
 														<ExplorerContextMenu items={[item]} custom>
 															<Conditional
@@ -366,91 +419,62 @@ export const QuickPreview = () => {
 														</ExplorerContextMenu>
 													</DropdownMenu.Root>
 												)}
-											</>
+
+												<Tooltip label="Show details">
+													<IconButton
+														onClick={() =>
+															setShowMetadata(!showMetadata)
+														}
+														active={showMetadata}
+													>
+														<SidebarSimple className="rotate-180" />
+													</IconButton>
+												</Tooltip>
+											</div>
+										</div>
+
+										{loadOriginal && (
+											<FileThumb
+												data={item}
+												loadOriginal
+												mediaControls
+												className={clsx(
+													'm-3 !w-auto flex-1 !overflow-hidden rounded',
+													!background && !icon && 'bg-app-box shadow'
+												)}
+												childClassName={clsx(
+													'rounded',
+													kind === 'Text' && 'p-3',
+													!icon && 'h-full'
+												)}
+											/>
 										)}
 									</div>
 
-									<div className="flex flex-1 justify-end">
-										<Tooltip label="Show details" hoverable={false}>
-											<IconButton
-												onClick={() => setShowMetadata(!showMetadata)}
-												className={clsx(
-													showMetadata &&
-														'bg-white/10 !text-white !backdrop-blur'
-												)}
-											>
-												<SidebarSimple className="rotate-180" />
-											</IconButton>
-										</Tooltip>
-									</div>
-								</div>
-
-								<Navigation
-									showBack={currentItemIndex - 1 >= 0}
-									showForward={selectedItems.length > currentItemIndex + 1}
-									onNav={(val) => changeCurrentItem(currentItemIndex + val)}
-								/>
-
-								<FileThumb
-									data={item}
-									loadOriginal
-									mediaControls
-									className={clsx(
-										fixedHeader && '!h-auto flex-1 overflow-hidden'
+									{showMetadata && (
+										<div className="no-scrollbar w-64 shrink-0 border-l border-app-line bg-app-darkBox py-1">
+											<SingleItemMetadata item={item} />
+										</div>
 									)}
-									childClassName={clsx(kind === 'Text' && 'p-6')}
-								/>
-							</div>
-
-							{showMetadata && (
-								<div className="no-scrollbar w-64 shrink-0 border-l border-app-line bg-app-darkBox py-1">
-									<SingleItemMetadata item={item} />
 								</div>
-							)}
-						</AnimatedDialogContent>
-					</Dialog.Portal>
+							</AnimatedDialogContent>
+						</Dialog.Portal>
+					</QuickPreviewContext.Provider>
 				);
 			})}
 		</Dialog.Root>
 	);
 };
 
-interface NavigationProps {
-	showBack: boolean;
-	showForward: boolean;
-	onNav: (val: number) => void;
-}
-
-const Navigation = ({ showBack, showForward, onNav }: NavigationProps) => {
-	return (
-		<>
-			{showBack && (
-				<Tooltip label="Previous" className="absolute left-6 top-1/2 z-50 -translate-y-1/2">
-					<ArrowButton onClick={() => onNav(-1)} className={fadeInClassName}>
-						<ArrowLeft weight="bold" />
-					</ArrowButton>
-				</Tooltip>
-			)}
-
-			{showForward && (
-				<Tooltip label="Next" className="absolute right-6 top-1/2 z-50 -translate-y-1/2">
-					<ArrowButton onClick={() => onNav(1)} className={fadeInClassName}>
-						<ArrowRight weight="bold" />
-					</ArrowButton>
-				</Tooltip>
-			)}
-		</>
-	);
-};
-
 interface RenameInputProps {
 	name: string;
 	onRename: (name: string) => void;
-	className?: string;
 }
 
-const RenameInput = ({ name, onRename, className }: RenameInputProps) => {
+const RenameInput = ({ name, onRename }: RenameInputProps) => {
 	const os = useOperatingSystem();
+
+	const quickPreview = useQuickPreviewContext();
 
 	const _ref = useRef<HTMLInputElement | null>(null);
 
@@ -498,8 +522,10 @@ const RenameInput = ({ name, onRename, className }: RenameInputProps) => {
 				autoFocus
 				autoCorrect="off"
 				className={clsx(
-					'w-full rounded border border-white/[.12] bg-white/10 px-2 py-1 text-center outline-none backdrop-blur-sm',
-					className
+					'w-full rounded border px-2 py-1 text-center outline-none',
+					quickPreview.background
+						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
+						: 'border-app-line bg-app-input'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName(name)}
@@ -510,5 +536,41 @@ const RenameInput = ({ name, onRename, className }: RenameInputProps) => {
 				{...register}
 			/>
 		</Form>
+	);
+};
+
+const IconButton = ({
+	className,
+	active,
+	...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) => {
+	const isDark = useIsDark();
+
+	const quickPreview = useQuickPreviewContext();
+
+	return (
+		<button
+			className={clsx(
+				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none backdrop-blur-none',
+				'hover:opacity-100 hover:backdrop-blur',
+				'focus:opacity-100 focus:backdrop-blur',
+				'disabled:pointer-events-none disabled:opacity-40',
+				isDark || quickPreview.background
+					? quickPreview.background
+						? 'hover:bg-white/[.15] focus:bg-white/[.15]'
+						: 'hover:bg-app-box focus:bg-app-box'
+					: 'hover:bg-black/[.075] focus:bg-black/[.075]',
+				active && [
+					'!opacity-100 backdrop-blur',
+					isDark || quickPreview.background
+						? quickPreview.background
+							? 'bg-white/[.15]'
+							: 'bg-app-box'
+						: 'bg-black/[.075]'
+				],
+				className
+			)}
+			{...props}
+		/>
 	);
 };
