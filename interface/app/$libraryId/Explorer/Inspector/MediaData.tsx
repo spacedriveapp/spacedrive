@@ -14,7 +14,8 @@ function formatMediaTime(loc: MediaTime): string | null {
 }
 
 function formatLocation(loc: MediaLocation): string {
-	return `${loc.latitude}, ${loc.longitude}`;
+	// Stackoverflow says the `+` strips the trailing zeros or something so it's important, I think
+	return `${+loc.latitude.toFixed(2)}, ${+loc.longitude.toFixed(2)}`;
 }
 
 function MediaData({ data }: Props) {
