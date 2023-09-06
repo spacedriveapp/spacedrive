@@ -32,6 +32,21 @@ pub enum BackendFeature {
 	FilesOverP2P,
 }
 
+impl BackendFeature {
+	pub fn restore(&self, node: &Node) {
+		match self {
+			BackendFeature::SyncEmitMessages => {
+				node.libraries
+					.emit_messages_flag
+					.store(true, Ordering::Relaxed);
+			}
+			BackendFeature::FilesOverP2P => {
+				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
+			}
+		}
+	}
+}
+
 mod backups;
 mod categories;
 mod files;

@@ -112,6 +112,11 @@ impl Node {
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 		});
 
+		// Restore backend feature flags
+		for feature in node.config.get().await.features {
+			feature.restore(&node);
+		}
+
 		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
