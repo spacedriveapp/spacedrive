@@ -1,8 +1,6 @@
 import { Copy, Scissors } from 'phosphor-react';
 import { useLibraryMutation } from '@sd/client';
-import { ContextMenu, ModifierKeys } from '@sd/ui';
-import { showAlertDialog } from '~/components';
-import { Menu } from '~/components/Menu';
+import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../../Context';
@@ -69,9 +67,9 @@ export const CutCopyItems = new ConditionalItem({
 								target_file_name_suffix: ' copy'
 							});
 						} catch (error) {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to duplcate file, due to an error: ${error}`
+							toast.error({
+								title: 'Failed to duplicate file',
+								body: `Error: ${error}.`
 							});
 						}
 					}}

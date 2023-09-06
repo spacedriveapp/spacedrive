@@ -52,7 +52,7 @@ impl LibraryPreferences {
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationSettings {
-	explorer: ExplorerSettings<search::FilePathSearchOrdering>,
+	explorer: ExplorerSettings<search::FilePathOrder>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]

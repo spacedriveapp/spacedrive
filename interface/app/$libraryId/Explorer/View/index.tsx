@@ -24,8 +24,7 @@ import {
 	useLibraryContext,
 	useLibraryMutation
 } from '@sd/client';
-import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
@@ -116,10 +115,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 						items.paths.map(({ id }) => id)
 					);
 				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: `Failed to open file, due to an error: ${error}`
-					});
+					toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
 				}
 			} else if (!explorerConfig.openOnDoubleClick) {
 				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
@@ -337,10 +333,7 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			try {
 				await openFilePaths(library.uuid, paths);
 			} catch (error) {
-				showAlertDialog({
-					title: 'Error',
-					value: `Couldn't open file, due to an error: ${error}`
-				});
+				toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
 			}
 		},
 		[os, library.uuid, openFilePaths, explorer.selectedItems]

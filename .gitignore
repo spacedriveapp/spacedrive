@@ -15,7 +15,7 @@ cli/turbo.exe
 storybook-static/
 .DS_Store
 cache
-.env
+.env*
 vendor/
 data
 node_modules

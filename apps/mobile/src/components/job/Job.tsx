@@ -24,7 +24,7 @@ type JobProps = {
 
 const JobIcon: Record<string, Icon> = {
 	indexer: Folder,
-	thumbnailer: Image,
+	media_processor: Image,
 	file_identifier: Fingerprint,
 	file_copier: Copy,
 	file_deleter: Trash,

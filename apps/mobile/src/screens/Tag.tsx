@@ -11,7 +11,8 @@ export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'
 		{
 			filter: {
 				tags: [id]
-			}
+			},
+			take: 100
 		}
 	]);
 

@@ -21,11 +21,12 @@ export const PathParamsSchema = z.object({ path: z.string().optional() });
 export type PathParams = z.infer<typeof PathParamsSchema>;
 
 export const SearchParamsSchema = PathParamsSchema.extend({
-	take: z.coerce.number().optional(),
+	take: z.coerce.number().default(100),
 	order: z
 		.union([
 			z.object({ field: z.literal('name'), value: SortOrderSchema }),
-			z.object({ field: z.literal('sizeInBytes'), value: SortOrderSchema })
+			z.object({ field: z.literal('dateCreated'), value: SortOrderSchema })
+			// z.object({ field: z.literal('sizeInBytes'), value: SortOrderSchema })
 		])
 		.optional(),
 	search: z.string().optional()

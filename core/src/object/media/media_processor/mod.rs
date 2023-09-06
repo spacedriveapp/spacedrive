@@ -120,6 +120,7 @@ async fn process(
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	thumbnails_base_dir: impl AsRef<Path>,
+	regenerate_thumbnails: bool,
 	library: &Library,
 	ctx_update_fn: impl Fn(usize),
 ) -> Result<(MediaProcessorMetadata, JobRunErrors), MediaProcessorError> {
@@ -168,6 +169,7 @@ async fn process(
 					location_id,
 					location_path,
 					thumbnails_base_dir,
+					regenerate_thumbnails,
 					library,
 					ctx_update_fn,
 				)

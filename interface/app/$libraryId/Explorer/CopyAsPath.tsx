@@ -1,5 +1,5 @@
 import { ClipboardText } from 'phosphor-react';
-import { showAlertDialog } from '~/components';
+import { toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 
 export const CopyAsPathBase = (
@@ -22,9 +22,9 @@ export const CopyAsPathBase = (
 
 					navigator.clipboard.writeText(path);
 				} catch (error) {
-					showAlertDialog({
-						title: 'Error',
-						value: `Failed to copy file path: ${error}`
+					toast.error({
+						title: `Failed to copy file path`,
+						body: `Error: ${error}.`
 					});
 				}
 			}}

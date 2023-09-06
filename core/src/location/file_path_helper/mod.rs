@@ -81,10 +81,24 @@ file_path::select!(file_path_walker {
 	device
 });
 file_path::select!(file_path_to_handle_custom_uri {
+	pub_id
 	materialized_path
 	is_dir
 	name
 	extension
+	location: select {
+		id
+		path
+		instance: select {
+			identity
+		}
+	}
+});
+file_path::select!(file_path_to_handle_p2p_serve_file {
+	materialized_path
+	name
+	extension
+	is_dir // For isolated file path
 	location: select {
 		id
 		path
