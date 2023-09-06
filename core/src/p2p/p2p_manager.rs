@@ -1,7 +1,7 @@
 use std::{
 	borrow::Cow,
 	collections::HashMap,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -28,6 +28,7 @@ use uuid::Uuid;
 
 use crate::{
 	library::Library,
+	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
 	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
@@ -327,19 +328,15 @@ impl P2PManager {
 										file_path_id,
 										range,
 									} => {
-										// TODO: Feature flag it!!!
-										// if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-										// 	return Ok(not_found(()))
-										// }
+										if !node.files_over_p2p_flag.load(Ordering::Relaxed) {
+											panic!("Files over P2P is disabled!");
+										}
 
-										println!("AA");
 										// TODO: Tunnel and authentication
 										// TODO: Use BufReader
 
 										let library =
 											node.libraries.get_library(&library_id).await.unwrap();
-
-										println!("BB");
 
 										let file_path = library
 											.db
@@ -347,59 +344,34 @@ impl P2PManager {
 											.find_unique(file_path::pub_id::equals(
 												file_path_id.as_bytes().to_vec(),
 											))
-											.select(file_path::select!({
-												materialized_path
-												name
-												extension
-												location: select {
-													path
-												}
-											}))
+											.select(file_path_to_handle_p2p_serve_file::select())
 											.exec()
 											.await
 											.unwrap()
 											.unwrap();
 
-										println!(
-											"CC {:?} {:?}",
-											file_path
-												.location
-												.as_ref()
-												.unwrap()
-												.path
-												.as_ref()
-												.unwrap(),
-											file_path.materialized_path.as_ref().unwrap()
+										let location = file_path.location.as_ref().unwrap();
+										let location_path = location.path.as_ref().unwrap();
+										let path = Path::new(location_path).join(
+											IsolatedFilePathData::try_from((
+												location.id,
+												&file_path,
+											))
+											.unwrap(),
 										);
-
-										// TODO: Use `IsolatedFilePathData`
-										let location = file_path.location.unwrap();
-										let path = PathBuf::from(location.path.as_ref().unwrap())
-											// .join(file_path.materialized_path.as_ref().unwrap()) // TODO: this is 100% wrong
-											.join(format!(
-												"./{}.{}",
-												file_path.name.unwrap(),
-												file_path.extension.unwrap()
-											));
 
 										debug!("Serving path '{:?}' over P2P", path);
 
 										let file = File::open(&path).await.unwrap();
 
-										println!("DD");
-
 										let metadata = file.metadata().await.unwrap();
-										println!("EE");
 										let block_size = BlockSize::from_size(metadata.len());
-										println!("FF");
 
 										stream.write_all(&block_size.to_bytes()).await.unwrap();
 										stream
 											.write_all(&metadata.len().to_le_bytes())
 											.await
 											.unwrap();
-
-										println!("GG");
 
 										let file = BufReader::new(file);
 										Transfer::new(
@@ -652,8 +624,6 @@ impl P2PManager {
 
 		// TODO: Tunnel for encryption + authentication
 
-		println!("A");
-
 		stream
 			.write_all(
 				&Header::File {
@@ -666,12 +636,8 @@ impl P2PManager {
 			.await
 			.unwrap();
 
-		println!("B");
-
 		let block_size = BlockSize::from_stream(&mut stream).await.unwrap();
-		println!("C");
 		let size = stream.read_u64_le().await.unwrap();
-		println!("D");
 
 		Transfer::new(
 			&SpaceblockRequest {

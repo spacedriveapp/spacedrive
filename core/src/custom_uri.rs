@@ -16,7 +16,7 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
 	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
@@ -44,12 +44,14 @@ use tracing::{debug, error};
 use uuid::Uuid;
 
 type CacheKey = (Uuid, file_path::id::Type);
-type CacheValue = (
-	/* Name */ PathBuf,
-	/* Extension */ String,
-	/* File Path Pub Id */ Uuid,
-	ServeFrom,
-);
+
+#[derive(Debug, Clone)]
+struct CacheValue {
+	name: PathBuf,
+	ext: String,
+	file_path_pub_id: Uuid,
+	serve_from: ServeFrom,
+}
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
 
@@ -125,7 +127,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					let lru_cache_key = (library_id, file_path_id);
 					let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
 
-					let (file_path_full_path, extension, file_path_pub_id, serve_from) = if let Some(entry) =
+					let CacheValue { name: file_path_full_path, ext: extension, file_path_pub_id, serve_from } = if let Some(entry) =
 						state.file_metadata_cache.get(&lru_cache_key)
 					{
 						entry
@@ -153,12 +155,12 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						);
 
 						let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity).map_err(internal_server_error)?.remote_identity();
-						let lru_entry = (
-							path,
-							maybe_missing(file_path.extension, "extension").map_err(not_found)?,
-							Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
-							(identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
-						);
+						let lru_entry = CacheValue {
+							name: path,
+							ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
+							file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
+							serve_from: (identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
+						};
 
 						state
 							.file_metadata_cache
@@ -192,10 +194,9 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
-							// TODO: Disable it when feature flag not on - right now they are kinda broke
-							// if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-							// 	return Ok(not_found(()))
-							// }
+							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
+								return Ok(not_found(()))
+							}
 
 							// TODO: Support `Range` requests and `ETag` headers
 
@@ -212,7 +213,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 												&library,
 												file_path_pub_id,
 												Range::Full,
-												Bruh(PollSender::new(tx)),
+												MpscToAsyncWrite(PollSender::new(tx)),
 											)
 											.await;
 									});
@@ -533,9 +534,10 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	})
 }
 
-pub struct Bruh(PollSender<io::Result<Bytes>>);
+/// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
+pub struct MpscToAsyncWrite(PollSender<io::Result<Bytes>>);
 
-impl AsyncWrite for Bruh {
+impl AsyncWrite for MpscToAsyncWrite {
 	fn poll_write(
 		mut self: Pin<&mut Self>,
 		cx: &mut Context<'_>,

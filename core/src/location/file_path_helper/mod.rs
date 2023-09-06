@@ -94,6 +94,16 @@ file_path::select!(file_path_to_handle_custom_uri {
 		}
 	}
 });
+file_path::select!(file_path_to_handle_p2p_serve_file {
+	materialized_path
+	name
+	extension
+	is_dir // For isolated file path
+	location: select {
+		id
+		path
+	}
+});
 file_path::select!(file_path_to_full_path {
 	id
 	materialized_path
