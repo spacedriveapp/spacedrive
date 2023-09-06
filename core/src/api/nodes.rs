@@ -53,7 +53,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.instance()
 						.find_many(vec![node_id
 							.map(|id| instance::node_id::equals(id.as_bytes().to_vec()))
-							.unwrap_or(instance::id::equals(library.config.instance_id))])
+							.unwrap_or(instance::id::equals(library.config().instance_id))])
 						.exec()
 						.await?;
 
