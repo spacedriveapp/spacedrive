@@ -459,9 +459,7 @@ export const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) =
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
 			<Tooltip label={value} asChild>
-				<span className="truncate break-all text-ink">
-					{value === 'Undefined' ? '--' : value || '--'}
-				</span>
+				<span className="truncate break-all text-ink">{value ?? '--'}</span>
 			</Tooltip>
 		</div>
 	);

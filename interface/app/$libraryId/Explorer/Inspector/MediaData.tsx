@@ -1,10 +1,13 @@
-import { ReactNode } from 'react';
-import { MediaMetadata } from '@sd/client';
+import { MediaLocation, MediaMetadata } from '@sd/client';
 import Accordion from '~/components/Accordion';
 import { MetaData } from './index';
 
 interface Props {
 	data: MediaMetadata;
+}
+
+function formatLocation(loc: MediaLocation): string {
+	return `${loc.latitude}, ${loc.longitude}`;
 }
 
 function MediaData({ data }: Props) {
@@ -16,9 +19,15 @@ function MediaData({ data }: Props) {
 				className="rounded-none border-0 bg-transparent py-0"
 				title="More info"
 			>
-				<MetaData label="Date" value={data.date_taken as ReactNode} />
+				<MetaData
+					label="Date"
+					value={'value' in data.date_taken ? data.date_taken.value : null}
+				/>
 				<MetaData label="Type" value={data.type} />
-				<MetaData label="Location" value={data.location as ReactNode} />
+				<MetaData
+					label="Location"
+					value={data.location ? formatLocation(data.location) : null}
+				/>
 				<MetaData
 					label="Dimensions"
 					value={
