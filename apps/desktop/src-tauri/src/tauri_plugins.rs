@@ -1,4 +1,8 @@
-use std::{io, net::TcpListener, sync::Arc};
+use std::{
+	io,
+	net::{Ipv4Addr, TcpListener},
+	sync::Arc,
+};
 
 use axum::{
 	extract::{Query, State, TypedHeader},
@@ -45,8 +49,13 @@ pub fn sd_server_plugin<R: Runtime>(node: Arc<Node>) -> io::Result<TauriPlugin<R
 		))
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
-	// Only allow current device to access it and randomise port
-	let listener = TcpListener::bind("127.0.0.1:0")?;
+	let port = std::env::var("SD_PORT")
+		.ok()
+		.and_then(|port| port.parse().ok())
+		.unwrap_or(0); // randomise port
+
+	// Only allow current device to access it
+	let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))?;
 	let listen_addr = listener.local_addr()?;
 	let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 

@@ -37,10 +37,6 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 * @defaultValue `true`
 	 */
 	allowMultiSelect?: boolean;
-	/**
-	 * @defaultValue `5`
-	 */
-	rowsBeforeLoadMore?: number;
 	overscan?: number;
 	/**
 	 * @defaultValue `true`
@@ -62,7 +58,6 @@ export function useExplorer<TOrder extends Ordering>({
 	return {
 		// Default values
 		allowMultiSelect: true,
-		rowsBeforeLoadMore: 5,
 		selectable: true,
 		scrollRef,
 		count: props.items?.length,
