@@ -764,22 +764,15 @@ export default () => {
 
 	// Load more items
 	useEffect(() => {
-		if (!explorer.loadMore || !explorer.items) return;
+		if (!explorer.loadMore) return;
 
 		const lastRow = virtualRows[virtualRows.length - 1];
 		if (!lastRow) return;
 
-		const rowsBeforeLoadMore = explorer.rowsBeforeLoadMore;
+		const loadMoreFromRow = Math.ceil(rows.length * 0.75);
 
-		const loadMoreOnIndex =
-			rowsBeforeLoadMore > rows.length || lastRow.index > rows.length - rowsBeforeLoadMore
-				? rows.length - 1
-				: rows.length - rowsBeforeLoadMore;
-
-		if (lastRow.index === loadMoreOnIndex || lastRow.index > explorer.items.length) {
-			explorer.loadMore.call(undefined);
-		}
-	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore, explorer.items]);
+		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
+	}, [virtualRows, rows.length, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
 		if (!explorerView.selectable) return;
