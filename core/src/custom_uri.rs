@@ -23,15 +23,15 @@ use std::{
 
 use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
+	body::{self, Body, BoxBody, Full, HttpBody, StreamBody},
 	extract::{self, State},
 	http::{self, header, request, HeaderMap, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
 	routing::get,
 	Router,
 };
-use futures::Stream;
 use bytes::Bytes;
+use futures::Stream;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
 use pin_project_lite::pin_project;
@@ -39,7 +39,7 @@ use sd_file_ext::text::is_text;
 use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, Take, AsyncWrite}
+	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, Take},
 };
 use tokio_util::{io::ReaderStream, sync::PollSender};
 use tracing::{debug, error};
@@ -610,7 +610,7 @@ where
 		_cx: &mut Context<'_>,
 	) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
 		Poll::Ready(Ok(None))
-  }
+	}
 }
 
 /// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
