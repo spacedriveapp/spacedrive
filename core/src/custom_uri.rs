@@ -13,25 +13,29 @@ use std::{
 	io::{self, SeekFrom},
 	panic::Location,
 	path::{Path, PathBuf},
+	pin::Pin,
 	str::FromStr,
 	sync::Arc,
+	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
 
 use axum::{
-	body::{self, Body, BoxBody, Full, StreamBody},
+	body::{self, Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
 	extract::{self, State},
-	http::{self, request, HeaderValue, Method, Request, Response, StatusCode},
+	http::{self, header, request, HeaderMap, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
 	routing::get,
 	Router,
 };
+use futures::Stream;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
+use pin_project_lite::pin_project;
 use sd_file_ext::text::is_text;
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncSeekExt},
+	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, Take},
 };
 use tokio_util::io::ReaderStream;
 use tracing::{debug, error};
@@ -41,6 +45,9 @@ type MetadataCacheKey = (Uuid, file_path::id::Type);
 type NameAndExtension = (PathBuf, String);
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
+
+// default capacity 64KiB
+const DEFAULT_CAPACITY: usize = 65536;
 
 #[derive(Clone)]
 struct LocalState {
@@ -245,7 +252,13 @@ async fn serve_file(
 	if let Ok(metadata) = metadata {
 		// We only accept range queries if `files.metadata() == Ok(_)`
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
-		resp = resp.header("Accept-Ranges", HeaderValue::from_static("bytes"));
+		resp = resp
+			.header("Accept-Ranges", HeaderValue::from_static("bytes"))
+			.header(
+				"Content-Length",
+				HeaderValue::from_str(&metadata.len().to_string())
+					.expect("number won't fail conversion"),
+			);
 
 		// Empty files
 		if metadata.len() == 0 {
@@ -254,6 +267,8 @@ async fn serve_file(
 				.header("Content-Length", HeaderValue::from_static("0"))
 				.body(body::boxed(Full::from(""))));
 		}
+
+		// TODO: Support `If-Range: Wed, 21 Oct 2015 07:28:00 GMT`
 
 		// ETag
 		if let Ok(time) = metadata.modified() {
@@ -288,20 +303,33 @@ async fn serve_file(
 				let ranges = HttpRange::parse(range.to_str().map_err(bad_request)?, metadata.len())
 					.map_err(bad_request)?;
 
+				println!("	{:?}", ranges);
+
 				// TODO: Multipart requests are not support, yet
 				if ranges.len() != 1 {
-					todo!(); // TODO: Error handling
+					return Ok(resp
+						.header(
+							header::CONTENT_RANGE,
+							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
+								.map_err(internal_server_error)?,
+						)
+						.status(StatusCode::RANGE_NOT_SATISFIABLE)
+						.body(body::boxed(Full::from(""))));
 				}
 				let range = ranges.first().expect("checked above");
 
-				file.seek(SeekFrom::Start(range.start))
-					.await
-					.map_err(internal_server_error)?;
+				if (range.start + range.length) > metadata.len() {
+					return Ok(resp
+						.header(
+							header::CONTENT_RANGE,
+							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
+								.map_err(internal_server_error)?,
+						)
+						.status(StatusCode::RANGE_NOT_SATISFIABLE)
+						.body(body::boxed(Full::from(""))));
+				}
 
-				// TODO: Serve using streaming body instead of loading the entire chunk. - Right now my impl is not working correctly
-				let mut buf = Vec::with_capacity(range.length as usize);
-				file.take(range.length)
-					.read_to_end(&mut buf)
+				file.seek(SeekFrom::Start(range.start))
 					.await
 					.map_err(internal_server_error)?;
 
@@ -322,12 +350,11 @@ async fn serve_file(
 						HeaderValue::from_str(&range.length.to_string())
 							.map_err(internal_server_error)?,
 					)
-					.body(body::boxed(Full::from(buf))));
-				// TODO: Serve as stream instead of fixed set of bytes -> Show allow only loading part in the chunk into memory at a time. This will also be probs be required or P2P over custom URI.
-				// .body(body::boxed(Limited::new(
-				// 	StreamBody::new(ReaderStream::new(file)),
-				// 	range.length.try_into().expect("integer overflow"),
-				// )));
+					.body(body::boxed(AsyncReadBody::with_capacity_limited(
+						file,
+						DEFAULT_CAPACITY,
+						range.length,
+					))));
 			}
 		}
 	}
@@ -462,4 +489,52 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	} else {
 		mime_type.to_string()
 	})
+}
+
+// This code was taken from: https://github.com/tower-rs/tower-http/blob/e8eb54966604ea7fa574a2a25e55232f5cfe675b/tower-http/src/services/fs/mod.rs#L30
+pin_project! {
+	// NOTE: This could potentially be upstreamed to `http-body`.
+	/// Adapter that turns an [`impl AsyncRead`][tokio::io::AsyncRead] to an [`impl Body`][http_body::Body].
+	#[derive(Debug)]
+	pub struct AsyncReadBody<T> {
+		#[pin]
+		reader: ReaderStream<T>,
+	}
+}
+
+impl<T> AsyncReadBody<T>
+where
+	T: AsyncRead,
+{
+	fn with_capacity_limited(
+		read: T,
+		capacity: usize,
+		max_read_bytes: u64,
+	) -> AsyncReadBody<Take<T>> {
+		AsyncReadBody {
+			reader: ReaderStream::with_capacity(read.take(max_read_bytes), capacity),
+		}
+	}
+}
+
+impl<T> HttpBody for AsyncReadBody<T>
+where
+	T: AsyncRead,
+{
+	type Data = Bytes;
+	type Error = io::Error;
+
+	fn poll_data(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+	) -> Poll<Option<Result<Self::Data, Self::Error>>> {
+		self.project().reader.poll_next(cx)
+	}
+
+	fn poll_trailers(
+		self: Pin<&mut Self>,
+		_cx: &mut Context<'_>,
+	) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
+		Poll::Ready(Ok(None))
+	}
 }

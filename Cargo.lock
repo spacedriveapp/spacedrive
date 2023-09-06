@@ -7062,6 +7062,7 @@ dependencies = [
  "normpath",
  "notify",
  "once_cell",
+ "pin-project-lite",
  "plist",
  "prisma-client-rust",
  "regex",
@@ -8961,9 +8962,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55ae70283aba8d2a8b411c695c437fe25b8b5e44e23e780662002fc72fb47a82"
+checksum = "61c5bb1d698276a2443e5ecfabc1008bf15a36c12e6a7176e7bf089ea9131140"
 dependencies = [
  "bitflags 2.4.0",
  "bytes",
