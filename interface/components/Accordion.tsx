@@ -1,9 +1,8 @@
 import clsx from 'clsx';
 import { CaretDown } from 'phosphor-react';
-import { useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
 interface Props {
-	children: React.ReactNode;
 	className?: string;
 	title: string;
 	titleClassName?: string;
@@ -11,28 +10,21 @@ interface Props {
 	caretSize?: number;
 }
 
-const Accordion = ({
-	title,
-	className,
-	children,
-	titleClassName,
-	containerClassName,
-	caretSize
-}: Props) => {
+const Accordion = (props: PropsWithChildren<Props>) => {
 	const [toggle, setToggle] = useState(false);
 
 	return (
-		<div className={clsx(className, 'rounded-md border border-app-line bg-app-darkBox')}>
+		<div className={clsx(props.className, 'rounded-md border border-app-line bg-app-darkBox')}>
 			<div
 				onClick={() => setToggle((t) => !t)}
 				className={clsx(
 					'flex flex-row items-center justify-between px-3 py-2',
-					titleClassName
+					props.titleClassName
 				)}
 			>
-				<p className="text-xs">{title}</p>
+				<p className="text-xs">{props.title}</p>
 				<CaretDown
-					size={caretSize || 12}
+					size={props.caretSize || 12}
 					className={clsx(toggle && 'rotate-180', 'transition-all duration-200')}
 				/>
 			</div>
@@ -40,10 +32,10 @@ const Accordion = ({
 				<div
 					className={clsx(
 						'rounded-b-md border-t border-app-line bg-app-box p-3 py-2',
-						containerClassName
+						props.containerClassName
 					)}
 				>
-					{children}
+					{props.children}
 				</div>
 			)}
 		</div>
