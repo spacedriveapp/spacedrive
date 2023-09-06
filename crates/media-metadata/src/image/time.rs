@@ -8,9 +8,7 @@ use std::fmt::Display;
 
 pub const NAIVE_FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
-// TODO(@Oscar): Specta should allow you to mark the `Undefined` variant as being `DataType::Nullable` so it's `Native | Utc | null` on the frontend.
 #[derive(Default, Clone, Debug, PartialEq, Eq, serde::Deserialize, specta::Type)]
-#[serde(content = "value", tag = "type", rename_all = "camelCase")]
 /// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
 ///
 /// This may also be `undefined`.

@@ -1,9 +1,16 @@
-import { MediaLocation, MediaMetadata } from '@sd/client';
+import { MediaLocation, MediaMetadata, MediaTime } from '@sd/client';
 import Accordion from '~/components/Accordion';
 import { MetaData } from './index';
 
 interface Props {
 	data: MediaMetadata;
+}
+
+function formatMediaTime(loc: MediaTime): string | null {
+	if (loc === 'Undefined') return null;
+	if ('Utc' in loc) return loc.Utc;
+	if ('Naive' in loc) return loc.Naive;
+	return null;
 }
 
 function formatLocation(loc: MediaLocation): string {
@@ -19,10 +26,7 @@ function MediaData({ data }: Props) {
 				className="rounded-none border-0 bg-transparent py-0"
 				title="More info"
 			>
-				<MetaData
-					label="Date"
-					value={'value' in data.date_taken ? data.date_taken.value : null}
-				/>
+				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
 				<MetaData label="Type" value={data.type} />
 				<MetaData
 					label="Location"

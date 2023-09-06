@@ -284,7 +284,7 @@ export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Vide
  * 
  * This may also be `undefined`.
  */
-export type MediaTime = { type: "naive"; value: string } | { type: "utc"; value: string } | { type: "undefined" }
+export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
