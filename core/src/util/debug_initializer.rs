@@ -123,7 +123,7 @@ impl InitConfig {
 						None => {
 							warn!(
 								"Debug init error: library '{}' was not found after being created!",
-								library.config.name.as_ref()
+								library.config().name.as_ref()
 							);
 							return Ok(());
 						}
