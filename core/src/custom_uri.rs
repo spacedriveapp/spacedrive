@@ -268,9 +268,8 @@ async fn serve_file(
 				.body(body::boxed(Full::from(""))));
 		}
 
-		// TODO: Support `If-Range: Wed, 21 Oct 2015 07:28:00 GMT`
-
 		// ETag
+		let mut status_code = StatusCode::PARTIAL_CONTENT;
 		if let Ok(time) = metadata.modified() {
 			let etag_header = format!(
 				r#""{}""#,
@@ -287,6 +286,7 @@ async fn serve_file(
 				error!("Failed to convert ETag into header value!");
 			}
 
+			// Used for normal requests
 			if let Some(etag) = req.headers.get("If-None-Match") {
 				if etag.as_bytes() == etag_header.as_bytes() {
 					return Ok(resp
@@ -294,7 +294,15 @@ async fn serve_file(
 						.body(body::boxed(Full::from(""))));
 				}
 			}
-		}
+
+			// Used checking if the resource has been modified since starting the download
+			if let Some(if_range) = req.headers.get("If-Range") {
+				// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Range
+				if if_range.as_bytes() != etag_header.as_bytes() {
+					status_code = StatusCode::OK
+				}
+			}
+		};
 
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
 		if req.method == Method::GET {
@@ -302,8 +310,6 @@ async fn serve_file(
 				// TODO: Error handling
 				let ranges = HttpRange::parse(range.to_str().map_err(bad_request)?, metadata.len())
 					.map_err(bad_request)?;
-
-				println!("	{:?}", ranges);
 
 				// TODO: Multipart requests are not support, yet
 				if ranges.len() != 1 {
@@ -334,7 +340,7 @@ async fn serve_file(
 					.map_err(internal_server_error)?;
 
 				return Ok(resp
-					.status(StatusCode::PARTIAL_CONTENT)
+					.status(status_code)
 					.header(
 						"Content-Range",
 						HeaderValue::from_str(&format!(
