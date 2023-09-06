@@ -15,7 +15,8 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			filter: {
 				locationId: id,
 				path: path ?? ''
-			}
+			},
+			take: 100
 		}
 	]);
 

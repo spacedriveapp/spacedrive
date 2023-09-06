@@ -1,8 +1,7 @@
 import { ArrowBendUpRight, TagSimple } from 'phosphor-react';
 import { useMemo } from 'react';
 import { ObjectKind, type ObjectKindEnum, useLibraryMutation } from '@sd/client';
-import { ContextMenu } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, toast } from '@sd/ui';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { isNonEmpty } from '~/util';
 import { ConditionalItem } from '../ConditionalItem';
@@ -29,9 +28,9 @@ export const RemoveFromRecents = new ConditionalItem({
 							selectedObjects.map((object) => object.id)
 						);
 					} catch (error) {
-						showAlertDialog({
-							title: 'Error',
-							value: `Failed to remove file from recents, due to an error: ${error}`
+						toast.error({
+							title: `Failed to remove file from recents`,
+							body: `Error: ${error}.`
 						});
 					}
 				}}

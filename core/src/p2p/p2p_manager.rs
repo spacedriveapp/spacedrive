@@ -148,7 +148,6 @@ impl P2PManager {
 			let spacedrop_cancelations = self.spacedrop_cancelations.clone();
 
 			let pairing = self.pairing.clone();
-			let node = node.clone();
 
 			async move {
 				let mut shutdown = false;

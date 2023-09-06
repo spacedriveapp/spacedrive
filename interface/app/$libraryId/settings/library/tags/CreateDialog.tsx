@@ -12,7 +12,8 @@ export default (props: UseDialogProps & { objects?: Object[] }) => {
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: '#A717D9' }
+		defaultValues: { color: '#A717D9' },
+		mode: 'onBlur'
 	});
 
 	const createTag = useLibraryMutation('tags.create');
@@ -38,6 +39,7 @@ export default (props: UseDialogProps & { objects?: Object[] }) => {
 
 	return (
 		<Dialog
+			invertButtonFocus
 			form={form}
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}

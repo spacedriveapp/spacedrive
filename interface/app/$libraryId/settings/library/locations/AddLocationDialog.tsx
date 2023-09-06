@@ -11,8 +11,7 @@ import {
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
-import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, z } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Dialog, ErrorMessage, InputField, UseDialogProps, toast, useDialog, z } from '@sd/ui';
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { Platform, usePlatform } from '~/util/Platform';
@@ -76,7 +75,10 @@ export const AddLocationDialog = ({
 		[listIndexerRules.data]
 	);
 
-	const form = useZodForm({ schema, defaultValues: { path, method, indexerRulesIds } });
+	const form = useZodForm({
+		schema,
+		defaultValues: { path, method, indexerRulesIds }
+	});
 
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
@@ -192,10 +194,7 @@ export const AddLocationDialog = ({
 				throw error;
 			}
 
-			showAlertDialog({
-				title: 'Error',
-				value: String(error) || 'Failed to add location'
-			});
+			toast.error({ title: 'Failed to add location', body: `Error: ${error}.` });
 
 			return;
 		}
@@ -225,7 +224,7 @@ export const AddLocationDialog = ({
 				onClick={() =>
 					openDirectoryPickerDialog(platform)
 						.then((path) => path && form.setValue('path', path))
-						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
+						.catch((error) => toast.error(String(error)))
 				}
 				readOnly={platform.platform !== 'web'}
 				className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}
