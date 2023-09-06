@@ -10,7 +10,10 @@
 use crate::{
 	invalidate_query,
 	library::Library,
-	location::{file_path_helper::get_inode_and_device_from_path, manager::LocationManagerError},
+	location::{
+		file_path_helper::{get_inode_and_device_from_path, FilePathError},
+		manager::LocationManagerError,
+	},
 	prisma::location,
 	util::error::FileIOError,
 	Node,
@@ -43,10 +46,12 @@ pub(super) struct WindowsEventHandler<'lib> {
 	node: &'lib Arc<Node>,
 	last_check_recently_files: Instant,
 	recently_created_files: BTreeMap<PathBuf, Instant>,
-	last_check_rename_and_remove: Instant,
+	last_check_rename_update_and_remove: Instant,
 	rename_from_map: BTreeMap<INodeAndDevice, InstantAndPath>,
 	rename_to_map: BTreeMap<INodeAndDevice, InstantAndPath>,
+	to_update_files: HashMap<PathBuf, Instant>,
 	to_remove_files: HashMap<INodeAndDevice, InstantAndPath>,
+	updates_buffer: Vec<(PathBuf, Instant)>,
 	removal_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
 }
 
@@ -66,10 +71,12 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			node,
 			last_check_recently_files: Instant::now(),
 			recently_created_files: BTreeMap::new(),
-			last_check_rename_and_remove: Instant::now(),
+			last_check_rename_update_and_remove: Instant::now(),
 			rename_from_map: BTreeMap::new(),
 			rename_to_map: BTreeMap::new(),
+			to_update_files: HashMap::new(),
 			to_remove_files: HashMap::new(),
+			updates_buffer: Vec::new(),
 			removal_buffer: Vec::new(),
 		}
 	}
@@ -82,7 +89,22 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 		match kind {
 			EventKind::Create(CreateKind::Any) => {
-				let inode_and_device = get_inode_and_device_from_path(&paths[0]).await?;
+				let inode_and_device = match get_inode_and_device_from_path(&paths[0]).await {
+					Ok(inode_and_device) => inode_and_device,
+					Err(FilePathError::FileIO(FileIOError { source, .. }))
+						if source.raw_os_error() == Some(32) =>
+					{
+						// This is still being manipulated by another process, so we can just ignore it for now
+						// as we will probably receive update events later
+						self.to_update_files
+							.insert(paths.remove(0), Instant::now());
+						
+						return Ok(());
+					}
+					Err(e) => {
+						return Err(e.into());
+					}
+				};
 
 				if let Some((_, old_path)) = self.to_remove_files.remove(&inode_and_device) {
 					// if previously we added a file to be removed with the same inode and device
@@ -118,15 +140,12 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				}
 			}
 			EventKind::Modify(ModifyKind::Any) => {
-				let path = &paths[0];
+				let path = paths.remove(0);
 				// Windows emite events of update right after create events
-				if !self.recently_created_files.contains_key(path) {
-					let metadata = fs::metadata(path)
-						.await
-						.map_err(|e| FileIOError::from((path, e)))?;
-					if metadata.is_file() {
-						update_file(self.location_id, path, self.node, self.library).await?;
-					}
+				if !self.recently_created_files.contains_key(&path) {
+					// We always insert a new entry, even if it already exists, because we want to update the timestamp
+					// this way we possibly always handle the latest update event
+					self.to_update_files.insert(path, Instant::now());
 				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
@@ -156,11 +175,9 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
 				let path = paths.remove(0);
 
-				let inode_and_device =
-					extract_inode_and_device_from_path(self.location_id, &path, self.library)
-						.await?;
+				let inode_and_device = get_inode_and_device_from_path(&path).await?;
 
-				if let Some((_, old_path)) = self.rename_to_map.remove(&inode_and_device) {
+				if let Some((_, old_path)) = self.rename_from_map.remove(&inode_and_device) {
 					// We found a old path for this new path, so we can rename it
 					rename(
 						self.location_id,
@@ -173,7 +190,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					)
 					.await?;
 				} else {
-					self.rename_from_map
+					self.rename_to_map
 						.insert(inode_and_device, (Instant::now(), path));
 				}
 			}
@@ -202,8 +219,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
 		}
 
-		if self.last_check_rename_and_remove.elapsed() > HUNDRED_MILLIS {
-			self.last_check_rename_and_remove = Instant::now();
+		if self.last_check_rename_update_and_remove.elapsed() > HUNDRED_MILLIS {
+			self.last_check_rename_update_and_remove = Instant::now();
 			self.rename_from_map.retain(|_, (created_at, path)| {
 				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
 				if !to_retain {
@@ -218,12 +235,39 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				}
 				to_retain
 			});
+			self.handle_updates_eviction().await;
 			self.handle_removes_eviction().await;
 		}
 	}
 }
 
 impl WindowsEventHandler<'_> {
+	async fn handle_updates_eviction(&mut self) {
+		self.updates_buffer.clear();
+
+		for (path, instant) in self.to_update_files.drain() {
+			if instant.elapsed() > HUNDRED_MILLIS {
+				if let Err(e) =
+					handle_update(self.location_id, &path, self.node, self.library).await
+				{
+					error!("Failed to update file_path: {e}");
+				} else {
+					trace!(
+						"Removed file_path from updates due timeout: {}",
+						path.display()
+					);
+					invalidate_query!(self.library, "search.paths");
+				}
+			} else {
+				self.updates_buffer.push((path, instant));
+			}
+		}
+
+		for (key, value) in self.updates_buffer.drain(..) {
+			self.to_update_files.insert(key, value);
+		}
+	}
+
 	async fn handle_removes_eviction(&mut self) {
 		self.removal_buffer.clear();
 
@@ -245,4 +289,20 @@ impl WindowsEventHandler<'_> {
 			self.to_remove_files.insert(key, value);
 		}
 	}
+}
+
+async fn handle_update<'lib>(
+	location_id: location::id::Type,
+	path: &PathBuf,
+	node: &'lib Arc<Node>,
+	library: &'lib Arc<Library>,
+) -> Result<(), LocationManagerError> {
+	let metadata = fs::metadata(&path)
+		.await
+		.map_err(|e| FileIOError::from((&path, e)))?;
+	if metadata.is_file() {
+		update_file(location_id, path, node, library).await?;
+	}
+
+	Ok(())
 }
