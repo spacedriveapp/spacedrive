@@ -266,7 +266,7 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+	pub async fn update(self, node: &Node, library: &Arc<Library>) -> Result<(), LocationError> {
 		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
@@ -304,7 +304,7 @@ impl LocationUpdateArgs {
 					location::hidden::set(Some(v)),
 				)
 			}),
-			self.path.map(|v| {
+			self.path.clone().map(|v| {
 				(
 					(location::path::NAME, json!(v)),
 					location::path::set(Some(v)),
@@ -348,6 +348,11 @@ impl LocationUpdateArgs {
 							.await?;
 					}
 				}
+			}
+
+			if self.path.is_some() {
+				node.locations.remove(self.id, library.clone()).await?;
+				node.locations.add(self.id, library.clone()).await?;
 			}
 		}
 
