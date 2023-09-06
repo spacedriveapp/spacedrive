@@ -96,9 +96,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					{
 						// This is still being manipulated by another process, so we can just ignore it for now
 						// as we will probably receive update events later
-						self.to_update_files
-							.insert(paths.remove(0), Instant::now());
-						
+						self.to_update_files.insert(paths.remove(0), Instant::now());
+
 						return Ok(());
 					}
 					Err(e) => {
