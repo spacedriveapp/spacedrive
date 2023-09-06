@@ -174,8 +174,6 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						lru_entry
 					};
 
-					println!("Serving from: {:?}", serve_from); // TODO
-
 					match serve_from {
 						ServeFrom::Local => {
 							let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
