@@ -427,7 +427,12 @@ export const QuickPreview = () => {
 														}
 														active={showMetadata}
 													>
-														<SidebarSimple className="rotate-180" />
+														<SidebarSimple
+															className="rotate-180"
+															weight={
+																showMetadata ? 'fill' : 'regular'
+															}
+														/>
 													</IconButton>
 												</Tooltip>
 											</div>
