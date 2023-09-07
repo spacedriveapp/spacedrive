@@ -1,4 +1,5 @@
-import { Plugin, mergeConfig } from 'vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { Plugin, defineConfig, loadEnv, mergeConfig } from 'vite';
 import baseConfig from '../../packages/config/vite';
 
 const devtoolsPlugin: Plugin = {
@@ -16,9 +17,20 @@ const devtoolsPlugin: Plugin = {
 	}
 };
 
-export default mergeConfig(baseConfig, {
-	server: {
-		port: 8001
-	},
-	plugins: [devtoolsPlugin]
+export default defineConfig(({ mode }) => {
+	process.env = { ...process.env, ...loadEnv(mode, process.cwd(), '') };
+
+	return mergeConfig(baseConfig, {
+		server: {
+			port: 8001
+		},
+		plugins: [
+			devtoolsPlugin,
+			sentryVitePlugin({
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+				org: 'spacedriveapp',
+				project: 'desktop'
+			})
+		]
+	});
 });

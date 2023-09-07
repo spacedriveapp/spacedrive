@@ -127,7 +127,6 @@ export default ({ children }: { children: RenderItem }) => {
 		totalCount: explorer.count,
 		overscan: explorer.overscan,
 		onLoadMore: explorer.loadMore,
-		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		size:
 			settings.layoutMode === 'grid'
 				? { width: settings.gridItemSize, height: itemHeight }
@@ -353,14 +352,17 @@ export default ({ children }: { children: RenderItem }) => {
 						// Sets active item to selected item with least index.
 						// Might seem kinda weird but it's the same behaviour as Finder.
 						activeItem.current =
-							allSelected.reduce((least, current) => {
-								const currentItem = getElementItem(current);
-								if (!currentItem) return least;
+							allSelected.reduce(
+								(least, current) => {
+									const currentItem = getElementItem(current);
+									if (!currentItem) return least;
 
-								if (!least) return currentItem;
+									if (!least) return currentItem;
 
-								return currentItem.index < least.index ? currentItem : least;
-							}, null as ReturnType<typeof getElementItem>)?.data ?? null;
+									return currentItem.index < least.index ? currentItem : least;
+								},
+								null as ReturnType<typeof getElementItem>
+							)?.data ?? null;
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
@@ -436,14 +438,17 @@ export default ({ children }: { children: RenderItem }) => {
 
 							const elements = [...e.added, ...e.removed];
 
-							const items = elements.reduce((items, el) => {
-								const item = getElementItem(el);
+							const items = elements.reduce(
+								(items, el) => {
+									const item = getElementItem(el);
 
-								if (!item) return items;
+									if (!item) return items;
 
-								columns.add(item.column);
-								return [...items, item];
-							}, [] as NonNullable<ReturnType<typeof getElementItem>>[]);
+									columns.add(item.column);
+									return [...items, item];
+								},
+								[] as NonNullable<ReturnType<typeof getElementItem>>[]
+							);
 
 							if (columns.size > 1) {
 								items.sort((a, b) => a.column - b.column);
