@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, Trash, X } from 'phosphor-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useBridgeQuery, useJobProgress, useLibraryMutation } from '@sd/client';
 import { Button, PopoverClose, Tooltip, toast } from '@sd/ui';
 import IsRunningJob from './IsRunningJob';
@@ -14,7 +14,10 @@ export function JobManager() {
 
 	// TODO: Currently we're only clustering togheter all job reports from all libraries without any distinction.
 	// TODO: We should probably cluster them by library in the job manager UI
-	const jobGroups = jobGroupsById.data ? Object.values(jobGroupsById.data).flat() : [];
+	const jobGroups = useMemo(() => {
+		if (!jobGroupsById.data) return [];
+		return Object.values(jobGroupsById.data).flat();
+	}, [jobGroupsById.data]);
 
 	const progress = useJobProgress(jobGroups);
 
