@@ -127,7 +127,6 @@ export default ({ children }: { children: RenderItem }) => {
 		totalCount: explorer.count,
 		overscan: explorer.overscan,
 		onLoadMore: explorer.loadMore,
-		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		size:
 			settings.layoutMode === 'grid'
 				? { width: settings.gridItemSize, height: itemHeight }

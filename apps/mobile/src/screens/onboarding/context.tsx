@@ -85,11 +85,6 @@ const useFormState = () => {
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries ?? []),
-					library
-				]);
-
 				if (telemetryStore.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}

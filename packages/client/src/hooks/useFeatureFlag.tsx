@@ -8,7 +8,7 @@ export const features = ['spacedrop', 'p2pPairing', 'syncRoute', 'backups'] as c
 
 // This defines which backend feature flags show up in the UI.
 // This is kinda a hack to not having the runtime array of possible features as Specta only exports the types.
-export const backendFeatures: BackendFeature[] = ['syncEmitMessages'];
+export const backendFeatures: BackendFeature[] = ['syncEmitMessages', 'filesOverP2P'];
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 

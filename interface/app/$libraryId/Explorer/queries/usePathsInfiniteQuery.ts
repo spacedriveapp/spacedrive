@@ -1,29 +1,21 @@
-import { UseInfiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
 	ExplorerItem,
-	FilePathCursor,
 	FilePathCursorVariant,
 	FilePathObjectCursor,
 	FilePathOrder,
 	FilePathSearchArgs,
-	LibraryConfigWrapped,
-	OrderAndPagination,
-	SearchData,
 	useRspcLibraryContext
 } from '@sd/client';
-import { getExplorerStore } from './store';
-import { UseExplorerSettings } from './useExplorer';
+import { getExplorerStore } from '../store';
+import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
 	library,
 	arg,
 	settings,
 	...args
-}: {
-	library: LibraryConfigWrapped;
-	arg: FilePathSearchArgs;
-	settings: UseExplorerSettings<FilePathOrder>;
-} & Pick<UseInfiniteQueryOptions<SearchData<ExplorerItem>>, 'enabled'>) {
+}: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
 	const ctx = useRspcLibraryContext();
 	const explorerSettings = settings.useSettingsSnapshot();
 
@@ -37,14 +29,14 @@ export function usePathsInfiniteQuery({
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
 			const { order } = explorerSettings;
 
-			let orderAndPagination: OrderAndPagination<FilePathOrder, FilePathCursor> | undefined;
+			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
 			if (!cItem) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
 				let variant: FilePathCursorVariant | undefined;
 
-				if (!order) variant = { none: [] };
+				if (!order) variant = 'none';
 				else if (cItem) {
 					switch (order.field) {
 						case 'name': {
@@ -136,7 +128,7 @@ export function usePathsInfiniteQuery({
 
 				if (variant)
 					orderAndPagination = {
-						cursor: { variant, isDir: cItem.item.is_dir }
+						cursor: { cursor: { variant, isDir: cItem.item.is_dir }, id: cItem.item.id }
 					};
 			}
 
@@ -146,7 +138,7 @@ export function usePathsInfiniteQuery({
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take];
+			else return lastPage.items[arg.take - 1];
 		},
 		onSuccess: () => getExplorerStore().resetNewThumbnails(),
 		...args

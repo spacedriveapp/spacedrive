@@ -1,27 +1,19 @@
-import { UseInfiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
 	ExplorerItem,
-	LibraryConfigWrapped,
 	ObjectCursor,
 	ObjectOrder,
 	ObjectSearchArgs,
-	OrderAndPagination,
-	SearchData,
 	useRspcLibraryContext
 } from '@sd/client';
-import { getExplorerStore } from './store';
-import { UseExplorerSettings } from './useExplorer';
+import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsInfiniteQuery({
 	library,
 	arg,
 	settings,
 	...args
-}: {
-	library: LibraryConfigWrapped;
-	arg: ObjectSearchArgs;
-	settings: UseExplorerSettings<ObjectOrder>;
-} & Pick<UseInfiniteQueryOptions<SearchData<ExplorerItem>>, 'enabled'>) {
+}: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
 	const ctx = useRspcLibraryContext();
 	const explorerSettings = settings.useSettingsSnapshot();
 
@@ -35,14 +27,14 @@ export function useObjectsInfiniteQuery({
 			const cItem: Extract<ExplorerItem, { type: 'Object' }> = pageParam;
 			const { order } = explorerSettings;
 
-			let orderAndPagination: OrderAndPagination<ObjectOrder, ObjectCursor> | undefined;
+			let orderAndPagination: (typeof arg)['orderAndPagination'];
 
 			if (!cItem) {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
 				let cursor: ObjectCursor | undefined;
 
-				if (!order) cursor = { none: [] };
+				if (!order) cursor = 'none';
 				else if (cItem) {
 					const direction = order.value;
 
@@ -61,7 +53,7 @@ export function useObjectsInfiniteQuery({
 					}
 				}
 
-				if (cursor) orderAndPagination = { cursor };
+				if (cursor) orderAndPagination = { cursor: { cursor, id: cItem.item.id } };
 			}
 
 			arg.orderAndPagination = orderAndPagination;
@@ -70,7 +62,7 @@ export function useObjectsInfiniteQuery({
 		},
 		getNextPageParam: (lastPage) => {
 			if (lastPage.items.length < arg.take) return undefined;
-			else return lastPage.items[arg.take];
+			else return lastPage.items[arg.take - 1];
 		},
 		...args
 	});

@@ -11,14 +11,13 @@ import {
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
+import { useObjectsInfiniteQuery, usePathsInfiniteQuery } from '../Explorer/queries';
 import {
 	createDefaultExplorerSettings,
 	filePathOrderingKeysSchema,
 	objectOrderingKeysSchema
 } from '../Explorer/store';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
-import { useObjectsInfiniteQuery } from '../Explorer/useObjectsInfiniteQuery';
-import { usePathsInfiniteQuery } from '../Explorer/usePathsInfiniteQuery';
 import { usePageLayoutContext } from '../PageLayout/Context';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
@@ -84,7 +83,7 @@ export function useCategoryExplorer(category: Category) {
 	const explorerSettings = isObjectQuery ? objectsExplorerSettings : pathsExplorerSettings;
 	const settings = explorerSettings.useSettingsSnapshot();
 
-	const take = 10;
+	const take = 100;
 
 	const objectFilter: ObjectFilterArgs = {
 		category,

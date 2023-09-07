@@ -18,6 +18,7 @@ import {
 import {
 	type HTMLAttributes,
 	type ReactNode,
+	forwardRef,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -25,10 +26,12 @@ import {
 } from 'react';
 import {
 	type ExplorerItem,
+	ObjectKindEnum,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
+	useBridgeQuery,
 	useItemsAsObjects,
 	useLibraryQuery
 } from '@sd/client';
@@ -41,6 +44,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
+import MediaData from './MediaData';
 import Note from './Note';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
@@ -48,6 +52,8 @@ export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow sha
 
 export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
 export const MetaTitle = tw.h5`text-xs font-bold`;
+
+export const INSPECTOR_WIDTH = 260;
 
 type MetadataDate = Date | { from: Date; to: Date } | null;
 
@@ -70,39 +76,41 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	showThumbnail?: boolean;
 }
 
-export const Inspector = ({ showThumbnail = true, ...props }: Props) => {
-	const explorer = useExplorerContext();
+export const Inspector = forwardRef<HTMLDivElement, Props>(
+	({ showThumbnail = true, style, ...props }, ref) => {
+		const explorer = useExplorerContext();
 
-	const isDark = useIsDark();
+		const isDark = useIsDark();
 
-	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
+		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
 
-	return (
-		<div {...props}>
-			{showThumbnail && (
-				<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
-					{isNonEmpty(selectedItems) ? (
-						<Thumbnails items={selectedItems} />
+		return (
+			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
+				{showThumbnail && (
+					<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
+						{isNonEmpty(selectedItems) ? (
+							<Thumbnails items={selectedItems} />
+						) : (
+							<img src={isDark ? Image : Image_Light} />
+						)}
+					</div>
+				)}
+
+				<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+					{!isNonEmpty(selectedItems) ? (
+						<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
+							Nothing selected
+						</div>
+					) : selectedItems.length === 1 ? (
+						<SingleItemMetadata item={selectedItems[0]} />
 					) : (
-						<img src={isDark ? Image : Image_Light} />
+						<MultiItemMetadata items={selectedItems} />
 					)}
 				</div>
-			)}
-
-			<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-				{!isNonEmpty(selectedItems) ? (
-					<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-						Nothing selected
-					</div>
-				) : selectedItems.length === 1 ? (
-					<SingleItemMetadata item={selectedItems[0]} />
-				) : (
-					<MultiItemMetadata items={selectedItems} />
-				)}
 			</div>
-		</div>
-	);
-};
+		);
+	}
+);
 
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	const explorerStore = useExplorerStore();
@@ -151,16 +159,26 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: !!objectData && readyToFetch
 	});
 
-	let { data: fileFullPath } = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
+	const filePath = useLibraryQuery(['files.getPath', objectData?.id ?? -1], {
 		enabled: !!objectData && readyToFetch
 	});
 
-	if (fileFullPath == null) {
-		switch (item.type) {
-			case 'Location':
-			case 'NonIndexedPath':
-				fileFullPath = item.item.path;
+	//Images are only supported currently - kind = 5
+	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
+		enabled: objectData?.kind === ObjectKindEnum.Image && !isNonIndexed && readyToFetch
+	});
+
+	const ephemeralLocationMediaData = useBridgeQuery(
+		['files.getEphemeralMediaData', isNonIndexed ? item.item.path : ''],
+		{
+			enabled: isNonIndexed && item.item.kind === 5 && readyToFetch
 		}
+	);
+
+	const mediaData = filesMediaData ?? ephemeralLocationMediaData ?? null;
+
+	if (filePath.data == null && item.type === 'NonIndexedPath') {
+		filePath.data = item.item.path;
 	}
 
 	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
@@ -168,10 +186,11 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const pubId = object?.data ? uniqueId(object?.data) : null;
 
-	let extension, integrityChecksum;
 	const filePathItem = getItemFilePath(item);
+	let extension, integrityChecksum;
+
 	if (filePathItem) {
-		extension = 'extension' in filePathItem ? filePathItem.extension : null;
+		extension = filePathItem.extension;
 		integrityChecksum =
 			'integrity_checksum' in filePathItem ? filePathItem.integrity_checksum : null;
 	}
@@ -222,20 +241,15 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaData
 					icon={Path}
 					label="Path"
-					value={fileFullPath}
+					value={filePath.data}
 					onClick={() => {
 						// TODO: Add toast notification
-						fileFullPath && navigator.clipboard.writeText(fileFullPath);
+						filePath.data && navigator.clipboard.writeText(filePath.data);
 					}}
 				/>
 			</MetaContainer>
 
-			<Divider />
-
-			{
-				// TODO: Call `files.getMediaData` for indexed locations when we have media data UI
-				// TODO: Call `files.getEphemeralMediaData` for ephemeral locations when we have media data UI
-			}
+			{mediaData.data && <MediaData data={mediaData.data} />}
 
 			<MetaContainer className="flex !flex-row flex-wrap gap-1 overflow-hidden">
 				<InfoPill>{isDir ? 'Folder' : kind}</InfoPill>
@@ -431,19 +445,19 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 };
 
 interface MetaDataProps {
-	icon: Icon;
+	icon?: Icon;
 	label: string;
 	value: ReactNode;
 	onClick?: () => void;
 }
 
-const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
+export const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
 	return (
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
-			<Icon weight="bold" className="mr-2 shrink-0" />
+			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
 			<Tooltip label={value} asChild>
-				<span className="truncate break-all text-ink">{value || '--'}</span>
+				<span className="truncate break-all text-ink">{value ?? '--'}</span>
 			</Tooltip>
 		</div>
 	);

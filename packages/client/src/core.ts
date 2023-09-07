@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "jobs.reports", input: never, result: { [key: string]: JobGroup[] } } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -106,7 +106,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "syncEmitMessages"
+export type BackendFeature = "syncEmitMessages" | "filesOverP2P"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -168,7 +168,7 @@ export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; c
 
 export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
 
-export type FilePathCursorVariant = { none: number[] } | { name: CursorOrderItem<string> } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
+export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
 
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
@@ -176,7 +176,7 @@ export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | {
 
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
-export type FilePathSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
@@ -307,7 +307,7 @@ export type NotificationId = { type: "library"; id: [string, number] } | { type:
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
-export type ObjectCursor = { none: number[] } | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
+export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
 
@@ -315,7 +315,7 @@ export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
 
-export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
+export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -329,7 +329,7 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type OrderAndPagination<TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: TCursor }
+export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 
 export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVertical" | "MirroredHorizontalAnd270CW" | "MirroredHorizontalAnd90CW" | "CW180" | "CW270"
 
