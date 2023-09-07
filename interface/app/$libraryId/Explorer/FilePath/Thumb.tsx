@@ -20,6 +20,7 @@ import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
+import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
 
 export const enum ThumbType {
@@ -27,8 +28,6 @@ export const enum ThumbType {
 	Original = 'ORIGINAL',
 	Thumbnail = 'THUMBNAIL'
 }
-
-type GetClassName = (type: ThumbType | `${ThumbType}`) => string | undefined;
 
 export interface ThumbProps {
 	data: ExplorerItem;
@@ -41,8 +40,8 @@ export interface ThumbProps {
 	extension?: boolean;
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
-	className?: string | GetClassName;
-	childClassName?: string | GetClassName;
+	className?: string;
+	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
 }
 
 export const FileThumb = memo((props: ThumbProps) => {
@@ -143,7 +142,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 				!loaded && 'invisible',
 				!props.size && 'h-full w-full',
 				props.cover && 'overflow-hidden',
-				typeof props.className === 'function' ? props.className(thumbType) : props.className
+				props.className
 			)}
 		>
 			{(() => {
@@ -286,8 +285,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 					default:
 						return (
-							<img
+							<LayeredFileIcon
 								src={src}
+								kind={itemData.kind}
+								extension={itemData.extension}
 								onLoad={onLoad}
 								onError={() => setLoaded(false)}
 								decoding={props.size ? 'async' : 'sync'}
