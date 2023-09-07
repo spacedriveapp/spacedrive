@@ -21,12 +21,7 @@ function formatLocation(loc: MediaLocation): string {
 function MediaData({ data }: Props) {
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
-			<Accordion
-				containerVariant='apple'
-				boxVariant='apple'
-				titleVariant='apple'
-				title="More info"
-			>
+			<Accordion variant="apple" title="More info">
 				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
 				<MetaData label="Type" value={data.type} />
 				<MetaData
