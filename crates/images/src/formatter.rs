@@ -3,7 +3,7 @@ use crate::{
 	error::{Error, Result},
 	generic::GenericHandler,
 	svg::SvgHandler,
-	ToImage,
+	ImageHandler,
 };
 use image::DynamicImage;
 use std::{
@@ -23,8 +23,8 @@ pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
 }
 
 #[allow(clippy::useless_let_if_seq)]
-fn match_to_handler(ext: &OsStr) -> Box<dyn ToImage> {
-	let mut handler: Box<dyn ToImage> = Box::new(GenericHandler {});
+fn match_to_handler(ext: &OsStr) -> Box<dyn ImageHandler> {
+	let mut handler: Box<dyn ImageHandler> = Box::new(GenericHandler {});
 
 	#[cfg(feature = "heif")]
 	if consts::HEIF_EXTENSIONS

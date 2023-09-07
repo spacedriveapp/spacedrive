@@ -1,7 +1,7 @@
 pub use crate::consts::HEIF_EXTENSIONS;
 use crate::consts::HEIF_MAXIMUM_FILE_SIZE;
 pub use crate::error::{Error, Result};
-use crate::ToImage;
+use crate::ImageHandler;
 use image::DynamicImage;
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 use std::io::{Cursor, SeekFrom};
@@ -10,7 +10,7 @@ use std::path::Path;
 
 pub struct HeifHandler {}
 
-impl ToImage for HeifHandler {
+impl ImageHandler for HeifHandler {
 	fn maximum_size(&self) -> u64 {
 		HEIF_MAXIMUM_FILE_SIZE
 	}

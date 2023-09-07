@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
 	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_RENDER_SIZE},
-	Error, Result, ToImage,
+	Error, ImageHandler, Result,
 };
 use image::DynamicImage;
 use resvg::{
@@ -13,7 +13,7 @@ use usvg::{fontdb, TreeParsing, TreeTextToPath};
 
 pub struct SvgHandler {}
 
-impl ToImage for SvgHandler {
+impl ImageHandler for SvgHandler {
 	fn maximum_size(&self) -> u64 {
 		SVG_MAXIMUM_FILE_SIZE
 	}
