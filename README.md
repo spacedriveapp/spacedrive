@@ -82,17 +82,19 @@ Please refer to the [contributing guide](CONTRIBUTING.md) for how to install Spa
 We aim to thoroughly test and support the following platforms:
 
 | Operating System/Host | Architectures                       | Versions |
-|-----------------------|-------------------------------------|----------|
+| --------------------- | ----------------------------------- | -------- |
 | MacOS                 | `Aarch64`, `x86_64`                 | 13+      |
 | iOS                   | `Aarch64`, `ARMv7`                  | 13+      |
 | Linux                 | `x86_64`, `Aarch64`, `ARMv7`        | `glibc`  |
-| Windows               | `x86_64`, `x86 (Windows 10 only)`   | 10, 11   |
+| Windows               | `x86_64`                            | 10, 11   |
 | Android               | `ARMv7`, `Aarch64`, `x86_64`, `x86` | 5.0+     |
 | Docker                | `ARMv7`, `Aarch64`, `x86_64`, `x86` |          |
 
 - `ARMv7` may also be referred to as 32-bit ARM, or `ARM32`.
 - `Aarch64` may also be referred to as `ARMv8`.
 - `x86` may also be referred to as `i686`.
+
+Future support for platforms like `Windows Aarch64` may come in the future, but for now we do not build specifically for it.
 
 For desktop targets, we recommend *at least* 4GB of RAM for a smooth experience, but 8GB or more will provide a much bettter experienece.
 
