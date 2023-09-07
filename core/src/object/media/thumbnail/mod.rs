@@ -37,8 +37,6 @@ mod shard;
 pub use directory::init_thumbnail_dir;
 pub use shard::get_shard_hex;
 
-const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
-const THUMBNAIL_QUALITY: f32 = 30.0;
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
@@ -93,6 +91,14 @@ pub enum ThumbnailerError {
 	SdImages(#[from] sd_images::Error),
 }
 
+const TAGRET_PX: f32 = 262144_f32; // resize images to this while maintaining aspect ratio
+const TARGET_QUALITY: f32 = 30_f32; // downscale to 30% to save on size
+
+fn calculate_factor(w: f32, h: f32) -> (u32, u32) {
+	let sf = (TAGRET_PX / (w * h)).sqrt();
+	((w * sf).round() as u32, (h * sf).round() as u32)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ThumbnailerEntryKind {
 	Image,
@@ -116,18 +122,18 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
+		let (w_scale, h_scale) = calculate_factor(w as f32, h as f32);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			// FIXME : Think of a better heuristic to get the thumbnail size
-			(w as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
-			(h as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
+			w_scale,
+			h_scale,
 			imageops::FilterType::Triangle,
 		));
 
 		// this corrects the rotation/flip of the image based on the *available* exif data
-		// not all images have exif data
+		// not all images have exif data, so we don't error
 		if let Some(orientation) = Orientation::from_path(file_path) {
 			img = orientation.correct_thumbnail(img);
 		}
@@ -137,12 +143,10 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			return Err(ThumbnailerError::Encoding);
 		};
 
-		// Encode the image at a specified quality 0-100
-
 		// Type WebPMemory is !Send, which makes the Future in this function !Send,
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
-		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
+		Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
 	})?;
 
 	let output_path = output_path.as_ref();
@@ -168,7 +172,7 @@ pub async fn generate_video_thumbnail<P: AsRef<Path>>(
 ) -> Result<(), Box<dyn Error>> {
 	use sd_ffmpeg::to_thumbnail;
 
-	to_thumbnail(file_path, output_path, 256, THUMBNAIL_QUALITY).await?;
+	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY).await?;
 
 	Ok(())
 }
@@ -183,16 +187,10 @@ pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
 
-	#[cfg(all(feature = "heif", not(target_os = "linux")))]
-	let res = matches!(
+	matches!(
 		image_extension,
-		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif
-	);
-
-	#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif | Svg);
-
-	res
+		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif | Bmp | Ico
+	)
 }
 
 pub(super) async fn process(
