@@ -13,7 +13,6 @@ import {
 	useState
 } from 'react';
 import {
-	type ExplorerItem,
 	ObjectKindKey,
 	getExplorerItemData,
 	getIndexedItemFilePath,
@@ -82,6 +81,7 @@ export const QuickPreview = () => {
 		() => (open ? [...explorer.selectedItems] : []),
 		[explorer.selectedItems, open]
 	);
+
 	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
 
 	const transitions = useTransition(open, {
@@ -469,6 +469,8 @@ interface RenameInputProps {
 }
 
 const RenameInput = ({ name, onRename }: RenameInputProps) => {
+	const isDark = useIsDark();
+
 	const os = useOperatingSystem();
 
 	const quickPreview = useQuickPreviewContext();
@@ -526,7 +528,9 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 					'w-full rounded border px-2 py-1 text-center outline-none',
 					quickPreview.background
 						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
-						: 'border-app-line bg-app-input'
+						: isDark
+						? 'border-app-line bg-app-input'
+						: 'border-black/[.075] bg-black/[.075]'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
