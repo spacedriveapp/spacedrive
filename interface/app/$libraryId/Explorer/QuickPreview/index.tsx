@@ -72,14 +72,17 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
-	const [selectedItems, setSelectedItems] = useState<ExplorerItem[]>([]);
 	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
 
-	const item = useMemo(() => selectedItems[itemIndex], [selectedItems, itemIndex]);
+	const items = useMemo(
+		() => (open ? [...explorer.selectedItems] : []),
+		[explorer.selectedItems, open]
+	);
+	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
 
 	const transitions = useTransition(open, {
 		from: {
@@ -98,7 +101,7 @@ export const QuickPreview = () => {
 	});
 
 	const changeCurrentItem = (index: number) => {
-		if (!selectedItems[index]) return;
+		if (!items[index]) return;
 
 		getQuickPreviewStore().itemIndex = index;
 		setNewName(null);
@@ -106,21 +109,16 @@ export const QuickPreview = () => {
 	};
 
 	useEffect(() => {
-		if (!open) {
+		setLoadOriginal(false);
+
+		if (!open || !item) {
 			getQuickPreviewStore().itemIndex = 0;
 			setShowMetadata(false);
 			setNewName(null);
+
+			if (!item) getQuickPreviewStore().open = false;
 			return;
 		}
-
-		if (explorer.selectedItems.size === 0) getQuickPreviewStore().open = false;
-		else setSelectedItems([...explorer.selectedItems]);
-	}, [explorer.selectedItems, open]);
-
-	useEffect(() => {
-		setLoadOriginal(false);
-
-		if (!open || !item) return;
 
 		const { kind } = getExplorerItemData(item);
 
@@ -271,7 +269,7 @@ export const QuickPreview = () => {
 
 												<Tooltip label="Back">
 													<IconButton
-														disabled={!selectedItems[itemIndex - 1]}
+														disabled={!items[itemIndex - 1]}
 														onClick={() =>
 															changeCurrentItem(itemIndex - 1)
 														}
@@ -282,7 +280,7 @@ export const QuickPreview = () => {
 
 												<Tooltip label="Forward">
 													<IconButton
-														disabled={!selectedItems[itemIndex + 1]}
+														disabled={!items[itemIndex + 1]}
 														onClick={() =>
 															changeCurrentItem(itemIndex + 1)
 														}
