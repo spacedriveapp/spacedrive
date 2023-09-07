@@ -37,7 +37,7 @@ import { Conditional } from '../ContextMenu/ConditionalItem';
 import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
@@ -70,19 +70,18 @@ export const QuickPreview = () => {
 	const { openFilePaths, revealItems } = usePlatform();
 
 	const explorer = useExplorerContext();
-	const { showQuickView } = useExplorerStore();
+	const { open, itemIndex } = useQuickPreviewStore();
 
 	const [selectedItems, setSelectedItems] = useState<ExplorerItem[]>([]);
-	const [currentItemIndex, setCurrentItemIndex] = useState(0);
 	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
 
-	const item = useMemo(() => selectedItems[currentItemIndex], [selectedItems, currentItemIndex]);
+	const item = useMemo(() => selectedItems[itemIndex], [selectedItems, itemIndex]);
 
-	const transitions = useTransition(showQuickView, {
+	const transitions = useTransition(open, {
 		from: {
 			opacity: 0,
 			transform: `translateY(20px) scale(0.9)`,
@@ -101,27 +100,27 @@ export const QuickPreview = () => {
 	const changeCurrentItem = (index: number) => {
 		if (!selectedItems[index]) return;
 
-		setCurrentItemIndex(index);
+		getQuickPreviewStore().itemIndex = index;
 		setNewName(null);
 		setLoadOriginal(false);
 	};
 
 	useEffect(() => {
-		if (!showQuickView) {
-			setCurrentItemIndex(0);
+		if (!open) {
+			getQuickPreviewStore().itemIndex = 0;
 			setShowMetadata(false);
 			setNewName(null);
 			return;
 		}
 
-		if (explorer.selectedItems.size === 0) getExplorerStore().showQuickView = false;
+		if (explorer.selectedItems.size === 0) getQuickPreviewStore().open = false;
 		else setSelectedItems([...explorer.selectedItems]);
-	}, [explorer.selectedItems, showQuickView]);
+	}, [explorer.selectedItems, open]);
 
 	useEffect(() => {
 		setLoadOriginal(false);
 
-		if (!showQuickView || !item) return;
+		if (!open || !item) return;
 
 		const { kind } = getExplorerItemData(item);
 
@@ -132,7 +131,7 @@ export const QuickPreview = () => {
 
 		const timeout = setTimeout(() => setLoadOriginal(true), 350);
 		return () => clearTimeout(timeout);
-	}, [item, showQuickView]);
+	}, [item, open]);
 
 	// Toggle quick preview
 	useKeyBind(['space'], (e) => {
@@ -140,13 +139,13 @@ export const QuickPreview = () => {
 
 		e.preventDefault();
 
-		getExplorerStore().showQuickView = !showQuickView;
+		getQuickPreviewStore().open = !open;
 	});
 
 	// Move between items
 	useKeyBind([['left'], ['right']], (e) => {
 		if (isContextMenuOpen || isRenaming) return;
-		changeCurrentItem(e.key === 'ArrowLeft' ? currentItemIndex - 1 : currentItemIndex + 1);
+		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
 
 	// Toggle metadata
@@ -206,10 +205,7 @@ export const QuickPreview = () => {
 	});
 
 	return (
-		<Dialog.Root
-			open={showQuickView}
-			onOpenChange={(open) => (getExplorerStore().showQuickView = open)}
-		>
+		<Dialog.Root open={open} onOpenChange={(open) => (getQuickPreviewStore().open = open)}>
 			{transitions((styles, show) => {
 				if (!show || !item) return null;
 
@@ -275,11 +271,9 @@ export const QuickPreview = () => {
 
 												<Tooltip label="Back">
 													<IconButton
-														disabled={
-															!selectedItems[currentItemIndex - 1]
-														}
+														disabled={!selectedItems[itemIndex - 1]}
 														onClick={() =>
-															changeCurrentItem(currentItemIndex - 1)
+															changeCurrentItem(itemIndex - 1)
 														}
 													>
 														<ArrowLeft weight="bold" />
@@ -288,11 +282,9 @@ export const QuickPreview = () => {
 
 												<Tooltip label="Forward">
 													<IconButton
-														disabled={
-															!selectedItems[currentItemIndex + 1]
-														}
+														disabled={!selectedItems[itemIndex + 1]}
 														onClick={() =>
-															changeCurrentItem(currentItemIndex + 1)
+															changeCurrentItem(itemIndex + 1)
 														}
 													>
 														<ArrowRight weight="bold" />

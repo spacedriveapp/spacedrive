@@ -32,9 +32,10 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import GridView from './GridView';
 import ListView from './ListView';
@@ -61,9 +62,12 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 
 		if (!isNonEmpty(selectedItems)) return;
 
+		let itemIndex = 0;
 		const items = selectedItems.reduce(
-			(items, item) => {
+			(items, item, i) => {
 				const sameAsClicked = uniqueId(data) === uniqueId(item);
+
+				if (sameAsClicked) itemIndex = i;
 
 				switch (item.type) {
 					case 'Location': {
@@ -119,7 +123,8 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				}
 			} else if (!explorerConfig.openOnDoubleClick) {
 				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
-					getExplorerStore().showQuickView = true;
+					getQuickPreviewStore().itemIndex = itemIndex;
+					getQuickPreviewStore().open = true;
 					return;
 				}
 			}
@@ -191,7 +196,7 @@ export interface ExplorerViewProps
 
 export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const quickPreview = useQuickPreviewContext();
 
@@ -203,7 +208,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 	const [isRenaming, setIsRenaming] = useState(false);
 
 	useKeyDownHandlers({
-		disabled: isRenaming || explorerStore.showQuickView
+		disabled: isRenaming || quickPreviewStore.open
 	});
 
 	return (
@@ -214,7 +219,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 					explorer.selectable &&
 					!isContextMenuOpen &&
 					!isRenaming &&
-					!explorerStore.showQuickView,
+					!quickPreviewStore.open,
 				setIsContextMenuOpen,
 				isRenaming,
 				setIsRenaming,

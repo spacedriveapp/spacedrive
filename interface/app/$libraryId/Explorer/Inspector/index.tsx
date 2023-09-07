@@ -41,6 +41,7 @@ import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
@@ -113,7 +114,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 );
 
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const lastThreeItems = items.slice(-3).reverse();
 
@@ -128,7 +129,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					blackBars={thumbs.length === 1}
 					blackBarsSize={16}
 					extension={thumbs.length > 1}
-					pauseVideo={!!explorerStore.showQuickView || thumbs.length > 1}
+					pauseVideo={quickPreviewStore.open || thumbs.length > 1}
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',

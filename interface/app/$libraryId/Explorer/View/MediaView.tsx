@@ -6,7 +6,7 @@ import { Button } from '@sd/ui';
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import GridList from './GridList';
 
 interface MediaViewItemProps {
@@ -44,7 +44,7 @@ const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 					variant="gray"
 					size="icon"
 					className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-					onClick={() => (getExplorerStore().showQuickView = true)}
+					onClick={() => (getQuickPreviewStore().open = true)}
 				>
 					<ArrowsOutSimple />
 				</Button>

@@ -6,6 +6,7 @@ import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { type Platform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -19,7 +20,7 @@ export const OpenQuickView = () => {
 		<ContextMenu.Item
 			label="Quick view"
 			keybind={keybind([], [' '])}
-			onClick={() => (getExplorerStore().showQuickView = true)}
+			onClick={() => (getQuickPreviewStore().open = true)}
 		/>
 	);
 };
