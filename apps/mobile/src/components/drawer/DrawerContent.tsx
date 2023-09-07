@@ -56,8 +56,8 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					<Pressable onPress={() => navigation.navigate('Settings')}>
 						<Gear color="white" size={24} />
 					</Pressable>
+					{/* Job Manager */}
 					<JobManagerContextProvider>
-						{/* Job Manager */}
 						<Pressable onPress={() => modalRef.current?.present()}>
 							<JobIcon />
 						</Pressable>
