@@ -12,8 +12,6 @@ pub enum Error {
 	USvg(#[from] resvg::usvg::Error),
 	#[error("failed to allocate `Pixbuf` while converting an SVG")]
 	Pixbuf,
-	#[error("there was an error while converting a raw image: {0}")]
-	RawLoader(#[from] rawloader::RawLoaderError),
 	#[error("error while loading the image (via the `image` crate): {0}")]
 	Image(#[from] image::ImageError),
 	#[error("there was an i/o error: {0}")]
