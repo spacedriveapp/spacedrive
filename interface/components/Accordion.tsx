@@ -5,7 +5,7 @@ import { PropsWithChildren, useState } from 'react';
 interface Props {
 	caretSize?: number;
 	title: string;
-	variant?: 'default' | 'apple';
+	variant?: keyof typeof styles;
 	className?: string;
 }
 
