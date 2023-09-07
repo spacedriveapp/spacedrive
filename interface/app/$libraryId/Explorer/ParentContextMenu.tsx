@@ -130,7 +130,7 @@ export default (props: PropsWithChildren) => {
 									await generateThumbsForLocation.mutateAsync({
 										id: parent.location.id,
 										path: currentPath ?? '/',
-										regenerate: true,
+										regenerate: true
 									});
 								} catch (error) {
 									toast.error({
