@@ -23,10 +23,9 @@ interface DropdownMenuProps extends RadixDM.MenuContentProps, RadixDM.DropdownMe
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
-	usePortal?: boolean;
 }
 
-const DropdownMenuContext = createContext<{ usePortal: boolean } | null>(null);
+const DropdownMenuContext = createContext<boolean | null>(null);
 
 export const useDropdownMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
 	const ctx = useContext(DropdownMenuContext);
@@ -42,7 +41,6 @@ const Root = ({
 	alignToTrigger,
 	className,
 	children,
-	usePortal = true,
 	...props
 }: PropsWithChildren<DropdownMenuProps>) => {
 	const {
@@ -81,30 +79,22 @@ const Root = ({
 	);
 
 	return (
-		<DropdownMenuContext.Provider value={{ usePortal }}>
-			<RadixDM.Root {...rootProps}>
-				<RadixDM.Trigger ref={measureRef} {...triggerProps} />
-				<Portal>
-					<RadixDM.Content
-						className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
-						align="start"
-						style={{ width }}
-						{...contentProps}
-					>
+		<RadixDM.Root {...rootProps}>
+			<RadixDM.Trigger ref={measureRef} {...triggerProps} />
+			<RadixDM.Portal>
+				<RadixDM.Content
+					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
+					align="start"
+					style={{ width }}
+					{...contentProps}
+				>
+					<DropdownMenuContext.Provider value={true}>
 						{children}
-					</RadixDM.Content>
-				</Portal>
-			</RadixDM.Root>
-		</DropdownMenuContext.Provider>
+					</DropdownMenuContext.Provider>
+				</RadixDM.Content>
+			</RadixDM.Portal>
+		</RadixDM.Root>
 	);
-};
-
-const Portal = ({ children }: PropsWithChildren) => {
-	const dropdownMenuContext = useDropdownMenuContext({ suspense: true });
-
-	const Portal = dropdownMenuContext.usePortal ? RadixDM.Portal : React.Fragment;
-
-	return <Portal>{children}</Portal>;
 };
 
 const Separator = (props: { className?: string }) => (
@@ -122,14 +112,14 @@ const SubMenu = ({
 			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
 				<ContextMenuDivItem rightArrow {...{ label, icon }} />
 			</RadixDM.SubTrigger>
-			<Portal>
+			<RadixDM.Portal>
 				<Suspense fallback={null}>
 					<RadixDM.SubContent
 						className={clsx(contextMenuClassNames, className)}
 						{...props}
 					/>
 				</Suspense>
-			</Portal>
+			</RadixDM.Portal>
 		</RadixDM.Sub>
 	);
 };

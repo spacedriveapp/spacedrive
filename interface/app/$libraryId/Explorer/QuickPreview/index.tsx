@@ -376,7 +376,6 @@ export const QuickPreview = () => {
 														onOpenChange={setIsContextMenuOpen}
 														align="end"
 														sideOffset={-10}
-														usePortal={false}
 													>
 														<ExplorerContextMenu items={[item]} custom>
 															<Conditional

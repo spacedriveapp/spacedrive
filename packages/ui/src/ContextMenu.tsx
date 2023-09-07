@@ -19,7 +19,7 @@ export const contextMenuClassNames = clsx(
 	'animate-in fade-in'
 );
 
-const ContextMenuContext = createContext(false);
+const ContextMenuContext = createContext<boolean | null>(null);
 
 export const useContextMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
 	const ctx = useContext(ContextMenuContext);
