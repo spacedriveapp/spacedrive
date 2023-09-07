@@ -3,20 +3,21 @@ import { CaretDown } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 
 
-type variants = 'apple' | 'default';
+type Variants = 'apple' | 'default';
+type Style = Record<Variants, string>;
 
 type Styles = {
-	container: Record<variants, string>;
-	title: Record<variants, string>;
-	box: Record<variants, string>;
+	container: Style;
+	title: Style;
+	box: Style;
   };
 
 interface Props {
 	caretSize?: number;
 	title: string;
-	titleVariant?: variants;
-	boxVariant?: variants;
-	containerVariant?: variants;
+	titleVariant?: Variants;
+	boxVariant?: Variants;
+	containerVariant?: Variants;
 	className?: string;
 }
 
