@@ -17,6 +17,7 @@ interface Props {
 	titleVariant?: variants;
 	boxVariant?: variants;
 	containerVariant?: variants;
+	className?: string;
 }
 
 const styles: Styles = {
@@ -38,7 +39,7 @@ const Accordion = (props: PropsWithChildren<Props>) => {
 	const [toggle, setToggle] = useState(false);
 
 	return (
-		<div className={styles.box[props.boxVariant ?? 'default']}>
+		<div className={clsx(styles.box[props.boxVariant ?? 'default'], props.className)}>
 			<div
 				onClick={() => setToggle((t) => !t)}
 				className={styles.title[props.titleVariant ?? 'default']}
