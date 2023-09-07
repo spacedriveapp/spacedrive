@@ -164,7 +164,11 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							name: path,
 							ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
 							file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
-							serve_from: (identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
+							serve_from: if identity == library.identity.to_remote_identity() {
+								ServeFrom::Local
+							} else {
+								ServeFrom::Remote(identity)
+							},
 						};
 
 						state
@@ -202,8 +206,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-
-							match state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap().clone() {
+							#[allow(clippy::unwrap_used)]
+							match *state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap() {
 								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
 								InstanceState::Connected(peer_id) => {
 									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
@@ -620,6 +624,7 @@ impl AsyncWrite for MpscToAsyncWrite {
 		cx: &mut Context<'_>,
 		buf: &[u8],
 	) -> Poll<Result<usize, io::Error>> {
+		#[allow(clippy::unwrap_used)]
 		match self.0.poll_reserve(cx) {
 			Poll::Ready(Ok(())) => {
 				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();

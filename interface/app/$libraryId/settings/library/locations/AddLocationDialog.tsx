@@ -216,7 +216,7 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
 			<InputField
 				size="md"
