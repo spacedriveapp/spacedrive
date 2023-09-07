@@ -206,8 +206,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-
-							match *state.node.nlm.state().await.get(&library_id).expect("library exists").instances.get(&identity).expect("instance exists") {
+							#[allow(clippy::unwrap_used)]
+							match *state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap() {
 								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
 								InstanceState::Connected(peer_id) => {
 									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
@@ -624,11 +624,10 @@ impl AsyncWrite for MpscToAsyncWrite {
 		cx: &mut Context<'_>,
 		buf: &[u8],
 	) -> Poll<Result<usize, io::Error>> {
+		#[allow(clippy::unwrap_used)]
 		match self.0.poll_reserve(cx) {
 			Poll::Ready(Ok(())) => {
-				self.0
-					.send_item(Ok(Bytes::from(buf.to_vec())))
-					.expect("mpsc::Sender is closed");
+				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
 				Poll::Ready(Ok(buf.len()))
 			}
 			Poll::Ready(Err(_)) => todo!(),
