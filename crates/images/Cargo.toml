@@ -1,0 +1,20 @@
+[package]
+name = "sd-images"
+version = "0.0.0"
+authors = [
+	"Jake Robinson <jake@spacedrive.com>",
+	"Vítor Vasconcellos <vitor@spacedrive.com>",
+]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[features]
+heif = ["dep:libheif-rs", "dep:libheif-sys"]
+
+[dependencies]
+libheif-rs = { version = "0.19.2", optional = true }
+libheif-sys = { version = "=1.14.2", optional = true }
+image = "0.24.7"
+thiserror = "1.0.45"
+resvg = "0.35.0"
