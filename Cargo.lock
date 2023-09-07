@@ -6413,20 +6413,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
-name = "rawloader"
-version = "0.37.1"
-source = "git+https://github.com/spacedriveapp/rawloader?rev=4c00f5a6201272dc824142f7641c8f765f5ce19e#4c00f5a6201272dc824142f7641c8f765f5ce19e"
-dependencies = [
- "byteorder",
- "enumn",
- "glob",
- "lazy_static",
- "rayon",
- "rustc_version",
- "toml 0.5.11",
-]
-
-[[package]]
 name = "rayon"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7133,7 +7119,6 @@ dependencies = [
  "sd-media-metadata",
  "sd-p2p",
  "sd-prisma",
- "sd-svg",
  "sd-sync",
  "sd-utils",
  "serde",
@@ -7291,8 +7276,6 @@ dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
- "png",
- "rawloader",
  "resvg",
  "thiserror",
 ]
@@ -7401,17 +7384,6 @@ dependencies = [
  "tokio",
  "tower-http",
  "tracing 0.2.0",
-]
-
-[[package]]
-name = "sd-svg"
-version = "0.1.0"
-dependencies = [
- "image",
- "resvg",
- "thiserror",
- "tokio",
- "tracing 0.1.37",
 ]
 
 [[package]]

@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use crate::{consts::SVG_MAXIMUM_FILE_SIZE, Error, Result, ToImage};
+use crate::{
+	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_RENDER_SIZE},
+	Error, Result, ToImage,
+};
 use image::DynamicImage;
 use resvg::{
 	tiny_skia::{self},
@@ -29,9 +32,9 @@ impl ToImage for SvgHandler {
 		})?;
 
 		let size = if rtree.size.width() > rtree.size.height() {
-			rtree.size.to_int_size().scale_to_width(512) // make this a const
+			rtree.size.to_int_size().scale_to_width(SVG_RENDER_SIZE) // make this a const
 		} else {
-			rtree.size.to_int_size().scale_to_height(512)
+			rtree.size.to_int_size().scale_to_height(SVG_RENDER_SIZE)
 		}
 		.ok_or(Error::InvalidLength)?;
 
@@ -45,9 +48,7 @@ impl ToImage for SvgHandler {
 		#[allow(clippy::cast_possible_truncation)]
 		#[allow(clippy::cast_sign_loss)]
 		#[allow(clippy::as_conversions)]
-		let Some(mut pixmap) =
-			tiny_skia::Pixmap::new(rtree.size.width() as u32, rtree.size.height() as u32)
-		else {
+		let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) else {
 			return Err(Error::Pixbuf);
 		};
 
