@@ -164,7 +164,11 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							name: path,
 							ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
 							file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
-							serve_from: (identity == library.identity.to_remote_identity()).then_some(ServeFrom::Local).unwrap_or_else(|| ServeFrom::Remote(identity)),
+							serve_from: if identity == library.identity.to_remote_identity() {
+								ServeFrom::Local
+							} else {
+								ServeFrom::Remote(identity)
+							},
 						};
 
 						state
@@ -203,7 +207,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 							// TODO: Support `Range` requests and `ETag` headers
 
-							match state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap().clone() {
+							match *state.node.nlm.state().await.get(&library_id).expect("library exists").instances.get(&identity).expect("instance exists") {
 								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
 								InstanceState::Connected(peer_id) => {
 									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
@@ -622,7 +626,9 @@ impl AsyncWrite for MpscToAsyncWrite {
 	) -> Poll<Result<usize, io::Error>> {
 		match self.0.poll_reserve(cx) {
 			Poll::Ready(Ok(())) => {
-				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
+				self.0
+					.send_item(Ok(Bytes::from(buf.to_vec())))
+					.expect("mpsc::Sender is closed");
 				Poll::Ready(Ok(buf.len()))
 			}
 			Poll::Ready(Err(_)) => todo!(),
