@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from 'phosph
 import {
 	ButtonHTMLAttributes,
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
@@ -387,7 +388,9 @@ export const QuickPreview = () => {
 
 															<DropdownMenu.Item
 																label="Rename"
-																onClick={() => setIsRenaming(true)}
+																onClick={() =>
+																	name && setIsRenaming(true)
+																}
 															/>
 
 															<SeparatedConditional
@@ -491,10 +494,10 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 		onBlur: onSubmit
 	});
 
-	const highlightName = (name: string) => {
+	const highlightName = useCallback(() => {
 		const endRange = name.lastIndexOf('.');
 		setTimeout(() => _ref.current?.setSelectionRange(0, endRange || name.length));
-	};
+	}, [name]);
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
 		e.stopPropagation();
@@ -515,11 +518,15 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 			case 'z': {
 				if (os === 'macOS' ? e.metaKey : e.ctrlKey) {
 					form.reset();
-					highlightName(name);
+					highlightName();
 				}
 			}
 		}
 	};
+
+	useEffect(() => {
+		if (document.activeElement !== _ref.current) highlightName();
+	}, [highlightName]);
 
 	return (
 		<Form form={form} onSubmit={onSubmit} className="w-1/2">
@@ -533,7 +540,7 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 						: 'border-app-line bg-app-input'
 				)}
 				onKeyDown={handleKeyDown}
-				onFocus={() => highlightName(name)}
+				onFocus={() => highlightName()}
 				ref={(e) => {
 					ref(e);
 					_ref.current = e;
