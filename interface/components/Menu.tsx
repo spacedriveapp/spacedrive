@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ContextMenu, DropdownMenu, useContextMenuContext, useDropdownMenuContext } from '@sd/ui';
 
-export const useMenu = () => {
+export const useMenu = (): typeof DropdownMenu | typeof ContextMenu | undefined => {
 	const isDropdownMenu = useDropdownMenuContext();
 	const isContextMenu = useContextMenuContext();
 
