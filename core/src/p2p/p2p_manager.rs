@@ -628,7 +628,7 @@ impl P2PManager {
 			.write_all(
 				&Header::File {
 					library_id: library.id,
-					file_path_id: file_path_id.clone(),
+					file_path_id,
 					range: range.clone(),
 				}
 				.to_bytes(),
