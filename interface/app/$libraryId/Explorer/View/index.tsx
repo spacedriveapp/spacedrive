@@ -212,20 +212,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 	});
 
 	return (
-		<ViewContext.Provider
-			value={{
-				...contextProps,
-				selectable:
-					explorer.selectable &&
-					!isContextMenuOpen &&
-					!isRenaming &&
-					!quickPreviewStore.open,
-				setIsContextMenuOpen,
-				isRenaming,
-				setIsRenaming,
-				ref
-			}}
-		>
+		<>
 			<div
 				ref={ref}
 				style={style}
@@ -237,18 +224,31 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 				}}
 			>
 				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-					<>
+					<ViewContext.Provider
+						value={{
+							...contextProps,
+							selectable:
+								explorer.selectable &&
+								!isContextMenuOpen &&
+								!isRenaming &&
+								!quickPreviewStore.open,
+							setIsContextMenuOpen,
+							isRenaming,
+							setIsRenaming,
+							ref
+						}}
+					>
 						{layoutMode === 'grid' && <GridView />}
 						{layoutMode === 'list' && <ListView />}
 						{layoutMode === 'media' && <MediaView />}
-					</>
+					</ViewContext.Provider>
 				) : (
 					emptyNotice
 				)}
 			</div>
 
 			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-		</ViewContext.Provider>
+		</>
 	);
 });
 

@@ -13,14 +13,6 @@ export const useMenu = (): typeof DropdownMenu | typeof ContextMenu | undefined 
 	return menu;
 };
 
-const Root = (props: Parameters<typeof ContextMenu.Root | typeof DropdownMenu.Root>[0]) => {
-	const Menu = useMenu();
-
-	if (!Menu) return null;
-
-	return <Menu.Root {...props} />;
-};
-
 const Separator = (
 	props: Parameters<typeof ContextMenu.Separator | typeof DropdownMenu.Separator>[0]
 ) => {
@@ -50,7 +42,6 @@ const Item = (props: Parameters<typeof ContextMenu.Item | typeof DropdownMenu.It
 };
 
 export const Menu = {
-	Root,
 	Item,
 	Separator,
 	SubMenu

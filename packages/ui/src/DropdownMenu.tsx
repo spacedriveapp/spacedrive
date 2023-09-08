@@ -19,7 +19,9 @@ import {
 	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
-interface DropdownMenuProps extends RadixDM.MenuContentProps, RadixDM.DropdownMenuProps {
+interface DropdownMenuProps
+	extends RadixDM.MenuContentProps,
+		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
@@ -37,37 +39,17 @@ export const useDropdownMenuContext = <T extends boolean>({ suspense }: { suspen
 		: NonNullable<ContextType<typeof DropdownMenuContext>> | undefined;
 };
 
-const Root = ({
-	alignToTrigger,
-	className,
-	children,
-	...props
-}: PropsWithChildren<DropdownMenuProps>) => {
+const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
 	const {
-		defaultOpen,
-		open,
+		alignToTrigger,
 		onOpenChange,
-		modal,
-		dir,
 		trigger,
 		triggerClassName,
 		asChild = true,
+		className,
+		children,
 		...contentProps
 	} = props;
-
-	const rootProps = {
-		defaultOpen,
-		open,
-		onOpenChange,
-		modal,
-		dir
-	} satisfies RadixDM.DropdownMenuProps;
-
-	const triggerProps = {
-		children: trigger,
-		className: triggerClassName,
-		asChild
-	} satisfies RadixDM.DropdownMenuTriggerProps;
 
 	const [width, setWidth] = useState<number>();
 
@@ -79,8 +61,10 @@ const Root = ({
 	);
 
 	return (
-		<RadixDM.Root {...rootProps}>
-			<RadixDM.Trigger ref={measureRef} {...triggerProps} />
+		<RadixDM.Root onOpenChange={onOpenChange}>
+			<RadixDM.Trigger ref={measureRef} className={triggerClassName} asChild={asChild}>
+				{trigger}
+			</RadixDM.Trigger>
 			<RadixDM.Portal>
 				<RadixDM.Content
 					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
