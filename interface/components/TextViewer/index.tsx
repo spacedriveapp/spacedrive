@@ -70,6 +70,7 @@ export const TextViewer = memo(
 				ref={ref}
 				tabIndex={0}
 				className={clsx(
+					'text-ink',
 					className,
 					highlight && ['relative !pl-[3.8em]', `language-${highlight.language}`]
 				)}

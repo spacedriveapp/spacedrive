@@ -12,6 +12,14 @@ export function getItemFilePath(data: ExplorerItem) {
 	return (data.type === 'Object' && data.item.file_paths[0]) || null;
 }
 
+export function getIndexedItemFilePath(data: ExplorerItem) {
+	return data.type === 'Path'
+		? data.item
+		: data.type === 'Object'
+		? data.item.file_paths[0] ?? null
+		: null;
+}
+
 export function getItemLocation(data: ExplorerItem) {
 	return data.type === 'Location' ? data.item : null;
 }

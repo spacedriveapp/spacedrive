@@ -9,13 +9,13 @@ use std::path::Path;
 pub enum Orientation {
 	#[default]
 	Normal,
-	MirroredHorizontal,
 	CW90,
-	MirroredVertical,
-	MirroredHorizontalAnd270CW,
-	MirroredHorizontalAnd90CW,
 	CW180,
 	CW270,
+	MirroredVertical,
+	MirroredHorizontal,
+	MirroredHorizontalAnd90CW,
+	MirroredHorizontalAnd270CW,
 }
 
 impl Orientation {

@@ -256,16 +256,17 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: location::id::Type,
-	pub name: Option<String>,
-	pub generate_preview_media: Option<bool>,
-	pub sync_preview_media: Option<bool>,
-	pub hidden: Option<bool>,
-	pub indexer_rules_ids: Vec<i32>,
+	id: location::id::Type,
+	name: Option<String>,
+	generate_preview_media: Option<bool>,
+	sync_preview_media: Option<bool>,
+	hidden: Option<bool>,
+	indexer_rules_ids: Vec<i32>,
+	path: Option<String>,
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+	pub async fn update(self, node: &Node, library: &Arc<Library>) -> Result<(), LocationError> {
 		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
@@ -274,9 +275,10 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
+		let name = self.name.clone();
+
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
-				.clone()
 				.filter(|name| location.name.as_ref() != Some(name))
 				.map(|v| {
 					(
@@ -300,6 +302,12 @@ impl LocationUpdateArgs {
 				(
 					(location::hidden::NAME, json!(v)),
 					location::hidden::set(Some(v)),
+				)
+			}),
+			self.path.clone().map(|v| {
+				(
+					(location::path::NAME, json!(v)),
+					location::path::set(Some(v)),
 				)
 			}),
 		]
@@ -336,10 +344,15 @@ impl LocationUpdateArgs {
 						SpacedriveLocationMetadataFile::try_load(path).await?
 					{
 						metadata
-							.update(library.id, maybe_missing(self.name, "location.name")?)
+							.update(library.id, maybe_missing(name, "location.name")?)
 							.await?;
 					}
 				}
+			}
+
+			if self.path.is_some() {
+				node.locations.remove(self.id, library.clone()).await?;
+				node.locations.add(self.id, library.clone()).await?;
 			}
 		}
 
