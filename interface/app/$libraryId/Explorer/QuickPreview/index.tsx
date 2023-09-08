@@ -259,7 +259,7 @@ export const QuickPreview = () => {
 											)}
 										>
 											<div className="flex flex-1">
-												<Tooltip className="mr-2" label="Close">
+												<Tooltip label="Close">
 													<Dialog.Close asChild>
 														<IconButton>
 															<X weight="bold" />
@@ -267,27 +267,33 @@ export const QuickPreview = () => {
 													</Dialog.Close>
 												</Tooltip>
 
-												<Tooltip label="Back">
-													<IconButton
-														disabled={!items[itemIndex - 1]}
-														onClick={() =>
-															changeCurrentItem(itemIndex - 1)
-														}
-													>
-														<ArrowLeft weight="bold" />
-													</IconButton>
-												</Tooltip>
+												{items.length > 1 && (
+													<div className="ml-2 flex">
+														<Tooltip label="Back">
+															<IconButton
+																disabled={!items[itemIndex - 1]}
+																onClick={() =>
+																	changeCurrentItem(itemIndex - 1)
+																}
+																className="rounded-r-none"
+															>
+																<ArrowLeft weight="bold" />
+															</IconButton>
+														</Tooltip>
 
-												<Tooltip label="Forward">
-													<IconButton
-														disabled={!items[itemIndex + 1]}
-														onClick={() =>
-															changeCurrentItem(itemIndex + 1)
-														}
-													>
-														<ArrowRight weight="bold" />
-													</IconButton>
-												</Tooltip>
+														<Tooltip label="Forward">
+															<IconButton
+																disabled={!items[itemIndex + 1]}
+																onClick={() =>
+																	changeCurrentItem(itemIndex + 1)
+																}
+																className="rounded-l-none"
+															>
+																<ArrowRight weight="bold" />
+															</IconButton>
+														</Tooltip>
+													</div>
+												)}
 											</div>
 
 											<div className="flex w-1/2 items-center justify-center truncate text-sm">
