@@ -1,4 +1,4 @@
-import { MediaLocation, MediaMetadata, MediaTime } from '@sd/client';
+import { MediaLocation, MediaMetadata, MediaTime, Orientation } from '@sd/client';
 import Accordion from '~/components/Accordion';
 import { usePlatform } from '~/util/Platform';
 import { MetaData } from './index';
@@ -16,6 +16,21 @@ function formatMediaTime(loc: MediaTime): string | null {
 
 function formatLocation(loc: MediaLocation, dp: number): string {
 	return `${loc.latitude.toFixed(dp)}, ${loc.longitude.toFixed(dp)}`;
+}
+
+function formatOrientation(orientation: Orientation): string {
+	const orientations = {
+		Normal: 'Normal',
+		MirroredHorizontal: 'Horizontally mirrored',
+		MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
+		MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
+		MirroredVertical: 'Vertically mirrored',
+		CW90: 'Rotated 90° clockwise',
+		CW180: 'Rotated 180° clockwise',
+		CW270: 'Rotated 270° clockwise'
+	};
+
+	return orientations[orientation] ?? null;
 }
 
 function MediaData({ data }: Props) {
@@ -60,7 +75,10 @@ function MediaData({ data }: Props) {
 				/>
 				<MetaData label="Device" value={data.camera_data.device_make} />
 				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData label="Orientation" value={data.camera_data.orientation} />
+				<MetaData
+					label="Orientation"
+					value={formatOrientation(data.camera_data.orientation)}
+				/>
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />

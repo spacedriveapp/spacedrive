@@ -331,7 +331,7 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 
-export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVertical" | "MirroredHorizontalAnd270CW" | "MirroredHorizontalAnd90CW" | "CW180" | "CW270"
+export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
 
 /**
  * TODO: P2P event for the frontend
