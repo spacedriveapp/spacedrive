@@ -106,7 +106,6 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	quickViewObject: null as ExplorerItem | null,
 	isDragging: false,
 	gridGap: 8
 };

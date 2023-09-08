@@ -217,9 +217,9 @@ export default ({ children }: { children: RenderItem }) => {
 	}, [explorer.selectedItems]);
 
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		if (explorer.selectedItems.size > 0) e.preventDefault();
-
 		if (!explorerView.selectable) return;
+
+		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;

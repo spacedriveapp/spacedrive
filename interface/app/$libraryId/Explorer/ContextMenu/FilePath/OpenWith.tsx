@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { useLibraryContext } from '@sd/client';
-import { ContextMenu, toast } from '@sd/ui';
+import { toast } from '@sd/ui';
+import { Menu } from '~/components/Menu';
 import { Platform, usePlatform } from '~/util/Platform';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
@@ -17,7 +18,7 @@ export default new ConditionalItem({
 		return { getFilePathOpenWithApps, openFilePathWith };
 	},
 	Component: ({ getFilePathOpenWithApps, openFilePathWith }) => (
-		<ContextMenu.SubMenu label="Open with">
+		<Menu.SubMenu label="Open with">
 			<Suspense>
 				<Items
 					actions={{
@@ -26,7 +27,7 @@ export default new ConditionalItem({
 					}}
 				/>
 			</Suspense>
-		</ContextMenu.SubMenu>
+		</Menu.SubMenu>
 	)
 });
 
@@ -51,7 +52,7 @@ const Items = ({
 		<>
 			{Array.isArray(items.data) && items.data.length > 0 ? (
 				items.data.map((data, id) => (
-					<ContextMenu.Item
+					<Menu.Item
 						key={id}
 						onClick={async () => {
 							try {
@@ -65,7 +66,7 @@ const Items = ({
 						}}
 					>
 						{data.name}
-					</ContextMenu.Item>
+					</Menu.Item>
 				))
 			) : (
 				<p className="w-full text-center text-sm text-gray-400"> No apps available </p>
