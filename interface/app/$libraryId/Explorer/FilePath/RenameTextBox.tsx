@@ -278,6 +278,7 @@ export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
 		try {
 			await renameLocation.mutateAsync({
 				id: props.locationId,
+				path: null,
 				name: newName,
 				generate_preview_media: null,
 				sync_preview_media: null,
