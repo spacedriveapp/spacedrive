@@ -148,12 +148,12 @@ export const FileThumb = memo((props: ThumbProps) => {
 			{(() => {
 				if (!src) return;
 
-				const className = clsx(
-					childClassName,
+				const _childClassName =
 					typeof props.childClassName === 'function'
 						? props.childClassName(thumbType)
-						: props.childClassName
-				);
+						: props.childClassName;
+
+				const className = clsx(childClassName, _childClassName);
 
 				switch (thumbType) {
 					case ThumbType.Original: {
@@ -186,7 +186,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
-											props.frame && [frameClassName, '!bg-none']
+											props.frame && [frameClassName, '!bg-none p-2']
 										)}
 										codeExtension={
 											((itemData.kind === 'Code' ||
@@ -257,7 +257,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 								decoding={props.size ? 'async' : 'sync'}
 								className={clsx(
 									props.cover
-										? 'min-h-full min-w-full object-cover object-center'
+										? [
+												'min-h-full min-w-full object-cover object-center',
+												_childClassName
+										  ]
 										: className,
 									props.frame && !(itemData.kind === 'Video' && props.blackBars)
 										? frameClassName
@@ -289,7 +292,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 								onLoad={onLoad}
 								onError={() => setLoaded(false)}
 								decoding={props.size ? 'async' : 'sync'}
-								className={childClassName}
+								className={className}
 								draggable={false}
 							/>
 						);
