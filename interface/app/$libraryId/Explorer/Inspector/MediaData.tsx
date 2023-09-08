@@ -1,4 +1,4 @@
-import { MediaLocation, MediaMetadata, MediaTime } from '@sd/client';
+import { MediaLocation, MediaMetadata, MediaTime, Orientation } from '@sd/client';
 import Accordion from '~/components/Accordion';
 import { usePlatform } from '~/util/Platform';
 import { MetaData } from './index';
@@ -15,9 +15,19 @@ function formatMediaTime(loc: MediaTime): string | null {
 }
 
 function formatLocation(loc: MediaLocation, dp: number): string {
-	// Stackoverflow says the `+` strips the trailing zeros or something so it's important, I think
-	return `${+loc.latitude.toFixed(dp)}, ${+loc.longitude.toFixed(dp)}`;
+	return `${loc.latitude.toFixed(dp)}, ${loc.longitude.toFixed(dp)}`;
 }
+
+const orientations = {
+	Normal: 'Normal',
+	MirroredHorizontal: 'Horizontally mirrored',
+	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
+	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
+	MirroredVertical: 'Vertically mirrored',
+	CW90: 'Rotated 90° clockwise',
+	CW180: 'Rotated 180° clockwise',
+	CW270: 'Rotated 270° clockwise'
+};
 
 function MediaData({ data }: Props) {
 	const platform = usePlatform();
@@ -61,7 +71,10 @@ function MediaData({ data }: Props) {
 				/>
 				<MetaData label="Device" value={data.camera_data.device_make} />
 				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData label="Orientation" value={data.camera_data.orientation} />
+				<MetaData
+					label="Orientation"
+					value={orientations[data.camera_data.orientation] ?? '--'}
+				/>
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
