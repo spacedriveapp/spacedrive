@@ -17,7 +17,6 @@ use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
 	collections::HashMap,
-	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
 };
@@ -177,7 +176,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
 	file_path: P,
 	output_path: P,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
 	use sd_ffmpeg::to_thumbnail;
 
 	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY).await?;
