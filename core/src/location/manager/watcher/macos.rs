@@ -48,9 +48,8 @@ pub(super) struct MacOsEventHandler<'lib> {
 	node: &'lib Arc<Node>,
 	files_to_update: HashMap<PathBuf, Instant>,
 	files_to_update_buffer: Vec<(PathBuf, Instant)>,
-	last_check_created_files: Instant,
+	last_events_eviction_check: Instant,
 	latest_created_dir: Option<PathBuf>,
-	last_check_rename: Instant,
 	old_paths_map: HashMap<INodeAndDevice, InstantAndPath>,
 	new_paths_map: HashMap<INodeAndDevice, InstantAndPath>,
 	paths_map_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
@@ -72,9 +71,8 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			node,
 			files_to_update: HashMap::new(),
 			files_to_update_buffer: Vec::new(),
-			last_check_created_files: Instant::now(),
+			last_events_eviction_check: Instant::now(),
 			latest_created_dir: None,
-			last_check_rename: Instant::now(),
 			old_paths_map: HashMap::new(),
 			new_paths_map: HashMap::new(),
 			paths_map_buffer: Vec::new(),
@@ -113,19 +111,20 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				.await?;
 				self.latest_created_dir = Some(paths.remove(0));
 			}
-			EventKind::Create(CreateKind::File) => {
-				self.files_to_update.insert(paths.remove(0), Instant::now());
-			}
-			EventKind::Modify(ModifyKind::Data(DataChange::Content)) => {
+			EventKind::Create(CreateKind::File)
+			| EventKind::Modify(ModifyKind::Data(DataChange::Content))
+			| EventKind::Modify(ModifyKind::Metadata(
+				MetadataKind::WriteTime | MetadataKind::Extended,
+			)) => {
+				// When we receive a create, modify data or metadata events of the abore kinds
+				// we just mark the file to be updated in a near future
+				// each consecutive event of these kinds that we receive for the same file
+				// we just store the path again in the map below, with a new instant
+				// that effectively resets the timer for the file to be updated
 				self.files_to_update.insert(paths.remove(0), Instant::now());
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				self.handle_single_rename_event(paths.remove(0)).await?;
-			}
-			EventKind::Modify(ModifyKind::Metadata(
-				MetadataKind::WriteTime | MetadataKind::Extended,
-			)) => {
-				self.files_to_update.insert(paths.remove(0), Instant::now());
 			}
 
 			EventKind::Remove(_) => {
@@ -140,15 +139,11 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 	}
 
 	async fn tick(&mut self) {
-		// Cleaning out recently created files that are older than 200 milliseconds
-		if self.last_check_created_files.elapsed() > HUNDRED_MILLIS * 2 {
+		if self.last_events_eviction_check.elapsed() > HUNDRED_MILLIS {
 			if let Err(e) = self.handle_to_update_eviction().await {
-				error!("Error while handling recently created files eviction: {e:#?}");
+				error!("Error while handling recently created or update files eviction: {e:#?}");
 			}
-			self.last_check_created_files = Instant::now();
-		}
 
-		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
 			// Cleaning out recently renamed files that are older than 100 milliseconds
 			if let Err(e) = self.handle_rename_create_eviction().await {
 				error!("Failed to create file_path on MacOS : {e:#?}");
@@ -158,7 +153,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				error!("Failed to remove file_path: {e:#?}");
 			}
 
-			self.last_check_rename = Instant::now();
+			self.last_events_eviction_check = Instant::now();
 		}
 	}
 }
