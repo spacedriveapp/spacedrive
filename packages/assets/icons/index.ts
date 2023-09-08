@@ -6,18 +6,22 @@ import Album from './Album.png';
 import Album_Light from './Album_Light.png';
 import Alias from './Alias.png';
 import Alias_Light from './Alias_Light.png';
+import AmazonS3 from './AmazonS3.png';
 import Application from './Application.png';
 import Application_Light from './Application_Light.png';
 import Archive from './Archive.png';
 import Archive_Light from './Archive_Light.png';
 import Audio from './Audio.png';
 import Audio_Light from './Audio_Light.png';
+import BackBlaze from './BackBlaze.png';
 import Ball from './Ball.png';
 import Book from './Book.png';
 import BookBlue from './BookBlue.png';
 import Book_Light from './Book_Light.png';
+import Box from './Box.png';
 import Collection from './Collection.png';
 import Collection_Light from './Collection_Light.png';
+import DAV from './DAV.png';
 import Database from './Database.png';
 import Database_Light from './Database_Light.png';
 import Document from './Document.png';
@@ -30,6 +34,7 @@ import Document_xls from './Document_xls.png';
 import Document_xls_Light from './Document_xls_Light.png';
 import Drive from './Drive.png';
 import Drive_Light from './Drive_Light.png';
+import Dropbox from './Dropbox.png';
 import Encrypted from './Encrypted.png';
 import Encrypted_Light from './Encrypted_Light.png';
 import Entity from './Entity.png';
@@ -47,8 +52,11 @@ import Game from './Game.png';
 import Game_Light from './Game_Light.png';
 import Globe from './Globe.png';
 import GlobeAlt from './GlobeAlt.png';
+import GoogleDrive from './GoogleDrive.png';
+import HDD from './HDD.png';
 import Heart from './Heart.png';
 import Heart_Light from './Heart_Light.png';
+import Home from './Home.png';
 import Image from './Image.png';
 import Image_Light from './Image_Light.png';
 import Key from './Key.png';
@@ -61,6 +69,7 @@ import Link from './Link.png';
 import Link_Light from './Link_Light.png';
 import Lock from './Lock.png';
 import Lock_Light from './Lock_Light.png';
+import Mega from './Mega.png';
 import Mesh from './Mesh.png';
 import Mesh_Light from './Mesh_Light.png';
 import Mobile from './Mobile.png';
@@ -69,6 +78,9 @@ import Movie from './Movie.png';
 import Movie_Light from './Movie_Light.png';
 import Node from './Node.png';
 import Node_Light from './Node_Light.png';
+import OneDrive from './OneDrive.png';
+import OpenStack from './OpenStack.png';
+import PCloud from './PCloud.png';
 import Package from './Package.png';
 import Package_Light from './Package_Light.png';
 import SD from './SD.png';
@@ -78,6 +90,7 @@ import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
 import Server from './Server.png';
 import Server_Light from './Server_Light.png';
+import Spacedrop from './Spacedrop.png';
 import Tablet from './Tablet.png';
 import Tablet_Light from './Tablet_Light.png';
 import Tags from './Tags.png';
@@ -105,18 +118,22 @@ export {
 	Album_Light,
 	Alias,
 	Alias_Light,
+	AmazonS3,
 	Application,
 	Application_Light,
 	Archive,
 	Archive_Light,
 	Audio,
 	Audio_Light,
+	BackBlaze,
 	Ball,
 	Book,
 	BookBlue,
 	Book_Light,
+	Box,
 	Collection,
 	Collection_Light,
+	DAV,
 	Database,
 	Database_Light,
 	Document,
@@ -129,6 +146,7 @@ export {
 	Document_xls_Light,
 	Drive,
 	Drive_Light,
+	Dropbox,
 	Encrypted,
 	Encrypted_Light,
 	Entity,
@@ -146,8 +164,11 @@ export {
 	Game_Light,
 	Globe,
 	GlobeAlt,
+	GoogleDrive,
+	HDD,
 	Heart,
 	Heart_Light,
+	Home,
 	Image,
 	Image_Light,
 	Key,
@@ -160,6 +181,7 @@ export {
 	Link_Light,
 	Lock,
 	Lock_Light,
+	Mega,
 	Mesh,
 	Mesh_Light,
 	Mobile,
@@ -168,6 +190,9 @@ export {
 	Movie_Light,
 	Node,
 	Node_Light,
+	OneDrive,
+	OpenStack,
+	PCloud,
 	Package,
 	Package_Light,
 	SD,
@@ -177,6 +202,7 @@ export {
 	ScreenshotAlt,
 	Server,
 	Server_Light,
+	Spacedrop,
 	Tablet,
 	Tablet_Light,
 	Tags,

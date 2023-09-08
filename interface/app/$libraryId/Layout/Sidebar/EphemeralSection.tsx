@@ -1,13 +1,16 @@
-import { Drive, Globe, SD } from '@sd/assets/icons';
+import { Drive, Globe, HDD, Home, SD } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { EjectSimple } from 'phosphor-react';
 import { useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, tw } from '@sd/ui';
 import { Folder } from '~/components';
 import { usePlatform } from '~/util/Platform';
 import SidebarLink from './Link';
 import Section from './Section';
+
+const SidebarIcon = tw.img`mr-1 h-5 w-5`;
+const Name = tw.span`truncate`;
 
 const EjectButton = ({ className }: { className?: string }) => (
 	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
@@ -26,20 +29,17 @@ export const EphemeralSection = () => {
 	return home == null && volumes.length < 1 ? null : (
 		<>
 			<Section name="Local">
-				<SidebarLink className="group relative w-full" to={`network/34`} key={24}>
-					<img src={Globe} className="mr-1 h-5 w-5" />
-					<span className="truncate">Network</span>
+				<SidebarLink className="group relative w-full" to={`network/34`}>
+					<SidebarIcon src={Globe} />
+					<Name>Network</Name>
 				</SidebarLink>
 				{home && (
 					<SidebarLink
 						to={`ephemeral/0?path=${home}`}
 						className="group relative w-full border border-transparent"
 					>
-						<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-							<Folder size={18} />
-						</div>
-
-						<span className="truncate">Home</span>
+						<SidebarIcon src={Home} />
+						<Name>Home</Name>
 					</SidebarLink>
 				)}
 				{volumes.map((volume, volumeIndex) => {
@@ -57,13 +57,17 @@ export const EphemeralSection = () => {
 								key={key}
 								className="group relative w-full border border-transparent"
 							>
-								<img
-									src={volume.file_system === 'exfat' ? SD : Drive}
-									className="mr-1 h-5 w-5"
+								<SidebarIcon
+									src={
+										volume.file_system === 'exfat'
+											? SD
+											: volume.name === 'Macintosh HD'
+											? HDD
+											: Drive
+									}
 								/>
 
-								<span className="truncate">{name}</span>
-
+								<Name>{name}</Name>
 								{volume.disk_type === 'Removable' && <EjectButton />}
 							</SidebarLink>
 						);
