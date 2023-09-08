@@ -1,5 +1,6 @@
 import { useLibraryContext } from '@sd/client';
-import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { ModifierKeys } from '@sd/ui';
+import { Menu } from '~/components/Menu';
 import { useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { NonEmptyArray } from '~/util';
@@ -24,7 +25,7 @@ export const RevealInNativeExplorerBase = (props: { items: RevealItems }) => {
 	const osFileBrowserName = lookup[os] ?? 'file manager';
 
 	return (
-		<ContextMenu.Item
+		<Menu.Item
 			label={`Reveal in ${osFileBrowserName}`}
 			keybind={keybind([ModifierKeys.Control], ['Y'])}
 			onClick={() => revealItems(library.uuid, props.items)}
