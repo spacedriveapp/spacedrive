@@ -38,7 +38,7 @@ use super::{
 		create_dir, create_dir_or_file, extract_inode_and_device_from_path, extract_location_path,
 		remove, rename, update_file,
 	},
-	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS,
+	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
 #[derive(Debug)]
@@ -48,6 +48,7 @@ pub(super) struct MacOsEventHandler<'lib> {
 	node: &'lib Arc<Node>,
 	files_to_update: HashMap<PathBuf, Instant>,
 	files_to_update_buffer: Vec<(PathBuf, Instant)>,
+	reincident_to_update_files: HashMap<PathBuf, Instant>,
 	last_events_eviction_check: Instant,
 	latest_created_dir: Option<PathBuf>,
 	old_paths_map: HashMap<INodeAndDevice, InstantAndPath>,
@@ -71,6 +72,7 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 			node,
 			files_to_update: HashMap::new(),
 			files_to_update_buffer: Vec::new(),
+			reincident_to_update_files: HashMap::new(),
 			last_events_eviction_check: Instant::now(),
 			latest_created_dir: None,
 			old_paths_map: HashMap::new(),
@@ -121,7 +123,18 @@ impl<'lib> EventHandler<'lib> for MacOsEventHandler<'lib> {
 				// each consecutive event of these kinds that we receive for the same file
 				// we just store the path again in the map below, with a new instant
 				// that effectively resets the timer for the file to be updated
-				self.files_to_update.insert(paths.remove(0), Instant::now());
+				let path = paths.remove(0);
+				if self.files_to_update.contains_key(&path) {
+					if let Some(old_instant) =
+						self.files_to_update.insert(path.clone(), Instant::now())
+					{
+						self.reincident_to_update_files
+							.entry(path)
+							.or_insert(old_instant);
+					}
+				} else {
+					self.files_to_update.insert(path, Instant::now());
+				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
 				self.handle_single_rename_event(paths.remove(0)).await?;
@@ -167,6 +180,25 @@ impl MacOsEventHandler<'_> {
 			if created_at.elapsed() < HUNDRED_MILLIS * 5 {
 				self.files_to_update_buffer.push((path, created_at));
 			} else {
+				self.reincident_to_update_files.remove(&path);
+				update_file(self.location_id, &path, self.node, self.library).await?;
+				should_invalidate = true;
+			}
+		}
+
+		self.files_to_update
+			.extend(self.files_to_update_buffer.drain(..));
+
+		self.files_to_update_buffer.clear();
+
+		// We have to check if we have any reincident files to update and update them after a bigger
+		// timeout, this way we keep track of files being update frequently enough to bypass our
+		// eviction check above
+		for (path, created_at) in self.reincident_to_update_files.drain() {
+			if created_at.elapsed() < ONE_SECOND * 10 {
+				self.files_to_update_buffer.push((path, created_at));
+			} else {
+				self.files_to_update.remove(&path);
 				update_file(self.location_id, &path, self.node, self.library).await?;
 				should_invalidate = true;
 			}
@@ -176,7 +208,7 @@ impl MacOsEventHandler<'_> {
 			invalidate_query!(self.library, "search.paths");
 		}
 
-		self.files_to_update
+		self.reincident_to_update_files
 			.extend(self.files_to_update_buffer.drain(..));
 
 		Ok(())
