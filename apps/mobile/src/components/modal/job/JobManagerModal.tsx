@@ -1,5 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { useBridgeQuery, useJobProgress } from '@sd/client';
 import JobGroup from '~/components/job/JobGroup';
@@ -15,7 +14,11 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	// TODO: Currently we're only clustering togheter all job reports from all libraries without any distinction.
 	// TODO: We should probably cluster them by library in the job manager UI
-	const jobGroups = jobGroupsById.data ? Object.values(jobGroupsById.data).flat() : [];
+
+	const jobGroups = useMemo(() => {
+		if (!jobGroupsById.data) return [];
+		return Object.values(jobGroupsById.data).flat();
+	}, [jobGroupsById.data]);
 
 	const progress = useJobProgress(jobGroups);
 
