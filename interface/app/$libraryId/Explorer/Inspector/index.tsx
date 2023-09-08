@@ -448,15 +448,16 @@ interface MetaDataProps {
 	icon?: Icon;
 	label: string;
 	value: ReactNode;
+	tooltipValue?: ReactNode;
 	onClick?: () => void;
 }
 
-export const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
+export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: MetaDataProps) => {
 	return (
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
-			<Tooltip label={value} asChild>
+			<Tooltip label={tooltipValue || value} asChild>
 				<span className="truncate break-all text-ink">{value ?? '--'}</span>
 			</Tooltip>
 		</div>

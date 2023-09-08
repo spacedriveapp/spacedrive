@@ -1,5 +1,6 @@
 import { MediaLocation, MediaMetadata, MediaTime } from '@sd/client';
 import Accordion from '~/components/Accordion';
+import { usePlatform } from '~/util/Platform';
 import { MetaData } from './index';
 
 interface Props {
@@ -13,25 +14,42 @@ function formatMediaTime(loc: MediaTime): string | null {
 	return null;
 }
 
-function formatLocation(loc: MediaLocation): string {
+function formatLocation(loc: MediaLocation, dp: number): string {
 	// Stackoverflow says the `+` strips the trailing zeros or something so it's important, I think
-	return `${+loc.latitude.toFixed(2)}, ${+loc.longitude.toFixed(2)}`;
+	return `${+loc.latitude.toFixed(dp)}, ${+loc.longitude.toFixed(dp)}`;
 }
 
 function MediaData({ data }: Props) {
+	const platform = usePlatform();
+
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
-			<Accordion
-				containerClassName="flex flex-col gap-1 px-4 rounded-b-none"
-				titleClassName="px-4 pt-0 pb-1 !justify-end gap-2 flex-row-reverse text-ink-dull"
-				className="rounded-none border-0 bg-transparent py-0"
-				title="More info"
-			>
+			<Accordion variant="apple" title="More info">
 				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
 				<MetaData label="Type" value={data.type} />
 				<MetaData
 					label="Location"
-					value={data.location ? formatLocation(data.location) : null}
+					tooltipValue={
+						data.location
+							? `${data.location.latitude}, ${data.location.longitude}`
+							: '--'
+					}
+					value={
+						data.location ? (
+							<a
+								onClick={(e) => {
+									e.preventDefault();
+									platform.openLink(
+										`https://www.google.com/maps/search/?api=1&query=${data.location?.latitude}%2c${data.location?.longitude}`
+									);
+								}}
+							>
+								{formatLocation(data.location, 3)}
+							</a>
+						) : (
+							'--'
+						)
+					}
 				/>
 				<MetaData
 					label="Dimensions"

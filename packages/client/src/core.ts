@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "jobs.reports", input: never, result: { [key: string]: JobGroup[] } } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 

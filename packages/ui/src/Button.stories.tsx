@@ -30,7 +30,7 @@ export const AllVariants = () => {
 		'subtle'
 	];
 	return (
-		<div className="w-full h-screen p-10 bg-app">
+		<div className="h-screen w-full bg-app p-10">
 			<h1 className="text-[20px] font-bold text-white">Buttons</h1>
 			<div className="mb-6 ml-[90px] mt-5 flex flex-col gap-8 text-sm">
 				<div className="ml-[100px] grid w-full max-w-[850px] grid-cols-9 items-center gap-6">
