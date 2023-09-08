@@ -32,6 +32,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	count?: number;
 	parent?: ExplorerParent;
 	loadMore?: () => void;
+	isFetchingNextPage?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
 	/**
 	 * @defaultValue `true`
