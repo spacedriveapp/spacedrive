@@ -329,7 +329,7 @@ export const QuickPreview = () => {
 														}}
 													/>
 												) : (
-													<>
+													<Tooltip label={name} className="truncate">
 														<span
 															onClick={() =>
 																name &&
@@ -337,14 +337,14 @@ export const QuickPreview = () => {
 																setIsRenaming(true)
 															}
 															className={clsx(
-																'cursor-text truncate',
-																item.type === 'NonIndexedPath' &&
-																	'cursor-default'
+																item.type === 'NonIndexedPath'
+																	? 'cursor-default'
+																	: 'cursor-text'
 															)}
 														>
 															{name}
 														</span>
-													</>
+													</Tooltip>
 												)}
 											</div>
 
