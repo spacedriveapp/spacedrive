@@ -25,6 +25,7 @@ import {
 	useLibraryMutation
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
+import { Loader } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
@@ -206,10 +207,18 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 	const [isRenaming, setIsRenaming] = useState(false);
+	const [showLoading, setShowLoading] = useState(false);
 
 	useKeyDownHandlers({
 		disabled: isRenaming || quickPreviewStore.open
 	});
+
+	useEffect(() => {
+		if (explorer.isFetchingNextPage) {
+			const timer = setTimeout(() => setShowLoading(true), 100);
+			return () => clearTimeout(timer);
+		} else setShowLoading(false);
+	}, [explorer.isFetchingNextPage]);
 
 	return (
 		<>
@@ -241,6 +250,9 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 						{layoutMode === 'grid' && <GridView />}
 						{layoutMode === 'list' && <ListView />}
 						{layoutMode === 'media' && <MediaView />}
+						{showLoading && (
+							<Loader className="fixed bottom-10 left-0 flex w-[calc(100%+180px)] items-center justify-center" />
+						)}
 					</ViewContext.Provider>
 				) : (
 					emptyNotice
