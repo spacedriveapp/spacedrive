@@ -1,11 +1,9 @@
 use super::ExifReader;
 use exif::Tag;
 use image_rs::DynamicImage;
-use std::path::Path;
+use std::{fmt::Display, path::Path};
 
-#[derive(
-	Default, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
-)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, serde::Deserialize, specta::Type)]
 pub enum Orientation {
 	#[default]
 	Normal,
@@ -59,5 +57,31 @@ impl From<u32> for Orientation {
 			8 => Self::CW270,
 			_ => Self::Normal,
 		}
+	}
+}
+
+impl Display for Orientation {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let orientation = match self {
+			Self::Normal => "Normal",
+			Self::MirroredHorizontal => "Horizontally mirrored",
+			Self::MirroredHorizontalAnd90CW => "Mirrored horizontally and rotated 90° clockwise",
+			Self::MirroredHorizontalAnd270CW => "Mirrored horizontally and rotated 270° clockwise",
+			Self::MirroredVertical => "Vertically mirrored",
+			Self::CW90 => "Rotated 90° clockwise",
+			Self::CW180 => "Rotated 180° clockwise",
+			Self::CW270 => "Rotated 270° clockwise",
+		};
+
+		f.write_str(orientation)
+	}
+}
+
+impl serde::Serialize for Orientation {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		serializer.collect_str(&self.to_string())
 	}
 }
