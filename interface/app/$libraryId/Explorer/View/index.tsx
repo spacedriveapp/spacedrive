@@ -251,7 +251,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 						{layoutMode === 'list' && <ListView />}
 						{layoutMode === 'media' && <MediaView />}
 						{showLoading && (
-							<Loader className="fixed bottom-10 left-0 flex w-[calc(100%+180px)] items-center justify-center" />
+							<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
 						)}
 					</ViewContext.Provider>
 				) : (
