@@ -101,9 +101,9 @@ pub enum LocationManagerError {
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
 	#[error("Database error: {0}")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
+	FilePath(#[from] FilePathError),
 	#[error("Corrupted location pub_id on database: (error: {0})")]
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
