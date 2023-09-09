@@ -4,18 +4,77 @@ use super::{
 };
 use crate::{Error, Result};
 use exif::Tag;
-use std::{fmt::Display, ops::Neg};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use std::ops::Neg;
+
+const CODE_DIGITS: [char; 20] = [
+	'2', '3', '4', '5', '6', '7', '8', '9', 'C', 'F', 'G', 'H', 'J', 'M', 'P', 'Q', 'R', 'V', 'W',
+	'X',
+];
+
+#[derive(
+	Default, Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize, specta::Type,
+)]
+pub struct PlusCode(String);
+
+impl PlusCode {
+	#[allow(clippy::cast_sign_loss)]
+	#[allow(clippy::as_conversions)]
+	#[allow(clippy::cast_precision_loss)]
+	#[allow(clippy::cast_possible_truncation)]
+	pub fn new(lat: f64, long: f64) -> Self {
+		let mut output = String::new();
+
+		let normalized_lat = (lat + 90.0) / 180.0;
+		let normalized_long = (long + 180.0) / 360.0;
+		let mut grid_size = 1.0 / (20_f64.powi(10));
+
+		let mut remaining_lat = normalized_lat;
+		let mut remaining_long = normalized_long;
+
+		(0..11).for_each(|i| {
+			let x = (remaining_long / grid_size).floor() as usize;
+			let y = (remaining_lat / grid_size).floor() as usize;
+			remaining_long -= x as f64 * grid_size;
+			remaining_lat -= y as f64 * grid_size;
+			grid_size /= 20.0;
+
+			if i == 7 {
+				output.push('+');
+			}
+			output.push(CODE_DIGITS[x]);
+			output.push(CODE_DIGITS[y]);
+		});
+
+		Self(output)
+	}
+}
+
+#[allow(clippy::from_over_into)] // they're not easily reversible
+impl Into<PlusCode> for MediaLocation {
+	fn into(self) -> PlusCode {
+		PlusCode::new(self.latitude, self.longitude)
+	}
+}
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
 	latitude: f64,
 	longitude: f64,
+	pluscode: PlusCode,
 	altitude: Option<i32>,
 	direction: Option<i32>, // the direction that the image was taken in, as a bearing (should always be <= 0 && <= 360)
 }
 
 const LAT_MAX_POS: f64 = 90_f64;
 const LONG_MAX_POS: f64 = 180_f64;
+
+// 125km. This is the Kármán line + a 25km additional padding just to be safe.
+const ALT_MAX_HEIGHT: i32 = 125_000_i32;
+// 1km. This should be adequate for even the Dead Sea on the Israeli border,
+// the lowest point on land (and much deeper).
+const ALT_MIN_HEIGHT: i32 = -1000_i32;
 
 impl MediaLocation {
 	/// This is used to clamp and format coordinates. They are rounded to 8 significant figures after the decimal point.
@@ -41,10 +100,15 @@ impl MediaLocation {
 	pub fn new(lat: f64, long: f64, altitude: Option<i32>, direction: Option<i32>) -> Self {
 		let latitude = Self::format_coordinate(lat, LAT_MAX_POS);
 		let longitude = Self::format_coordinate(long, LONG_MAX_POS);
+		let altitude = altitude.map(|x| x.clamp(ALT_MIN_HEIGHT, ALT_MAX_HEIGHT));
+		let pluscode = PlusCode::new(latitude, longitude);
 
 		Self {
 			latitude,
 			longitude,
+			pluscode,
+			altitude,
+			direction,
 			altitude,
 			direction,
 		}
@@ -79,9 +143,7 @@ impl MediaLocation {
 		.filter_map(|(item, reference)| {
 			let mut item: String = item.unwrap_or_default();
 			let reference: String = reference.unwrap_or_default();
-			item.retain(|x| {
-				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
-			});
+			item.retain(|x| x.is_numeric() || x.is_whitespace() || x == '.');
 			let i = item
 				.split_whitespace()
 				.filter_map(|x| x.parse::<f64>().ok());
@@ -156,6 +218,32 @@ impl MediaLocation {
 	pub fn update_direction(&mut self, bearing: i32) {
 		self.direction = Some(bearing.clamp(0, 360));
 	}
+
+	#[must_use]
+	pub fn generate() -> Self {
+		let mut rng = ChaCha20Rng::from_entropy();
+		let latitude = Self::format_coordinate(
+			rng.gen_range(-LAT_MAX_POS..=LAT_MAX_POS),
+			rng.gen_range(-LAT_MAX_POS..=LAT_MAX_POS),
+		);
+
+		let longitude = Self::format_coordinate(
+			rng.gen_range(-LONG_MAX_POS..=LONG_MAX_POS),
+			rng.gen_range(-LONG_MAX_POS..=LONG_MAX_POS),
+		);
+
+		let pluscode = PlusCode::new(latitude, longitude);
+
+		let altitude = rng.gen_range(ALT_MIN_HEIGHT..ALT_MAX_HEIGHT);
+
+		Self {
+			latitude,
+			longitude,
+			pluscode,
+			altitude,
+			direction,
+		}
+	}
 }
 
 impl TryFrom<String> for MediaLocation {
@@ -190,8 +278,8 @@ impl TryFrom<String> for MediaLocation {
 	}
 }
 
-impl Display for MediaLocation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_fmt(format_args!("{}, {}", self.latitude, self.longitude))
-	}
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn x() {}
 }
