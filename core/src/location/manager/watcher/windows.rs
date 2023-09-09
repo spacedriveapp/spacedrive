@@ -34,7 +34,7 @@ use tokio::{fs, time::Instant};
 use tracing::{error, trace};
 
 use super::{
-	utils::{create_dir_or_file, extract_inode_and_device_from_path, remove, rename, update_file},
+	utils::{create_dir, extract_inode_and_device_from_path, remove, rename, update_file},
 	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -44,15 +44,14 @@ pub(super) struct WindowsEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Arc<Library>,
 	node: &'lib Arc<Node>,
-	last_check_recently_files: Instant,
-	recently_created_files: BTreeMap<PathBuf, Instant>,
-	last_check_rename_update_and_remove: Instant,
+	last_events_eviction_check: Instant,
 	rename_from_map: BTreeMap<INodeAndDevice, InstantAndPath>,
 	rename_to_map: BTreeMap<INodeAndDevice, InstantAndPath>,
-	to_update_files: HashMap<PathBuf, Instant>,
-	to_remove_files: HashMap<INodeAndDevice, InstantAndPath>,
-	updates_buffer: Vec<(PathBuf, Instant)>,
-	removal_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
+	files_to_remove: HashMap<INodeAndDevice, InstantAndPath>,
+	files_to_remove_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
+	files_to_update: HashMap<PathBuf, Instant>,
+	files_to_update_buffer: Vec<(PathBuf, Instant)>,
+	reincident_to_update_files: HashMap<PathBuf, Instant>,
 }
 
 #[async_trait]
@@ -69,15 +68,14 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			location_id,
 			library,
 			node,
-			last_check_recently_files: Instant::now(),
-			recently_created_files: BTreeMap::new(),
-			last_check_rename_update_and_remove: Instant::now(),
+			last_events_eviction_check: Instant::now(),
 			rename_from_map: BTreeMap::new(),
 			rename_to_map: BTreeMap::new(),
-			to_update_files: HashMap::new(),
-			to_remove_files: HashMap::new(),
-			updates_buffer: Vec::new(),
-			removal_buffer: Vec::new(),
+			files_to_remove: HashMap::new(),
+			files_to_remove_buffer: Vec::new(),
+			files_to_update: HashMap::new(),
+			files_to_update_buffer: Vec::new(),
+			reincident_to_update_files: HashMap::new(),
 		}
 	}
 
@@ -96,7 +94,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					{
 						// This is still being manipulated by another process, so we can just ignore it for now
 						// as we will probably receive update events later
-						self.to_update_files.insert(paths.remove(0), Instant::now());
+						self.files_to_update.insert(paths.remove(0), Instant::now());
 
 						return Ok(());
 					}
@@ -105,7 +103,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					}
 				};
 
-				if let Some((_, old_path)) = self.to_remove_files.remove(&inode_and_device) {
+				if let Some((_, old_path)) = self.files_to_remove.remove(&inode_and_device) {
 					// if previously we added a file to be removed with the same inode and device
 					// of this "newly created" created file, it means that the file was just moved to another location
 					// so we can treat if just as a file rename, like in other OSes
@@ -128,23 +126,39 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					)
 					.await?;
 				} else {
-					let metadata =
-						create_dir_or_file(self.location_id, &paths[0], self.node, self.library)
-							.await?;
+					let metadata = fs::metadata(&paths[0])
+						.await
+						.map_err(|e| FileIOError::from((&paths[0], e)))?;
 
-					if metadata.is_file() {
-						self.recently_created_files
-							.insert(paths.remove(0), Instant::now());
+					let path = paths.remove(0);
+					if metadata.is_dir() {
+						create_dir(self.location_id, path, &metadata, self.node, self.library)
+							.await?;
+					} else if self.files_to_update.contains_key(&path) {
+						if let Some(old_instant) =
+							self.files_to_update.insert(path.clone(), Instant::now())
+						{
+							self.reincident_to_update_files
+								.entry(path)
+								.or_insert(old_instant);
+						}
+					} else {
+						self.files_to_update.insert(path, Instant::now());
 					}
 				}
 			}
 			EventKind::Modify(ModifyKind::Any) => {
 				let path = paths.remove(0);
-				// Windows emite events of update right after create events
-				if !self.recently_created_files.contains_key(&path) {
-					// We always insert a new entry, even if it already exists, because we want to update the timestamp
-					// this way we possibly always handle the latest update event
-					self.to_update_files.insert(path, Instant::now());
+				if self.files_to_update.contains_key(&path) {
+					if let Some(old_instant) =
+						self.files_to_update.insert(path.clone(), Instant::now())
+					{
+						self.reincident_to_update_files
+							.entry(path)
+							.or_insert(old_instant);
+					}
+				} else {
+					self.files_to_update.insert(path, Instant::now());
 				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
@@ -195,7 +209,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			}
 			EventKind::Remove(_) => {
 				let path = paths.remove(0);
-				self.to_remove_files.insert(
+				self.files_to_remove.insert(
 					extract_inode_and_device_from_path(self.location_id, &path, self.library)
 						.await?,
 					(Instant::now(), path),
@@ -211,15 +225,11 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 	}
 
 	async fn tick(&mut self) {
-		// Cleaning out recently created files that are older than 1 second
-		if self.last_check_recently_files.elapsed() > ONE_SECOND {
-			self.last_check_recently_files = Instant::now();
-			self.recently_created_files
-				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
-		}
+		if self.last_events_eviction_check.elapsed() > HUNDRED_MILLIS {
+			if let Err(e) = self.handle_to_update_eviction().await {
+				error!("Error while handling recently created or update files eviction: {e:#?}");
+			}
 
-		if self.last_check_rename_update_and_remove.elapsed() > HUNDRED_MILLIS {
-			self.last_check_rename_update_and_remove = Instant::now();
 			self.rename_from_map.retain(|_, (created_at, path)| {
 				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
 				if !to_retain {
@@ -234,59 +244,82 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				}
 				to_retain
 			});
-			self.handle_updates_eviction().await;
-			self.handle_removes_eviction().await;
+
+			if let Err(e) = self.handle_removes_eviction().await {
+				error!("Failed to remove file_path: {e:#?}");
+			}
+
+			self.last_events_eviction_check = Instant::now();
 		}
 	}
 }
 
 impl WindowsEventHandler<'_> {
-	async fn handle_updates_eviction(&mut self) {
-		self.updates_buffer.clear();
+	async fn handle_to_update_eviction(&mut self) -> Result<(), LocationManagerError> {
+		self.files_to_update_buffer.clear();
+		let mut should_invalidate = false;
 
-		for (path, instant) in self.to_update_files.drain() {
-			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) =
-					handle_update(self.location_id, &path, self.node, self.library).await
-				{
-					error!("Failed to update file_path: {e}");
-				} else {
-					trace!(
-						"Removed file_path from updates due timeout: {}",
-						path.display()
-					);
-					invalidate_query!(self.library, "search.paths");
-				}
+		for (path, created_at) in self.files_to_update.drain() {
+			if created_at.elapsed() < HUNDRED_MILLIS * 5 {
+				self.files_to_update_buffer.push((path, created_at));
 			} else {
-				self.updates_buffer.push((path, instant));
+				self.reincident_to_update_files.remove(&path);
+				handle_update(self.location_id, &path, self.node, self.library).await?;
+				should_invalidate = true;
 			}
 		}
 
-		for (key, value) in self.updates_buffer.drain(..) {
-			self.to_update_files.insert(key, value);
+		self.files_to_update
+			.extend(self.files_to_update_buffer.drain(..));
+
+		self.files_to_update_buffer.clear();
+
+		// We have to check if we have any reincident files to update and update them after a bigger
+		// timeout, this way we keep track of files being update frequently enough to bypass our
+		// eviction check above
+		for (path, created_at) in self.reincident_to_update_files.drain() {
+			if created_at.elapsed() < ONE_SECOND * 10 {
+				self.files_to_update_buffer.push((path, created_at));
+			} else {
+				self.files_to_update.remove(&path);
+				handle_update(self.location_id, &path, self.node, self.library).await?;
+				should_invalidate = true;
+			}
 		}
+
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
+		}
+
+		self.reincident_to_update_files
+			.extend(self.files_to_update_buffer.drain(..));
+
+		Ok(())
 	}
 
-	async fn handle_removes_eviction(&mut self) {
-		self.removal_buffer.clear();
+	async fn handle_removes_eviction(&mut self) -> Result<(), LocationManagerError> {
+		self.files_to_remove_buffer.clear();
+		let mut should_invalidate = false;
 
-		for (inode_and_device, (instant, path)) in self.to_remove_files.drain() {
+		for (inode_and_device, (instant, path)) in self.files_to_remove.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = remove(self.location_id, &path, self.library).await {
-					error!("Failed to remove file_path: {e}");
-				} else {
-					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				remove(self.location_id, &path, self.library).await?;
+				should_invalidate = true;
+				trace!("Removed file_path due timeout: {}", path.display());
 			} else {
-				self.removal_buffer
+				self.files_to_remove_buffer
 					.push((inode_and_device, (instant, path)));
 			}
 		}
-
-		for (key, value) in self.removal_buffer.drain(..) {
-			self.to_remove_files.insert(key, value);
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
 		}
+
+		for (key, value) in self.files_to_remove_buffer.drain(..) {
+			self.files_to_remove.insert(key, value);
+		}
+
+		Ok(())
 	}
 }
 
