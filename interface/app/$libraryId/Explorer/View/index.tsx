@@ -25,6 +25,7 @@ import {
 	useLibraryMutation
 } from '@sd/client';
 import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
+import { Loader } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
@@ -32,6 +33,7 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
 import { useExplorerConfigStore } from '../config';
 import { getExplorerStore } from '../store';
@@ -57,9 +59,16 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
 	const onDoubleClick = async () => {
-		const selectedItems = [...explorer.selectedItems].reduce(
-			(items, item) => {
+		const selectedItems = [...explorer.selectedItems];
+
+		if (!isNonEmpty(selectedItems)) return;
+
+		let itemIndex = 0;
+		const items = selectedItems.reduce(
+			(items, item, i) => {
 				const sameAsClicked = uniqueId(data) === uniqueId(item);
+
+				if (sameAsClicked) itemIndex = i;
 
 				switch (item.type) {
 					case 'Location': {
@@ -99,32 +108,31 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			}
 		);
 
-		if (selectedItems.paths.length > 0 && !explorerView.isRenaming) {
+		if (items.paths.length > 0 && !explorerView.isRenaming) {
 			if (explorerConfig.openOnDoubleClick && openFilePaths) {
 				updateAccessTime
-					.mutateAsync(
-						selectedItems.paths.map(({ object_id }) => object_id!).filter(Boolean)
-					)
+					.mutateAsync(items.paths.map(({ object_id }) => object_id!).filter(Boolean))
 					.catch(console.error);
 
 				try {
 					await openFilePaths(
 						library.uuid,
-						selectedItems.paths.map(({ id }) => id)
+						items.paths.map(({ id }) => id)
 					);
 				} catch (error) {
 					toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
 				}
 			} else if (!explorerConfig.openOnDoubleClick) {
 				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
-					getExplorerStore().quickViewObject = data;
+					getQuickPreviewStore().itemIndex = itemIndex;
+					getQuickPreviewStore().open = true;
 					return;
 				}
 			}
 		}
 
-		if (selectedItems.dirs.length > 0) {
-			const [item] = selectedItems.dirs;
+		if (items.dirs.length > 0) {
+			const [item] = items.dirs;
 			if (item) {
 				navigate({
 					pathname: `../location/${item.location_id}`,
@@ -136,8 +144,8 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			}
 		}
 
-		if (selectedItems.locations.length > 0) {
-			const [location] = selectedItems.locations;
+		if (items.locations.length > 0) {
+			const [location] = items.locations;
 			if (location) {
 				navigate({
 					pathname: `../location/${location.id}`,
@@ -149,8 +157,8 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 			}
 		}
 
-		if (selectedItems.non_indexed.length > 0) {
-			const [non_indexed] = selectedItems.non_indexed;
+		if (items.non_indexed.length > 0) {
+			const [non_indexed] = items.non_indexed;
 			if (non_indexed) {
 				navigate({
 					search: createSearchParams({ path: non_indexed.path }).toString()
@@ -189,8 +197,9 @@ export interface ExplorerViewProps
 
 export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const explorer = useExplorerContext();
+	const quickPreviewStore = useQuickPreviewStore();
 
-	const quickPreviewCtx = useQuickPreviewContext();
+	const quickPreview = useQuickPreviewContext();
 
 	const { layoutMode } = explorer.useSettingsSnapshot();
 
@@ -198,21 +207,18 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 	const [isRenaming, setIsRenaming] = useState(false);
+	const [showLoading, setShowLoading] = useState(false);
 
 	useKeyDownHandlers({
-		isRenaming
+		disabled: isRenaming || quickPreviewStore.open
 	});
 
 	useEffect(() => {
-		// using .next() is not great
-		const explorerStore = getExplorerStore();
-		const selectedItem = explorer.selectedItems.values().next().value as
-			| ExplorerItem
-			| undefined;
-		if (explorerStore.quickViewObject != null && selectedItem) {
-			explorerStore.quickViewObject = selectedItem;
-		}
-	}, [explorer.selectedItems]);
+		if (explorer.isFetchingNextPage) {
+			const timer = setTimeout(() => setShowLoading(true), 100);
+			return () => clearTimeout(timer);
+		} else setShowLoading(false);
+	}, [explorer.isFetchingNextPage]);
 
 	return (
 		<>
@@ -228,27 +234,32 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 			>
 				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 					<ViewContext.Provider
-						value={
-							{
-								...contextProps,
-								selectable:
-									explorer.selectable && !isContextMenuOpen && !isRenaming,
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
-								ref
-							} as ExplorerViewContext
-						}
+						value={{
+							...contextProps,
+							selectable:
+								explorer.selectable &&
+								!isContextMenuOpen &&
+								!isRenaming &&
+								!quickPreviewStore.open,
+							setIsContextMenuOpen,
+							isRenaming,
+							setIsRenaming,
+							ref
+						}}
 					>
 						{layoutMode === 'grid' && <GridView />}
 						{layoutMode === 'list' && <ListView />}
 						{layoutMode === 'media' && <MediaView />}
+						{showLoading && (
+							<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
+						)}
 					</ViewContext.Provider>
 				) : (
 					emptyNotice
 				)}
 			</div>
-			{quickPreviewCtx.ref && createPortal(<QuickPreview />, quickPreviewCtx.ref)}
+
+			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
 		</>
 	);
 });
@@ -284,7 +295,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	);
 };
 
-const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
+const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	const explorer = useExplorerContext();
 
 	const os = useOperatingSystem();
@@ -316,7 +327,7 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	const handleOpenShortcut = useCallback(
 		async (event: KeyboardEvent) => {
 			if (
-				event.code.toUpperCase() !== 'O' ||
+				event.key.toUpperCase() !== 'O' ||
 				!event.getModifierState(
 					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
 				) ||
@@ -345,22 +356,6 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 		[os, library.uuid, openFilePaths, explorer.selectedItems]
 	);
 
-	const handleOpenQuickPreview = useCallback(
-		async (event: KeyboardEvent) => {
-			if (event.key !== ' ') return;
-			if (!getExplorerStore().quickViewObject) {
-				// ENG-973 - Don't use Set -> Array -> First Item
-				const items = [...explorer.selectedItems];
-				if (!isNonEmpty(items)) return;
-
-				getExplorerStore().quickViewObject = items[0];
-			} else {
-				getExplorerStore().quickViewObject = null;
-			}
-		},
-		[explorer.selectedItems]
-	);
-
 	const handleExplorerShortcut = useCallback(
 		(event: KeyboardEvent) => {
 			if (
@@ -375,23 +370,12 @@ const useKeyDownHandlers = ({ isRenaming }: { isRenaming: boolean }) => {
 	);
 
 	useEffect(() => {
-		const handlers = [
-			handleNewTag,
-			handleOpenShortcut,
-			handleOpenQuickPreview,
-			handleExplorerShortcut
-		];
+		const handlers = [handleNewTag, handleOpenShortcut, handleExplorerShortcut];
 		const handler = (event: KeyboardEvent) => {
-			if (isRenaming) return;
+			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [
-		isRenaming,
-		handleNewTag,
-		handleOpenShortcut,
-		handleOpenQuickPreview,
-		handleExplorerShortcut
-	]);
+	}, [disabled, handleNewTag, handleOpenShortcut, handleExplorerShortcut]);
 };

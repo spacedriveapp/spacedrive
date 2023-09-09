@@ -8,11 +8,12 @@ export interface TooltipProps extends PropsWithChildren {
 	className?: string;
 	tooltipClassName?: string;
 	asChild?: boolean;
+	hoverable?: boolean;
 }
 
-export const Tooltip = ({ position = 'bottom', ...props }: TooltipProps) => {
+export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: TooltipProps) => {
 	return (
-		<TooltipPrimitive.Provider>
+		<TooltipPrimitive.Provider disableHoverableContent={!hoverable}>
 			<TooltipPrimitive.Root>
 				<TooltipPrimitive.Trigger asChild>
 					{props.asChild ? (
@@ -26,7 +27,7 @@ export const Tooltip = ({ position = 'bottom', ...props }: TooltipProps) => {
 						<TooltipPrimitive.Content
 							side={position}
 							className={clsx(
-								'z-50 max-w-[200px] break-words rounded bg-black px-2 py-1 text-center text-xs text-white',
+								'z-50 max-w-[200px] select-text break-words rounded bg-black px-2 py-1 text-center text-xs text-white',
 								props.tooltipClassName
 							)}
 						>

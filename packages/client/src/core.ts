@@ -267,7 +267,7 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  * It is important to note that only the indexer rule ids in this vector will be used from now on.
  * Old rules that aren't in this vector will be purged.
  */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
@@ -331,7 +331,7 @@ export type OptionalRange<T> = { from: T | null; to: T | null }
 
 export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 
-export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVertical" | "MirroredHorizontalAnd270CW" | "MirroredHorizontalAnd90CW" | "CW180" | "CW270"
+export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
 
 /**
  * TODO: P2P event for the frontend

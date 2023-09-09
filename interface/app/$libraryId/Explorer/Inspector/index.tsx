@@ -41,6 +41,7 @@ import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerStore } from '../store';
 import { uniqueId, useExplorerItemData } from '../util';
 import FavoriteButton from './FavoriteButton';
@@ -48,10 +49,10 @@ import MediaData from './MediaData';
 import Note from './Note';
 
 export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
-export const PlaceholderPill = tw.span`inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
+export const PlaceholderPill = tw.span`cursor-default inline border px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
 
 export const MetaContainer = tw.div`flex flex-col px-4 py-2 gap-1`;
-export const MetaTitle = tw.h5`text-xs font-bold`;
+export const MetaTitle = tw.h5`text-xs font-bold text-ink`;
 
 export const INSPECTOR_WIDTH = 260;
 
@@ -113,7 +114,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 );
 
 const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
-	const explorerStore = useExplorerStore();
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const lastThreeItems = items.slice(-3).reverse();
 
@@ -128,7 +129,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 					blackBars={thumbs.length === 1}
 					blackBarsSize={16}
 					extension={thumbs.length > 1}
-					pauseVideo={!!explorerStore.quickViewObject || thumbs.length > 1}
+					pauseVideo={quickPreviewStore.open || thumbs.length > 1}
 					className={clsx(
 						thumbs.length > 1 && '!absolute',
 						i === 0 && thumbs.length > 1 && 'z-30 !h-[76%] !w-[76%]',
@@ -146,7 +147,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 	);
 };
 
-const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
+export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const objectData = getItemObject(item);
 	const readyToFetch = useIsFetchReady(item);
 	const isNonIndexed = item.type === 'NonIndexedPath';
@@ -197,13 +198,13 @@ const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	return (
 		<>
-			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold">
+			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
 				{name}
 				{extension && `.${extension}`}
 			</h3>
 
 			{objectData && (
-				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5">
+				<div className="mx-3 mb-0.5 mt-1 flex flex-row space-x-0.5 text-ink">
 					<Tooltip label="Favorite">
 						<FavoriteButton data={objectData} />
 					</Tooltip>
@@ -448,15 +449,16 @@ interface MetaDataProps {
 	icon?: Icon;
 	label: string;
 	value: ReactNode;
+	tooltipValue?: ReactNode;
 	onClick?: () => void;
 }
 
-export const MetaData = ({ icon: Icon, label, value, onClick }: MetaDataProps) => {
+export const MetaData = ({ icon: Icon, label, value, tooltipValue, onClick }: MetaDataProps) => {
 	return (
 		<div className="flex items-center text-xs text-ink-dull" onClick={onClick}>
 			{Icon && <Icon weight="bold" className="mr-2 shrink-0" />}
 			<span className="mr-2 flex-1 whitespace-nowrap">{label}</span>
-			<Tooltip label={value} asChild>
+			<Tooltip label={tooltipValue || value} asChild>
 				<span className="truncate break-all text-ink">{value ?? '--'}</span>
 			</Tooltip>
 		</div>

@@ -47,7 +47,7 @@ export const Component = () => {
 					className={settings.layoutMode === 'list' ? 'min-w-0' : undefined}
 					contextMenu={
 						<ContextMenu>
-							{() => <Conditional items={[ObjectItems.RemoveFromRecents]} />}
+							<Conditional items={[ObjectItems.RemoveFromRecents]} />
 						</ContextMenu>
 					}
 					emptyNotice={
