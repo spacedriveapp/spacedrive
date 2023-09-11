@@ -98,7 +98,7 @@ export default function HomePage() {
 		<PageWrapper>
 			<div className="flex w-full flex-col items-center px-4">
 				<Head>
-					<title>Spacedrive — A file manager from the future.</title>
+					<title>Spacedrive — A file explorer from the future.</title>
 					<meta
 						name="description"
 						content="Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized."

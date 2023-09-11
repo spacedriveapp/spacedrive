@@ -71,7 +71,7 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			{/* Description */}
 			<FadeInUpAnimation delay={800} style={tw`mt-8`}>
 				<OnboardingDescription style={tw`px-4`}>
-					Welcome to Spacedrive, an open source cross-platform file manager.
+					Welcome to Spacedrive, an open source cross-platform file explorer.
 				</OnboardingDescription>
 			</FadeInUpAnimation>
 			{/* Get Started Button */}

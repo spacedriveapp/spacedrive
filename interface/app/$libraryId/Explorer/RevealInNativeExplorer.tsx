@@ -23,7 +23,7 @@ export const RevealInNativeExplorerBase = (props: { items: RevealItems }) => {
 	const { revealItems } = usePlatform();
 	if (!revealItems) return null;
 
-	const osFileBrowserName = lookup[os] ?? 'file manager';
+	const osFileBrowserName = lookup[os] ?? 'file explorer';
 
 	return (
 		<Menu.Item
