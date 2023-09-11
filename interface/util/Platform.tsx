@@ -1,4 +1,4 @@
-import { type PropsWithChildren, createContext, useContext } from 'react';
+import { createContext, useContext, type PropsWithChildren } from 'react';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 

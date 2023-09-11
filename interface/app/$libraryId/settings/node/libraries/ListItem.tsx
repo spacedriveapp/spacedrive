@@ -1,7 +1,8 @@
 import { Database, Database_Light } from '@sd/assets/icons';
-import { Pencil, Trash } from 'phosphor-react';
+import { Pencil, Trash } from '@phosphor-icons/react';
 import { LibraryConfigWrapped } from '@sd/client';
-import { Button, ButtonLink, Card, Tooltip, dialogManager } from '@sd/ui';
+import { Button, ButtonLink, Card, dialogManager, Tooltip } from '@sd/ui';
+
 import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
 

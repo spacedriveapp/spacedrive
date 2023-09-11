@@ -1,4 +1,4 @@
-import { type ReactNode, type RefObject, createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode, type RefObject } from 'react';
 
 export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;

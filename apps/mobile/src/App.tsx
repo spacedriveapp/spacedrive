@@ -18,17 +18,18 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
+	initPlausible,
 	LibraryContextProvider,
 	NotificationContextProvider,
 	P2PContextProvider,
 	RspcProvider,
-	initPlausible,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
 	usePlausiblePageViewMonitor,
 	usePlausiblePingMonitor
 } from '@sd/client';
+
 import { GlobalModals } from './components/modal/GlobalModals';
 import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';

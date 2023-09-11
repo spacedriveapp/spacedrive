@@ -1,4 +1,4 @@
-// import { Spinner } from 'phosphor-react';
+// import { Spinner } from '@phosphor-icons/react';
 // import { useState } from 'react';
 // import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 // import { Button, PasswordInput } from '@sd/ui';

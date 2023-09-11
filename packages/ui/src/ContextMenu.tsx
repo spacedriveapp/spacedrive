@@ -1,8 +1,8 @@
 import * as RadixCM from '@radix-ui/react-context-menu';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretRight, Icon, IconProps } from 'phosphor-react';
-import { ContextType, PropsWithChildren, Suspense, createContext, useContext } from 'react';
+import { CaretRight, Icon, IconProps } from '@phosphor-icons/react';
+import { ContextType, createContext, PropsWithChildren, Suspense, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
