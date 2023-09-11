@@ -1,18 +1,19 @@
-import { MagnifyingGlass } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
+import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import { FilePathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
-import { type SearchParams, SearchParamsSchema } from '~/app/route-schemas';
+
+import { SearchParamsSchema, type SearchParams } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
-import { EmptyNotice } from './Explorer/View';
 import {
 	createDefaultExplorerSettings,
 	filePathOrderingKeysSchema,
 	getExplorerStore
 } from './Explorer/store';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
+import { EmptyNotice } from './Explorer/View';
 import { TopBarPortal } from './TopBar/Portal';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {

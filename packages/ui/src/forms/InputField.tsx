@@ -5,8 +5,9 @@ import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
+
 import * as Root from '../Input';
-import { FormField, UseFormFieldProps, useFormField } from './FormField';
+import { FormField, useFormField, UseFormFieldProps } from './FormField';
 
 export interface InputFieldProps extends UseFormFieldProps, Root.InputProps {
 	name: string;

@@ -1,9 +1,10 @@
-import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+
+import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';
 import NewLibraryScreen from '~/screens/onboarding/NewLibrary';
 import PrivacyScreen from '~/screens/onboarding/Privacy';
-import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
 
 const OnboardingStack = createStackNavigator<OnboardingStackParamList>();
 

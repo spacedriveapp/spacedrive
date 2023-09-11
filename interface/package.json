@@ -46,7 +46,7 @@
 		"dayjs": "^1.11.8",
 		"dragselect": "^2.7.4",
 		"framer-motion": "^10.11.5",
-		"phosphor-react": "^1.4.1",
+		"@phosphor-icons/react": "^2.0.10",
 		"prismjs": "^1.29.0",
 		"react": "^18.2.0",
 		"react-colorful": "^5.6.1",

@@ -1,9 +1,10 @@
 import { MaybeUndefined, useBridgeMutation, useLibraryContext, useZodForm } from '@sd/client';
-import { Button, Form, InputField, Switch, Tooltip, dialogManager, z } from '@sd/ui';
+import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
+
 import { useDebouncedFormWatch } from '~/hooks';
 import { Heading } from '../Layout';
-import Setting from '../Setting';
 import DeleteLibraryDialog from '../node/libraries/DeleteDialog';
+import Setting from '../Setting';
 
 const schema = z.object({
 	id: z.string(),
