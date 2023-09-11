@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useZodForm } from '@sd/client';
-import { Dialog, TextAreaField, UseDialogProps, toast, useDialog, z } from '@sd/ui';
+import { Dialog, TextAreaField, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 
 const schema = z.object({
 	feedback: z.string().min(1, { message: 'Feedback is required' }),

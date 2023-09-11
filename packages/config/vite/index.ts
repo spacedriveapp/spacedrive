@@ -4,6 +4,7 @@ import { comlink } from 'vite-plugin-comlink';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
+
 import relativeAliasResolver from './relativeAliasResolver';
 
 export default defineConfig({

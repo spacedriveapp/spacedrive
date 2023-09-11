@@ -3,12 +3,13 @@ import clsx from 'clsx';
 import { Navigate, Outlet } from 'react-router';
 import { useDebugState } from '@sd/client';
 import { tw } from '@sd/ui';
+
 import DragRegion from '~/components/DragRegion';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import DebugPopover from '../$libraryId/Layout/Sidebar/DebugPopover';
 import { macOnly } from '../$libraryId/Layout/Sidebar/helpers';
-import Progress from './Progress';
 import { OnboardingContext, useContextValue } from './context';
+import Progress from './Progress';
 
 export const OnboardingContainer = tw.div`flex flex-col items-center`;
 export const OnboardingTitle = tw.h2`mb-2 text-3xl font-bold`;

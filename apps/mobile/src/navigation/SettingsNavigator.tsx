@@ -1,6 +1,6 @@
-import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+
 import { tw } from '~/lib/tailwind';
-import SettingsScreen from '~/screens/settings/Settings';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -15,6 +15,7 @@ import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGene
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
+import SettingsScreen from '~/screens/settings/Settings';
 
 const SettingsStack = createStackNavigator<SettingsStackParamList>();
 

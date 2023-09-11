@@ -14,28 +14,29 @@ import {
 	Lock,
 	Path,
 	Snowflake
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
 import {
-	type HTMLAttributes,
-	type ReactNode,
 	forwardRef,
 	useCallback,
 	useEffect,
 	useMemo,
-	useState
+	useState,
+	type HTMLAttributes,
+	type ReactNode
 } from 'react';
 import {
-	type ExplorerItem,
-	ObjectKindEnum,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemObject,
+	ObjectKindEnum,
 	useBridgeQuery,
 	useItemsAsObjects,
-	useLibraryQuery
+	useLibraryQuery,
+	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark } from '~/hooks';
 import { isNonEmpty } from '~/util';

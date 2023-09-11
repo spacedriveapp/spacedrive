@@ -1,9 +1,10 @@
-import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { Menu, Transition } from '@headlessui/react';
-import { VariantProps, cva } from 'class-variance-authority';
+import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Fragment, PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
+
 import * as UI from '.';
 import { tw } from './utils';
 

@@ -1,4 +1,5 @@
 import { MediaLocation, MediaMetadata, MediaTime, Orientation } from '@sd/client';
+
 import Accordion from '~/components/Accordion';
 import { usePlatform } from '~/util/Platform';
 import { MetaData } from './index';

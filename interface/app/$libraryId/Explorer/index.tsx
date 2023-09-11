@@ -1,15 +1,16 @@
-import { FolderNotchOpen } from 'phosphor-react';
-import { type PropsWithChildren, type ReactNode, useEffect } from 'react';
+import { FolderNotchOpen } from '@phosphor-icons/react';
+import { useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import { useLibrarySubscription } from '@sd/client';
+
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
-import { INSPECTOR_WIDTH, Inspector } from './Inspector';
+import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
+import View, { EmptyNotice, ExplorerViewProps } from './View';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];

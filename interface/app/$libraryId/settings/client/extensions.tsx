@@ -1,4 +1,5 @@
 import { Button, Card, GridLayout, SearchInput } from '@sd/ui';
+
 import { Heading } from '../Layout';
 
 // extensions should cache their logos in the app data folder

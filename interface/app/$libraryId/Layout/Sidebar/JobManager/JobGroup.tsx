@@ -2,15 +2,14 @@ import { Folder } from '@sd/assets/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Eye, Pause, Play, Stop } from 'phosphor-react';
-import { Trash } from 'phosphor-react';
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from 'phosphor-react';
 import { useMemo, useState } from 'react';
 import {
+	getJobNiceActionName,
+	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
 	JobReport,
-	getJobNiceActionName,
-	getTotalTasks,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
