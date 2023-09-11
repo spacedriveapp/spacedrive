@@ -47,11 +47,12 @@ impl PlusCodeState {
 impl PlusCode {
 	#[inline]
 	#[must_use]
+	#[allow(clippy::tuple_array_conversions)]
 	pub fn new(lat: f64, long: f64) -> Self {
 		let mut output = Self::encode_coordinates(Self::normalize_lat(lat))
 			.into_iter()
 			.zip(Self::encode_coordinates(Self::normalize_long(long)))
-			.flat_map(<[char; 2]>::from)
+			.flat_map(|(x, y)| [x, y])
 			.collect::<String>();
 		output.insert(8, '+');
 
@@ -98,19 +99,42 @@ impl PlusCode {
 impl TryFrom<String> for PlusCode {
 	type Error = Error;
 
-	fn try_from(mut value: String) -> Result<Self, Self::Error> {
-		value.retain(|c| !c.is_whitespace());
+	fn try_from(value: String) -> Result<Self, Self::Error> {
+		let mut pc_value = value.clone();
+		pc_value.retain(|c| !c.is_whitespace());
 
-		if value.len() > 11
-			|| value.len() < 2
-			|| (value.len() < 8 && !value.contains('+'))
-			|| PLUSCODE_DIGITS
-				.iter()
-				.any(|x| value.chars().any(|y| y != '+' && x != &y))
+		if pc_value.len() > 11 {
+			pc_value.truncate(11);
+		}
+
+		if pc_value.len() < 2
+			|| (pc_value.len() < 8 && pc_value.chars().nth(7) != Some('+'))
+			// this covers Google's shorter format
+			|| (pc_value.len() == 7 && pc_value.chars().nth(4) != Some('+'))
+		|| PLUSCODE_DIGITS
+			.iter()
+			.any(|x| pc_value.chars().any(|y| y != '+' && x != &y))
 		{
 			return Err(Error::Conversion);
 		}
 
 		Ok(Self(value))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::PlusCode;
+
+	#[test]
+	fn pluscode_maximum_precision() {
+		let x = String::from("8FW4V74V+X8");
+		PlusCode::try_from(x).unwrap();
+	}
+
+	#[test]
+	fn pluscode_google() {
+		let x = String::from("WR2C+2C Bibra Lake");
+		PlusCode::try_from(x).unwrap();
 	}
 }
