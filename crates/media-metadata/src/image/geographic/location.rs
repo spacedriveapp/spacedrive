@@ -1,31 +1,28 @@
-use super::{
-	consts::{DECIMAL_SF, DMS_DIVISION},
-	ExifReader,
+use crate::{
+	image::{
+		consts::{
+			ALT_MAX_HEIGHT, ALT_MIN_HEIGHT, DECIMAL_SF, DIRECTION_MAX, DMS_DIVISION, LAT_MAX_POS,
+			LONG_MAX_POS,
+		},
+		ExifReader, PlusCode,
+	},
+	Error, Result,
 };
-use crate::{Error, Result};
 use exif::Tag;
-use std::{fmt::Display, ops::Neg};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use std::ops::Neg;
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct MediaLocation {
 	latitude: f64,
 	longitude: f64,
+	pluscode: PlusCode,
 	altitude: Option<i32>,
 	direction: Option<i32>, // the direction that the image was taken in, as a bearing (should always be <= 0 && <= 360)
 }
 
-const LAT_MAX_POS: f64 = 90_f64;
-const LONG_MAX_POS: f64 = 180_f64;
-
 impl MediaLocation {
-	/// This is used to clamp and format coordinates. They are rounded to 8 significant figures after the decimal point.
-	///
-	/// `max` must be a positive `f64`, and it should be the maximum distance allowed (e.g. 90 or 180 degrees)
-	#[must_use]
-	fn format_coordinate(v: f64, max: f64) -> f64 {
-		(v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF
-	}
-
 	/// Create a new [`MediaLocation`] from a latitude and longitude pair.
 	///
 	/// Both of the provided values will be rounded to 8 digits after the decimal point ([`DECIMAL_SF`]),
@@ -41,10 +38,14 @@ impl MediaLocation {
 	pub fn new(lat: f64, long: f64, altitude: Option<i32>, direction: Option<i32>) -> Self {
 		let latitude = Self::format_coordinate(lat, LAT_MAX_POS);
 		let longitude = Self::format_coordinate(long, LONG_MAX_POS);
+		let altitude = altitude.map(Self::format_altitude);
+		let direction = direction.map(Self::format_direction);
+		let pluscode = PlusCode::new(latitude, longitude);
 
 		Self {
 			latitude,
 			longitude,
+			pluscode,
 			altitude,
 			direction,
 		}
@@ -79,9 +80,7 @@ impl MediaLocation {
 		.filter_map(|(item, reference)| {
 			let mut item: String = item.unwrap_or_default();
 			let reference: String = reference.unwrap_or_default();
-			item.retain(|x| {
-				x.is_numeric() || x.is_whitespace() || x == '.' || x == '/' || x == '-'
-			});
+			item.retain(|x| x.is_numeric() || x.is_whitespace() || x == '.');
 			let i = item
 				.split_whitespace()
 				.filter_map(|x| x.parse::<f64>().ok());
@@ -100,15 +99,69 @@ impl MediaLocation {
 				Self::new(
 					Self::format_coordinate(res[0], LAT_MAX_POS),
 					Self::format_coordinate(res[1], LONG_MAX_POS),
-					reader.get_tag(Tag::GPSAltitude),
+					reader.get_tag(Tag::GPSAltitude).map(Self::format_altitude),
 					reader
 						.get_tag(Tag::GPSImgDirection)
-						.map(|x: i32| x.clamp(0, 360)),
+						.map(Self::format_direction),
 				)
 			})
 			.ok_or(Error::MediaLocationParse)
 	}
 
+	#[must_use]
+	pub fn generate() -> Self {
+		let mut rng = ChaCha20Rng::from_entropy();
+		let latitude = rng.gen_range(-LAT_MAX_POS..=LAT_MAX_POS);
+		let longitude = rng.gen_range(-LONG_MAX_POS..=LONG_MAX_POS);
+
+		let pluscode = PlusCode::new(latitude, longitude);
+
+		let altitude = Some(rng.gen_range(ALT_MIN_HEIGHT..=ALT_MAX_HEIGHT));
+		let direction = Some(rng.gen_range(0..=DIRECTION_MAX));
+
+		Self {
+			latitude,
+			longitude,
+			pluscode,
+			altitude,
+			direction,
+		}
+	}
+
+	/// This returns the contained coordinates as `(latitude, longitude)`
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sd_media_metadata::image::MediaLocation;
+	///
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
+	/// assert_eq!(home.coordinates(), (38.89767633, -7.36560353));
+	/// ```
+	#[inline]
+	#[must_use]
+	pub const fn coordinates(&self) -> (f64, f64) {
+		(self.latitude, self.longitude)
+	}
+
+	/// This returns the contained Plus Code/Open Location Code
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sd_media_metadata::image::MediaLocation;
+	///
+	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
+	/// assert_eq!(home.pluscode().to_string(), "894HFGG5+82".to_string());
+	/// ```
+	#[inline]
+	#[must_use]
+	pub fn pluscode(&self) -> PlusCode {
+		self.pluscode.clone()
+	}
+
+	/// This also re-generates the Plus Code for your coordinates
+	///
 	/// # Examples
 	///
 	/// ```
@@ -117,10 +170,14 @@ impl MediaLocation {
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_latitude(60_f64);
 	/// ```
+	#[inline]
 	pub fn update_latitude(&mut self, lat: f64) {
 		self.latitude = Self::format_coordinate(lat, LAT_MAX_POS);
+		self.pluscode = PlusCode::new(self.latitude, self.longitude);
 	}
 
+	/// This also re-generates the Plus Code for your coordinates
+	///
 	/// # Examples
 	///
 	/// ```
@@ -129,8 +186,10 @@ impl MediaLocation {
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_longitude(20_f64);
 	/// ```
+	#[inline]
 	pub fn update_longitude(&mut self, long: f64) {
 		self.longitude = Self::format_coordinate(long, LONG_MAX_POS);
+		self.pluscode = PlusCode::new(self.latitude, self.longitude);
 	}
 
 	/// # Examples
@@ -141,8 +200,9 @@ impl MediaLocation {
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_altitude(20);
 	/// ```
+	#[inline]
 	pub fn update_altitude(&mut self, altitude: i32) {
-		self.altitude = Some(altitude);
+		self.altitude = Some(Self::format_altitude(altitude));
 	}
 
 	/// # Examples
@@ -153,8 +213,32 @@ impl MediaLocation {
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_direction(233);
 	/// ```
-	pub fn update_direction(&mut self, bearing: i32) {
-		self.direction = Some(bearing.clamp(0, 360));
+	#[inline]
+	pub fn update_direction(&mut self, direction: i32) {
+		self.direction = Some(Self::format_direction(direction));
+	}
+
+	/// This is used to clamp and format coordinates. They are rounded to 8 significant figures after the decimal point.
+	///
+	/// `max` must positive, and it should be the maximum distance allowed (e.g. 180 degrees)
+	#[inline]
+	#[must_use]
+	fn format_coordinate(v: f64, max: f64) -> f64 {
+		(v.clamp(max.neg(), max) * DECIMAL_SF).round() / DECIMAL_SF
+	}
+
+	/// This is used to clamp altitudes to appropriate values.
+	#[inline]
+	#[must_use]
+	fn format_altitude(v: i32) -> i32 {
+		v.clamp(ALT_MIN_HEIGHT, ALT_MAX_HEIGHT)
+	}
+
+	/// This is used to ensure an image direction/bearing is a valid bearing (anywhere from 0-360 degrees).
+	#[inline]
+	#[must_use]
+	fn format_direction(v: i32) -> i32 {
+		v.clamp(0, DIRECTION_MAX)
 	}
 }
 
@@ -169,13 +253,12 @@ impl TryFrom<String> for MediaLocation {
 	/// use sd_media_metadata::image::MediaLocation;
 	///
 	/// let s = String::from("32.47583923, -28.49238495");
-	/// MediaLocation::try_from(s).unwrap();
-	///
+	/// let location = MediaLocation::try_from(s).unwrap();
+	/// assert_eq!(location.to_string(), "32.47583923, -28.49238495".to_string());
 	/// ```
-	fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-		let iter = value
-			.split_terminator(", ")
-			.filter_map(|x| x.parse::<f64>().ok());
+	fn try_from(mut value: String) -> std::result::Result<Self, Self::Error> {
+		value.retain(|c| !c.is_whitespace() || c.is_numeric() || c == '-' || c == '.');
+		let iter = value.split(',').filter_map(|x| x.parse::<f64>().ok());
 		if iter.clone().count() == 2 {
 			let items = iter.collect::<Vec<_>>();
 			Ok(Self::new(
@@ -187,11 +270,5 @@ impl TryFrom<String> for MediaLocation {
 		} else {
 			Err(Error::Conversion)
 		}
-	}
-}
-
-impl Display for MediaLocation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_fmt(format_args!("{}, {}", self.latitude, self.longitude))
 	}
 }

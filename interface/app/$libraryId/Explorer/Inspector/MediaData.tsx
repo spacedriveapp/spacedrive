@@ -49,12 +49,37 @@ function MediaData({ data }: Props) {
 							<a
 								onClick={(e) => {
 									e.preventDefault();
-									platform.openLink(
-										`https://www.google.com/maps/search/?api=1&query=${data.location?.latitude}%2c${data.location?.longitude}`
-									);
+									if (data.location)
+										platform.openLink(
+											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+												data.location.latitude
+											)}%2c${encodeURIComponent(data.location.longitude)}`
+										);
 								}}
 							>
 								{formatLocation(data.location, 3)}
+							</a>
+						) : (
+							'--'
+						)
+					}
+				/>
+				<MetaData
+					label="Plus Code"
+					value={
+						data.location?.pluscode ? (
+							<a
+								onClick={(e) => {
+									e.preventDefault();
+									if (data.location)
+										platform.openLink(
+											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+												data.location.pluscode
+											)}`
+										);
+								}}
+							>
+								{data.location?.pluscode}
 							</a>
 						) : (
 							'--'
@@ -78,7 +103,7 @@ function MediaData({ data }: Props) {
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
-				<MetaData label="Zoom" value={data.camera_data.zoom} />
+				<MetaData label="Zoom" value={data.camera_data.zoom?.toFixed(2)} />
 				<MetaData label="Iso" value={data.camera_data.iso} />
 				<MetaData label="Software" value={data.camera_data.software} />
 			</Accordion>
