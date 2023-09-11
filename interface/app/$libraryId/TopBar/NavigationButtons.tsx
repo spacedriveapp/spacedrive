@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
+
 import { useSearchStore } from '~/hooks';
 import TopBarButton from './TopBarButton';
 

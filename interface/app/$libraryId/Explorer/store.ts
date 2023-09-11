@@ -3,12 +3,12 @@ import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
+	resetStore,
 	type DoubleClickAction,
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
-	type SortOrder,
-	resetStore
+	type SortOrder
 } from '@sd/client';
 
 export enum ExplorerKind {

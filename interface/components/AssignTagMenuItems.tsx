@@ -3,7 +3,8 @@ import clsx from 'clsx';
 import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
 import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
-import { ModifierKeys, dialogManager } from '@sd/ui';
+import { dialogManager, ModifierKeys } from '@sd/ui';
+
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';

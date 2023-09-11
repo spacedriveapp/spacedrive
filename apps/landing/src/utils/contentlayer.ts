@@ -1,5 +1,6 @@
 import { Doc, DocumentTypes } from '@contentlayer/generated';
 import { Circle, Cube, Icon, Sparkle, Star } from 'phosphor-react';
+
 import { toTitleCase } from './util';
 
 type DocsCategory = {

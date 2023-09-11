@@ -3,6 +3,7 @@ import { Discord, Github } from '@sd/assets/svgs/brands';
 import { Globe } from 'phosphor-react';
 import { useBridgeQuery, useDebugStateEnabler } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
+
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 

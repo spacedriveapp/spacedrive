@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { P, match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import {
 	OperatingSystem,
 	useBridgeMutation,
@@ -10,12 +10,12 @@ import {
 import {
 	Button,
 	Dialog,
+	dialogManager,
 	Loader,
 	Select,
 	SelectOption,
-	UseDialogProps,
-	dialogManager,
 	useDialog,
+	UseDialogProps,
 	z
 } from '@sd/ui';
 

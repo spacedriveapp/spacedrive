@@ -2,6 +2,7 @@ import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'p
 import { memo } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { ProgressBar, toast } from '@sd/ui';
+
 import { showAlertDialog } from '~/components';
 import JobContainer from './JobContainer';
 

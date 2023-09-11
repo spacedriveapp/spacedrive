@@ -2,7 +2,8 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { FolderSimplePlus } from 'phosphor-react';
 import { useRef, useState } from 'react';
-import { Button, type ButtonProps, dialogManager } from '@sd/ui';
+import { Button, dialogManager, type ButtonProps } from '@sd/ui';
+
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 import { AddLocationDialog } from './AddLocationDialog';

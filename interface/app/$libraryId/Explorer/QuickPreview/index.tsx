@@ -13,15 +13,16 @@ import {
 	useState
 } from 'react';
 import {
-	ObjectKindKey,
 	getExplorerItemData,
 	getIndexedItemFilePath,
+	ObjectKindKey,
 	useLibraryContext,
 	useLibraryMutation,
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { DropdownMenu, Form, ModifierKeys, Tooltip, dialogManager, toast, z } from '@sd/ui';
+import { dialogManager, DropdownMenu, Form, ModifierKeys, toast, Tooltip, z } from '@sd/ui';
+
 import { useIsDark, useOperatingSystem } from '~/hooks';
 import { useKeyBind } from '~/hooks/useKeyBind';
 import { usePlatform } from '~/util/Platform';

@@ -3,6 +3,7 @@ import { CaretRight, List, X } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { slide as Menu } from 'react-burger-menu';
 import { Button } from '@sd/ui';
+
 import { DocsNavigation } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
 import DocsSidebar from './DocsSidebar';

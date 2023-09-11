@@ -15,6 +15,7 @@ import {
 } from 'phosphor-react';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
+
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import Icon from '../Layout/Sidebar/Icon';
 import SidebarLink from '../Layout/Sidebar/Link';

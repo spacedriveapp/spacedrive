@@ -11,8 +11,9 @@ import {
 } from 'phosphor-react';
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
+
 import { KeyManager } from '../KeyManager';
-import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
+import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';

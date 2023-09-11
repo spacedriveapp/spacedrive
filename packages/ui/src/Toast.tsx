@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { CheckCircle, Icon, Info, Warning, WarningCircle, X } from 'phosphor-react';
 import { CSSProperties, ReactNode, useEffect, useState } from 'react';
 import { toast as SonnerToast } from 'sonner';
+
 import { Button } from './Button';
 import { Loader } from './Loader';
 
