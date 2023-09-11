@@ -144,7 +144,7 @@ function Options({
 						body: errorMessage
 					});
 			},
-			successMessage: () => {
+			onSuccess: () => {
 				successMessage &&
 					toast.success({
 						title: 'Success',
