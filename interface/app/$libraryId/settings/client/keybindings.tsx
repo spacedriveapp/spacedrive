@@ -111,7 +111,7 @@ function KeybindTable({ data }: { data: Shortcut[] }) {
 					<tr key={row.id}>
 						{row.getVisibleCells().map((cell) => (
 							<td
-								className={`py-2 ${
+								className={`py-4 ${
 									cell.id.includes('key')
 										? 'w-32 space-y-0.5 text-right'
 										: 'w-full'
