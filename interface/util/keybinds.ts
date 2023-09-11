@@ -1,4 +1,5 @@
-import { ModifierKeys, keySymbols, modifierSymbols } from '@sd/ui';
+import { keySymbols, ModifierKeys, modifierSymbols } from '@sd/ui';
+
 import { OperatingSystem } from '../util/Platform';
 
 function capitalize<T extends string>(string: T): Capitalize<T> {

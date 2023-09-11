@@ -1,4 +1,4 @@
-import { Heart } from 'phosphor-react';
+import { Heart } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Button } from '@sd/ui';

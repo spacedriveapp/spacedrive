@@ -1,4 +1,4 @@
-import { VariantProps, cva, cx } from 'class-variance-authority';
+import { cva, cx, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { ComponentProps, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
