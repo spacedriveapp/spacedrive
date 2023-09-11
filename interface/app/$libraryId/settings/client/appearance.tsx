@@ -241,7 +241,7 @@ function Theme(props: ThemeProps) {
 					<CheckCircle
 						weight="fill"
 						size={24}
-						className={`absolute bottom-1.5 right-1.5 z-10 text-accent`}
+						className="absolute bottom-1.5 right-1.5 z-10 text-accent"
 					/>
 				)}
 			</div>
@@ -264,7 +264,7 @@ function SystemTheme(props: ThemeProps) {
 					<CheckCircle
 						weight="fill"
 						size={24}
-						className={`absolute bottom-1.5 right-1.5 z-10 text-accent`}
+						className="absolute bottom-1.5 right-1.5 z-10 text-accent"
 					/>
 				)}
 			</div>

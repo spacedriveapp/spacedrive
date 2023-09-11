@@ -100,7 +100,7 @@ export function HomeCTA() {
 									</p>
 								</div>
 							)}
-							<div className={'flex flex-row'}>
+							<div className="flex flex-row">
 								<Input
 									{...register('email')}
 									type="email"

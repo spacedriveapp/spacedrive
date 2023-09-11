@@ -1,6 +1,6 @@
+import { Popover, Tooltip } from '@sd/ui';
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
-import { Popover, Tooltip } from '@sd/ui';
 
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
@@ -39,7 +39,7 @@ export default ({ options }: TopBarChildrenProps) => {
 
 	return (
 		<div data-tauri-drag-region className="flex flex-1 justify-end">
-			<div data-tauri-drag-region className={`flex gap-0`}>
+			<div data-tauri-drag-region className="flex gap-0">
 				{options?.map((group, groupIndex) => {
 					return group.map(
 						(
@@ -58,10 +58,10 @@ export default ({ options }: TopBarChildrenProps) => {
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-								? 'left'
-								: index === group.length - 1
-								? 'right'
-								: 'none';
+									? 'left'
+									: index === group.length - 1
+										? 'right'
+										: 'none';
 							return (
 								<div
 									data-tauri-drag-region
@@ -117,9 +117,9 @@ export default ({ options }: TopBarChildrenProps) => {
 			</div>
 			<TopBarMobile
 				toolOptions={options}
-				className={
+				className={clsx(
 					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
-				}
+				)}
 			/>
 		</div>
 	);

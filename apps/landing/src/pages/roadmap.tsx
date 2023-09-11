@@ -146,10 +146,10 @@ export default function RoadmapPage() {
 							<span className="group flex max-w-[10rem] items-start justify-end gap-4 first:items-start">
 								<div className="flex flex-col items-end">
 									<h3
-										className={
-											`m-0 hidden text-right lg:block ` +
-											(i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
-										}
+										className={clsx(
+											'm-0 hidden text-right lg:block',
+											i === 0 ? '-translate-y-1/4' : '-translate-y-1/2'
+										)}
 									>
 										{item.when}
 									</h3>
@@ -161,10 +161,10 @@ export default function RoadmapPage() {
 								</div>
 								<div className="flex h-full w-2 group-first:mt-2 group-first:rounded-t-full group-last-of-type:rounded-b-full lg:items-center">
 									<div
-										className={
-											'flex h-full w-full ' +
-											(item.completed ? 'z-10 bg-primary-500' : 'bg-gray-550')
-										}
+										className={clsx(
+											'flex h-full w-full',
+											item.completed ? 'z-10 bg-primary-500' : 'bg-gray-550'
+										)}
 									>
 										{item?.when !== undefined ? (
 											<div

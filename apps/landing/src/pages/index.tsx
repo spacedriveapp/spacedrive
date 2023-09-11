@@ -122,13 +122,9 @@ export default function HomePage() {
 				/>
 
 				{unsubscribedFromWaitlist && (
-					<div
-						className={
-							'my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2'
-						}
-					>
+					<div className="my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2">
 						<Info className="mr-1 w-5 fill-green-500" />
-						<p className={'text-sm text-green-500'}>
+						<p className="text-sm text-green-500">
 							You have been unsubscribed from the waitlist
 						</p>
 					</div>

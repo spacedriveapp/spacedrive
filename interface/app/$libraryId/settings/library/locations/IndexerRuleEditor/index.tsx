@@ -65,7 +65,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	const disableDelete = isDeleting || !selectedRule;
 	return (
 		<div className={props.className} onClick={() => setSelectedRule(undefined)}>
-			<div className={'flex items-start justify-between'}>
+			<div className="flex items-start justify-between">
 				<div className="mb-1 grow">
 					<Label>{props.label || 'Indexer rules'}</Label>
 					{infoText && <InfoText className="mb-4">{infoText}</InfoText>}
