@@ -49,9 +49,12 @@ function MediaData({ data }: Props) {
 							<a
 								onClick={(e) => {
 									e.preventDefault();
-									platform.openLink(
-										`https://www.google.com/maps/search/?api=1&query=${data.location?.latitude}%2c${data.location?.longitude}`
-									);
+									if (data.location)
+										platform.openLink(
+											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+												data.location.latitude
+											)}%2c${encodeURIComponent(data.location.longitude)}`
+										);
 								}}
 							>
 								{formatLocation(data.location, 3)}
@@ -68,12 +71,12 @@ function MediaData({ data }: Props) {
 							<a
 								onClick={(e) => {
 									e.preventDefault();
-									platform.openLink(
-										`https://www.google.com/maps/search/?api=1&query=${data.location?.pluscode.replace(
-											'+',
-											'%2B'
-										)}`
-									);
+									if (data.location)
+										platform.openLink(
+											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+												data.location.pluscode
+											)}`
+										);
 								}}
 							>
 								{data.location?.pluscode}
