@@ -1,8 +1,8 @@
 import * as RadixCM from '@radix-ui/react-context-menu';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretRight, Icon, IconProps } from 'phosphor-react';
-import { PropsWithChildren, Suspense, createContext, useContext } from 'react';
+import { CaretRight, Icon, IconProps } from '@phosphor-icons/react';
+import { ContextType, createContext, PropsWithChildren, Suspense, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
@@ -19,8 +19,17 @@ export const contextMenuClassNames = clsx(
 	'animate-in fade-in'
 );
 
-const context = createContext<boolean>(false);
-export const useContextMenu = () => useContext(context);
+const ContextMenuContext = createContext<boolean | null>(null);
+
+export const useContextMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
+	const ctx = useContext(ContextMenuContext);
+
+	if (suspense && ctx === null) throw new Error('ContextMenuContext.Provider not found!');
+
+	return ctx as T extends true
+		? NonNullable<ContextType<typeof ContextMenuContext>>
+		: NonNullable<ContextType<typeof ContextMenuContext>> | undefined;
+};
 
 const Root = ({
 	trigger,
@@ -37,7 +46,9 @@ const Root = ({
 			</RadixCM.Trigger>
 			<RadixCM.Portal>
 				<RadixCM.Content className={clsx(contextMenuClassNames, className)} {...props}>
-					<context.Provider value={true}>{children}</context.Provider>
+					<ContextMenuContext.Provider value={true}>
+						{children}
+					</ContextMenuContext.Provider>
 				</RadixCM.Content>
 			</RadixCM.Portal>
 		</RadixCM.Root>

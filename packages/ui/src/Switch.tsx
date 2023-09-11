@@ -1,5 +1,5 @@
 import * as SwitchPrimitive from '@radix-ui/react-switch';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import { forwardRef } from 'react';
 
 export interface SwitchProps
@@ -12,7 +12,7 @@ const switchStyles = cva(
 	[
 		'relative inline-flex shrink-0 transition',
 		'items-center rounded-full p-1',
-		'bg-app-line radix-state-checked:bg-accent'
+		'bg-app-line radix-state-checked:bg-accent focus:outline-none focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected'
 	],
 	{
 		variants: {

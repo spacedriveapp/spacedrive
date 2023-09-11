@@ -182,8 +182,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("update", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationUpdateArgs| async move {
-					let ret = args.update(&library).await.map_err(Into::into);
+				.mutation(|(node, library), args: LocationUpdateArgs| async move {
+					let ret = args.update(&node, &library).await.map_err(Into::into);
 					invalidate_query!(library, "locations.list");
 					ret
 				})
@@ -236,8 +236,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								vec![
 									file_path::location_id::equals(Some(location_id)),
 									file_path::object_id::not(None),
+									file_path::cas_id::not(None),
 								],
-								vec![file_path::object::disconnect()],
+								vec![
+									file_path::object::disconnect(),
+									file_path::cas_id::set(None),
+								],
 							)
 							.exec()
 							.await?;

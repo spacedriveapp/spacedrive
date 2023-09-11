@@ -14,9 +14,9 @@ use notifications::Notifications;
 pub use sd_prisma::*;
 
 use std::{
-	fmt,
+	env, fmt,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{atomic::AtomicBool, Arc},
 };
 
 use thiserror::Error;
@@ -26,7 +26,12 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{fmt as tracing_fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{
+	filter::{Directive, FromEnvError, LevelFilter},
+	fmt as tracing_fmt,
+	prelude::*,
+	EnvFilter,
+};
 
 pub mod api;
 pub mod custom_uri;
@@ -57,6 +62,7 @@ pub struct Node {
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnail_remover: thumbnail_remover::Actor,
+	pub files_over_p2p_flag: Arc<AtomicBool>,
 }
 
 impl fmt::Debug for Node {
@@ -103,7 +109,13 @@ impl Node {
 				libraries.clone(),
 			),
 			libraries,
+			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 		});
+
+		// Restore backend feature flags
+		for feature in node.config.get().await.features {
+			feature.restore(&node);
+		}
 
 		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
@@ -111,19 +123,18 @@ impl Node {
 			init_data.apply(&node.libraries, &node).await?;
 		}
 
+		// Be REALLY careful about ordering here or you'll get unreliable deadlock's!
 		locations_actor.start(node.clone());
+		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
 		node.p2p.start(p2p_stream, node.clone());
-
-		// Finally load the libraries from disk into the library manager
-		node.libraries.init(&node).await?;
 
 		let router = api::mount();
 		info!("Spacedrive online.");
 		Ok((node, router))
 	}
 
-	pub fn init_logger(data_dir: impl AsRef<Path>) -> WorkerGuard {
+	pub fn init_logger(data_dir: impl AsRef<Path>) -> Result<WorkerGuard, FromEnvError> {
 		let (logfile, guard) = NonBlocking::new(
 			RollingFileAppender::builder()
 				.filename_prefix("sd.log")
@@ -132,6 +143,17 @@ impl Node {
 				.build(data_dir.as_ref().join("logs"))
 				.expect("Error setting up log file!"),
 		);
+
+		// Set a default if the user hasn't set an override
+		if env::var("RUST_LOG") == Err(env::VarError::NotPresent) {
+			let directive: Directive = if cfg!(debug_assertions) {
+				LevelFilter::DEBUG
+			} else {
+				LevelFilter::INFO
+			}
+			.into();
+			env::set_var("RUST_LOG", directive.to_string());
+		}
 
 		let collector = tracing_subscriber::registry()
 			.with(
@@ -142,49 +164,12 @@ impl Node {
 			.with(
 				tracing_fmt::Subscriber::new()
 					.with_writer(std::io::stdout)
-					.with_filter(if cfg!(debug_assertions) {
-						EnvFilter::from_default_env()
-							.add_directive(
-								"warn".parse().expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core::location::manager=info"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"sd_core_mobile=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							// .add_directive(
-							// 	"sd_p2p=debug"
-							// 		.parse()
-							// 		.expect("Error invalid tracing directive!"),
-							// )
-							.add_directive(
-								"server=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"spacedrive=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-							.add_directive(
-								"rspc=debug"
-									.parse()
-									.expect("Error invalid tracing directive!"),
-							)
-					} else {
-						EnvFilter::from("info")
-					}),
+					.with_filter(
+						EnvFilter::builder()
+							.from_env()?
+							// We don't wanna blow up the logs
+							.add_directive("sd_core::location::manager=info".parse()?),
+					),
 			);
 
 		tracing::collect::set_global_default(collector)
@@ -193,13 +178,19 @@ impl Node {
 			})
 			.ok();
 
-		let prev_hook = std::panic::take_hook();
-		std::panic::set_hook(Box::new(move |panic_info| {
-			error!("{}", panic_info);
-			prev_hook(panic_info);
+		std::panic::set_hook(Box::new(move |panic| {
+			if let Some(location) = panic.location() {
+				tracing::error!(
+					message = %panic,
+					panic.file = format!("{}:{}", location.file(), location.line()),
+					panic.column = location.column(),
+				);
+			} else {
+				tracing::error!(message = %panic);
+			}
 		}));
 
-		guard
+		Ok(guard)
 	}
 
 	pub async fn shutdown(&self) {
@@ -254,4 +245,6 @@ pub enum NodeError {
 	#[cfg(debug_assertions)]
 	#[error("Init config error: {0}")]
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
+	#[error("logger error: {0}")]
+	Logger(#[from] FromEnvError),
 }

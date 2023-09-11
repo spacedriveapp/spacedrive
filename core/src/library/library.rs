@@ -5,7 +5,7 @@ use crate::{
 	},
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
-	object::{orphan_remover::OrphanRemoverActor, preview::get_thumbnail_path},
+	object::{media::thumbnail::get_thumbnail_path, orphan_remover::OrphanRemoverActor},
 	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::maybe_missing, error::FileIOError},
@@ -16,7 +16,7 @@ use std::{
 	collections::HashMap,
 	fmt::{Debug, Formatter},
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
 };
 
 use chrono::{DateTime, Utc};
@@ -40,7 +40,8 @@ pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
 	/// config holds the configuration of the current library.
-	pub config: LibraryConfig,
+	/// KEEP PRIVATE: Access through `Self::config` method.
+	config: RwLock<LibraryConfig>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sync::Manager>,
@@ -49,6 +50,8 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
+	// The UUID which matches `config.instance_id`'s primary key.
+	pub instance_uuid: Uuid,
 
 	notifications: notifications::Notifications,
 
@@ -63,6 +66,7 @@ impl Debug for Library {
 		// troublesome to implement Debug trait
 		f.debug_struct("LibraryContext")
 			.field("id", &self.id)
+			.field("instance_uuid", &self.instance_uuid)
 			.field("config", &self.config)
 			.field("db", &self.db)
 			.finish()
@@ -73,6 +77,7 @@ impl Library {
 	pub async fn new(
 		id: Uuid,
 		config: LibraryConfig,
+		instance_uuid: Uuid,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
@@ -80,15 +85,31 @@ impl Library {
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,
-			config,
+			config: RwLock::new(config),
 			sync,
 			db: db.clone(),
 			// key_manager,
-			identity: identity.clone(),
+			identity,
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
+			instance_uuid,
 			event_bus_tx: node.event_bus.0.clone(),
 		})
+	}
+
+	pub fn config(&self) -> LibraryConfig {
+		// We use a `std::sync::RwLock` as we don't want users holding this over await points.
+		// We currently `.clone()` the value so that will never be a problem, however we could avoid cloning here but that makes for potentially confusing `!Send` errors.
+		// Tokio also recommend this as it's generally better for avoiding deadlocks and performance - https://tokio.rs/tokio/tutorial/shared-state#holding-a-mutexguard-across-an-await
+		// We do `PoisonError::into_inner` as that is effectively what `tokio::sync::RwLock` does internally, and if it's fine for them, it's fine for us!
+		self.config
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.clone()
+	}
+
+	pub fn config_mut(&self) -> RwLockWriteGuard<'_, LibraryConfig> {
+		self.config.write().unwrap_or_else(PoisonError::into_inner)
 	}
 
 	// TODO: Remove this once we replace the old invalidation system
@@ -125,7 +146,7 @@ impl Library {
 				.find_many(vec![
 					// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 					file_path::location::is(vec![location::instance_id::equals(Some(
-						self.config.instance_id,
+						self.config().instance_id,
 					))]),
 					file_path::id::in_vec(ids),
 				])

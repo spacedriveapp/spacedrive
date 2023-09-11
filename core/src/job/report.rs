@@ -176,15 +176,14 @@ impl JobReport {
 
 	pub fn get_meta(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
-		let Some(action_name) = self.action
-			.as_ref()
-			.map(
-				|action| action.split('-')
-					.next()
-					.map(str::to_string)
-					.unwrap_or_default()
-			) else {
-			 return (self.id.to_string(), None);
+		let Some(action_name) = self.action.as_ref().map(|action| {
+			action
+				.split('-')
+				.next()
+				.map(str::to_string)
+				.unwrap_or_default()
+		}) else {
+			return (self.id.to_string(), None);
 		};
 		// create a unique group_key, EG: "added_location-<location_id>"
 		let group_key = self.parent_id.map_or_else(

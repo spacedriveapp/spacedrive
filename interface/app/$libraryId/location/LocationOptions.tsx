@@ -1,7 +1,8 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
-import { Archive, Copy, FolderDotted, Gear, IconContext, Image } from 'phosphor-react';
+import { Archive, Check, Copy, FolderDotted, Gear, IconContext, Image } from '@phosphor-icons/react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { type Location, useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, type Location } from '@sd/client';
 import {
 	Button,
 	Input,
@@ -9,15 +10,20 @@ import {
 	PopoverContainer,
 	PopoverDivider,
 	PopoverSection,
+	toast,
+	TOAST_TIMEOUT,
 	Tooltip,
 	tw
 } from '@sd/ui';
+
 import TopBarButton from '../TopBar/TopBarButton';
 
 const OptionButton = tw(TopBarButton)`w-full gap-1 !px-1.5 !py-1`;
 
 export default function LocationOptions({ location, path }: { location: Location; path: string }) {
 	const navigate = useNavigate();
+
+	const [copied, setCopied] = useState(false);
 
 	const scanLocationSubPath = useLibraryMutation('locations.subPathRescan');
 	const regenThumbs = useLibraryMutation('jobs.generateThumbsForLocation');
@@ -43,21 +49,36 @@ export default function LocationOptions({ location, path }: { location: Location
 					<PopoverContainer>
 						<PopoverSection>
 							<Input
-								autoFocus
+								readOnly
 								className="mb-2"
 								value={currentPath ?? ''}
 								right={
-									<Tooltip label="Copy path to clipboard" className="flex">
+									<Tooltip
+										label={copied ? 'Copied' : 'Copy path to clipboard'}
+										className="flex"
+									>
 										<Button
 											size="icon"
 											variant="outline"
-											className="opacity-70"
-											onClick={() =>
-												currentPath &&
-												navigator.clipboard.writeText(currentPath)
-											}
+											onClick={() => {
+												if (!currentPath) return;
+
+												navigator.clipboard.writeText(currentPath);
+
+												toast.info({
+													title: 'Path copied to clipboard',
+													body: `Path for location "${location.name}" copied to clipboard.`
+												});
+
+												setCopied(true);
+												setTimeout(() => setCopied(false), TOAST_TIMEOUT);
+											}}
 										>
-											<Copy className="!pointer-events-none h-4 w-4" />
+											{copied ? (
+												<Check size={16} className="text-green-400" />
+											) : (
+												<Copy size={16} className="opacity-70" />
+											)}
 										</Button>
 									</Tooltip>
 								}

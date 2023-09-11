@@ -8,7 +8,7 @@ use crate::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
 			erase::FileEraserJobInit,
 		},
-		preview::thumbnailer_job::ThumbnailerJobInit,
+		media::media_processor::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
 	prisma::job,
@@ -388,7 +388,7 @@ fn initialize_resumable_job(
 			Err(JobError::UnknownJobName(job_report.id, job_report.name))
 		},
 		jobs = [
-			ThumbnailerJobInit,
+			MediaProcessorJobInit,
 			IndexerJobInit,
 			FileIdentifierJobInit,
 			ObjectValidatorJobInit,

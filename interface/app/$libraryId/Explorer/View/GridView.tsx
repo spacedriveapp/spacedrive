@@ -1,9 +1,11 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { type ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
+
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerViewContext } from '../ViewContext';
 import GridList from './GridList';
 import RenamableItemText from './RenamableItemText';
@@ -67,6 +69,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 export default () => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
+	const quickPreviewStore = useQuickPreviewStore();
 
 	return (
 		<GridList>
@@ -76,7 +79,7 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
-					renamable={explorer.selectedItems.size === 1}
+					renamable={explorer.selectedItems.size === 1 && !quickPreviewStore.open}
 				/>
 			)}
 		</GridList>

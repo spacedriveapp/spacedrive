@@ -1,30 +1,31 @@
 import {
-	type ColumnDef,
-	type ColumnSizingState,
-	type Row,
 	flexRender,
 	getCoreRowModel,
-	useReactTable
+	useReactTable,
+	type ColumnDef,
+	type ColumnSizingState,
+	type Row
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
-	type ExplorerItem,
-	type FilePath,
-	type NonIndexedPathItem,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
-	getItemObject
+	getItemObject,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
+
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { stringify } from '~/util/uuid';
 import { ViewItem } from '.';
@@ -32,10 +33,15 @@ import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
-import { useExplorerViewContext } from '../ViewContext';
-import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from '../store';
-import { isCut } from '../store';
+import {
+	createOrdering,
+	getOrderingDirection,
+	isCut,
+	orderingKey,
+	useExplorerStore
+} from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
@@ -274,7 +280,7 @@ export default () => {
 	const tableLength = table.getTotalSize();
 
 	const rowVirtualizer = useVirtualizer({
-		count: explorer.items ? rows.length : 100,
+		count: explorer.count ?? rows.length,
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => rowHeight, []),
 		paddingStart: paddingY + (isScrolled ? 35 : 0),
@@ -685,6 +691,8 @@ export default () => {
 					}
 				}
 			} else {
+				if (isSelected(item)) return;
+
 				explorer.resetSelectedItems([item]);
 				const hash = uniqueId(item);
 				setRanges([[hash, hash]]);
@@ -767,15 +775,10 @@ export default () => {
 		const lastRow = virtualRows[virtualRows.length - 1];
 		if (!lastRow) return;
 
-		const rowsBeforeLoadMore = explorer.rowsBeforeLoadMore || 1;
+		const loadMoreFromRow = Math.ceil(rows.length * 0.75);
 
-		const loadMoreOnIndex =
-			rowsBeforeLoadMore > rows.length || lastRow.index > rows.length - rowsBeforeLoadMore
-				? rows.length - 1
-				: rows.length - rowsBeforeLoadMore;
-
-		if (lastRow.index === loadMoreOnIndex) explorer.loadMore.call(undefined);
-	}, [virtualRows, rows.length, explorer.rowsBeforeLoadMore, explorer.loadMore]);
+		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
+	}, [virtualRows, rows.length, explorer.loadMore]);
 
 	useKey(['ArrowUp', 'ArrowDown'], (e) => {
 		if (!explorerView.selectable) return;
@@ -1117,26 +1120,6 @@ export default () => {
 									}}
 								>
 									{virtualRows.map((virtualRow) => {
-										if (!explorer.items) {
-											return (
-												<div
-													key={virtualRow.index}
-													className="absolute left-0 top-0 flex w-full py-px"
-													style={{
-														height: `${virtualRow.size}px`,
-														transform: `translateY(${
-															virtualRow.start -
-															rowVirtualizer.options.scrollMargin
-														}px)`,
-														paddingLeft: `${paddingX}px`,
-														paddingRight: `${paddingX}px`
-													}}
-												>
-													<div className="relative flex h-full w-full animate-pulse rounded-md bg-app-box" />
-												</div>
-											);
-										}
-
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 

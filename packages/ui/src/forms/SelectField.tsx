@@ -1,6 +1,7 @@
-import { FieldValues, UseControllerProps, useController } from 'react-hook-form';
+import { FieldValues, useController, UseControllerProps } from 'react-hook-form';
+
 import * as Root from '../Select';
-import { FormField, UseFormFieldProps, useFormField } from './FormField';
+import { FormField, useFormField, UseFormFieldProps } from './FormField';
 
 export interface SelectFieldProps<T extends FieldValues>
 	extends Omit<UseFormFieldProps, 'name'>,

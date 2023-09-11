@@ -1,10 +1,10 @@
-import { Gear } from 'phosphor-react';
-import { useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, Popover, Tooltip, dialogManager } from '@sd/ui';
+import { Gear } from '@phosphor-icons/react';
+import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
+import { Button, ButtonLink, dialogManager, Popover, Tooltip } from '@sd/ui';
+
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
 import { IsRunningJob, JobManager } from './JobManager';
-import { JobManagerContextProvider } from './JobManager/context';
 
 export default () => {
 	const { library } = useClientContext();

@@ -125,7 +125,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 			// Update mount point if not already present
 			let mount_points = &mut volume.mount_points;
-			if mount_point.iter().all(|p| p != &mount_point) {
+			if mount_point.iter().all(|p| *p != mount_point) {
 				mount_points.push(mount_point);
 				let mount_points_to_check = mount_points.clone();
 				mount_points.retain(|candidate| {
@@ -251,9 +251,9 @@ pub async fn get_volumes() -> Vec<Volume> {
 		#[cfg(windows)]
 		let Ok((disk_name, mount_point)) = ({
 			use normpath::PathExt;
-			mount_point.normalize_virtually().map(|p| {
-				(p.localize_name().to_os_string(), p.into_path_buf())
-			})
+			mount_point
+				.normalize_virtually()
+				.map(|p| (p.localize_name().to_os_string(), p.into_path_buf()))
 		}) else {
 			return None;
 		};

@@ -8,10 +8,11 @@ import {
 	telemetryStore,
 	useBridgeMutation,
 	useCachedLibraries,
+	useMultiZodForm,
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
-import { RadioGroupField, useZodForm, z } from '@sd/ui';
+import { RadioGroupField, z } from '@sd/ui';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -46,21 +47,27 @@ export const shareTelemetry = RadioGroupField.options([
 	}
 });
 
-const schema = z.object({
-	name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim(),
-	shareTelemetry: shareTelemetry.schema
-});
+const schemas = {
+	'new-library': z.object({
+		name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
+	}),
+	'privacy': z.object({
+		shareTelemetry: shareTelemetry.schema
+	})
+};
 
-// this is a lot so it gets its own hook :)
 const useFormState = () => {
 	const obStore = useOnboardingStore();
 
-	const form = useZodForm({
-		schema,
+	const { handleSubmit, ...forms } = useMultiZodForm({
+		schemas,
 		defaultValues: {
-			name: obStore.newLibraryName,
-			shareTelemetry: 'share-telemetry'
-		}
+			'new-library': obStore.data?.['new-library'] ?? undefined,
+			'privacy': obStore.data?.privacy ?? {
+				shareTelemetry: 'share-telemetry'
+			}
+		},
+		onData: (data) => (getOnboardingStore().data = data)
 	});
 
 	const navigate = useNavigate();
@@ -69,42 +76,45 @@ const useFormState = () => {
 
 	const createLibrary = useBridgeMutation('library.create');
 
-	const onSubmit = form.handleSubmit(async (data) => {
-		navigate('./creating-library', { replace: true });
+	const submit = handleSubmit(
+		async (data) => {
+			navigate('./creating-library', { replace: true });
 
-		// opted to place this here as users could change their mind before library creation/onboarding finalization
-		// it feels more fitting to configure it here (once)
-		telemetryStore.shareFullTelemetry = getOnboardingStore().shareFullTelemetry;
+			// opted to place this here as users could change their mind before library creation/onboarding finalization
+			// it feels more fitting to configure it here (once)
+			telemetryStore.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
 
-		try {
-			// show creation screen for a bit for smoothness
-			const [library] = await Promise.all([
-				createLibrary.mutateAsync({
-					name: data.name
-				}),
-				new Promise((res) => setTimeout(res, 500))
-			]);
+			try {
+				// show creation screen for a bit for smoothness
+				const [library] = await Promise.all([
+					createLibrary.mutateAsync({
+						name: data['new-library'].name
+					}),
+					new Promise((res) => setTimeout(res, 500))
+				]);
 
-			queryClient.setQueryData(['library.list'], (libraries: any) => [
-				...(libraries ?? []),
-				library
-			]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => [
+					...(libraries ?? []),
+					library
+				]);
 
-			if (telemetryStore.shareFullTelemetry) {
-				submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+				if (telemetryStore.shareFullTelemetry) {
+					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
+				}
+
+				resetOnboardingStore();
+				navigate(`/${library.uuid}/overview`, { replace: true });
+			} catch (e) {
+				if (e instanceof Error) {
+					alert(`Failed to create library. Error: ${e.message}`);
+				}
+				navigate('./privacy');
 			}
+		},
+		(key) => navigate(`./${key}`)
+	);
 
-			resetOnboardingStore();
-			navigate(`/${library.uuid}/overview`, { replace: true });
-		} catch (e) {
-			if (e instanceof Error) {
-				alert(`Failed to create library. Error: ${e.message}`);
-			}
-			navigate('./privacy');
-		}
-	});
-
-	return { form, onSubmit };
+	return { submit, forms };
 };
 
 export const useOnboardingContext = () => {

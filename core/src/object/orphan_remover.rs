@@ -63,12 +63,14 @@ impl OrphanRemoverActor {
 				.select(object::select!({ id }))
 				.exec()
 				.await
-				.map(|objects| objects.into_iter()
-					.map(|object| object.id)
-					.collect::<Vec<_>>()
-				)
+				.map(|objects| {
+					objects
+						.into_iter()
+						.map(|object| object.id)
+						.collect::<Vec<_>>()
+				})
 				.map_err(|e| error!("Failed to fetch orphaned objects: {e:#?}"))
-				else {
+			else {
 				break;
 			};
 

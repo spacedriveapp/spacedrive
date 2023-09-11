@@ -1,6 +1,7 @@
-import { Trash } from 'phosphor-react';
-import { Tag, useLibraryMutation } from '@sd/client';
-import { Button, Form, InputField, Switch, Tooltip, dialogManager, useZodForm, z } from '@sd/ui';
+import { Trash } from '@phosphor-icons/react';
+import { Tag, useLibraryMutation, useZodForm } from '@sd/client';
+import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
+
 import { ColorPicker } from '~/components';
 import { useDebouncedFormWatch } from '~/hooks';
 import Setting from '../../Setting';
@@ -68,11 +69,19 @@ export default ({ tag, onDelete }: Props) => {
 					</Tooltip>
 				</Button>
 			</div>
-			<div className='flex flex-col gap-2'>
-				<Setting mini title="Hide in Library search" description="Hide files with this tag from results when searching entire library.">
+			<div className="flex flex-col gap-2">
+				<Setting
+					mini
+					title="Hide in Library search"
+					description="Hide files with this tag from results when searching entire library."
+				>
 					<Switch />
 				</Setting>
-				<Setting mini title="Hide in sidebar" description="Prevent this tag from showing in the sidebar of the app.">
+				<Setting
+					mini
+					title="Hide in sidebar"
+					description="Prevent this tag from showing in the sidebar of the app."
+				>
 					<Switch />
 				</Setting>
 			</div>

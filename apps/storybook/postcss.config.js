@@ -1,6 +1,10 @@
 module.exports = {
 	plugins: {
-		tailwindcss: {},
-		autoprefixer: {}
+		'tailwindcss': {},
+		'autoprefixer': {},
+		'postcss-pseudo-companion-classes': {
+			prefix: 'sb-pseudo--',
+			restrictTo: [':hover', ':focus']
+		}
 	}
 };

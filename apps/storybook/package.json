@@ -14,6 +14,7 @@
 		"@storybook/react": "^7.0.5",
 		"@storybook/react-vite": "^7.0.5",
 		"@storybook/testing-library": "^0.1.0",
+		"postcss-pseudo-companion-classes": "^0.1.1",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	},

@@ -1,5 +1,7 @@
-import { Integrations, init } from '@sentry/browser';
+import { init, Integrations } from '@sentry/browser';
+
 import '@fontsource/inter/variable.css';
+
 import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -8,9 +10,15 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
-import { NotificationContextProvider, P2PContextProvider, useDebugState } from '@sd/client';
-import ErrorFallback from './ErrorFallback';
+import {
+	NotificationContextProvider,
+	P2PContextProvider,
+	useDebugState,
+	useLoadBackendFeatureFlags
+} from '@sd/client';
+
 import { P2P } from './app/p2p';
+import ErrorFallback from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
@@ -46,6 +54,8 @@ const Devtools = () => {
 };
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
+	useLoadBackendFeatureFlags();
+
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<P2PContextProvider>

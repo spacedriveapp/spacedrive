@@ -134,6 +134,7 @@ impl StatefulJob for IndexerJobInit {
 	type RunMetadata = IndexerJobRunMetadata;
 
 	const NAME: &'static str = "indexer";
+	const IS_BATCHED: bool = true;
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(

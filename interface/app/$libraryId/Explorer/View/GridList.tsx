@@ -1,22 +1,23 @@
 import {
-	type ReactNode,
 	createContext,
 	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
 	useRef,
-	useState
+	useState,
+	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
+
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { useExplorerContext } from '../Context';
-import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
 
 const SelectoContext = createContext<{
 	selecto: React.RefObject<Selecto>;
@@ -124,9 +125,9 @@ export default ({ children }: { children: RenderItem }) => {
 	const grid = useGridList({
 		ref: explorerView.ref,
 		count: explorer.items?.length ?? 0,
+		totalCount: explorer.count,
 		overscan: explorer.overscan,
 		onLoadMore: explorer.loadMore,
-		rowsBeforeLoadMore: explorer.rowsBeforeLoadMore,
 		size:
 			settings.layoutMode === 'grid'
 				? { width: settings.gridItemSize, height: itemHeight }
@@ -217,9 +218,9 @@ export default ({ children }: { children: RenderItem }) => {
 	}, [explorer.selectedItems]);
 
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
-		if (explorer.selectedItems.size > 0) e.preventDefault();
-
 		if (!explorerView.selectable) return;
+
+		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const lastItem = activeItem.current;
 		if (!lastItem) return;
@@ -352,14 +353,17 @@ export default ({ children }: { children: RenderItem }) => {
 						// Sets active item to selected item with least index.
 						// Might seem kinda weird but it's the same behaviour as Finder.
 						activeItem.current =
-							allSelected.reduce((least, current) => {
-								const currentItem = getElementItem(current);
-								if (!currentItem) return least;
+							allSelected.reduce(
+								(least, current) => {
+									const currentItem = getElementItem(current);
+									if (!currentItem) return least;
 
-								if (!least) return currentItem;
+									if (!least) return currentItem;
 
-								return currentItem.index < least.index ? currentItem : least;
-							}, null as ReturnType<typeof getElementItem>)?.data ?? null;
+									return currentItem.index < least.index ? currentItem : least;
+								},
+								null as ReturnType<typeof getElementItem>
+							)?.data ?? null;
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
@@ -435,14 +439,17 @@ export default ({ children }: { children: RenderItem }) => {
 
 							const elements = [...e.added, ...e.removed];
 
-							const items = elements.reduce((items, el) => {
-								const item = getElementItem(el);
+							const items = elements.reduce(
+								(items, el) => {
+									const item = getElementItem(el);
 
-								if (!item) return items;
+									if (!item) return items;
 
-								columns.add(item.column);
-								return [...items, item];
-							}, [] as NonNullable<ReturnType<typeof getElementItem>>[]);
+									columns.add(item.column);
+									return [...items, item];
+								},
+								[] as NonNullable<ReturnType<typeof getElementItem>>[]
+							);
 
 							if (columns.size > 1) {
 								items.sort((a, b) => a.column - b.column);

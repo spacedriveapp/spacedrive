@@ -11,15 +11,16 @@ import {
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
-	type ExplorerItem,
 	byteSize,
 	getItemFilePath,
 	getItemObject,
-	useLibraryQuery
+	useLibraryQuery,
+	type ExplorerItem
 } from '@sd/client';
+
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
-import { Modal, type ModalRef, ModalScrollView } from '~/components/layout/Modal';
+import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
@@ -99,13 +100,13 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
 						{/* Duration */}
-						{fullObjectData.data?.media_data?.duration_seconds && (
+						{/* {fullObjectData.data?.media_data?.duration && (
 							<MetaItem
 								title="Duration"
-								value={fullObjectData.data.media_data.duration_seconds}
+								value={fullObjectData.data.media_data.duration}
 								icon={Clock}
 							/>
-						)}
+						)} */}
 						{/* Created */}
 						<MetaItem
 							icon={Clock}

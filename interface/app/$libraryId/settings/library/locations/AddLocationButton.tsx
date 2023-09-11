@@ -1,12 +1,13 @@
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { FolderSimplePlus } from 'phosphor-react';
+import { FolderSimplePlus } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
-import { Button, type ButtonProps, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Button, dialogManager, type ButtonProps } from '@sd/ui';
+
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
-import { AddLocationDialog, openDirectoryPickerDialog } from './AddLocationDialog';
+import { AddLocationDialog } from './AddLocationDialog';
+import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 
 interface AddLocationButton extends ButtonProps {
 	path?: string;
@@ -41,13 +42,11 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 				className={clsx('w-full', className)}
 				onClick={async () => {
 					if (!path) {
-						try {
-							path = (await openDirectoryPickerDialog(platform)) ?? undefined;
-						} catch (error) {
-							showAlertDialog({ title: 'Error', value: String(error) });
-						}
+						path = (await openDirectoryPickerDialog(platform)) ?? undefined;
 					}
-					if (path)
+
+					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
+					if (path !== '')
 						dialogManager.create((dp) => (
 							<AddLocationDialog path={path ?? ''} {...dp} />
 						));

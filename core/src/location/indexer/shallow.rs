@@ -38,8 +38,8 @@ pub async fn shallow(
 ) -> Result<(), JobError> {
 	let location_id = location.id;
 	let Some(location_path) = location.path.as_ref().map(PathBuf::from) else {
-        return Err(JobError::Location(LocationError::MissingPath(location_id)));
-    };
+		return Err(JobError::Location(LocationError::MissingPath(location_id)));
+	};
 
 	let db = library.db.clone();
 

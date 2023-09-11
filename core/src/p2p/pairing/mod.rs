@@ -203,7 +203,7 @@ impl PairingManager {
 						.unwrap();
 
 					// Called again so the new instances are picked up
-					node.libraries.update_instances(library);
+					node.libraries.update_instances(library.clone()).await;
 
 					P2PManager::resync(
 						node.nlm.clone(),
@@ -216,6 +216,9 @@ impl PairingManager {
 					// TODO: Done message to frontend
 					self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 					stream.flush().await.unwrap();
+
+					// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
+					super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 				}
 				PairingResponse::Rejected => {
 					info!("Pairing '{pairing_id}' rejected by remote");
@@ -257,11 +260,14 @@ impl PairingManager {
 			.unwrap()
 			.insert(pairing_id, tx);
 		let PairingDecision::Accept(library_id) = rx.await.unwrap() else {
-    			info!("The user rejected pairing '{pairing_id}'!");
-    			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
-    			stream.write_all(&PairingResponse::Rejected.to_bytes()).await.unwrap();
-    			return;
-    		};
+			info!("The user rejected pairing '{pairing_id}'!");
+			// self.emit_progress(pairing_id, PairingStatus::PairingRejected); // TODO: Event to remove from frontend index
+			stream
+				.write_all(&PairingResponse::Rejected.to_bytes())
+				.await
+				.unwrap();
+			return;
+		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
 		let library = library_manager.get_library(&library_id).await.unwrap();
@@ -283,13 +289,14 @@ impl PairingManager {
 		.exec()
 		.await
 		.unwrap();
+		library_manager.update_instances(library.clone()).await;
 
 		stream
 			.write_all(
 				&PairingResponse::Accepted {
 					library_id: library.id,
-					library_name: library.config.name.clone().into(),
-					library_description: library.config.description.clone(),
+					library_name: library.config().name.into(),
+					library_description: library.config().description,
 					instances: library
 						.db
 						.instance()
@@ -323,7 +330,8 @@ impl PairingManager {
 		// node.re
 		// library_manager.node.nlm.load_library(&library).await;
 
-		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap() else {
+		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap()
+		else {
 			todo!("unreachable; todo error handling");
 		};
 
@@ -337,10 +345,10 @@ impl PairingManager {
 		.await;
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
-
-		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
-
 		stream.flush().await.unwrap();
+
+		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
+		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
 	}
 }
 

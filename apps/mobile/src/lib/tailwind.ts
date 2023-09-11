@@ -1,4 +1,4 @@
-import { ComponentType, createElement, forwardRef } from 'react';
+import { Component, ComponentType, createElement, ElementType, forwardRef } from 'react';
 import { create } from 'twrnc';
 import { Themes } from '@sd/client';
 

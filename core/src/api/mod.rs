@@ -1,8 +1,9 @@
-use crate::{job::JobProgressEvent, node::config::NodeConfig, Node};
-use rspc::{alpha::Rspc, Config};
+use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
+use itertools::Itertools;
+use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 use uuid::Uuid;
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
@@ -19,6 +20,31 @@ pub enum CoreEvent {
 	NewThumbnail { thumb_key: Vec<String> },
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
+}
+
+/// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+///
+/// If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendFeature {
+	SyncEmitMessages,
+	FilesOverP2P,
+}
+
+impl BackendFeature {
+	pub fn restore(&self, node: &Node) {
+		match self {
+			BackendFeature::SyncEmitMessages => {
+				node.libraries
+					.emit_messages_flag
+					.store(true, Ordering::Relaxed);
+			}
+			BackendFeature::FilesOverP2P => {
+				node.files_over_p2p_flag.store(true, Ordering::Relaxed);
+			}
+		}
+	}
 }
 
 mod backups;
@@ -47,6 +73,7 @@ pub struct SanitisedNodeConfig {
 	pub name: String,
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
+	pub features: Vec<BackendFeature>,
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
@@ -58,6 +85,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			id: value.id,
 			name: value.name,
 			p2p_port: value.p2p_port,
+			features: value.features,
 			p2p_email: value.p2p_email,
 			p2p_img_url: value.p2p_img_url,
 		}
@@ -98,6 +126,43 @@ pub(crate) fn mount() -> Arc<Router> {
 						.expect("Found non-UTF-8 path")
 						.to_string(),
 				})
+			})
+		})
+		.procedure("toggleFeatureFlag", {
+			R.mutation(|node, feature: BackendFeature| async move {
+				let config = node.config.get().await;
+
+				let enabled = if config.features.iter().contains(&feature) {
+					node.config
+						.write(|mut cfg| {
+							cfg.features.retain(|f| *f != feature);
+						})
+						.await
+						.map(|_| false)
+				} else {
+					node.config
+						.write(|mut cfg| {
+							cfg.features.push(feature.clone());
+						})
+						.await
+						.map(|_| true)
+				}
+				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
+
+				match feature {
+					BackendFeature::SyncEmitMessages => {
+						node.libraries
+							.emit_messages_flag
+							.store(enabled, Ordering::Relaxed);
+					}
+					BackendFeature::FilesOverP2P => {
+						node.files_over_p2p_flag.store(enabled, Ordering::Relaxed);
+					}
+				}
+
+				invalidate_query!(node; node, "nodeState");
+
+				Ok(())
 			})
 		})
 		.merge("search.", search::mount())

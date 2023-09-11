@@ -1,6 +1,5 @@
-import { useLibraryMutation } from '@sd/client';
-import { CheckBox, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm } from '@sd/ui/src/forms';
+import { useLibraryMutation, useZodForm } from '@sd/client';
+import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	locationId: number;

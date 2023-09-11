@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
 import type {
@@ -9,7 +9,8 @@ import type {
 	NodeState,
 	Tag
 } from '@sd/client';
-import { type Ordering, type OrderingKeys, createDefaultExplorerSettings } from './store';
+
+import { createDefaultExplorerSettings, type Ordering, type OrderingKeys } from './store';
 import { uniqueId } from './util';
 
 export type ExplorerParent =
@@ -29,17 +30,15 @@ export type ExplorerParent =
 
 export interface UseExplorerProps<TOrder extends Ordering> {
 	items: ExplorerItem[] | null;
+	count?: number;
 	parent?: ExplorerParent;
 	loadMore?: () => void;
+	isFetchingNextPage?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
 	/**
 	 * @defaultValue `true`
 	 */
 	allowMultiSelect?: boolean;
-	/**
-	 * @defaultValue `5`
-	 */
-	rowsBeforeLoadMore?: number;
 	overscan?: number;
 	/**
 	 * @defaultValue `true`
@@ -61,9 +60,9 @@ export function useExplorer<TOrder extends Ordering>({
 	return {
 		// Default values
 		allowMultiSelect: true,
-		rowsBeforeLoadMore: 5,
 		selectable: true,
 		scrollRef,
+		count: props.items?.length,
 		...settings,
 		// Provided values
 		...props,

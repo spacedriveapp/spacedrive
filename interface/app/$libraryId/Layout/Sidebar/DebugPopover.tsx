@@ -1,5 +1,6 @@
 import { SiCheckmarx } from '@icons-pack/react-simple-icons';
 import {
+	backendFeatures,
 	features,
 	getDebugState,
 	isEnabled,
@@ -11,6 +12,7 @@ import {
 	useLibraryMutation
 } from '@sd/client';
 import { Button, Dropdown, DropdownMenu, Popover, Select, SelectOption, Switch } from '@sd/ui';
+
 import { usePlatform } from '~/util/Platform';
 import Setting from '../../settings/Setting';
 
@@ -161,24 +163,22 @@ function FeatureFlagSelector() {
 	return (
 		<DropdownMenu.Root
 			trigger={
-				<Dropdown.Button variant="gray">
+				<Dropdown.Button variant="gray" className="w-full">
 					<span className="truncate">Feature Flags</span>
 				</Dropdown.Button>
 			}
 			className="mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 			alignToTrigger
 		>
-			{features.map((feat) => (
-				<div key={feat} className="flex text-white">
-					{isEnabled(feat) && <SiCheckmarx />}
-
-					<DropdownMenu.Item
-						label={feat}
-						iconProps={{ weight: 'bold', size: 16 }}
-						onClick={() => toggleFeatureFlag(feat)}
-						className="font-medium"
-					/>
-				</div>
+			{[...features, ...backendFeatures].map((feat) => (
+				<DropdownMenu.Item
+					key={feat}
+					label={feat}
+					iconProps={{ weight: 'bold', size: 16 }}
+					onClick={() => toggleFeatureFlag(feat)}
+					className="font-medium text-white"
+					icon={isEnabled(feat) ? SiCheckmarx : undefined}
+				/>
 			))}
 		</DropdownMenu.Root>
 	);

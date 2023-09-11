@@ -45,12 +45,14 @@ file_path::select!(file_path_for_object_validator {
 	extension
 	integrity_checksum
 });
-file_path::select!(file_path_for_thumbnailer {
+file_path::select!(file_path_for_media_processor {
+	id
 	materialized_path
 	is_dir
 	name
 	extension
 	cas_id
+	object_id
 });
 file_path::select!(file_path_to_isolate {
 	location_id
@@ -79,10 +81,24 @@ file_path::select!(file_path_walker {
 	device
 });
 file_path::select!(file_path_to_handle_custom_uri {
+	pub_id
 	materialized_path
 	is_dir
 	name
 	extension
+	location: select {
+		id
+		path
+		instance: select {
+			identity
+		}
+	}
+});
+file_path::select!(file_path_to_handle_p2p_serve_file {
+	materialized_path
+	name
+	extension
+	is_dir // For isolated file path
 	location: select {
 		id
 		path

@@ -2,14 +2,24 @@ import * as ProgressPrimitive from '@radix-ui/react-progress';
 import clsx from 'clsx';
 import { memo } from 'react';
 
-export interface ProgressBarProps {
-	value: number;
-	total: number;
+export type ProgressBarProps = {
 	pending?: boolean;
-}
+} & (
+	| {
+			value: number;
+			total: number;
+	  }
+	| {
+			percent: number;
+	  }
+);
 
 export const ProgressBar = memo((props: ProgressBarProps) => {
-	const percentage = props.pending ? 0 : Math.round((props.value / props.total) * 100);
+	const percentage = props.pending
+		? 0
+		: 'percent' in props
+		? props.percent
+		: Math.round((props.value / props.total) * 100);
 
 	if (props.pending) {
 		return (

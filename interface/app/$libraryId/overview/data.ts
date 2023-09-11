@@ -1,15 +1,25 @@
 import { iconNames } from '@sd/assets/util';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
 	Category,
-	ObjectSearchOrdering,
+	FilePathFilterArgs,
+	FilePathOrder,
+	ObjectFilterArgs,
+	ObjectKindEnum,
+	ObjectOrder,
 	useLibraryContext,
+	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { useExplorerContext } from '../Explorer/Context';
-import { getExplorerStore, useExplorerStore } from '../Explorer/store';
-import { UseExplorerSettings } from '../Explorer/useExplorer';
+
+import { useObjectsInfiniteQuery, usePathsInfiniteQuery } from '../Explorer/queries';
+import {
+	createDefaultExplorerSettings,
+	filePathOrderingKeysSchema,
+	objectOrderingKeysSchema
+} from '../Explorer/store';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { usePageLayoutContext } from '../PageLayout/Context';
 
 export const IconForCategory: Partial<Record<Category, string>> = {
 	Recents: iconNames.Collection,
@@ -51,75 +61,45 @@ export const IconToDescription = {
 	Trash: 'View all files in your trash'
 };
 
-const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
+export const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
 
 // this is a gross function so it's in a separate hook :)
-export function useItems(
-	category: Category,
-	explorerSettings: UseExplorerSettings<ObjectSearchOrdering>
-) {
-	const settings = explorerSettings.useSettingsSnapshot();
+export function useCategoryExplorer(category: Category) {
 	const rspc = useRspcLibraryContext();
 	const { library } = useLibraryContext();
-
-	const kind = settings.layoutMode === 'media' ? [5, 7] : undefined;
+	const page = usePageLayoutContext();
 
 	const isObjectQuery = OBJECT_CATEGORIES.includes(category);
 
-	const objectFilter = { category, kind };
-
-	// TODO: Make a custom double click handler for directories to take users to the location explorer.
-	// For now it's not needed because folders shouldn't show.
-	const pathsQuery = useInfiniteQuery({
-		enabled: !isObjectQuery,
-		queryKey: [
-			'search.paths',
-			{
-				library_id: library.uuid,
-				arg: {
-					take: 50,
-					filter: { object: objectFilter }
-				}
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			rspc.client.query([
-				'search.paths',
-				{
-					...queryKey[1].arg,
-					cursor
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+	const pathsExplorerSettings = useExplorerSettings({
+		settings: useMemo(() => createDefaultExplorerSettings<FilePathOrder>(), []),
+		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const pathsItems = useMemo(
-		() => pathsQuery.data?.pages?.flatMap((d) => d.items),
-		[pathsQuery.data]
-	);
+	const objectsExplorerSettings = useExplorerSettings({
+		settings: useMemo(() => createDefaultExplorerSettings<ObjectOrder>(), []),
+		orderingKeys: objectOrderingKeysSchema
+	});
 
-	const objectsQuery = useInfiniteQuery({
+	const explorerSettings = isObjectQuery ? objectsExplorerSettings : pathsExplorerSettings;
+	const settings = explorerSettings.useSettingsSnapshot();
+
+	const take = 100;
+
+	const objectFilter: ObjectFilterArgs = {
+		category,
+		...(settings.layoutMode === 'media' && {
+			kind: [ObjectKindEnum.Image, ObjectKindEnum.Video]
+		})
+	};
+
+	const objectsCount = useLibraryQuery(['search.objectsCount', { filter: objectFilter }]);
+
+	const objectsQuery = useObjectsInfiniteQuery({
 		enabled: isObjectQuery,
-		queryKey: [
-			'search.objects',
-			{
-				library_id: library.uuid,
-				arg: {
-					take: 50,
-					filter: objectFilter
-				}
-			}
-		] as const,
-		queryFn: ({ pageParam: cursor, queryKey }) =>
-			rspc.client.query([
-				'search.objects',
-				{
-					...queryKey[1].arg,
-					cursor
-				}
-			]),
-		getNextPageParam: (lastPage) => lastPage.cursor ?? undefined
+		library,
+		arg: { take, filter: objectFilter },
+		settings: objectsExplorerSettings
 	});
 
 	const objectsItems = useMemo(
@@ -127,20 +107,47 @@ export function useItems(
 		[objectsQuery.data]
 	);
 
+	const pathsFilter: FilePathFilterArgs = { object: objectFilter };
+
+	const pathsCount = useLibraryQuery(['search.pathsCount', { filter: pathsFilter }]);
+
+	// TODO: Make a custom double click handler for directories to take users to the location explorer.
+	// For now it's not needed because folders shouldn't show.
+	const pathsQuery = usePathsInfiniteQuery({
+		enabled: !isObjectQuery,
+		library,
+		arg: { take, filter: pathsFilter },
+		settings: pathsExplorerSettings
+	});
+
+	const pathsItems = useMemo(
+		() => pathsQuery.data?.pages?.flatMap((d) => d.items),
+		[pathsQuery.data]
+	);
+
 	const loadMore = () => {
 		const query = isObjectQuery ? objectsQuery : pathsQuery;
 		if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
 	};
 
+	const shared = {
+		loadMore,
+		scrollRef: page.ref
+	};
+
 	return isObjectQuery
-		? {
+		? // eslint-disable-next-line
+		  useExplorer({
 				items: objectsItems ?? null,
-				query: objectsQuery,
-				loadMore
-		  }
-		: {
+				count: objectsCount.data,
+				settings: objectsExplorerSettings,
+				...shared
+		  })
+		: // eslint-disable-next-line
+		  useExplorer({
 				items: pathsItems ?? null,
-				query: pathsQuery,
-				loadMore
-		  };
+				count: pathsCount.data,
+				settings: pathsExplorerSettings,
+				...shared
+		  });
 }

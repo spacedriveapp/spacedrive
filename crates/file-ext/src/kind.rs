@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+// Note: The order of this enum should never change, and always be kept in sync with `packages/client/src/utils/objectKind.ts`
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ObjectKind {
@@ -49,4 +50,6 @@ pub enum ObjectKind {
 	Database = 21,
 	/// E-book file
 	Book = 22,
+	/// Config file
+	Config = 23,
 }

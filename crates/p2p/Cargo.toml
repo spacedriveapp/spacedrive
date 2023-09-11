@@ -3,6 +3,7 @@ name = "sd-p2p"
 version = "0.1.0"
 description = "Rust Peer to Peer Networking Library"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+readme = "README.md"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
@@ -27,7 +28,7 @@ if-watch = { version = "3.0.1", features = [
 ] } # Override the features of if-watch which is used by libp2p-quic
 mdns-sd = "0.6.1"
 thiserror = "1.0.40"
-tracing = "0.1.37"
+tracing = { workspace = true }
 serde = { version = "1.0.163", features = ["derive"] }
 rmp-serde = "1.1.1"
 specta = { workspace = true }
@@ -41,4 +42,4 @@ hex = "0.4.3"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

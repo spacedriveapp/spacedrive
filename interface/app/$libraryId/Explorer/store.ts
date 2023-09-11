@@ -3,12 +3,12 @@ import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
+	resetStore,
 	type DoubleClickAction,
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
-	type SortOrder,
-	resetStore
+	type SortOrder
 } from '@sd/client';
 
 export enum ExplorerKind {
@@ -65,13 +65,11 @@ export function getOrderingDirection(ordering: Ordering): SortOrder {
 	else return ordering.value;
 }
 
-export const createDefaultExplorerSettings = <TOrder extends Ordering>({
-	order
-}: {
-	order: TOrder | null;
+export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
+	order?: TOrder | null;
 }) =>
 	({
-		order,
+		order: args?.order ?? null,
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
 		showBytesInGridView: true as boolean,
@@ -89,7 +87,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>({
 			contentId: 180,
 			objectId: 180
 		}
-	} satisfies ExplorerSettings<TOrder>);
+	}) satisfies ExplorerSettings<TOrder>;
 
 type CutCopyState =
 	| {
@@ -108,8 +106,6 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	quickViewObject: null as ExplorerItem | null,
-	groupBy: 'none',
 	isDragging: false,
 	gridGap: 8
 };
@@ -148,7 +144,7 @@ export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyStat
 
 export const filePathOrderingKeysSchema = z.union([
 	z.literal('name').describe('Name'),
-	z.literal('sizeInBytes').describe('Size'),
+	// z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateModified').describe('Date Modified'),
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),
@@ -158,4 +154,11 @@ export const filePathOrderingKeysSchema = z.union([
 export const objectOrderingKeysSchema = z.union([
 	z.literal('dateAccessed').describe('Date Accessed'),
 	z.literal('kind').describe('Kind')
+]);
+
+export const nonIndexedPathOrderingSchema = z.union([
+	z.literal('name').describe('Name'),
+	// z.literal('sizeInBytes').describe('Size'),
+	z.literal('dateCreated').describe('Date Created'),
+	z.literal('dateModified').describe('Date Modified')
 ]);

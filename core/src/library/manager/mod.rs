@@ -1,4 +1,5 @@
 use crate::{
+	api::{utils::InvalidateOperationEvent, CoreEvent},
 	invalidate_query,
 	location::indexer,
 	node::Platform,
@@ -19,7 +20,7 @@ use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::AtomicBool, Arc},
 };
 
 use chrono::Utc;
@@ -56,6 +57,7 @@ pub struct Libraries {
 	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
 	pub rx: mpscrr::Receiver<LibraryManagerEvent, ()>,
+	pub emit_messages_flag: Arc<AtomicBool>,
 }
 
 impl Libraries {
@@ -70,6 +72,7 @@ impl Libraries {
 			libraries: Default::default(),
 			tx,
 			rx,
+			emit_messages_flag: Arc::new(AtomicBool::new(false)),
 		}))
 	}
 
@@ -98,15 +101,15 @@ impl Libraries {
 					.is_file()
 			{
 				let Some(Ok(library_id)) = config_path
-				.file_stem()
-				.and_then(|v| v.to_str().map(Uuid::from_str))
+					.file_stem()
+					.and_then(|v| v.to_str().map(Uuid::from_str))
 				else {
 					warn!(
 						"Attempted to load library from path '{}' \
 						but it has an invalid filename. Skipping...",
 						config_path.display()
 					);
-						continue;
+					continue;
 				};
 
 				let db_path = config_path.with_extension("db");
@@ -226,23 +229,26 @@ impl Libraries {
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
-		let libraries = self.libraries.write().await;
+		let libraries = self.libraries.read().await;
 		let library = libraries
 			.get(&id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		// update the library
-		let mut config = library.config.clone();
-		if let Some(name) = name {
-			config.name = name;
-		}
-		match description {
-			MaybeUndefined::Undefined => {}
-			MaybeUndefined::Null => config.description = None,
-			MaybeUndefined::Value(description) => config.description = Some(description),
-		}
+		{
+			let mut config = library.config_mut();
 
-		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
+			// update the library
+			if let Some(name) = name {
+				config.name = name;
+			}
+			match description {
+				MaybeUndefined::Undefined => {}
+				MaybeUndefined::Null => config.description = None,
+				MaybeUndefined::Value(description) => config.description = Some(description),
+			}
+
+			LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
+		}
 
 		self.tx
 			.emit(LibraryManagerEvent::Edit(library.clone()))
@@ -379,11 +385,12 @@ impl Libraries {
 		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
 		// seed_keymanager(&db, &key_manager).await?;
 
-		let mut sync = sync::Manager::new(&db, instance_id);
+		let mut sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag);
 
 		let library = Library::new(
 			id,
 			config,
+			instance_id,
 			identity,
 			// key_manager,
 			db,
@@ -399,9 +406,19 @@ impl Libraries {
 
 			async move {
 				loop {
-					let Ok(SyncMessage::Created) = sync.rx.recv().await else { continue };
+					let Ok(msg) = sync.rx.recv().await else {
+						continue;
+					};
 
-					p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await;
+					match msg {
+						// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
+						SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+							InvalidateOperationEvent::all(),
+						)),
+						SyncMessage::Created => {
+							p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await
+						}
+					}
 				}
 			}
 		});

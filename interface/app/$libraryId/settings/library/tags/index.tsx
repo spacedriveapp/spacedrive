@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { Button, Card, dialogManager } from '@sd/ui';
+
 import { Heading } from '~/app/$libraryId/settings/Layout';
 import { TagsSettingsParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
@@ -23,7 +24,7 @@ export const Component = () => {
 
 	// Set the first tag as selected when the tags list data is first loaded
 	useEffect(() => {
-		if (tags?.data?.length || 0 > 1 && !selectedTag) setSelectedTag(tags.data?.[0] ?? null);
+		if (tags?.data?.length || (0 > 1 && !selectedTag)) setSelectedTag(tags.data?.[0] ?? null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [tags?.data]);
 

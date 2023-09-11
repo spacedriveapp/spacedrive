@@ -1,7 +1,7 @@
-import { Clipboard } from 'phosphor-react';
+import { Clipboard } from '@phosphor-icons/react';
 import { ReactNode } from 'react';
-import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
-import { useZodForm } from '@sd/ui/src/forms';
+import { useZodForm } from '@sd/client';
+import { Button, Dialog, dialogManager, Input, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	title: string; // dialog title
@@ -39,7 +39,7 @@ const AlertDialog = (props: Props) => {
 							}}
 							size="icon"
 						>
-							<Clipboard className="w-4 h-4" />
+							<Clipboard className="h-4 w-4" />
 						</Button>
 					}
 				/>

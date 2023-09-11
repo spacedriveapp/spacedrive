@@ -6,11 +6,13 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[]; media_data: MediaData | null } | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "files.getEphemeralMediaData", input: string, result: MediaMetadata | null } | 
+        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "jobs.reports", input: never, result: { [key: string]: JobGroup[] } } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -24,10 +26,13 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
+        { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeral-paths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.pathsCount", input: LibraryArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -73,14 +78,16 @@ export type Procedures = {
         { key: "notifications.test", input: never, result: null } | 
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
+        { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
-        { key: "p2p.spacedrop", input: SpacedropArgs, result: string | null } | 
+        { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
@@ -89,9 +96,17 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "p2p.spacedropProgress", input: string, result: number } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
+
+export type AudioMetadata = { duration: number | null; audio_codec: string | null }
+
+/**
+ * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+ * 
+ * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+ */
+export type BackendFeature = "syncEmitMessages" | "filesOverP2P"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -108,13 +123,25 @@ export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" 
 
 export type ChangeNodeNameArgs = { name: string | null }
 
+export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
+
+export type Composite = "Unknown" | "False" | "General" | "Live"
+
 export type CreateLibraryArgs = { name: LibraryName }
+
+export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
+export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
 export type DoubleClickAction = "openFile" | "quickPreview"
 
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
+
+export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
+
+export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
 export type Error = { code: ErrorCode; message: string }
 
@@ -139,19 +166,29 @@ export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; 
 
 export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
 
+export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
+
+export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
+
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
-export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; cursor?: number[] | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type FilePathSearchOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectSearchOrdering }
+export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
+
+export type FilePathSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
+
+export type Flash = { mode: FlashMode; fired: boolean | null; returned: boolean | null; red_eye_reduction: boolean | null }
+
+export type FlashMode = "Unknown" | "On" | "Off" | "Auto" | "Forced"
 
 export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
-export type GenerateThumbsForLocationArgs = { id: number; path: string }
+export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
 
@@ -160,6 +197,10 @@ export type GetArgs = { id: number }
 export type Header = { id: string; timestamp: string; library_id: string; library_name: string }
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
+
+export type ImageData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
+
+export type ImageMetadata = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: ImageData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
 export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
@@ -175,7 +216,9 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
-export type InvalidateOperationEvent = { key: string; arg: any; result: any | null }
+export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
+
+export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
@@ -195,7 +238,9 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
  */
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
-export type LibraryConfigWrapped = { uuid: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
+
+export type LibraryData = { instances: { [key: string]: InstanceState } }
 
 export type LibraryName = string
 
@@ -212,7 +257,7 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
-export type LocationSettings = { explorer: ExplorerSettings<FilePathSearchOrdering> }
+export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 
 /**
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
@@ -222,7 +267,7 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathSearchOrderi
  * It is important to note that only the indexer rule ids in this vector will be used from now on.
  * Old rules that aren't in this vector will be purged.
  */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
@@ -230,13 +275,20 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaData = { id: number; pixel_width: number | null; pixel_height: number | null; longitude: number | null; latitude: number | null; fps: number | null; capture_device_make: string | null; capture_device_model: string | null; capture_device_software: string | null; duration_seconds: number | null; codecs: string | null; streams: number | null }
+export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
+
+/**
+ * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
+ * 
+ * This may also be `undefined`.
+ */
+export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
+
+export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
-
-export type NonIndexedPath = { path: string; withHiddenFiles: boolean; order?: FilePathSearchOrdering | null }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
 
@@ -255,13 +307,15 @@ export type NotificationId = { type: "library"; id: [string, number] } | { type:
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
+export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
+
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
-export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; cursor?: number[] | null; filter?: ObjectFilterArgs }
+export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
 
-export type ObjectSearchOrdering = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
+export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -275,10 +329,14 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
+export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
+
+export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
+
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; name: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; peer_name: string; file_name: string } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
 
 export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
 
@@ -287,6 +345,8 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 export type PeerId = string
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+
+export type PlusCode = string
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 
@@ -304,7 +364,7 @@ export type RescanArgs = { location_id: number; sub_path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; p2p_email: string | null; p2p_img_url: string | null }
+export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -315,6 +375,8 @@ export type SetNoteArgs = { id: number; note: string | null }
 export type SharedOperation = { record_id: any; model: string; data: SharedOperationData }
 
 export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
+
+export type SingleInvalidateOperationEvent = { key: string; arg: any; result: any | null }
 
 export type SortOrder = "Asc" | "Desc"
 
@@ -329,5 +391,7 @@ export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: bo
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }

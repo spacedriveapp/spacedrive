@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
+
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
 
@@ -124,6 +125,7 @@ export interface DialogProps<S extends FieldValues>
 	submitDisabled?: boolean;
 	transformOrigin?: string;
 	buttonsSideContent?: ReactNode;
+	invertButtonFocus?: boolean; //this reverses the focus order of submit/cancel buttons
 }
 
 export function Dialog<S extends FieldValues>({
@@ -131,6 +133,7 @@ export function Dialog<S extends FieldValues>({
 	dialog,
 	onSubmit,
 	onCancelled = true,
+	invertButtonFocus,
 	...props
 }: DialogProps<S>) {
 	const stateSnap = useSnapshot(dialog.state);
@@ -147,6 +150,48 @@ export function Dialog<S extends FieldValues>({
 	});
 
 	const setOpen = (v: boolean) => (dialog.state.open = v);
+
+	const cancelButton = (
+		<RDialog.Close asChild>
+			<Button
+				size="sm"
+				variant="gray"
+				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
+			>
+				Cancel
+			</Button>
+		</RDialog.Close>
+	);
+
+	const closeButton = (
+		<RDialog.Close asChild>
+			<Button
+				disabled={props.loading}
+				size="sm"
+				variant="gray"
+				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
+			>
+				{props.closeLabel || 'Close'}
+			</Button>
+		</RDialog.Close>
+	);
+
+	const submitButton = (
+		<Button
+			type="submit"
+			size="sm"
+			disabled={
+				form.formState.isSubmitting || props.submitDisabled || !form.formState.isValid
+			}
+			variant={props.ctaDanger ? 'colored' : 'accent'}
+			className={clsx(
+				props.ctaDanger &&
+					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+			)}
+		>
+			{props.ctaLabel}
+		</Button>
+	);
 
 	return (
 		<RDialog.Root open={stateSnap.open} onOpenChange={setOpen}>
@@ -188,56 +233,36 @@ export function Dialog<S extends FieldValues>({
 
 									{props.children}
 								</div>
-								<div className="flex flex-row justify-end p-3 space-x-2 border-t border-app-line bg-app-selected">
+								<div
+									className={clsx(
+										'flex justify-end space-x-2 border-t border-app-line bg-app-selected p-3'
+									)}
+								>
 									{form.formState.isSubmitting && <Loader />}
 									{props.buttonsSideContent && (
 										<div>{props.buttonsSideContent}</div>
 									)}
 									<div className="grow" />
-									{onCancelled && (
-										<RDialog.Close asChild>
-											<Button
-												disabled={props.loading}
-												size="sm"
-												variant="gray"
-												onClick={
-													typeof onCancelled === 'function'
-														? onCancelled
-														: undefined
-												}
-											>
-												{props.closeLabel || 'Close'}
-											</Button>
-										</RDialog.Close>
-									)}
-									{props.cancelBtn && (
-										<RDialog.Close asChild>
-											<Button
-												size="sm"
-												variant="gray"
-												onClick={
-													typeof onCancelled === 'function'
-														? onCancelled
-														: undefined
-												}
-											>
-												Cancel
-											</Button>
-										</RDialog.Close>
-									)}
-									<Button
-										type="submit"
-										size="sm"
-										disabled={
-											form.formState.isSubmitting || props.submitDisabled
-										}
-										variant={props.ctaDanger ? 'colored' : 'accent'}
+									<div
 										className={clsx(
-											props.ctaDanger && 'border-red-500 bg-red-500'
+											invertButtonFocus ? 'flex-row-reverse' : ' flex-row',
+											'flex gap-2'
 										)}
 									>
-										{props.ctaLabel}
-									</Button>
+										{invertButtonFocus ? (
+											<>
+												{submitButton}
+												{props.cancelBtn && cancelButton}
+												{onCancelled && closeButton}
+											</>
+										) : (
+											<>
+												{onCancelled && closeButton}
+												{props.cancelBtn && cancelButton}
+												{submitButton}
+											</>
+										)}
+									</div>
 								</div>
 							</Form>
 							<Remover id={dialog.id} />

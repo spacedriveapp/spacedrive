@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+
 import { valtioPersist } from '../lib';
 
 export enum UseCase {
@@ -10,12 +11,11 @@ export enum UseCase {
 }
 
 const onboardingStoreDefaults = () => ({
-	newLibraryName: '',
 	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
-	shareFullTelemetry: true,
 	useCases: [] as UseCase[],
-	grantedFullDiskAccess: false
+	grantedFullDiskAccess: false,
+	data: {} as Record<string, any> | undefined
 });
 
 const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults());

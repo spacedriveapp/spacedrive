@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 import { useBridgeQuery, useDebugState } from '@sd/client';
+
 import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
 import { Divider } from '~/components/primitive/Divider';
@@ -39,7 +40,6 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				<SettingsTitle style={tw`mt-3`}>Node Port</SettingsTitle>
 				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
 			</Card>
-			{/* TODO: Move this to Debug screen */}
 			{debugState.enabled && (
 				<Card style={tw`mt-4`}>
 					{/* Card Header */}

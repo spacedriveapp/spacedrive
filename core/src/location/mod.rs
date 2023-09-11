@@ -6,13 +6,17 @@ use crate::{
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
-		preview::{
-			can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
-			get_thumbnail_path, shallow_thumbnailer, thumbnailer_job::ThumbnailerJobInit,
+		media::{
+			media_processor,
+			thumbnail::{
+				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
+				get_thumbnail_path,
+			},
+			MediaProcessorJobInit,
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	Node,
 };
 
@@ -90,19 +94,33 @@ impl LocationCreateArgs {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
-		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if let Some(old_path) = metadata.location_path(library.id) {
-				if old_path == self.path {
-					Err(LocationError::LocationAlreadyExists(self.path))
+		if let Some(mut metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
+			metadata
+				.clean_stale_libraries(
+					&node
+						.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|library| library.id)
+						.collect(),
+				)
+				.await?;
+
+			if !metadata.is_empty() {
+				return if let Some(old_path) = metadata.location_path(library.id) {
+					if old_path == self.path {
+						Err(LocationError::LocationAlreadyExists(self.path))
+					} else {
+						Err(LocationError::NeedRelink {
+							old_path: old_path.to_path_buf(),
+							new_path: self.path,
+						})
+					}
 				} else {
-					Err(LocationError::NeedRelink {
-						old_path: old_path.to_path_buf(),
-						new_path: self.path,
-					})
-				}
-			} else {
-				Err(LocationError::AddLibraryToMetadata(self.path))
-			};
+					Err(LocationError::AddLibraryToMetadata(self.path))
+				};
+			}
 		}
 
 		debug!(
@@ -163,6 +181,18 @@ impl LocationCreateArgs {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
+
+		metadata
+			.clean_stale_libraries(
+				&node
+					.libraries
+					.get_all()
+					.await
+					.into_iter()
+					.map(|library| library.id)
+					.collect(),
+			)
+			.await?;
 
 		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
@@ -226,16 +256,17 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: location::id::Type,
-	pub name: Option<String>,
-	pub generate_preview_media: Option<bool>,
-	pub sync_preview_media: Option<bool>,
-	pub hidden: Option<bool>,
-	pub indexer_rules_ids: Vec<i32>,
+	id: location::id::Type,
+	name: Option<String>,
+	generate_preview_media: Option<bool>,
+	sync_preview_media: Option<bool>,
+	hidden: Option<bool>,
+	indexer_rules_ids: Vec<i32>,
+	path: Option<String>,
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+	pub async fn update(self, node: &Node, library: &Arc<Library>) -> Result<(), LocationError> {
 		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
@@ -244,9 +275,10 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
+		let name = self.name.clone();
+
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
-				.clone()
 				.filter(|name| location.name.as_ref() != Some(name))
 				.map(|v| {
 					(
@@ -270,6 +302,12 @@ impl LocationUpdateArgs {
 				(
 					(location::hidden::NAME, json!(v)),
 					location::hidden::set(Some(v)),
+				)
+			}),
+			self.path.clone().map(|v| {
+				(
+					(location::path::NAME, json!(v)),
+					location::path::set(Some(v)),
 				)
 			}),
 		]
@@ -300,16 +338,21 @@ impl LocationUpdateArgs {
 			.await?;
 
 			// TODO(N): This will probs fall apart with removable media.
-			if location.instance_id == Some(library.config.instance_id) {
+			if location.instance_id == Some(library.config().instance_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
 					{
 						metadata
-							.update(library.id, self.name.expect("TODO"))
+							.update(library.id, maybe_missing(name, "location.name")?)
 							.await?;
 					}
 				}
+			}
+
+			if self.path.is_some() {
+				node.locations.remove(self.id, library.clone()).await?;
+				node.locations.add(self.id, library.clone()).await?;
 			}
 		}
 
@@ -388,7 +431,7 @@ pub async fn scan_location(
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -405,9 +448,10 @@ pub async fn scan_location(
 		location: location_base_data.clone(),
 		sub_path: None,
 	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -423,7 +467,7 @@ pub async fn scan_location_sub_path(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -443,9 +487,10 @@ pub async fn scan_location_sub_path(
 		location: location_base_data.clone(),
 		sub_path: Some(sub_path.clone()),
 	})
-	.queue_next(ThumbnailerJobInit {
+	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -461,7 +506,7 @@ pub async fn light_scan_location(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -469,7 +514,7 @@ pub async fn light_scan_location(
 
 	indexer::shallow(&location, &sub_path, &node, &library).await?;
 	file_identifier::shallow(&location_base_data, &sub_path, &library).await?;
-	shallow_thumbnailer(&location_base_data, &sub_path, &library, &node).await?;
+	media_processor::shallow(&location_base_data, &sub_path, &library, &node).await?;
 
 	Ok(())
 }
@@ -632,7 +677,7 @@ async fn create_location(
 							location::name::set(Some(name.clone())),
 							location::path::set(Some(path)),
 							location::date_created::set(Some(date_created.into())),
-							location::instance_id::set(Some(library.config.instance_id)),
+							location::instance_id::set(Some(library.config().instance_id)),
 							// location::instance::connect(instance::id::equals(
 							// 	library.config.instance_id.as_bytes().to_vec(),
 							// )),
@@ -692,9 +737,21 @@ pub async fn delete_location(
 	// TODO: This should really be queued to the proper node so it will always run
 	// TODO: Deal with whether a location is online or not
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id == Some(library.config.instance_id) {
+	if location.instance_id == Some(library.config().instance_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+				metadata
+					.clean_stale_libraries(
+						&node
+							.libraries
+							.get_all()
+							.await
+							.into_iter()
+							.map(|library| library.id)
+							.collect(),
+					)
+					.await?;
+
 				metadata.remove_library(library.id).await?;
 			}
 		}
@@ -814,7 +871,10 @@ async fn check_nested_location(
 	let comps = location_path.components().collect::<Vec<_>>();
 	let is_a_child_location = potential_children.into_iter().any(|v| {
 		let Some(location_path) = v.path else {
-			warn!("Missing location path on location <id='{}'> at check nested location", v.id);
+			warn!(
+				"Missing location path on location <id='{}'> at check nested location",
+				v.id
+			);
 			return false;
 		};
 		let comps2 = PathBuf::from(location_path);
@@ -853,7 +913,7 @@ pub(super) async fn generate_thumbnail(
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
-		debug!(
+		trace!(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);
@@ -870,7 +930,9 @@ pub(super) async fn generate_thumbnail(
 
 	#[cfg(feature = "ffmpeg")]
 	{
-		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use crate::object::media::thumbnail::{
+			can_generate_thumbnail_for_video, generate_video_thumbnail,
+		};
 		use sd_file_ext::extensions::VideoExtension;
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {

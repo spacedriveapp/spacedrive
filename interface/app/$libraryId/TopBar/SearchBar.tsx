@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useResolvedPath } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
+
 import { SearchParamsSchema } from '~/app/route-schemas';
 import { getSearchStore, useOperatingSystem, useZodSearchParams } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
@@ -15,7 +16,6 @@ export default () => {
 	const navigate = useNavigate();
 	const location = useLocation();
 
-	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
 

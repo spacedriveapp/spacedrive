@@ -1,19 +1,20 @@
 import { Database } from '@sd/assets/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { getOnboardingStore } from '@sd/client';
 import { Button, Form, InputField } from '@sd/ui';
+
+import { useOnboardingContext } from './context';
 import {
 	OnboardingContainer,
 	OnboardingDescription,
 	OnboardingImg,
 	OnboardingTitle
 } from './Layout';
-import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
-	const { form } = useOnboardingContext();
+	const form = useOnboardingContext().forms.useForm('new-library');
+
 	const [importMode, setImportMode] = useState(false);
 
 	const handleImport = () => {
@@ -23,11 +24,9 @@ export default function OnboardingNewLibrary() {
 	return (
 		<Form
 			form={form}
-			// manual onSubmit as we need to set the library name in the store
-			onSubmit={async () => {
-				getOnboardingStore().newLibraryName = form.getValues('name');
+			onSubmit={form.handleSubmit(() => {
 				navigate('../privacy', { replace: true });
-			}}
+			})}
 		>
 			<OnboardingContainer>
 				<OnboardingImg src={Database} />
@@ -61,8 +60,8 @@ export default function OnboardingNewLibrary() {
 							<Button
 								type="submit"
 								variant="accent"
-								disabled={!form.formState.isValid}
 								size="sm"
+								disabled={!form.formState.isValid}
 							>
 								New library
 							</Button>
