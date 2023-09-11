@@ -1,4 +1,4 @@
-// import { Eye, EyeSlash } from 'phosphor-react';
+// import { Eye, EyeSlash } from '@phosphor-icons/react';
 // import { useState } from 'react';
 // import { useLibraryMutation } from '@sd/client';
 // import { Button, Dialog, UseDialogProps, forms, useDialog } from '@sd/ui';

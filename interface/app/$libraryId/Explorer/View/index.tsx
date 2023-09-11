@@ -1,43 +1,44 @@
 import clsx from 'clsx';
-import { Columns, GridFour, type Icon, MonitorPlay, Rows } from 'phosphor-react';
+import { Columns, GridFour, MonitorPlay, Rows, type Icon } from '@phosphor-icons/react';
 import {
-	type HTMLAttributes,
-	type PropsWithChildren,
-	type ReactNode,
 	isValidElement,
 	memo,
 	useCallback,
 	useEffect,
 	useRef,
-	useState
+	useState,
+	type HTMLAttributes,
+	type PropsWithChildren,
+	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
+	getItemObject,
+	isPath,
+	useLibraryContext,
+	useLibraryMutation,
 	type ExplorerItem,
 	type FilePath,
 	type Location,
 	type NonIndexedPathItem,
-	type Object,
-	getItemObject,
-	isPath,
-	useLibraryContext,
-	useLibraryMutation
+	type Object
 } from '@sd/client';
-import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
+import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+
 import { Loader } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 import CreateDialog from '../../settings/library/tags/CreateDialog';
+import { useExplorerConfigStore } from '../config';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
-import { type ExplorerViewContext, ViewContext, useExplorerViewContext } from '../ViewContext';
-import { useExplorerConfigStore } from '../config';
 import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext, ViewContext, type ExplorerViewContext } from '../ViewContext';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';

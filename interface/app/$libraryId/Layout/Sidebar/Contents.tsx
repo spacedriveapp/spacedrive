@@ -1,5 +1,6 @@
-import { ArrowsClockwise, CopySimple, Crosshair, Eraser, FilmStrip, Planet } from 'phosphor-react';
+import { ArrowsClockwise, CopySimple, Crosshair, Eraser, FilmStrip, Planet } from '@phosphor-icons/react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
+
 import { SubtleButton } from '~/components/SubtleButton';
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
