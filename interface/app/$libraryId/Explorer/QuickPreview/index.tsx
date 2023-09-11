@@ -13,6 +13,7 @@ import {
 	useState
 } from 'react';
 import {
+	ExplorerItem,
 	ObjectKindKey,
 	getExplorerItemData,
 	getIndexedItemFilePath,
@@ -41,7 +42,7 @@ import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-const heavyKinds: ObjectKindKey[] = ['Image', 'Video'];
+const heavyKinds: ObjectKindKey[] = ['Image', 'Video', 'Audio', 'Document'];
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const withoutBackgroundKinds: ObjectKindKey[] = [
 	...iconKinds,
@@ -71,6 +72,7 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
+	const [item, setItem] = useState<ExplorerItem>();
 	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
@@ -81,8 +83,6 @@ export const QuickPreview = () => {
 		() => (open ? [...explorer.selectedItems] : []),
 		[explorer.selectedItems, open]
 	);
-
-	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
 
 	const transitions = useTransition(open, {
 		from: {
@@ -105,11 +105,10 @@ export const QuickPreview = () => {
 
 		getQuickPreviewStore().itemIndex = index;
 		setNewName(null);
-		setLoadOriginal(false);
 	};
 
 	useEffect(() => {
-		setLoadOriginal(false);
+		const item = items[itemIndex];
 
 		if (!open || !item) {
 			getQuickPreviewStore().itemIndex = 0;
@@ -117,8 +116,11 @@ export const QuickPreview = () => {
 			setNewName(null);
 
 			if (!item) getQuickPreviewStore().open = false;
+
 			return;
 		}
+
+		setItem(item);
 
 		const { kind } = getExplorerItemData(item);
 
@@ -127,9 +129,11 @@ export const QuickPreview = () => {
 			return;
 		}
 
+		setLoadOriginal(false);
+
 		const timeout = setTimeout(() => setLoadOriginal(true), 350);
 		return () => clearTimeout(timeout);
-	}, [item, open]);
+	}, [items, itemIndex, open]);
 
 	// Toggle quick preview
 	useKeyBind(['space'], (e) => {

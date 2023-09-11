@@ -14,6 +14,7 @@ import { type ExplorerItem } from '@sd/client';
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { useExplorerContext } from '../Context';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
@@ -261,7 +262,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 			if (!selectedItemDom) return;
 
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
 					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([
