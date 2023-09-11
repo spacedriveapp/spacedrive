@@ -2,7 +2,7 @@ import { Folder } from '@sd/assets/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from 'phosphor-react';
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import {
 	getJobNiceActionName,
