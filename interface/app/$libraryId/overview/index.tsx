@@ -18,7 +18,6 @@ import { TopBarPortal } from '../TopBar/Portal';
 import { Categories } from './Categories';
 import { IconForCategory, IconToDescription, useCategoryExplorer } from './data';
 import Inspector from './Inspector';
-import clsx from 'clsx';
 
 export const Component = () => {
 	const isDark = useIsDark();
@@ -48,9 +47,7 @@ export const Component = () => {
 			<div className="flex flex-1">
 				<View
 					top={68}
-					className={clsx(
-						settings.layoutMode === 'list' && 'min-w-0'
-					)}
+					className={settings.layoutMode === 'list' && 'min-w-0'}
 					contextMenu={
 						<ContextMenu>
 							<Conditional items={[ObjectItems.RemoveFromRecents]} />
