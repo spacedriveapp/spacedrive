@@ -275,7 +275,7 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
+export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
@@ -345,6 +345,8 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 export type PeerId = string
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+
+export type PlusCode = string
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 

@@ -52,6 +52,28 @@ function MediaData({ data }: Props) {
 					}
 				/>
 				<MetaData
+					label="Plus Code"
+					value={
+						data.location?.pluscode ? (
+							<a
+								onClick={(e) => {
+									e.preventDefault();
+									platform.openLink(
+										`https://www.google.com/maps/search/?api=1&query=${data.location?.pluscode.replace(
+											'+',
+											'%2B'
+										)}`
+									);
+								}}
+							>
+								{data.location?.pluscode}
+							</a>
+						) : (
+							'--'
+						)
+					}
+				/>
+				<MetaData
 					label="Dimensions"
 					value={
 						<>
@@ -65,7 +87,7 @@ function MediaData({ data }: Props) {
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
-				<MetaData label="Zoom" value={data.camera_data.zoom} />
+				<MetaData label="Zoom" value={data.camera_data.zoom?.toFixed(2)} />
 				<MetaData label="Iso" value={data.camera_data.iso} />
 				<MetaData label="Software" value={data.camera_data.software} />
 			</Accordion>
