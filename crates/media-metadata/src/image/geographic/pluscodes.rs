@@ -18,81 +18,80 @@ impl Display for PlusCode {
 	}
 }
 
-#[inline]
-#[must_use]
-fn normalize_lat(lat: f64) -> f64 {
-	if 180.0 < (if 0.0 > lat + 90.0 { 0.0 } else { lat + 90.0 }) {
-		180.0
-	} else {
-		lat + 90.0
-	}
-}
-
-#[inline]
-#[must_use]
-fn normalize_long(long: f64) -> f64 {
-	if (long + 180.0) > 360.0 {
-		return long - 180.0;
-	}
-	long + 180.0
-}
-
-#[derive(Debug)]
-struct PlusCodeAccumuluator {
-	value: f64,
+struct PlusCodeState {
+	coord_state: f64,
 	grid_size: f64,
 	result: [char; 5],
 }
 
-impl PlusCodeAccumuluator {
+impl PlusCodeState {
 	#[inline]
 	#[must_use]
-	pub fn new(value: f64) -> Self {
+	fn new(coord_state: f64) -> Self {
 		Self {
-			value,
+			coord_state,
 			grid_size: PLUSCODE_GRID_SIZE,
 			result: Default::default(),
 		}
 	}
 
-	pub fn iterate(mut self, x: f64) -> Self {
-		self.value.sub_assign(x * self.grid_size);
+	#[inline]
+	#[must_use]
+	fn iterate(mut self, x: f64) -> Self {
+		self.coord_state.sub_assign(x * self.grid_size);
 		self.grid_size.div_assign(PLUSCODE_GRID_SIZE); // this shrinks on each iteration
 		self
 	}
-}
-
-#[allow(
-	clippy::cast_possible_truncation,
-	clippy::cast_sign_loss,
-	clippy::as_conversions
-)]
-fn encode(coord: f64) -> [char; 5] {
-	(0..5)
-		.fold(PlusCodeAccumuluator::new(coord), |mut pca, i| {
-			let x = (pca.value / pca.grid_size).floor();
-			pca.result[i] = PLUSCODE_DIGITS[x as usize];
-			pca.iterate(x)
-		})
-		.result
 }
 
 impl PlusCode {
 	#[inline]
 	#[must_use]
 	pub fn new(lat: f64, long: f64) -> Self {
-		let normalized_lat = normalize_lat(lat);
-		let normalized_long = normalize_long(long);
-
-		let mut output: String = encode(normalized_lat)
-			.iter()
-			.zip(encode(normalized_long).iter())
-			.flat_map(<[&char; 2]>::from)
-			.collect();
-
+		let mut output = Self::encode_coordinates(Self::normalize_lat(lat))
+			.into_iter()
+			.zip(Self::encode_coordinates(Self::normalize_long(long)))
+			.flat_map(<[char; 2]>::from)
+			.collect::<String>();
 		output.insert(8, '+');
 
 		Self(output)
+	}
+
+	#[allow(
+		clippy::cast_possible_truncation,
+		clippy::cast_sign_loss,
+		clippy::as_conversions
+	)]
+	#[inline]
+	#[must_use]
+	fn encode_coordinates(coordinates: f64) -> [char; 5] {
+		(0..5)
+			.fold(PlusCodeState::new(coordinates), |mut pcs, i| {
+				let x = (pcs.coord_state / pcs.grid_size).floor();
+				pcs.result[i] = PLUSCODE_DIGITS[x as usize];
+				pcs.iterate(x)
+			})
+			.result
+	}
+
+	#[inline]
+	#[must_use]
+	fn normalize_lat(lat: f64) -> f64 {
+		if 180.0 < (if 0.0 > lat + 90.0 { 0.0 } else { lat + 90.0 }) {
+			180.0
+		} else {
+			lat + 90.0
+		}
+	}
+
+	#[inline]
+	#[must_use]
+	fn normalize_long(long: f64) -> f64 {
+		if (long + 180.0) > 360.0 {
+			return long - 180.0;
+		}
+		long + 180.0
 	}
 }
 
