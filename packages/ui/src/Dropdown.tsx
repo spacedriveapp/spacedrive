@@ -15,11 +15,11 @@ const itemStyles = cva(
 		variants: {
 			selected: {
 				true: 'bg-accent text-white hover:!bg-accent',
-				undefined: 'hover:bg-menu-hover',
-				false: 'hover:bg-menu-hover'
+				undefined: 'hover:bg-sidebar-selected/40',
+				false: 'hover:bg-sidebar-selected/40'
 			},
 			active: {
-				true: 'bg-app-selected'
+				true: 'bg-sidebar-selected/40'
 			}
 		}
 	}
