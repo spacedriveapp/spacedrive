@@ -19,7 +19,7 @@ const itemStyles = cva(
 				false: 'hover:bg-sidebar-selected/40'
 			},
 			active: {
-				true: 'bg-sidebar-selected/40'
+				true: 'bg-sidebar-selected/40 text-sidebar-ink'
 			}
 		}
 	}
