@@ -76,12 +76,13 @@ export const Component = () => {
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const { items, count, loadMore } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
 
 	const explorer = useExplorer({
 		items,
 		count,
 		loadMore,
+		isFetchingNextPage: query.isFetchingNextPage,
 		settings: explorerSettings,
 		...(location.data && {
 			parent: { type: 'Location', location: location.data }
