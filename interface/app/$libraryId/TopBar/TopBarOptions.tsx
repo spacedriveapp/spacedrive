@@ -58,10 +58,10 @@ export default ({ options }: TopBarChildrenProps) => {
 							const roundingCondition = individual
 								? 'both'
 								: index === 0
-									? 'left'
-									: index === group.length - 1
-										? 'right'
-										: 'none';
+								? 'left'
+								: index === group.length - 1
+								? 'right'
+								: 'none';
 							return (
 								<div
 									data-tauri-drag-region
@@ -117,9 +117,7 @@ export default ({ options }: TopBarChildrenProps) => {
 			</div>
 			<TopBarMobile
 				toolOptions={options}
-				className={clsx(
-					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
-				)}
+				className={windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden')}
 			/>
 		</div>
 	);
