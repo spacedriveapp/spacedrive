@@ -95,20 +95,6 @@ pub(super) async fn create_dir(
 
 	let iso_file_path = IsolatedFilePathData::new(location.id, location_path, path, true)?;
 
-	let (inode, device) = {
-		#[cfg(target_family = "unix")]
-		{
-			get_inode_and_device(metadata)?
-		}
-
-		#[cfg(target_family = "windows")]
-		{
-			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = metadata; // To avoid unused variable warning
-			get_inode_and_device_from_path(path).await?
-		}
-	};
-
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
 		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, &library.db).await?
@@ -130,13 +116,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path,
 		None,
-		FilePathMetadata {
-			inode,
-			device,
-			size_in_bytes: metadata.len(),
-			created_at: metadata.created_or_now().into(),
-			modified_at: metadata.modified_or_now().into(),
-		},
+		FilePathMetadata::from_path(path, &metadata).await?,
 	)
 	.await?;
 
@@ -188,19 +168,7 @@ async fn inner_create_file(
 	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
 	let extension = iso_file_path.extension.to_string();
 
-	let (inode, device) = {
-		#[cfg(target_family = "unix")]
-		{
-			get_inode_and_device(metadata)?
-		}
-
-		#[cfg(target_family = "windows")]
-		{
-			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = metadata; // To avoid unused variable warning
-			get_inode_and_device_from_path(path).await?
-		}
-	};
+	let metadata = FilePathMetadata::from_path(path, metadata).await?;
 
 	// First we check if already exist a file with these same inode and device numbers
 	// if it does, we just update it
@@ -208,8 +176,8 @@ async fn inner_create_file(
 		.file_path()
 		.find_unique(file_path::location_id_inode_device(
 			location_id,
-			inode.to_le_bytes().to_vec(),
-			device.to_le_bytes().to_vec(),
+			metadata.inode.to_le_bytes().to_vec(),
+			metadata.device.to_le_bytes().to_vec(),
 		))
 		.include(file_path_with_object::include())
 		.exec()
@@ -244,7 +212,7 @@ async fn inner_create_file(
 			path,
 			node,
 			library,
-			Some((inode, device)),
+			Some((metadata.inode, metadata.device)),
 		)
 		.await;
 	}
@@ -266,19 +234,7 @@ async fn inner_create_file(
 
 	debug!("Creating path: {}", iso_file_path);
 
-	let created_file = create_file_path(
-		library,
-		iso_file_path,
-		cas_id.clone(),
-		FilePathMetadata {
-			inode,
-			device,
-			size_in_bytes: metadata.len(),
-			created_at: metadata.created_or_now().into(),
-			modified_at: metadata.modified_or_now().into(),
-		},
-	)
-	.await?;
+	let created_file = create_file_path(library, iso_file_path, cas_id.clone(), metadata).await?;
 
 	object::select!(object_just_id { id });
 
