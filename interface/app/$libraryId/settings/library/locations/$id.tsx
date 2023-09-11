@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
+import { Archive, ArrowsClockwise, Info, Trash } from '@phosphor-icons/react';
 import { Suspense, useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';

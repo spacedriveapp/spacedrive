@@ -4,7 +4,7 @@ import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Head from 'next/head';
 import Link from 'next/link';
-import { CaretRight } from 'phosphor-react';
+import { CaretRight } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 
 import DocsLayout from '~/components/DocsLayout';

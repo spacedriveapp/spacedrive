@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import Link from 'next/link';
 import { NextRouter, useRouter } from 'next/router';
-import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, Dropdown } from '@sd/ui';
 

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Info } from 'phosphor-react';
+import { Info } from '@phosphor-icons/react';
 import Skeleton from 'react-loading-skeleton';
 
 import 'react-loading-skeleton/dist/skeleton.css';

@@ -9,7 +9,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';

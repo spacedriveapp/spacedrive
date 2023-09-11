@@ -1,4 +1,4 @@
-import { FileX, Share as ShareIcon } from 'phosphor-react';
+import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 

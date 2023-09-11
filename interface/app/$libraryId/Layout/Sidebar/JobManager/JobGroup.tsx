@@ -1,7 +1,7 @@
 import { Folder } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
+import { DotsThreeVertical, Pause, Play, Stop } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import {
 	getJobNiceActionName,

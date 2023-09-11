@@ -1,4 +1,4 @@
-import { Gear } from 'phosphor-react';
+import { Gear } from '@phosphor-icons/react';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, dialogManager, Popover, Tooltip } from '@sd/ui';
 

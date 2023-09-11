@@ -1,4 +1,4 @@
-import { Clipboard } from 'phosphor-react';
+import { Clipboard } from '@phosphor-icons/react';
 import { ReactNode } from 'react';
 import { useZodForm } from '@sd/client';
 import { Button, Dialog, dialogManager, Input, useDialog, UseDialogProps } from '@sd/ui';

@@ -14,7 +14,7 @@ import {
 	Lock,
 	Path,
 	Snowflake
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
 import {
 	forwardRef,
 	useCallback,

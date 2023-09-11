@@ -12,7 +12,7 @@ import {
 	Receipt,
 	ShieldCheck,
 	TagSimple
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
 

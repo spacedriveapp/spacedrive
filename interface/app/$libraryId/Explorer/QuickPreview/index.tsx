@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from 'phosphor-react';
+import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
 import {
 	ButtonHTMLAttributes,
 	createContext,

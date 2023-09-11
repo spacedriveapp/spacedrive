@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Trash } from 'phosphor-react';
+import { Trash } from '@phosphor-icons/react';
 import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
 import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';

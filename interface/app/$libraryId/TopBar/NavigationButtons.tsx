@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight } from 'phosphor-react';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
 

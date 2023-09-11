@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Repeat, Trash } from 'phosphor-react';
+import { Repeat, Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { arraysEqual, Location, useLibraryMutation, useOnlineLocations } from '@sd/client';

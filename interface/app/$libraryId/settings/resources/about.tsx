@@ -1,6 +1,6 @@
 import { AppLogo } from '@sd/assets/images';
 import { Discord, Github } from '@sd/assets/svgs/brands';
-import { Globe } from 'phosphor-react';
+import { Globe } from '@phosphor-icons/react';
 import { useBridgeQuery, useDebugStateEnabler } from '@sd/client';
 import { Button, Divider } from '@sd/ui';
 

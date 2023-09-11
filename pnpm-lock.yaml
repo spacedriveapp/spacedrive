@@ -138,6 +138,9 @@ importers:
       '@aws-sdk/client-ses':
         specifier: ^3.337.0
         version: 3.337.0
+      '@phosphor-icons/react':
+        specifier: ^2.0.10
+        version: 2.0.10(react-dom@18.2.0)(react@18.2.0)
       '@planetscale/database':
         specifier: ^1.7.0
         version: 1.7.0
@@ -183,9 +186,6 @@ importers:
       next-contentlayer:
         specifier: ^0.3.2
         version: 0.3.2(esbuild@0.19.2)(next@13.4.3)(react-dom@18.2.0)(react@18.2.0)
-      phosphor-react:
-        specifier: ^1.4.1
-        version: 1.4.1(react@18.2.0)
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -622,6 +622,9 @@ importers:
       '@icons-pack/react-simple-icons':
         specifier: ^7.2.0
         version: 7.2.0(react@18.2.0)
+      '@phosphor-icons/react':
+        specifier: ^2.0.10
+        version: 2.0.10(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-progress':
         specifier: ^1.0.1
         version: 1.0.1(react-dom@18.2.0)(react@18.2.0)
@@ -700,9 +703,6 @@ importers:
       framer-motion:
         specifier: ^10.11.5
         version: 10.11.5(react-dom@18.2.0)(react@18.2.0)
-      phosphor-react:
-        specifier: ^1.4.1
-        version: 1.4.1(react@18.2.0)
       prismjs:
         specifier: ^1.29.0
         version: 1.29.0
@@ -932,6 +932,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.1.0
         version: 3.1.0(react-hook-form@7.45.2)
+      '@phosphor-icons/react':
+        specifier: ^2.0.10
+        version: 2.0.10(react-dom@18.2.0)(react@18.2.0)
       '@radix-ui/react-checkbox':
         specifier: ^1.0.3
         version: 1.0.3(react-dom@18.2.0)(react@18.2.0)
@@ -974,9 +977,6 @@ importers:
       clsx:
         specifier: ^1.2.1
         version: 1.2.1
-      phosphor-react:
-        specifier: ^1.4.1
-        version: 1.4.1(react@18.2.0)
       postcss:
         specifier: ^8.4.17
         version: 8.4.23
@@ -6290,6 +6290,17 @@ packages:
   /@opentelemetry/semantic-conventions@1.5.0:
     resolution: {integrity: sha512-wlYG/U6ddW1ilXslnDLLQYJ8nd97W8JJTTfwkGhubx6dzW6SUkd+N4/MzTjjyZlrHQunxHtkHFvVpUKiROvFDw==}
     engines: {node: '>=14'}
+    dev: false
+
+  /@phosphor-icons/react@2.0.10(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-q5ITPNFhmEiYZLZOvEhjo2phlfxoOmit7vE1tBYMxcMqnZX2vdbMw3deDE7wCegpBKM/q/p39BJmhhoPcjZyCg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>= 16.8'
+      react-dom: '>= 16.8'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
     dev: false
 
   /@planetscale/database@1.7.0:
@@ -19172,15 +19183,6 @@ packages:
       react: 18.2.0
       react-native: 0.72.3(@babel/core@7.22.11)(@babel/preset-env@7.22.10)(react@18.2.0)
       react-native-svg: 13.10.0(react-native@0.72.3)(react@18.2.0)
-    dev: false
-
-  /phosphor-react@1.4.1(react@18.2.0):
-    resolution: {integrity: sha512-gO5j7U0xZrdglTAYDYPACU4xDOFBTJmptrrB/GeR+tHhCZF3nUMyGmV/0hnloKjuTrOmpSFlbfOY78H39rgjUQ==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: '>=16'
-    dependencies:
-      react: 18.2.0
     dev: false
 
   /picocolors@1.0.0:

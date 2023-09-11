@@ -8,7 +8,7 @@ import {
 	SlidersHorizontal,
 	SquaresFour,
 	Tag
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
 

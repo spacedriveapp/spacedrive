@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { CheckCircle, Icon, Info, Warning, WarningCircle, X } from 'phosphor-react';
+import { CheckCircle, Icon, Info, Warning, WarningCircle, X } from '@phosphor-icons/react';
 import { CSSProperties, ReactNode, useEffect, useState } from 'react';
 import { toast as SonnerToast } from 'sonner';
 

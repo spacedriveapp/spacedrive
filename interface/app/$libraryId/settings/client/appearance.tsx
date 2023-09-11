@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
-import { CheckCircle } from 'phosphor-react';
+import { CheckCircle } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { getThemeStore, Themes, useThemeStore, useZodForm } from '@sd/client';
 import { Button, Form, SwitchField, z } from '@sd/ui';

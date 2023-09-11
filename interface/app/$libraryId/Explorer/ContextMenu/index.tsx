@@ -1,4 +1,4 @@
-import { Plus } from 'phosphor-react';
+import { Plus } from '@phosphor-icons/react';
 import { useMemo, type PropsWithChildren } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';

@@ -1,4 +1,4 @@
-import { MagnifyingGlass } from 'phosphor-react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import { FilePathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
 

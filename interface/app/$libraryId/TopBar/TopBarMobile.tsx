@@ -1,4 +1,4 @@
-import { DotsThreeCircle } from 'phosphor-react';
+import { DotsThreeCircle } from '@phosphor-icons/react';
 import React, { forwardRef, HTMLAttributes } from 'react';
 import { Popover } from '@sd/ui';
 

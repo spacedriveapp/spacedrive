@@ -1,6 +1,6 @@
+import { Plus } from '@phosphor-icons/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
 import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';

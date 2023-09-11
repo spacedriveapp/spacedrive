@@ -1,4 +1,4 @@
-import { ClipboardText } from 'phosphor-react';
+import { ClipboardText } from '@phosphor-icons/react';
 import { toast } from '@sd/ui';
 
 import { Menu } from '~/components/Menu';

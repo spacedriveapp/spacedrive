@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash } from 'phosphor-react';
+import { Pencil, Plus, Trash } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
 

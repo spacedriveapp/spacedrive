@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { FolderSimplePlus } from 'phosphor-react';
+import { FolderSimplePlus } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 

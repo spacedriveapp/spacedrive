@@ -1,7 +1,7 @@
 import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight } from 'phosphor-react';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { RefObject, useEffect, useRef, useState } from 'react';
 import Sticky from 'react-sticky-el';
 import { useDraggable } from 'react-use-draggable-scroll';

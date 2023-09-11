@@ -1,4 +1,4 @@
-import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
+import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 

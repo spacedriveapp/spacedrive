@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Columns, GridFour, MonitorPlay, Rows, type Icon } from 'phosphor-react';
+import { Columns, GridFour, MonitorPlay, Rows, type Icon } from '@phosphor-icons/react';
 import {
 	isValidElement,
 	memo,

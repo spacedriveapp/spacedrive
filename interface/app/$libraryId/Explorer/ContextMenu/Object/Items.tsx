@@ -1,4 +1,4 @@
-import { ArrowBendUpRight, TagSimple } from 'phosphor-react';
+import { ArrowBendUpRight, TagSimple } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';

@@ -1,4 +1,4 @@
-import { FolderNotchOpen } from 'phosphor-react';
+import { FolderNotchOpen } from '@phosphor-icons/react';
 import { useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import { useLibrarySubscription } from '@sd/client';
 

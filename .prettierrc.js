@@ -15,9 +15,9 @@ module.exports = {
 		// spacedrive packages
 		'^@sd/(interface|client|ui)(/.*)?$',
 		// internal packages
-		'',
 		'^@/',
 		'^~/',
+		'',
 		// relative
 		'^[../]',
 		'^[./]'

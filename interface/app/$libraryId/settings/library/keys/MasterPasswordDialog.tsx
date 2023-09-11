@@ -1,4 +1,4 @@
-// import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
+// import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from '@phosphor-icons/react';
 // import { useState } from 'react';
 // import {
 // 	Algorithm,
