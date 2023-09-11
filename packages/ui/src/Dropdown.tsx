@@ -19,7 +19,7 @@ const itemStyles = cva(
 				false: 'hover:bg-menu-hover'
 			},
 			active: {
-				true: ''
+				true: 'bg-app-selected'
 			}
 		}
 	}
@@ -33,6 +33,7 @@ type DropdownItemProps = PropsWithChildren<{
 	to?: string;
 	className?: string;
 	icon?: any;
+	iconClassName?: string;
 	onClick?: () => void;
 }> &
 	VariantProps<typeof itemStyles>;
@@ -40,7 +41,9 @@ type DropdownItemProps = PropsWithChildren<{
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
 	const content = (
 		<>
-			{Icon && <Icon weight="bold" className={itemIconStyles(props)} />}
+			{Icon && (
+				<Icon weight="bold" className={clsx(itemIconStyles(props), props.iconClassName)} />
+			)}
 			<span className="text-left">{children}</span>
 		</>
 	);
