@@ -30,6 +30,7 @@ impl RNPromise {
 	}
 }
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 	let result = panic::catch_unwind(|| {
@@ -48,6 +49,7 @@ pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 	}
 }
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_void) {
 	let result = panic::catch_unwind(|| {
