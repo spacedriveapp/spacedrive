@@ -5,6 +5,8 @@
 		"oscartbeaumont.rspc-vscode",
 		"editorconfig.editorconfig",
 		"bradlc.vscode-tailwindcss",
-		"prisma.prisma"
+		"prisma.prisma",
+		"dbaeumer.vscode-eslint",
+		"esbenp.prettier-vscode"
 	]
 }
