@@ -73,6 +73,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
 		showBytesInGridView: true as boolean,
+		showHiddenFiles: false as boolean,
 		mediaColumns: 8 as number,
 		mediaAspectSquare: false as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,

@@ -729,6 +729,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -799,6 +800,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -863,6 +865,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -936,6 +939,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
