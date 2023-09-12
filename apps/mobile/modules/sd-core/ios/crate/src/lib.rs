@@ -1,20 +1,15 @@
-#![cfg(target_os = "ios")]
-
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},
 	panic,
 };
 
-use objc::{msg_send, runtime::Object, sel, sel_impl};
-use objc_foundation::{INSString, NSString};
-use objc_id::Id;
-
 use sd_mobile_core::*;
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;
 	fn call_resolve(resolve: *const c_void, result: *const c_char);
+	fn sd_core_event(this: *const c_void, event: *const c_char);
 }
 
 // This struct wraps the function pointer which represent a Javascript Promise. We wrap the
@@ -32,14 +27,20 @@ impl RNPromise {
 	}
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
-	let result = panic::catch_unwind(|| {
-		let id = Id::<Object>::from_ptr(id);
+struct SDCoreModule(*const c_void);
 
+unsafe impl Send for SDCoreModule {}
+
+#[no_mangle]
+pub unsafe extern "C" fn register_core_event_listener(id: *const c_void) {
+	let id = SDCoreModule(id);
+
+	let result = panic::catch_unwind(|| {
 		spawn_core_event_listener(move |data| {
-			let data = NSString::from_str(&data);
-			let _: () = msg_send![id, sendCoreEvent: data];
+			let id = &id;
+
+			let data = CString::new(data).unwrap();
+			sd_core_event(id.0, data.as_ptr());
 		});
 	});
 

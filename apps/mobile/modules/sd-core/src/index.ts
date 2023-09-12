@@ -1,8 +1,11 @@
 import { AlphaRSPCError, Link, RspcRequest } from '@rspc/client/v2';
-import { NativeEventEmitter } from 'react-native';
-import { SDCoreModule } from '../../modules/sd-core';
+import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 
-const eventEmitter = new NativeEventEmitter(SDCoreModule);
+// It loads the native module object from the JSI or falls back to
+// the bridge module (from NativeModulesProxy) if the remote debugger is on.
+const SDCoreModule = requireNativeModule('SDCore');
+
+const eventEmitter = new EventEmitter(SDCoreModule);
 
 /**
  * Link for the custom React Native rspc backend
@@ -36,8 +39,9 @@ export function reactNativeLink(): Link {
 		}
 	};
 
-	eventEmitter.addListener('SDCoreEvent', (event) => {
-		handleIncoming(JSON.parse(event));
+	// I think this will always be an object but for now this is safer.
+	eventEmitter.addListener('SDCoreEvent', (event: { body: string } | string) => {
+		handleIncoming(JSON.parse(typeof event === 'string' ? event : event.body));
 	});
 
 	const batch: RspcRequest[] = [];

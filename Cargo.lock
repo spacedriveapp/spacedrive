@@ -7334,9 +7334,6 @@ dependencies = [
 name = "sd-mobile-ios"
 version = "0.1.0"
 dependencies = [
- "objc",
- "objc-foundation",
- "objc_id",
  "sd-mobile-core",
 ]
 

@@ -31,8 +31,8 @@ Pod::Spec.new do |s|
 
 	s.xcconfig = {
 		'LIBRARY_SEARCH_PATHS' => '"' + JSON.parse(`cargo metadata`)["target_directory"].to_s + '"',
-		'OTHER_LDFLAGS[sdk=iphoneos*]' => '$(inherited) -lsd_mobile_ios-ios',
-		'OTHER_LDFLAGS[sdk=iphonesimulator*]' => '$(inherited) -lsd_mobile_ios-iossim'
+		'OTHER_LDFLAGS[sdk=iphoneos*]' => '$(inherited) -lsd_mobile_ios',
+		'OTHER_LDFLAGS[sdk=iphonesimulator*]' => '$(inherited) -lsd_mobile_iossim'
 	}
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"

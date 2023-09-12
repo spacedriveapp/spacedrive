@@ -12,7 +12,6 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		28F50FDAFD39C5CE7D6EF65E /* Pods_Spacedrive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B4FFDD3F429BCE52675DDDE /* Pods_Spacedrive.framework */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		5574975428A2496C00851D5A /* SDCore.m in Sources */ = {isa = PBXBuildFile; fileRef = 5574975328A2496C00851D5A /* SDCore.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
@@ -26,9 +25,6 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		38392C44BCEE00E37027EE7F /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
-		5574975328A2496C00851D5A /* SDCore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SDCore.m; sourceTree = "<group>"; };
-		5574975528A2498000851D5A /* SDCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SDCore.h; sourceTree = "<group>"; };
-		5574975628A24E0D00851D5A /* sdcore-universal-ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "sdcore-universal-ios.a"; path = "../../../target/sdcore-universal-ios.a"; sourceTree = "<group>"; };
 		56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		7B4FFDD3F429BCE52675DDDE /* Pods_Spacedrive.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Spacedrive.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -60,8 +56,6 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				5574975328A2496C00851D5A /* SDCore.m */,
-				5574975528A2498000851D5A /* SDCore.h */,
 			);
 			path = Spacedrive;
 			sourceTree = "<group>";
@@ -77,7 +71,6 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				5574975628A24E0D00851D5A /* sdcore-universal-ios.a */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				7B4FFDD3F429BCE52675DDDE /* Pods_Spacedrive.framework */,
 			);
@@ -332,7 +325,6 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */,
-				5574975428A2496C00851D5A /* SDCore.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

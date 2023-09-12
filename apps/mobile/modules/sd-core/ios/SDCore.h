@@ -11,11 +11,12 @@
 #ifndef SDCore_h
 #define SDCore_h
 
-// bool sd_init_core(const void *swift_module, const char *data_dir);
-// const void* sd_init_state(const void *swift_module);
-// void sd_deinit_state(const void *state);
+// FUNCTIONS DEFINED IN RUST
 
-// void sd_core_msg(const void *state, const char *msg, const void *promise);
-// void sd_state_reset(const void *state);
+// is a function defined in Rust which starts a listener for Rust events.
+void register_core_event_listener(const void *module);
+
+// is a function defined in Rust which is responsible for handling messages from the frontend.
+void sd_core_msg(const char *query, const void *resolve);
 
 #endif /* SDCore_h */

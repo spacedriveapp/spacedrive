@@ -12,7 +12,6 @@ import {
 	useOnboardingStore,
 	usePlausibleEvent
 } from '@sd/client';
-
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 import { currentLibraryStore } from '~/utils/nav';
 
@@ -65,11 +64,7 @@ const useFormState = () => {
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const createLibrary = useBridgeMutation('library.create', {
-		onSuccess: (data) => {
-			console.log("TODO: 'library.create' onSuccess", data);
-		}
-	});
+	const createLibrary = useBridgeMutation('library.create');
 
 	const submit = handleSubmit(
 		async (data) => {
