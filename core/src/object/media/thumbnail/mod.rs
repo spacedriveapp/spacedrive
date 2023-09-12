@@ -102,7 +102,7 @@ const TARGET_QUALITY: f32 = 30_f32;
 /// This takes in a width and a height, and returns a scaled width and height
 /// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
 /// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
-fn calculate_factor(w: f32, h: f32) -> (u32, u32) {
+fn scale_dimensions(w: f32, h: f32) -> (u32, u32) {
 	let sf = (TAGRET_PX / (w * h)).sqrt();
 	((w * sf).round() as u32, (h * sf).round() as u32)
 }
@@ -130,13 +130,13 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
-		let (w_scale, h_scale) = calculate_factor(w as f32, h as f32);
+		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			w_scale,
-			h_scale,
+			w_scaled,
+			h_scaled,
 			imageops::FilterType::Triangle,
 		));
 
