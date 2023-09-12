@@ -26,6 +26,16 @@
 			"image": "./assets/splash.png",
 			"backgroundColor": "#000000"
 		},
-		"privacy": "hidden"
+		"privacy": "hidden",
+		"plugins": [
+			[
+				"expo-build-properties",
+				{
+					"ios": {
+						"useFrameworks": "static"
+					}
+				}
+			]
+		]
 	}
 }
