@@ -1,7 +1,7 @@
+import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
-import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
 import {
 	ButtonHTMLAttributes,
 	createContext,
@@ -23,10 +23,10 @@ import {
 	useZodForm
 } from '@sd/client';
 import { dialogManager, DropdownMenu, Form, ModifierKeys, toast, Tooltip, z } from '@sd/ui';
-
 import { useIsDark, useOperatingSystem } from '~/hooks';
 import { useKeyBind } from '~/hooks/useKeyBind';
 import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../Context';
 import ExplorerContextMenu, {
 	FilePathItems,
@@ -46,13 +46,8 @@ const AnimatedDialogContent = animated(Dialog.Content);
 
 const heavyKinds: ObjectKindKey[] = ['Image', 'Video', 'Audio', 'Document'];
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
-const withoutBackgroundKinds: ObjectKindKey[] = [
-	...iconKinds,
-	'Document',
-	'Config',
-	'Code',
-	'Text'
-];
+const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
+const withoutBackgroundKinds: ObjectKindKey[] = [...iconKinds, ...textKinds, 'Document'];
 
 const QuickPreviewContext = createContext<{ background: boolean } | null>(null);
 
@@ -472,7 +467,8 @@ export const QuickPreview = () => {
 												childClassName={clsx(
 													'rounded',
 													kind === 'Text' && 'p-3',
-													!icon && 'h-full'
+													!icon && 'h-full',
+													textKinds.includes(kind) && 'select-text'
 												)}
 											/>
 										)}

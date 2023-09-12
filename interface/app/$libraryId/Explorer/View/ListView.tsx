@@ -267,7 +267,7 @@ export default () => {
 	);
 
 	const table = useReactTable({
-		data: explorer.items ?? [],
+		data: useMemo(() => explorer.items ?? [], [explorer.items]),
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
 		state: { columnSizing },
