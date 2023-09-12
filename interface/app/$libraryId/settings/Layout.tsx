@@ -1,5 +1,6 @@
 import { PropsWithChildren, ReactNode, Suspense } from 'react';
 import { Outlet } from 'react-router';
+
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import DragRegion from '../../../components/DragRegion';
 import Sidebar from './Sidebar';

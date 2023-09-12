@@ -5,9 +5,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[error("error accessing path: '{}'", .path.display())]
 pub struct FileIOError {
-	path: Box<Path>,
+	pub path: Box<Path>,
 	#[source]
-	source: io::Error,
+	pub source: io::Error,
 }
 
 impl<P: AsRef<Path>> From<(P, io::Error)> for FileIOError {

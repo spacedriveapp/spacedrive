@@ -12,15 +12,16 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
-import { UseExplorerSettings, useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
@@ -76,12 +77,13 @@ export const Component = () => {
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const { items, count, loadMore } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
 
 	const explorer = useExplorer({
 		items,
 		count,
 		loadMore,
+		isFetchingNextPage: query.isFetchingNextPage,
 		settings: explorerSettings,
 		...(location.data && {
 			parent: { type: 'Location', location: location.data }

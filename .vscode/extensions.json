@@ -3,7 +3,10 @@
 		"tauri-apps.tauri-vscode",
 		"rust-lang.rust-analyzer",
 		"oscartbeaumont.rspc-vscode",
-		"EditorConfig.EditorConfig",
-		"bradlc.vscode-tailwindcss"
+		"editorconfig.editorconfig",
+		"bradlc.vscode-tailwindcss",
+		"prisma.prisma",
+		"dbaeumer.vscode-eslint",
+		"esbenp.prettier-vscode"
 	]
 }

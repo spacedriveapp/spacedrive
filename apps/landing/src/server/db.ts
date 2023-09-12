@@ -1,6 +1,7 @@
 import { connect } from '@planetscale/database';
 import { mysqlTable, serial, timestamp, varchar } from 'drizzle-orm/mysql-core';
 import { drizzle } from 'drizzle-orm/planetscale-serverless';
+
 import { env } from '~/env';
 
 export { and, eq, or, type InferModel } from 'drizzle-orm';

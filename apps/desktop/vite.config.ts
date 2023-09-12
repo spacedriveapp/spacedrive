@@ -1,5 +1,6 @@
 import { sentryVitePlugin } from '@sentry/vite-plugin';
-import { Plugin, defineConfig, loadEnv, mergeConfig } from 'vite';
+import { defineConfig, loadEnv, mergeConfig, Plugin } from 'vite';
+
 import baseConfig from '../../packages/config/vite';
 
 const devtoolsPlugin: Plugin = {

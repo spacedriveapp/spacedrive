@@ -1,30 +1,31 @@
 import {
-	type ColumnDef,
-	type ColumnSizingState,
-	type Row,
 	flexRender,
 	getCoreRowModel,
-	useReactTable
+	useReactTable,
+	type ColumnDef,
+	type ColumnSizingState,
+	type Row
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { CaretDown, CaretUp } from 'phosphor-react';
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
-	type ExplorerItem,
-	type FilePath,
-	type NonIndexedPathItem,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
-	getItemObject
+	getItemObject,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
+
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { stringify } from '~/util/uuid';
 import { ViewItem } from '.';
@@ -33,10 +34,15 @@ import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
 import { getQuickPreviewStore } from '../QuickPreview/store';
-import { useExplorerViewContext } from '../ViewContext';
-import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from '../store';
-import { isCut } from '../store';
+import {
+	createOrdering,
+	getOrderingDirection,
+	isCut,
+	orderingKey,
+	useExplorerStore
+} from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {

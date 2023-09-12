@@ -8,8 +8,8 @@ use libp2p::{
 	core::{ConnectedPoint, Endpoint},
 	swarm::{
 		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
-		ConnectionClosed, ConnectionDenied, ConnectionHandler, NetworkBehaviour, PollParameters,
-		THandler, THandlerInEvent, ToSwarm,
+		ConnectionClosed, ConnectionDenied, NetworkBehaviour, PollParameters, THandler,
+		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr,
 };
@@ -35,7 +35,7 @@ pub enum OutboundFailure {}
 pub struct SpaceTime<TMetadata: Metadata> {
 	pub(crate) manager: Arc<Manager<TMetadata>>,
 	pub(crate) pending_events:
-		VecDeque<ToSwarm<<Self as NetworkBehaviour>::OutEvent, THandlerInEvent<Self>>>,
+		VecDeque<ToSwarm<<Self as NetworkBehaviour>::ToSwarm, THandlerInEvent<Self>>>,
 	// For future me's sake, DON't try and refactor this to use shared state (for the nth time), it doesn't fit into libp2p's synchronous trait and polling model!!!
 	// pub(crate) connected_peers: HashMap<PeerId, ConnectedPeer>,
 }
@@ -53,7 +53,7 @@ impl<TMetadata: Metadata> SpaceTime<TMetadata> {
 
 impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 	type ConnectionHandler = SpaceTimeConnection<TMetadata>;
-	type OutEvent = ManagerStreamAction2<TMetadata>;
+	type ToSwarm = ManagerStreamAction2<TMetadata>;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -178,8 +178,9 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 			| FromSwarm::ExpiredListenAddr(_)
 			| FromSwarm::ListenerError(_)
 			| FromSwarm::ListenerClosed(_)
-			| FromSwarm::NewExternalAddr(_)
-			| FromSwarm::ExpiredExternalAddr(_) => {}
+			| FromSwarm::NewExternalAddrCandidate(_)
+			| FromSwarm::ExternalAddrConfirmed(_)
+			| FromSwarm::ExternalAddrExpired(_) => {}
 		}
 	}
 
@@ -187,7 +188,7 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 		&mut self,
 		_peer_id: libp2p::PeerId,
 		_connection: ConnectionId,
-		event: <SpaceTimeConnection<TMetadata> as ConnectionHandler>::OutEvent,
+		event: THandlerOutEvent<Self>,
 	) {
 		self.pending_events.push_back(ToSwarm::GenerateEvent(event));
 	}
@@ -196,7 +197,7 @@ impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
 		&mut self,
 		_: &mut Context<'_>,
 		_: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(ev);
 		} else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {

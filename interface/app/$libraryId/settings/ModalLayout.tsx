@@ -1,4 +1,4 @@
-import { CaretLeft } from 'phosphor-react';
+import { CaretLeft } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Divider, tw } from '@sd/ui';

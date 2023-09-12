@@ -1,16 +1,17 @@
 import clsx from 'clsx';
 import {
-	type ComponentProps,
 	forwardRef,
 	useCallback,
 	useEffect,
 	useImperativeHandle,
 	useRef,
-	useState
+	useState,
+	type ComponentProps
 } from 'react';
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { Tooltip, toast } from '@sd/ui';
+import { toast, Tooltip } from '@sd/ui';
+
 import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 

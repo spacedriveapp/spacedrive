@@ -14,11 +14,13 @@ import {
 	OperatingSystem,
 	Platform,
 	PlatformProvider,
-	SpacedriveInterface,
-	routes
+	routes,
+	SpacedriveInterface
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
+
 import '@sd/ui/style';
+
 import * as commands from './commands';
 
 // TODO: Bring this back once upstream is fixed up.
