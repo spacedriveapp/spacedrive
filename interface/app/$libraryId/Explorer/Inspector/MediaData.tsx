@@ -21,10 +21,10 @@ const formatMediaTime = (time: MediaTime): string | null => {
 	return null;
 };
 
-const formatLocationDD = (loc: MediaLocation, dp: number): string => {
+const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
 	// the lack of a + here will mean that coordinates may have padding at the end
 	// google does the same (if one is larger than the other, the smaller one will be padded with zeroes)
-	return `${loc.latitude.toFixed(dp)}, ${loc.longitude.toFixed(dp)}`;
+	return `${loc.latitude.toFixed(dp ?? 8)}, ${loc.longitude.toFixed(dp ?? 8)}`;
 };
 
 const formatLocationDMS = (loc: MediaLocation): string => {
@@ -56,7 +56,7 @@ const getAbsoluteDecimals = (num: number): number => {
 };
 
 const formatLocation = (loc: MediaLocation, format: CoordinatesFormat, dp?: number): string => {
-	return format === 'dd' && dp ? formatLocationDD(loc, dp) : formatLocationDMS(loc);
+	return format === 'dd' ? formatLocationDD(loc, dp) : formatLocationDMS(loc);
 };
 
 const orientations = {
@@ -81,37 +81,33 @@ const MediaData = ({ data }: Props) => {
 				<MetaData label="Type" value={data.type} />
 				<MetaData
 					label="Location"
-					tooltipValue={
-						data.location ? formatLocation(data.location, coordinatesFormat, 8) : '--'
-					}
+					tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
 					value={
-						data.location ? (
+						data.location && (
 							<a
 								onClick={(e) => {
 									e.preventDefault();
-									if (data.location)
+									data.location &&
 										platform.openLink(
 											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-												`${data.location.latitude}, ${data.location.longitude}`
+												formatLocation(data.location, 'dd')
 											)}`
 										);
 								}}
 							>
 								{formatLocation(data.location, coordinatesFormat, 4)}
 							</a>
-						) : (
-							'--'
 						)
 					}
 				/>
 				<MetaData
 					label="Plus Code"
 					value={
-						data.location?.pluscode ? (
+						data.location?.pluscode && (
 							<a
 								onClick={(e) => {
 									e.preventDefault();
-									if (data.location)
+									data.location &&
 										platform.openLink(
 											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
 												data.location.pluscode
@@ -121,25 +117,16 @@ const MediaData = ({ data }: Props) => {
 							>
 								{data.location?.pluscode}
 							</a>
-						) : (
-							'--'
 						)
 					}
 				/>
 				<MetaData
 					label="Dimensions"
-					value={
-						<>
-							{data.dimensions.width} x {data.dimensions.height}
-						</>
-					}
+					value={`${data.dimensions.width} x ${data.dimensions.height}`}
 				/>
 				<MetaData label="Device" value={data.camera_data.device_make} />
 				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData
-					label="Orientation"
-					value={orientations[data.camera_data.orientation] ?? '--'}
-				/>
+				<MetaData label="Orientation" value={orientations[data.camera_data.orientation]} />
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
