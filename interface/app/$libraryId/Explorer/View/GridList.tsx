@@ -11,9 +11,9 @@ import {
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
-
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+
 import { useExplorerContext } from '../Context';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
@@ -217,7 +217,7 @@ export default ({ children }: { children: RenderItem }) => {
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
-	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
+	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
 		if (explorer.selectedItems.size > 0) e.preventDefault();
@@ -270,6 +270,9 @@ export default ({ children }: { children: RenderItem }) => {
 						selectedItemDom as HTMLElement
 					]);
 				}
+			} else if (e.key === 'Escape' && explorer.selectedItems.has(newSelectedItem.data)) {
+				explorer.resetSelectedItems([]);
+				selecto.current?.setSelectedTargets([]);
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
 				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
