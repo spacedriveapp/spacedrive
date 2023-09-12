@@ -76,7 +76,7 @@ yarn-error.*
 
 # Ignore the projects as we use the bare-workflow
 /android
-# /ios # TODO: This will be done once the IOS project is upgraded
+/ios
 
 # Ignore build artifacts
 /modules/*/*/build
