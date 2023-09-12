@@ -1,22 +1,23 @@
 import {
-	type ReactNode,
 	createContext,
 	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
 	useRef,
-	useState
+	useState,
+	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
+
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 import { useExplorerContext } from '../Context';
-import { useExplorerViewContext } from '../ViewContext';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
 
 const SelectoContext = createContext<{
 	selecto: React.RefObject<Selecto>;

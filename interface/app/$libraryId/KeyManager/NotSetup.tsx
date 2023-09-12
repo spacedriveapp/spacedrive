@@ -1,5 +1,5 @@
 // import clsx from 'clsx';
-// import { CaretRight, Spinner } from 'phosphor-react';
+// import { CaretRight, Spinner } from '@phosphor-icons/react';
 // import { useState } from 'react';
 // import {
 // 	HASHING_ALGOS,

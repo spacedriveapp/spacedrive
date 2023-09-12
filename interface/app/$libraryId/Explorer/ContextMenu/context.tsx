@@ -1,5 +1,6 @@
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { createContext, PropsWithChildren, useContext } from 'react';
 import { ExplorerItem, FilePath, Object, useItemsAsFilePaths, useItemsAsObjects } from '@sd/client';
+
 import { NonEmptyArray } from '~/util';
 
 const ContextMenuContext = createContext<{

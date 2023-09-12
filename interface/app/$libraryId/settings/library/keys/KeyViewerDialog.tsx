@@ -1,5 +1,5 @@
 // import { Buffer } from 'buffer';
-// import { Clipboard } from 'phosphor-react';
+// import { Clipboard } from '@phosphor-icons/react';
 // import { useState } from 'react';
 // import { slugFromHashingAlgo, useLibraryQuery } from '@sd/client';
 // import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';

@@ -26,7 +26,7 @@ use tokio::{fs, time::Instant};
 use tracing::{error, trace};
 
 use super::{
-	utils::{create_dir, create_file, remove, rename, update_file},
+	utils::{create_dir, remove, rename, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -35,11 +35,13 @@ pub(super) struct LinuxEventHandler<'lib> {
 	location_id: location::id::Type,
 	library: &'lib Arc<Library>,
 	node: &'lib Arc<Node>,
-	last_check_rename: Instant,
+	last_events_eviction_check: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
 	rename_from_buffer: Vec<(PathBuf, Instant)>,
 	recently_renamed_from: BTreeMap<PathBuf, Instant>,
-	recently_created_files: BTreeMap<PathBuf, Instant>,
+	files_to_update: HashMap<PathBuf, Instant>,
+	files_to_update_buffer: Vec<(PathBuf, Instant)>,
+	reincident_to_update_files: HashMap<PathBuf, Instant>,
 }
 
 #[async_trait]
@@ -53,11 +55,13 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			location_id,
 			library,
 			node,
-			last_check_rename: Instant::now(),
+			last_events_eviction_check: Instant::now(),
 			rename_from: HashMap::new(),
 			rename_from_buffer: Vec::new(),
 			recently_renamed_from: BTreeMap::new(),
-			recently_created_files: BTreeMap::new(),
+			files_to_update: HashMap::new(),
+			files_to_update_buffer: Vec::new(),
+			reincident_to_update_files: HashMap::new(),
 		}
 	}
 
@@ -69,28 +73,27 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 		} = event;
 
 		match kind {
-			EventKind::Create(CreateKind::File) => {
-				let path = &paths[0];
-				create_file(
-					self.location_id,
-					path,
-					&fs::metadata(path)
-						.await
-						.map_err(|e| FileIOError::from((path, e)))?,
-					self.node,
-					self.library,
-				)
-				.await?;
-
-				self.recently_created_files
-					.insert(paths.remove(0), Instant::now());
-			}
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
-				// If a file was closed with write mode, then it was updated or created
-				if !self.recently_created_files.contains_key(&paths[0]) {
-					update_file(self.location_id, &paths[0], self.node, self.library).await?;
+			EventKind::Create(CreateKind::File)
+			| EventKind::Modify(ModifyKind::Data(DataChange::Any)) => {
+				// When we receive a create, modify data or metadata events of the abore kinds
+				// we just mark the file to be updated in a near future
+				// each consecutive event of these kinds that we receive for the same file
+				// we just store the path again in the map below, with a new instant
+				// that effectively resets the timer for the file to be updated
+				let path = paths.remove(0);
+				if self.files_to_update.contains_key(&path) {
+					if let Some(old_instant) =
+						self.files_to_update.insert(path.clone(), Instant::now())
+					{
+						self.reincident_to_update_files
+							.entry(path)
+							.or_insert(old_instant);
+					}
+				} else {
+					self.files_to_update.insert(path, Instant::now());
 				}
 			}
+
 			EventKind::Create(CreateKind::Folder) => {
 				let path = &paths[0];
 
@@ -143,37 +146,88 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 	}
 
 	async fn tick(&mut self) {
-		if self.last_check_rename.elapsed() > HUNDRED_MILLIS {
-			self.last_check_rename = Instant::now();
-			self.handle_rename_from_eviction().await;
+		if self.last_events_eviction_check.elapsed() > HUNDRED_MILLIS {
+			if let Err(e) = self.handle_to_update_eviction().await {
+				error!("Error while handling recently created or update files eviction: {e:#?}");
+			}
+
+			if let Err(e) = self.handle_rename_from_eviction().await {
+				error!("Failed to remove file_path: {e:#?}");
+			}
 
 			self.recently_renamed_from
 				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
-			self.recently_created_files
-				.retain(|_, created_at| created_at.elapsed() < ONE_SECOND);
+
+			self.last_events_eviction_check = Instant::now();
 		}
 	}
 }
 
 impl LinuxEventHandler<'_> {
-	async fn handle_rename_from_eviction(&mut self) {
+	async fn handle_to_update_eviction(&mut self) -> Result<(), LocationManagerError> {
+		self.files_to_update_buffer.clear();
+		let mut should_invalidate = false;
+
+		for (path, created_at) in self.files_to_update.drain() {
+			if created_at.elapsed() < HUNDRED_MILLIS * 5 {
+				self.files_to_update_buffer.push((path, created_at));
+			} else {
+				self.reincident_to_update_files.remove(&path);
+				update_file(self.location_id, &path, self.node, self.library).await?;
+				should_invalidate = true;
+			}
+		}
+
+		self.files_to_update
+			.extend(self.files_to_update_buffer.drain(..));
+
+		self.files_to_update_buffer.clear();
+
+		// We have to check if we have any reincident files to update and update them after a bigger
+		// timeout, this way we keep track of files being update frequently enough to bypass our
+		// eviction check above
+		for (path, created_at) in self.reincident_to_update_files.drain() {
+			if created_at.elapsed() < ONE_SECOND * 10 {
+				self.files_to_update_buffer.push((path, created_at));
+			} else {
+				self.files_to_update.remove(&path);
+				update_file(self.location_id, &path, self.node, self.library).await?;
+				should_invalidate = true;
+			}
+		}
+
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
+		}
+
+		self.reincident_to_update_files
+			.extend(self.files_to_update_buffer.drain(..));
+
+		Ok(())
+	}
+
+	async fn handle_rename_from_eviction(&mut self) -> Result<(), LocationManagerError> {
 		self.rename_from_buffer.clear();
+		let mut should_invalidate = false;
 
 		for (path, instant) in self.rename_from.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
-				if let Err(e) = remove(self.location_id, &path, self.library).await {
-					error!("Failed to remove file_path: {e}");
-				} else {
-					trace!("Removed file_path due timeout: {}", path.display());
-					invalidate_query!(self.library, "search.paths");
-				}
+				remove(self.location_id, &path, self.library).await?;
+				should_invalidate = true;
+				trace!("Removed file_path due timeout: {}", path.display());
 			} else {
 				self.rename_from_buffer.push((path, instant));
 			}
 		}
 
+		if should_invalidate {
+			invalidate_query!(self.library, "search.paths");
+		}
+
 		for (path, instant) in self.rename_from_buffer.drain(..) {
 			self.rename_from.insert(path, instant);
 		}
+
+		Ok(())
 	}
 }

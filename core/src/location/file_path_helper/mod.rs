@@ -233,6 +233,8 @@ pub async fn create_file_path(
 	use serde_json::json;
 	use uuid::Uuid;
 
+	let indexed_at = Utc::now();
+
 	let location = db
 		.location()
 		.find_unique(location::id::equals(location_id))
@@ -264,6 +266,7 @@ pub async fn create_file_path(
 			(is_dir::NAME, json!(is_dir)),
 			(date_created::NAME, json!(metadata.created_at)),
 			(date_modified::NAME, json!(metadata.modified_at)),
+			(date_indexed::NAME, json!(indexed_at)),
 		]
 	};
 
@@ -295,6 +298,7 @@ pub async fn create_file_path(
 						)),
 						date_created::set(Some(metadata.created_at.into())),
 						date_modified::set(Some(metadata.modified_at.into())),
+						date_indexed::set(Some(indexed_at.into())),
 						hidden::set(Some(metadata.hidden)),
 					]
 				}),

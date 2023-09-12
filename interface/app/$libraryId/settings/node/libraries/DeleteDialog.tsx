@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
-import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	libraryUuid: string;

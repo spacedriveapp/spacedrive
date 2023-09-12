@@ -1,12 +1,13 @@
 import {
+	createContext,
 	MutableRefObject,
 	PropsWithChildren,
-	createContext,
 	useContext,
 	useEffect,
 	useRef,
 	useState
 } from 'react';
+
 import { P2PEvent, PairingStatus, PeerMetadata } from '../core';
 import { useBridgeSubscription } from '../rspc';
 

@@ -54,7 +54,10 @@ use prisma_client_rust::{raw, PrismaValue};
 use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde_json::json;
-use tokio::{fs, io::ErrorKind};
+use tokio::{
+	fs,
+	io::{self, ErrorKind},
+};
 use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
@@ -339,6 +342,16 @@ pub(super) async fn update_file(
 	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
+
+	let metadata = match fs::metadata(full_path).await {
+		Ok(metadata) => metadata,
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// If the file doesn't exist anymore, it was just a temporary file
+			return Ok(());
+		}
+		Err(e) => return Err(FileIOError::from((full_path, e)).into()),
+	};
+
 	let location_path = extract_location_path(location_id, library).await?;
 
 	if let Some(ref file_path) = library
@@ -358,9 +371,7 @@ pub(super) async fn update_file(
 			location_id,
 			location_path,
 			full_path,
-			&fs::metadata(full_path)
-				.await
-				.map_err(|e| FileIOError::from((full_path, e)))?,
+			&metadata,
 			node,
 			library,
 		)

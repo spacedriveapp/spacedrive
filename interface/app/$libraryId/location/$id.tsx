@@ -13,15 +13,16 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
-import { UseExplorerSettings, useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';

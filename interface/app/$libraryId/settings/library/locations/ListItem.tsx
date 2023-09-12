@@ -1,9 +1,10 @@
 import clsx from 'clsx';
-import { Repeat, Trash } from 'phosphor-react';
+import { Repeat, Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Location, arraysEqual, useLibraryMutation, useOnlineLocations } from '@sd/client';
-import { Button, Card, Tooltip, dialogManager } from '@sd/ui';
+import { arraysEqual, Location, useLibraryMutation, useOnlineLocations } from '@sd/client';
+import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
+
 import { Folder } from '~/components';
 import { useIsDark } from '~/hooks';
 import DeleteDialog from './DeleteDialog';
