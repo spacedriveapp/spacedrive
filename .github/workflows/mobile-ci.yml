@@ -123,10 +123,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Generate iOS Project
-        working-directory: ./apps/mobile
-        run: pnpm expo prebuild --platform ios --no-install
-
       - name: Install Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -142,6 +138,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           setup-arg: mobile
+
+      - name: Generate iOS Project
+        working-directory: ./apps/mobile
+        run: pnpm expo prebuild --platform ios --no-install
 
       - name: Cache Pods
         uses: actions/cache@v3
