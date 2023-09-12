@@ -37,6 +37,7 @@ import { Conditional } from '../ContextMenu/ConditionalItem';
 import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { uniqueId } from '../util';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
@@ -72,12 +73,14 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
-	const [item, setItem] = useState<ExplorerItem>();
+	const [item, setItem] = useState<ExplorerItem | null>(null);
 	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+
+	const timeout = useRef<NodeJS.Timeout | null>(null);
 
 	const items = useMemo(
 		() => (open ? [...explorer.selectedItems] : []),
@@ -101,39 +104,51 @@ export const QuickPreview = () => {
 	});
 
 	const changeCurrentItem = (index: number) => {
-		if (!items[index]) return;
-
-		getQuickPreviewStore().itemIndex = index;
-		setNewName(null);
+		if (items[index]) getQuickPreviewStore().itemIndex = index;
 	};
 
 	useEffect(() => {
-		const item = items[itemIndex];
+		const newItem = items[itemIndex];
 
-		if (!open || !item) {
+		if (!open || !newItem) {
 			getQuickPreviewStore().itemIndex = 0;
 			setShowMetadata(false);
 			setNewName(null);
+			setItem(null);
 
-			if (!item) getQuickPreviewStore().open = false;
+			if (!newItem) getQuickPreviewStore().open = false;
 
 			return;
 		}
 
-		setItem(item);
+		setItem(newItem);
+		setNewName(null);
 
-		const { kind } = getExplorerItemData(item);
+		const { kind } = getExplorerItemData(newItem);
 
-		if (iconKinds.includes(kind) || !heavyKinds.includes(kind)) {
+		const sameItem = item && uniqueId(item) === uniqueId(newItem);
+
+		if (
+			iconKinds.includes(kind) ||
+			!heavyKinds.includes(kind) ||
+			(sameItem && !timeout.current)
+		) {
+			timeout.current = null;
 			setLoadOriginal(true);
 			return;
 		}
 
 		setLoadOriginal(false);
 
-		const timeout = setTimeout(() => setLoadOriginal(true), 350);
-		return () => clearTimeout(timeout);
-	}, [items, itemIndex, open]);
+		timeout.current = setTimeout(() => {
+			setLoadOriginal(true);
+			timeout.current = null;
+		}, 350);
+
+		return () => {
+			if (timeout.current) clearTimeout(timeout.current);
+		};
+	}, [items, itemIndex, open, item]);
 
 	// Toggle quick preview
 	useKeyBind(['space'], (e) => {
