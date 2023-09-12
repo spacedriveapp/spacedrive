@@ -25,7 +25,7 @@ Pod::Spec.new do |s|
 
 	s.script_phase = {
 		:name => 'Build Spacedrive Core!',
-		:script => '${PODS_TARGET_SRCROOT}/build-rust.sh',
+		:script => 'env -i SPACEDRIVE_CI=$SPACEDRIVE_CI CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ${PODS_TARGET_SRCROOT}/build-rust.sh',
 		:execution_position => :before_compile
 	}
 
