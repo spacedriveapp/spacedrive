@@ -17,7 +17,10 @@
 		"assetBundlePatterns": ["**/*"],
 		"ios": {
 			"supportsTablet": false,
-			"bundleIdentifier": "com.spacedrive.app"
+			"bundleIdentifier": "com.spacedrive.app",
+			"infoPlist": {
+				"ITSAppUsesNonExemptEncryption": false
+			}
 		},
 		"android": {
 			"package": "com.spacedrive.app"

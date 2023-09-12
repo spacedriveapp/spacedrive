@@ -1,5 +1,6 @@
 {
-	"expo.jsEngine": "hermes",
-	"ios.deploymentTarget": "13.0",
-	"EX_DEV_CLIENT_NETWORK_INSPECTOR": "true"
+  "expo.jsEngine": "hermes",
+  "ios.deploymentTarget": "13.0",
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
+  "ios.useFrameworks": "static"
 }

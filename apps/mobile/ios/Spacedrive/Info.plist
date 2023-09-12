@@ -1,5 +1,5 @@
-<?xml	version="1.0"	encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD	PLIST	1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
@@ -34,6 +34,8 @@
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false />
     <key>LSRequiresIPhoneOS</key>
     <true />
     <key>NSAppTransportSecurity</key>
@@ -50,9 +52,9 @@
       </dict>
     </dict>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Allow Spacedrive to save photos</string>
+    <string>Allow $(PRODUCT_NAME) to save photos</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow Spacedrive to access your photos</string>
+    <string>Allow $(PRODUCT_NAME) to access your photos</string>
     <key>UIBackgroundModes</key>
     <array>
       <string>remote-notification</string>
@@ -84,8 +86,6 @@
     <key>UIUserInterfaceStyle</key>
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
-    <false />
-    <key>ITSAppUsesNonExemptEncryption</key>
     <false />
   </dict>
 </plist>
