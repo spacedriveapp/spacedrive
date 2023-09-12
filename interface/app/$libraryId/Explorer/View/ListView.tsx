@@ -784,7 +784,8 @@ export default () => {
 		if (!explorerView.selectable) return;
 
 		if (e.key === 'Escape') {
-			return explorer.resetSelectedItems([]);
+			explorer.resetSelectedItems([]);
+			return;
 		}
 
 		e.preventDefault();

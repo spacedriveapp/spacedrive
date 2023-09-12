@@ -221,7 +221,8 @@ export default ({ children }: { children: RenderItem }) => {
 		if (!explorerView.selectable) return;
 
 		if (e.key === 'Escape') {
-			return explorer.resetSelectedItems([]);
+			explorer.resetSelectedItems([]);
+			return;
 		}
 
 		if (explorer.selectedItems.size > 0) e.preventDefault();
