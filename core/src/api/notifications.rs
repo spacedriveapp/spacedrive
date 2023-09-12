@@ -54,20 +54,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									ErrorCode::InternalServerError,
 									format!(
 										"Failed to get notifications for library '{}': {}",
-										library.id, err
+										library.library_id, err
 									),
 								)
 							})?
 							.into_iter()
 							.map(|n| {
 								Ok(Notification {
-									id: NotificationId::Library(library.id, n.id as u32),
+									id: NotificationId::Library(library.library_id, n.id as u32),
 									data: rmp_serde::from_slice(&n.data).map_err(|err| {
 										rspc::Error::new(
 											ErrorCode::InternalServerError,
 											format!(
 												"Failed to get notifications for library '{}': {}",
-												library.id, err
+												library.library_id, err
 											),
 										)
 									})?,

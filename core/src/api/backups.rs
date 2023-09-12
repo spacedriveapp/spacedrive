@@ -132,14 +132,14 @@ async fn start_backup(node: Arc<Node>, library: Arc<Library>) -> Uuid {
 			Ok(path) => {
 				info!(
 					"Backup '{bkp_id}' for library '{}' created at '{path:?}'!",
-					library.id
+					library.library_id
 				);
 				invalidate_query!(library, "backups.getAll");
 			}
 			Err(e) => {
 				error!(
 					"Error with backup '{bkp_id}' for library '{}': {e:?}",
-					library.id
+					library.library_id
 				);
 
 				// TODO: Alert user something went wrong
@@ -183,7 +183,7 @@ fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, Backup
 	Header {
 		id,
 		timestamp,
-		library_id: library.id,
+		library_id: library.library_id,
 		library_name: library.config().name.to_string(),
 	}
 	.write(&mut bkp_file)?;
@@ -196,7 +196,7 @@ fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, Backup
 		&mut File::open(
 			node.libraries
 				.libraries_dir
-				.join(format!("{}.sdlibrary", library.id)),
+				.join(format!("{}.sdlibrary", library.library_id)),
 		)?,
 	)?;
 	tar.append_file(
@@ -204,7 +204,7 @@ fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, Backup
 		&mut File::open(
 			node.libraries
 				.libraries_dir
-				.join(format!("{}.db", library.id)),
+				.join(format!("{}.db", library.library_id)),
 		)?,
 	)?;
 

@@ -102,13 +102,13 @@ impl LocationCreateArgs {
 						.get_all()
 						.await
 						.into_iter()
-						.map(|library| library.id)
+						.map(|library| library.library_id)
 						.collect(),
 				)
 				.await?;
 
 			if !metadata.is_empty() {
-				return if let Some(old_path) = metadata.location_path(library.id) {
+				return if let Some(old_path) = metadata.location_path(library.library_id) {
 					if old_path == self.path {
 						Err(LocationError::LocationAlreadyExists(self.path))
 					} else {
@@ -147,7 +147,7 @@ impl LocationCreateArgs {
 		if let Some(location) = location {
 			// Write location metadata to a .spacedrive file
 			if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
-				library.id,
+				library.library_id,
 				uuid,
 				&self.path,
 				location.name,
@@ -189,16 +189,16 @@ impl LocationCreateArgs {
 					.get_all()
 					.await
 					.into_iter()
-					.map(|library| library.id)
+					.map(|library| library.library_id)
 					.collect(),
 			)
 			.await?;
 
-		if metadata.has_library(library.id) {
+		if metadata.has_library(library.library_id) {
 			return Err(LocationError::NeedRelink {
 				// SAFETY: This unwrap is ok as we checked that we have this library_id
 				old_path: metadata
-					.location_path(library.id)
+					.location_path(library.library_id)
 					.expect("This unwrap is ok as we checked that we have this library_id")
 					.to_path_buf(),
 				new_path: self.path,
@@ -212,7 +212,7 @@ impl LocationCreateArgs {
 			} else {
 				"Trying to add"
 			},
-			library.id,
+			library.library_id,
 			self.path.display()
 		);
 
@@ -229,7 +229,7 @@ impl LocationCreateArgs {
 
 		if let Some(location) = location {
 			metadata
-				.add_library(library.id, uuid, &self.path, location.name)
+				.add_library(library.library_id, uuid, &self.path, location.name)
 				.await?;
 
 			node.locations
@@ -238,7 +238,7 @@ impl LocationCreateArgs {
 
 			info!(
 				"Added library (library_id = {}) to location: {:?}",
-				library.id, &location.data
+				library.library_id, &location.data
 			);
 
 			Ok(Some(location.data))
@@ -344,7 +344,7 @@ impl LocationUpdateArgs {
 						SpacedriveLocationMetadataFile::try_load(path).await?
 					{
 						metadata
-							.update(library.id, maybe_missing(name, "location.name")?)
+							.update(library.library_id, maybe_missing(name, "location.name")?)
 							.await?;
 					}
 				}
@@ -523,7 +523,12 @@ pub async fn relink_location(
 	library: &Arc<Library>,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let Library { db, id, sync, .. } = &**library;
+	let Library {
+		db,
+		library_id: id,
+		sync,
+		..
+	} = &**library;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -531,7 +536,10 @@ pub async fn relink_location(
 
 	metadata.relink(*id, &location_path).await?;
 
-	let pub_id = metadata.location_pub_id(library.id)?.as_ref().to_vec();
+	let pub_id = metadata
+		.location_pub_id(library.library_id)?
+		.as_ref()
+		.to_vec();
 	let path = location_path
 		.as_ref()
 		.to_str()
@@ -747,12 +755,12 @@ pub async fn delete_location(
 							.get_all()
 							.await
 							.into_iter()
-							.map(|library| library.id)
+							.map(|library| library.library_id)
 							.collect(),
 					)
 					.await?;
 
-				metadata.remove_library(library.id).await?;
+				metadata.remove_library(library.library_id).await?;
 			}
 		}
 	}

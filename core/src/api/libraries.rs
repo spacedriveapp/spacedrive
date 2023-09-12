@@ -36,7 +36,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.await
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {
-						uuid: lib.id,
+						uuid: lib.library_id,
 						instance_id: lib.instance_uuid,
 						instance_public_key: lib.identity.to_remote_identity(),
 						config: lib.config(),
@@ -69,7 +69,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						node.config
 							.data_directory()
 							.join("libraries")
-							.join(&format!("{}.db", library.id)),
+							.join(&format!("{}.db", library.library_id)),
 					)
 					.await
 					.unwrap_or(0);
@@ -115,10 +115,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let library = node.libraries.create(args.name, None, &node).await?;
 
-				debug!("Created library {}", library.id);
+				debug!("Created library {}", library.library_id);
 
 				Ok(LibraryConfigWrapped {
-					uuid: library.id,
+					uuid: library.library_id,
 					instance_id: library.instance_uuid,
 					instance_public_key: library.identity.to_remote_identity(),
 					config: library.config(),

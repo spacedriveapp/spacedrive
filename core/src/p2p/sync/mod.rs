@@ -121,11 +121,14 @@ impl NetworkedLibraries {
 				db_owned_instances.len()
 			);
 		}
-		owned_instances.insert(library.id, db_owned_instances[0].to_remote_identity());
+		owned_instances.insert(
+			library.library_id,
+			db_owned_instances[0].to_remote_identity(),
+		);
 
-		let mut old_data = libraries.remove(&library.id);
+		let mut old_data = libraries.remove(&library.library_id);
 		libraries.insert(
-			library.id,
+			library.library_id,
 			LibraryData {
 				// We register all remote instances to track connection state(`IdentityOrRemoteIdentity::RemoteIdentity`'s only).
 				instances: db_instances
@@ -163,8 +166,8 @@ impl NetworkedLibraries {
 		let mut owned_instances = self.owned_instances.write().await;
 
 		// TODO: Do proper library delete/unpair procedure.
-		libraries.remove(&library.id);
-		owned_instances.remove(&library.id);
+		libraries.remove(&library.library_id);
+		owned_instances.remove(&library.library_id);
 		self.p2p
 			.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
 			.await;

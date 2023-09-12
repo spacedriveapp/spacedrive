@@ -272,8 +272,12 @@ impl Libraries {
 			.emit(LibraryManagerEvent::Delete(library.clone()))
 			.await;
 
-		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
-		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
+		let db_path = self
+			.libraries_dir
+			.join(format!("{}.db", library.library_id));
+		let sd_lib_path = self
+			.libraries_dir
+			.join(format!("{}.sdlibrary", library.library_id));
 
 		try_join!(
 			async {
@@ -293,7 +297,7 @@ impl Libraries {
 			.remove(id)
 			.expect("we have exclusive access and checked it exists!");
 
-		info!("Removed Library <id='{}'>", library.id);
+		info!("Removed Library <id='{}'>", library.library_id);
 
 		invalidate_query!(library, "library.list");
 
@@ -430,7 +434,7 @@ impl Libraries {
 		self.libraries
 			.write()
 			.await
-			.insert(library.id, Arc::clone(&library));
+			.insert(library.library_id, Arc::clone(&library));
 
 		if should_seed {
 			library.orphan_remover.invoke().await;

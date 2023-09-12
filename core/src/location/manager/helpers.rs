@@ -140,17 +140,22 @@ pub(super) async fn handle_remove_location_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	to_remove: &mut HashSet<LocationAndLibraryKey>,
 ) {
-	let key = (location_id, library.id);
+	let key = (location_id, library.library_id);
 	if let Some(location) = get_location(location_id, &library).await {
 		// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 		if location.instance_id == Some(library.config().instance_id) {
-			unwatch_location(location, library.id, locations_watched, locations_unwatched);
+			unwatch_location(
+				location,
+				library.library_id,
+				locations_watched,
+				locations_unwatched,
+			);
 			locations_unwatched.remove(&key);
 			forced_unwatch.remove(&key);
 		} else {
 			drop_location(
 		 		location_id,
-		 		library.id,
+		 		library.library_id,
 		 		"Dropping location from location manager, because we don't have a `local_path` anymore",
 		 		locations_watched,
 		 		locations_unwatched
@@ -159,7 +164,7 @@ pub(super) async fn handle_remove_location_request(
 	} else {
 		drop_location(
 			location_id,
-			library.id,
+			library.library_id,
 			"Removing location from manager, as we failed to fetch from db",
 			locations_watched,
 			locations_unwatched,
@@ -187,7 +192,7 @@ pub(super) async fn handle_stop_watcher_request(
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	) -> Result<(), LocationManagerError> {
-		let key = (location_id, library.id);
+		let key = (location_id, library.library_id);
 		if !forced_unwatch.contains(&key) && locations_watched.contains_key(&key) {
 			get_location(location_id, &library)
 				.await
@@ -195,7 +200,12 @@ pub(super) async fn handle_stop_watcher_request(
 					reason: String::from("failed to fetch location from db"),
 				})
 				.map(|location| {
-					unwatch_location(location, library.id, locations_watched, locations_unwatched);
+					unwatch_location(
+						location,
+						library.library_id,
+						locations_watched,
+						locations_unwatched,
+					);
 					forced_unwatch.insert(key);
 				})
 		} else {
@@ -230,7 +240,7 @@ pub(super) async fn handle_reinit_watcher_request(
 		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	) -> Result<(), LocationManagerError> {
-		let key = (location_id, library.id);
+		let key = (location_id, library.library_id);
 		if forced_unwatch.contains(&key) && locations_unwatched.contains_key(&key) {
 			get_location(location_id, &library)
 				.await
@@ -238,7 +248,12 @@ pub(super) async fn handle_reinit_watcher_request(
 					reason: String::from("failed to fetch location from db"),
 				})
 				.map(|location| {
-					watch_location(location, library.id, locations_watched, locations_unwatched);
+					watch_location(
+						location,
+						library.library_id,
+						locations_watched,
+						locations_unwatched,
+					);
 					forced_unwatch.remove(&key);
 				})
 		} else {
@@ -267,7 +282,7 @@ pub(super) fn handle_ignore_path_request(
 	locations_watched: &HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let _ = response_tx.send(
-		if let Some(watcher) = locations_watched.get(&(location_id, library.id)) {
+		if let Some(watcher) = locations_watched.get(&(location_id, library.library_id)) {
 			watcher.ignore_path(path, ignore)
 		} else {
 			Ok(())

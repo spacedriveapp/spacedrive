@@ -129,7 +129,7 @@ impl PairingManager {
 						.get_all()
 						.await
 						.into_iter()
-						.any(|i| i.id == library_id)
+						.any(|i| i.library_id == library_id)
 					{
 						self.emit_progress(pairing_id, PairingStatus::LibraryAlreadyExists);
 
@@ -172,7 +172,11 @@ impl PairingManager {
 						.await
 						.unwrap();
 
-					let library = node.libraries.get_library(&library.id).await.unwrap();
+					let library = node
+						.libraries
+						.get_library(&library.library_id)
+						.await
+						.unwrap();
 
 					library
 						.db
@@ -294,7 +298,7 @@ impl PairingManager {
 		stream
 			.write_all(
 				&PairingResponse::Accepted {
-					library_id: library.id,
+					library_id: library.library_id,
 					library_name: library.config().name.into(),
 					library_description: library.config().description,
 					instances: library

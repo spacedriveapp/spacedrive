@@ -627,7 +627,7 @@ impl P2PManager {
 		stream
 			.write_all(
 				&Header::File {
-					library_id: library.id,
+					library_id: library.library_id,
 					file_path_id,
 					range: range.clone(),
 				}

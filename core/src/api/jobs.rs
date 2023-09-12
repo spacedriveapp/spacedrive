@@ -174,7 +174,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.map(|library| async move {
 						group_jobs_by_library(&library, active_job_reports_by_id)
 							.await
-							.map(|groups| (library.id, groups))
+							.map(|groups| (library.library_id, groups))
 					})
 					.collect::<Vec<_>>()
 					.try_join()

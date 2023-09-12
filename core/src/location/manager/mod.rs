@@ -427,12 +427,12 @@ impl Locations {
 											if is_online {
 												watcher.watch();
 												locations_watched.insert(
-													(location_id, library.id),
+													(location_id, library.library_id),
 													watcher
 												);
 											} else {
 												locations_unwatched.insert(
-													(location_id, library.id),
+													(location_id, library.library_id),
 													watcher
 												);
 											}
@@ -520,7 +520,7 @@ impl Locations {
 
 				// Periodically checking locations
 				Some((location_id, library)) = to_check_futures.next() => {
-					let key = (location_id, library.id);
+					let key = (location_id, library.library_id);
 
 					if to_remove.contains(&key) {
 						// The time to check came for an already removed library, so we just ignore it
@@ -541,14 +541,14 @@ impl Locations {
 							{
 								watch_location(
 									location,
-									library.id,
+									library.library_id,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);
 							} else {
 								unwatch_location(
 									location,
-									library.id,
+									library.library_id,
 									&mut locations_watched,
 									&mut locations_unwatched,
 								);
@@ -557,7 +557,7 @@ impl Locations {
 						} else {
 							drop_location(
 								location_id,
-								library.id,
+								library.library_id,
 								"Dropping location from location manager, because \
 								it isn't a location in the current node",
 								&mut locations_watched,
@@ -568,7 +568,7 @@ impl Locations {
 					} else {
 						drop_location(
 							location_id,
-							library.id,
+							library.library_id,
 							"Removing location from manager, as we failed to fetch from db",
 							&mut locations_watched,
 							&mut locations_unwatched,

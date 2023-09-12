@@ -38,7 +38,7 @@ use super::{LibraryConfig, LibraryManagerError};
 
 pub struct Library {
 	/// id holds the ID of the current library.
-	pub id: Uuid,
+	pub library_id: Uuid,
 	/// config holds the configuration of the current library.
 	/// KEEP PRIVATE: Access through `Self::config` method.
 	config: RwLock<LibraryConfig>,
@@ -65,7 +65,7 @@ impl Debug for Library {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
 		f.debug_struct("LibraryContext")
-			.field("id", &self.id)
+			.field("id", &self.library_id)
 			.field("instance_uuid", &self.instance_uuid)
 			.field("config", &self.config)
 			.field("db", &self.db)
@@ -84,7 +84,7 @@ impl Library {
 		sync: Arc<sync::Manager>,
 	) -> Arc<Self> {
 		Arc::new(Self {
-			id,
+			library_id: id,
 			config: RwLock::new(config),
 			sync,
 			db: db.clone(),
@@ -185,7 +185,7 @@ impl Library {
 					Err(err) => {
 						warn!(
 							"Failed to serialize notification data for library '{}': {}",
-							self.id, err
+							self.library_id, err
 						);
 						return;
 					}
@@ -201,14 +201,14 @@ impl Library {
 			Err(err) => {
 				warn!(
 					"Failed to create notification in library '{}': {}",
-					self.id, err
+					self.library_id, err
 				);
 				return;
 			}
 		};
 
 		self.notifications._internal_send(Notification {
-			id: NotificationId::Library(self.id, result.id as u32),
+			id: NotificationId::Library(self.library_id, result.id as u32),
 			data,
 			read: false,
 			expires,

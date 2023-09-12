@@ -101,7 +101,10 @@ impl Actor {
 							match event {
 								LibraryManagerEvent::Load(library) => {
 									if databases_tx
-										.send(DatabaseMessage::Add(library.id, library.db.clone()))
+										.send(DatabaseMessage::Add(
+											library.library_id,
+											library.db.clone(),
+										))
 										.await
 										.is_err()
 									{
@@ -112,7 +115,7 @@ impl Actor {
 								LibraryManagerEvent::InstancesModified(_) => {}
 								LibraryManagerEvent::Delete(library) => {
 									if databases_tx
-										.send(DatabaseMessage::Remove(library.id))
+										.send(DatabaseMessage::Remove(library.library_id))
 										.await
 										.is_err()
 									{
