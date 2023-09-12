@@ -107,6 +107,15 @@ cargo {
     profile = 'release' // 'debug'
     targets = cargoTargets
     targetDirectory = "../../../../../target" // Monorepo moment
+
+		exec { spec, toolchain ->
+				def dir = "${android.ndkDirectory}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+
+		    spec.environment("RANLIB_armv7-linux-androideabi", "${dir}")
+				spec.environment("RANLIB_aarch64-linux-android", "${dir}")
+				spec.environment("RANLIB_i686-linux-android", "${dir}")
+				spec.environment("RANLIB_x86_64-linux-android", "${dir}")
+    }
 }
 
 tasks.whenTaskAdded { task ->
