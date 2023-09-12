@@ -115,6 +115,7 @@ export const QuickPreview = () => {
 			setShowMetadata(false);
 			setNewName(null);
 			setItem(null);
+			timeout.current = null;
 
 			if (!newItem) getQuickPreviewStore().open = false;
 
