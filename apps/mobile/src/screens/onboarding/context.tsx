@@ -1,5 +1,4 @@
 import { useNavigation } from '@react-navigation/native';
-import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import { z } from 'zod';
 import {
@@ -64,10 +63,13 @@ const useFormState = () => {
 	});
 
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
-	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const createLibrary = useBridgeMutation('library.create');
+	const createLibrary = useBridgeMutation('library.create', {
+		onSuccess: (data) => {
+			console.log("TODO: 'library.create' onSuccess", data);
+		}
+	});
 
 	const submit = handleSubmit(
 		async (data) => {

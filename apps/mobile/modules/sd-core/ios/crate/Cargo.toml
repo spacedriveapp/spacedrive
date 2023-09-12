@@ -15,7 +15,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 # Core mobile handling stuff
-sd-mobile-core = { path = "../core" }
+sd-mobile-core = { path = "../../core" }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 # FFI

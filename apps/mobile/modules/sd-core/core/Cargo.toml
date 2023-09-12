@@ -8,7 +8,7 @@ edition = { workspace = true }
 
 [dependencies]
 once_cell = "1.17.2"
-sd-core = { path = "../../../../core", features = [
+sd-core = { path = "../../../../../core", features = [
 	"mobile",
 ], default-features = false }
 rspc = { workspace = true }

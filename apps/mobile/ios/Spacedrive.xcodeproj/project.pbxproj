@@ -147,7 +147,6 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Spacedrive" */;
 			buildPhases = (
 				BC1F37E21575379C81F561DC /* [CP] Check Pods Manifest.lock */,
-				350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */,
 				FD10A7F022414F080027D42C /* Start Packager */,
 				0883FA647AA9D506CE94B59A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
@@ -243,25 +242,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Spacedrive/expo-configure-project.sh\"\n";
-		};
-		350DC403297BF2B8009CD6A1 /* Build Spacedrive Core */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build Spacedrive Core";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/zsh;
-			shellScript = "env -i SPACEDRIVE_CI=$SPACEDRIVE_CI CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ./build-rust.sh\n";
 		};
 		65CB42BC732A49C59CCA544A /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -441,13 +421,11 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
@@ -538,13 +516,11 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_mobile_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
