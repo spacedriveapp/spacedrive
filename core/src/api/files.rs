@@ -29,6 +29,7 @@ use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
 use sd_media_metadata::MediaMetadata;
 
 use std::{
+	ffi::OsString,
 	path::{Path, PathBuf},
 	str::FromStr,
 };
@@ -39,7 +40,10 @@ use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::{fs, io};
+use tokio::{
+	fs::{self, File},
+	io::{self, AsyncWriteExt},
+};
 use tracing::{error, warn};
 
 use super::{Ctx, R};
@@ -316,6 +320,82 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map_err(Into::into),
 					}
 				})
+		})
+		.procedure("convertImage", {
+			#[derive(Type, Deserialize)]
+			struct ConvertImageArgs {
+				path: PathBuf,
+				delete_src: bool, // if set, we delete the src image after
+				desired_extension: String,
+				quality_percentage: Option<i32>,
+			}
+			R.with2(library())
+				.mutation(|(_, library), args: ConvertImageArgs| async move {
+					let extension = args.desired_extension.to_lowercase();
+					if sd_images::all_compatible_extensions()
+						.iter()
+						.all(|ext| ext != &extension)
+					{
+						return Err(sd_images::Error::Unsupported.into());
+					}
+
+					args.quality_percentage.map(|x| x.clamp(0, 100));
+
+					let output_extension = OsString::from(extension);
+					let mut image = sd_images::convert_image(&args.path, &output_extension)?;
+
+					if let Some(quality_percentage) = args.quality_percentage {
+						image = image.resize(
+							image.width() * (quality_percentage as f32 / 100_f32) as u32,
+							image.height() * (quality_percentage as f32 / 100_f32) as u32,
+							image::imageops::FilterType::Triangle,
+						);
+					}
+
+					let mut output_path = args.path.clone();
+					if output_path.set_extension(output_extension) {
+						return Err(rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"There was an error while updating the extension".to_string(),
+						));
+					}
+
+					if fs::metadata(&output_path).await.is_ok() {
+						return Err(rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"The output path already exists and this would overwrite it"
+								.to_string(),
+						));
+					} else if let Ok(mut file) = File::create(&output_path).await {
+						file.write_all(image.as_bytes()).await.map_err(|e| {
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"There was an error while writing the image to the output path"
+									.to_string(),
+								e,
+							)
+						})?;
+					}
+
+					if args.delete_src {
+						fs::remove_file(&args.path).await.map_err(|e| {
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"There was an error while deleting the source image".to_string(),
+								e,
+							)
+						})?;
+					}
+
+					invalidate_query!(library, "search.paths");
+
+					Ok(())
+				})
+		})
+		.procedure("getConvertableImageExtensions", {
+			R.with2(library()).query(|(_, _library), _: ()| async move {
+				Ok(sd_images::all_compatible_extensions())
+			})
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
