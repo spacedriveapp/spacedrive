@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::{
-	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_RENDER_SIZE},
+	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_RENDER_SIZE, SVG_TAGRET_PX},
 	Error, ImageHandler, Result,
 };
 use image::DynamicImage;
@@ -10,6 +10,13 @@ use resvg::{
 	usvg,
 };
 use usvg::{fontdb, TreeParsing, TreeTextToPath};
+
+#[inline]
+#[must_use]
+fn scale_dimensions(w: f32, h: f32) -> (f32, f32) {
+	let sf = (SVG_TAGRET_PX / (w * h)).sqrt();
+	((w * sf).round(), (h * sf).round())
+}
 
 pub struct SvgHandler {}
 
@@ -22,6 +29,12 @@ impl ImageHandler for SvgHandler {
 		Ok(())
 	}
 
+	#[allow(
+		clippy::cast_possible_truncation,
+		clippy::cast_sign_loss,
+		clippy::as_conversions,
+		clippy::cast_precision_loss
+	)]
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
 		let data = self.get_data(path)?;
 		let rtree = usvg::Tree::from_data(&data, &usvg::Options::default()).map(|mut tree| {
@@ -38,16 +51,13 @@ impl ImageHandler for SvgHandler {
 		}
 		.ok_or(Error::InvalidLength)?;
 
-		#[allow(clippy::cast_precision_loss)]
-		#[allow(clippy::as_conversions)]
-		let transform = tiny_skia::Transform::from_scale(
+		let (w_scaled, h_scaled) = scale_dimensions(
 			size.width() as f32 / rtree.size.width(),
 			size.height() as f32 / rtree.size.height(),
 		);
 
-		#[allow(clippy::cast_possible_truncation)]
-		#[allow(clippy::cast_sign_loss)]
-		#[allow(clippy::as_conversions)]
+		let transform = tiny_skia::Transform::from_scale(w_scaled, h_scaled);
+
 		let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) else {
 			return Err(Error::Pixbuf);
 		};
