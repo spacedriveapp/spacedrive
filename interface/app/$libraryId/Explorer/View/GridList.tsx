@@ -222,6 +222,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 		if (e.key === 'Escape') {
 			explorer.resetSelectedItems([]);
+			selecto.current?.setSelectedTargets([]);
 			return;
 		}
 
