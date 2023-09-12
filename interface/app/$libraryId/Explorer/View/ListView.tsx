@@ -1,3 +1,4 @@
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import {
 	flexRender,
 	getCoreRowModel,
@@ -9,7 +10,6 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
@@ -25,9 +25,9 @@ import {
 	type NonIndexedPathItem
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { stringify } from '~/util/uuid';
+
 import { ViewItem } from '.';
 import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
@@ -266,7 +266,7 @@ export default () => {
 	);
 
 	const table = useReactTable({
-		data: explorer.items ?? [],
+		data: useMemo(() => explorer.items ?? [], [explorer.items]),
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
 		state: { columnSizing },
@@ -780,7 +780,7 @@ export default () => {
 		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
 	}, [virtualRows, rows.length, explorer.loadMore]);
 
-	useKey(['ArrowUp', 'ArrowDown'], (e) => {
+	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
@@ -788,6 +788,12 @@ export default () => {
 		const range = getRangeByIndex(ranges.length - 1);
 
 		if (!range) return;
+
+		if (e.key === 'Escape') {
+			explorer.resetSelectedItems([]);
+			setRanges([]);
+			return;
+		}
 
 		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
 

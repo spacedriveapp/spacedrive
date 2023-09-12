@@ -17,7 +17,6 @@ crate-type = ["staticlib"]
 # Core mobile handling stuff
 sd-mobile-core = { path = "../core" }
 
-[target.'cfg(target_os = "ios")'.dependencies]
 # FFI
 objc = "0.2.7"
 objc_id = "0.1.1"
