@@ -53,9 +53,9 @@ tokio = { workspace = true, features = [
 	"process",
 ] }
 kamadak-exif = "0.5.5"
-base64 = "0.21.3"
+base64 = "0.21.4"
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.29", features = ["serde"] }
+chrono = { version = "0.4.30", features = ["serde"] }
 serde_json = { workspace = true }
 futures = "0.3"
 rmp = "^0.8.12"
@@ -82,7 +82,7 @@ http-range = "0.1.5"
 mini-moka = "0.10.2"
 serde_with = "3.3.0"
 dashmap = { version = "5.5.3", features = ["serde"] }
-notify = { version = "5.2.0", default-features = false, features = [
+notify = { version = "=5.2.0", default-features = false, features = [
 	"macos_fsevent",
 ], optional = true }
 static_assertions = "1.1.0"
@@ -106,7 +106,7 @@ tempfile = "^3.8.0"
 axum = "0.6.20"
 http-body = "0.4.5"
 pin-project-lite = "0.2.13"
-bytes = "1.4.0"
+bytes = "1.5.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
