@@ -59,6 +59,21 @@ const formatLocation = (loc: MediaLocation, format: CoordinatesFormat, dp?: numb
 	return format === 'dd' ? formatLocationDD(loc, dp) : formatLocationDMS(loc);
 };
 
+const UrlMetadataValue = (props: { text: string; url: string }) => {
+	const platform = usePlatform();
+
+	return (
+		<a
+			onClick={(e) => {
+				e.preventDefault();
+				platform.openLink(props.url);
+			}}
+		>
+			{props.text}
+		</a>
+	);
+};
+
 const orientations = {
 	Normal: 'Normal',
 	MirroredHorizontal: 'Horizontally mirrored',
@@ -84,19 +99,12 @@ const MediaData = ({ data }: Props) => {
 					tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
 					value={
 						data.location && (
-							<a
-								onClick={(e) => {
-									e.preventDefault();
-									data.location &&
-										platform.openLink(
-											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-												formatLocation(data.location, 'dd')
-											)}`
-										);
-								}}
-							>
-								{formatLocation(data.location, coordinatesFormat, 4)}
-							</a>
+							<UrlMetadataValue
+								url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+									formatLocation(data.location, 'dd')
+								)}`}
+								text={formatLocation(data.location, coordinatesFormat, 4)}
+							/>
 						)
 					}
 				/>
@@ -104,19 +112,12 @@ const MediaData = ({ data }: Props) => {
 					label="Plus Code"
 					value={
 						data.location?.pluscode && (
-							<a
-								onClick={(e) => {
-									e.preventDefault();
-									data.location &&
-										platform.openLink(
-											`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-												data.location.pluscode
-											)}`
-										);
-								}}
-							>
-								{data.location?.pluscode}
-							</a>
+							<UrlMetadataValue
+								url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+									data.location.pluscode
+								)}`}
+								text={data.location.pluscode}
+							/>
 						)
 					}
 				/>
