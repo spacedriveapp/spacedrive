@@ -22,14 +22,15 @@
 
 mod consts;
 mod error;
-mod formatter;
 mod generic;
+mod handler;
 #[cfg(feature = "heif")]
 mod heif;
 mod svg;
 
+pub use consts::all_compatible_extensions;
 pub use error::{Error, Result};
-pub use formatter::format_image;
+pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;
 use std::{fs, io::Read, path::Path};
 
@@ -38,6 +39,7 @@ pub trait ImageHandler {
 	where
 		Self: Sized; // thanks vtables
 
+	#[inline]
 	fn get_data(&self, path: &Path) -> Result<Vec<u8>>
 	where
 		Self: Sized,
@@ -57,4 +59,12 @@ pub trait ImageHandler {
 		Self: Sized;
 
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage>;
+
+	fn convert_image(
+		&self,
+		opposing_handler: Box<dyn ImageHandler>,
+		path: &Path,
+	) -> Result<DynamicImage> {
+		opposing_handler.handle_image(path)
+	}
 }
