@@ -130,6 +130,43 @@ pub struct FilePathMetadata {
 	pub hidden: bool,
 }
 
+pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
+	#[cfg(target_family = "unix")]
+	{
+		if path
+			.file_name()
+			.and_then(OsStr::to_str)
+			.map(|s| s.starts_with('.'))
+			.unwrap_or_default()
+		{
+			return true;
+		}
+	}
+
+	#[cfg(target_os = "macos")]
+	{
+		use std::os::macos::fs::MetadataExt;
+
+		const UF_HIDDEN: u32 = 0x8000;
+
+		#[allow(deprecated)]
+		let flags = metadata.as_raw_stat().st_flags;
+
+		if (flags & UF_HIDDEN) == UF_HIDDEN {
+			return true;
+		}
+	}
+
+	#[cfg(target_family = "windows")]
+	{
+		const FILE_ATTRIBUTE_HIDDEN: u8 = 0x2;
+
+		(metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN
+	}
+
+	return false;
+}
+
 impl FilePathMetadata {
 	pub async fn from_path(path: &Path, metadata: &Metadata) -> Result<Self, FilePathError> {
 		let (inode, device) = {
@@ -144,27 +181,10 @@ impl FilePathMetadata {
 			}
 		}?;
 
-		let hidden = {
-			#[cfg(target_family = "unix")]
-			{
-				path.file_name()
-					.and_then(OsStr::to_str)
-					.map(|s| s.starts_with('.'))
-					.unwrap_or_default()
-			}
-
-			#[cfg(target_family = "windows")]
-			{
-				const FILE_ATTRIBUTE_HIDDEN: u8 = 0x2;
-
-				(metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN
-			}
-		};
-
 		Ok(Self {
 			inode,
 			device,
-			hidden,
+			hidden: path_is_hidden(path, metadata),
 			size_in_bytes: metadata.len(),
 			created_at: metadata.created_or_now().into(),
 			modified_at: metadata.modified_or_now().into(),
