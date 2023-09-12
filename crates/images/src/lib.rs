@@ -60,6 +60,7 @@ pub trait ImageHandler {
 
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage>;
 
+	#[inline]
 	fn convert_image(
 		&self,
 		opposing_handler: Box<dyn ImageHandler>,
