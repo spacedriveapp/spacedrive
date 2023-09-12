@@ -669,6 +669,8 @@ pub(super) async fn rename(
 			trace!("Updated {updated} file_paths");
 		}
 
+		let metadata = FilePathMetadata::from_path(new_path, &new_path_metadata).await?;
+
 		library
 			.db
 			.file_path()
@@ -681,6 +683,7 @@ pub(super) async fn rename(
 					file_path::date_modified::set(Some(
 						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
 					)),
+					file_path::hidden::set(Some(metadata.hidden)),
 				],
 			)
 			.exec()
