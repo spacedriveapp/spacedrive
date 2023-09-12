@@ -206,7 +206,7 @@ function Options({
 			{activeJob === undefined ? (
 				<Dropdown.Root
 					align="right"
-					itemsClassName="!bg-app-darkBox !border-app-box mt-1 top-[-11px]"
+					itemsClassName="!bg-app-darkBox !border-app-box !top-[-8px]"
 					button={
 						<Tooltip label="Actions">
 							<Button className="!px-1" variant="outline">
