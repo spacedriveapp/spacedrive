@@ -49,8 +49,13 @@ pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_handleCoreMsg(
 	callback: JObject,
 ) {
 	let jvm = env.get_java_vm().unwrap();
+	let mut env = jvm.attach_current_thread().unwrap();
+	let callback = env.new_global_ref(callback).unwrap();
 
-	let env = jvm.attach_current_thread().unwrap();
+	let query: String = env
+		.get_string(&query)
+		.expect("Couldn't get java string!")
+		.into();
 
 	// env.call_method(
 	// 	class,
@@ -75,6 +80,7 @@ pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_handleCoreMsg(
 			env.get_string((&data_dir).into()).unwrap().into()
 		};
 
+		let jvm = env.get_java_vm().unwrap();
 		handle_core_msg(query, data_directory, move |result| match result {
 			Ok(data) => {
 				let mut env = jvm.attach_current_thread().unwrap();
@@ -83,10 +89,7 @@ pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_handleCoreMsg(
 					&callback,
 					"resolve",
 					"(Ljava/lang/String;)V",
-					&[env
-						.new_string(data)
-						.expect("Couldn't create java string!")
-						.into()],
+					&[(&s).into()],
 				)
 				.unwrap();
 			}

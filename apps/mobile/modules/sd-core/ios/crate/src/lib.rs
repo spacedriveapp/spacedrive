@@ -31,6 +31,7 @@ struct SDCoreModule(*const c_void);
 
 unsafe impl Send for SDCoreModule {}
 
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn register_core_event_listener(id: *const c_void) {
 	let id = SDCoreModule(id);
