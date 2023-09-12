@@ -783,16 +783,17 @@ export default () => {
 	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			return;
-		}
-
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
 
 		if (!range) return;
+
+		if (e.key === 'Escape') {
+			explorer.resetSelectedItems([]);
+			setRanges([]);
+			return;
+		}
 
 		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
 
