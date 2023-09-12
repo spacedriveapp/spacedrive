@@ -123,6 +123,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Generate iOS Project
+        working-directory: ./apps/mobile
+        run: pnpm expo prebuild --platform ios --no-install
+
       - name: Install Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
