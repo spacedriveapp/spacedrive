@@ -45,7 +45,7 @@ impl ImageHandler for SvgHandler {
 		})?;
 
 		let size = if rtree.size.width() > rtree.size.height() {
-			rtree.size.to_int_size().scale_to_width(SVG_RENDER_SIZE) // make this a const
+			rtree.size.to_int_size().scale_to_width(SVG_RENDER_SIZE)
 		} else {
 			rtree.size.to_int_size().scale_to_height(SVG_RENDER_SIZE)
 		}
