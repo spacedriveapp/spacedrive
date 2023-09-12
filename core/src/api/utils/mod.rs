@@ -2,11 +2,11 @@ use std::path::Path;
 
 use tokio::{fs, io};
 
+mod instance;
 mod invalidate;
-mod library;
 
+pub(crate) use instance::*;
 pub use invalidate::*;
-pub(crate) use library::*;
 
 /// Returns the size of the file or directory
 pub async fn get_size(path: impl AsRef<Path>) -> Result<u64, io::Error> {
