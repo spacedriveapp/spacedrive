@@ -1,8 +1,8 @@
 import { AlphaRSPCError, Link, RspcRequest } from '@rspc/client/v2';
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeEventEmitter } from 'react-native';
+import { SDCoreModule } from '../../modules/sd-core';
 
-const { SDCore } = NativeModules;
-const eventEmitter = new NativeEventEmitter(NativeModules.SDCore);
+const eventEmitter = new NativeEventEmitter(SDCoreModule);
 
 /**
  * Link for the custom React Native rspc backend
@@ -48,7 +48,9 @@ export function reactNativeLink(): Link {
 			setTimeout(() => {
 				const currentBatch = [...batch];
 				(async () => {
-					const data = JSON.parse(await SDCore.sd_core_msg(JSON.stringify(currentBatch)));
+					const data = JSON.parse(
+						await SDCoreModule.sd_core_msg(JSON.stringify(currentBatch))
+					);
 					if (Array.isArray(data)) {
 						for (const payload of data) {
 							handleIncoming(payload);

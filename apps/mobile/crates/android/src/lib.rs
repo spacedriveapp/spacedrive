@@ -12,7 +12,7 @@ use sd_mobile_core::*;
 use tracing::error;
 
 #[no_mangle]
-pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
+pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_registerCoreEventListener(
 	env: JNIEnv,
 	class: JClass,
 ) {
@@ -38,17 +38,34 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 	if let Err(err) = result {
 		// TODO: Send rspc error or something here so we can show this in the UI.
 		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
-		println!("Error in Java_com_spacedrive_app_SDCore_registerCoreEventListener: {err:?}");
+		println!(
+			"Error in Java_com_spacedrive_core_SDCoreModule_registerCoreEventListener: {err:?}"
+		);
 	}
 }
 
 #[no_mangle]
-pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
+pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_handleCoreMsg(
 	env: JNIEnv,
 	class: JClass,
 	query: JString,
 	callback: JObject,
 ) {
+	let jvm = env.get_java_vm().unwrap();
+
+	let env = jvm.attach_current_thread().unwrap();
+
+	// env.call_method(
+	// 	class,
+	// 	"printFromRust",
+	// 	"(Ljava/lang/Object;)V",
+	// 	&[env
+	// 		.new_string("Hello from Rust".to_string())
+	// 		.expect("Couldn't create java string!")
+	// 		.into()],
+	// )
+	// .unwrap();
+
 	let result = panic::catch_unwind(|| {
 		let jvm = env.get_java_vm().unwrap();
 
@@ -77,7 +94,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				env.call_method(
 					&callback,
 					"resolve",
-					"(Ljava/lang/Object;)V",
+					"(Ljava/lang/String;)V",
 					&[env
 						.new_string(data)
 						.expect("Couldn't create java string!")
