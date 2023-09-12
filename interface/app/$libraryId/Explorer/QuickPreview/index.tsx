@@ -161,6 +161,9 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
+
+	useKeyBind("Escape", (e) => open && e.stopPropagation());
+
 	// Move between items
 	useKeyBind([['left'], ['right']], (e) => {
 		if (isContextMenuOpen || isRenaming) return;
