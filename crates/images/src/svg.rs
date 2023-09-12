@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::{
-	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_RENDER_SIZE, SVG_TAGRET_PX},
+	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_TAGRET_PX},
 	Error, ImageHandler, Result,
 };
 use image::DynamicImage;
@@ -44,19 +44,19 @@ impl ImageHandler for SvgHandler {
 			resvg::Tree::from_usvg(&tree)
 		})?;
 
+		let (scaled_w, scaled_h) = scale_dimensions(rtree.size.width(), rtree.size.height());
+
 		let size = if rtree.size.width() > rtree.size.height() {
-			rtree.size.to_int_size().scale_to_width(SVG_RENDER_SIZE)
+			rtree.size.to_int_size().scale_to_width(scaled_w as u32)
 		} else {
-			rtree.size.to_int_size().scale_to_height(SVG_RENDER_SIZE)
+			rtree.size.to_int_size().scale_to_height(scaled_h as u32)
 		}
 		.ok_or(Error::InvalidLength)?;
 
-		let (w_scaled, h_scaled) = scale_dimensions(
+		let transform = tiny_skia::Transform::from_scale(
 			size.width() as f32 / rtree.size.width(),
 			size.height() as f32 / rtree.size.height(),
 		);
-
-		let transform = tiny_skia::Transform::from_scale(w_scaled, h_scaled);
 
 		let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) else {
 			return Err(Error::Pixbuf);
