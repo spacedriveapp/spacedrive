@@ -26,7 +26,7 @@ use tokio::{fs, io, sync::broadcast};
 use tracing::warn;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryManagerError};
+use super::{InstanceConfig, LibraryManagerError};
 
 // TODO: Finish this
 // pub enum LibraryNew {
@@ -36,12 +36,16 @@ use super::{LibraryConfig, LibraryManagerError};
 //  Deleting,
 // }
 
-pub struct Library {
-	/// id holds the ID of the current library.
+pub struct Instance {
+	// The ID of the current intance.
+	pub instance_id: Uuid,
+	/// The ID of the library the instance is in.
+	///
+	/// BE AWARE THS IS NOT UNIQUE FOR A NODE. Eg. two instances for one library is possible
 	pub library_id: Uuid,
 	/// config holds the configuration of the current library.
 	/// KEEP PRIVATE: Access through `Self::config` method.
-	config: RwLock<LibraryConfig>,
+	config: RwLock<InstanceConfig>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
 	pub sync: Arc<sync::Manager>,
@@ -50,8 +54,6 @@ pub struct Library {
 	/// p2p identity
 	pub identity: Arc<Identity>,
 	pub orphan_remover: OrphanRemoverActor,
-	// The UUID which matches `config.instance_id`'s primary key.
-	pub instance_uuid: Uuid,
 
 	notifications: notifications::Notifications,
 
@@ -60,23 +62,23 @@ pub struct Library {
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
-impl Debug for Library {
+impl Debug for Instance {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		// Rolling out this implementation because `NodeContext` contains a DynJob which is
 		// troublesome to implement Debug trait
 		f.debug_struct("LibraryContext")
 			.field("id", &self.library_id)
-			.field("instance_uuid", &self.instance_uuid)
+			.field("instance_uuid", &self.instance_id)
 			.field("config", &self.config)
 			.field("db", &self.db)
 			.finish()
 	}
 }
 
-impl Library {
+impl Instance {
 	pub async fn new(
 		id: Uuid,
-		config: LibraryConfig,
+		config: InstanceConfig,
 		instance_uuid: Uuid,
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
@@ -92,12 +94,12 @@ impl Library {
 			identity,
 			orphan_remover: OrphanRemoverActor::spawn(db),
 			notifications: node.notifications.clone(),
-			instance_uuid,
+			instance_id: instance_uuid,
 			event_bus_tx: node.event_bus.0.clone(),
 		})
 	}
 
-	pub fn config(&self) -> LibraryConfig {
+	pub fn config(&self) -> InstanceConfig {
 		// We use a `std::sync::RwLock` as we don't want users holding this over await points.
 		// We currently `.clone()` the value so that will never be a problem, however we could avoid cloning here but that makes for potentially confusing `!Send` errors.
 		// Tokio also recommend this as it's generally better for avoiding deadlocks and performance - https://tokio.rs/tokio/tutorial/shared-state#holding-a-mutexguard-across-an-await
@@ -108,7 +110,7 @@ impl Library {
 			.clone()
 	}
 
-	pub fn config_mut(&self) -> RwLockWriteGuard<'_, LibraryConfig> {
+	pub fn config_mut(&self) -> RwLockWriteGuard<'_, InstanceConfig> {
 		self.config.write().unwrap_or_else(PoisonError::into_inner)
 	}
 

@@ -19,7 +19,7 @@ use tracing::*;
 use uuid::Uuid;
 
 use crate::{
-	library::{Libraries, Library, LibraryManagerEvent},
+	library::{Instance, Libraries, LibraryManagerEvent},
 	sync,
 };
 
@@ -93,7 +93,7 @@ impl NetworkedLibraries {
 	}
 
 	// TODO: Error handling
-	async fn load_library(self: &Arc<Self>, library: &Library) {
+	async fn load_library(self: &Arc<Self>, library: &Instance) {
 		let (db_owned_instances, db_instances): (Vec<_>, Vec<_>) = library
 			.db
 			.instance()
@@ -154,13 +154,13 @@ impl NetworkedLibraries {
 			.await;
 	}
 
-	async fn edit_library(&self, _library: &Library) {
+	async fn edit_library(&self, _library: &Instance) {
 		// TODO: Send changes to all connected nodes!
 
 		// TODO: Update mdns
 	}
 
-	async fn delete_library(&self, library: &Library) {
+	async fn delete_library(&self, library: &Instance) {
 		// Lock them together to ensure changes to both become visible to readers at the same time
 		let mut libraries = self.libraries.write().await;
 		let mut owned_instances = self.owned_instances.write().await;
@@ -379,7 +379,7 @@ mod responder {
 		}
 	}
 
-	pub async fn run(stream: &mut (impl AsyncRead + AsyncWrite + Unpin), library: Arc<Library>) {
+	pub async fn run(stream: &mut (impl AsyncRead + AsyncWrite + Unpin), library: Arc<Instance>) {
 		let ingest = &library.sync.ingest;
 
 		async fn early_return(stream: &mut (impl AsyncRead + AsyncWrite + Unpin)) {

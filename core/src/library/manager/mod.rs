@@ -31,7 +31,7 @@ use tokio::{fs, io, sync::RwLock, try_join};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{Library, LibraryConfig, LibraryName};
+use super::{Instance, InstanceConfig, LibraryName};
 
 mod error;
 
@@ -40,11 +40,11 @@ pub use error::*;
 /// Event that is emitted to subscribers of the library manager.
 #[derive(Debug, Clone)]
 pub enum LibraryManagerEvent {
-	Load(Arc<Library>),
-	Edit(Arc<Library>),
+	Load(Arc<Instance>),
+	Edit(Arc<Instance>),
 	// TODO(@Oscar): Replace this with pairing -> ready state transitions
-	InstancesModified(Arc<Library>),
-	Delete(Arc<Library>),
+	InstancesModified(Arc<Instance>),
+	Delete(Arc<Instance>),
 }
 
 /// is a singleton that manages all libraries for a node.
@@ -52,7 +52,7 @@ pub struct Libraries {
 	/// libraries_dir holds the path to the directory where libraries are stored.
 	pub libraries_dir: PathBuf,
 	/// libraries holds the list of libraries which are currently loaded into the node.
-	libraries: RwLock<HashMap<Uuid, Arc<Library>>>,
+	libraries: RwLock<HashMap<Uuid, Arc<Instance>>>,
 	// Transmit side of `self.rx` channel
 	tx: mpscrr::Sender<LibraryManagerEvent, ()>,
 	/// A channel for receiving events from the library manager.
@@ -136,7 +136,7 @@ impl Libraries {
 		name: LibraryName,
 		description: Option<String>,
 		node: &Arc<Node>,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<Instance>, LibraryManagerError> {
 		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node)
 			.await
 	}
@@ -150,14 +150,14 @@ impl Libraries {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<Instance>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
 				"name cannot be empty".to_string(),
 			));
 		}
 
-		let config = LibraryConfig {
+		let config = InstanceConfig {
 			name,
 			description,
 			// First instance will be zero
@@ -213,7 +213,7 @@ impl Libraries {
 	}
 
 	/// `LoadedLibrary.id` can be used to get the library's id.
-	pub async fn get_all(&self) -> Vec<Arc<Library>> {
+	pub async fn get_all(&self) -> Vec<Arc<Instance>> {
 		self.libraries
 			.read()
 			.await
@@ -247,7 +247,7 @@ impl Libraries {
 				MaybeUndefined::Value(description) => config.description = Some(description),
 			}
 
-			LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
+			InstanceConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
 		}
 
 		self.tx
@@ -305,7 +305,7 @@ impl Libraries {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Library>> {
+	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Instance>> {
 		self.libraries.read().await.get(library_id).cloned()
 	}
 
@@ -323,7 +323,7 @@ impl Libraries {
 		create: Option<instance::Create>,
 		should_seed: bool,
 		node: &Arc<Node>,
-	) -> Result<Arc<Library>, LibraryManagerError> {
+	) -> Result<Arc<Instance>, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db_url = format!(
 			"file:{}?socket_timeout=15&connection_limit=1",
@@ -339,7 +339,7 @@ impl Libraries {
 
 		let node_config = node.config.get().await;
 		let config =
-			LibraryConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
+			InstanceConfig::load_and_migrate(&config_path, &(node_config.clone(), db.clone()))
 				.await?;
 
 		let instance = db
@@ -391,7 +391,7 @@ impl Libraries {
 
 		let mut sync = sync::Manager::new(&db, instance_id, &self.emit_messages_flag);
 
-		let library = Library::new(
+		let library = Instance::new(
 			id,
 			config,
 			instance_id,
@@ -463,7 +463,7 @@ impl Libraries {
 		Ok(library)
 	}
 
-	pub async fn update_instances(&self, library: Arc<Library>) {
+	pub async fn update_instances(&self, library: Arc<Instance>) {
 		self.tx
 			.emit(LibraryManagerEvent::InstancesModified(library))
 			.await;

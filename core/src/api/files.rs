@@ -2,7 +2,7 @@ use crate::{
 	api::utils::library,
 	invalidate_query,
 	job::Job,
-	library::Library,
+	library::Instance,
 	location::{
 		file_path_helper::{
 			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
@@ -392,7 +392,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						to,
 					}: RenameOne,
 					location_path: impl AsRef<Path>,
-					library: &Library,
+					library: &Instance,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
 					let iso_file_path = IsolatedFilePathData::try_from(
@@ -462,7 +462,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						from_file_path_ids,
 					}: RenameMany,
 					location_path: impl AsRef<Path>,
-					library: &Library,
+					library: &Instance,
 				) -> Result<(), rspc::Error> {
 					let location_path = location_path.as_ref();
 

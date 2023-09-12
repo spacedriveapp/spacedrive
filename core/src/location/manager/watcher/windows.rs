@@ -9,7 +9,7 @@
 
 use crate::{
 	invalidate_query,
-	library::Library,
+	library::Instance,
 	location::{
 		file_path_helper::{get_inode_and_device_from_path, FilePathError},
 		manager::LocationManagerError,
@@ -42,7 +42,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct WindowsEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Arc<Library>,
+	library: &'lib Arc<Instance>,
 	node: &'lib Arc<Node>,
 	last_events_eviction_check: Instant,
 	rename_from_map: BTreeMap<INodeAndDevice, InstantAndPath>,
@@ -58,7 +58,7 @@ pub(super) struct WindowsEventHandler<'lib> {
 impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 	fn new(
 		location_id: location::id::Type,
-		library: &'lib Arc<Library>,
+		library: &'lib Arc<Instance>,
 		node: &'lib Arc<Node>,
 	) -> Self
 	where
@@ -327,7 +327,7 @@ async fn handle_update<'lib>(
 	location_id: location::id::Type,
 	path: &PathBuf,
 	node: &'lib Arc<Node>,
-	library: &'lib Arc<Library>,
+	library: &'lib Arc<Instance>,
 ) -> Result<(), LocationManagerError> {
 	let metadata = fs::metadata(&path)
 		.await

@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
-	library::Library,
+	library::Instance,
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
@@ -81,7 +81,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			async fn group_jobs_by_library(
-				library: &Library,
+				library: &Instance,
 				active_job_reports_by_id: &HashMap<Uuid, JobReport>,
 			) -> Result<Vec<JobGroup>, rspc::Error> {
 				let mut groups: HashMap<String, JobGroup> = HashMap::new();

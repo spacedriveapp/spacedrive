@@ -27,7 +27,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
 	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
@@ -615,7 +615,7 @@ impl P2PManager {
 	pub async fn request_file(
 		&self,
 		peer_id: PeerId,
-		library: &Library,
+		library: &Instance,
 		file_path_id: Uuid,
 		range: Range,
 		output: impl AsyncWrite + Unpin,

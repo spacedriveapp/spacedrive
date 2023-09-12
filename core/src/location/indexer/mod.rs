@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::Instance,
 	prisma::{file_path, location, PrismaClient},
 	util::{
 		db::{device_to_db, inode_to_db},
@@ -85,9 +85,9 @@ impl From<IndexerError> for rspc::Error {
 async fn execute_indexer_save_step(
 	location: &location_with_indexer_rules::Data,
 	save_step: &IndexerJobSaveStep,
-	library: &Library,
+	library: &Instance,
 ) -> Result<i64, IndexerError> {
-	let Library { sync, db, .. } = library;
+	let Instance { sync, db, .. } = library;
 
 	let (sync_stuff, paths): (Vec<_>, Vec<_>) = save_step
 		.walked
@@ -187,9 +187,9 @@ async fn execute_indexer_save_step(
 
 async fn execute_indexer_update_step(
 	update_step: &IndexerJobUpdateStep,
-	library: &Library,
+	library: &Instance,
 ) -> Result<i64, IndexerError> {
-	let Library { sync, db, .. } = library;
+	let Instance { sync, db, .. } = library;
 
 	let (sync_stuff, paths_to_update): (Vec<_>, Vec<_>) = update_step
 		.to_update

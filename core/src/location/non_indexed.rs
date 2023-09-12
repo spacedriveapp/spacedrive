@@ -1,6 +1,6 @@
 use crate::{
 	api::locations::ExplorerItem,
-	library::Library,
+	library::Instance,
 	object::{cas::generate_cas_id, media::thumbnail::get_thumb_key},
 	prisma::location,
 	util::error::FileIOError,
@@ -89,7 +89,7 @@ pub async fn walk(
 	full_path: impl AsRef<Path>,
 	with_hidden_files: bool,
 	node: Arc<Node>,
-	library: Arc<Library>,
+	library: Arc<Instance>,
 ) -> Result<NonIndexedFileSystemEntries, NonIndexedLocationError> {
 	let path = full_path.as_ref();
 	let mut read_dir = fs::read_dir(path).await.map_err(|e| (path, e))?;

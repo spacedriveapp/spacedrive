@@ -2,7 +2,7 @@ use crate::{
 	api::CoreEvent,
 	invalidate_query,
 	job::{JobBuilder, JobError, JobManagerError},
-	library::Library,
+	library::Instance,
 	location::file_path_helper::filter_existing_file_path_params,
 	object::{
 		file_identifier::{self, file_identifier_job::FileIdentifierJobInit},
@@ -76,7 +76,7 @@ impl LocationCreateArgs {
 	pub async fn create(
 		self,
 		node: &Node,
-		library: &Arc<Library>,
+		library: &Arc<Instance>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let path_metadata = match fs::metadata(&self.path).await {
 			Ok(metadata) => metadata,
@@ -176,7 +176,7 @@ impl LocationCreateArgs {
 	pub async fn add_library(
 		self,
 		node: &Node,
-		library: &Arc<Library>,
+		library: &Arc<Instance>,
 	) -> Result<Option<location_with_indexer_rules::Data>, LocationError> {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
@@ -266,8 +266,8 @@ pub struct LocationUpdateArgs {
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, node: &Node, library: &Arc<Library>) -> Result<(), LocationError> {
-		let Library { sync, db, .. } = &**library;
+	pub async fn update(self, node: &Node, library: &Arc<Instance>) -> Result<(), LocationError> {
+		let Instance { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
 			.include(location_with_indexer_rules::include())
@@ -396,7 +396,7 @@ impl LocationUpdateArgs {
 }
 
 pub fn find_location(
-	library: &Library,
+	library: &Instance,
 	location_id: location::id::Type,
 ) -> location::FindUniqueQuery {
 	library
@@ -406,7 +406,7 @@ pub fn find_location(
 }
 
 async fn link_location_and_indexer_rules(
-	library: &Library,
+	library: &Instance,
 	location_id: location::id::Type,
 	rules_ids: &[i32],
 ) -> Result<(), LocationError> {
@@ -427,7 +427,7 @@ async fn link_location_and_indexer_rules(
 
 pub async fn scan_location(
 	node: &Arc<Node>,
-	library: &Arc<Library>,
+	library: &Arc<Instance>,
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -460,7 +460,7 @@ pub async fn scan_location(
 
 pub async fn scan_location_sub_path(
 	node: &Arc<Node>,
-	library: &Arc<Library>,
+	library: &Arc<Instance>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobManagerError> {
@@ -499,7 +499,7 @@ pub async fn scan_location_sub_path(
 
 pub async fn light_scan_location(
 	node: Arc<Node>,
-	library: Arc<Library>,
+	library: Arc<Instance>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
 ) -> Result<(), JobError> {
@@ -520,10 +520,10 @@ pub async fn light_scan_location(
 }
 
 pub async fn relink_location(
-	library: &Arc<Library>,
+	library: &Arc<Instance>,
 	location_path: impl AsRef<Path>,
 ) -> Result<(), LocationError> {
-	let Library {
+	let Instance {
 		db,
 		library_id: id,
 		sync,
@@ -623,13 +623,13 @@ pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, Stri
 }
 
 async fn create_location(
-	library: &Arc<Library>,
+	library: &Arc<Instance>,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
 	indexer_rules_ids: &[i32],
 	dry_run: bool,
 ) -> Result<Option<CreatedLocationResult>, LocationError> {
-	let Library { db, sync, .. } = &**library;
+	let Instance { db, sync, .. } = &**library;
 
 	let (path, name) = normalize_path(&location_path)
 		.map_err(|_| LocationError::DirectoryNotFound(location_path.as_ref().to_path_buf()))?;
@@ -719,7 +719,7 @@ async fn create_location(
 
 pub async fn delete_location(
 	node: &Node,
-	library: &Arc<Library>,
+	library: &Arc<Instance>,
 	location_id: location::id::Type,
 ) -> Result<(), LocationError> {
 	node.locations.remove(location_id, library.clone()).await?;
@@ -775,11 +775,11 @@ pub async fn delete_location(
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
 pub async fn delete_directory(
-	library: &Library,
+	library: &Instance,
 	location_id: location::id::Type,
 	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Result<(), QueryError> {
-	let Library { db, .. } = library;
+	let Instance { db, .. } = library;
 
 	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],

@@ -3,7 +3,7 @@ use crate::{
 		locations::{file_path_with_object, object_with_file_paths, ExplorerItem},
 		utils::library,
 	},
-	library::{Category, Library},
+	library::{Category, Instance},
 	location::{
 		file_path_helper::{check_file_path_exists, IsolatedFilePathData},
 		non_indexed, LocationError,
@@ -416,7 +416,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     filter,
 				     group_directories,
 				 }| async move {
-					let Library { db, .. } = library.as_ref();
+					let Instance { db, .. } = library.as_ref();
 
 					let take = take.min(MAX_TAKE);
 
@@ -571,7 +571,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.query(|(_, library), Args { filter }| async move {
-					let Library { db, .. } = library.as_ref();
+					let Instance { db, .. } = library.as_ref();
 
 					Ok(db
 						.file_path()
@@ -599,7 +599,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				     order_and_pagination,
 				     filter,
 				 }| async move {
-					let Library { db, .. } = library.as_ref();
+					let Instance { db, .. } = library.as_ref();
 
 					let take = take.max(MAX_TAKE);
 
@@ -717,7 +717,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.query(|(_, library), Args { filter }| async move {
-					let Library { db, .. } = library.as_ref();
+					let Instance { db, .. } = library.as_ref();
 
 					Ok(db.object().count(filter.into_params()).exec().await? as u32)
 				})

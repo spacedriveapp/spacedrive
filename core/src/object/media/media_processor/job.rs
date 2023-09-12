@@ -4,7 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobStepOutput,
 		StatefulJob, WorkerContext,
 	},
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_media_processor, IsolatedFilePathData,
@@ -72,7 +72,7 @@ impl StatefulJob for MediaProcessorJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		let Library { db, .. } = ctx.library.as_ref();
+		let Instance { db, .. } = ctx.library.as_ref();
 
 		let thumbnails_base_dir = init_thumbnail_dir(ctx.node.config.data_directory())
 			.await

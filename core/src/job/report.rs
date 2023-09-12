@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::Instance,
 	prisma::job,
 	util::db::{maybe_missing, MissingFieldError},
 };
@@ -194,7 +194,7 @@ impl JobReport {
 		(action_name, Some(group_key))
 	}
 
-	pub async fn create(&mut self, library: &Library) -> Result<(), JobError> {
+	pub async fn create(&mut self, library: &Instance) -> Result<(), JobError> {
 		let now = Utc::now();
 
 		library
@@ -227,7 +227,7 @@ impl JobReport {
 		Ok(())
 	}
 
-	pub async fn update(&mut self, library: &Library) -> Result<(), JobError> {
+	pub async fn update(&mut self, library: &Instance) -> Result<(), JobError> {
 		library
 			.db
 			.job()

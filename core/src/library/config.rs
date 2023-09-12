@@ -25,7 +25,7 @@ use super::name::LibraryName;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct LibraryConfig {
+pub struct InstanceConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: LibraryName,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
@@ -35,7 +35,7 @@ pub struct LibraryConfig {
 }
 
 #[async_trait::async_trait]
-impl Migrate for LibraryConfig {
+impl Migrate for InstanceConfig {
 	const CURRENT_VERSION: u32 = 9;
 
 	type Ctx = (NodeConfig, Arc<PrismaClient>);

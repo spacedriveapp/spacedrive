@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
-	library::{Library, LibraryManagerError},
+	library::{Instance, LibraryManagerError},
 	Node,
 };
 
@@ -124,7 +124,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 }
 
-async fn start_backup(node: Arc<Node>, library: Arc<Library>) -> Uuid {
+async fn start_backup(node: Arc<Node>, library: Arc<Instance>) -> Uuid {
 	let bkp_id = Uuid::new_v4();
 
 	spawn_blocking(move || {
@@ -167,7 +167,7 @@ pub struct MustRemoveLibraryErr;
 
 // This is intended to be called in a `spawn_blocking` task.
 // Async is pure overhead for an IO bound operation like this.
-fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, BackupError> {
+fn do_backup(id: Uuid, node: &Node, library: &Instance) -> Result<PathBuf, BackupError> {
 	let backups_dir = node.data_dir.join("backups");
 	fs::create_dir_all(&backups_dir)?;
 

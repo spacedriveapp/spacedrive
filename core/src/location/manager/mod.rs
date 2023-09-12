@@ -1,6 +1,6 @@
 use crate::{
 	job::JobManagerError,
-	library::{Library, LibraryManagerEvent},
+	library::{Instance, LibraryManagerEvent},
 	prisma::location,
 	util::{db::MissingFieldError, error::FileIOError},
 	Node,
@@ -43,7 +43,7 @@ enum ManagementMessageAction {
 #[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: location::id::Type,
-	library: Arc<Library>,
+	library: Arc<Instance>,
 	action: ManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -60,7 +60,7 @@ enum WatcherManagementMessageAction {
 #[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: location::id::Type,
-	library: Arc<Library>,
+	library: Arc<Instance>,
 	action: WatcherManagementMessageAction,
 	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 }
@@ -246,7 +246,7 @@ impl Locations {
 	async fn location_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -274,7 +274,7 @@ impl Locations {
 	async fn watcher_management_message(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
 		#[cfg(feature = "location-watcher")]
@@ -300,7 +300,7 @@ impl Locations {
 	pub async fn add(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Add)
 			.await
@@ -309,7 +309,7 @@ impl Locations {
 	pub async fn remove(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 	) -> Result<(), LocationManagerError> {
 		self.location_management_message(location_id, library, ManagementMessageAction::Remove)
 			.await
@@ -318,7 +318,7 @@ impl Locations {
 	pub async fn stop_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(location_id, library, WatcherManagementMessageAction::Stop)
 			.await
@@ -327,7 +327,7 @@ impl Locations {
 	pub async fn reinit_watcher(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 	) -> Result<(), LocationManagerError> {
 		self.watcher_management_message(
 			location_id,
@@ -340,7 +340,7 @@ impl Locations {
 	pub async fn temporary_stop(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 	) -> Result<StopWatcherGuard, LocationManagerError> {
 		self.stop_watcher(location_id, library.clone()).await?;
 
@@ -354,7 +354,7 @@ impl Locations {
 	pub async fn temporary_ignore_events_for_path(
 		&self,
 		location_id: location::id::Type,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
 		let path = path.as_ref().to_path_buf();
@@ -637,7 +637,7 @@ impl Drop for Locations {
 pub struct StopWatcherGuard<'m> {
 	manager: &'m Locations,
 	location_id: location::id::Type,
-	library: Option<Arc<Library>>,
+	library: Option<Arc<Instance>>,
 }
 
 impl Drop for StopWatcherGuard<'_> {
@@ -659,7 +659,7 @@ pub struct IgnoreEventsForPathGuard<'m> {
 	manager: &'m Locations,
 	path: Option<PathBuf>,
 	location_id: location::id::Type,
-	library: Option<Arc<Library>>,
+	library: Option<Arc<Instance>>,
 }
 
 impl Drop for IgnoreEventsForPathGuard<'_> {

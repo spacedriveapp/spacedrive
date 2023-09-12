@@ -1,5 +1,5 @@
 use crate::{
-	library::{LibraryConfig, LibraryName},
+	library::{InstanceConfig, LibraryName},
 	util::MaybeUndefined,
 	volume::get_volumes,
 };
@@ -24,7 +24,7 @@ pub struct LibraryConfigWrapped {
 	pub uuid: Uuid,
 	pub instance_id: Uuid,
 	pub instance_public_key: RemoteIdentity,
-	pub config: LibraryConfig,
+	pub config: InstanceConfig,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -37,7 +37,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.map(|lib| LibraryConfigWrapped {
 						uuid: lib.library_id,
-						instance_id: lib.instance_uuid,
+						instance_id: lib.instance_id,
 						instance_public_key: lib.identity.to_remote_identity(),
 						config: lib.config(),
 					})
@@ -119,7 +119,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				Ok(LibraryConfigWrapped {
 					uuid: library.library_id,
-					instance_id: library.instance_uuid,
+					instance_id: library.instance_id,
 					instance_public_key: library.identity.to_remote_identity(),
 					config: library.config(),
 				})

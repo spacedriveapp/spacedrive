@@ -1,4 +1,4 @@
-use crate::{api::CoreEvent, invalidate_query, library::Library, Node};
+use crate::{api::CoreEvent, invalidate_query, library::Instance, Node};
 
 use std::{
 	fmt,
@@ -51,7 +51,7 @@ pub enum WorkerCommand {
 }
 
 pub struct WorkerContext {
-	pub library: Arc<Library>,
+	pub library: Arc<Instance>,
 	pub node: Arc<Node>,
 	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
@@ -101,7 +101,7 @@ impl Worker {
 		id: Uuid,
 		mut job: Box<dyn DynJob>,
 		mut report: JobReport,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 		node: Arc<Node>,
 		job_manager: Arc<Jobs>,
 	) -> Result<Self, JobError> {
@@ -227,7 +227,7 @@ impl Worker {
 		report_watch_tx: &watch::Sender<JobReport>,
 		start_time: DateTime<Utc>,
 		updates: Vec<JobReportUpdate>,
-		library: &Library,
+		library: &Instance,
 	) {
 		// protect against updates if job is not running
 		if report.status != JobStatus::Running {
@@ -297,7 +297,7 @@ impl Worker {
 		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
-		library: Arc<Library>,
+		library: Arc<Instance>,
 		node: Arc<Node>,
 	) {
 		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
@@ -378,7 +378,7 @@ impl Worker {
 		mut job: Box<dyn DynJob>,
 		job_result: Result<JobRunOutput, JobError>,
 		report: &mut JobReport,
-		library: &Library,
+		library: &Instance,
 	) -> Option<Box<dyn DynJob>> {
 		// Run the job and handle the result
 		match job_result {
@@ -526,7 +526,7 @@ struct JobWorkTable {
 	report: JobReport,
 }
 
-fn invalidate_queries(library: &Library) {
+fn invalidate_queries(library: &Instance) {
 	invalidate_query!(library, "jobs.isActive");
 	invalidate_query!(library, "jobs.reports");
 }

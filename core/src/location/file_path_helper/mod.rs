@@ -170,7 +170,7 @@ pub enum FilePathError {
 
 #[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
-	crate::location::Library { db, sync, .. }: &crate::location::Library,
+	crate::location::Instance { db, sync, .. }: &crate::location::Instance,
 	IsolatedFilePathData {
 		materialized_path,
 		is_dir,

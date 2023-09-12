@@ -1,5 +1,5 @@
 use crate::{
-	library::Library,
+	library::Instance,
 	location::indexer::rules::{IndexerRule, IndexerRuleError, RulePerKind},
 };
 use chrono::Utc;
@@ -35,7 +35,7 @@ impl From<SystemIndexerRule> for IndexerRule {
 }
 
 /// Seeds system indexer rules into a new or existing library,
-pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederError> {
+pub async fn new_or_existing_library(library: &Instance) -> Result<(), SeederError> {
 	// DO NOT REORDER THIS ARRAY!
 	for (i, rule) in [no_os_protected(), no_hidden(), no_git(), only_images()]
 		.into_iter()

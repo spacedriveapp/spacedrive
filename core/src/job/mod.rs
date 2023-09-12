@@ -1,4 +1,4 @@
-use crate::{library::Library, Node};
+use crate::{library::Instance, Node};
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
@@ -124,9 +124,9 @@ pub trait DynJob: Send + Sync {
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError>;
-	async fn register_children(&mut self, library: &Library) -> Result<(), JobError>;
-	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError>;
-	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
+	async fn register_children(&mut self, library: &Instance) -> Result<(), JobError>;
+	async fn pause_children(&mut self, library: &Instance) -> Result<(), JobError>;
+	async fn cancel_children(&mut self, library: &Instance) -> Result<(), JobError>;
 }
 
 pub struct JobBuilder<SJob: StatefulJob> {
@@ -235,7 +235,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 	pub async fn spawn(
 		self,
 		node: &Arc<Node>,
-		library: &Arc<Library>,
+		library: &Arc<Instance>,
 	) -> Result<(), JobManagerError> {
 		node.jobs
 			.clone()
@@ -897,7 +897,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		rmp_serde::to_vec_named(&self.state).map_err(Into::into)
 	}
 
-	async fn register_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn register_children(&mut self, library: &Instance) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			if let Some(next_job_report) = next_job.report_mut() {
 				if next_job_report.created_at.is_none() {
@@ -914,7 +914,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		Ok(())
 	}
 
-	async fn pause_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn pause_children(&mut self, library: &Instance) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
 			if let Some(next_job_report) = next_job.report_mut() {
@@ -932,7 +932,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 		Ok(())
 	}
 
-	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError> {
+	async fn cancel_children(&mut self, library: &Instance) -> Result<(), JobError> {
 		for next_job in self.next_jobs.iter_mut() {
 			let state = next_job.serialize_state()?;
 			if let Some(next_job_report) = next_job.report_mut() {

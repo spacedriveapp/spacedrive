@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	job::JobRunErrors,
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{file_path_for_media_processor, IsolatedFilePathData},
 	prisma::location,
 	util::{error::FileIOError, version_manager::VersionManagerError},
@@ -207,7 +207,7 @@ pub(super) async fn process(
 	location_path: impl AsRef<Path>,
 	thumbnails_base_dir: impl AsRef<Path>,
 	regenerate: bool,
-	library: &Library,
+	library: &Instance,
 	ctx_update_fn: impl Fn(usize),
 ) -> Result<(ThumbnailerMetadata, JobRunErrors), ThumbnailerError> {
 	let mut run_metadata = ThumbnailerMetadata::default();
@@ -371,7 +371,7 @@ async fn process_single_thumbnail(
 	output_path: &Path,
 	errors: &mut Vec<String>,
 	run_metadata: &mut ThumbnailerMetadata,
-	library: &Library,
+	library: &Instance,
 ) {
 	match kind {
 		ThumbnailerEntryKind::Image => {

@@ -7,7 +7,7 @@
 //! a Create Dir event, this one is actually ok at least.
 
 use crate::{
-	invalidate_query, library::Library, location::manager::LocationManagerError, prisma::location,
+	invalidate_query, library::Instance, location::manager::LocationManagerError, prisma::location,
 	util::error::FileIOError, Node,
 };
 
@@ -33,7 +33,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct LinuxEventHandler<'lib> {
 	location_id: location::id::Type,
-	library: &'lib Arc<Library>,
+	library: &'lib Arc<Instance>,
 	node: &'lib Arc<Node>,
 	last_events_eviction_check: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
@@ -48,7 +48,7 @@ pub(super) struct LinuxEventHandler<'lib> {
 impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 	fn new(
 		location_id: location::id::Type,
-		library: &'lib Arc<Library>,
+		library: &'lib Arc<Instance>,
 		node: &'lib Arc<Node>,
 	) -> Self {
 		Self {

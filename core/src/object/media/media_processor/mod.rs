@@ -1,6 +1,6 @@
 use crate::{
 	job::{JobRunErrors, JobRunMetadata},
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{
 		file_path_for_media_processor, FilePathError, IsolatedFilePathData,
 	},
@@ -121,7 +121,7 @@ async fn process(
 	location_path: impl AsRef<Path>,
 	thumbnails_base_dir: impl AsRef<Path>,
 	regenerate_thumbnails: bool,
-	library: &Library,
+	library: &Instance,
 	ctx_update_fn: impl Fn(usize),
 ) -> Result<(MediaProcessorMetadata, JobRunErrors), MediaProcessorError> {
 	let location_path = location_path.as_ref();

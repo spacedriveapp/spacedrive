@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	job::{JobError, JobRunMetadata},
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_media_processor, IsolatedFilePathData,
@@ -33,10 +33,10 @@ const BATCH_SIZE: usize = 10;
 pub async fn shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library: &Library,
+	library: &Instance,
 	node: &Node,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = library;
+	let Instance { db, .. } = library;
 
 	let thumbnails_base_dir = init_thumbnail_dir(node.config.data_directory())
 		.await

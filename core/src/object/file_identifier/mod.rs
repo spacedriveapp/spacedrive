@@ -1,6 +1,6 @@
 use crate::{
 	job::JobError,
-	library::Library,
+	library::Instance,
 	location::file_path_helper::{
 		file_path_for_file_identifier, FilePathError, IsolatedFilePathData,
 	},
@@ -98,7 +98,7 @@ impl FileMetadata {
 }
 
 async fn identifier_job_step(
-	Library { db, sync, .. }: &Library,
+	Instance { db, sync, .. }: &Instance,
 	location: &location::Data,
 	file_paths: &[file_path_for_file_identifier::Data],
 ) -> Result<(usize, usize), JobError> {
@@ -367,7 +367,7 @@ async fn process_identifier_file_paths(
 	file_paths: &[file_path_for_file_identifier::Data],
 	step_number: usize,
 	cursor: file_path::id::Type,
-	library: &Library,
+	library: &Instance,
 	orphan_count: usize,
 ) -> Result<(usize, usize, file_path::id::Type), JobError> {
 	trace!(
