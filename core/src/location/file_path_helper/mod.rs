@@ -135,12 +135,12 @@ impl FilePathMetadata {
 		let (inode, device) = {
 			#[cfg(target_family = "unix")]
 			{
-				get_inode_and_device(&metadata)
+				get_inode_and_device(metadata)
 			}
 
 			#[cfg(target_family = "windows")]
 			{
-				get_inode_and_device_from_path(&root).await
+				get_inode_and_device_from_path(&path).await
 			}
 		}?;
 

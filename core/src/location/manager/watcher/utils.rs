@@ -119,7 +119,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path,
 		None,
-		FilePathMetadata::from_path(path, &metadata).await?,
+		FilePathMetadata::from_path(path, metadata).await?,
 	)
 	.await?;
 
