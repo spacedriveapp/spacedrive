@@ -4,7 +4,7 @@ use std::{
 	task::{Context, Poll},
 };
 
-use libp2p::{futures::AsyncWriteExt, swarm::NegotiatedSubstream};
+use libp2p::{futures::AsyncWriteExt, Stream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf};
 use tokio_util::compat::Compat;
 
@@ -14,14 +14,14 @@ pub const UNICAST_DISCRIMINATOR: u8 = 1;
 /// A broadcast is a message sent to many peers in the network.
 /// Due to this it is not possible to respond to a broadcast.
 #[derive(Debug)]
-pub struct BroadcastStream(Option<Compat<NegotiatedSubstream>>);
+pub struct BroadcastStream(Option<Compat<Stream>>);
 
 impl BroadcastStream {
-	pub(crate) fn new(stream: Compat<NegotiatedSubstream>) -> Self {
+	pub(crate) fn new(stream: Compat<Stream>) -> Self {
 		Self(Some(stream))
 	}
 
-	async fn close_inner(mut io: Compat<NegotiatedSubstream>) -> Result<(), io::Error> {
+	async fn close_inner(mut io: Compat<Stream>) -> Result<(), io::Error> {
 		io.write_all(&[b'D']).await?;
 		io.flush().await?;
 
@@ -56,12 +56,12 @@ impl Drop for BroadcastStream {
 
 /// A unicast stream is a direct stream to a specific peer.
 #[derive(Debug)]
-pub struct UnicastStream(Compat<NegotiatedSubstream>);
+pub struct UnicastStream(Compat<Stream>);
 
 // TODO: Utils for sending msgpack and stuff over the stream. -> Have a max size of reading buffers so we are less susceptible to DoS attacks.
 
 impl UnicastStream {
-	pub(crate) fn new(io: Compat<NegotiatedSubstream>) -> Self {
+	pub(crate) fn new(io: Compat<Stream>) -> Self {
 		Self(io)
 	}
 

@@ -21,7 +21,7 @@ impl PeerId {
 
 impl FromStr for PeerId {
 	#[allow(deprecated)]
-	type Err = libp2p::core::ParseError;
+	type Err = libp2p::identity::ParseError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Ok(Self(libp2p::PeerId::from_str(s)?))
