@@ -4,10 +4,13 @@ import { valtioPersist } from '../lib';
 
 export type Themes = 'vanilla' | 'dark';
 
+export type CoordinatesFormat = 'dd' | 'dms';
+
 const themeStore = valtioPersist('sd-theme', {
 	theme: 'dark' as Themes,
 	syncThemeWithSystem: false,
-	hueValue: 235
+	hueValue: 235,
+	coordinatesFormat: 'dd' as CoordinatesFormat
 });
 
 export function useThemeStore() {

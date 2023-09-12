@@ -1,11 +1,11 @@
+import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
-import { CheckCircle } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
-import { getThemeStore, Themes, useThemeStore, useZodForm } from '@sd/client';
-import { Button, Form, SwitchField, z } from '@sd/ui';
-
+import { CoordinatesFormat, getThemeStore, Themes, useThemeStore, useZodForm } from '@sd/client';
+import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
+
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -212,6 +212,36 @@ export const Component = () => {
 					</Setting>
 				</div>
 			</Form>
+			<Divider />
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">Display Formats</h1>
+
+				<Setting mini title="Coordinates">
+					<Select
+						onChange={(e) =>
+							(getThemeStore().coordinatesFormat = e as CoordinatesFormat)
+						}
+						value={themeStore.coordinatesFormat}
+					>
+						<SelectOption value="dd">DD</SelectOption>
+						<SelectOption value="dms">DMS</SelectOption>
+					</Select>
+				</Setting>
+
+				<Setting mini className="opacity-30" title="Temperature">
+					<Select disabled className="opacity-30" onChange={(e) => {}} value="celsius">
+						<SelectOption value="celsius">Celsius</SelectOption>
+						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
+					</Select>
+				</Setting>
+
+				<Setting mini className="opacity-30" title="Distance">
+					<Select disabled className="opacity-30" onChange={(e) => {}} value="km">
+						<SelectOption value="km">Kilometers</SelectOption>
+						<SelectOption value="miles">Miles</SelectOption>
+					</Select>
+				</Setting>
+			</div>
 		</>
 	);
 };
