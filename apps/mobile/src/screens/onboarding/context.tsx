@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import { z } from 'zod';
 import {
@@ -64,7 +65,16 @@ const useFormState = () => {
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const createLibrary = useBridgeMutation('library.create');
+	const queryClient = useQueryClient();
+	const createLibrary = useBridgeMutation('library.create', {
+		onSuccess: (lib) => {
+			// We do this instead of invalidating the query because it triggers a full app re-render??
+			queryClient.setQueryData(['library.list'], (libraries: any) => [
+				...(libraries || []),
+				lib
+			]);
+		}
+	});
 
 	const submit = handleSubmit(
 		async (data) => {
