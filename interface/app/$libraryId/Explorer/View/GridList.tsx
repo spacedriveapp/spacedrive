@@ -220,6 +220,10 @@ export default ({ children }: { children: RenderItem }) => {
 	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
+		if (e.key === 'Escape') {
+			return explorer.resetSelectedItems([]);
+		}
+
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const lastItem = activeItem.current;
@@ -270,9 +274,6 @@ export default ({ children }: { children: RenderItem }) => {
 						selectedItemDom as HTMLElement
 					]);
 				}
-			} else if (e.key === 'Escape' && explorer.selectedItems.has(newSelectedItem.data)) {
-				explorer.resetSelectedItems([]);
-				selecto.current?.setSelectedTargets([]);
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
 				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
