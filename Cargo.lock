@@ -7279,7 +7279,9 @@ dependencies = [
  "libheif-rs",
  "libheif-sys",
  "resvg",
+ "rspc",
  "thiserror",
+ "webp",
 ]
 
 [[package]]

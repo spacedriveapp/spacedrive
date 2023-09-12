@@ -28,7 +28,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"keymanager",
 ] }
 
-sd-images = { path = "../crates/images" }
+sd-images = { path = "../crates/images", features = ["rspc"] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
@@ -68,8 +68,8 @@ sysinfo = "0.28.4"
 thiserror = "1.0.40"
 include_dir = { version = "0.7.3", features = ["glob"] }
 async-trait = "^0.1.68"
-image = "0.24.6"
-webp = "0.2.2"
+image = "0.24.7"
+webp = "0.2.5"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-stream = "0.3.5"
