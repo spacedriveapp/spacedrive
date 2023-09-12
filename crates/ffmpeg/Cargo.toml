@@ -13,10 +13,10 @@ edition = { workspace = true }
 ffmpeg-sys-next = "6.0.1"
 tracing = { workspace = true }
 
-thiserror = "1.0.40"
-webp = "0.2.2"
+thiserror = "1.0.48"
+webp = "0.2.5"
 tokio = { workspace = true, features = ["fs", "rt"] }
 
 [dev-dependencies]
-tempfile = "3.3.0"
+tempfile = "3.8.0"
 tokio = { workspace = true, features = ["fs", "rt", "macros"] }
