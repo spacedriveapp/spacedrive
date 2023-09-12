@@ -6,7 +6,7 @@ import {
 	useThemeStore
 } from '@sd/client';
 import Accordion from '~/components/Accordion';
-import { usePlatform } from '~/util/Platform';
+import { Platform, usePlatform } from '~/util/Platform';
 
 import { MetaData } from './index';
 
@@ -59,20 +59,16 @@ const formatLocation = (loc: MediaLocation, format: CoordinatesFormat, dp?: numb
 	return format === 'dd' ? formatLocationDD(loc, dp) : formatLocationDMS(loc);
 };
 
-const UrlMetadataValue = (props: { text: string; url: string }) => {
-	const platform = usePlatform();
-
-	return (
-		<a
-			onClick={(e) => {
-				e.preventDefault();
-				platform.openLink(props.url);
-			}}
-		>
-			{props.text}
-		</a>
-	);
-};
+const UrlMetadataValue = (props: { text: string; url: string; platform: Platform }) => (
+	<a
+		onClick={(e) => {
+			e.preventDefault();
+			props.platform.openLink(props.url);
+		}}
+	>
+		{props.text}
+	</a>
+);
 
 const orientations = {
 	Normal: 'Normal',
@@ -104,6 +100,7 @@ const MediaData = ({ data }: Props) => {
 									formatLocation(data.location, 'dd')
 								)}`}
 								text={formatLocation(data.location, coordinatesFormat, 4)}
+								platform={platform}
 							/>
 						)
 					}
@@ -117,6 +114,7 @@ const MediaData = ({ data }: Props) => {
 									data.location.pluscode
 								)}`}
 								text={data.location.pluscode}
+								platform={platform}
 							/>
 						)
 					}
