@@ -1,9 +1,10 @@
-import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { Menu, Transition } from '@headlessui/react';
-import { VariantProps, cva } from 'class-variance-authority';
+import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Fragment, PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
+
 import * as UI from '.';
 import { tw } from './utils';
 
@@ -15,11 +16,11 @@ const itemStyles = cva(
 		variants: {
 			selected: {
 				true: 'bg-accent text-white hover:!bg-accent',
-				undefined: 'hover:bg-menu-hover',
-				false: 'hover:bg-menu-hover'
+				undefined: 'hover:bg-sidebar-selected/40',
+				false: 'hover:bg-sidebar-selected/40'
 			},
 			active: {
-				true: ''
+				true: 'bg-sidebar-selected/40 text-sidebar-ink'
 			}
 		}
 	}
@@ -33,6 +34,7 @@ type DropdownItemProps = PropsWithChildren<{
 	to?: string;
 	className?: string;
 	icon?: any;
+	iconClassName?: string;
 	onClick?: () => void;
 }> &
 	VariantProps<typeof itemStyles>;
@@ -40,7 +42,9 @@ type DropdownItemProps = PropsWithChildren<{
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
 	const content = (
 		<>
-			{Icon && <Icon weight="bold" className={itemIconStyles(props)} />}
+			{Icon && (
+				<Icon weight="bold" className={clsx(itemIconStyles(props), props.iconClassName)} />
+			)}
 			<span className="text-left">{children}</span>
 		</>
 	);

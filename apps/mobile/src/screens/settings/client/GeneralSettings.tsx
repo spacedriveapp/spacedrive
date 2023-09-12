@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 import { useBridgeQuery, useDebugState } from '@sd/client';
+
 import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
 import { Divider } from '~/components/primitive/Divider';

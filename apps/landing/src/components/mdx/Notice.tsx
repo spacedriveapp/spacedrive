@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import MarkdownToJsx from 'markdown-to-jsx';
-import { Fire, Info } from 'phosphor-react';
+import { Fire, Info } from '@phosphor-icons/react';
 
 type NoticeProps = {
 	title?: string;

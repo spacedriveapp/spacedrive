@@ -5,6 +5,7 @@ import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useClientContext } from '@sd/client';
+
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 import { AnimatedHeight } from '../animation/layout';

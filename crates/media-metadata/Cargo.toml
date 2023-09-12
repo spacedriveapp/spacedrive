@@ -12,5 +12,7 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105" }
 specta = { workspace = true, features = ["chrono"] }
 chrono = { version = "0.4.29", features = ["serde"] }
+rand = "0.8.5"
+rand_chacha = "0.3.1"
 
 # symphonia crate looks great for audio metadata

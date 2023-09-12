@@ -1,7 +1,8 @@
-import { ArrowBendUpRight, TagSimple } from 'phosphor-react';
+import { ArrowBendUpRight, TagSimple } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ObjectKind, type ObjectKindEnum, useLibraryMutation } from '@sd/client';
+import { ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
+
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { Menu } from '~/components/Menu';
 import { isNonEmpty } from '~/util';
@@ -84,9 +85,7 @@ export const ConvertObject = new ConditionalItem({
 	},
 	Component: ({ kind }) => (
 		<Menu.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-			{ObjectConversions[kind]?.map((ext) => (
-				<Menu.Item key={ext} label={ext} disabled />
-			))}
+			{ObjectConversions[kind]?.map((ext) => <Menu.Item key={ext} label={ext} disabled />)}
 		</Menu.SubMenu>
 	)
 });

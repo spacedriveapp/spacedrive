@@ -1,4 +1,5 @@
 import Prism from 'prismjs';
+
 import './prism';
 
 // if you are intending to use Prism functions manually, you will need to set:
