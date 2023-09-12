@@ -19,7 +19,14 @@
 			"supportsTablet": false,
 			"bundleIdentifier": "com.spacedrive.app",
 			"infoPlist": {
-				"ITSAppUsesNonExemptEncryption": false
+				"ITSAppUsesNonExemptEncryption": false,
+				"UIBackgroundModes": ["remote-notification"],
+				"UIFileSharingEnabled": true
+			},
+			"entitlements": {
+				"com.apple.developer.icloud-container-identifiers": [],
+				"com.apple.developer.icloud-services": ["CloudDocuments"],
+				"com.apple.developer.ubiquity-container-identifiers": []
 			}
 		},
 		"android": {
@@ -35,7 +42,8 @@
 				"expo-build-properties",
 				{
 					"ios": {
-						"useFrameworks": "static"
+						"useFrameworks": "static",
+						"deploymentTarget": "13.0"
 					}
 				}
 			]
