@@ -139,6 +139,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           setup-arg: mobile
 
+      - name: Generate iOS Project
+        working-directory: ./apps/mobile
+        run: pnpm expo prebuild --platform ios --no-install
+
       - name: Cache Pods
         uses: actions/cache@v3
         with:
