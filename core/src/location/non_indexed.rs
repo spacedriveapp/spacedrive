@@ -234,6 +234,7 @@ pub async fn walk(
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
+					hidden: path_is_hidden(&Path::new(&directory), &metadata),
 					path: directory,
 					name,
 					extension: "".to_string(),
@@ -242,7 +243,6 @@ pub async fn walk(
 					date_created: metadata.created_or_now().into(),
 					date_modified: metadata.modified_or_now().into(),
 					size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
-					hidden: false,
 				},
 			});
 		}
