@@ -33,7 +33,7 @@ import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
-import { getQuickPreviewStore } from '../QuickPreview/store';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import {
 	createOrdering,
 	getOrderingDirection,
@@ -96,11 +96,13 @@ const HeaderColumnName = ({ name }: { name: string }) => {
 type Range = [string, string];
 
 export default () => {
+	const layout = useLayoutContext();
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
-	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
-	const layout = useLayoutContext();
+	const settings = explorer.useSettingsSnapshot();
+
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -183,7 +185,11 @@ export default () => {
 								allowHighlight={false}
 								item={item}
 								selected={selected}
-								disabled={!selected || explorer.selectedItems.size > 1}
+								disabled={
+									!selected ||
+									explorer.selectedItems.size > 1 ||
+									quickPreviewStore.open
+								}
 								style={{ maxHeight: 36 }}
 							/>
 						</div>
@@ -263,7 +269,12 @@ export default () => {
 				}
 			}
 		],
-		[explorer.selectedItems, settings.colSizes, explorerStore.cutCopyState]
+		[
+			settings.colSizes,
+			explorer.selectedItems,
+			explorerStore.cutCopyState,
+			quickPreviewStore.open
+		]
 	);
 
 	const table = useReactTable({
