@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { lazy, Suspense } from 'react';
 import { Dimensions, Platform } from 'react-native';
 
-import { reactNativeLink } from './lib/rspcReactNativeTransport';
+import { reactNativeLink } from '../modules/sd-core/src';
 
 // Enable the splash screen
 SplashScreen.preventAutoHideAsync();
