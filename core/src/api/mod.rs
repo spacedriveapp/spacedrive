@@ -50,9 +50,9 @@ impl BackendFeature {
 mod backups;
 mod categories;
 mod files;
+mod instances;
 mod jobs;
 mod keys;
-mod libraries;
 pub mod locations;
 mod nodes;
 pub mod notifications;
@@ -166,7 +166,7 @@ pub(crate) fn mount() -> Arc<Router> {
 			})
 		})
 		.merge("search.", search::mount())
-		.merge("library.", libraries::mount())
+		.merge("instances.", instances::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("categories.", categories::mount())

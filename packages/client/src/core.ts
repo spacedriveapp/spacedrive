@@ -5,98 +5,98 @@ export type Procedures = {
     queries: 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "categories.list", input: InstanceArgs<null>, result: { [key in Category]: number } } | 
+        { key: "files.get", input: InstanceArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
         { key: "files.getEphemeralMediaData", input: string, result: MediaMetadata | null } | 
-        { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
-        { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
+        { key: "files.getMediaData", input: InstanceArgs<number>, result: MediaMetadata } | 
+        { key: "files.getPath", input: InstanceArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
-        { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
+        { key: "jobs.isActive", input: InstanceArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: never, result: { [key: string]: JobGroup[] } } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
-        { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
-        { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
-        { key: "locations.getWithRules", input: LibraryArgs<number>, result: LocationWithIndexerRules | null } | 
-        { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
-        { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
-        { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "library.statistics", input: InstanceArgs<null>, result: Statistics } | 
+        { key: "locations.get", input: InstanceArgs<number>, result: Location | null } | 
+        { key: "locations.getWithRules", input: InstanceArgs<number>, result: LocationWithIndexerRules | null } | 
+        { key: "locations.indexer_rules.get", input: InstanceArgs<number>, result: IndexerRule } | 
+        { key: "locations.indexer_rules.list", input: InstanceArgs<null>, result: IndexerRule[] } | 
+        { key: "locations.indexer_rules.listForLocation", input: InstanceArgs<number>, result: IndexerRule[] } | 
+        { key: "locations.list", input: InstanceArgs<null>, result: Location[] } | 
         { key: "nodeState", input: never, result: NodeState } | 
-        { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
+        { key: "nodes.listLocations", input: InstanceArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
-        { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
-        { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
-        { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
-        { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
-        { key: "search.pathsCount", input: LibraryArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
-        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
-        { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
-        { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
-        { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key: number]: number[] } } | 
-        { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
+        { key: "preferences.get", input: InstanceArgs<null>, result: LibraryPreferences } | 
+        { key: "search.ephemeralPaths", input: InstanceArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
+        { key: "search.objects", input: InstanceArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.objectsCount", input: InstanceArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
+        { key: "search.paths", input: InstanceArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.pathsCount", input: InstanceArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
+        { key: "sync.messages", input: InstanceArgs<null>, result: CRDTOperation[] } | 
+        { key: "tags.get", input: InstanceArgs<number>, result: Tag | null } | 
+        { key: "tags.getForObject", input: InstanceArgs<number>, result: Tag[] } | 
+        { key: "tags.getWithObjects", input: InstanceArgs<number[]>, result: { [key: number]: number[] } } | 
+        { key: "tags.list", input: InstanceArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
-        { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
+        { key: "backups.backup", input: InstanceArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
-        { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
-        { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
-        { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
-        { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
-        { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
-        { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
-        { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
-        { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
-        { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
-        { key: "files.updateAccessTime", input: LibraryArgs<number[]>, result: null } | 
-        { key: "invalidation.test-invalidate-mutation", input: LibraryArgs<null>, result: null } | 
-        { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
-        { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
-        { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
-        { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
-        { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
-        { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
-        { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
-        { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
+        { key: "files.copyFiles", input: InstanceArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.cutFiles", input: InstanceArgs<FileCutterJobInit>, result: null } | 
+        { key: "files.deleteFiles", input: InstanceArgs<FileDeleterJobInit>, result: null } | 
+        { key: "files.duplicateFiles", input: InstanceArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.eraseFiles", input: InstanceArgs<FileEraserJobInit>, result: null } | 
+        { key: "files.removeAccessTime", input: InstanceArgs<number[]>, result: null } | 
+        { key: "files.renameFile", input: InstanceArgs<RenameFileArgs>, result: null } | 
+        { key: "files.setFavorite", input: InstanceArgs<SetFavoriteArgs>, result: null } | 
+        { key: "files.setNote", input: InstanceArgs<SetNoteArgs>, result: null } | 
+        { key: "files.updateAccessTime", input: InstanceArgs<number[]>, result: null } | 
+        { key: "invalidation.test-invalidate-mutation", input: InstanceArgs<null>, result: null } | 
+        { key: "jobs.cancel", input: InstanceArgs<string>, result: null } | 
+        { key: "jobs.clear", input: InstanceArgs<string>, result: null } | 
+        { key: "jobs.clearAll", input: InstanceArgs<null>, result: null } | 
+        { key: "jobs.generateThumbsForLocation", input: InstanceArgs<GenerateThumbsForLocationArgs>, result: null } | 
+        { key: "jobs.identifyUniqueFiles", input: InstanceArgs<IdentifyUniqueFilesArgs>, result: null } | 
+        { key: "jobs.objectValidator", input: InstanceArgs<ObjectValidatorArgs>, result: null } | 
+        { key: "jobs.pause", input: InstanceArgs<string>, result: null } | 
+        { key: "jobs.resume", input: InstanceArgs<string>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
-        { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
-        { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
-        { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
-        { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
+        { key: "locations.addLibrary", input: InstanceArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.create", input: InstanceArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.delete", input: InstanceArgs<number>, result: null } | 
+        { key: "locations.fullRescan", input: InstanceArgs<FullRescanArgs>, result: null } | 
+        { key: "locations.indexer_rules.create", input: InstanceArgs<IndexerRuleCreateArgs>, result: null } | 
+        { key: "locations.indexer_rules.delete", input: InstanceArgs<number>, result: null } | 
+        { key: "locations.relink", input: InstanceArgs<string>, result: null } | 
+        { key: "locations.subPathRescan", input: InstanceArgs<RescanArgs>, result: null } | 
+        { key: "locations.update", input: InstanceArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "notifications.test", input: never, result: null } | 
-        { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
+        { key: "notifications.testLibrary", input: InstanceArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
         { key: "p2p.pair", input: PeerId, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
-        { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
-        { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
-        { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "preferences.update", input: InstanceArgs<LibraryPreferences>, result: null } | 
+        { key: "tags.assign", input: InstanceArgs<TagAssignArgs>, result: null } | 
+        { key: "tags.create", input: InstanceArgs<TagCreateArgs>, result: Tag } | 
+        { key: "tags.delete", input: InstanceArgs<number>, result: null } | 
+        { key: "tags.update", input: InstanceArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
-        { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
+        { key: "jobs.newThumbnail", input: InstanceArgs<null>, result: string[] } | 
+        { key: "jobs.progress", input: InstanceArgs<null>, result: JobProgressEvent } | 
         { key: "locations.online", input: never, result: number[][] } | 
-        { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
+        { key: "locations.quickRescan", input: InstanceArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
+        { key: "sync.newMessage", input: InstanceArgs<null>, result: null }
 };
 
 export type AudioMetadata = { duration: number | null; audio_codec: string | null }
@@ -216,6 +216,16 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
+/**
+ * Can wrap a query argument to require it to contain a `instance_id` and provide helpers for working with libraries.
+ */
+export type InstanceArgs<T> = { instance_id: string; arg: T }
+
+/**
+ * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
+ */
+export type InstanceConfig = { name: LibraryName; description: string | null; instance_id: number }
+
 export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
 
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
@@ -228,17 +238,7 @@ export type JobReport = { id: string; name: string; action: string | null; data:
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
-/**
- * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
- */
-export type LibraryArgs<T> = { library_id: string; arg: T }
-
-/**
- * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
- */
-export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
-
-export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
+export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: InstanceConfig }
 
 export type LibraryData = { instances: { [key: string]: InstanceState } }
 
