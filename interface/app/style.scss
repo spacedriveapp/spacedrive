@@ -167,7 +167,7 @@ body {
 		@apply bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box;
+		@apply bg-app-box rounded-md;
 	}
 }
 

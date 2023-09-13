@@ -6,12 +6,12 @@ edition = "2021"
 
 [dependencies]
 kamadak-exif = "0.5.5"
-thiserror = "1.0.43"
-image-rs = { package = "image", version = '0.24.6' }
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = { version = "1.0.104" }
+thiserror = "1.0.48"
+image-rs = { package = "image", version = "0.24.7" }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
-chrono = { version = "0.4.26", features = ["serde"] }
+chrono = { version = "0.4.30", features = ["serde"] }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 

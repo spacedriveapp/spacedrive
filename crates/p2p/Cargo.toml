@@ -21,23 +21,23 @@ tokio = { workspace = true, features = [
 	"io-util",
 	"fs",
 ] }
-libp2p = { version = "0.51.3", features = ["tokio", "serde"] }
-libp2p-quic = { version = "0.7.0-alpha.3", features = ["tokio"] }
-if-watch = { version = "3.0.1", features = [
+libp2p = { version = "0.52.3", features = ["tokio", "serde"] }
+libp2p-quic = { version = "0.9.2", features = ["tokio"] }
+if-watch = { version = "=3.0.1", features = [
 	"tokio",
 ] } # Override the features of if-watch which is used by libp2p-quic
-mdns-sd = "0.6.1"
-thiserror = "1.0.40"
+mdns-sd = "0.7.4"
+thiserror = "1.0.48"
 tracing = { workspace = true }
-serde = { version = "1.0.163", features = ["derive"] }
-rmp-serde = "1.1.1"
+serde = { version = "1.0.188", features = ["derive"] }
+rmp-serde = "1.1.2"
 specta = { workspace = true }
-flume = "0.10.14"
+flume = "0.10.0" # Must match version used by `mdns-sd`
 tokio-util = { version = "0.7.8", features = ["compat"] }
 arc-swap = "1.6.0"
-ed25519-dalek = { version = "1.0.1", features = ["rand"] }
-rand_core = { version = "0.5.1", feature = ["getrandom"] }
-uuid = "1.4.0"
+ed25519-dalek = { version = "2.0.0", features = [] }
+rand_core = { version = "0.6.4" }
+uuid = "1.4.1"
 hex = "0.4.3"
 
 [dev-dependencies]

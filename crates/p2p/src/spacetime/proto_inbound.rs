@@ -4,7 +4,7 @@ use std::{
 	sync::{atomic::Ordering, Arc},
 };
 
-use libp2p::{core::UpgradeInfo, swarm::NegotiatedSubstream, InboundUpgrade};
+use libp2p::{core::UpgradeInfo, InboundUpgrade, Stream};
 use tokio::io::AsyncReadExt;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::debug;
@@ -26,16 +26,16 @@ impl<TMetadata: Metadata> UpgradeInfo for InboundProtocol<TMetadata> {
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.manager.application_name)]
+		[SpaceTimeProtocolName(self.manager.application_name.clone())]
 	}
 }
 
-impl<TMetadata: Metadata> InboundUpgrade<NegotiatedSubstream> for InboundProtocol<TMetadata> {
+impl<TMetadata: Metadata> InboundUpgrade<Stream> for InboundProtocol<TMetadata> {
 	type Output = ManagerStreamAction2<TMetadata>;
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
-	fn upgrade_inbound(self, io: NegotiatedSubstream, _: Self::Info) -> Self::Future {
+	fn upgrade_inbound(self, io: Stream, _: Self::Info) -> Self::Future {
 		let id = self.manager.stream_id.fetch_add(1, Ordering::Relaxed);
 		Box::pin(async move {
 			debug!(
