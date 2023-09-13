@@ -158,10 +158,12 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 	{
 		const FILE_ATTRIBUTE_HIDDEN: u8 = 0x2;
 
-		(metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN
+		if (metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN {
+			return true;
+		}
 	}
 
-	return false;
+	false
 }
 
 impl FilePathMetadata {
