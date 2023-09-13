@@ -13,7 +13,6 @@ import {
 	useState
 } from 'react';
 import {
-	ExplorerItem,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	ObjectKindKey,
@@ -38,13 +37,11 @@ import { Conditional } from '../ContextMenu/ConditionalItem';
 import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
-import { uniqueId } from '../util';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-const heavyKinds: ObjectKindKey[] = ['Image', 'Video', 'Audio', 'Document'];
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
 const withoutBackgroundKinds: ObjectKindKey[] = [...iconKinds, ...textKinds, 'Document'];
@@ -69,19 +66,17 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
-	const [item, setItem] = useState<ExplorerItem | null>(null);
-	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
 
-	const timeout = useRef<NodeJS.Timeout | null>(null);
-
 	const items = useMemo(
 		() => (open ? [...explorer.selectedItems] : []),
 		[explorer.selectedItems, open]
 	);
+
+	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
 
 	const transitions = useTransition(open, {
 		from: {
@@ -103,49 +98,16 @@ export const QuickPreview = () => {
 		if (items[index]) getQuickPreviewStore().itemIndex = index;
 	};
 
+	// Reset state
 	useEffect(() => {
-		const newItem = items[itemIndex];
-
-		if (!open || !newItem) {
-			getQuickPreviewStore().itemIndex = 0;
-			setShowMetadata(false);
-			setNewName(null);
-			setItem(null);
-			timeout.current = null;
-
-			if (!newItem) getQuickPreviewStore().open = false;
-
-			return;
-		}
-
-		setItem(newItem);
 		setNewName(null);
 
-		const { kind } = getExplorerItemData(newItem);
+		if (open || item) return;
 
-		const sameItem = item && uniqueId(item) === uniqueId(newItem);
-
-		if (
-			iconKinds.includes(kind) ||
-			!heavyKinds.includes(kind) ||
-			(sameItem && !timeout.current)
-		) {
-			timeout.current = null;
-			setLoadOriginal(true);
-			return;
-		}
-
-		setLoadOriginal(false);
-
-		timeout.current = setTimeout(() => {
-			setLoadOriginal(true);
-			timeout.current = null;
-		}, 350);
-
-		return () => {
-			if (timeout.current) clearTimeout(timeout.current);
-		};
-	}, [items, itemIndex, open, item]);
+		getQuickPreviewStore().open = false;
+		getQuickPreviewStore().itemIndex = 0;
+		setShowMetadata(false);
+	}, [item, open]);
 
 	// Toggle quick preview
 	useKeyBind(['space'], (e) => {
@@ -156,8 +118,7 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-
-	useKeyBind("Escape", (e) => open && e.stopPropagation());
+	useKeyBind('Escape', (e) => open && e.stopPropagation());
 
 	// Move between items
 	useKeyBind([['left'], ['right']], (e) => {
@@ -455,23 +416,21 @@ export const QuickPreview = () => {
 											</div>
 										</div>
 
-										{loadOriginal && (
-											<FileThumb
-												data={item}
-												loadOriginal
-												mediaControls
-												className={clsx(
-													'm-3 !w-auto flex-1 !overflow-hidden rounded',
-													!background && !icon && 'bg-app-box shadow'
-												)}
-												childClassName={clsx(
-													'rounded',
-													kind === 'Text' && 'p-3',
-													!icon && 'h-full',
-													textKinds.includes(kind) && 'select-text'
-												)}
-											/>
-										)}
+										<FileThumb
+											data={item}
+											loadOriginal
+											mediaControls
+											className={clsx(
+												'm-3 !w-auto flex-1 !overflow-hidden rounded',
+												!background && !icon && 'bg-app-box shadow'
+											)}
+											childClassName={clsx(
+												'rounded',
+												kind === 'Text' && 'p-3',
+												!icon && 'h-full',
+												textKinds.includes(kind) && 'select-text'
+											)}
+										/>
 									</div>
 
 									{showMetadata && (
