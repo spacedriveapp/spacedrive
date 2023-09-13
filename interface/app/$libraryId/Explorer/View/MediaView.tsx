@@ -1,12 +1,13 @@
 import clsx from 'clsx';
-import { ArrowsOutSimple } from 'phosphor-react';
+import { ArrowsOutSimple } from '@phosphor-icons/react';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
+
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
-import { getExplorerStore, useExplorerStore } from '../store';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import GridList from './GridList';
 
 interface MediaViewItemProps {
@@ -44,7 +45,7 @@ const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 					variant="gray"
 					size="icon"
 					className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-					onClick={() => (getExplorerStore().quickViewObject = data)}
+					onClick={() => (getQuickPreviewStore().open = true)}
 				>
 					<ArrowsOutSimple />
 				</Button>

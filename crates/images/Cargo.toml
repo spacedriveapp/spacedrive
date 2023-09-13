@@ -16,5 +16,5 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 libheif-rs = { version = "0.19.2", optional = true }
 libheif-sys = { version = "=1.14.2", optional = true }
 image = "0.24.7"
-thiserror = "1.0.45"
+thiserror = "1.0.48"
 resvg = "0.35.0"

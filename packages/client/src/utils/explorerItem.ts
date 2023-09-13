@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import type { ExplorerItem, FilePath, Object } from '../core';
 import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
@@ -10,6 +11,14 @@ export function getItemObject(data: ExplorerItem) {
 export function getItemFilePath(data: ExplorerItem) {
 	if (data.type === 'Path' || data.type === 'NonIndexedPath') return data.item;
 	return (data.type === 'Object' && data.item.file_paths[0]) || null;
+}
+
+export function getIndexedItemFilePath(data: ExplorerItem) {
+	return data.type === 'Path'
+		? data.item
+		: data.type === 'Object'
+		? data.item.file_paths[0] ?? null
+		: null;
 }
 
 export function getItemLocation(data: ExplorerItem) {

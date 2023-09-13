@@ -1,11 +1,13 @@
-import { ClipboardText } from 'phosphor-react';
-import { ContextMenu, toast } from '@sd/ui';
+import { ClipboardText } from '@phosphor-icons/react';
+import { toast } from '@sd/ui';
+
+import { Menu } from '~/components/Menu';
 
 export const CopyAsPathBase = (
 	props: { path: string } | { getPath: () => Promise<string | null> }
 ) => {
 	return (
-		<ContextMenu.Item
+		<Menu.Item
 			label="Copy as path"
 			icon={ClipboardText}
 			onClick={async () => {

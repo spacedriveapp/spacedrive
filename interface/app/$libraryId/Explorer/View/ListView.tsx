@@ -1,41 +1,48 @@
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import {
-	type ColumnDef,
-	type ColumnSizingState,
-	type Row,
 	flexRender,
 	getCoreRowModel,
-	useReactTable
+	useReactTable,
+	type ColumnDef,
+	type ColumnSizingState,
+	type Row
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { CaretDown, CaretUp } from 'phosphor-react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import {
-	type ExplorerItem,
-	type FilePath,
-	type NonIndexedPathItem,
 	byteSize,
 	getExplorerItemData,
 	getItemFilePath,
 	getItemLocation,
-	getItemObject
+	getItemObject,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { stringify } from '~/util/uuid';
+
 import { ViewItem } from '.';
 import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
-import { useExplorerViewContext } from '../ViewContext';
-import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } from '../store';
-import { isCut } from '../store';
+import { getQuickPreviewStore } from '../QuickPreview/store';
+import {
+	createOrdering,
+	getOrderingDirection,
+	isCut,
+	orderingKey,
+	useExplorerStore
+} from '../store';
 import { uniqueId } from '../util';
+import { useExplorerViewContext } from '../ViewContext';
 import RenamableItemText from './RenamableItemText';
 
 interface ListViewItemProps {
@@ -260,7 +267,7 @@ export default () => {
 	);
 
 	const table = useReactTable({
-		data: explorer.items ?? [],
+		data: useMemo(() => explorer.items ?? [], [explorer.items]),
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
 		state: { columnSizing },
@@ -774,7 +781,7 @@ export default () => {
 		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
 	}, [virtualRows, rows.length, explorer.loadMore]);
 
-	useKey(['ArrowUp', 'ArrowDown'], (e) => {
+	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
@@ -782,6 +789,12 @@ export default () => {
 		const range = getRangeByIndex(ranges.length - 1);
 
 		if (!range) return;
+
+		if (e.key === 'Escape') {
+			explorer.resetSelectedItems([]);
+			setRanges([]);
+			return;
+		}
 
 		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
 
@@ -792,7 +805,7 @@ export default () => {
 		const item = nextRow.original;
 
 		if (explorer.allowMultiSelect) {
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				const direction = range.direction || keyDirection;
 
 				const [backRange, frontRange] = getRangesByRow(range.start);

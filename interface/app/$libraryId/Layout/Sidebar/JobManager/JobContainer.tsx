@@ -1,7 +1,8 @@
 import clsx from 'clsx';
-import { ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode, forwardRef } from 'react';
+import { forwardRef, ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode } from 'react';
 import { TextItems } from '@sd/client';
 import { Tooltip, tw } from '@sd/ui';
+
 import classes from './Job.module.scss';
 
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {

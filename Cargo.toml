@@ -9,7 +9,9 @@ members = [
 	"apps/cli",
 	"apps/desktop/src-tauri",
 	"apps/desktop/crates/*",
-	"apps/mobile/crates/*",
+	"apps/mobile/modules/sd-core/core",
+	"apps/mobile/modules/sd-core/android/crate",
+	"apps/mobile/modules/sd-core/ios/crate",
 	"apps/server",
 ]
 
@@ -45,23 +47,18 @@ rspc = { version = "0.1.4" }
 specta = { version = "1.0.4" }
 tauri-specta = { version = "1.0.2" }
 
-swift-rs = { version = "1.0.5" }
+swift-rs = { version = "1.0.6" }
 
-tokio = { version = "1.28.2" }
-uuid = { version = "1.3.3", features = ["v4", "serde"] }
+tokio = { version = "1.32.0" }
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }
 
 [patch.crates-io]
-# We use this patch so we can compile for the IOS simulator on M1
-openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
-# We patch this so that it can be built for IOS - The `main` branch uses macOS specific APIs
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch", rev = "782eb7b27627c544e789a6fcf9db7bdcd93da7df" }
+# Proper IOS Support
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804ad9b2005e4e760732a708aa95b4bfb376ddf" }
 
-mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd", rev = "45515a98e9e408c102871abaa5a9bff3bee0cbe8" } # TODO: Do upstream PR
-
+# Beta features
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
-
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "973c22215734d1d5b97c496601d658371e537ece" }

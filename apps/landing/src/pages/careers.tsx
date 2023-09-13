@@ -9,9 +9,10 @@ import {
 	Smiley,
 	Star,
 	TrendUp
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { Button } from '@sd/ui';
+
 import PageWrapper from '~/components/PageWrapper';
 
 interface PositionPosting {

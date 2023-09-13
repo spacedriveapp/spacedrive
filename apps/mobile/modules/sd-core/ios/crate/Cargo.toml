@@ -1,0 +1,17 @@
+[package]
+name = "sd-mobile-ios"
+version = "0.1.0"
+rust-version = "1.64.0"
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+
+[lib]
+# iOS requires static linking
+# Makes sense considering this lib needs to link against call_resolve and get_data_directory,
+# which are only available when linking against the app's ObjC
+crate-type = ["staticlib"]
+
+[dependencies]
+sd-mobile-core = { path = "../../core" }

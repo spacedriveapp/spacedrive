@@ -1,7 +1,8 @@
 import clsx from 'clsx';
-import { Gear, Lock, Plus } from 'phosphor-react';
+import { Gear, Lock, Plus } from '@phosphor-icons/react';
 import { useClientContext } from '@sd/client';
-import { Dropdown, DropdownMenu, dialogManager } from '@sd/ui';
+import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
+
 import CreateDialog from '../../settings/node/libraries/CreateDialog';
 
 export default () => {

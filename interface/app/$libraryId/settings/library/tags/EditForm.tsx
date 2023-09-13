@@ -1,6 +1,7 @@
-import { Trash } from 'phosphor-react';
+import { Trash } from '@phosphor-icons/react';
 import { Tag, useLibraryMutation, useZodForm } from '@sd/client';
-import { Button, Form, InputField, Switch, Tooltip, dialogManager, z } from '@sd/ui';
+import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
+
 import { ColorPicker } from '~/components';
 import { useDebouncedFormWatch } from '~/hooks';
 import Setting from '../../Setting';

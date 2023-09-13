@@ -1,20 +1,23 @@
 import { getIcon } from '@sd/assets/util';
 import { useEffect, useState } from 'react';
+
 import 'react-loading-skeleton/dist/skeleton.css';
+
 import { useSnapshot } from 'valtio';
 import { Category } from '@sd/client';
+
 import { useIsDark } from '../../../hooks';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import ContextMenu, { ObjectItems } from '../Explorer/ContextMenu';
 import { Conditional } from '../Explorer/ContextMenu/ConditionalItem';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import View from '../Explorer/View';
+import Statistics from '../overview/Statistics';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import { TopBarPortal } from '../TopBar/Portal';
-import Statistics from '../overview/Statistics';
 import { Categories } from './Categories';
-import Inspector from './Inspector';
 import { IconForCategory, IconToDescription, useCategoryExplorer } from './data';
+import Inspector from './Inspector';
 
 export const Component = () => {
 	const isDark = useIsDark();
@@ -47,7 +50,7 @@ export const Component = () => {
 					className={settings.layoutMode === 'list' ? 'min-w-0' : undefined}
 					contextMenu={
 						<ContextMenu>
-							{() => <Conditional items={[ObjectItems.RemoveFromRecents]} />}
+							<Conditional items={[ObjectItems.RemoveFromRecents]} />
 						</ContextMenu>
 					}
 					emptyNotice={

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { getThemeStore, useThemeStore } from '@sd/client';
+
 import { usePlatform } from '..';
 
 export function useTheme() {

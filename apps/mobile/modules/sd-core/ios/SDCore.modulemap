@@ -1,0 +1,4 @@
+framework module SDCore {
+    umbrella header "SDCore-umbrella.h"
+    export *
+}

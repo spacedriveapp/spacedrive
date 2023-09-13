@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';

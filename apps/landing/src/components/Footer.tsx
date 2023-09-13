@@ -36,7 +36,7 @@ export function Footer() {
 						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 					<div className="mb-10 mt-12 flex flex-row space-x-3">
-						<FooterLink link="https://twitter.com/spacedriveapp">
+						<FooterLink link="https://x.com/spacedriveapp">
 							<Twitter className="h-6 w-6" />
 						</FooterLink>
 						<FooterLink link="https://discord.gg/gTaF2Z44f5">

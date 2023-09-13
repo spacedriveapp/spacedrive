@@ -1,18 +1,20 @@
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from '@phosphor-icons/react';
 import { Folder } from '@sd/assets/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
 import { useMemo, useState } from 'react';
 import {
+	getJobNiceActionName,
+	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
 	JobReport,
-	getJobNiceActionName,
-	getTotalTasks,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
-import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import { Button, Dropdown, ProgressBar, toast, Tooltip } from '@sd/ui';
+
 import Job from './Job';
 import JobContainer from './JobContainer';
 
@@ -39,9 +41,14 @@ export default function ({ group, progress }: JobGroupProps) {
 	if (jobs.length === 0) return <></>;
 
 	return (
-		<ul className="relative overflow-hidden">
+		<ul className="relative overflow-visible">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
-				<Options activeJob={runningJob} group={group} />
+				<Options
+					showChildJobs={showChildJobs}
+					setShowChildJobs={() => setShowChildJobs((v) => !v)}
+					activeJob={runningJob}
+					group={group}
+				/>
 			</div>
 			{jobs?.length > 1 ? (
 				<>
@@ -111,10 +118,70 @@ export default function ({ group, progress }: JobGroupProps) {
 	);
 }
 
-function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
-	const resumeJob = useLibraryMutation(['jobs.resume'], { onError: alert });
-	const pauseJob = useLibraryMutation(['jobs.pause'], { onError: alert });
-	const cancelJob = useLibraryMutation(['jobs.cancel'], { onError: alert });
+function Options({
+	activeJob,
+	group,
+	setShowChildJobs,
+	showChildJobs
+}: {
+	activeJob?: JobReport;
+	group: JobGroup;
+	setShowChildJobs: () => void;
+	showChildJobs: boolean;
+}) {
+	const queryClient = useQueryClient();
+
+	const toastErrorSuccess = (
+		errorMessage?: string,
+		successMessage?: string,
+		successCallBack?: () => void
+	) => {
+		return {
+			onError: () => {
+				errorMessage &&
+					toast.error({
+						title: 'Error',
+						body: errorMessage
+					});
+			},
+			onSuccess: () => {
+				successMessage &&
+					toast.success({
+						title: 'Success',
+						body: successMessage
+					}),
+					successCallBack?.();
+			}
+		};
+	};
+
+	const resumeJob = useLibraryMutation(
+		['jobs.resume'],
+		toastErrorSuccess('Failed to resume job.', 'Job has been resumed.')
+	);
+	const pauseJob = useLibraryMutation(
+		['jobs.pause'],
+		toastErrorSuccess('Failed to pause job.', 'Job has been paused.')
+	);
+	const cancelJob = useLibraryMutation(
+		['jobs.cancel'],
+		toastErrorSuccess('Failed to cancel job.', 'Job has been canceled.')
+	);
+	const clearJob = useLibraryMutation(
+		['jobs.clear'],
+		toastErrorSuccess('Failed to remove job.', undefined, () => {
+			queryClient.invalidateQueries(['jobs.reports']);
+		})
+	);
+
+	const clearJobHandler = () => {
+		group.jobs.forEach((job) => {
+			clearJob.mutate(job.id);
+			//only one toast for all jobs
+			if (job.id === group.id)
+				toast.success({ title: 'Success', body: 'Job has been removed.' });
+		});
+	};
 
 	const isJobPaused = useMemo(
 		() => group.jobs.some((job) => job.status === 'Paused'),
@@ -136,18 +203,38 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 					</Tooltip>
 				</Button>
 			)}
-			{/* TODO: Fix this */}
 			{activeJob === undefined ? (
-				<Button
-					className="cursor-pointer"
-					// onClick={() => clearJob?.(data.id as string)}
-					size="icon"
-					variant="outline"
+				<Dropdown.Root
+					align="right"
+					itemsClassName="!bg-app-darkBox !border-app-box !top-[-8px]"
+					button={
+						<Tooltip label="Actions">
+							<Button className="!px-1" variant="outline">
+								<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+							</Button>
+						</Tooltip>
+					}
 				>
-					<Tooltip label="Remove">
-						<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
-					</Tooltip>
-				</Button>
+					<Dropdown.Section>
+						<Dropdown.Item
+							active={showChildJobs}
+							onClick={setShowChildJobs}
+							icon={Eye}
+							iconClassName="!w-3"
+							className="!text-[11px] text-ink-dull"
+						>
+							Expand
+						</Dropdown.Item>
+						<Dropdown.Item
+							onClick={() => clearJobHandler()}
+							icon={Trash}
+							iconClassName="!w-3"
+							className="!text-[11px] text-ink-dull"
+						>
+							Remove
+						</Dropdown.Item>
+					</Dropdown.Section>
+				</Dropdown.Root>
 			) : (
 				<>
 					{/* Pause / Stop */}

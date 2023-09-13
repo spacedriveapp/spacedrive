@@ -5,6 +5,7 @@ import { Controller } from 'react-hook-form';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { z } from 'zod';
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
+
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
@@ -21,6 +22,7 @@ import { type SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({
 	displayName: z.string().nullable(),
+	path: z.string().min(1).nullable(),
 	localPath: z.string().nullable(),
 	indexer_rules_ids: z.array(z.string()),
 	generatePreviewMedia: z.boolean().nullable(),
@@ -51,6 +53,7 @@ const EditLocationSettingsScreen = ({
 		updateLocation.mutateAsync({
 			id: Number(id),
 			name: data.displayName,
+			path: data.path,
 			sync_preview_media: data.syncPreviewMedia,
 			generate_preview_media: data.generatePreviewMedia,
 			hidden: data.hidden,

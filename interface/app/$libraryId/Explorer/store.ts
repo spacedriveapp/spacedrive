@@ -3,12 +3,12 @@ import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
+	resetStore,
 	type DoubleClickAction,
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
-	type SortOrder,
-	resetStore
+	type SortOrder
 } from '@sd/client';
 
 export enum ExplorerKind {
@@ -106,7 +106,6 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	quickViewObject: null as ExplorerItem | null,
 	isDragging: false,
 	gridGap: 8
 };

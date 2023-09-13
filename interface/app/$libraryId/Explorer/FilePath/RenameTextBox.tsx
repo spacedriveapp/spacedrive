@@ -1,16 +1,17 @@
 import clsx from 'clsx';
 import {
-	type ComponentProps,
 	forwardRef,
 	useCallback,
 	useEffect,
 	useImperativeHandle,
 	useRef,
-	useState
+	useState,
+	type ComponentProps
 } from 'react';
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { Tooltip, toast } from '@sd/ui';
+import { toast, Tooltip } from '@sd/ui';
+
 import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -141,10 +142,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 
 		// Rename or blur on Enter key
 		useKey('Enter', (e) => {
-			e.preventDefault();
-
 			if (allowRename) blur();
 			else if (!disabled) {
+				e.preventDefault();
 				setAllowRename(true);
 				explorerView.setIsRenaming(true);
 			}
@@ -279,6 +279,7 @@ export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
 		try {
 			await renameLocation.mutateAsync({
 				id: props.locationId,
+				path: null,
 				name: newName,
 				generate_preview_media: null,
 				sync_preview_media: null,
