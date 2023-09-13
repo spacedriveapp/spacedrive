@@ -33,6 +33,7 @@ import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import {
 	createOrdering,
 	getOrderingDirection,
@@ -804,7 +805,7 @@ export default () => {
 		const item = nextRow.original;
 
 		if (explorer.allowMultiSelect) {
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				const direction = range.direction || keyDirection;
 
 				const [backRange, frontRange] = getRangesByRow(range.start);
