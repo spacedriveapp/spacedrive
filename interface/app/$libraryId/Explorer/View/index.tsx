@@ -241,7 +241,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 								explorer.selectable &&
 								!isContextMenuOpen &&
 								!isRenaming &&
-								!quickPreviewStore.open,
+								(!quickPreviewStore.open || explorer.selectedItems.size === 1),
 							setIsContextMenuOpen,
 							isRenaming,
 							setIsRenaming,
