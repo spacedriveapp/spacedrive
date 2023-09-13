@@ -149,10 +149,7 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 
 		const UF_HIDDEN: u32 = 0x8000;
 
-		#[allow(deprecated)]
-		let flags = metadata.as_raw_stat().st_flags;
-
-		if (flags & UF_HIDDEN) == UF_HIDDEN {
+		if (metadata.st_flags() & UF_HIDDEN) == UF_HIDDEN {
 			return true;
 		}
 	}
