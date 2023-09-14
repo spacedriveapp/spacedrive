@@ -58,5 +58,13 @@ fn match_to_handler(ext: &OsStr) -> Result<Box<dyn ImageHandler>> {
 		handler = Some(Box::new(SvgHandler {}));
 	}
 
-	handler.ok_or_else(|| Error::Unsupported)
+	handler.ok_or(Error::Unsupported)
+}
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn formats() {
+		dbg!("{:?}", super::consts::all_compatible_extensions());
+	}
 }
