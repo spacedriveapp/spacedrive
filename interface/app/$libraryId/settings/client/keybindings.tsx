@@ -5,18 +5,17 @@ import {
 	useReactTable
 } from '@tanstack/react-table';
 import { useState } from 'react';
-import { Divider, Switch } from '@sd/ui';
+import { Divider, ModifierKeys, Switch } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
+import { keybindForOs } from '~/util/keybinds';
 import { OperatingSystem } from '~/util/Platform';
+
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
 type Shortcut = {
 	action: string;
-	key: {
-		macOS: string[] | string[][];
-		windows: string[] | string[][];
-	};
+	key: [ModifierKeys[], string[]][];
 };
 
 // should this be an external JSON import?
@@ -24,34 +23,26 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 	Explorer: [
 		{
 			action: 'Navigate forward in folder history',
-			key: {
-				macOS: [
-					['⌘', ']'],
-					['⌘', '→']
-				],
-				windows: ['Alt', '→']
-			}
+			key: [
+				[[ModifierKeys.Control], [']']],
+				[[ModifierKeys.Control], ['ArrowRight']]
+			]
 		},
 		{
 			action: 'Navigate backward in folder history',
-			key: {
-				macOS: [
-					['⌘', '['],
-					['⌘', '←']
-				],
-				windows: ['Alt', '←']
-			}
+			key: [
+				[[ModifierKeys.Control], ['[']],
+				[[ModifierKeys.Control], ['ArrowLeft']]
+			]
 		},
 		{
 			action: 'Show enclosing folder',
-			key: { macOS: ['⌘', '↑'], windows: ['Alt', '↑'] }
+			key: [[[ModifierKeys.Control], ['ArrowUp']]]
 		},
 		{
 			action: 'Open selected item',
-			key: {
-				macOS: ['⌘', '↓'],
-				windows: ['Alt', '↓']
-			}
+			key: [[[ModifierKeys.Control], ['ArrowDown']]]
+			// windows: ['Enter'] — issue #1148
 		}
 	]
 };
@@ -76,7 +67,7 @@ export const Component = () => {
 			</Setting>
 			<Divider />
 			{Object.entries(shortcutCategories).map(([category, shortcuts]) => (
-				<div key={category} className="mb-4 space-y-2">
+				<div key={category} className="mb-4 space-y-0.5">
 					<h1 className="mb-3 inline-block text-lg font-bold text-ink">{category}</h1>
 					<KeybindTable data={shortcuts} />
 				</div>
@@ -111,10 +102,8 @@ function KeybindTable({ data }: { data: Shortcut[] }) {
 					<tr key={row.id}>
 						{row.getVisibleCells().map((cell) => (
 							<td
-								className={`py-4 ${
-									cell.id.includes('key')
-										? 'w-32 space-y-0.5 text-right'
-										: 'w-full'
+								className={`py-3 ${
+									cell.id.includes('key') ? 'w-32 space-y-2 text-right' : 'w-full'
 								}`}
 								key={cell.id}
 							>
@@ -129,14 +118,7 @@ function KeybindTable({ data }: { data: Shortcut[] }) {
 }
 
 function createKeybindColumns(os: OperatingSystem) {
-	function findPlatform(value: Shortcut['key'], os: OperatingSystem): string[][] {
-		let keys;
-		if (os === 'macOS') keys = value.macOS;
-		else keys = value.windows;
-		if (typeof keys[0] === 'string') return [keys as string[]];
-		return keys as string[][];
-	}
-
+	const keybind = keybindForOs(os);
 	const columnHelper = createColumnHelper<Shortcut>();
 	const columns = [
 		columnHelper.accessor('action', {
@@ -147,22 +129,26 @@ function createKeybindColumns(os: OperatingSystem) {
 			header: () => <p className="text-right">Key</p>,
 			size: 200,
 			cell: (info) => {
-				const shortcuts = findPlatform(info.getValue(), os);
-				return shortcuts.map((keys, i) => (
-					<div key={i}>
-						{keys.map((key, i) => (
-							<>
-								<kbd
-									className="mb-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-sm shadow"
-									key={key}
-								>
-									{key}
-								</kbd>
-								{i !== keys.length - 1 && (
-									<span className="mx-1 font-thin text-ink-faint">+</span>
-								)}
-							</>
-						))}
+				const shortcuts = info
+					.getValue()
+					.map(([modifiers, keys]) => keybind(modifiers, keys));
+				return shortcuts.map((shortcut, i) => (
+					<div key={i} className="inline-flex">
+						{shortcut.split('').map((key, i) => {
+							return (
+								<>
+									<kbd
+										className="rounded-lg border border-app-line bg-app-box px-2 py-1 text-sm shadow"
+										key={key}
+									>
+										{key}
+									</kbd>
+									{i !== shortcut.length - 1 && (
+										<span className="mx-1 font-thin text-ink-faint">+</span>
+									)}
+								</>
+							);
+						})}
 					</div>
 				));
 			}
