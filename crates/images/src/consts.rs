@@ -32,11 +32,6 @@ pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 /// This value is in MiB.
 pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 
-/// The size that SVG images are rendered at, assuming they are square.
-// TODO(brxken128): check for non-1:1 SVG images and create a function to resize
-// them while maintaining the aspect ratio.
-pub const SVG_RENDER_SIZE: u32 = 512;
-
 /// This is the target pixel count for all SVG images to be rendered at.
 ///
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
