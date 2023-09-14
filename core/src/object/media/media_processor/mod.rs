@@ -11,7 +11,7 @@ use sd_prisma::prisma::{file_path, location, PrismaClient};
 
 use std::path::Path;
 
-use futures_concurrency::future::TryJoin;
+use futures::try_join;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -127,7 +127,7 @@ async fn process(
 	let location_path = location_path.as_ref();
 
 	let ((media_data_metadata, mut media_data_errors), (thumbnailer_metadata, thumbnailer_errors)) =
-		(
+		try_join!(
 			async {
 				media_data_extractor::process(
 					entries.iter().filter_map(
@@ -176,9 +176,7 @@ async fn process(
 				.await
 				.map_err(MediaProcessorError::from)
 			},
-		)
-			.try_join()
-			.await?;
+		)?;
 
 	media_data_errors.0.extend(thumbnailer_errors.0.into_iter());
 
