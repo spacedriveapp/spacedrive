@@ -9,7 +9,17 @@ export interface TooltipProps extends PropsWithChildren {
 	tooltipClassName?: string;
 	asChild?: boolean;
 	hoverable?: boolean;
+	keybinds?: string;
 }
+
+const stringToArray = (word: string): string[] | undefined => {
+	if (!word) return;
+	const arr: string[] = [];
+	for (const k of word) {
+		arr.push(k);
+	}
+	return arr;
+};
 
 export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: TooltipProps) => {
 	return (
@@ -27,12 +37,25 @@ export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: Too
 						<TooltipPrimitive.Content
 							side={position}
 							className={clsx(
-								'z-50 max-w-[200px] select-text break-words rounded bg-black px-2 py-1 text-center text-xs text-white',
+								'TooltipContent z-50 mt-1 flex max-w-[200px] select-text items-center gap-2 break-words rounded border border-app-lightBox/40 bg-app-input px-2 py-1 text-center text-xs text-white',
 								props.tooltipClassName
 							)}
 						>
-							<TooltipPrimitive.Arrow className="fill-black" />
 							{props.label}
+							{props.keybinds && (
+								<div className="mx-auto flex w-fit justify-center gap-1">
+									{stringToArray(props.keybinds)?.map((k, _) => (
+										<div
+											key={k}
+											className={
+												'rounded-md border border-app-lightBox/60 bg-app-lightBox/40 px-1.5 py-1 text-[9px] text-white'
+											}
+										>
+											<p>{k}</p>
+										</div>
+									))}
+								</div>
+							)}
 						</TooltipPrimitive.Content>
 					)}
 				</TooltipPrimitive.Portal>
