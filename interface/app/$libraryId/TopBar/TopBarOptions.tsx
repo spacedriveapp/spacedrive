@@ -34,7 +34,7 @@ export default ({ options }: TopBarChildrenProps) => {
 		?.flatMap((group) => group)
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 
-	useKeys(['Meta', 'b'], (e) => {
+	useKeys(['Meta', 'v'], (e) => {
 		e.stopPropagation();
 		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
 		const currentLayout = explorerLayouts.indexOf(
