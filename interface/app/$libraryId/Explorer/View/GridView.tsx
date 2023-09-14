@@ -79,7 +79,9 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
-					renamable={explorer.selectedItems.size === 1 && !quickPreviewStore.open}
+					renamable={
+						selected && explorer.selectedItems.size === 1 && !quickPreviewStore.open
+					}
 				/>
 			)}
 		</GridList>
