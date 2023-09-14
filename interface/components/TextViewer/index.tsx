@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import { memo, useEffect, useRef, useState } from 'react';
 
+import { highlight } from './worker';
+
 import './prism.css';
 
 export interface TextViewerProps {
@@ -29,11 +31,7 @@ const awaitSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, 
 export const TextViewer = memo(
 	({ src, onLoad, onError, className, codeExtension }: TextViewerProps) => {
 		const ref = useRef<HTMLPreElement>(null);
-		const [highlight, setHighlight] = useState<{
-			code: string;
-			length: number;
-			language: string;
-		}>();
+		const highlightRef = useRef<HTMLSpanElement>(null);
 
 		useEffect(() => {
 			// Ignore empty urls
@@ -46,6 +44,9 @@ export const TextViewer = memo(
 					if (!response.body) return;
 					onLoad?.(new UIEvent('load', {}));
 
+					// We wanna do reactive updates to avoid a complete rerender which will cause the `fetch` to be restarted
+					let updatedClasses = false;
+
 					// This code is not pretty but be careful when changing it
 					// Download a GH Actions log from our Mobile CI workflow (around 12MB) and test on it!
 					const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -55,13 +56,51 @@ export const TextViewer = memo(
 
 						const chunks = value.split('\n');
 						for (let i = 0; i < chunks.length; i += noLinesInRenderChunk) {
+							let totalRenderedLines = 0;
 							ref.current?.append(
-								...chunks.slice(i, i + noLinesInRenderChunk).map((line) => {
-									const child = document.createElement('span');
-									child.innerText = line;
-									return child;
-								})
+								...(await Promise.all(
+									chunks.slice(i, i + noLinesInRenderChunk).map(async (line) => {
+										totalRenderedLines++;
+
+										const child = document.createElement('span');
+
+										if (line === '') {
+											child.append(document.createElement('br'));
+										} else if (codeExtension) {
+											const x = performance.now();
+
+											// TODO: Worker or directly?
+											const result = await worker.highlight(
+												line,
+												codeExtension
+											);
+
+											console.log(performance.now() - x);
+
+											if (result) {
+												child.innerHTML = result.code;
+
+												if (!updatedClasses && ref.current) {
+													updatedClasses = true;
+													ref.current.className += `relative !pl-[3.8em] language-${result.language}`;
+												}
+											}
+										} else {
+											child.innerText = line;
+										}
+										return child;
+									})
+								))
 							);
+
+							// TODO: This breaks the explorer sidebar preview -> Can it not use this and only load the first chunk of the file
+							// for (let i = 0; i < totalRenderedLines; i += 1) {
+							// 	const lineNo = document.createElement('span');
+							// 	lineNo.className =
+							// 		'token block text-end' + (i % 2 ? ' bg-black/40' : '');
+							// 	lineNo.textContent = i.toString();
+							// 	highlightRef.current?.append(lineNo);
+							// }
 
 							await awaitSleep(500);
 						}
@@ -78,37 +117,26 @@ export const TextViewer = memo(
 			return () => controller.abort();
 		}, [src, onError, onLoad, codeExtension, ref]);
 
+		const inner = <code ref={ref} />;
+
 		return (
 			<pre
 				ref={ref}
 				tabIndex={0}
-				className={clsx(
-					'flex flex-col overflow-y-scroll text-ink',
-					className,
-					highlight && ['relative !pl-[3.8em]', `language-${highlight.language}`]
-				)}
+				className={clsx('flex flex-col overflow-y-scroll text-ink', className)}
 			>
-				{/* {highlight ? (
+				{codeExtension ? (
 					<>
-						<span className="pointer-events-none absolute left-0 top-[1em] w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull">
-							{Array.from(highlight, (_, i) => (
-								<span
-									key={i}
-									className={clsx('token block text-end', i % 2 && 'bg-black/40')}
-								>
-									{i + 1}
-								</span>
-							))}
-						</span>
-						<code
-							style={{ whiteSpace: 'inherit' }}
-							className={clsx('relative', `language-${highlight.language}`)}
-							dangerouslySetInnerHTML={{ __html: highlight.code }}
+						<span
+							ref={highlightRef}
+							className="pointer-events-none absolute left-0 top-[1em] w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull"
 						/>
+
+						{inner}
 					</>
 				) : (
-					textContent
-				)} */}
+					inner
+				)}
 			</pre>
 		);
 	}
