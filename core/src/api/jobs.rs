@@ -17,7 +17,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use futures_concurrency::future::TryJoin;
+use futures::future::try_join_all;
 use prisma_client_rust::or;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
@@ -167,21 +167,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				// I feel like I'm conquering the borrow checker
 				let active_job_reports_by_id = &node.jobs.get_active_reports_with_id().await;
 
-				node.libraries
-					.get_all()
-					.await
-					.into_iter()
-					.map(|library| async move {
-						group_jobs_by_library(&library, active_job_reports_by_id)
-							.await
-							.map(|groups| (library.id, groups))
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await
-					.map(|groups_by_library_id| {
-						groups_by_library_id.into_iter().collect::<HashMap<_, _>>()
-					})
+				try_join_all(
+					node.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|library| async move {
+							group_jobs_by_library(&library, active_job_reports_by_id)
+								.await
+								.map(|groups| (library.id, groups))
+						}),
+				)
+				.await
+				.map(|groups_by_library_id| {
+					groups_by_library_id.into_iter().collect::<HashMap<_, _>>()
+				})
 			})
 		})
 		.procedure("isActive", {
