@@ -2,6 +2,7 @@ import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	memo,
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -13,11 +14,11 @@ import {
 	type VideoHTMLAttributes
 } from 'react';
 import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
-
 import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
@@ -65,16 +66,16 @@ export const FileThumb = memo((props: ThumbProps) => {
 		isDark ? classes.checkers : classes.checkersLight
 	);
 
-	const onLoad = () => setLoaded(true);
+	const onLoad = useCallback(() => setLoaded(true), []);
 
-	const onError = () => {
+	const onError = useCallback(() => {
 		setLoaded(false);
 		setThumbType((prevThumbType) =>
 			prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
 				? ThumbType.Thumbnail
 				: ThumbType.Icon
 		);
-	};
+	}, [itemData.hasLocalThumbnail]);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
