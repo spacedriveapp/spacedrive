@@ -560,7 +560,10 @@ where
 				continue 'entries;
 			};
 
-			let Ok(metadata) = FilePathMetadata::from_path(&current_path, &metadata).await.map_err(|e| errors.push(e.into())) else {
+			let Ok(metadata) = FilePathMetadata::from_path(&current_path, &metadata)
+				.await
+				.map_err(|e| errors.push(e.into()))
+			else {
 				continue;
 			};
 
@@ -596,7 +599,10 @@ where
 						continue;
 					};
 
-					let Ok(metadata) = FilePathMetadata::from_path(ancestor, &metadata).await.map_err(|e| errors.push(e.into())) else {
+					let Ok(metadata) = FilePathMetadata::from_path(ancestor, &metadata)
+						.await
+						.map_err(|e| errors.push(e.into()))
+					else {
 						continue;
 					};
 
