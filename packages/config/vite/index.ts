@@ -22,9 +22,6 @@ export default defineConfig({
 			localsConvention: 'camelCaseOnly'
 		}
 	},
-	resolve: {
-		alias: [relativeAliasResolver]
-	},
 	root: 'src',
 	build: {
 		sourcemap: true,
