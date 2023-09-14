@@ -172,6 +172,7 @@ model FilePath {
     // the name and extension, MUST have 'COLLATE NOCASE' in migration
     name      String?
     extension String?
+    hidden 	  Boolean?
 
     size_in_bytes       String? // deprecated
     size_in_bytes_bytes Bytes?

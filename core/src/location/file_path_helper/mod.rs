@@ -4,6 +4,7 @@ use crate::{
 };
 
 use std::{
+	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 	time::SystemTime,
@@ -126,6 +127,68 @@ pub struct FilePathMetadata {
 	pub size_in_bytes: u64,
 	pub created_at: DateTime<Utc>,
 	pub modified_at: DateTime<Utc>,
+	pub hidden: bool,
+}
+
+pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
+	#[cfg(target_family = "unix")]
+	{
+		if path
+			.file_name()
+			.and_then(OsStr::to_str)
+			.map(|s| s.starts_with('.'))
+			.unwrap_or_default()
+		{
+			return true;
+		}
+	}
+
+	#[cfg(target_os = "macos")]
+	{
+		use std::os::macos::fs::MetadataExt;
+
+		const UF_HIDDEN: u32 = 0x8000;
+
+		if (metadata.st_flags() & UF_HIDDEN) == UF_HIDDEN {
+			return true;
+		}
+	}
+
+	#[cfg(target_family = "windows")]
+	{
+		const FILE_ATTRIBUTE_HIDDEN: u8 = 0x2;
+
+		if (metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN {
+			return true;
+		}
+	}
+
+	false
+}
+
+impl FilePathMetadata {
+	pub async fn from_path(path: &Path, metadata: &Metadata) -> Result<Self, FilePathError> {
+		let (inode, device) = {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode_and_device(metadata)
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_and_device_from_path(&path).await
+			}
+		}?;
+
+		Ok(Self {
+			inode,
+			device,
+			hidden: path_is_hidden(path, metadata),
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created_or_now().into(),
+			modified_at: metadata.modified_or_now().into(),
+		})
+	}
 }
 
 #[derive(Error, Debug)]
@@ -189,6 +252,8 @@ pub async fn create_file_path(
 	use serde_json::json;
 	use uuid::Uuid;
 
+	let indexed_at = Utc::now();
+
 	let location = db
 		.location()
 		.find_unique(location::id::equals(location_id))
@@ -220,6 +285,7 @@ pub async fn create_file_path(
 			(is_dir::NAME, json!(is_dir)),
 			(date_created::NAME, json!(metadata.created_at)),
 			(date_modified::NAME, json!(metadata.modified_at)),
+			(date_indexed::NAME, json!(indexed_at)),
 		]
 	};
 
@@ -251,6 +317,8 @@ pub async fn create_file_path(
 						)),
 						date_created::set(Some(metadata.created_at.into())),
 						date_modified::set(Some(metadata.modified_at.into())),
+						date_indexed::set(Some(indexed_at.into())),
+						hidden::set(Some(metadata.hidden)),
 					]
 				}),
 			),

@@ -68,6 +68,8 @@ pub struct ExplorerSettings<TOrder> {
 	// temporary
 	#[serde(skip_serializing_if = "Option::is_none")]
 	order: Option<Option<TOrder>>,
+	#[serde(default)]
+	show_hidden_files: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
