@@ -117,7 +117,7 @@ export default ({ options }: TopBarChildrenProps) => {
 			</div>
 			<TopBarMobile
 				toolOptions={options}
-				className={windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden')}
+				className={windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'}
 			/>
 		</div>
 	);

@@ -78,3 +78,7 @@ sd_init.json
 
 .cargo/config
 .github/scripts/deps
+
+
+# Contentlayer
+.contentlayer
