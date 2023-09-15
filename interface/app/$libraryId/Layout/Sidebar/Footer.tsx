@@ -1,9 +1,8 @@
 import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useKeyBind, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import DebugPopover from './DebugPopover';
@@ -17,7 +16,7 @@ export default () => {
 	const keybind = keybindForOs(os);
 	const navigate = useNavigate();
 
-	useKeys(['g', 's'], (e) => {
+	useKeyBind(['g', 's'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
