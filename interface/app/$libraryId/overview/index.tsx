@@ -47,7 +47,7 @@ export const Component = () => {
 			<div className="flex flex-1">
 				<View
 					top={68}
-					className={settings.layoutMode === 'list' && 'min-w-0'}
+					className={settings.layoutMode === 'list' ? 'min-w-0' : undefined}
 					contextMenu={
 						<ContextMenu>
 							<Conditional items={[ObjectItems.RemoveFromRecents]} />
