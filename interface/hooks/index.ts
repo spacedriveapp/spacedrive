@@ -10,6 +10,7 @@ export * from './useInputState';
 export * from './useIsDark';
 export * from './useKeyDeleteFile';
 export * from './useKeyboardHandler';
+export * from './useKeyBind';
 export * from './useOperatingSystem';
 export * from './useScrolled';
 export * from './useSearchStore';

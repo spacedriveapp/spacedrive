@@ -1,7 +1,10 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
-import { Popover, Tooltip } from '@sd/ui';
+import { useKeys } from 'rooks';
+import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
+import { ExplorerLayout } from '~/../packages/client/src';
 
+import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
@@ -10,9 +13,11 @@ export interface ToolOption {
 	onClick?: () => void;
 	individual?: boolean;
 	toolTipLabel: string;
+	toolTipClassName?: string;
 	topBarActive?: boolean;
 	popOverComponent?: JSX.Element;
 	showAtResolution: ShowAtResolution;
+	keybinds?: Array<String | ModifierKeys>;
 }
 
 export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';
@@ -24,9 +29,22 @@ export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
+	const explorer = useExplorerContext();
 	const toolsNotSmFlex = options
 		?.flatMap((group) => group)
 		.filter((t) => t.showAtResolution !== 'sm:flex');
+
+	useKeys(['Meta', 'v'], (e) => {
+		e.stopPropagation();
+		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
+		const currentLayout = explorerLayouts.indexOf(
+			explorer.settingsStore.layoutMode as ExplorerLayout
+		);
+		const nextLayout = explorerLayouts[
+			(currentLayout + 1) % explorerLayouts.length
+		] as ExplorerLayout;
+		explorer.settingsStore.layoutMode = nextLayout;
+	});
 
 	useLayoutEffect(() => {
 		const handleResize = () => {
@@ -50,7 +68,9 @@ export default ({ options }: TopBarChildrenProps) => {
 								toolTipLabel,
 								topBarActive,
 								individual,
-								showAtResolution
+								showAtResolution,
+								keybinds,
+								toolTipClassName
 							},
 							index
 						) => {
@@ -82,7 +102,11 @@ export default ({ options }: TopBarChildrenProps) => {
 														active={topBarActive}
 														onClick={onClick}
 													>
-														<Tooltip label={toolTipLabel}>
+														<Tooltip
+															keybinds={keybinds}
+															tooltipClassName={toolTipClassName}
+															label={toolTipLabel}
+														>
 															{icon}
 														</Tooltip>
 													</TopBarButton>
@@ -98,7 +122,13 @@ export default ({ options }: TopBarChildrenProps) => {
 												active={topBarActive}
 												onClick={onClick ?? undefined}
 											>
-												<Tooltip label={toolTipLabel}>{icon}</Tooltip>
+												<Tooltip
+													keybinds={keybinds}
+													tooltipClassName={toolTipClassName}
+													label={toolTipLabel}
+												>
+													{icon}
+												</Tooltip>
 											</TopBarButton>
 										)}
 									</>
