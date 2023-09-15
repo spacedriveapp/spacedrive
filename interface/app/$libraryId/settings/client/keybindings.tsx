@@ -30,7 +30,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Open Quick Preview on selected item',
-			key: [[[ModifierKeys.Control], [' ']]]
+			key: [[[], [' ']]]
 		}
 	]
 };
