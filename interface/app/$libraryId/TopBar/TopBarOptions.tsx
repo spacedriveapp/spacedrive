@@ -4,7 +4,6 @@ import { useLayoutEffect, useState } from 'react';
 import { useKeys } from 'rooks';
 import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
-
 import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
