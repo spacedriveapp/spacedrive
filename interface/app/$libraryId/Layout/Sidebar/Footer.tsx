@@ -1,6 +1,9 @@
 import { Gear } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, Popover, Tooltip } from '@sd/ui';
+import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
+import { useKeyBind, useOperatingSystem } from '~/hooks';
+import { keybindForOs } from '~/util/keybinds';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -9,6 +12,14 @@ import { IsRunningJob, JobManager } from './JobManager';
 export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
+	const os = useOperatingSystem();
+	const keybind = keybindForOs(os);
+	const navigate = useNavigate();
+
+	useKeyBind(['g', 's'], (e) => {
+		e.stopPropagation();
+		navigate('settings/client/general');
+	});
 
 	return (
 		<div className="space-y-2">
@@ -20,12 +31,13 @@ export default () => {
 						variant="subtle"
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
-						<Tooltip label="Settings">
+						<Tooltip label="Settings" keybinds={['G', 'S']}>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
+							keybind={['Meta', 'j']}
 							trigger={
 								<Button
 									size="icon"
@@ -34,7 +46,10 @@ export default () => {
 									disabled={!library}
 								>
 									{library && (
-										<Tooltip label="Recent Jobs">
+										<Tooltip
+											label="Recent Jobs"
+											keybinds={[keybind([ModifierKeys.Meta], ['J'])]}
+										>
 											<IsRunningJob />
 										</Tooltip>
 									)}
