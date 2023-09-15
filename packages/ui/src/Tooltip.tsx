@@ -11,7 +11,7 @@ export interface TooltipProps extends PropsWithChildren {
 	tooltipClassName?: string;
 	asChild?: boolean;
 	hoverable?: boolean;
-	keybinds?: Array<String | ModifierKeys>;
+	keybinds?: Array<String | keyof typeof ModifierKeys>;
 }
 
 const separateKeybinds = (keybinds: TooltipProps['keybinds']): TooltipProps['keybinds'] => {
@@ -50,7 +50,7 @@ export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: Too
 								<div className="flex items-center justify-center gap-1">
 									{separateKeybinds(props.keybinds)?.map((k, _) => (
 										<kbd
-											key={k}
+											key={k.toString()}
 											className={
 												'h-4.5 flex items-center justify-center rounded-md border border-app-selected bg-app-selected/50 px-1.5 py-0.5 text-[10px] text-ink'
 											}
