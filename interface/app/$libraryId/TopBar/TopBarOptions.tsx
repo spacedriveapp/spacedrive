@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { useKeys } from 'rooks';
-import { Popover, Tooltip } from '@sd/ui';
+import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
 
 import { useExplorerContext } from '../Explorer/Context';
@@ -17,7 +17,7 @@ export interface ToolOption {
 	topBarActive?: boolean;
 	popOverComponent?: JSX.Element;
 	showAtResolution: ShowAtResolution;
-	keybinds?: string;
+	keybinds?: Array<String | ModifierKeys>;
 }
 
 export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';

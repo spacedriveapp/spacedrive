@@ -31,7 +31,7 @@ export default () => {
 						variant="subtle"
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
-						<Tooltip label="Settings" keybinds={'GS'}>
+						<Tooltip label="Settings" keybinds={['G', 'S']}>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
@@ -48,7 +48,7 @@ export default () => {
 									{library && (
 										<Tooltip
 											label="Recent Jobs"
-											keybinds={keybind([ModifierKeys.Meta], ['J'])}
+											keybinds={[keybind([ModifierKeys.Meta], ['J'])]}
 										>
 											<IsRunningJob />
 										</Tooltip>

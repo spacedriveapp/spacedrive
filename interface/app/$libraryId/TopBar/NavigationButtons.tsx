@@ -15,7 +15,7 @@ export const NavigationButtons = () => {
 
 	return (
 		<div data-tauri-drag-region className="flex">
-			<Tooltip keybinds={keybind([ModifierKeys.Control], ['←'])} label="Navigate back">
+			<Tooltip keybinds={[keybind([ModifierKeys.Control], ['←'])]} label="Navigate back">
 				<TopBarButton
 					rounding="left"
 					// className="text-[14px] text-ink-dull"
@@ -25,7 +25,7 @@ export const NavigationButtons = () => {
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
 			</Tooltip>
-			<Tooltip keybinds={keybind([ModifierKeys.Control], ['→'])} label="Navigate forward">
+			<Tooltip keybinds={[keybind([ModifierKeys.Control], ['→'])]} label="Navigate forward">
 				<TopBarButton
 					rounding="right"
 					// className="text-[14px] text-ink-dull"

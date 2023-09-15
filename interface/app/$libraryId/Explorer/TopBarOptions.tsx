@@ -34,7 +34,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			keybinds: keybind([ModifierKeys.Meta], ['V']),
+			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
 			topBarActive: settings.layoutMode === 'grid',
 			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
@@ -42,7 +42,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			keybinds: keybind([ModifierKeys.Meta], ['V']),
+			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
 			topBarActive: settings.layoutMode === 'list',
 			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
@@ -57,7 +57,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			keybinds: keybind([ModifierKeys.Meta], ['V']),
+			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
 			topBarActive: settings.layoutMode === 'media',
 			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
@@ -74,7 +74,7 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Show Inspector',
-			keybinds: keybind([ModifierKeys.Meta], ['I']),
+			keybinds: [keybind([ModifierKeys.Meta], ['I'])],
 			onClick: () => (getExplorerStore().showInspector = !explorerStore.showInspector),
 			icon: (
 				<SidebarSimple
