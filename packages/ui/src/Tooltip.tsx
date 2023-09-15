@@ -45,14 +45,14 @@ export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: Too
 							{props.keybinds && (
 								<div className="mx-auto flex w-fit justify-center gap-1">
 									{stringToArray(props.keybinds)?.map((k, _) => (
-										<div
+										<kbd
 											key={k}
 											className={
-												'rounded-md border border-app-lightBox/60 bg-app-lightBox/40 px-1.5 py-1 text-[9px] text-white'
+												'rounded-md border border-app-lightBox/60 bg-app-lightBox/40 px-1.5 py-1 text-[10px] text-white'
 											}
 										>
 											<p>{k}</p>
-										</div>
+										</kbd>
 									))}
 								</div>
 							)}
