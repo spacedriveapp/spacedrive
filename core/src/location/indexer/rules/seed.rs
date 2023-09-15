@@ -178,7 +178,7 @@ pub fn no_os_protected() -> SystemIndexerRule {
 pub fn no_hidden() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "No Hidden",
-		default: true,
+		default: false,
 		rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
 			.expect("this is hardcoded and should always work")],
 	}

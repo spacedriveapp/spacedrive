@@ -4,7 +4,8 @@
 	"license": "GPL-3.0-only",
 	"exports": {
 		"./*": "./*",
-		"./vite": "./vite"
+		"./vite": "./vite",
+		"./vite/relativeAliasResolver": "./vite/relativeAliasResolver"
 	},
 	"scripts": {
 		"lint": "eslint . --cache"

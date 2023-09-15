@@ -13,7 +13,7 @@ use crate::{
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -73,14 +73,17 @@ pub async fn shallow(
 		orphan_count, task_count
 	);
 
-	let first_path = db
+	let Some(first_path) = db
 		.file_path()
 		.find_first(orphan_path_filters(location_id, None, &sub_iso_file_path))
 		// .order_by(file_path::id::order(Direction::Asc))
 		.select(file_path::select!({ id }))
 		.exec()
 		.await?
-		.expect("We already validated before that there are orphans `file_path`s");
+	else {
+		warn!("No orphan Paths found due to another Job finishing first");
+		return Ok(());
+	};
 
 	// Initializing `state.data` here because we need a complete state in case of early finish
 	let mut data = ShallowFileIdentifierJobState {
