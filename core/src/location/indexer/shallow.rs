@@ -71,7 +71,7 @@ pub async fn shallow(
 		(false, location_path.to_path_buf())
 	};
 
-	let (walked, to_update, to_remove, errors) = {
+	let (walked, to_update, to_remove, errors, _s) = {
 		walk_single_dir(
 			&to_walk_path,
 			&indexer_rules,

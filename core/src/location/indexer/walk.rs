@@ -44,6 +44,7 @@ pub struct WalkedEntry {
 pub struct ToWalkEntry {
 	path: PathBuf,
 	parent_dir_accepted_by_its_children: Option<bool>,
+	maybe_parent: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -109,6 +110,7 @@ where
 	pub to_walk: VecDeque<ToWalkEntry>,
 	pub to_remove: ToRemove,
 	pub errors: Vec<IndexerError>,
+	pub paths_and_sizes: HashMap<PathBuf, u64>,
 }
 
 /// This function walks through the filesystem, applying the rules to each entry and then returning
@@ -144,16 +146,18 @@ where
 	to_walk.push_back(ToWalkEntry {
 		path: root.to_path_buf(),
 		parent_dir_accepted_by_its_children: None,
+		maybe_parent: None,
 	});
 	let mut indexed_paths = HashSet::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
-	let mut paths_buffer = Vec::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_and_sizes = HashMap::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut to_remove = vec![];
 
-	while let Some(ref entry) = to_walk.pop_front() {
-		let current_to_remove = inner_walk_single_dir(
+	while let Some(entry) = to_walk.pop_front() {
+		let (entry_size, current_to_remove) = inner_walk_single_dir(
 			root,
-			entry,
+			&entry,
 			indexer_rules,
 			&mut update_notifier,
 			&to_remove_db_fetcher,
@@ -168,6 +172,14 @@ where
 		.await;
 		to_remove.push(current_to_remove);
 
+		// Saving the size of current entry
+		paths_and_sizes.insert(entry.path, entry_size);
+
+		// Adding the size of current entry to its parent
+		if let Some(parent) = entry.maybe_parent {
+			*paths_and_sizes.entry(parent).or_default() += entry_size;
+		}
+
 		if indexed_paths.len() >= limit as usize {
 			break;
 		}
@@ -181,6 +193,7 @@ where
 		to_walk,
 		to_remove: to_remove.into_iter().flatten(),
 		errors,
+		paths_and_sizes,
 	})
 }
 
@@ -209,10 +222,10 @@ where
 {
 	let mut to_keep_walking = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
-	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
 
-	let to_remove = inner_walk_single_dir(
+	let (to_walk_entry_size, to_remove) = inner_walk_single_dir(
 		to_walk_entry.path.clone(),
 		to_walk_entry,
 		indexer_rules,
@@ -236,6 +249,16 @@ where
 		to_walk: to_keep_walking,
 		to_remove: to_remove.into_iter(),
 		errors,
+		paths_and_sizes: [
+			Some((to_walk_entry.path.clone(), to_walk_entry_size)),
+			to_walk_entry
+				.maybe_parent
+				.as_ref()
+				.map(|parent_path| (parent_path.clone(), to_walk_entry_size)),
+		]
+		.into_iter()
+		.flatten()
+		.collect(),
 	})
 }
 
@@ -256,6 +279,7 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 		impl Iterator<Item = WalkedEntry>,
 		Vec<file_path_pub_and_cas_ids::Data>,
 		Vec<IndexerError>,
+		u64,
 	),
 	IndexerError,
 >
@@ -279,14 +303,15 @@ where
 		});
 	}
 
-	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
 
-	let to_remove = inner_walk_single_dir(
+	let (root_size, to_remove) = inner_walk_single_dir(
 		root,
 		&ToWalkEntry {
 			path: root.to_path_buf(),
 			parent_dir_accepted_by_its_children: None,
+			maybe_parent: None,
 		},
 		indexer_rules,
 		&mut update_notifier,
@@ -303,7 +328,7 @@ where
 
 	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
 
-	Ok((walked, to_update, to_remove, errors))
+	Ok((walked, to_update, to_remove, errors, root_size))
 }
 
 async fn filter_existing_paths<F>(
@@ -382,7 +407,7 @@ where
 
 struct WorkingTable<'a> {
 	indexed_paths: &'a mut HashSet<WalkingEntry>,
-	paths_buffer: &'a mut Vec<WalkingEntry>,
+	paths_buffer: &'a mut HashSet<WalkingEntry>,
 	maybe_to_walk: Option<&'a mut VecDeque<ToWalkEntry>>,
 	errors: &'a mut Vec<IndexerError>,
 }
@@ -392,6 +417,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 	ToWalkEntry {
 		path,
 		parent_dir_accepted_by_its_children,
+		..
 	}: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
 	update_notifier: &mut impl FnMut(&Path, usize),
@@ -406,21 +432,21 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		mut maybe_to_walk,
 		errors,
 	}: WorkingTable<'_>,
-) -> Vec<file_path_pub_and_cas_ids::Data>
+) -> (u64, Vec<file_path_pub_and_cas_ids::Data>)
 where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let Ok(iso_file_path_to_walk) = iso_file_path_factory(path, true).map_err(|e| errors.push(e))
 	else {
-		return vec![];
+		return (0, vec![]);
 	};
 
 	let Ok(mut read_dir) = fs::read_dir(path)
 		.await
 		.map_err(|e| errors.push(FileIOError::from((path.clone(), e)).into()))
 	else {
-		return vec![];
+		return (0, vec![]);
 	};
 
 	let root = root.as_ref();
@@ -537,6 +563,7 @@ where
 				to_walk.push_back(ToWalkEntry {
 					path: entry.path(),
 					parent_dir_accepted_by_its_children: accept_by_children_dir,
+					maybe_parent: Some(path.clone()),
 				});
 			}
 		}
@@ -567,7 +594,7 @@ where
 				continue;
 			};
 
-			paths_buffer.push(WalkingEntry {
+			paths_buffer.insert(WalkingEntry {
 				iso_file_path,
 				maybe_metadata: Some(metadata),
 			});
@@ -608,7 +635,7 @@ where
 
 					ancestor_iso_walking_entry.maybe_metadata = Some(metadata);
 
-					paths_buffer.push(ancestor_iso_walking_entry);
+					paths_buffer.insert(ancestor_iso_walking_entry);
 				} else {
 					// If indexed_paths contains the current ancestors, then it will contain
 					// also all if its ancestors too, so we can stop here
@@ -635,11 +662,18 @@ where
 		vec![]
 	});
 
+	let mut to_walk_entry_size = 0;
+
 	// Just merging the `found_paths` with `indexed_paths` here in the end to avoid possibly
 	// multiple rehashes during function execution
-	indexed_paths.extend(paths_buffer.drain(..));
+	indexed_paths.extend(paths_buffer.drain().map(|walking_entry| {
+		if let Some(metadata) = &walking_entry.maybe_metadata {
+			to_walk_entry_size += metadata.size_in_bytes;
+		}
+		walking_entry
+	}));
 
-	to_remove
+	(to_walk_entry_size, to_remove)
 }
 
 #[cfg(test)]

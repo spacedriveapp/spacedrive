@@ -11,11 +11,13 @@ use crate::{
 		},
 		location_with_indexer_rules,
 	},
+	prisma::{file_path, location, PrismaClient},
 	to_remove_db_fetcher_fn,
 	util::db::maybe_missing,
 };
 
 use std::{
+	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -61,6 +63,7 @@ impl Hash for IndexerJobInit {
 /// contains some metadata for logging purposes.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IndexerJobData {
+	location_path: PathBuf,
 	indexed_path: PathBuf,
 	indexer_rules: Vec<IndexerRule>,
 }
@@ -76,6 +79,7 @@ pub struct IndexerJobRunMetadata {
 	indexed_count: u64,
 	updated_count: u64,
 	removed_count: u64,
+	paths_and_sizes: HashMap<PathBuf, u64>,
 }
 
 impl JobRunMetadata for IndexerJobRunMetadata {
@@ -88,6 +92,10 @@ impl JobRunMetadata for IndexerJobRunMetadata {
 		self.total_update_steps += new_data.total_update_steps;
 		self.indexed_count += new_data.indexed_count;
 		self.removed_count += new_data.removed_count;
+
+		for (path, size) in new_data.paths_and_sizes {
+			*self.paths_and_sizes.entry(path).or_default() += size;
+		}
 	}
 }
 
@@ -186,6 +194,7 @@ impl StatefulJob for IndexerJobInit {
 			to_walk,
 			to_remove,
 			errors,
+			paths_and_sizes,
 		} = walk(
 			&to_walk_path,
 			&indexer_rules,
@@ -268,6 +277,7 @@ impl StatefulJob for IndexerJobInit {
 		);
 
 		*data = Some(IndexerJobData {
+			location_path: location_path.to_path_buf(),
 			indexed_path: to_walk_path,
 			indexer_rules,
 		});
@@ -283,6 +293,7 @@ impl StatefulJob for IndexerJobInit {
 				removed_count,
 				total_save_steps: *to_save_chunks as u64,
 				total_update_steps: *to_update_chunks as u64,
+				paths_and_sizes,
 			},
 			steps,
 			errors
@@ -362,6 +373,7 @@ impl StatefulJob for IndexerJobInit {
 					to_walk,
 					to_remove,
 					errors,
+					paths_and_sizes,
 				} = keep_walking(
 					to_walk_entry,
 					&data.indexer_rules,
@@ -371,6 +383,8 @@ impl StatefulJob for IndexerJobInit {
 					iso_file_path_factory(location_id, location_path),
 				)
 				.await?;
+
+				new_metadata.paths_and_sizes = paths_and_sizes;
 
 				new_metadata.scan_read_time = scan_start.elapsed();
 
@@ -441,7 +455,7 @@ impl StatefulJob for IndexerJobInit {
 	async fn finalize(
 		&self,
 		ctx: &WorkerContext,
-		_data: &Option<Self::Data>,
+		data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
@@ -465,6 +479,18 @@ impl StatefulJob for IndexerJobInit {
 			ctx.library.orphan_remover.invoke().await;
 		}
 
+		if let Some(data) = data {
+			if data.indexed_path == data.location_path {
+				update_entire_location_directories_sizes(
+					&run_metadata.paths_and_sizes,
+					init.location.id,
+					&data.indexed_path,
+					&ctx.library.db,
+				)
+				.await?;
+			}
+		}
+
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
@@ -479,4 +505,37 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 			))],
 		);
 	}
+}
+
+async fn update_entire_location_directories_sizes(
+	paths_and_sizes: &HashMap<PathBuf, u64>,
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	db: &PrismaClient,
+) -> Result<(), IndexerError> {
+	let location_path = location_path.as_ref();
+
+	// TODO sync stuff
+
+	db._batch(
+		paths_and_sizes
+			.iter()
+			.filter(|(path, _)| location_path != *path)
+			.map(|(path, size)| {
+				IsolatedFilePathData::new(location_id, location_path, path, true).map(
+					|iso_file_path| {
+						db.file_path().update(
+							iso_file_path.into(),
+							vec![file_path::size_in_bytes_bytes::set(Some(
+								size.to_be_bytes().to_vec(),
+							))],
+						)
+					},
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()?,
+	)
+	.await?;
+
+	Ok(())
 }
