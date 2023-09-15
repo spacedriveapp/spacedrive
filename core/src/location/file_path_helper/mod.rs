@@ -156,7 +156,9 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 
 	#[cfg(target_family = "windows")]
 	{
-		const FILE_ATTRIBUTE_HIDDEN: u8 = 0x2;
+		use std::os::windows::fs::MetadataExt;
+
+		const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
 
 		if (metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN {
 			return true;
