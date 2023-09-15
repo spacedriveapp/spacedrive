@@ -1,8 +1,8 @@
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from '@phosphor-icons/react';
 import { Folder } from '@sd/assets/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import {
 	getJobNiceActionName,
@@ -13,7 +13,8 @@ import {
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
-import { Button, Dropdown, ProgressBar, Tooltip, toast } from '@sd/ui';
+import { Button, Dropdown, ProgressBar, toast, Tooltip } from '@sd/ui';
+
 import Job from './Job';
 import JobContainer from './JobContainer';
 
@@ -205,7 +206,7 @@ function Options({
 			{activeJob === undefined ? (
 				<Dropdown.Root
 					align="right"
-					itemsClassName="!bg-app-darkBox mt-1 border-app-line/90 !divide-none top-[-10px]"
+					itemsClassName="!bg-app-darkBox !border-app-box !top-[-8px]"
 					button={
 						<Tooltip label="Actions">
 							<Button className="!px-1" variant="outline">

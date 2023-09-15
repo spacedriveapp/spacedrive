@@ -164,9 +164,9 @@ pub async fn get_volumes() -> Vec<Volume> {
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
-				match disk.type_() {
-					sysinfo::DiskType::SSD => DiskType::SSD,
-					sysinfo::DiskType::HDD => DiskType::HDD,
+				match disk.kind() {
+					sysinfo::DiskKind::SSD => DiskType::SSD,
+					sysinfo::DiskKind::HDD => DiskType::HDD,
 					_ => DiskType::Removable,
 				}
 			},
@@ -334,9 +334,9 @@ pub async fn get_volumes() -> Vec<Volume> {
 			disk_type: if disk.is_removable() {
 				DiskType::Removable
 			} else {
-				match disk.type_() {
-					sysinfo::DiskType::SSD => DiskType::SSD,
-					sysinfo::DiskType::HDD => DiskType::HDD,
+				match disk.kind() {
+					sysinfo::DiskKind::SSD => DiskType::SSD,
+					sysinfo::DiskKind::HDD => DiskType::HDD,
 					_ => DiskType::Removable,
 				}
 			},
