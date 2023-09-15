@@ -18,31 +18,19 @@ type Shortcut = {
 	key: [ModifierKeys[], string[]][];
 };
 
-// should this be an external JSON import?
 const shortcutCategories: Record<string, Shortcut[]> = {
 	Explorer: [
 		{
 			action: 'Navigate forward in folder history',
-			key: [
-				[[ModifierKeys.Control], [']']],
-				[[ModifierKeys.Control], ['ArrowRight']]
-			]
+			key: [[[ModifierKeys.Control], ['ArrowRight']]]
 		},
 		{
 			action: 'Navigate backward in folder history',
-			key: [
-				[[ModifierKeys.Control], ['[']],
-				[[ModifierKeys.Control], ['ArrowLeft']]
-			]
+			key: [[[ModifierKeys.Control], ['ArrowLeft']]]
 		},
 		{
-			action: 'Show enclosing folder',
-			key: [[[ModifierKeys.Control], ['ArrowUp']]]
-		},
-		{
-			action: 'Open selected item',
-			key: [[[ModifierKeys.Control], ['ArrowDown']]]
-			// windows: ['Enter'] — issue #1148
+			action: 'Open Quick Preview on selected item',
+			key: [[[ModifierKeys.Control], [' ']]]
 		}
 	]
 };
@@ -138,12 +126,12 @@ function createKeybindColumns(os: OperatingSystem) {
 							return (
 								<>
 									<kbd
-										className="rounded-lg border border-app-line bg-app-box px-2 py-1 text-sm shadow"
+										className="rounded-lg border border-app-line bg-app-box px-2 py-1 text-sm tracking-widest shadow"
 										key={key}
 									>
 										{key}
 									</kbd>
-									{i !== shortcut.length - 1 && (
+									{i !== shortcut.split('').length - 1 && (
 										<span className="mx-1 font-thin text-ink-faint">+</span>
 									)}
 								</>
