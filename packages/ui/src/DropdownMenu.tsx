@@ -118,7 +118,6 @@ const Item = ({
 	icon,
 	iconProps,
 	label,
-	rightArrow,
 	children,
 	keybind,
 	variant,
@@ -135,13 +134,13 @@ const Item = ({
 				<Link to={to} onClick={() => ref.current?.click()}>
 					<ContextMenuDivItem
 						className={clsx(selected && 'bg-accent text-white')}
-						{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+						{...{ icon, iconProps, label, keybind, variant, children }}
 					/>
 				</Link>
 			) : (
 				<ContextMenuDivItem
 					className={clsx(selected && 'bg-accent text-white')}
-					{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+					{...{ icon, iconProps, label, keybind, variant, children }}
 				/>
 			)}
 		</RadixDM.Item>
