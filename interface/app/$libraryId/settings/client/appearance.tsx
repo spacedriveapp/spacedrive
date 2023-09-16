@@ -231,8 +231,8 @@ export const Component = () => {
 						onChange={(e) => (getUnitFormatStore().coordinatesFormat = e)}
 						value={formatStore.coordinatesFormat}
 					>
-						<SelectOption value="dd">DD</SelectOption>
 						<SelectOption value="dms">DMS</SelectOption>
+						<SelectOption value="dd">Decimal</SelectOption>
 					</Select>
 				</Setting>
 

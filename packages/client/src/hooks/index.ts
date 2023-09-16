@@ -10,4 +10,4 @@ export * from './useTelemetryState';
 export * from './useThemeStore';
 export * from './useNotifications';
 export * from './useForceUpdate';
-export * from './useFormatStore';
+export * from './useUnitFormatStore';
