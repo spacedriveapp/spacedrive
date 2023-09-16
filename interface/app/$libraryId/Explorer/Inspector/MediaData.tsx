@@ -3,7 +3,7 @@ import {
 	MediaLocation,
 	MediaMetadata,
 	MediaTime,
-	useThemeStore
+	useUnitFormatStore
 } from '@sd/client';
 import Accordion from '~/components/Accordion';
 import { Platform, usePlatform } from '~/util/Platform';
@@ -27,7 +27,7 @@ const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
 	return `${loc.latitude.toFixed(dp ?? 8)}, ${loc.longitude.toFixed(dp ?? 8)}`;
 };
 
-const formatLocationDMS = (loc: MediaLocation): string => {
+const formatLocationDMS = (loc: MediaLocation, dp?: number): string => {
 	const formatCoordinatesAsDMS = (
 		coordinates: number,
 		positiveChar: string,
@@ -37,7 +37,7 @@ const formatLocationDMS = (loc: MediaLocation): string => {
 		const d = Math.trunc(coordinates);
 		const m = Math.trunc(60 * abs);
 		// adding 0.05 before rounding and truncating with `toFixed` makes it match up with google
-		const s = (abs * 3600 - m * 60 + 0.05).toFixed(1);
+		const s = (abs * 3600 - m * 60 + 0.05).toFixed(dp ?? 1);
 		const sign = coordinates > 0 ? positiveChar : negativeChar;
 		return `${d}°${m}'${s}"${sign}`;
 	};
@@ -56,7 +56,7 @@ const getAbsoluteDecimals = (num: number): number => {
 };
 
 const formatLocation = (loc: MediaLocation, format: CoordinatesFormat, dp?: number): string => {
-	return format === 'dd' ? formatLocationDD(loc, dp) : formatLocationDMS(loc);
+	return format === 'dd' ? formatLocationDD(loc, dp) : formatLocationDMS(loc, dp);
 };
 
 const UrlMetadataValue = (props: { text: string; url: string; platform: Platform }) => (
@@ -83,7 +83,7 @@ const orientations = {
 
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
-	const coordinatesFormat = useThemeStore().coordinatesFormat;
+	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
 
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
@@ -99,7 +99,11 @@ const MediaData = ({ data }: Props) => {
 								url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
 									formatLocation(data.location, 'dd')
 								)}`}
-								text={formatLocation(data.location, coordinatesFormat, 4)}
+								text={formatLocation(
+									data.location,
+									coordinatesFormat,
+									coordinatesFormat === 'dd' ? 4 : 0
+								)}
 								platform={platform}
 							/>
 						)
