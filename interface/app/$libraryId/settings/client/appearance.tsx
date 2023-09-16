@@ -2,7 +2,17 @@ import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { CoordinatesFormat, getThemeStore, Themes, useThemeStore, useZodForm } from '@sd/client';
+import {
+	CoordinatesFormat,
+	DistanceFormat,
+	getFormatStore,
+	getThemeStore,
+	TemperatureFormat,
+	Themes,
+	useFormatStore,
+	useThemeStore,
+	useZodForm
+} from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
@@ -56,6 +66,8 @@ const themes: Theme[] = [
 export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
+	const formatStore = useFormatStore();
+
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
@@ -107,6 +119,7 @@ export const Component = () => {
 			document.documentElement.style.setProperty('--dark-hue', hue.toString());
 		}
 	};
+
 	return (
 		<>
 			<Form form={form} onSubmit={onSubmit}>
@@ -219,26 +232,34 @@ export const Component = () => {
 				<Setting mini title="Coordinates">
 					<Select
 						onChange={(e) =>
-							(getThemeStore().coordinatesFormat = e as CoordinatesFormat)
+							(getFormatStore().coordinatesFormat = e as CoordinatesFormat)
 						}
-						value={themeStore.coordinatesFormat}
+						value={formatStore.coordinatesFormat}
 					>
 						<SelectOption value="dd">DD</SelectOption>
 						<SelectOption value="dms">DMS</SelectOption>
 					</Select>
 				</Setting>
 
-				<Setting mini className="opacity-30" title="Temperature">
-					<Select disabled className="opacity-30" onChange={(e) => {}} value="celsius">
-						<SelectOption value="celsius">Celsius</SelectOption>
-						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
+				<Setting mini title="Distance">
+					<Select
+						onChange={(e) => (getFormatStore().distanceFormat = e as DistanceFormat)}
+						value={formatStore.distanceFormat}
+					>
+						<SelectOption value="km">Kilometers</SelectOption>
+						<SelectOption value="miles">Miles</SelectOption>
 					</Select>
 				</Setting>
 
-				<Setting mini className="opacity-30" title="Distance">
-					<Select disabled className="opacity-30" onChange={(e) => {}} value="km">
-						<SelectOption value="km">Kilometers</SelectOption>
-						<SelectOption value="miles">Miles</SelectOption>
+				<Setting mini title="Temperature">
+					<Select
+						onChange={(e) =>
+							(getFormatStore().temperatureFormat = e as TemperatureFormat)
+						}
+						value={formatStore.temperatureFormat}
+					>
+						<SelectOption value="celsius">Celsius</SelectOption>
+						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
 					</Select>
 				</Setting>
 			</div>
