@@ -3,14 +3,11 @@ import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import {
-	CoordinatesFormat,
-	DistanceFormat,
-	getFormatStore,
 	getThemeStore,
-	TemperatureFormat,
+	getUnitFormatStore,
 	Themes,
-	useFormatStore,
 	useThemeStore,
+	useUnitFormatStore,
 	useZodForm
 } from '@sd/client';
 import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
@@ -66,7 +63,7 @@ const themes: Theme[] = [
 export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
-	const formatStore = useFormatStore();
+	const formatStore = useUnitFormatStore();
 
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
@@ -231,9 +228,7 @@ export const Component = () => {
 
 				<Setting mini title="Coordinates">
 					<Select
-						onChange={(e) =>
-							(getFormatStore().coordinatesFormat = e as CoordinatesFormat)
-						}
+						onChange={(e) => (getUnitFormatStore().coordinatesFormat = e)}
 						value={formatStore.coordinatesFormat}
 					>
 						<SelectOption value="dd">DD</SelectOption>
@@ -243,7 +238,7 @@ export const Component = () => {
 
 				<Setting mini title="Distance">
 					<Select
-						onChange={(e) => (getFormatStore().distanceFormat = e as DistanceFormat)}
+						onChange={(e) => (getUnitFormatStore().distanceFormat = e)}
 						value={formatStore.distanceFormat}
 					>
 						<SelectOption value="km">Kilometers</SelectOption>
@@ -253,9 +248,7 @@ export const Component = () => {
 
 				<Setting mini title="Temperature">
 					<Select
-						onChange={(e) =>
-							(getFormatStore().temperatureFormat = e as TemperatureFormat)
-						}
+						onChange={(e) => (getUnitFormatStore().temperatureFormat = e)}
 						value={formatStore.temperatureFormat}
 					>
 						<SelectOption value="celsius">Celsius</SelectOption>

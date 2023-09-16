@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
 	DistanceFormat,
-	getFormatStore,
 	getOnboardingStore,
+	getUnitFormatStore,
 	resetOnboardingStore,
 	telemetryStore,
 	TemperatureFormat,
@@ -79,8 +79,8 @@ const useFormState = () => {
 
 	if (window.navigator.language === 'en-US') {
 		// not perfect as some linux users use en-US by default, same w/ windows
-		getFormatStore().distanceFormat = 'miles' satisfies DistanceFormat;
-		getFormatStore().temperatureFormat = 'fahrenheit' satisfies TemperatureFormat;
+		getUnitFormatStore().distanceFormat = 'miles';
+		getUnitFormatStore().temperatureFormat = 'fahrenheit';
 	}
 
 	const createLibrary = useBridgeMutation('library.create');
