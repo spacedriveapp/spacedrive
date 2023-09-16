@@ -133,7 +133,16 @@ const MediaData = ({ data }: Props) => {
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
-				<MetaData label="Zoom" value={data.camera_data.zoom?.toFixed(2)} />
+				<MetaData
+					label="Zoom"
+					value={
+						data.camera_data &&
+						data.camera_data.zoom &&
+						!Number.isNaN(data.camera_data.zoom)
+							? `${data.camera_data.zoom.toFixed(2) + 'x'}`
+							: '--'
+					}
+				/>
 				<MetaData label="Iso" value={data.camera_data.iso} />
 				<MetaData label="Software" value={data.camera_data.software} />
 			</Accordion>
