@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { memo, useEffect, useRef, useState } from 'react';
+
 import './prism.css';
 
 export interface TextViewerProps {

@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Trash, X } from 'phosphor-react';
+import { Check, Trash, X } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useJobProgress, useLibraryMutation } from '@sd/client';
-import { Button, PopoverClose, Tooltip, toast } from '@sd/ui';
+import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
+
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 

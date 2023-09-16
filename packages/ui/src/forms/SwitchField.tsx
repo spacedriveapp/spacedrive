@@ -1,8 +1,9 @@
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { useController } from 'react-hook-form';
+
 import { Switch, SwitchProps } from '../Switch';
-import { FormField, UseFormFieldProps, useFormField } from './FormField';
+import { FormField, useFormField, UseFormFieldProps } from './FormField';
 
 export interface SwitchFieldProps extends UseFormFieldProps, SwitchProps {
 	name: string;

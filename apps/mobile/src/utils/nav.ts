@@ -1,8 +1,8 @@
 import {
 	DrawerNavigationState,
+	getFocusedRouteNameFromRoute,
 	ParamListBase,
-	Route,
-	getFocusedRouteNameFromRoute
+	Route
 } from '@react-navigation/native';
 import { valtioPersist } from '@sd/client';
 

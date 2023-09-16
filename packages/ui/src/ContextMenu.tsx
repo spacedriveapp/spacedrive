@@ -1,8 +1,8 @@
+import { CaretRight, Check, Icon, IconProps } from '@phosphor-icons/react';
 import * as RadixCM from '@radix-ui/react-context-menu';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { CaretRight, Icon, IconProps } from 'phosphor-react';
-import { ContextType, PropsWithChildren, Suspense, createContext, useContext } from 'react';
+import { ContextType, createContext, PropsWithChildren, Suspense, useContext } from 'react';
 
 interface ContextMenuProps extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;
@@ -109,52 +109,90 @@ const contextMenuItemStyles = cva(
 	}
 );
 
-export interface ContextMenuItemProps extends VariantProps<typeof contextMenuItemStyles> {
-	icon?: Icon;
-	iconProps?: IconProps;
-	rightArrow?: boolean;
-	label?: string;
-	keybind?: string;
-}
+export interface ContextMenuItemProps
+	extends RadixCM.MenuItemProps,
+		VariantProps<typeof contextMenuItemStyles>,
+		Pick<ContextMenuInnerItemProps, 'label' | 'keybind' | 'icon' | 'iconProps'> {}
 
 export const contextMenuItemClassNames = 'group py-0.5 outline-none px-1';
 
 const Item = ({
 	icon,
 	label,
-	rightArrow,
 	children,
 	keybind,
 	variant,
 	iconProps,
 	onClick,
 	...props
-}: ContextMenuItemProps & RadixCM.MenuItemProps) => {
+}: ContextMenuItemProps) => {
 	return (
 		<RadixCM.Item
 			className={contextMenuItemClassNames}
 			onClick={(e) => !props.disabled && onClick?.(e)}
 			{...props}
 		>
-			<ContextMenuDivItem
-				{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
-			/>
+			<ContextMenuDivItem {...{ icon, iconProps, label, keybind, variant, children }} />
 		</RadixCM.Item>
 	);
 };
+
+export interface ContextMenuCheckboxItemProps
+	extends RadixCM.MenuCheckboxItemProps,
+		VariantProps<typeof contextMenuItemStyles>,
+		Pick<ContextMenuInnerItemProps, 'label' | 'keybind'> {}
+
+const CheckboxItem = ({
+	variant,
+	className,
+	label,
+	keybind,
+	children,
+	...props
+}: ContextMenuCheckboxItemProps) => {
+	return (
+		<RadixCM.CheckboxItem className={contextMenuItemClassNames} {...props}>
+			<ContextMenuDivItem variant={variant} className={className}>
+				<span className="flex h-3.5 w-3.5 items-center justify-center">
+					<RadixCM.ItemIndicator>
+						<Check weight="bold" />
+					</RadixCM.ItemIndicator>
+				</span>
+
+				<ItemInternals {...{ label, keybind, children }} />
+			</ContextMenuDivItem>
+		</RadixCM.CheckboxItem>
+	);
+};
+
+interface ContextMenuInnerItemProps {
+	icon?: Icon;
+	iconProps?: IconProps;
+	label?: string;
+	keybind?: string;
+	rightArrow?: boolean;
+}
 
 export const ContextMenuDivItem = ({
 	variant,
 	children,
 	className,
 	...props
-}: PropsWithChildren<ContextMenuItemProps & { className?: string }>) => (
+}: ContextMenuInnerItemProps &
+	VariantProps<typeof contextMenuItemStyles> &
+	PropsWithChildren<{ className?: string }>) => (
 	<div className={contextMenuItemStyles({ variant, className })}>
 		{children || <ItemInternals {...props} />}
 	</div>
 );
 
-const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextMenuItemProps) => {
+const ItemInternals = ({
+	icon,
+	label,
+	rightArrow,
+	keybind,
+	iconProps
+}: ContextMenuInnerItemProps) => {
 	const ItemIcon = icon;
 
 	return (
@@ -181,6 +219,7 @@ const ItemInternals = ({ icon, label, rightArrow, keybind, iconProps }: ContextM
 export const ContextMenu = {
 	Root,
 	Item,
+	CheckboxItem,
 	Separator,
 	SubMenu
 };

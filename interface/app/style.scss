@@ -50,6 +50,41 @@ body {
 	display: none;
 }
 
+/*Tooltip*/
+
+.TooltipContent {
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.TooltipContent[data-side='top'] {
+  animation-name: slideUp;
+}
+.TooltipContent[data-side='bottom'] {
+  animation-name: slideDown;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */
 	scrollbar-width: none; /* for Firefox */
@@ -69,7 +104,7 @@ body {
 		@apply mt-[46px] rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-box;
+		@apply rounded-[6px] bg-app-explorerScrollbar;
 	}
 }
 
@@ -167,7 +202,7 @@ body {
 		@apply bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply bg-app-box;
+		@apply bg-app-box rounded-md;
 	}
 }
 

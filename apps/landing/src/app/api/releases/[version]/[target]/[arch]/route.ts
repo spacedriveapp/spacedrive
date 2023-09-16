@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+
 import { env } from '~/env';
 
 const version = z.union([z.literal('stable'), z.literal('alpha')]);

@@ -1,5 +1,6 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+
 import Header from '~/components/header/Header';
 import { tw } from '~/lib/tailwind';
 import OverviewScreen from '../../screens/Overview';

@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useContext, useRef } from 'react';
+import { createContext, PropsWithChildren, useContext, useRef } from 'react';
+
 import { JobProgressEvent } from '../../core';
 
 const JobManagerContext = createContext<ReturnType<typeof useValue> | null>(null);

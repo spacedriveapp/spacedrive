@@ -1,7 +1,8 @@
-import { Pencil, Plus, Trash } from 'phosphor-react';
+import { Pencil, Plus, Trash } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
+
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/tags/DeleteDialog';
 

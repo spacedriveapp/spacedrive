@@ -1,5 +1,6 @@
 import React from 'react';
 import WheelColorPicker from 'react-native-wheel-color-picker';
+
 import { tw } from '~/lib/tailwind';
 
 type ColorPickerProps = {

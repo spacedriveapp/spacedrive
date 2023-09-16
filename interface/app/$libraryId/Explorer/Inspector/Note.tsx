@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Divider, TextArea } from '@sd/ui';
+
 import { MetaContainer, MetaTitle } from '../Inspector';
 import { useExplorerStore } from '../store';
 

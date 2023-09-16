@@ -7,6 +7,7 @@ import Animated, {
 	useSharedValue,
 	withTiming
 } from 'react-native-reanimated';
+
 import Layout from '~/constants/Layout';
 
 type MotiViewProps = PropsWithChildren<ViewProps>;

@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { memo } from 'react';
-import { type ExplorerItem, byteSize, getItemFilePath, getItemLocation } from '@sd/client';
+import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
+
 import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -78,7 +79,9 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
-					renamable={explorer.selectedItems.size === 1 && !quickPreviewStore.open}
+					renamable={
+						selected && explorer.selectedItems.size === 1 && !quickPreviewStore.open
+					}
 				/>
 			)}
 		</GridList>

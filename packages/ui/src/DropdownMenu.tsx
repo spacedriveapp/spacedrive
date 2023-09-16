@@ -2,20 +2,21 @@ import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import React, {
 	ContextType,
+	createContext,
 	PropsWithChildren,
 	Suspense,
-	createContext,
 	useCallback,
 	useContext,
 	useRef,
 	useState
 } from 'react';
 import { Link } from 'react-router-dom';
+
 import {
-	ContextMenuDivItem,
-	ContextMenuItemProps,
 	contextMenuClassNames,
+	ContextMenuDivItem,
 	contextMenuItemClassNames,
+	ContextMenuItemProps,
 	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
@@ -117,7 +118,6 @@ const Item = ({
 	icon,
 	iconProps,
 	label,
-	rightArrow,
 	children,
 	keybind,
 	variant,
@@ -134,13 +134,13 @@ const Item = ({
 				<Link to={to} onClick={() => ref.current?.click()}>
 					<ContextMenuDivItem
 						className={clsx(selected && 'bg-accent text-white')}
-						{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+						{...{ icon, iconProps, label, keybind, variant, children }}
 					/>
 				</Link>
 			) : (
 				<ContextMenuDivItem
 					className={clsx(selected && 'bg-accent text-white')}
-					{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+					{...{ icon, iconProps, label, keybind, variant, children }}
 				/>
 			)}
 		</RadixDM.Item>

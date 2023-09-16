@@ -1,4 +1,4 @@
-import { PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, PropsWithChildren } from 'react';
 import { cx } from '@sd/ui';
 
 export default forwardRef<HTMLDivElement, PropsWithChildren & { className?: string }>(

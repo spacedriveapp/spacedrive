@@ -1,5 +1,6 @@
 import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect, useRef } from 'react';
+
 import { useDebugState } from './useDebugState';
 import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useTelemetryState';
 

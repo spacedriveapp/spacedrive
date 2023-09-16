@@ -1,6 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { useBridgeQuery, useJobProgress } from '@sd/client';
+
 import JobGroup from '~/components/job/JobGroup';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';

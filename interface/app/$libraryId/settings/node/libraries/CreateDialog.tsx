@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { LibraryConfigWrapped, useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
-import { Dialog, InputField, UseDialogProps, useDialog, z } from '@sd/ui';
+import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
 
 const schema = z.object({
 	name: z

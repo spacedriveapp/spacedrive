@@ -4,9 +4,10 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import Link from 'next/link';
 import { NextRouter, useRouter } from 'next/router';
-import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, Dropdown } from '@sd/ui';
+
 import { positions } from '~/pages/careers';
 import { getWindow } from '~/utils/util';
 
@@ -95,33 +96,33 @@ export default function NavBar() {
 				>
 					<Dropdown.Section>
 						<Dropdown.Item
-							icon={Github}
-							onClick={redirect('https://github.com/spacedriveapp/spacedrive')}
-						>
-							Repository
-						</Dropdown.Item>
-						<Dropdown.Item
 							icon={Discord}
 							onClick={redirect('https://discord.gg/gTaF2Z44f5')}
 						>
 							Join Discord
+						</Dropdown.Item>
+						<Dropdown.Item
+							icon={Github}
+							onClick={redirect('https://github.com/spacedriveapp/spacedrive')}
+						>
+							Repository
 						</Dropdown.Item>
 					</Dropdown.Section>
 					<Dropdown.Section>
 						<Dropdown.Item icon={MapPin} {...link('/roadmap', router)}>
 							Roadmap
 						</Dropdown.Item>
-						<Dropdown.Item
-							icon={Book}
-							{...link('/docs/product/getting-started/introduction', router)}
-						>
-							Docs
-						</Dropdown.Item>
 						<Dropdown.Item icon={User} {...link('/team', router)}>
 							Team
 						</Dropdown.Item>
 						<Dropdown.Item icon={Chat} {...link('/blog', router)}>
 							Blog
+						</Dropdown.Item>
+						<Dropdown.Item
+							icon={Book}
+							{...link('/docs/product/getting-started/introduction', router)}
+						>
+							Docs
 						</Dropdown.Item>
 						<Dropdown.Item icon={Academia} {...link('/careers', router)}>
 							Careers

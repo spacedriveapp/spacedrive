@@ -29,3 +29,28 @@ pub const OFFSET_TAGS: [Tag; 3] = [
 	Tag::OffsetTimeOriginal,
 	Tag::OffsetTimeDigitized,
 ];
+
+/// The Earth's maximum latitude (can also be negative, depending on if you're North or South of the Equator).
+pub const LAT_MAX_POS: f64 = 90_f64;
+
+/// The Earth's maximum longitude (can also be negative depending on if you're East or West of the Prime meridian).
+///
+/// The negative value of this is known as the anti-meridian, and when combined they make a 360 degree circle around the Earth.
+pub const LONG_MAX_POS: f64 = 180_f64;
+
+/// 125km. This is the Kármán line + a 25km additional padding just to be safe.
+pub const ALT_MAX_HEIGHT: i32 = 125_000_i32;
+
+/// -1km. This should be adequate for even the Dead Sea on the Israeli border,
+/// the lowest point on land (and much deeper).
+pub const ALT_MIN_HEIGHT: i32 = -1000_i32;
+
+/// The maximum degrees that a direction can be (as a bearing, starting from 0 degrees)
+pub const DIRECTION_MAX: i32 = 360;
+
+pub const PLUSCODE_DIGITS: [char; 20] = [
+	'2', '3', '4', '5', '6', '7', '8', '9', 'C', 'F', 'G', 'H', 'J', 'M', 'P', 'Q', 'R', 'V', 'W',
+	'X',
+];
+
+pub const PLUSCODE_GRID_SIZE: f64 = 20.0;

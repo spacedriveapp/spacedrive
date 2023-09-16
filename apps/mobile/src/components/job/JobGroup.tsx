@@ -5,17 +5,18 @@ import { useMemo, useState } from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
+	getJobNiceActionName,
+	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
 	JobReport,
-	getJobNiceActionName,
-	getTotalTasks,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
+
 import { tw } from '~/lib/tailwind';
-import { ProgressBar } from '../animation/ProgressBar';
 import { AnimatedHeight } from '../animation/layout';
+import { ProgressBar } from '../animation/ProgressBar';
 import { Button } from '../primitive/Button';
 import Job from './Job';
 import JobContainer from './JobContainer';

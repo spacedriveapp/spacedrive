@@ -1,8 +1,9 @@
-import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
+import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
-import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
+import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
+
 import demoData from './demoData.json';
 
 // TODO: Restore this once TS is back up to functionality in rspc.

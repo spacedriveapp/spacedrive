@@ -154,6 +154,10 @@ async fn execute_indexer_save_step(
 					(date_indexed::NAME, json!(Utc::now())),
 					date_indexed::set(Some(Utc::now().into())),
 				),
+				(
+					(hidden::NAME, json!(entry.metadata.hidden)),
+					hidden::set(Some(entry.metadata.hidden)),
+				),
 			]
 			.into_iter()
 			.unzip();
@@ -333,28 +337,15 @@ macro_rules! file_paths_db_fetcher_fn {
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $db:expr) => {{
-		|iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
-			struct PubAndCasId {
-				pub_id: ::uuid::Uuid,
-				maybe_cas_id: Option<String>,
-			}
-
-			impl ::std::hash::Hash for PubAndCasId {
-				fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-					self.pub_id.hash(state);
-				}
-			}
-
-			impl ::std::cmp::PartialEq for PubAndCasId {
-				fn eq(&self, other: &Self) -> bool {
-					self.pub_id == other.pub_id
-				}
-			}
-
-			impl ::std::cmp::Eq for PubAndCasId {}
-
-			let iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<'static> =
-				iso_file_path;
+		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
+			let location_id: $crate::prisma::location::id::Type = $location_id;
+			let db: &$crate::prisma::PrismaClient = $db;
+			let parent_iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<
+				'static,
+			> = parent_iso_file_path;
+			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
+				$crate::prisma::file_path::WhereParam,
+			> = unique_location_id_materialized_path_name_extension_params;
 
 			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
 			let chunks = unique_location_id_materialized_path_name_extension_params
@@ -362,63 +353,36 @@ macro_rules! to_remove_db_fetcher_fn {
 				.chunks(200)
 				.into_iter()
 				.map(|unique_params| {
-					$db.file_path()
-						.find_many(vec![
-							$crate::prisma::file_path::location_id::equals(Some($location_id)),
-							$crate::prisma::file_path::materialized_path::equals(Some(
-								iso_file_path.materialized_path_for_children().expect(
-									"the received isolated file path must be from a directory",
-								),
-							)),
-							::prisma_client_rust::operator::not(vec![
-								::prisma_client_rust::operator::or(unique_params.collect()),
-							]),
-						])
-						.select(
-							$crate::location::file_path_helper::file_path_pub_and_cas_ids::select(),
-						)
+					db.file_path()
+						.find_many(vec![::prisma_client_rust::operator::or(
+							unique_params.collect(),
+						)])
+						.select($crate::prisma::file_path::select!({ id }))
 				})
 				.collect::<::std::vec::Vec<_>>();
 
-			$db._batch(chunks)
+			let founds_ids = db._batch(chunks).await.map(|founds_chunk| {
+				founds_chunk
+					.into_iter()
+					.map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
+					.flatten()
+					.collect::<Vec<_>>()
+			})?;
+
+			$db.file_path()
+				.find_many(vec![
+					$crate::prisma::file_path::location_id::equals(Some(location_id)),
+					$crate::prisma::file_path::materialized_path::equals(Some(
+						parent_iso_file_path
+							.materialized_path_for_children()
+							.expect("the received isolated file path must be from a directory"),
+					)),
+					$crate::prisma::file_path::id::not_in_vec(founds_ids),
+				])
+				.select($crate::location::file_path_helper::file_path_pub_and_cas_ids::select())
+				.exec()
 				.await
-				.map(|to_remove| {
-					// This is an intersection between all sets
-					let mut sets = to_remove
-						.into_iter()
-						.map(|fetched_vec| {
-							fetched_vec
-								.into_iter()
-								.map(|fetched| PubAndCasId {
-									pub_id: ::uuid::Uuid::from_slice(&fetched.pub_id)
-										.expect("file_path.pub_id is invalid!"),
-									maybe_cas_id: fetched.cas_id,
-								})
-								.collect::<::std::collections::HashSet<_>>()
-						})
-						.collect::<Vec<_>>();
-
-					let mut intersection = ::std::collections::HashSet::new();
-					while let Some(set) = sets.pop() {
-						for pub_and_cas_ids in set {
-							// Remove returns true if the element was present in the set
-							if sets.iter_mut().all(|set| set.remove(&pub_and_cas_ids)) {
-								intersection.insert(pub_and_cas_ids);
-							}
-						}
-					}
-
-					intersection
-						.into_iter()
-						.map(|pub_and_cas_ids| {
-							$crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
-								pub_id: pub_and_cas_ids.pub_id.as_bytes().to_vec(),
-								cas_id: pub_and_cas_ids.maybe_cas_id,
-							}
-						})
-						.collect()
-				})
-				.map_err(::std::convert::Into::into)
+				.map_err(Into::into)
 		}
 	}};
 }

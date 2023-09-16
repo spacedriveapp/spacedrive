@@ -1,14 +1,15 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
 import { ObjectOrder, useLibraryQuery } from '@sd/client';
+
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { EmptyNotice } from '../Explorer/View';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {

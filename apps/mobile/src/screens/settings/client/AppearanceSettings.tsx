@@ -2,6 +2,7 @@ import { CheckCircle } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { Themes, useThemeStore } from '@sd/client';
+
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import Colors from '~/constants/style/Colors';
 import { tw, twStyle } from '~/lib/tailwind';

@@ -1,9 +1,9 @@
 use libp2p::swarm::{
 	handler::{
-		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, ConnectionHandlerUpgrErr,
-		FullyNegotiatedInbound, KeepAlive,
+		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
+		KeepAlive,
 	},
-	SubstreamProtocol,
+	StreamUpgradeError, SubstreamProtocol,
 };
 use std::{
 	collections::VecDeque,
@@ -29,7 +29,7 @@ pub struct SpaceTimeConnection<TMetadata: Metadata> {
 		ConnectionHandlerEvent<
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
-			<Self as ConnectionHandler>::OutEvent,
+			<Self as ConnectionHandler>::ToBehaviour,
 			<Self as ConnectionHandler>::Error,
 		>,
 	>,
@@ -48,9 +48,9 @@ impl<TMetadata: Metadata> SpaceTimeConnection<TMetadata> {
 // pub enum Connection
 
 impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
-	type InEvent = OutboundRequest;
-	type OutEvent = ManagerStreamAction2<TMetadata>;
-	type Error = ConnectionHandlerUpgrErr<io::Error>;
+	type FromBehaviour = OutboundRequest;
+	type ToBehaviour = ManagerStreamAction2<TMetadata>;
+	type Error = StreamUpgradeError<io::Error>;
 	type InboundProtocol = InboundProtocol<TMetadata>;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
@@ -67,7 +67,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		.with_timeout(SUBSTREAM_TIMEOUT)
 	}
 
-	fn on_behaviour_event(&mut self, req: Self::InEvent) {
+	fn on_behaviour_event(&mut self, req: Self::FromBehaviour) {
 		// TODO: Working keep alives
 		// self.keep_alive = KeepAlive::Yes;
 		// self.outbound.push_back(request);
@@ -75,7 +75,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		self.pending_events
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
-					OutboundProtocol(self.manager.application_name, req),
+					OutboundProtocol(self.manager.application_name.clone(), req),
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?
 				.with_timeout(SUBSTREAM_TIMEOUT),
@@ -93,7 +93,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 		ConnectionHandlerEvent<
 			Self::OutboundProtocol,
 			Self::OutboundOpenInfo,
-			Self::OutEvent,
+			Self::ToBehaviour,
 			Self::Error,
 		>,
 	> {
@@ -121,7 +121,7 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 				protocol, ..
 			}) => {
 				self.pending_events
-					.push_back(ConnectionHandlerEvent::Custom(protocol));
+					.push_back(ConnectionHandlerEvent::NotifyBehaviour(protocol));
 			}
 			ConnectionEvent::FullyNegotiatedOutbound(_) => {}
 			ConnectionEvent::DialUpgradeError(event) => {
@@ -135,6 +135,8 @@ impl<TMetadata: Metadata> ConnectionHandler for SpaceTimeConnection<TMetadata> {
 			ConnectionEvent::AddressChange(_) => {
 				// TODO: Should we be telling `SpaceTime` to update it's info here or is it also getting this event?
 			}
+			ConnectionEvent::LocalProtocolsChange(_) => {}
+			ConnectionEvent::RemoteProtocolsChange(_) => {}
 		}
 	}
 }

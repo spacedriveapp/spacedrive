@@ -1,4 +1,5 @@
 import type { Preview } from '@storybook/react';
+
 import '@sd/ui/style';
 
 const preview: Preview = {

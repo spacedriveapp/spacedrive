@@ -1,7 +1,8 @@
-import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
+import { GoogleDrive, iCloud, Mega } from '@sd/assets/images';
 import clsx from 'clsx';
-import { Icon, User } from 'phosphor-react';
+import { Icon, User } from '@phosphor-icons/react';
 import { tw } from '@sd/ui';
+
 import { SubtleButton, SubtleButtonContainer } from '~/components';
 import { OperatingSystem } from '~/util/Platform';
 import classes from './spacedrop.module.scss';

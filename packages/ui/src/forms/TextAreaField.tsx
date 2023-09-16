@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
+
 import * as Root from '../Input';
-import { useFormField } from './FormField';
-import { FormField, UseFormFieldProps } from './FormField';
+import { FormField, useFormField, UseFormFieldProps } from './FormField';
 
 export interface TextAreaFieldProps extends UseFormFieldProps, Root.TextareaProps {
 	name: string;

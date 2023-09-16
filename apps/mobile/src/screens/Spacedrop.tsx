@@ -1,7 +1,8 @@
-import { GoogleDrive, Mega, iCloud } from '@sd/assets/images';
+import { GoogleDrive, iCloud, Mega } from '@sd/assets/images';
 import { DeviceMobile, Icon, Laptop, User } from 'phosphor-react-native';
 import { Alert, Image, ImageSourcePropType, Pressable, ScrollView, Text, View } from 'react-native';
 import { Polygon, Svg } from 'react-native-svg';
+
 import { InfoPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SpacedropStackScreenProps } from '~/navigation/tabs/SpacedropStack';

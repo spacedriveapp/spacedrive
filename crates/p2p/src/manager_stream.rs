@@ -164,7 +164,7 @@ where
 						SwarmEvent::ConnectionClosed { .. } => {},
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
-						SwarmEvent::OutgoingConnectionError { peer_id, error } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
+						SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
 						SwarmEvent::NewListenAddr { address, .. } => {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
@@ -211,9 +211,7 @@ where
 							// The `loop` will restart and begin returning the events from `queued_events`.
 						}
 						SwarmEvent::ListenerError { listener_id, error } => warn!("listener '{:?}' reported a non-fatal error: {}", listener_id, error),
-						SwarmEvent::Dialing(_peer_id) => {},
-						#[allow(deprecated)]
-						SwarmEvent::BannedPeer { .. } => {},
+						SwarmEvent::Dialing { .. } => {},
 					}
 				}
 			}

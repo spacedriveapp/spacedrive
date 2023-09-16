@@ -1,8 +1,18 @@
-import { Copy, Fingerprint, Folder, Icon, Image, Info, Scissors, Trash } from 'phosphor-react';
+import {
+	Copy,
+	Fingerprint,
+	Folder,
+	Icon,
+	Image,
+	Info,
+	Scissors,
+	Trash
+} from '@phosphor-icons/react';
 import { memo } from 'react';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
-import { ProgressBar, toast } from '@sd/ui';
+import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+
 import JobContainer from './JobContainer';
 
 interface JobProps {

@@ -11,16 +11,19 @@ module.exports = {
 	quoteProps: 'consistent',
 	importOrder: [
 		// external packages
-		'^([A-Za-z]|@[^s/])',
+		'<THIRD_PARTY_MODULES>',
 		// spacedrive packages
 		'^@sd/(interface|client|ui)(/.*)?$',
-		// this package
+		// internal packages
+		'^@/',
 		'^~/',
+		'',
 		// relative
-		'^\\.'
+		'^[../]',
+		'^[./]'
 	],
-	importOrderSortSpecifiers: true,
-	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
-	plugins: ['@trivago/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss'],
-	tailwindConfig: './packages/ui/tailwind.config.js'
+	importOrderParserPlugins: ['typescript', 'jsx', 'decorators-legacy'],
+	importOrderTypeScriptVersion: '4.4.0',
+	tailwindConfig: './packages/ui/tailwind.config.js',
+	plugins: ['@ianvs/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss']
 };

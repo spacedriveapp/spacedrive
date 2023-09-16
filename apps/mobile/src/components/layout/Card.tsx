@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ViewProps } from 'react-native';
+
 import { twStyle } from '~/lib/tailwind';
 
 type CardProps = {

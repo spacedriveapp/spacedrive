@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FilePath, useLibraryMutation, useZodForm } from '@sd/client';
-import { Dialog, Slider, UseDialogProps, useDialog, z } from '@sd/ui';
+import { Dialog, Slider, useDialog, UseDialogProps, z } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	locationId: number;

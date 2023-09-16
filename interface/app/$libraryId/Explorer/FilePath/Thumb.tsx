@@ -1,22 +1,23 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
-	type CSSProperties,
-	type ImgHTMLAttributes,
-	type RefObject,
-	type VideoHTMLAttributes,
 	memo,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
-	useState
+	useState,
+	type CSSProperties,
+	type ImgHTMLAttributes,
+	type RefObject,
+	type VideoHTMLAttributes
 } from 'react';
-import { type ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
+import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
+
 import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
+import { usePlatform } from '~/util/Platform';
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';

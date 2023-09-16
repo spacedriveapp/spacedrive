@@ -1,9 +1,12 @@
 import clsx from 'clsx';
-import { Info } from 'phosphor-react';
+import { Info } from '@phosphor-icons/react';
 import Skeleton from 'react-loading-skeleton';
+
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Statistics, byteSize, useLibraryContext, useLibraryQuery } from '@sd/client';
+
+import { byteSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
+
 import { useCounter } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 

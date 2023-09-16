@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useRef } from 'react';
-import { UseFormProps, useForm } from 'react-hook-form';
+import { useForm, UseFormProps } from 'react-hook-form';
 import { z } from 'zod';
 
 export interface UseZodFormProps<S extends z.ZodObject<any>>

@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@aws-sdk/client-ses": "^3.337.0",
+		"@phosphor-icons/react": "^2.0.10",
 		"@planetscale/database": "^1.7.0",
 		"@react-three/drei": "^9.78.1",
 		"@react-three/fiber": "^8.13.4",
@@ -26,7 +27,6 @@
 		"md5": "^2.3.0",
 		"next": "13.4.3",
 		"next-contentlayer": "^0.3.2",
-		"phosphor-react": "^1.4.1",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-dom": "^18.2.0",

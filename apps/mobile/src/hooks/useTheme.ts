@@ -3,6 +3,7 @@ import { Appearance, NativeEventSubscription } from 'react-native';
 import { useDeviceContext } from 'twrnc';
 import { subscribe } from 'valtio';
 import { getThemeStore } from '@sd/client';
+
 import { changeTwTheme, tw } from '~/lib/tailwind';
 
 export function useTheme() {

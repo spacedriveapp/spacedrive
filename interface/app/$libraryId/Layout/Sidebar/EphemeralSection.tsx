@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
+
 import { Folder } from '~/components';
 import { usePlatform } from '~/util/Platform';
 import SidebarLink from './Link';

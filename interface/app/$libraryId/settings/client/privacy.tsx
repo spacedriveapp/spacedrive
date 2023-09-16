@@ -1,5 +1,6 @@
 import { telemetryStore, useTelemetryState } from '@sd/client';
 import { Switch } from '@sd/ui';
+
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 

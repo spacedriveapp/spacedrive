@@ -1,7 +1,8 @@
 import { cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
+
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 

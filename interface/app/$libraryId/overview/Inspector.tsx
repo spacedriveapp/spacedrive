@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
+
 import { useCallbackToWatchResize } from '~/hooks';
 import { useExplorerContext } from '../Explorer/Context';
 import { Inspector } from '../Explorer/Inspector';

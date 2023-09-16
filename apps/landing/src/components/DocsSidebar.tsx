@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import Link from 'next/link';
 import { SearchInput } from '@sd/ui';
+
 import { DocsNavigation, iconConfig } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
 

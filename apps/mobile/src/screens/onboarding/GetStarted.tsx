@@ -1,10 +1,11 @@
-import { AppLogo, BloomOne } from '@sd/assets/images';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { AppLogo, BloomOne } from '@sd/assets/images';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { styled, tw, twStyle } from '~/lib/tailwind';

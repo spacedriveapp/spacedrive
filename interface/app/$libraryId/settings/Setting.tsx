@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Info } from 'phosphor-react';
+import { Info } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { Tooltip } from '@sd/ui';
 
