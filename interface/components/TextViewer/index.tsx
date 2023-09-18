@@ -1,9 +1,8 @@
 import clsx from 'clsx';
+import Prism from 'prismjs';
 import { memo, useEffect, useRef, useState } from 'react';
 
-import { highlight } from './worker';
-
-import './prism.css';
+import * as prism from './prism';
 
 export interface TextViewerProps {
 	src: string;
@@ -12,12 +11,6 @@ export interface TextViewerProps {
 	className?: string;
 	codeExtension?: string;
 }
-
-// prettier-ignore
-type Worker = typeof import('./worker')
-export const worker = new ComlinkWorker<Worker>(new URL('./worker', import.meta.url));
-
-const NEW_LINE_EXP = /\n(?!$)/g;
 
 /// Large DOM nodes slow down rendering so we break up the text file into a `span` for every line
 /// Doing too many dom manipulations at once will lag out the UI and specically the open modal animation
@@ -31,11 +24,15 @@ const awaitSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, 
 export const TextViewer = memo(
 	({ src, onLoad, onError, className, codeExtension }: TextViewerProps) => {
 		const ref = useRef<HTMLPreElement>(null);
-		const lineNoRef = useRef<HTMLSpanElement>(null);
 
 		useEffect(() => {
 			// Ignore empty urls
 			if (!src || src === '#') return;
+
+			if (ref.current && codeExtension)
+				ref.current.className += ` language-${
+					prism.languageMapping.get(codeExtension) ?? codeExtension
+				}`;
 
 			const controller = new AbortController();
 			fetch(src, { mode: 'cors', signal: controller.signal })
@@ -44,8 +41,7 @@ export const TextViewer = memo(
 					if (!response.body) return;
 					onLoad?.(new UIEvent('load', {}));
 
-					// We wanna do reactive updates to avoid a complete rerender which will cause the `fetch` to be restarted
-					let updatedClasses = false;
+					let firstChunk = true;
 
 					// This code is not pretty but be careful when changing it
 					// Download a GH Actions log from our Mobile CI workflow (around 12MB) and test on it!
@@ -55,52 +51,40 @@ export const TextViewer = memo(
 						if (done) return;
 
 						const chunks = value.split('\n');
-						for (let i = 0; i < chunks.length; i += noLinesInRenderChunk) {
-							let totalRenderedLines = 0;
-							ref.current?.append(
-								...(await Promise.all(
-									chunks.slice(i, i + noLinesInRenderChunk).map(async (line) => {
-										totalRenderedLines++;
+						for (
+							let i = 0;
+							i < chunks.length;
+							i += firstChunk ? 200 : noLinesInRenderChunk
+						) {
+							const group = document.createElement('span');
+							group.setAttribute('style', 'white-space: pre;');
+							group.textContent =
+								chunks
+									.slice(i, i + (firstChunk ? 200 : noLinesInRenderChunk))
+									.join('\r\n') + '\r\n';
 
-										const child = document.createElement('span');
+							let cb: IntersectionObserverCallback = (events) => {
+								for (const event of events) {
+									if (
+										!event.isIntersecting ||
+										group.getAttribute('data-highlighted') === 'true'
+									)
+										continue;
+									group.setAttribute('data-highlighted', 'true');
+									Prism.highlightElement(event.target, false); // Prism's async seems to be broken
+								}
+							};
 
-										if (line === '') {
-											child.append(document.createElement('br'));
-										} else if (codeExtension) {
-											const x = performance.now();
+							if (firstChunk) {
+								firstChunk = false;
+								const oldCb = cb;
+								cb = (events, observer) => {
+									setTimeout(() => oldCb(events, observer), 150);
+								};
+							}
 
-											// TODO: Worker or directly?
-											const result = await worker.highlight(
-												line,
-												codeExtension
-											);
-
-											console.log(performance.now() - x);
-
-											if (result) {
-												child.innerHTML = result.code;
-
-												if (!updatedClasses && ref.current) {
-													updatedClasses = true;
-													ref.current.className += `relative !pl-[3.8em] language-${result.language}`;
-												}
-											}
-										} else {
-											child.innerText = line;
-										}
-										return child;
-									})
-								))
-							);
-
-							// TODO: This breaks the explorer sidebar preview -> Can it not use this and only load the first chunk of the file
-							// for (let i = 0; i < totalRenderedLines; i += 1) {
-							// 	const lineNo = document.createElement('span');
-							// 	lineNo.className =
-							// 		'token block text-end' + (i % 2 ? ' bg-black/40' : '');
-							// 	lineNo.textContent = i.toString();
-							// 	lineNoRef.current?.append(lineNo);
-							// }
+							new IntersectionObserver(cb).observe(group);
+							ref.current?.append(group);
 
 							await awaitSleep(500);
 						}
@@ -117,26 +101,16 @@ export const TextViewer = memo(
 			return () => controller.abort();
 		}, [src, onError, onLoad, codeExtension, ref]);
 
-		const inner = <code ref={ref} />;
-
 		return (
-			<pre
-				ref={ref}
-				tabIndex={0}
-				className={clsx('flex flex-col overflow-y-scroll text-ink', className)}
-			>
-				{codeExtension ? (
-					<>
-						<span
-							ref={lineNoRef}
-							className="pointer-events-none absolute left-0 top-[1em] w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull"
-						/>
-
-						{inner}
-					</>
-				) : (
-					inner
-				)}
+			<pre className="h-full w-full">
+				<code
+					ref={ref}
+					tabIndex={0}
+					className={clsx(
+						'flex h-full w-full flex-col overflow-y-scroll whitespace-pre text-ink',
+						className
+					)}
+				/>
 			</pre>
 		);
 	}

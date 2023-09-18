@@ -77,9 +77,6 @@ importers:
       '@tauri-apps/api':
         specifier: 1.3.0
         version: 1.3.0
-      comlink:
-        specifier: ^4.4.1
-        version: 4.4.1
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -914,9 +911,6 @@ importers:
       regexpp:
         specifier: ^3.2.0
         version: 3.2.0
-      vite-plugin-comlink:
-        specifier: ^3.0.5
-        version: 3.0.5(comlink@4.4.1)(vite@3.2.7)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@3.2.7)
@@ -12241,9 +12235,6 @@ packages:
     dependencies:
       delayed-stream: 1.0.0
 
-  /comlink@4.4.1:
-    resolution: {integrity: sha512-+1dlx0aY5Jo1vHy/tSsIGpSkN4tS9rZSW8FIhG0JH/crs9wwweswIo/POr451r7bZww3hFbPAKnTpimzL/mm4Q==}
-
   /comma-separated-tokens@2.0.3:
     resolution: {integrity: sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg==}
     dev: false
@@ -16520,12 +16511,6 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.8
-    dev: true
-
-  /json5@2.2.1:
-    resolution: {integrity: sha512-1hqLFMSrGHRHxav9q9gNjJ5EXznIxGVO09xQRrwplcS8qs28pZ8s8hupZAmqDwZUmVZ2Qb2jnyPOWcDH8m8dlA==}
-    engines: {node: '>=6'}
-    hasBin: true
     dev: true
 
   /json5@2.2.3:
@@ -23393,18 +23378,6 @@ packages:
       unist-util-stringify-position: 3.0.3
       vfile-message: 3.1.4
     dev: false
-
-  /vite-plugin-comlink@3.0.5(comlink@4.4.1)(vite@3.2.7):
-    resolution: {integrity: sha512-my8BE9GFJEaLc7l3e2SfRUL8JJsN9On8PiW7q4Eyq3g6DHUsNqo5WlS7Butuzc8ngrs24Tf1RC8Xfdda+E5T9w==}
-    peerDependencies:
-      comlink: ^4.3.1
-      vite: '>=2.9.6'
-    dependencies:
-      comlink: 4.4.1
-      json5: 2.2.1
-      magic-string: 0.26.7
-      vite: 3.2.7
-    dev: true
 
   /vite-plugin-html@3.2.0(vite@3.2.7):
     resolution: {integrity: sha512-2VLCeDiHmV/BqqNn5h2V+4280KRgQzCFN47cst3WiNK848klESPQnzuC3okH5XHtgwHH/6s1Ho/YV6yIO0pgoQ==}

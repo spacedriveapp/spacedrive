@@ -25,7 +25,7 @@ use tokio::{fs, io};
 use tracing::{error, warn};
 
 use super::{
-	file_path_helper::{path_is_hidden, FilePathMetadata, MetadataExt},
+	file_path_helper::{path_is_hidden, MetadataExt},
 	generate_thumbnail,
 	indexer::rules::{
 		seed::{no_hidden, no_os_protected},
