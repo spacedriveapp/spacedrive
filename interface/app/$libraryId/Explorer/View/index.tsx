@@ -54,10 +54,12 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const navigate = useNavigate();
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
+	const os = useOperatingSystem();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const metaCtrlKey = os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control;
 
-	useKeys(['Meta', 'ArrowUp'], async (e) => {
+	useKeys([metaCtrlKey, 'ArrowUp'], async (e) => {
 		e.stopPropagation();
 		await onDoubleClick();
 	});
