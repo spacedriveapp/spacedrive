@@ -31,7 +31,7 @@ const awaitSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, 
 export const TextViewer = memo(
 	({ src, onLoad, onError, className, codeExtension }: TextViewerProps) => {
 		const ref = useRef<HTMLPreElement>(null);
-		const highlightRef = useRef<HTMLSpanElement>(null);
+		const lineNoRef = useRef<HTMLSpanElement>(null);
 
 		useEffect(() => {
 			// Ignore empty urls
@@ -99,7 +99,7 @@ export const TextViewer = memo(
 							// 	lineNo.className =
 							// 		'token block text-end' + (i % 2 ? ' bg-black/40' : '');
 							// 	lineNo.textContent = i.toString();
-							// 	highlightRef.current?.append(lineNo);
+							// 	lineNoRef.current?.append(lineNo);
 							// }
 
 							await awaitSleep(500);
@@ -128,7 +128,7 @@ export const TextViewer = memo(
 				{codeExtension ? (
 					<>
 						<span
-							ref={highlightRef}
+							ref={lineNoRef}
 							className="pointer-events-none absolute left-0 top-[1em] w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull"
 						/>
 
