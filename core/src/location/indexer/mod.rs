@@ -154,6 +154,10 @@ async fn execute_indexer_save_step(
 					(date_indexed::NAME, json!(Utc::now())),
 					date_indexed::set(Some(Utc::now().into())),
 				),
+				(
+					(hidden::NAME, json!(entry.metadata.hidden)),
+					hidden::set(Some(entry.metadata.hidden)),
+				),
 			]
 			.into_iter()
 			.unzip();
