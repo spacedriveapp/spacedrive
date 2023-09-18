@@ -15,6 +15,7 @@ export default () => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const navigate = useNavigate();
+	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
 
 	useKeyBind(['g', 's'], (e) => {
 		e.stopPropagation();
@@ -23,7 +24,7 @@ export default () => {
 
 	return (
 		<div className="space-y-2">
-			<div className="flex w-full items-center justify-between">
+			<div className="flex items-center justify-between w-full">
 				<div className="flex">
 					<ButtonLink
 						to="settings/client/general"
@@ -32,12 +33,12 @@ export default () => {
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings" keybinds={['G', 'S']}>
-							<Gear className="h-5 w-5" />
+							<Gear className="w-5 h-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							keybind={['Meta', 'j']}
+							keybind={jobManagerKeys}
 							trigger={
 								<Button
 									size="icon"

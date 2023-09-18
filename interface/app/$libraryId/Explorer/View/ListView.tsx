@@ -821,7 +821,10 @@ export default () => {
 
 		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
 			const item = rows[0]?.original;
-			if (item) explorer.addSelectedItem(item);
+			if (item) {
+				explorer.addSelectedItem(item);
+				setRanges([[uniqueId(item), uniqueId(item)]]);
+			}
 			return;
 		}
 

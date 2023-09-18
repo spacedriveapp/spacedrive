@@ -251,8 +251,14 @@ export default ({ children }: { children: RenderItem }) => {
 		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
-			explorer.resetSelectedItems([item.data]);
-			activeItem.current = item.data;
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${uniqueId(item.data)}"]`
+			);
+			if (selectedItemDom) {
+				explorer.resetSelectedItems([item.data]);
+				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
+				activeItem.current = item.data;
+			}
 			return;
 		}
 
