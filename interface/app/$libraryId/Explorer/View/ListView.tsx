@@ -59,7 +59,7 @@ interface ListViewItemProps {
 const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem data={props.row.original} className="w-full">
-			<div role="row" className="flex h-full items-center">
+			<div role="row" className="flex items-center h-full">
 				{props.row.getVisibleCells().map((cell) => (
 					<div
 						role="cell"
@@ -819,6 +819,15 @@ export default () => {
 
 		const range = getRangeByIndex(ranges.length - 1);
 
+		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+			const item = rows[0]?.original;
+			if (item) {
+				explorer.addSelectedItem(item);
+				setRanges([[uniqueId(item), uniqueId(item)]]);
+			}
+			return;
+		}
+
 		if (!range) return;
 
 		if (e.key === 'Escape') {
@@ -1019,7 +1028,7 @@ export default () => {
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
 	return (
-		<div className="flex w-full flex-col" ref={tableRef}>
+		<div className="flex flex-col w-full" ref={tableRef}>
 			{sized && (
 				<ScrollSync>
 					<>
@@ -1041,7 +1050,7 @@ export default () => {
 												<div
 													ref={tableHeaderRef}
 													key={headerGroup.id}
-													className="flex grow border-b border-app-line/50"
+													className="flex border-b grow border-app-line/50"
 													onMouseDown={(e) => e.stopPropagation()}
 												>
 													{headerGroup.headers.map((header, i) => {
@@ -1064,7 +1073,7 @@ export default () => {
 														return (
 															<div
 																key={header.id}
-																className="relative shrink-0 px-4 py-2 text-xs first:pl-24"
+																className="relative px-4 py-2 text-xs shrink-0 first:pl-24"
 																style={{
 																	width:
 																		i === 0
@@ -1181,7 +1190,7 @@ export default () => {
 						</ScrollSyncPane>
 
 						<ScrollSyncPane>
-							<div className="no-scrollbar overflow-x-auto overscroll-x-none">
+							<div className="overflow-x-auto no-scrollbar overscroll-x-none">
 								<div
 									ref={tableBodyRef}
 									className="relative"
@@ -1209,7 +1218,7 @@ export default () => {
 										return (
 											<div
 												key={row.id}
-												className="absolute left-0 top-0 flex w-full"
+												className="absolute top-0 left-0 flex w-full"
 												style={{
 													height: virtualRow.size,
 													transform: `translateY(${
@@ -1242,7 +1251,7 @@ export default () => {
 													)}
 												>
 													{selectedPrior && (
-														<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+														<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
 													)}
 
 													<ListViewItem
