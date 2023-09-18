@@ -1,9 +1,16 @@
 import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
+import {
+	Button,
+	ButtonLink,
+	dialogManager,
+	ModifierKeys,
+	modifierSymbols,
+	Popover,
+	Tooltip
+} from '@sd/ui';
 import { useKeyBind, useOperatingSystem } from '~/hooks';
-import { keybindForOs } from '~/util/keybinds';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -13,9 +20,12 @@ export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
 	const os = useOperatingSystem();
-	const keybind = keybindForOs(os);
 	const navigate = useNavigate();
 	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
+	const recentJobsSymbol =
+		os === 'macOS'
+			? modifierSymbols[ModifierKeys.Meta][os]
+			: modifierSymbols[ModifierKeys.Control]['Other'];
 
 	useKeyBind(['g', 's'], (e) => {
 		e.stopPropagation();
@@ -49,7 +59,7 @@ export default () => {
 									{library && (
 										<Tooltip
 											label="Recent Jobs"
-											keybinds={[keybind([ModifierKeys.Meta], ['J'])]}
+											keybinds={[recentJobsSymbol as string, 'J']}
 										>
 											<IsRunningJob />
 										</Tooltip>
