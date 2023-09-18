@@ -84,7 +84,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="h-full w-full"
+			className="w-full h-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}
@@ -245,6 +245,14 @@ export default ({ children }: { children: RenderItem }) => {
 		if (e.key === 'Escape') {
 			explorer.resetSelectedItems([]);
 			selecto.current?.setSelectedTargets([]);
+			return;
+		}
+
+		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+			const item = grid.getItem(0);
+			if (!item?.data) return;
+			explorer.resetSelectedItems([item.data]);
+			activeItem.current = item.data;
 			return;
 		}
 

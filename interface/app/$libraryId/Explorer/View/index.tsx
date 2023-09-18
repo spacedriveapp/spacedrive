@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
+import { useKeys } from 'rooks';
 import {
 	getItemObject,
 	isPath,
@@ -55,6 +56,11 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePaths } = usePlatform();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+	useKeys(['Meta', 'ArrowUp'], async (e) => {
+		e.stopPropagation();
+		await onDoubleClick();
+	});
 
 	const onDoubleClick = async () => {
 		const selectedItems = [...explorer.selectedItems];
@@ -279,7 +285,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	};
 
 	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
