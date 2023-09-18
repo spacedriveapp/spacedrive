@@ -1,15 +1,15 @@
-import { AppLogo } from '@sd/assets/images';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react';
 import { Academia, Discord, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import Link from 'next/link';
 import { NextRouter, useRouter } from 'next/router';
-import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, Dropdown } from '@sd/ui';
-
 import { positions } from '~/pages/careers';
 import { getWindow } from '~/utils/util';
+
+import Logo from '../../public/logo.png';
 
 function NavLink(props: PropsWithChildren<{ link?: string }>) {
 	return (
@@ -66,7 +66,7 @@ export default function NavBar() {
 		>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
-					<Image alt="Spacedrive logo" src={AppLogo} className="z-30 mr-3 h-8 w-8" />
+					<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 h-8 w-8" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</Link>
 
