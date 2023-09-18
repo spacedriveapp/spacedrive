@@ -52,6 +52,8 @@ FROM build-base as web
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store --mount=type=cache,target=/root/.cache/pnpm/metadata \
 	pnpm install --frozen-lockfile
 
+ENV NODE_OPTIONS: "--max-old-space-size=4096"
+
 RUN pnpm web build
 
 #--
