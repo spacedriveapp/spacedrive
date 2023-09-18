@@ -21,10 +21,7 @@ export default function Document() {
 					name="description"
 					content="Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized."
 				/>
-				<meta
-					property="og:image"
-					content="https://spacedrive.com/spacedrive_icon.png"
-				/>
+				<meta property="og:image" content="https://spacedrive.com/logo.png" />
 				<meta
 					name="keywords"
 					content="files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem"
