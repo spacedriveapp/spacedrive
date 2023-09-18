@@ -32,7 +32,7 @@ use tracing::info;
 
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
-	remove_non_existing_file_paths,
+	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	rules::IndexerRule,
 	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	IndexerError, IndexerJobSaveStep, IndexerJobUpdateStep,
@@ -459,10 +459,14 @@ impl StatefulJob for IndexerJobInit {
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
+		let indexed_path_str = data
+			.as_ref()
+			.map(|data| Ok(data.indexed_path.to_string_lossy().to_string()))
+			.unwrap_or_else(|| maybe_missing(&init.location.path, "location.path").cloned())?;
+
 		info!(
-			"Scan of {} completed in {:?}. {} new files found, \
+			"Scan of {indexed_path_str} completed in {:?}. {} new files found, \
 			indexed {} files in db, updated {} entries. db write completed in {:?}",
-			maybe_missing(&init.location.path, "location.path")?,
 			run_metadata.scan_read_time,
 			run_metadata.total_paths,
 			run_metadata.indexed_count,
@@ -480,11 +484,19 @@ impl StatefulJob for IndexerJobInit {
 		}
 
 		if let Some(data) = data {
-			if data.indexed_path == data.location_path {
-				update_entire_location_directories_sizes(
-					&run_metadata.paths_and_sizes,
-					init.location.id,
+			update_directories_sizes(
+				&run_metadata.paths_and_sizes,
+				init.location.id,
+				&data.indexed_path,
+				&ctx.library.db,
+			)
+			.await?;
+
+			if data.indexed_path != data.location_path {
+				reverse_update_directories_sizes(
 					&data.indexed_path,
+					init.location.id,
+					&data.location_path,
 					&ctx.library.db,
 				)
 				.await?;
@@ -507,7 +519,7 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 	}
 }
 
-async fn update_entire_location_directories_sizes(
+async fn update_directories_sizes(
 	paths_and_sizes: &HashMap<PathBuf, u64>,
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
@@ -520,7 +532,7 @@ async fn update_entire_location_directories_sizes(
 	db._batch(
 		paths_and_sizes
 			.iter()
-			.filter(|(path, _)| location_path != *path)
+			.filter(|(path, _)| *path != location_path)
 			.map(|(path, size)| {
 				IsolatedFilePathData::new(location_id, location_path, path, true).map(
 					|iso_file_path| {

@@ -382,11 +382,28 @@ where
 
 						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
 						// instead of using != operator
-						if inode != metadata.inode
+						if (inode != metadata.inode
 							|| device != metadata.device || DateTime::<FixedOffset>::from(
 							metadata.modified_at,
 						) - *date_modified
-							> Duration::milliseconds(1)
+							> Duration::milliseconds(1)) && !(entry.iso_file_path.is_dir
+							&& metadata.size_in_bytes
+								!= file_path
+									.size_in_bytes_bytes
+									.as_ref()
+									.map(|size_in_bytes_bytes| {
+										u64::from_be_bytes([
+											size_in_bytes_bytes[0],
+											size_in_bytes_bytes[1],
+											size_in_bytes_bytes[2],
+											size_in_bytes_bytes[3],
+											size_in_bytes_bytes[4],
+											size_in_bytes_bytes[5],
+											size_in_bytes_bytes[6],
+											size_in_bytes_bytes[7],
+										])
+									})
+									.unwrap_or_default())
 						{
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),

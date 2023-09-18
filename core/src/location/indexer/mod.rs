@@ -7,7 +7,7 @@ use crate::{
 	},
 };
 
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use chrono::Utc;
 use rspc::ErrorCode;
@@ -16,7 +16,7 @@ use sd_sync::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::{
 	file_path_helper::{file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData},
@@ -385,4 +385,95 @@ macro_rules! to_remove_db_fetcher_fn {
 				.map_err(Into::into)
 		}
 	}};
+}
+
+async fn reverse_update_directories_sizes(
+	base_path: impl AsRef<Path>,
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	db: &PrismaClient,
+) -> Result<(), IndexerError> {
+	let base_path = base_path.as_ref();
+	let location_path = location_path.as_ref();
+
+	let ancestors = base_path
+		.ancestors()
+		.take_while(|&ancestor| ancestor != location_path)
+		.map(|ancestor| IsolatedFilePathData::new(location_id, location_path, ancestor, true))
+		.collect::<Result<Vec<_>, _>>()?;
+
+	let sizes_by_materialized_path = db
+		.file_path()
+		.find_many(vec![file_path::materialized_path::in_vec(
+			ancestors
+				.iter()
+				.map(|ancestor_iso_file_path| {
+					ancestor_iso_file_path
+						.materialized_path_for_children()
+						.expect("each ancestor is a directory")
+				})
+				.collect(),
+		)])
+		.select(file_path::select!({ materialized_path size_in_bytes_bytes }))
+		.exec()
+		.await?
+		.into_iter()
+		.fold(HashMap::<String, u64>::new(), |mut map, file_path| {
+			if let Some(materialized_path) = file_path.materialized_path {
+				*map.entry(materialized_path).or_default() += file_path
+					.size_in_bytes_bytes
+					.map(|size_in_bytes_bytes| {
+						u64::from_be_bytes([
+							size_in_bytes_bytes[0],
+							size_in_bytes_bytes[1],
+							size_in_bytes_bytes[2],
+							size_in_bytes_bytes[3],
+							size_in_bytes_bytes[4],
+							size_in_bytes_bytes[5],
+							size_in_bytes_bytes[6],
+							size_in_bytes_bytes[7],
+						])
+					})
+					.unwrap_or_else(|| {
+						warn!("Got a directory missing its size in bytes");
+						0
+					});
+			} else {
+				warn!("Corrupt database possesing a file_path entry without materialized_path");
+			}
+
+			map
+		});
+
+	// TODO sync stuff
+
+	db._batch(
+		ancestors
+			.into_iter()
+			.filter_map(|ancestor_iso_file_path| {
+				let maybe = sizes_by_materialized_path
+					.get(
+						&ancestor_iso_file_path
+							.materialized_path_for_children()
+							.expect("each ancestor is a directory"),
+					)
+					.map(|size| (ancestor_iso_file_path, size.to_be_bytes().to_vec()));
+
+				if maybe.is_none() {
+					warn!("Got a missing ancestor for a file_path in the database, maybe we have a corruption"
+				);
+				}
+				maybe
+			})
+			.map(|(ancestor_iso_file_path, size_bytes)| {
+				db.file_path().update(
+					ancestor_iso_file_path.into(),
+					vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
+				)
+			})
+			.collect::<Vec<_>>(),
+	)
+	.await?;
+
+	Ok(())
 }
