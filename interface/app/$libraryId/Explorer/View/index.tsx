@@ -27,7 +27,7 @@ import {
 } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
@@ -54,10 +54,9 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const navigate = useNavigate();
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
-	const os = useOperatingSystem();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-	const metaCtrlKey = os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control;
+	const metaCtrlKey = useKeyMatcher('Meta').key;
 
 	useKeys([metaCtrlKey, 'ArrowUp'], async (e) => {
 		e.stopPropagation();
@@ -287,7 +286,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	};
 
 	return (
-		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
