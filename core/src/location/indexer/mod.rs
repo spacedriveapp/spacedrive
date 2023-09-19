@@ -387,12 +387,12 @@ macro_rules! to_remove_db_fetcher_fn {
 	}};
 }
 
-async fn reverse_update_directories_sizes(
+pub async fn reverse_update_directories_sizes(
 	base_path: impl AsRef<Path>,
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
-) -> Result<(), IndexerError> {
+) -> Result<(), FilePathError> {
 	let base_path = base_path.as_ref();
 	let location_path = location_path.as_ref();
 

@@ -159,7 +159,8 @@ pub async fn shallow(
 
 	if to_walk_path != location_path {
 		reverse_update_directories_sizes(to_walk_path, location_id, location_path, &library.db)
-			.await?;
+			.await
+			.map_err(IndexerError::from)?;
 	}
 
 	invalidate_query!(library, "search.paths");

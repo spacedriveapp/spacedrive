@@ -404,6 +404,8 @@ where
 										])
 									})
 									.unwrap_or_default())
+						// We ignore the size of directories because it is not reliable, we need to
+						// calculate it ourselves later
 						{
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),

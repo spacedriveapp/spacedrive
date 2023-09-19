@@ -499,7 +499,8 @@ impl StatefulJob for IndexerJobInit {
 					&data.location_path,
 					&ctx.library.db,
 				)
-				.await?;
+				.await
+				.map_err(IndexerError::from)?;
 			}
 		}
 
