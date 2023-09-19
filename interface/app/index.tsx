@@ -1,15 +1,17 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
-import { Dialogs, Toaster } from '@sd/ui';
-
+import { Dialogs, toast, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useKeybindHandler, useTheme } from '~/hooks';
+
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
+
+import { usePlatform } from '..';
 
 const Index = () => {
 	const libraries = useCachedLibraries();
@@ -31,6 +33,42 @@ const Wrapper = () => {
 	useTheme();
 
 	const rawPath = useRawRoutePath();
+
+	const platform = usePlatform();
+
+	useEffect(() => {
+		async function run() {
+			const { updater } = platform;
+
+			if (!updater) return;
+			const update = await updater.checkForUpdate();
+			console.log(update);
+
+			if (!update) return;
+
+			toast.info(
+				{
+					title: 'New Update Available',
+					body: `Version ${update.version}`
+				},
+				{
+					duration: 10 * 1000,
+					action: {
+						label: 'Install',
+						async onClick() {
+							toast.promise(updater.installUpdate(), {
+								loading: 'Downloading Update',
+								success: 'Update Downloaded. Restart Spacedrive to install',
+								error: 'Failed to download update'
+							});
+						}
+					}
+				}
+			);
+		}
+
+		run();
+	}, [platform]);
 
 	return (
 		<RootContext.Provider value={{ rawPath }}>

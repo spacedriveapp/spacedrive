@@ -18,6 +18,7 @@ mod theme;
 
 mod file;
 mod menu;
+mod updater;
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -118,9 +119,6 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.setup(|app| {
-			#[cfg(feature = "updater")]
-			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
-
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
@@ -163,6 +161,7 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
+		.manage(updater::StateObject::default())
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,
@@ -171,7 +170,9 @@ async fn main() -> tauri::Result<()> {
 			file::get_file_path_open_with_apps,
 			file::open_file_path_with,
 			file::reveal_items,
-			theme::lock_app_theme
+			theme::lock_app_theme,
+			updater::check_for_update,
+			updater::install_update
 		])
 		.build(tauri::generate_context!())?;
 

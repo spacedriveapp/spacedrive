@@ -1,17 +1,13 @@
 {
 	"name": "@sd/client",
-	"version": "0.0.0",
 	"private": true,
 	"main": "./src/index.ts",
-	"files": [
-		"dist/**"
-	],
+	"types": "./src/index.ts",
 	"scripts": {
 		"test": "jest",
 		"lint": "eslint src --cache",
 		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
-		"typecheck": "tsc -b",
-		"build": "tsc"
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@rspc/client": "=0.0.0-main-799eec5d",

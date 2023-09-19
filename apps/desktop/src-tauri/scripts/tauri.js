@@ -131,7 +131,7 @@ switch (args[0]) {
 }
 
 let code = 0;
-spawn('pnpm', ['tauri', ...args])
+spawn('pnpm', ['exec', 'tauri', ...args])
 	.catch((exitCode) => {
 		code = exitCode;
 		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`);

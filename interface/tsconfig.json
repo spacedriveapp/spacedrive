@@ -1,20 +1,12 @@
 {
 	"extends": "../packages/config/base.tsconfig.json",
 	"compilerOptions": {
-		"declarationDir": "dist",
 		"paths": {
 			"~/*": ["./*"]
 		},
 		"types": ["vite-plugin-comlink/client", "vite-plugin-svgr/client", "vite/client", "node"]
 	},
-	"include": ["./**/*"],
-	"exclude": ["dist"],
-	"references": [
-		{
-			"path": "../packages/ui"
-		},
-		{
-			"path": "../packages/client"
-		}
-	]
+	"include": ["**/*"],
+	"exclude": ["build"],
+	"references": [{ "path": "../packages/ui" }, { "path": "../packages/client" }]
 }

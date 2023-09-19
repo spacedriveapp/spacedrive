@@ -1,13 +1,12 @@
 {
 	"package": {
-		"productName": "Spacedrive",
-		"version": "0.1.0"
+		"productName": "Spacedrive"
 	},
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev-vite",
-		"beforeBuildCommand": "pnpm vite build"
+		"beforeBuildCommand": "pnpm run -w build --filter=@sd/desktop"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -50,9 +49,12 @@
 			}
 		},
 		"updater": {
-			"active": false,
+			"active": true,
+			"dialog": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-			"endpoints": ["https://spacedrive.com/api/releases/alpha/{{target}}/{{arch}}"]
+			"endpoints": [
+				"https://spacedrive-git-configure-updater-brendonovich.vercel.app/api/releases/{{target}}/{{arch}}"
+			]
 		},
 		"allowlist": {
 			"all": false,

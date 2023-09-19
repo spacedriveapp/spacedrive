@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-
 import { env } from '~/env';
 
 const version = z.union([z.literal('stable'), z.literal('alpha')]);
@@ -24,16 +23,8 @@ type TauriResponse = {
 
 export const runtime = 'edge';
 
-export async function GET(req: Request, extra: { params: Record<string, unknown> }) {
-	// handles old /api/releases/[target]/[arch]/[currentVersion] requests
-	// should be removed once stable release is out
-	if (tauriArch.safeParse(extra.params['target']).success) {
-		return NextResponse.redirect(
-			new URL(`/api/releases/alpha/${extra.params.version}/${extra.params.target}`, req.url)
-		);
-	}
-
-	const params = await paramsSchema.parseAsync(extra.params);
+export async function GET(_: Request, extra: { params: Record<string, unknown> }) {
+	const params = await paramsSchema.parseAsync({ ...extra.params, version });
 
 	const release = await getRelease(params);
 

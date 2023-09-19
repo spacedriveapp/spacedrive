@@ -28,6 +28,10 @@ export type Platform = {
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	updater?: {
+		checkForUpdate(): Promise<{ version: string; body: string | null } | null>;
+		installUpdate(): Promise<any>;
+	};
 };
 
 // Keep this private and use through helpers below

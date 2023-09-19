@@ -1,14 +1,12 @@
 {
 	"name": "@sd/desktop",
-	"version": "1.0.0",
-	"main": "index.ts",
-	"license": "GPL-3.0-only",
 	"private": true,
 	"scripts": {
 		"vite": "vite",
-		"dev": "node ./src-tauri/scripts/tauri.js dev",
+		"tauri": "node ./src-tauri/scripts/tauri.js",
+		"dev": "vite dev",
 		"dev-vite": "vite --clearScreen=false --mode development",
-		"build": "node ./src-tauri/scripts/tauri.js build",
+		"build": "vite build",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"

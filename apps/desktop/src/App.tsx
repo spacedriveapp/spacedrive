@@ -3,7 +3,7 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
-import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { onUpdaterEvent } from '@tauri-apps/api/updater';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
@@ -73,6 +73,18 @@ const platform: Platform = {
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
+	updater: {
+		checkForUpdate: async () => {
+			const update = await commands.checkForUpdate();
+
+			console.log(update);
+
+			if (update === 'InProgress') return null;
+			if ('Fetched' in update) return update.Fetched;
+			return null;
+		},
+		installUpdate: commands.installUpdate
+	},
 	...commands
 };
 

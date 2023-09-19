@@ -62,3 +62,9 @@ if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
+
+tauri = { git = "https://github.com/tauri-apps/tauri", rev = "ef962c43afcd86dfaf69dbcc349e4bbed60eda98" }
+tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "ef962c43afcd86dfaf69dbcc349e4bbed60eda98" }
+
+# tauri = { git = "https://github.com/tr3ysmith/tauri", branch = "rpath" }
+# tauri-build = { git = "https://github.com/tr3ysmith/tauri", branch = "rpath" }
