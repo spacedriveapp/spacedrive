@@ -11,9 +11,8 @@ import {
 import clsx from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
-import { ModifierKeys } from '~/../packages/ui/src';
+import { ModifierKeys, modifierSymbols } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
-import { keybindForOs } from '~/util/keybinds';
 
 import { KeyManager } from '../KeyManager';
 import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
@@ -26,7 +25,14 @@ export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const os = useOperatingSystem();
-	const keybind = keybindForOs(os);
+	const controlSymbol = (letter: string) => {
+		return [
+			os === 'macOS'
+				? modifierSymbols[ModifierKeys.Meta][os]
+				: modifierSymbols[ModifierKeys.Control]['Other'],
+			letter
+		] as string[];
+	};
 
 	const settings = explorer.useSettingsSnapshot();
 
@@ -34,7 +40,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
+			keybinds: controlSymbol('V'),
 			topBarActive: settings.layoutMode === 'grid',
 			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
@@ -42,7 +48,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
+			keybinds: controlSymbol('V'),
 			topBarActive: settings.layoutMode === 'list',
 			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
@@ -57,7 +63,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [keybind([ModifierKeys.Meta], ['V'])],
+			keybinds: controlSymbol('V'),
 			topBarActive: settings.layoutMode === 'media',
 			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
@@ -74,7 +80,7 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Show Inspector',
-			keybinds: [keybind([ModifierKeys.Meta], ['I'])],
+			keybinds: controlSymbol('I'),
 			onClick: () => (getExplorerStore().showInspector = !explorerStore.showInspector),
 			icon: (
 				<SidebarSimple
