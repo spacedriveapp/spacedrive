@@ -23,7 +23,7 @@ import { useExplorerSearchParams } from './util';
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
-	const controlSymbol = useKeyMatcher('Meta').icon;
+	const controlIcon = useKeyMatcher('Meta').icon;
 
 	const settings = explorer.useSettingsSnapshot();
 
@@ -31,7 +31,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlSymbol, 'V'],
+			keybinds: [controlIcon, 'V'],
 			topBarActive: settings.layoutMode === 'grid',
 			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
@@ -39,7 +39,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlSymbol, 'V'],
+			keybinds: [controlIcon, 'V'],
 			topBarActive: settings.layoutMode === 'list',
 			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
@@ -54,7 +54,7 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlSymbol, 'V'],
+			keybinds: [controlIcon, 'V'],
 			topBarActive: settings.layoutMode === 'media',
 			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
@@ -71,7 +71,7 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Show Inspector',
-			keybinds: [controlSymbol, 'I'],
+			keybinds: [controlIcon, 'I'],
 			onClick: () => (getExplorerStore().showInspector = !explorerStore.showInspector),
 			icon: (
 				<SidebarSimple
