@@ -1,9 +1,8 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
-import { useKeys } from 'rooks';
 import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
-import { useKeyBind, useOperatingSystem } from '~/hooks';
+import { useKeyBind, useKeyMatcher } from '~/hooks';
 
 import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
@@ -34,10 +33,9 @@ export default ({ options }: TopBarChildrenProps) => {
 	const toolsNotSmFlex = options
 		?.flatMap((group) => group)
 		.filter((t) => t.showAtResolution !== 'sm:flex');
-	const os = useOperatingSystem();
-	const keys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'v'];
+	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	useKeyBind(keys, (e) => {
+	useKeyBind([metaCtrlKey, 'v'], (e) => {
 		e.stopPropagation();
 		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
 		const currentLayout = explorerLayouts.indexOf(
@@ -59,7 +57,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region className="flex justify-end flex-1">
+		<div data-tauri-drag-region className="flex flex-1 justify-end">
 			<div data-tauri-drag-region className={`flex gap-0`}>
 				{options?.map((group, groupIndex) => {
 					return group.map(
