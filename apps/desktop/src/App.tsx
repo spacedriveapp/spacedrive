@@ -3,7 +3,6 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
-import { onUpdaterEvent } from '@tauri-apps/api/updater';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
@@ -22,6 +21,7 @@ import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
 
 import * as commands from './commands';
+import { updater, useUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -57,7 +57,7 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 }
 const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
-const platform: Platform = {
+const platform = {
 	platform: 'tauri',
 	getThumbnailUrlByThumbKey: (keyParts) =>
 		`${customUriServerUrl}thumbnail/${keyParts
@@ -73,20 +73,9 @@ const platform: Platform = {
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
-	updater: {
-		checkForUpdate: async () => {
-			const update = await commands.checkForUpdate();
-
-			console.log(update);
-
-			if (update === 'InProgress') return null;
-			if ('Fetched' in update) return update.Fetched;
-			return null;
-		},
-		installUpdate: commands.installUpdate
-	},
+	updater,
 	...commands
-};
+} satisfies Platform;
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -123,6 +112,8 @@ export default function App() {
 			dropEventListener.then((unlisten) => unlisten());
 		};
 	}, []);
+
+	useUpdater();
 
 	return (
 		<RspcProvider queryClient={queryClient}>

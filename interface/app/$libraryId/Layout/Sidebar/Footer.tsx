@@ -1,6 +1,7 @@
 import { Gear } from '@phosphor-icons/react';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, dialogManager, Popover, Tooltip } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -10,8 +11,24 @@ export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
 
+	const updater = usePlatform().updater;
+	const updaterState = updater?.useSnapshot();
+
 	return (
 		<div className="space-y-2">
+			{updater && updaterState && (
+				<>
+					{updaterState.status === 'updateAvailable' && (
+						<Button
+							variant="outline"
+							className="w-full"
+							onClick={updater.installUpdate}
+						>
+							Install Update
+						</Button>
+					)}
+				</>
+			)}
 			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink

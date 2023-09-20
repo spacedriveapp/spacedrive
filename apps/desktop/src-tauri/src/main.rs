@@ -161,7 +161,7 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
-		.manage(updater::StateObject::default())
+		.manage(updater::State::default())
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,

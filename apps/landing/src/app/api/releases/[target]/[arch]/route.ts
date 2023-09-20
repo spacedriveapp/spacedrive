@@ -23,7 +23,11 @@ type TauriResponse = {
 
 export const runtime = 'edge';
 
-export async function GET(_: Request, extra: { params: Record<string, unknown> }) {
+export async function GET(req: Request, extra: { params: Record<string, unknown> }) {
+	const version = req.headers.get('X-Spacedrive-Version');
+
+	if (version === null) return NextResponse.json({ error: 'No version header' }, { status: 400 });
+
 	const params = await paramsSchema.parseAsync({ ...extra.params, version });
 
 	const release = await getRelease(params);
@@ -56,20 +60,19 @@ export async function GET(_: Request, extra: { params: Record<string, unknown> }
 	return NextResponse.json(response);
 }
 
-const ORG = 'spacedriveapp';
-const REPO = 'spacedrive';
-
 async function getRelease({ version }: z.infer<typeof paramsSchema>): Promise<any> {
 	switch (version) {
 		case 'alpha': {
-			const data = await githubFetch(`/repos/${ORG}/${REPO}/releases`);
+			const data = await githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`);
 
 			return data.find((d: any) => d.tag_name.includes('alpha'));
 		}
 		case 'stable':
-			return githubFetch(`/repos/${ORG}/${REPO}/releases/latest`);
+			return githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/latest`);
 		default:
-			return githubFetch(`/repos/${ORG}/${REPO}/releases/tags/${version}`);
+			return githubFetch(
+				`/repos/$${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/tags/${version}`
+			);
 	}
 }
 

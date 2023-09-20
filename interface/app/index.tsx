@@ -34,42 +34,6 @@ const Wrapper = () => {
 
 	const rawPath = useRawRoutePath();
 
-	const platform = usePlatform();
-
-	useEffect(() => {
-		async function run() {
-			const { updater } = platform;
-
-			if (!updater) return;
-			const update = await updater.checkForUpdate();
-			console.log(update);
-
-			if (!update) return;
-
-			toast.info(
-				{
-					title: 'New Update Available',
-					body: `Version ${update.version}`
-				},
-				{
-					duration: 10 * 1000,
-					action: {
-						label: 'Install',
-						async onClick() {
-							toast.promise(updater.installUpdate(), {
-								loading: 'Downloading Update',
-								success: 'Update Downloaded. Restart Spacedrive to install',
-								error: 'Failed to download update'
-							});
-						}
-					}
-				}
-			);
-		}
-
-		run();
-	}, [platform]);
-
 	return (
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />

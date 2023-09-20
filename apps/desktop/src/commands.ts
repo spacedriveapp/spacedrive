@@ -43,16 +43,15 @@ export function lockAppTheme(themeType: AppThemeType) {
 }
 
 export function checkForUpdate() {
-    return invoke()<CheckForUpdate>("check_for_update")
+    return invoke()<Update | null>("check_for_update")
 }
 
 export function installUpdate() {
     return invoke()<null>("install_update")
 }
 
+export type Update = { version: string; body: string | null }
 export type AppThemeType = "Auto" | "Light" | "Dark"
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }
-export type CheckForUpdate = "InProgress" | { Fetched: Update | null }
-export type Update = { version: string; body: string | null }
 export type RevealItem = { Location: { id: number } } | { FilePath: { id: number } }
 export type OpenWithApplication = { url: string; name: string }
