@@ -4,6 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
+	library::Library,
 	location::{
 		file_path_helper::{
 			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -11,10 +12,14 @@ use crate::{
 		},
 		location_with_indexer_rules,
 	},
-	prisma::{file_path, location, PrismaClient},
+	prisma::{file_path, location},
 	to_remove_db_fetcher_fn,
 	util::db::maybe_missing,
 };
+
+use sd_prisma::prisma_sync;
+use sd_sync::*;
+use sd_utils::from_bytes_to_uuid;
 
 use std::{
 	collections::HashMap,
@@ -25,10 +30,11 @@ use std::{
 };
 
 use itertools::Itertools;
+use prisma_client_rust::operator::or;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
@@ -208,6 +214,11 @@ impl StatefulJob for IndexerJobInit {
 		let scan_read_time = scan_start.elapsed();
 		let to_remove = to_remove.collect::<Vec<_>>();
 
+		debug!(
+			"Walker at indexer job found {} file_paths to be removed",
+			to_remove.len()
+		);
+
 		ctx.node
 			.thumbnail_remover
 			.remove_cas_ids(
@@ -263,6 +274,8 @@ impl StatefulJob for IndexerJobInit {
 			)
 			.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
 			.collect::<Vec<_>>();
+
+		debug!("Walker at indexer job found {total_updated_paths} file_paths to be updated");
 
 		IndexerJobData::on_scan_progress(
 			ctx,
@@ -488,7 +501,7 @@ impl StatefulJob for IndexerJobInit {
 				&run_metadata.paths_and_sizes,
 				init.location.id,
 				&data.indexed_path,
-				&ctx.library.db,
+				&ctx.library,
 			)
 			.await?;
 
@@ -497,7 +510,7 @@ impl StatefulJob for IndexerJobInit {
 					&data.indexed_path,
 					init.location.id,
 					&data.location_path,
-					&ctx.library.db,
+					&ctx.library,
 				)
 				.await
 				.map_err(IndexerError::from)?;
@@ -524,31 +537,76 @@ async fn update_directories_sizes(
 	paths_and_sizes: &HashMap<PathBuf, u64>,
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
-	db: &PrismaClient,
+	library: &Library,
 ) -> Result<(), IndexerError> {
 	let location_path = location_path.as_ref();
 
-	// TODO sync stuff
+	let Library { db, sync, .. } = library;
 
-	db._batch(
-		paths_and_sizes
-			.iter()
-			.filter(|(path, _)| *path != location_path)
-			.map(|(path, size)| {
-				IsolatedFilePathData::new(location_id, location_path, path, true).map(
-					|iso_file_path| {
-						db.file_path().update(
-							iso_file_path.into(),
-							vec![file_path::size_in_bytes_bytes::set(Some(
-								size.to_be_bytes().to_vec(),
-							))],
-						)
-					},
-				)
-			})
-			.collect::<Result<Vec<_>, _>>()?,
-	)
-	.await?;
+	let chunked_queries = paths_and_sizes
+		.keys()
+		.chunks(200)
+		.into_iter()
+		.map(|paths_chunk| {
+			paths_chunk
+				.into_iter()
+				.map(|path| {
+					IsolatedFilePathData::new(location_id, location_path, path, true)
+						.map(file_path::WhereParam::from)
+				})
+				.collect::<Result<Vec<_>, _>>()
+				.map(|params| {
+					db.file_path()
+						.find_many(vec![or(params)])
+						.select(file_path::select!({ pub_id materialized_path name }))
+				})
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+
+	let to_sync_and_update = db
+		._batch(chunked_queries)
+		.await?
+		.into_iter()
+		.flatten()
+		.filter_map(
+			|file_path| match (file_path.materialized_path, file_path.name) {
+				(Some(materialized_path), Some(name)) => {
+					let mut directory_full_path = location_path.join(&materialized_path[1..]);
+					directory_full_path.push(name);
+
+					if let Some(size) = paths_and_sizes.get(&directory_full_path) {
+						let size_bytes = size.to_be_bytes().to_vec();
+
+						Some((
+							sync.shared_update(
+								prisma_sync::file_path::SyncId {
+									pub_id: file_path.pub_id.clone(),
+								},
+								file_path::size_in_bytes_bytes::NAME,
+								json!(size_bytes.clone()),
+							),
+							db.file_path().update(
+								file_path::pub_id::equals(file_path.pub_id),
+								vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
+							),
+						))
+					} else {
+						warn!("Found a file_path without ancestor in the database, possible corruption");
+						None
+					}
+				}
+				_ => {
+					warn!(
+						"Found a file_path missing its materialized_path or name: <pub_id='{:#?}'>",
+						from_bytes_to_uuid(&file_path.pub_id)
+					);
+					None
+				}
+			},
+		)
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	sync.write_ops(db, to_sync_and_update).await?;
 
 	Ok(())
 }

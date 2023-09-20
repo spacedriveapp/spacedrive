@@ -840,7 +840,7 @@ pub(super) async fn recalculate_directories_size(
 						"Reverse calculating directory sizes starting at {} until {location_path}",
 						path.display()
 					);
-					reverse_update_directories_sizes(path, location_id, location_path, &library.db)
+					reverse_update_directories_sizes(path, location_id, location_path, library)
 						.await?;
 					should_invalidate = true;
 				}

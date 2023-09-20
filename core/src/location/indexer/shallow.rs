@@ -25,7 +25,7 @@ use std::{
 
 use futures::future::join_all;
 use itertools::Itertools;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::{
 	execute_indexer_save_step, iso_file_path_factory, location_with_indexer_rules,
@@ -88,6 +88,11 @@ pub async fn shallow(
 		.await?
 	};
 
+	debug!(
+		"Walker at shallow indexer found {} file_paths to be removed",
+		to_remove.len()
+	);
+
 	node.thumbnail_remover
 		.remove_cas_ids(
 			to_remove
@@ -143,22 +148,31 @@ pub async fn shallow(
 		}
 	}
 
+	let mut to_update_count = 0;
+
 	let update_steps = to_update
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.enumerate()
-		.map(|(i, chunk)| IndexerJobUpdateStep {
-			chunk_idx: i,
-			to_update: chunk.collect::<Vec<_>>(),
+		.map(|(i, chunk)| {
+			let to_update = chunk.collect::<Vec<_>>();
+			to_update_count += to_update.len();
+
+			IndexerJobUpdateStep {
+				chunk_idx: i,
+				to_update,
+			}
 		})
 		.collect::<Vec<_>>();
+
+	debug!("Walker at shallow indexer found {to_update_count} file_paths to be updated");
 
 	for step in update_steps {
 		execute_indexer_update_step(&step, library).await?;
 	}
 
 	if to_walk_path != location_path {
-		reverse_update_directories_sizes(to_walk_path, location_id, location_path, &library.db)
+		reverse_update_directories_sizes(to_walk_path, location_id, location_path, library)
 			.await
 			.map_err(IndexerError::from)?;
 	}
