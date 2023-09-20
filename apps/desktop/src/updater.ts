@@ -76,7 +76,7 @@ export function useUpdater() {
 	const alreadyChecked = useRef(false);
 
 	useEffect(() => {
-		if (!alreadyChecked.current) checkForUpdate();
+		if (!alreadyChecked.current && import.meta.env.PROD) checkForUpdate();
 		alreadyChecked.current = true;
 	}, []);
 }

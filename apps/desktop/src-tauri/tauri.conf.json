@@ -6,7 +6,7 @@
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev-vite",
-		"beforeBuildCommand": "pnpm run -w build --filter=@sd/desktop"
+		"beforeBuildCommand": "pnpm vite build"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -52,9 +52,7 @@
 			"active": true,
 			"dialog": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-			"endpoints": [
-				"https://spacedrive-landing-git-eng-927-fix-updater-spacedrive.vercel.app/api/releases/tauri/{{target}}/{{arch}}"
-			]
+			"endpoints": ["https://spacedrive.com/api/releases/tauri/{{target}}/{{arch}}"]
 		},
 		"allowlist": {
 			"all": false,
