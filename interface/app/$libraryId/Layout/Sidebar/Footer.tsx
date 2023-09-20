@@ -1,16 +1,8 @@
 import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import {
-	Button,
-	ButtonLink,
-	dialogManager,
-	ModifierKeys,
-	modifierSymbols,
-	Popover,
-	Tooltip
-} from '@sd/ui';
-import { useKeyBind, useOperatingSystem } from '~/hooks';
+import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
+import { useKeyBind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -22,10 +14,6 @@ export default () => {
 	const os = useOperatingSystem();
 	const navigate = useNavigate();
 	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
-	const recentJobsSymbol =
-		os === 'macOS'
-			? modifierSymbols[ModifierKeys.Meta][os]
-			: modifierSymbols[ModifierKeys.Control]['Other'];
 
 	useKeyBind(['g', 's'], (e) => {
 		e.stopPropagation();
@@ -34,7 +22,7 @@ export default () => {
 
 	return (
 		<div className="space-y-2">
-			<div className="flex items-center justify-between w-full">
+			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink
 						to="settings/client/general"
@@ -43,7 +31,7 @@ export default () => {
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
 						<Tooltip label="Settings" keybinds={['G', 'S']}>
-							<Gear className="w-5 h-5" />
+							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
@@ -59,7 +47,7 @@ export default () => {
 									{library && (
 										<Tooltip
 											label="Recent Jobs"
-											keybinds={[recentJobsSymbol as string, 'J']}
+											keybinds={[useKeyMatcher('Meta').icon, 'J']}
 										>
 											<IsRunningJob />
 										</Tooltip>

@@ -1,11 +1,18 @@
+import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMotionValueEvent, useScroll } from 'framer-motion';
-import { CheckCircle } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
-import { getThemeStore, Themes, useThemeStore, useZodForm } from '@sd/client';
-import { Button, Form, SwitchField, z } from '@sd/ui';
-
+import {
+	getThemeStore,
+	getUnitFormatStore,
+	Themes,
+	useThemeStore,
+	useUnitFormatStore,
+	useZodForm
+} from '@sd/client';
+import { Button, Divider, Form, Select, SelectOption, SwitchField, z } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
+
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
@@ -56,6 +63,8 @@ const themes: Theme[] = [
 export const Component = () => {
 	const { lockAppTheme } = usePlatform();
 	const themeStore = useThemeStore();
+	const formatStore = useUnitFormatStore();
+
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
@@ -107,6 +116,7 @@ export const Component = () => {
 			document.documentElement.style.setProperty('--dark-hue', hue.toString());
 		}
 	};
+
 	return (
 		<>
 			<Form form={form} onSubmit={onSubmit}>
@@ -212,6 +222,40 @@ export const Component = () => {
 					</Setting>
 				</div>
 			</Form>
+			<Divider />
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">Display Formats</h1>
+
+				<Setting mini title="Coordinates">
+					<Select
+						onChange={(e) => (getUnitFormatStore().coordinatesFormat = e)}
+						value={formatStore.coordinatesFormat}
+					>
+						<SelectOption value="dms">DMS</SelectOption>
+						<SelectOption value="dd">Decimal</SelectOption>
+					</Select>
+				</Setting>
+
+				<Setting mini title="Distance">
+					<Select
+						onChange={(e) => (getUnitFormatStore().distanceFormat = e)}
+						value={formatStore.distanceFormat}
+					>
+						<SelectOption value="km">Kilometers</SelectOption>
+						<SelectOption value="miles">Miles</SelectOption>
+					</Select>
+				</Setting>
+
+				<Setting mini title="Temperature">
+					<Select
+						onChange={(e) => (getUnitFormatStore().temperatureFormat = e)}
+						value={formatStore.temperatureFormat}
+					>
+						<SelectOption value="celsius">Celsius</SelectOption>
+						<SelectOption value="fahrenheit">Fahrenheit</SelectOption>
+					</Select>
+				</Setting>
+			</div>
 		</>
 	);
 };
