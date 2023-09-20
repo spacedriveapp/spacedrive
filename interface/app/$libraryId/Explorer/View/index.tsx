@@ -287,7 +287,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	};
 
 	return (
-		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
