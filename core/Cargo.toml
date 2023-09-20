@@ -107,6 +107,7 @@ axum = "0.6.20"
 http-body = "0.4.5"
 pin-project-lite = "0.2.13"
 bytes = "1.5.0"
+memchr = "2.6.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

@@ -6552,6 +6552,7 @@ dependencies = [
  "int-enum",
  "itertools 0.11.0",
  "kamadak-exif",
+ "memchr",
  "mini-moka",
  "normpath",
  "notify",
