@@ -76,7 +76,7 @@ async function checkForUpdate() {
 
 export function useUpdater() {
 	useEffect(() => {
-		if (!alreadyChecked && import.meta.env.PROD) checkForUpdate();
+		if (!alreadyChecked) checkForUpdate();
 		alreadyChecked = true;
 	}, []);
 }
