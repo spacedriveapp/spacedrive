@@ -1,7 +1,10 @@
 import { Gear } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, Popover, Tooltip } from '@sd/ui';
+import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
+
 import { usePlatform } from '~/util/Platform';
+import { useKeyBind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -10,6 +13,14 @@ import { IsRunningJob, JobManager } from './JobManager';
 export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
+	const os = useOperatingSystem();
+	const navigate = useNavigate();
+	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
+
+	useKeyBind(['g', 's'], (e) => {
+		e.stopPropagation();
+		navigate('settings/client/general');
+	});
 
 	const updater = usePlatform().updater;
 	const updaterState = updater?.useSnapshot();
@@ -37,12 +48,13 @@ export default () => {
 						variant="subtle"
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
-						<Tooltip label="Settings">
+						<Tooltip label="Settings" keybinds={['G', 'S']}>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
+							keybind={jobManagerKeys}
 							trigger={
 								<Button
 									size="icon"
@@ -51,7 +63,10 @@ export default () => {
 									disabled={!library}
 								>
 									{library && (
-										<Tooltip label="Recent Jobs">
+										<Tooltip
+											label="Recent Jobs"
+											keybinds={[useKeyMatcher('Meta').icon, 'J']}
+										>
 											<IsRunningJob />
 										</Tooltip>
 									)}

@@ -64,6 +64,7 @@ pub struct ExplorerSettings<TOrder> {
 	media_aspect_square: Option<bool>,
 	open_on_double_click: Option<DoubleClickAction>,
 	show_bytes_in_grid_view: Option<bool>,
+	col_visibility: Option<BTreeMap<String, bool>>,
 	col_sizes: Option<BTreeMap<String, i32>>,
 	// temporary
 	#[serde(skip_serializing_if = "Option::is_none")]

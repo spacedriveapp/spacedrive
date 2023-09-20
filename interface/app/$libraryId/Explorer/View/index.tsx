@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
+import { useKeys } from 'rooks';
 import {
 	getItemObject,
 	isPath,
@@ -26,7 +27,7 @@ import {
 } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
@@ -55,6 +56,12 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const { openFilePaths } = usePlatform();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const metaCtrlKey = useKeyMatcher('Meta').key;
+
+	useKeys([metaCtrlKey, 'ArrowUp'], async (e) => {
+		e.stopPropagation();
+		await onDoubleClick();
+	});
 
 	const onDoubleClick = async () => {
 		const selectedItems = [...explorer.selectedItems];
