@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { UpdateStore } from '@sd/interface';
 import { toast, ToastId } from '@sd/ui';
@@ -37,8 +37,6 @@ export const updater = {
 	}
 };
 
-let alreadyChecked = false;
-
 async function checkForUpdate() {
 	const update = await updater.checkForUpdate();
 
@@ -75,8 +73,10 @@ async function checkForUpdate() {
 }
 
 export function useUpdater() {
+	const alreadyChecked = useRef(false);
+
 	useEffect(() => {
-		if (!alreadyChecked) checkForUpdate();
-		alreadyChecked = true;
+		if (!alreadyChecked.current) checkForUpdate();
+		alreadyChecked.current = true;
 	}, []);
 }
