@@ -394,7 +394,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
-				take: u8,
+				#[specta(optional)]
+				take: Option<u8>,
 				#[specta(optional)]
 				order_and_pagination:
 					Option<OrderAndPagination<file_path::id::Type, FilePathOrder, FilePathCursor>>,
@@ -418,12 +419,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.min(MAX_TAKE);
+					let mut query = db.file_path().find_many(filter.into_params(db).await?);
 
-					let mut query = db
-						.file_path()
-						.find_many(filter.into_params(db).await?)
-						.take(take as i64);
+					if let Some(take) = take {
+						query = query.take(take as i64);
+					}
 
 					// WARN: this order_by for grouping directories MUST always come before the other order_by
 					if group_directories {
