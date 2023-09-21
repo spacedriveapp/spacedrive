@@ -205,7 +205,7 @@ pub enum FilePathObjectCursor {
 pub enum FilePathCursorVariant {
 	None,
 	Name(CursorOrderItem<String>),
-	// SizeInBytes(CursorOrderItem<Vec<u8>>),
+	SizeInBytes(SortOrder),
 	DateCreated(CursorOrderItem<DateTime<FixedOffset>>),
 	DateModified(CursorOrderItem<DateTime<FixedOffset>>),
 	DateIndexed(CursorOrderItem<DateTime<FixedOffset>>),
@@ -482,6 +482,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								match cursor.variant {
 									FilePathCursorVariant::None => {
 										query.add_where(file_path::id::gt(id));
+									}
+									FilePathCursorVariant::SizeInBytes(order) => {
+										query = query.order_by(
+											file_path::size_in_bytes_bytes::order(order.into()),
+										);
 									}
 									FilePathCursorVariant::Name(item) => arm!(name, item),
 									FilePathCursorVariant::DateCreated(item) => {

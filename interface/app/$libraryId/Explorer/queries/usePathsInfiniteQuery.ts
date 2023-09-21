@@ -51,6 +51,10 @@ export function usePathsInfiniteQuery({
 								};
 							break;
 						}
+						case 'sizeInBytes': {
+							variant = { sizeInBytes: order.value };
+							break;
+						}
 						case 'dateCreated': {
 							const data = cItem.item.date_created;
 							if (data !== null)
