@@ -65,7 +65,7 @@ async function checkForUpdate() {
 			},
 			duration: 10 * 1000,
 			action: {
-				label: 'Install',
+				label: 'Update',
 				onClick: () => updater.installUpdate()
 			}
 		}
