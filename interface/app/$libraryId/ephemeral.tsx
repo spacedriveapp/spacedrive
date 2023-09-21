@@ -1,24 +1,25 @@
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
+import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import {
-	type EphemeralPathOrder,
 	ExplorerItem,
 	getExplorerItemData,
-	useLibraryQuery
+	useLibraryQuery,
+	type EphemeralPathOrder
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
-import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
+import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
+
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import {
 	createDefaultExplorerSettings,
 	getExplorerStore,
 	nonIndexedPathOrderingSchema
 } from './Explorer/store';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
-import { TopBarPortal } from './TopBar/Portal';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
+import { TopBarPortal } from './TopBar/Portal';
 
 const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const os = useOperatingSystem();

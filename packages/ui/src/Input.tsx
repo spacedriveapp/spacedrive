@@ -1,6 +1,6 @@
+import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from '@phosphor-icons/react';
 import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from '@phosphor-icons/react';
 import { createElement, forwardRef, isValidElement, useState } from 'react';
 
 import { Button } from './Button';

@@ -1,12 +1,12 @@
-import clsx from 'clsx';
 import { Trash } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
 import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, Label, toast } from '@sd/ui';
 import { InfoText } from '@sd/ui/src/forms';
-
 import { showAlertDialog } from '~/components';
+
 import RuleButton from './RuleButton';
 import RulesForm from './RulesForm';
 

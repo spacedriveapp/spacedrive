@@ -21,7 +21,7 @@ use crate::{
 
 use std::{
 	collections::{BTreeMap, HashMap},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
@@ -34,7 +34,10 @@ use tokio::{fs, time::Instant};
 use tracing::{error, trace};
 
 use super::{
-	utils::{create_dir, extract_inode_and_device_from_path, remove, rename, update_file},
+	utils::{
+		create_dir, extract_inode_and_device_from_path, recalculate_directories_size, remove,
+		rename, update_file,
+	},
 	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -50,8 +53,9 @@ pub(super) struct WindowsEventHandler<'lib> {
 	files_to_remove: HashMap<INodeAndDevice, InstantAndPath>,
 	files_to_remove_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
 	files_to_update: HashMap<PathBuf, Instant>,
-	files_to_update_buffer: Vec<(PathBuf, Instant)>,
 	reincident_to_update_files: HashMap<PathBuf, Instant>,
+	to_recalculate_size: HashMap<PathBuf, Instant>,
+	path_and_instant_buffer: Vec<(PathBuf, Instant)>,
 }
 
 #[async_trait]
@@ -74,8 +78,9 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			files_to_remove: HashMap::new(),
 			files_to_remove_buffer: Vec::new(),
 			files_to_update: HashMap::new(),
-			files_to_update_buffer: Vec::new(),
 			reincident_to_update_files: HashMap::new(),
+			to_recalculate_size: HashMap::new(),
+			path_and_instant_buffer: Vec::new(),
 		}
 	}
 
@@ -132,6 +137,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 					let path = paths.remove(0);
 					if metadata.is_dir() {
+						// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
+						// a `scan_location_sub_path` function, which recalculates the size already
 						create_dir(self.location_id, path, &metadata, self.node, self.library)
 							.await?;
 					} else if self.files_to_update.contains_key(&path) {
@@ -249,6 +256,19 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 				error!("Failed to remove file_path: {e:#?}");
 			}
 
+			if !self.to_recalculate_size.is_empty() {
+				if let Err(e) = recalculate_directories_size(
+					&mut self.to_recalculate_size,
+					&mut self.path_and_instant_buffer,
+					self.location_id,
+					self.library,
+				)
+				.await
+				{
+					error!("Failed to recalculate directories size: {e:#?}");
+				}
+			}
+
 			self.last_events_eviction_check = Instant::now();
 		}
 	}
@@ -256,33 +276,47 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 impl WindowsEventHandler<'_> {
 	async fn handle_to_update_eviction(&mut self) -> Result<(), LocationManagerError> {
-		self.files_to_update_buffer.clear();
+		self.path_and_instant_buffer.clear();
 		let mut should_invalidate = false;
 
 		for (path, created_at) in self.files_to_update.drain() {
 			if created_at.elapsed() < HUNDRED_MILLIS * 5 {
-				self.files_to_update_buffer.push((path, created_at));
+				self.path_and_instant_buffer.push((path, created_at));
 			} else {
 				self.reincident_to_update_files.remove(&path);
-				handle_update(self.location_id, &path, self.node, self.library).await?;
+				handle_update(
+					self.location_id,
+					&path,
+					self.node,
+					&mut self.to_recalculate_size,
+					self.library,
+				)
+				.await?;
 				should_invalidate = true;
 			}
 		}
 
 		self.files_to_update
-			.extend(self.files_to_update_buffer.drain(..));
+			.extend(self.path_and_instant_buffer.drain(..));
 
-		self.files_to_update_buffer.clear();
+		self.path_and_instant_buffer.clear();
 
 		// We have to check if we have any reincident files to update and update them after a bigger
 		// timeout, this way we keep track of files being update frequently enough to bypass our
 		// eviction check above
 		for (path, created_at) in self.reincident_to_update_files.drain() {
 			if created_at.elapsed() < ONE_SECOND * 10 {
-				self.files_to_update_buffer.push((path, created_at));
+				self.path_and_instant_buffer.push((path, created_at));
 			} else {
 				self.files_to_update.remove(&path);
-				handle_update(self.location_id, &path, self.node, self.library).await?;
+				handle_update(
+					self.location_id,
+					&path,
+					self.node,
+					&mut self.to_recalculate_size,
+					self.library,
+				)
+				.await?;
 				should_invalidate = true;
 			}
 		}
@@ -292,7 +326,7 @@ impl WindowsEventHandler<'_> {
 		}
 
 		self.reincident_to_update_files
-			.extend(self.files_to_update_buffer.drain(..));
+			.extend(self.path_and_instant_buffer.drain(..));
 
 		Ok(())
 	}
@@ -303,6 +337,12 @@ impl WindowsEventHandler<'_> {
 
 		for (inode_and_device, (instant, path)) in self.files_to_remove.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
 				remove(self.location_id, &path, self.library).await?;
 				should_invalidate = true;
 				trace!("Removed file_path due timeout: {}", path.display());
@@ -327,12 +367,18 @@ async fn handle_update<'lib>(
 	location_id: location::id::Type,
 	path: &PathBuf,
 	node: &'lib Arc<Node>,
+	to_recalculate_size: &mut HashMap<PathBuf, Instant>,
 	library: &'lib Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let metadata = fs::metadata(&path)
 		.await
 		.map_err(|e| FileIOError::from((&path, e)))?;
 	if metadata.is_file() {
+		if let Some(parent) = path.parent() {
+			if parent != Path::new("") {
+				to_recalculate_size.insert(parent.to_path_buf(), Instant::now());
+			}
+		}
 		update_file(location_id, path, node, library).await?;
 	}
 

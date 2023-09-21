@@ -28,6 +28,7 @@ use super::{
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct JobProgressEvent {
 	pub id: Uuid,
+	pub library_id: Uuid,
 	pub task_count: i32,
 	pub completed_task_count: i32,
 	pub message: String,
@@ -90,6 +91,7 @@ impl WorkerContext {
 // a worker is a dedicated thread that runs a single job
 // once the job is complete the worker will exit
 pub struct Worker {
+	pub(super) library_id: Uuid,
 	commands_tx: mpsc::Sender<WorkerCommand>,
 	report_watch_tx: Arc<watch::Sender<JobReport>>,
 	report_watch_rx: watch::Receiver<JobReport>,
@@ -130,6 +132,7 @@ impl Worker {
 
 		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
 		let report_watch_tx = Arc::new(report_watch_tx);
+		let library_id = library.id;
 
 		// spawn task to handle running the job
 		tokio::spawn(Self::do_work(
@@ -148,6 +151,7 @@ impl Worker {
 		));
 
 		Ok(Self {
+			library_id,
 			commands_tx,
 			report_watch_tx,
 			report_watch_rx,
@@ -279,6 +283,7 @@ impl Worker {
 		// emit a CoreEvent
 		library.emit(CoreEvent::JobProgress(JobProgressEvent {
 			id: report.id,
+			library_id: library.id,
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,

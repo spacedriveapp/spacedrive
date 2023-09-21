@@ -3,7 +3,6 @@ import { cva, VariantProps } from 'class-variance-authority';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, TextInputProps as RNTextInputProps, TextInput, View } from 'react-native';
-
 import { tw, twStyle } from '~/lib/tailwind';
 
 const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {

@@ -1,9 +1,9 @@
 import { AlphaBg, AlphaBg_Light, AppLogo } from '@sd/assets/images';
 import { Discord } from '@sd/assets/svgs/brands';
 import { Button, ButtonLink } from '@sd/ui';
-
 import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import { OnboardingContainer } from './Layout';
 
 export default function OnboardingAlpha() {

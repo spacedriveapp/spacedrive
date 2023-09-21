@@ -3,7 +3,6 @@ import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
-
 import { FadeInAnimation } from '~/components/animation/layout';
 import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';

@@ -1,5 +1,4 @@
 import { SendEmailCommand, SESClient } from '@aws-sdk/client-ses';
-
 import { env } from '~/env';
 
 export const ses = new SESClient({

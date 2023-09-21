@@ -1,11 +1,11 @@
+import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { FolderSimplePlus } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
-
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import { AddLocationDialog } from './AddLocationDialog';
 import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 
