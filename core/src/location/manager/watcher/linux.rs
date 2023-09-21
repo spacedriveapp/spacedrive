@@ -13,7 +13,7 @@ use crate::{
 
 use std::{
 	collections::{BTreeMap, HashMap},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
@@ -26,7 +26,7 @@ use tokio::{fs, time::Instant};
 use tracing::{error, trace};
 
 use super::{
-	utils::{create_dir, remove, rename, update_file},
+	utils::{create_dir, recalculate_directories_size, remove, rename, update_file},
 	EventHandler, HUNDRED_MILLIS, ONE_SECOND,
 };
 
@@ -37,11 +37,11 @@ pub(super) struct LinuxEventHandler<'lib> {
 	node: &'lib Arc<Node>,
 	last_events_eviction_check: Instant,
 	rename_from: HashMap<PathBuf, Instant>,
-	rename_from_buffer: Vec<(PathBuf, Instant)>,
 	recently_renamed_from: BTreeMap<PathBuf, Instant>,
 	files_to_update: HashMap<PathBuf, Instant>,
-	files_to_update_buffer: Vec<(PathBuf, Instant)>,
 	reincident_to_update_files: HashMap<PathBuf, Instant>,
+	to_recalculate_size: HashMap<PathBuf, Instant>,
+	path_and_instant_buffer: Vec<(PathBuf, Instant)>,
 }
 
 #[async_trait]
@@ -57,11 +57,11 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			node,
 			last_events_eviction_check: Instant::now(),
 			rename_from: HashMap::new(),
-			rename_from_buffer: Vec::new(),
 			recently_renamed_from: BTreeMap::new(),
 			files_to_update: HashMap::new(),
-			files_to_update_buffer: Vec::new(),
 			reincident_to_update_files: HashMap::new(),
+			to_recalculate_size: HashMap::new(),
+			path_and_instant_buffer: Vec::new(),
 		}
 	}
 
@@ -96,6 +96,9 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 
 			EventKind::Create(CreateKind::Folder) => {
 				let path = &paths[0];
+
+				// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
+				// a `scan_location_sub_path` function, which recalculates the size already
 
 				create_dir(
 					self.location_id,
@@ -135,7 +138,15 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 					.insert(paths.swap_remove(0), Instant::now());
 			}
 			EventKind::Remove(_) => {
-				remove(self.location_id, &paths[0], self.library).await?;
+				let path = paths.remove(0);
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
+
+				remove(self.location_id, &path, self.library).await?;
 			}
 			other_event_kind => {
 				trace!("Other Linux event that we don't handle for now: {other_event_kind:#?}");
@@ -158,6 +169,19 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 			self.recently_renamed_from
 				.retain(|_, instant| instant.elapsed() < HUNDRED_MILLIS);
 
+			if !self.to_recalculate_size.is_empty() {
+				if let Err(e) = recalculate_directories_size(
+					&mut self.to_recalculate_size,
+					&mut self.path_and_instant_buffer,
+					self.location_id,
+					self.library,
+				)
+				.await
+				{
+					error!("Failed to recalculate directories size: {e:#?}");
+				}
+			}
+
 			self.last_events_eviction_check = Instant::now();
 		}
 	}
@@ -165,13 +189,19 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 
 impl LinuxEventHandler<'_> {
 	async fn handle_to_update_eviction(&mut self) -> Result<(), LocationManagerError> {
-		self.files_to_update_buffer.clear();
+		self.path_and_instant_buffer.clear();
 		let mut should_invalidate = false;
 
 		for (path, created_at) in self.files_to_update.drain() {
 			if created_at.elapsed() < HUNDRED_MILLIS * 5 {
-				self.files_to_update_buffer.push((path, created_at));
+				self.path_and_instant_buffer.push((path, created_at));
 			} else {
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
 				self.reincident_to_update_files.remove(&path);
 				update_file(self.location_id, &path, self.node, self.library).await?;
 				should_invalidate = true;
@@ -179,17 +209,23 @@ impl LinuxEventHandler<'_> {
 		}
 
 		self.files_to_update
-			.extend(self.files_to_update_buffer.drain(..));
+			.extend(self.path_and_instant_buffer.drain(..));
 
-		self.files_to_update_buffer.clear();
+		self.path_and_instant_buffer.clear();
 
 		// We have to check if we have any reincident files to update and update them after a bigger
 		// timeout, this way we keep track of files being update frequently enough to bypass our
 		// eviction check above
 		for (path, created_at) in self.reincident_to_update_files.drain() {
 			if created_at.elapsed() < ONE_SECOND * 10 {
-				self.files_to_update_buffer.push((path, created_at));
+				self.path_and_instant_buffer.push((path, created_at));
 			} else {
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
 				self.files_to_update.remove(&path);
 				update_file(self.location_id, &path, self.node, self.library).await?;
 				should_invalidate = true;
@@ -201,22 +237,28 @@ impl LinuxEventHandler<'_> {
 		}
 
 		self.reincident_to_update_files
-			.extend(self.files_to_update_buffer.drain(..));
+			.extend(self.path_and_instant_buffer.drain(..));
 
 		Ok(())
 	}
 
 	async fn handle_rename_from_eviction(&mut self) -> Result<(), LocationManagerError> {
-		self.rename_from_buffer.clear();
+		self.path_and_instant_buffer.clear();
 		let mut should_invalidate = false;
 
 		for (path, instant) in self.rename_from.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
+				if let Some(parent) = path.parent() {
+					if parent != Path::new("") {
+						self.to_recalculate_size
+							.insert(parent.to_path_buf(), Instant::now());
+					}
+				}
 				remove(self.location_id, &path, self.library).await?;
 				should_invalidate = true;
 				trace!("Removed file_path due timeout: {}", path.display());
 			} else {
-				self.rename_from_buffer.push((path, instant));
+				self.path_and_instant_buffer.push((path, instant));
 			}
 		}
 
@@ -224,7 +266,7 @@ impl LinuxEventHandler<'_> {
 			invalidate_query!(self.library, "search.paths");
 		}
 
-		for (path, instant) in self.rename_from_buffer.drain(..) {
+		for (path, instant) in self.path_and_instant_buffer.drain(..) {
 			self.rename_from.insert(path, instant);
 		}
 
