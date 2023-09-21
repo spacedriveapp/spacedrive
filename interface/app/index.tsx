@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
-
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useKeybindHandler, useTheme } from '~/hooks';
+
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';

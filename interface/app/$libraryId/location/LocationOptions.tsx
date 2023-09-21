@@ -1,5 +1,13 @@
+import {
+	Archive,
+	Check,
+	Copy,
+	FolderDotted,
+	Gear,
+	IconContext,
+	Image
+} from '@phosphor-icons/react';
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
-import { Archive, Check, Copy, FolderDotted, Gear, IconContext, Image } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLibraryMutation, type Location } from '@sd/client';

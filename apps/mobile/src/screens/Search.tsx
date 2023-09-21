@@ -3,7 +3,6 @@ import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getExplorerItemData, useLibraryQuery } from '@sd/client';
-
 import Explorer from '~/components/explorer/Explorer';
 import { tw, twStyle } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
-
 import { ModalInput } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';

@@ -4,11 +4,11 @@ import clsx from 'clsx';
 import { useRef } from 'react';
 import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
-
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
+
 import { Menu } from './Menu';
 
 export default (props: { objects: Object[] }) => {

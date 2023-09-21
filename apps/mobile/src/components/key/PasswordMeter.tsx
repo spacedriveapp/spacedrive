@@ -1,6 +1,5 @@
 import { Text, View, ViewStyle } from 'react-native';
 import { getPasswordStrength } from '@sd/client';
-
 import { tw, twStyle } from '~/lib/tailwind';
 
 // NOTE: Lazy load this component.

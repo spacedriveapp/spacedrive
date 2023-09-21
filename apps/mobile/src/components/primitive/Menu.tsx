@@ -8,7 +8,6 @@ import {
 	Menu as PMenu,
 	renderers
 } from 'react-native-popup-menu';
-
 import { tw } from '~/lib/tailwind';
 
 type MenuProps = {
