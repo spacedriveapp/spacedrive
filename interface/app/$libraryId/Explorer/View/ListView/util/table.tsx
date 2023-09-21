@@ -1,9 +1,9 @@
 import {
-	ColumnDef,
-	ColumnSizingState,
 	getCoreRowModel,
 	useReactTable,
-	VisibilityState
+	type ColumnDef,
+	type ColumnSizingState,
+	type VisibilityState
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
@@ -26,8 +26,6 @@ import { isCut, useExplorerStore } from '../../../store';
 import { uniqueId } from '../../../util';
 import RenamableItemText from '../../RenamableItemText';
 
-const NAME_COL_MIN_SIZE = 200;
-
 export const useTable = () => {
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
@@ -41,7 +39,7 @@ export const useTable = () => {
 			{
 				id: 'name',
 				header: 'Name',
-				minSize: NAME_COL_MIN_SIZE,
+				minSize: 200,
 				maxSize: undefined,
 				accessorFn: (file) => getExplorerItemData(file).fullName,
 				cell: (cell) => {
@@ -53,14 +51,13 @@ export const useTable = () => {
 
 					return (
 						<div className="relative flex items-center">
-							<div className="mr-[10px] flex h-6 w-12 shrink-0 items-center justify-center">
-								<FileThumb
-									data={item}
-									size={35}
-									blackBars
-									className={clsx(cut && 'opacity-60')}
-								/>
-							</div>
+							<FileThumb
+								data={item}
+								size={35}
+								blackBars
+								className={clsx('mr-2.5', cut && 'opacity-60')}
+							/>
+
 							<RenamableItemText
 								allowHighlight={false}
 								item={item}

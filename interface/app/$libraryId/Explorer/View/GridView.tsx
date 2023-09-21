@@ -2,13 +2,13 @@ import clsx from 'clsx';
 import { memo } from 'react';
 import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
 
-import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerViewContext } from '../ViewContext';
 import GridList from './GridList';
 import RenamableItemText from './RenamableItemText';
+import { ViewItem } from './ViewItem';
 
 interface GridViewItemProps {
 	data: ExplorerItem;

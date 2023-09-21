@@ -1,44 +1,24 @@
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import {
 	flexRender,
-	functionalUpdate,
-	getCoreRowModel,
-	useReactTable,
 	VisibilityState,
-	type ColumnDef,
 	type ColumnSizingState,
 	type Row
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import dayjs from 'dayjs';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import ReactDOM from 'react-dom';
-import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import {
-	byteSize,
-	getExplorerItemData,
-	getItemFilePath,
-	getItemLocation,
-	getItemObject,
-	type ExplorerItem,
-	type FilePath,
-	type NonIndexedPathItem
-} from '@sd/client';
+import { type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useScrolled } from '~/hooks';
-import { isNonEmpty, isNonEmptyObject } from '~/util';
-import { stringify } from '~/util/uuid';
+import { useIsTextTruncated } from '~/hooks';
+import { isNonEmptyObject } from '~/util';
 
-import { ViewItem } from '..';
 import { useLayoutContext } from '../../../Layout/Context';
 import { useExplorerContext } from '../../Context';
-import { FileThumb } from '../../FilePath/Thumb';
-import { InfoPill } from '../../Inspector';
-import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
+import { getQuickPreviewStore } from '../../QuickPreview/store';
 import {
 	createOrdering,
 	getOrderingDirection,
@@ -48,40 +28,41 @@ import {
 } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../../ViewContext';
-import RenamableItemText from '../RenamableItemText';
+import { ViewItem } from '../ViewItem';
+import { getRangeDirection, Range, useRanges } from './util/ranges';
 import { useTable } from './util/table';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
+	paddingX: number;
+	// Props below are passed to trigger a rerender
+	// should probably use a better solution
 	columnSizing: ColumnSizingState;
 	columnVisibility: VisibilityState;
-	paddingX: number;
-	selected: boolean;
-	cut: boolean;
+	isCut: boolean;
+	isRenaming: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem
 			data={props.row.original}
-			className="w-full"
+			className="relative flex h-full items-center"
 			style={{ paddingLeft: props.paddingX, paddingRight: props.paddingX }}
 		>
-			<div role="row" className="flex h-full items-center">
-				{props.row.getVisibleCells().map((cell) => (
-					<div
-						role="cell"
-						key={cell.id}
-						className={clsx(
-							'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
-							cell.column.columnDef.meta?.className
-						)}
-						style={{ width: cell.column.getSize() }}
-					>
-						{flexRender(cell.column.columnDef.cell, cell.getContext())}
-					</div>
-				))}
-			</div>
+			{props.row.getVisibleCells().map((cell) => (
+				<div
+					role="cell"
+					key={cell.id}
+					className={clsx(
+						'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
+						cell.column.columnDef.meta?.className
+					)}
+					style={{ width: cell.column.getSize() }}
+				>
+					{flexRender(cell.column.columnDef.cell, cell.getContext())}
+				</div>
+			))}
 		</ViewItem>
 	);
 });
@@ -104,21 +85,20 @@ const HeaderColumnName = ({ name }: { name: string }) => {
 	);
 };
 
-type Range = [string, string];
-
 const ROW_HEIGHT = 45;
-const NAME_COL_MIN_SIZE = 200;
 
 export default () => {
 	const layout = useLayoutContext();
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
-	const explorerView = useExplorerViewContext();
+	const { isRenaming, ...explorerView } = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
 	const tableBodyRef = useRef<HTMLDivElement>(null);
+
+	const scrollLeft = useRef(0);
 
 	const [sized, setSized] = useState(false);
 	const [locked, setLocked] = useState(false);
@@ -127,19 +107,21 @@ export default () => {
 	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<Range[]>([]);
 
+	const [isLeftMouseDown, setIsLeftMouseDown] = useState(false);
+	const [dragging, setDragging] = useState(false);
+
 	const { table } = useTable();
 	const { columnVisibility, columnSizing } = table.getState();
-	const { rows } = table.getRowModel();
+	const { rows, rowsById } = table.getRowModel();
+
+	const { getRangeByIndex, getRangesByRow, getClosestRange } = useRanges({
+		ranges,
+		rows: rowsById
+	});
 
 	const padding = {
-		x:
-			(typeof explorerView.padding === 'object'
-				? explorerView.padding.x
-				: explorerView.padding) ?? 16,
-		y:
-			(typeof explorerView.padding === 'object'
-				? explorerView.padding.y
-				: explorerView.padding) ?? 12
+		x: explorerView.padding?.x ?? 16,
+		y: explorerView.padding?.y ?? 12
 	};
 
 	const rowVirtualizer = useVirtualizer({
@@ -148,142 +130,11 @@ export default () => {
 		estimateSize: useCallback(() => ROW_HEIGHT, []),
 		paddingStart: padding.y,
 		paddingEnd: padding.y,
-		scrollMargin: listOffset
+		scrollMargin: listOffset,
+		overscan: explorer.overscan ?? 10
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
-
-	function isSelected(item: ExplorerItem) {
-		return explorer.selectedItems.has(item);
-	}
-
-	function getRangeDirection(start: number, end: number) {
-		return start < end ? ('down' as const) : start > end ? ('up' as const) : null;
-	}
-
-	function getRangeByIndex(index: number) {
-		const range = ranges[index];
-
-		if (!range) return;
-
-		const rangeRows = getRangeRows(range);
-
-		if (!rangeRows) return;
-
-		const direction = getRangeDirection(rangeRows.start.index, rangeRows.end.index);
-
-		return { ...rangeRows, direction, index };
-	}
-
-	function getRangesByRow({ index }: Row<ExplorerItem>) {
-		const _ranges = ranges.reduce<NonNullable<ReturnType<typeof getRangeByIndex>>[]>(
-			(ranges, range, i) => {
-				const rangeRows = getRangeRows(range);
-
-				if (!rangeRows) return ranges;
-
-				if (index >= rangeRows.sorted.start.index && index <= rangeRows.sorted.end.index) {
-					const range = getRangeByIndex(i);
-					return range ? [...ranges, range] : ranges;
-				}
-
-				return ranges;
-			},
-			[]
-		);
-
-		return _ranges;
-	}
-
-	function getRangeRows(range: Range) {
-		const { rowsById } = table.getCoreRowModel();
-
-		const rangeRows = range
-			.map((id) => rowsById[id])
-			.filter((row): row is Row<ExplorerItem> => Boolean(row));
-
-		const [start, end] = rangeRows;
-
-		const [sortedStart, sortedEnd] = [...rangeRows].sort((a, b) => a.index - b.index);
-
-		if (!start || !end || !sortedStart || !sortedEnd) return;
-
-		return { start, end, sorted: { start: sortedStart, end: sortedEnd } };
-	}
-
-	function sortRanges(ranges: Range[]) {
-		return ranges
-			.map((range, i) => {
-				const rows = getRangeRows(range);
-
-				if (!rows) return;
-
-				return {
-					index: i,
-					...rows
-				};
-			})
-			.filter(
-				(
-					range
-				): range is NonNullable<ReturnType<typeof getRangeRows>> & { index: number } =>
-					Boolean(range)
-			)
-			.sort((a, b) => a.sorted.start.index - b.sorted.start.index);
-	}
-
-	function getClosestRange(
-		rangeIndex: number,
-		options: {
-			direction?: 'up' | 'down';
-			maxRowDifference?: number;
-			ranges?: Range[];
-		} = {}
-	) {
-		const range = getRangeByIndex(rangeIndex);
-
-		let _ranges = sortRanges(options.ranges || ranges);
-
-		if (range) {
-			_ranges = _ranges.filter(
-				(_range) =>
-					range.index === _range.index ||
-					range.sorted.start.index < _range.sorted.start.index ||
-					range.sorted.end.index > _range.sorted.end.index
-			);
-		}
-
-		const targetRangeIndex = _ranges.findIndex(({ index }) => rangeIndex === index);
-
-		const targetRange = _ranges[targetRangeIndex];
-
-		if (!targetRange) return;
-
-		const closestRange =
-			options.direction === 'down'
-				? _ranges[targetRangeIndex + 1]
-				: options.direction === 'up'
-				? _ranges[targetRangeIndex - 1]
-				: _ranges[targetRangeIndex + 1] || _ranges[targetRangeIndex - 1];
-
-		if (!closestRange) return;
-
-		const direction = options.direction || (_ranges[targetRangeIndex + 1] ? 'down' : 'up');
-
-		const rowDifference =
-			direction === 'down'
-				? closestRange.sorted.start.index - 1 - targetRange.sorted.end.index
-				: targetRange.sorted.start.index - (closestRange.sorted.end.index + 1);
-
-		if (options.maxRowDifference !== undefined && rowDifference > options.maxRowDifference)
-			return;
-
-		return {
-			...closestRange,
-			direction,
-			rowDifference
-		};
-	}
 
 	function handleRowClick(
 		e: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -297,8 +148,6 @@ export default () => {
 
 		if (explorer.allowMultiSelect) {
 			if (e.shiftKey) {
-				const { rows } = table.getCoreRowModel();
-
 				const range = getRangeByIndex(ranges.length - 1);
 
 				if (!range) {
@@ -426,8 +275,6 @@ export default () => {
 					[uniqueId(range.start.original), uniqueId(newRangeEnd)]
 				]);
 			} else if (e.metaKey) {
-				const { rows } = table.getCoreRowModel();
-
 				if (explorer.selectedItems.has(item)) {
 					explorer.removeSelectedItem(item);
 
@@ -554,7 +401,7 @@ export default () => {
 					}
 				}
 			} else {
-				if (isSelected(item)) return;
+				if (explorer.isItemSelected(item)) return;
 
 				explorer.resetSelectedItems([item]);
 				const hash = uniqueId(item);
@@ -570,13 +417,14 @@ export default () => {
 
 		const item = row.original;
 
-		if (!isSelected(item)) {
+		if (!explorer.isItemSelected(item)) {
 			explorer.resetSelectedItems([item]);
 			const hash = uniqueId(item);
 			setRanges([[hash, hash]]);
 		}
 	}
 
+	// Reset ranges
 	useEffect(() => setRanges([]), [explorer.items]);
 
 	// Measure initial column widths
@@ -606,10 +454,11 @@ export default () => {
 			setLocked(true);
 		} else if (columnsWidth > tableWidth) {
 			const nameColSize = sizing.name ?? 0;
+			const minNameColSize = table.getColumn('name')?.columnDef.minSize;
 
 			const difference = columnsWidth - tableWidth;
 
-			if (nameColSize - difference >= NAME_COL_MIN_SIZE) {
+			if (minNameColSize !== undefined && nameColSize - difference >= minNameColSize) {
 				table.setColumnSizing({ ...sizing, name: nameColSize - difference });
 				setLocked(true);
 			}
@@ -642,15 +491,19 @@ export default () => {
 
 		const onScroll = (event: WheelEvent) => {
 			event.deltaX !== 0 && event.preventDefault();
-			const scrollLeft = event.deltaX;
-			body.scrollLeft += scrollLeft;
-			header.scrollLeft += scrollLeft;
+			header.scrollLeft += event.deltaX;
+			body.scrollLeft += event.deltaX;
 		};
 
+		body.addEventListener('scroll', (e) => e.preventDefault());
 		table.addEventListener('wheel', onScroll);
-		return () => table.removeEventListener('wheel', onScroll);
-	}, [tableRef.current, tableHeaderRef.current, tableBodyRef.current]);
+		return () => {
+			table.removeEventListener('wheel', onScroll);
+			body.removeEventListener('scroll', (e) => e.preventDefault());
+		};
+	}, [sized]);
 
+	// Handle key selection
 	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
@@ -848,16 +701,29 @@ export default () => {
 		}
 	});
 
+	// Reset resizing cursor
 	useWindowEventListener('mouseup', () => {
-		if (!resizing) return;
 		setTimeout(() => {
 			setResizing(false);
-			if (layout.ref.current) {
-				layout.ref.current.style.cursor = '';
-			}
 		});
+		setDragging(false);
+		setIsLeftMouseDown(false);
+
+		if (layout.ref.current) layout.ref.current.style.cursor = '';
+		if (tableHeaderRef.current) {
+			tableHeaderRef.current.style.overflowX = 'auto';
+			tableHeaderRef.current.scrollLeft = scrollLeft.current;
+		}
 	});
 
+	useWindowEventListener('mousemove', () => {
+		if (!isLeftMouseDown) return;
+
+		setDragging(true);
+		if (tableHeaderRef.current) tableHeaderRef.current.style.overflowX = 'hidden';
+	});
+
+	// Handle table resize
 	useResizeObserver({
 		ref: tableRef,
 		onResize: ({ width }) => {
@@ -874,8 +740,9 @@ export default () => {
 
 			if (locked) {
 				const newNameSize = (sizing.name ?? 0) + (width - columnsWidth);
+				const minNameColSize = table.getColumn('name')?.columnDef.minSize;
 
-				if (newNameSize < NAME_COL_MIN_SIZE) return;
+				if (minNameColSize !== undefined && newNameSize < minNameColSize) return;
 
 				table.setColumnSizing({
 					...columnSizing,
@@ -892,169 +759,168 @@ export default () => {
 		const view = explorerView.ref.current;
 		const scroll = explorer.scrollRef.current;
 		if (!view || !scroll) return;
-		setTop(explorerView.top ?? view.offsetTop + scroll.getBoundingClientRect().top);
+		setTop(explorerView.top ?? parseInt(getComputedStyle(scroll).paddingTop));
 		setListOffset(tableRef.current?.offsetTop ?? 0);
 	});
 
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
+	// console.log('is dragging', isRenaming);
+
 	return (
-		<div ref={tableRef}>
+		<div
+			ref={tableRef}
+			onMouseDown={(e) => {
+				// console.log('mousedown');
+				e.stopPropagation();
+				setIsLeftMouseDown(true);
+			}}
+		>
 			{sized && (
 				<>
 					<BasicSticky
 						scrollElement={explorer.scrollRef.current ?? undefined}
 						stickyStyle={{ top, zIndex: 10 }}
 						topOffset={-top}
+						// Without this the width of the element doesn't get updated
+						// when the inspector is toggled
+						positionRecheckInterval={100}
 					>
-						<div
-							ref={tableHeaderRef}
-							className="no-scrollbar top-bar-blur overflow-x-auto overscroll-x-none !bg-app/90"
-						>
-							<ContextMenu.Root
-								trigger={
-									<div className="flex">
-										{table.getHeaderGroups().map((headerGroup) => (
-											<div
-												ref={tableHeaderRef}
-												key={headerGroup.id}
-												className="flex grow border-b border-app-line/50"
-												onMouseDown={(e) => e.stopPropagation()}
-											>
-												{headerGroup.headers.map((header, i) => {
-													const size = header.column.getSize();
+						<ContextMenu.Root
+							trigger={
+								<div
+									ref={tableHeaderRef}
+									className={clsx(
+										'no-scrollbar top-bar-blur overflow-x-auto overscroll-x-none border-y !border-sidebar-divider bg-app/90',
+										// Prevent drag scroll when resizing
+										dragging && 'overflow-hidden'
+									)}
+									onScroll={(e) =>
+										(scrollLeft.current = e.currentTarget.scrollLeft)
+									}
+								>
+									{table.getHeaderGroups().map((headerGroup) => (
+										<div key={headerGroup.id} className="flex w-fit">
+											{headerGroup.headers.map((header, i) => {
+												const size = header.column.getSize();
 
-													const orderingDirection =
-														settings.order &&
-														orderingKey(settings.order) === header.id
-															? getOrderingDirection(settings.order)
-															: null;
+												const orderingDirection =
+													settings.order &&
+													orderingKey(settings.order) === header.id
+														? getOrderingDirection(settings.order)
+														: null;
 
-													const cellContent = flexRender(
-														header.column.columnDef.header,
-														header.getContext()
-													);
+												const cellContent = flexRender(
+													header.column.columnDef.header,
+													header.getContext()
+												);
 
-													return (
-														<div
-															key={header.id}
-															className="relative shrink-0 px-4 py-2 text-xs first:pl-24"
-															style={{
-																width:
-																	i === 0
-																		? size + padding.x
-																		: i ===
-																		  headerGroup.headers
-																				.length -
-																				1
-																		? size + padding.x
-																		: size
-															}}
-															onClick={() => {
-																if (resizing) return;
-
-																if (header.column.getCanSort()) {
-																	if (orderingDirection) {
-																		explorer.settingsStore.order =
-																			createOrdering(
-																				header.id,
-																				orderingDirection ===
-																					'Asc'
-																					? 'Desc'
-																					: 'Asc'
-																			);
-																	} else {
-																		explorer.settingsStore.order =
-																			createOrdering(
-																				header.id,
-																				'Asc'
-																			);
-																	}
-																}
-															}}
-														>
-															{header.isPlaceholder ? null : (
-																<div
-																	className={clsx(
-																		'flex items-center justify-between gap-3',
-																		orderingDirection !== null
-																			? 'text-ink'
-																			: 'text-ink-dull'
-																	)}
-																>
-																	{typeof cellContent ===
-																		'string' && (
-																		<HeaderColumnName
-																			name={cellContent}
-																		/>
-																	)}
-
-																	{orderingDirection ===
-																		'Asc' && (
-																		<CaretUp className="shrink-0 text-ink-faint" />
-																	)}
-																	{orderingDirection ===
-																		'Desc' && (
-																		<CaretDown className="shrink-0 text-ink-faint" />
-																	)}
-
-																	<div
-																		onClick={(e) =>
-																			e.stopPropagation()
-																		}
-																		onMouseDown={(e) => {
-																			header.getResizeHandler()(
-																				e
-																			);
-																			setResizing(true);
-																			setLocked(false);
-
-																			if (
-																				layout?.ref.current
-																			) {
-																				layout.ref.current.style.cursor =
-																					'col-resize';
-																			}
-																		}}
-																		onTouchStart={header.getResizeHandler()}
-																		className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+												return (
+													<div
+														key={header.id}
+														className={clsx(
+															'relative flex items-center justify-between gap-3 px-4 py-2 text-xs first:pl-[83px]',
+															orderingDirection !== null
+																? 'text-ink'
+																: 'text-ink-dull'
+														)}
+														style={{
+															width:
+																i === 0 ||
+																i === headerGroup.headers.length - 1
+																	? size + padding.x
+																	: size
+														}}
+														onClick={() => {
+															if (resizing) return;
+															if (header.column.getCanSort()) {
+																explorer.settingsStore.order =
+																	createOrdering(
+																		header.id,
+																		orderingDirection === 'Asc'
+																			? 'Desc'
+																			: 'Asc'
+																	);
+															}
+														}}
+													>
+														{header.isPlaceholder ? null : (
+															<>
+																{typeof cellContent === 'string' ? (
+																	<HeaderColumnName
+																		name={cellContent}
 																	/>
-																</div>
-															)}
-														</div>
-													);
-												})}
-											</div>
-										))}
-									</div>
-								}
-							>
-								{table.getAllLeafColumns().map((column) => {
-									if (column.id === 'name') return null;
-									return (
-										<ContextMenu.CheckboxItem
-											key={column.id}
-											label={
-												typeof column.columnDef.header === 'string'
-													? column.columnDef.header
-													: column.id
-											}
-											checked={column.getIsVisible()}
-											onSelect={column.getToggleVisibilityHandler()}
-										/>
-									);
-								})}
-							</ContextMenu.Root>
-						</div>
+																) : (
+																	cellContent
+																)}
+
+																{orderingDirection === 'Asc' && (
+																	<CaretUp className="shrink-0 text-ink-faint" />
+																)}
+
+																{orderingDirection === 'Desc' && (
+																	<CaretDown className="shrink-0 text-ink-faint" />
+																)}
+
+																<div
+																	onClick={(e) =>
+																		e.stopPropagation()
+																	}
+																	onMouseDown={(e) => {
+																		setResizing(true);
+																		setLocked(false);
+
+																		header.getResizeHandler()(
+																			e
+																		);
+
+																		if (layout.ref.current) {
+																			layout.ref.current.style.cursor =
+																				'col-resize';
+																		}
+																	}}
+																	onTouchStart={header.getResizeHandler()}
+																	className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-sidebar-divider"
+																/>
+															</>
+														)}
+													</div>
+												);
+											})}
+										</div>
+									))}
+								</div>
+							}
+						>
+							{table.getAllLeafColumns().map((column) => {
+								if (column.id === 'name') return null;
+								return (
+									<ContextMenu.CheckboxItem
+										key={column.id}
+										checked={column.getIsVisible()}
+										onSelect={column.getToggleVisibilityHandler()}
+										label={
+											typeof column.columnDef.header === 'string'
+												? column.columnDef.header
+												: column.id
+										}
+									/>
+								);
+							})}
+						</ContextMenu.Root>
 					</BasicSticky>
 
 					<div
 						ref={tableBodyRef}
-						className="no-scrollbar overflow-x-auto overscroll-x-none"
+						className={clsx(
+							'no-scrollbar overflow-x-auto overscroll-x-none',
+							// Prevent drag scroll
+							dragging && 'pointer-events-none'
+						)}
+						onScroll={(e) => (scrollLeft.current = e.currentTarget.scrollLeft)}
 					>
 						<div
-							ref={tableBodyRef}
 							className="relative"
 							style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 						>
@@ -1062,21 +928,22 @@ export default () => {
 								const row = rows[virtualRow.index];
 								if (!row) return null;
 
-								const selected = isSelected(row.original);
+								const selected = explorer.isItemSelected(row.original);
+								const cut = isCut(row.original, explorerStore.cutCopyState);
 
 								const previousRow = rows[virtualRow.index - 1];
-								const selectedPrior =
-									previousRow && isSelected(previousRow.original);
-
 								const nextRow = rows[virtualRow.index + 1];
-								const selectedNext = nextRow && isSelected(nextRow.original);
 
-								const cut = isCut(row.original, explorerStore.cutCopyState);
+								const selectedPrior =
+									previousRow && explorer.isItemSelected(previousRow.original);
+
+								const selectedNext =
+									nextRow && explorer.isItemSelected(nextRow.original);
 
 								return (
 									<div
 										key={row.id}
-										className="absolute left-0 top-0 flex min-w-full"
+										className="absolute left-0 top-0 min-w-full"
 										style={{
 											height: virtualRow.size,
 											transform: `translateY(${
@@ -1084,67 +951,38 @@ export default () => {
 												rowVirtualizer.options.scrollMargin
 											}px)`
 										}}
+										onMouseDown={(e) => handleRowClick(e, row)}
+										onContextMenu={() => handleRowContextMenu(row)}
 									>
 										<div
-											className="w-full"
-											onMouseDown={(e) => {
-												e.stopPropagation();
-												handleRowClick(e, row);
-											}}
-											onContextMenu={() => handleRowContextMenu(row)}
+											className={clsx(
+												'absolute inset-0 rounded-md border',
+												virtualRow.index % 2 === 0 && 'bg-app-darkBox',
+												selected
+													? 'border-accent !bg-accent/10'
+													: 'border-transparent',
+												selected &&
+													selectedPrior &&
+													'rounded-t-none border-t-0 border-t-transparent',
+												selected &&
+													selectedNext &&
+													'rounded-b-none border-b-0 border-b-transparent'
+											)}
+											style={{ right: padding.x, left: padding.x }}
 										>
-											<ListViewItem
-												row={row}
-												paddingX={padding.x - 1}
-												columnSizing={columnSizing}
-												columnVisibility={columnVisibility}
-											/>
+											{selectedPrior && (
+												<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+											)}
 										</div>
 
-										{/* <ViewItem data={row.original} className="w-full">
-											<div
-												className={clsx(
-													'relative flex h-full w-full rounded-md border',
-													virtualRow.index % 2 === 0 && 'bg-app-darkBox',
-													selected
-														? 'border-accent !bg-accent/10'
-														: 'border-transparent',
-													selected &&
-														selectedPrior &&
-														'rounded-t-none border-t-0 border-t-transparent',
-													selected &&
-														selectedNext &&
-														'rounded-b-none border-b-0 border-b-transparent'
-												)}
-											>
-												{selectedPrior && (
-													<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
-												)}
-
-												<div
-													role="row"
-													className="flex h-full items-center"
-												>
-													{row.getVisibleCells().map((cell) => (
-														<div
-															role="cell"
-															key={cell.id}
-															className={clsx(
-																'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
-																cell.column.columnDef.meta
-																	?.className
-															)}
-															style={{ width: cell.column.getSize() }}
-														>
-															{flexRender(
-																cell.column.columnDef.cell,
-																cell.getContext()
-															)}
-														</div>
-													))}
-												</div>
-											</div>
-										</ViewItem> */}
+										<ListViewItem
+											row={row}
+											paddingX={padding.x}
+											columnSizing={columnSizing}
+											columnVisibility={columnVisibility}
+											isCut={cut}
+											isRenaming={isRenaming}
+										/>
 									</div>
 								);
 							})}

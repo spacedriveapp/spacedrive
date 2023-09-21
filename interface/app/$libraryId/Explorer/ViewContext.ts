@@ -7,7 +7,7 @@ export interface ExplorerViewContext {
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
 	setIsRenaming: (isRenaming: boolean) => void;
-	padding?: number | { x?: number; y?: number };
+	padding?: { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
 	selectable: boolean;
 }

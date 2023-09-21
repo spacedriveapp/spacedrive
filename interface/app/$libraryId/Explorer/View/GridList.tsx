@@ -84,7 +84,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="w-full h-full"
+			className="h-full w-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}
@@ -142,7 +142,7 @@ export default ({ children }: { children: RenderItem }) => {
 			[explorer.items]
 		),
 		getItemData: useCallback((index: number) => explorer.items?.[index], [explorer.items]),
-		padding: explorerView.padding || settings.layoutMode === 'grid' ? 12 : undefined,
+		padding: explorerView.padding ?? settings.layoutMode === 'grid' ? 12 : undefined,
 		gap:
 			explorerView.gap ||
 			(settings.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
