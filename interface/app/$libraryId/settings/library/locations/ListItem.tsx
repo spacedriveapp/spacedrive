@@ -51,7 +51,7 @@ export default ({ location }: Props) => {
 				</p>
 			</div>
 			<div className="flex grow" />
-			<div className="flex h-[45px] space-x-2 p-2">
+			<div className="flex h-[45px] w-full max-w-fit space-x-2 p-2">
 				{/* This is a fake button, do not add disabled prop pls */}
 				<Button
 					onClick={(e: { stopPropagation: () => void }) => {
@@ -77,10 +77,10 @@ export default ({ location }: Props) => {
 					variant="gray"
 					className="pointer-events-none flex !px-2 !py-1.5"
 				>
-					<p className="text-ink-dull">Size: </p>
-					<span className="ml-1.5 text-xs text-ink-dull">
-						{`${byteSize(location.size_in_bytes)}`}
-					</span>
+					<p className="text-ink-dull">Size:</p>
+					<span className="ml-1.5 text-xs text-ink-dull">{`${byteSize(
+						location.size_in_bytes
+					)}`}</span>
 				</Button>
 				<Button
 					variant="gray"
