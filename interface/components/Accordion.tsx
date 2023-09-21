@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { CaretDown } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { PropsWithChildren, useState } from 'react';
 
 interface Props {

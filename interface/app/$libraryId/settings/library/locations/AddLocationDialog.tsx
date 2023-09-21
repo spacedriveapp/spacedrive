@@ -10,10 +10,10 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Dialog, ErrorMessage, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import IndexerRuleEditor from './IndexerRuleEditor';
 import { LocationPathInputField } from './PathInput';
 

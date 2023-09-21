@@ -1,5 +1,4 @@
 import { memo, useLayoutEffect, useMemo } from 'react';
-
 import { useOperatingSystem } from '~/hooks';
 
 export interface PDFViewerProps {

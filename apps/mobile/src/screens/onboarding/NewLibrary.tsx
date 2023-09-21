@@ -1,11 +1,11 @@
 import { Database } from '@sd/assets/icons';
 import { Controller } from 'react-hook-form';
 import { Alert, Image, Text, View } from 'react-native';
-
 import { Input } from '~/components/form/Input';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
+
 import { useOnboardingContext } from './context';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 

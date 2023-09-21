@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { Gear, Lock, Plus } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useClientContext } from '@sd/client';
 import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
 

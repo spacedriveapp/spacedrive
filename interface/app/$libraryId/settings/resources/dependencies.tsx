@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { ScreenHeading } from '@sd/ui';
-
 import { usePlatform } from '~/util/Platform';
 
 export const Component = () => {

@@ -4,7 +4,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-
 import AppImage from '~/components/AppImage';
 import HomeCTA from '~/components/HomeCTA';
 import NewBanner from '~/components/NewBanner';

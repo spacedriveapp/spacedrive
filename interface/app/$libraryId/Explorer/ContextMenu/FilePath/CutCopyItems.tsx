@@ -1,9 +1,9 @@
 import { Copy, Scissors } from '@phosphor-icons/react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
-
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
+
 import { useExplorerContext } from '../../Context';
 import { getExplorerStore } from '../../store';
 import { useExplorerSearchParams } from '../../util';

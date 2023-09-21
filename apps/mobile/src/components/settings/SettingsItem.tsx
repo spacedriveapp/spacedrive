@@ -1,6 +1,5 @@
 import { CaretRight, Icon } from 'phosphor-react-native';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-
 import { tw, twStyle } from '~/lib/tailwind';
 
 type SettingsItemProps = {

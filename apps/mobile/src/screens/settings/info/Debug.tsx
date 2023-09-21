@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { getDebugState, toggleFeatureFlag, useDebugState, useFeatureFlags } from '@sd/client';
-
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
