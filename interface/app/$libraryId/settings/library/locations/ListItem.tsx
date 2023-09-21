@@ -2,10 +2,15 @@ import { Repeat, Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { arraysEqual, Location, useLibraryMutation, useOnlineLocations } from '@sd/client';
+import {
+	arraysEqual,
+	byteSize,
+	Location,
+	useLibraryMutation,
+	useOnlineLocations
+} from '@sd/client';
 import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Folder } from '~/components';
-import { useIsDark } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 
@@ -34,6 +39,7 @@ export default ({ location }: Props) => {
 			<Folder className="mr-3 h-10 w-10 self-center" />
 			<div className="grid min-w-[110px] grid-cols-1">
 				<h1 className="truncate pt-0.5 text-sm font-semibold">{location.name}</h1>
+
 				<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
 					{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
 					{/* {location.node && (
@@ -47,7 +53,6 @@ export default ({ location }: Props) => {
 			<div className="flex grow" />
 			<div className="flex h-[45px] space-x-2 p-2">
 				{/* This is a fake button, do not add disabled prop pls */}
-
 				<Button
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
@@ -63,6 +68,18 @@ export default ({ location }: Props) => {
 					/>
 					<span className="ml-1.5 text-xs text-ink-dull">
 						{online ? 'Online' : 'Offline'}
+					</span>
+				</Button>
+				<Button
+					onClick={(e: { stopPropagation: () => void }) => {
+						e.stopPropagation();
+					}}
+					variant="gray"
+					className="pointer-events-none flex !px-2 !py-1.5"
+				>
+					<p className="text-ink-dull">Size: </p>
+					<span className="ml-1.5 text-xs text-ink-dull">
+						{`${byteSize(location.size_in_bytes)}`}
 					</span>
 				</Button>
 				<Button

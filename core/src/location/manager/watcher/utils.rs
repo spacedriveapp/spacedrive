@@ -14,7 +14,7 @@ use crate::{
 		indexer::reverse_update_directories_sizes,
 		location_with_indexer_rules,
 		manager::LocationManagerError,
-		scan_location_sub_path,
+		scan_location_sub_path, update_location_size,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -818,12 +818,13 @@ pub(super) async fn recalculate_directories_size(
 ) -> Result<(), LocationManagerError> {
 	let mut location_path_cache = None;
 	let mut should_invalidate = false;
+	let mut should_update_location_size = false;
 	buffer.clear();
 
 	for (path, instant) in candidates.drain() {
 		if instant.elapsed() > HUNDRED_MILLIS * 5 {
 			if location_path_cache.is_none() {
-				location_path_cache = Some(maybe_missing(
+				location_path_cache = Some(PathBuf::from(maybe_missing(
 					find_location(library, location_id)
 						.select(location::select!({ path }))
 						.exec()
@@ -831,23 +832,30 @@ pub(super) async fn recalculate_directories_size(
 						.ok_or(LocationManagerError::MissingLocation(location_id))?
 						.path,
 					"location.path",
-				)?)
+				)?))
 			}
 
 			if let Some(location_path) = &location_path_cache {
-				if path != Path::new(location_path) {
+				if path != *location_path {
 					trace!(
-						"Reverse calculating directory sizes starting at {} until {location_path}",
-						path.display()
+						"Reverse calculating directory sizes starting at {} until {}",
+						path.display(),
+						location_path.display(),
 					);
 					reverse_update_directories_sizes(path, location_id, location_path, library)
 						.await?;
 					should_invalidate = true;
+				} else {
+					should_update_location_size = true;
 				}
 			}
 		} else {
 			buffer.push((path, instant));
 		}
+	}
+
+	if should_update_location_size {
+		update_location_size(location_id, library).await?;
 	}
 
 	if should_invalidate {
