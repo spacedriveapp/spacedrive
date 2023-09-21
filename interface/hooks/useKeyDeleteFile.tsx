@@ -1,7 +1,6 @@
 import { useKey } from 'rooks';
 import type { ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
-
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 
 export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {

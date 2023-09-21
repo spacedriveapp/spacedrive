@@ -12,8 +12,8 @@ import {
 	useLibraryMutation
 } from '@sd/client';
 import { Button, Dropdown, DropdownMenu, Popover, Select, SelectOption, Switch } from '@sd/ui';
-
 import { usePlatform } from '~/util/Platform';
+
 import Setting from '../../settings/Setting';
 
 export default () => {

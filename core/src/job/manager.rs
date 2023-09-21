@@ -347,9 +347,9 @@ impl Jobs {
 	}
 
 	/// Check if the manager currently has some active workers.
-	pub async fn has_active_workers(&self) -> bool {
+	pub async fn has_active_workers(&self, library_id: Uuid) -> bool {
 		for worker in self.running_workers.read().await.values() {
-			if !worker.is_paused() {
+			if worker.library_id == library_id && !worker.is_paused() {
 				return true;
 			}
 		}

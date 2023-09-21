@@ -1,5 +1,4 @@
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-
 import { OnboardingContext, useContextValue } from '~/screens/onboarding/context';
 import CreatingLibraryScreen from '~/screens/onboarding/CreatingLibrary';
 import GetStartedScreen from '~/screens/onboarding/GetStarted';

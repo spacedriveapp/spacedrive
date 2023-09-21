@@ -9,7 +9,6 @@ import {
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
-
 import FolderIcon from '~/components/icons/FolderIcon';
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';

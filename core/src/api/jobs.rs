@@ -1,7 +1,6 @@
 use crate::{
 	invalidate_query,
 	job::{job_without_data, Job, JobReport, JobStatus, Jobs},
-	library::Library,
 	location::{find_location, LocationError},
 	object::{
 		file_identifier::file_identifier_job::FileIdentifierJobInit, media::MediaProcessorJobInit,
@@ -17,7 +16,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use futures::future::try_join_all;
 use prisma_client_rust::or;
 use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
@@ -80,113 +78,90 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				jobs: VecDeque<JobReport>,
 			}
 
-			async fn group_jobs_by_library(
-				library: &Library,
-				active_job_reports_by_id: &HashMap<Uuid, JobReport>,
-			) -> Result<Vec<JobGroup>, rspc::Error> {
-				let mut groups: HashMap<String, JobGroup> = HashMap::new();
+			R.with2(library())
+				.query(|(node, library), _: ()| async move {
+					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
-				let job_reports: Vec<JobReport> = library
-					.db
-					.job()
-					.find_many(vec![])
-					.order_by(job::date_created::order(SortOrder::Desc))
-					.take(100)
-					.select(job_without_data::select())
-					.exec()
-					.await?
-					.into_iter()
-					.flat_map(JobReport::try_from)
-					.collect();
+					let job_reports: Vec<JobReport> = library
+						.db
+						.job()
+						.find_many(vec![])
+						.order_by(job::date_created::order(SortOrder::Desc))
+						.take(100)
+						.select(job_without_data::select())
+						.exec()
+						.await?
+						.into_iter()
+						.flat_map(JobReport::try_from)
+						.collect();
 
-				for job in job_reports {
-					// action name and group key are computed from the job data
-					let (action_name, group_key) = job.get_meta();
+					let active_reports_by_id = node.jobs.get_active_reports_with_id().await;
 
-					trace!(
-						"job {:#?}, action_name {}, group_key {:?}",
-						job,
-						action_name,
-						group_key
-					);
+					for job in job_reports {
+						// action name and group key are computed from the job data
+						let (action_name, group_key) = job.get_meta();
 
-					// if the job is running, use the in-memory report
-					let report = active_job_reports_by_id.get(&job.id).unwrap_or(&job);
+						trace!(
+							"job {:#?}, action_name {}, group_key {:?}",
+							job,
+							action_name,
+							group_key
+						);
 
-					// if we have a group key, handle grouping
-					if let Some(group_key) = group_key {
-						match groups.entry(group_key) {
-							// Create new job group with metadata
-							Entry::Vacant(entry) => {
-								entry.insert(JobGroup {
-									id: job.parent_id.unwrap_or(job.id),
-									action: Some(action_name.clone()),
+						// if the job is running, use the in-memory report
+						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
+
+						// if we have a group key, handle grouping
+						if let Some(group_key) = group_key {
+							match groups.entry(group_key) {
+								// Create new job group with metadata
+								Entry::Vacant(entry) => {
+									entry.insert(JobGroup {
+										id: job.parent_id.unwrap_or(job.id),
+										action: Some(action_name.clone()),
+										status: job.status,
+										jobs: [report.clone()].into_iter().collect(),
+										created_at: job.created_at.unwrap_or(Utc::now()),
+									});
+								}
+								// Add to existing job group
+								Entry::Occupied(mut entry) => {
+									let group = entry.get_mut();
+
+									// protect paused status from being overwritten
+									if report.status != JobStatus::Paused {
+										group.status = report.status;
+									}
+
+									group.jobs.push_front(report.clone());
+								}
+							}
+						} else {
+							// insert individual job as group
+							groups.insert(
+								job.id.to_string(),
+								JobGroup {
+									id: job.id,
+									action: None,
 									status: job.status,
 									jobs: [report.clone()].into_iter().collect(),
 									created_at: job.created_at.unwrap_or(Utc::now()),
-								});
-							}
-							// Add to existing job group
-							Entry::Occupied(mut entry) => {
-								let group = entry.get_mut();
-
-								// protect paused status from being overwritten
-								if report.status != JobStatus::Paused {
-									group.status = report.status;
-								}
-
-								// if group.status.is_finished() && !report.status.is_finished() {
-								// }
-								group.jobs.push_front(report.clone());
-							}
+								},
+							);
 						}
-					} else {
-						// insert individual job as group
-						groups.insert(
-							job.id.to_string(),
-							JobGroup {
-								id: job.id,
-								action: None,
-								status: job.status,
-								jobs: [report.clone()].into_iter().collect(),
-								created_at: job.created_at.unwrap_or(Utc::now()),
-							},
-						);
 					}
-				}
 
-				let mut groups_vec = groups.into_values().collect::<Vec<_>>();
-				groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+					let mut groups_vec = groups.into_values().collect::<Vec<_>>();
+					groups_vec.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-				Ok(groups_vec)
-			}
-
-			R.query(|node, _: ()| async move {
-				// WARN: We really need the borrow in this line, this way each async move in the map below
-				// received a copy of the reference to the active job reports,
-				// I feel like I'm conquering the borrow checker
-				let active_job_reports_by_id = &node.jobs.get_active_reports_with_id().await;
-
-				try_join_all(
-					node.libraries
-						.get_all()
-						.await
-						.into_iter()
-						.map(|library| async move {
-							group_jobs_by_library(&library, active_job_reports_by_id)
-								.await
-								.map(|groups| (library.id, groups))
-						}),
-				)
-				.await
-				.map(|groups_by_library_id| {
-					groups_by_library_id.into_iter().collect::<HashMap<_, _>>()
+					Ok(groups_vec)
 				})
-			})
 		})
 		.procedure("isActive", {
 			R.with2(library())
-				.query(|(node, _), _: ()| async move { Ok(node.jobs.has_active_workers().await) })
+				.query(|(node, library), _: ()| async move {
+					Ok(node.jobs.has_active_workers(library.id).await)
+				})
 		})
 		.procedure("clear", {
 			R.with2(library())

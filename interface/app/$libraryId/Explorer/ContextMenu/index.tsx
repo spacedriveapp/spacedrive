@@ -2,8 +2,8 @@ import { Plus } from '@phosphor-icons/react';
 import { useMemo, type PropsWithChildren } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-
 import { isNonEmpty } from '~/util';
+
 import { useExplorerContext } from '../Context';
 import { Conditional, type ConditionalGroupProps } from './ConditionalItem';
 import { ContextMenuContextProvider } from './context';

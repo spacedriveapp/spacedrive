@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Tag, useLibraryMutation } from '@sd/client';
-
 import { FadeInAnimation } from '~/components/animation/layout';
 import ColorPicker from '~/components/form/ColorPicker';
 import { Input } from '~/components/form/Input';

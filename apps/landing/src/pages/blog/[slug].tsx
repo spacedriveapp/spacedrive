@@ -3,7 +3,6 @@ import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Head from 'next/head';
 import Image from 'next/image';
-
 import { BlogTag } from '~/components/BlogTag';
 import { BlogMDXComponents } from '~/components/mdx';
 import PageWrapper from '~/components/PageWrapper';

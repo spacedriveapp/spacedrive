@@ -1,6 +1,5 @@
 import { FC } from 'react';
 import { Switch as RNSwitch, SwitchProps, Text, View } from 'react-native';
-
 import { tw } from '~/lib/tailwind';
 
 export const Switch: FC<SwitchProps> = ({ ...props }) => {

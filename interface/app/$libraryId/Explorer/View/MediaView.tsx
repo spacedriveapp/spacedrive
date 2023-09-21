@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { ArrowsOutSimple } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
