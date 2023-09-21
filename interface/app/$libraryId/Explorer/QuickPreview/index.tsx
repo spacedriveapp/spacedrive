@@ -42,7 +42,6 @@ import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 const AnimatedDialogOverlay = animated(Dialog.Overlay);
 const AnimatedDialogContent = animated(Dialog.Content);
 
-const heavyKinds: ObjectKindKey[] = ['Image', 'Video'];
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
 const withoutBackgroundKinds: ObjectKindKey[] = [...iconKinds, ...textKinds, 'Document'];
@@ -67,7 +66,6 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
-	const [loadOriginal, setLoadOriginal] = useState(false);
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
@@ -97,34 +95,18 @@ export const QuickPreview = () => {
 	});
 
 	const changeCurrentItem = (index: number) => {
-		if (!items[index]) return;
-
-		getQuickPreviewStore().itemIndex = index;
-		setNewName(null);
-		setLoadOriginal(false);
+		if (items[index]) getQuickPreviewStore().itemIndex = index;
 	};
 
+	// Reset state
 	useEffect(() => {
-		setLoadOriginal(false);
+		setNewName(null);
 
-		if (!open || !item) {
-			getQuickPreviewStore().itemIndex = 0;
-			setShowMetadata(false);
-			setNewName(null);
+		if (open || item) return;
 
-			if (!item) getQuickPreviewStore().open = false;
-			return;
-		}
-
-		const { kind } = getExplorerItemData(item);
-
-		if (iconKinds.includes(kind) || !heavyKinds.includes(kind)) {
-			setLoadOriginal(true);
-			return;
-		}
-
-		const timeout = setTimeout(() => setLoadOriginal(true), 350);
-		return () => clearTimeout(timeout);
+		getQuickPreviewStore().open = false;
+		getQuickPreviewStore().itemIndex = 0;
+		setShowMetadata(false);
 	}, [item, open]);
 
 	// Toggle quick preview
@@ -135,6 +117,8 @@ export const QuickPreview = () => {
 
 		getQuickPreviewStore().open = !open;
 	});
+
+	useKeyBind('Escape', (e) => open && e.stopPropagation());
 
 	// Move between items
 	useKeyBind([['left'], ['right']], (e) => {
@@ -432,23 +416,21 @@ export const QuickPreview = () => {
 											</div>
 										</div>
 
-										{loadOriginal && (
-											<FileThumb
-												data={item}
-												loadOriginal
-												mediaControls
-												className={clsx(
-													'm-3 !w-auto flex-1 !overflow-hidden rounded',
-													!background && !icon && 'bg-app-box shadow'
-												)}
-												childClassName={clsx(
-													'rounded',
-													kind === 'Text' && 'p-3',
-													!icon && 'h-full',
-													textKinds.includes(kind) && 'select-text'
-												)}
-											/>
-										)}
+										<FileThumb
+											data={item}
+											loadOriginal
+											mediaControls
+											className={clsx(
+												'm-3 !w-auto flex-1 !overflow-hidden rounded',
+												!background && !icon && 'bg-app-box shadow'
+											)}
+											childClassName={clsx(
+												'rounded',
+												kind === 'Text' && 'p-3',
+												!icon && 'h-full',
+												textKinds.includes(kind) && 'select-text'
+											)}
+										/>
 									</div>
 
 									{showMetadata && (

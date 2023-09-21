@@ -2987,8 +2987,7 @@ dependencies = [
 [[package]]
 name = "if-watch"
 version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9465340214b296cd17a0009acdb890d6160010b8adf8f78a00d0d7ab270f79f"
+source = "git+https://github.com/oscartbeaumont/if-watch.git?rev=f804ad9b2005e4e760732a708aa95b4bfb376ddf#f804ad9b2005e4e760732a708aa95b4bfb376ddf"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -6788,9 +6787,6 @@ dependencies = [
 name = "sd-mobile-ios"
 version = "0.1.0"
 dependencies = [
- "objc",
- "objc-foundation",
- "objc_id",
  "sd-mobile-core",
 ]
 

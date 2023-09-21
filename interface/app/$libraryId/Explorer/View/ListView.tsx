@@ -1,8 +1,10 @@
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
 import {
 	flexRender,
+	functionalUpdate,
 	getCoreRowModel,
 	useReactTable,
+	VisibilityState,
 	type ColumnDef,
 	type ColumnSizingState,
 	type Row
@@ -24,7 +26,7 @@ import {
 	type FilePath,
 	type NonIndexedPathItem
 } from '@sd/client';
-import { Tooltip } from '@sd/ui';
+import { ContextMenu, Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useScrolled } from '~/hooks';
 import { stringify } from '~/util/uuid';
 
@@ -33,6 +35,7 @@ import { useLayoutContext } from '../../Layout/Context';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { InfoPill } from '../Inspector';
+import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
 import {
 	createOrdering,
 	getOrderingDirection,
@@ -47,6 +50,7 @@ import RenamableItemText from './RenamableItemText';
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
 	columnSizing: ColumnSizingState;
+	columnVisibility?: VisibilityState;
 	paddingX: number;
 	selected: boolean;
 	cut: boolean;
@@ -55,7 +59,7 @@ interface ListViewItemProps {
 const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem data={props.row.original} className="w-full">
-			<div role="row" className="flex h-full items-center">
+			<div role="row" className="flex items-center h-full">
 				{props.row.getVisibleCells().map((cell) => (
 					<div
 						role="cell"
@@ -95,11 +99,13 @@ const HeaderColumnName = ({ name }: { name: string }) => {
 type Range = [string, string];
 
 export default () => {
+	const layout = useLayoutContext();
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
-	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
-	const layout = useLayoutContext();
+	const settings = explorer.useSettingsSnapshot();
+
+	const quickPreviewStore = useQuickPreviewStore();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -109,6 +115,7 @@ export default () => {
 	const [locked, setLocked] = useState(false);
 	const [resizing, setResizing] = useState(false);
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>();
 	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<Range[]>([]);
 
@@ -182,7 +189,11 @@ export default () => {
 								allowHighlight={false}
 								item={item}
 								selected={selected}
-								disabled={!selected || explorer.selectedItems.size > 1}
+								disabled={
+									!selected ||
+									explorer.selectedItems.size > 1 ||
+									quickPreviewStore.open
+								}
 								style={{ maxHeight: 36 }}
 							/>
 						</div>
@@ -262,14 +273,22 @@ export default () => {
 				}
 			}
 		],
-		[explorer.selectedItems, settings.colSizes, explorerStore.cutCopyState]
+		[
+			settings.colSizes,
+			explorer.selectedItems,
+			explorerStore.cutCopyState,
+			quickPreviewStore.open
+		]
 	);
 
 	const table = useReactTable({
 		data: useMemo(() => explorer.items ?? [], [explorer.items]),
 		columns,
 		defaultColumn: { minSize: 100, maxSize: 250 },
-		state: { columnSizing },
+		state: { columnSizing, columnVisibility },
+		onColumnVisibilityChange: (updater) => {
+			setColumnVisibility(functionalUpdate(updater, columnVisibility ?? {}));
+		},
 		onColumnSizingChange: setColumnSizing,
 		columnResizeMode: 'onChange',
 		getCoreRowModel: useMemo(() => getCoreRowModel(), []),
@@ -780,12 +799,34 @@ export default () => {
 		if (lastRow.index >= loadMoreFromRow - 1) explorer.loadMore.call(undefined);
 	}, [virtualRows, rows.length, explorer.loadMore]);
 
+	// Initialize column visibility from explorer settings
+	useEffect(() => {
+		!columnVisibility && setColumnVisibility(explorer.settingsStore.colVisibility);
+	}, [columnVisibility, explorer.settingsStore.colVisibility]);
+
+	// Update column visibility in explorer settings
+	// We don't update directly because it takes too long to get the updated values
+	useEffect(() => {
+		if (!columnVisibility) return;
+		explorer.settingsStore.colVisibility =
+			columnVisibility as typeof explorer.settingsStore.colVisibility;
+	}, [columnVisibility, explorer]);
+
 	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
+
+		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+			const item = rows[0]?.original;
+			if (item) {
+				explorer.addSelectedItem(item);
+				setRanges([[uniqueId(item), uniqueId(item)]]);
+			}
+			return;
+		}
 
 		if (!range) return;
 
@@ -804,7 +845,7 @@ export default () => {
 		const item = nextRow.original;
 
 		if (explorer.allowMultiSelect) {
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				const direction = range.direction || keyDirection;
 
 				const [backRange, frontRange] = getRangesByRow(range.start);
@@ -987,7 +1028,7 @@ export default () => {
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
 	return (
-		<div className="flex w-full flex-col" ref={tableRef}>
+		<div className="flex flex-col w-full" ref={tableRef}>
 			{sized && (
 				<ScrollSync>
 					<>
@@ -1002,121 +1043,154 @@ export default () => {
 									width: isScrolled ? tableWidth : undefined
 								}}
 							>
-								<div className="flex">
-									{table.getHeaderGroups().map((headerGroup) => (
-										<div
-											ref={tableHeaderRef}
-											key={headerGroup.id}
-											className="flex grow border-b border-app-line/50"
-											onMouseDown={(e) => e.stopPropagation()}
-										>
-											{headerGroup.headers.map((header, i) => {
-												const size = header.column.getSize();
+								<ContextMenu.Root
+									trigger={
+										<div className="flex">
+											{table.getHeaderGroups().map((headerGroup) => (
+												<div
+													ref={tableHeaderRef}
+													key={headerGroup.id}
+													className="flex border-b grow border-app-line/50"
+													onMouseDown={(e) => e.stopPropagation()}
+												>
+													{headerGroup.headers.map((header, i) => {
+														const size = header.column.getSize();
 
-												const orderingDirection =
-													settings.order &&
-													orderingKey(settings.order) === header.id
-														? getOrderingDirection(settings.order)
-														: null;
+														const orderingDirection =
+															settings.order &&
+															orderingKey(settings.order) ===
+																header.id
+																? getOrderingDirection(
+																		settings.order
+																  )
+																: null;
 
-												const cellContent = flexRender(
-													header.column.columnDef.header,
-													header.getContext()
-												);
+														const cellContent = flexRender(
+															header.column.columnDef.header,
+															header.getContext()
+														);
 
-												return (
-													<div
-														key={header.id}
-														className="relative shrink-0 px-4 py-2 text-xs first:pl-24"
-														style={{
-															width:
-																i === 0
-																	? size + paddingX
-																	: i ===
-																	  headerGroup.headers.length - 1
-																	? size +
-																	  paddingX +
-																	  scrollBarWidth
-																	: size
-														}}
-														onClick={() => {
-															if (resizing) return;
-
-															if (header.column.getCanSort()) {
-																if (orderingDirection) {
-																	explorer.settingsStore.order =
-																		createOrdering(
-																			header.id,
-																			orderingDirection ===
-																				'Asc'
-																				? 'Desc'
-																				: 'Asc'
-																		);
-																} else {
-																	explorer.settingsStore.order =
-																		createOrdering(
-																			header.id,
-																			'Asc'
-																		);
-																}
-															}
-														}}
-													>
-														{header.isPlaceholder ? null : (
+														return (
 															<div
-																className={clsx(
-																	'flex items-center justify-between gap-3',
-																	orderingDirection !== null
-																		? 'text-ink'
-																		: 'text-ink-dull'
-																)}
-															>
-																{typeof cellContent ===
-																	'string' && (
-																	<HeaderColumnName
-																		name={cellContent}
-																	/>
-																)}
+																key={header.id}
+																className="relative px-4 py-2 text-xs shrink-0 first:pl-24"
+																style={{
+																	width:
+																		i === 0
+																			? size + paddingX
+																			: i ===
+																			  headerGroup.headers
+																					.length -
+																					1
+																			? size +
+																			  paddingX +
+																			  scrollBarWidth
+																			: size
+																}}
+																onClick={() => {
+																	if (resizing) return;
 
-																{orderingDirection === 'Asc' && (
-																	<CaretUp className="shrink-0 text-ink-faint" />
-																)}
-																{orderingDirection === 'Desc' && (
-																	<CaretDown className="shrink-0 text-ink-faint" />
-																)}
-
-																<div
-																	onClick={(e) =>
-																		e.stopPropagation()
-																	}
-																	onMouseDown={(e) => {
-																		header.getResizeHandler()(
-																			e
-																		);
-																		setResizing(true);
-																		setLocked(false);
-
-																		if (layout?.ref.current) {
-																			layout.ref.current.style.cursor =
-																				'col-resize';
+																	if (
+																		header.column.getCanSort()
+																	) {
+																		if (orderingDirection) {
+																			explorer.settingsStore.order =
+																				createOrdering(
+																					header.id,
+																					orderingDirection ===
+																						'Asc'
+																						? 'Desc'
+																						: 'Asc'
+																				);
+																		} else {
+																			explorer.settingsStore.order =
+																				createOrdering(
+																					header.id,
+																					'Asc'
+																				);
 																		}
-																	}}
-																	onTouchStart={header.getResizeHandler()}
-																	className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
-																/>
+																	}
+																}}
+															>
+																{header.isPlaceholder ? null : (
+																	<div
+																		className={clsx(
+																			'flex items-center justify-between gap-3',
+																			orderingDirection !==
+																				null
+																				? 'text-ink'
+																				: 'text-ink-dull'
+																		)}
+																	>
+																		{typeof cellContent ===
+																			'string' && (
+																			<HeaderColumnName
+																				name={cellContent}
+																			/>
+																		)}
+
+																		{orderingDirection ===
+																			'Asc' && (
+																			<CaretUp className="shrink-0 text-ink-faint" />
+																		)}
+																		{orderingDirection ===
+																			'Desc' && (
+																			<CaretDown className="shrink-0 text-ink-faint" />
+																		)}
+
+																		<div
+																			onClick={(e) =>
+																				e.stopPropagation()
+																			}
+																			onMouseDown={(e) => {
+																				header.getResizeHandler()(
+																					e
+																				);
+																				setResizing(true);
+																				setLocked(false);
+
+																				if (
+																					layout?.ref
+																						.current
+																				) {
+																					layout.ref.current.style.cursor =
+																						'col-resize';
+																				}
+																			}}
+																			onTouchStart={header.getResizeHandler()}
+																			className="absolute right-0 h-[70%] w-2 cursor-col-resize border-r border-app-line/50"
+																		/>
+																	</div>
+																)}
 															</div>
-														)}
-													</div>
-												);
-											})}
+														);
+													})}
+												</div>
+											))}
 										</div>
-									))}
-								</div>
+									}
+								>
+									{table.getAllLeafColumns().map((column) => {
+										if (column.id === 'name') return null;
+										return (
+											<ContextMenu.CheckboxItem
+												key={column.id}
+												label={
+													typeof column.columnDef.header === 'string'
+														? column.columnDef.header
+														: column.id
+												}
+												checked={column.getIsVisible()}
+												onSelect={column.getToggleVisibilityHandler()}
+											/>
+										);
+									})}
+								</ContextMenu.Root>
 							</div>
 						</ScrollSyncPane>
 
 						<ScrollSyncPane>
-							<div className="no-scrollbar overflow-x-auto overscroll-x-none">
+							<div className="overflow-x-auto no-scrollbar overscroll-x-none">
 								<div
 									ref={tableBodyRef}
 									className="relative"
@@ -1144,7 +1218,7 @@ export default () => {
 										return (
 											<div
 												key={row.id}
-												className="absolute left-0 top-0 flex w-full"
+												className="absolute top-0 left-0 flex w-full"
 												style={{
 													height: virtualRow.size,
 													transform: `translateY(${
@@ -1177,13 +1251,14 @@ export default () => {
 													)}
 												>
 													{selectedPrior && (
-														<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+														<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
 													)}
 
 													<ListViewItem
 														row={row}
 														paddingX={paddingX}
 														columnSizing={columnSizing}
+														columnVisibility={columnVisibility}
 														selected={selected}
 														cut={cut}
 													/>

@@ -15,6 +15,7 @@ import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from '../ViewContext';
@@ -83,7 +84,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="h-full w-full"
+			className="w-full h-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}
@@ -247,6 +248,20 @@ export default ({ children }: { children: RenderItem }) => {
 			return;
 		}
 
+		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+			const item = grid.getItem(0);
+			if (!item?.data) return;
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${uniqueId(item.data)}"]`
+			);
+			if (selectedItemDom) {
+				explorer.resetSelectedItems([item.data]);
+				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
+				activeItem.current = item.data;
+			}
+			return;
+		}
+
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
 		const lastItem = activeItem.current;
@@ -289,7 +304,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 			if (!selectedItemDom) return;
 
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
 					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([

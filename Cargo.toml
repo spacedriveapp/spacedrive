@@ -9,7 +9,9 @@ members = [
 	"apps/cli",
 	"apps/desktop/src-tauri",
 	"apps/desktop/crates/*",
-	"apps/mobile/crates/*",
+	"apps/mobile/modules/sd-core/core",
+	"apps/mobile/modules/sd-core/android/crate",
+	"apps/mobile/modules/sd-core/ios/crate",
 	"apps/server",
 ]
 
@@ -53,6 +55,10 @@ serde = { version = "1.0" }
 serde_json = { version = "1.0" }
 
 [patch.crates-io]
+# Proper IOS Support
+if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804ad9b2005e4e760732a708aa95b4bfb376ddf" }
+
+# Beta features
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
