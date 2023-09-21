@@ -4,6 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
 		JobStepOutput, StatefulJob, WorkerContext,
 	},
+	library::Library,
 	location::{
 		file_path_helper::{
 			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
@@ -11,11 +12,17 @@ use crate::{
 		},
 		location_with_indexer_rules,
 	},
+	prisma::{file_path, location},
 	to_remove_db_fetcher_fn,
 	util::db::maybe_missing,
 };
 
+use sd_prisma::prisma_sync;
+use sd_sync::*;
+use sd_utils::from_bytes_to_uuid;
+
 use std::{
+	collections::HashMap,
 	hash::{Hash, Hasher},
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -23,14 +30,15 @@ use std::{
 };
 
 use itertools::Itertools;
+use prisma_client_rust::operator::or;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use super::{
 	execute_indexer_save_step, execute_indexer_update_step, iso_file_path_factory,
-	remove_non_existing_file_paths,
+	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	rules::IndexerRule,
 	walk::{keep_walking, walk, ToWalkEntry, WalkResult},
 	IndexerError, IndexerJobSaveStep, IndexerJobUpdateStep,
@@ -61,6 +69,7 @@ impl Hash for IndexerJobInit {
 /// contains some metadata for logging purposes.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IndexerJobData {
+	location_path: PathBuf,
 	indexed_path: PathBuf,
 	indexer_rules: Vec<IndexerRule>,
 }
@@ -76,6 +85,7 @@ pub struct IndexerJobRunMetadata {
 	indexed_count: u64,
 	updated_count: u64,
 	removed_count: u64,
+	paths_and_sizes: HashMap<PathBuf, u64>,
 }
 
 impl JobRunMetadata for IndexerJobRunMetadata {
@@ -88,6 +98,10 @@ impl JobRunMetadata for IndexerJobRunMetadata {
 		self.total_update_steps += new_data.total_update_steps;
 		self.indexed_count += new_data.indexed_count;
 		self.removed_count += new_data.removed_count;
+
+		for (path, size) in new_data.paths_and_sizes {
+			*self.paths_and_sizes.entry(path).or_default() += size;
+		}
 	}
 }
 
@@ -186,6 +200,7 @@ impl StatefulJob for IndexerJobInit {
 			to_walk,
 			to_remove,
 			errors,
+			paths_and_sizes,
 		} = walk(
 			&to_walk_path,
 			&indexer_rules,
@@ -198,6 +213,11 @@ impl StatefulJob for IndexerJobInit {
 		.await?;
 		let scan_read_time = scan_start.elapsed();
 		let to_remove = to_remove.collect::<Vec<_>>();
+
+		debug!(
+			"Walker at indexer job found {} file_paths to be removed",
+			to_remove.len()
+		);
 
 		ctx.node
 			.thumbnail_remover
@@ -255,6 +275,8 @@ impl StatefulJob for IndexerJobInit {
 			.chain(to_walk.into_iter().map(IndexerJobStepInput::Walk))
 			.collect::<Vec<_>>();
 
+		debug!("Walker at indexer job found {total_updated_paths} file_paths to be updated");
+
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![
@@ -268,6 +290,7 @@ impl StatefulJob for IndexerJobInit {
 		);
 
 		*data = Some(IndexerJobData {
+			location_path: location_path.to_path_buf(),
 			indexed_path: to_walk_path,
 			indexer_rules,
 		});
@@ -283,6 +306,7 @@ impl StatefulJob for IndexerJobInit {
 				removed_count,
 				total_save_steps: *to_save_chunks as u64,
 				total_update_steps: *to_update_chunks as u64,
+				paths_and_sizes,
 			},
 			steps,
 			errors
@@ -362,6 +386,7 @@ impl StatefulJob for IndexerJobInit {
 					to_walk,
 					to_remove,
 					errors,
+					paths_and_sizes,
 				} = keep_walking(
 					to_walk_entry,
 					&data.indexer_rules,
@@ -371,6 +396,8 @@ impl StatefulJob for IndexerJobInit {
 					iso_file_path_factory(location_id, location_path),
 				)
 				.await?;
+
+				new_metadata.paths_and_sizes = paths_and_sizes;
 
 				new_metadata.scan_read_time = scan_start.elapsed();
 
@@ -441,14 +468,18 @@ impl StatefulJob for IndexerJobInit {
 	async fn finalize(
 		&self,
 		ctx: &WorkerContext,
-		_data: &Option<Self::Data>,
+		data: &Option<Self::Data>,
 		run_metadata: &Self::RunMetadata,
 	) -> JobResult {
 		let init = self;
+		let indexed_path_str = data
+			.as_ref()
+			.map(|data| Ok(data.indexed_path.to_string_lossy().to_string()))
+			.unwrap_or_else(|| maybe_missing(&init.location.path, "location.path").cloned())?;
+
 		info!(
-			"Scan of {} completed in {:?}. {} new files found, \
+			"Scan of {indexed_path_str} completed in {:?}. {} new files found, \
 			indexed {} files in db, updated {} entries. db write completed in {:?}",
-			maybe_missing(&init.location.path, "location.path")?,
 			run_metadata.scan_read_time,
 			run_metadata.total_paths,
 			run_metadata.indexed_count,
@@ -465,6 +496,27 @@ impl StatefulJob for IndexerJobInit {
 			ctx.library.orphan_remover.invoke().await;
 		}
 
+		if let Some(data) = data {
+			update_directories_sizes(
+				&run_metadata.paths_and_sizes,
+				init.location.id,
+				&data.indexed_path,
+				&ctx.library,
+			)
+			.await?;
+
+			if data.indexed_path != data.location_path {
+				reverse_update_directories_sizes(
+					&data.indexed_path,
+					init.location.id,
+					&data.location_path,
+					&ctx.library,
+				)
+				.await
+				.map_err(IndexerError::from)?;
+			}
+		}
+
 		Ok(Some(json!({"init: ": init, "run_metadata": run_metadata})))
 	}
 }
@@ -479,4 +531,82 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 			))],
 		);
 	}
+}
+
+async fn update_directories_sizes(
+	paths_and_sizes: &HashMap<PathBuf, u64>,
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	library: &Library,
+) -> Result<(), IndexerError> {
+	let location_path = location_path.as_ref();
+
+	let Library { db, sync, .. } = library;
+
+	let chunked_queries = paths_and_sizes
+		.keys()
+		.chunks(200)
+		.into_iter()
+		.map(|paths_chunk| {
+			paths_chunk
+				.into_iter()
+				.map(|path| {
+					IsolatedFilePathData::new(location_id, location_path, path, true)
+						.map(file_path::WhereParam::from)
+				})
+				.collect::<Result<Vec<_>, _>>()
+				.map(|params| {
+					db.file_path()
+						.find_many(vec![or(params)])
+						.select(file_path::select!({ pub_id materialized_path name }))
+				})
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+
+	let to_sync_and_update = db
+		._batch(chunked_queries)
+		.await?
+		.into_iter()
+		.flatten()
+		.filter_map(
+			|file_path| match (file_path.materialized_path, file_path.name) {
+				(Some(materialized_path), Some(name)) => {
+					let mut directory_full_path = location_path.join(&materialized_path[1..]);
+					directory_full_path.push(name);
+
+					if let Some(size) = paths_and_sizes.get(&directory_full_path) {
+						let size_bytes = size.to_be_bytes().to_vec();
+
+						Some((
+							sync.shared_update(
+								prisma_sync::file_path::SyncId {
+									pub_id: file_path.pub_id.clone(),
+								},
+								file_path::size_in_bytes_bytes::NAME,
+								json!(size_bytes.clone()),
+							),
+							db.file_path().update(
+								file_path::pub_id::equals(file_path.pub_id),
+								vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
+							),
+						))
+					} else {
+						warn!("Found a file_path without ancestor in the database, possible corruption");
+						None
+					}
+				}
+				_ => {
+					warn!(
+						"Found a file_path missing its materialized_path or name: <pub_id='{:#?}'>",
+						from_bytes_to_uuid(&file_path.pub_id)
+					);
+					None
+				}
+			},
+		)
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	sync.write_ops(db, to_sync_and_update).await?;
+
+	Ok(())
 }
