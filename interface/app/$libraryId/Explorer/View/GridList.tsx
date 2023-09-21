@@ -84,7 +84,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="w-full h-full"
+			className="h-full w-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}

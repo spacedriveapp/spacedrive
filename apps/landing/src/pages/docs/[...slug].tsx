@@ -1,12 +1,11 @@
 import { allDocs } from '@contentlayer/generated';
+import { CaretRight } from '@phosphor-icons/react';
 import { Github } from '@sd/assets/svgs/brands';
 import { InferGetStaticPropsType } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Head from 'next/head';
 import Link from 'next/link';
-import { CaretRight } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
-
 import DocsLayout from '~/components/DocsLayout';
 import Markdown from '~/components/Markdown';
 import { DocMDXComponents } from '~/components/mdx';

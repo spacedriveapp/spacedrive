@@ -13,11 +13,11 @@ import {
 	type VideoHTMLAttributes
 } from 'react';
 import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
-
 import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';

@@ -12,7 +12,7 @@ export type Procedures = {
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
-        { key: "jobs.reports", input: never, result: { [key: string]: JobGroup[] } } | 
+        { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "library.list", input: never, result: LibraryConfigWrapped[] } | 
         { key: "library.statistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "locations.get", input: LibraryArgs<number>, result: Location | null } | 
@@ -222,7 +222,7 @@ export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateO
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
-export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 

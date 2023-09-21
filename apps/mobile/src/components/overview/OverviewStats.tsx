@@ -2,7 +2,6 @@ import { FC, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { byteSize, Statistics, useLibraryQuery } from '@sd/client';
-
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
 

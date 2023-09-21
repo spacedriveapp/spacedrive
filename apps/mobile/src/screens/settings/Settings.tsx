@@ -15,7 +15,6 @@ import {
 import React from 'react';
 import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
-
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/SettingsNavigator';

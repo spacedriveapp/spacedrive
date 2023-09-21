@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
-
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
 type Props = {
