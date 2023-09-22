@@ -36,7 +36,7 @@ interface ListViewItemProps {
 	row: Row<ExplorerItem>;
 	paddingX: number;
 	// Props below are passed to trigger a rerender
-	// should probably use a better solution
+	// TODO: Find a better solution
 	columnSizing: ColumnSizingState;
 	columnVisibility: VisibilityState;
 	isCut: boolean;
