@@ -32,11 +32,13 @@ script_failure() {
 
 trap 'script_failure ${LINENO:-}' ERR
 
-echo 'Spacedrive Development Environment Setup'
-echo 'To set up your machine for Spacedrive development, this script will install some required dependencies with your system package manager'
-echo
-echo 'Press Enter to continue'
-read -r
+if [ -z "${CI:-}" ]; then
+  echo 'Spacedrive Development Environment Setup'
+  echo 'To set up your machine for Spacedrive development, this script will install some required dependencies with your system package manager'
+  echo
+  echo 'Press Enter to continue'
+  read -r
+fi
 
 if ! has pnpm; then
   err 'pnpm was not found.' \
@@ -53,14 +55,7 @@ fi
 
 if [ "${CI:-}" != "true" ]; then
   echo "Installing Rust tools..."
-
-  if ! [ -x "${CARGO_HOME:-.cargo}/bin/cargo-binstall" ]; then
-    curl -LSsf \
-      https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
-      | sed -e '/set \-euxo pipefail/set \-euo pipefail/' \
-      | /usr/bin/env bash >/dev/null
-  fi
-  cargo binstall -yq cargo-watch
+  cargo install cargo-watch
 
   echo
 fi
