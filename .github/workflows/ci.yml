@@ -145,8 +145,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup shared libraries
+        if: steps.filter.outputs.changes == 'true'
+        env:
+          NODE_ENV: debug
         run: |
-          pushd $HOME
+          pushd ..
           npm i archive-wasm mustache
           popd
           node scripts/post-install.mjs
