@@ -135,6 +135,7 @@ model Location {
     path                   String?
     total_capacity         Int?
     available_capacity     Int?
+    size_in_bytes          Bytes?
     is_archived            Boolean?
     generate_preview_media Boolean?
     sync_preview_media     Boolean?
