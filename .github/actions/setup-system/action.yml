@@ -48,18 +48,18 @@ runs:
         targets: ${{ inputs.targets }}
         save-cache: ${{ inputs.save-cache }}
 
-    - name: Run 'setup-system.sh' script
+    - name: Run setup.sh script
       shell: bash
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
-      run: ./.github/scripts/setup-system.sh ${{ inputs.setup-arg }}
+      run: ./scripts/setup.sh ${{ inputs.setup-arg }}
       env:
         TARGET: ${{ inputs.targets }}
         GITHUB_TOKEN: ${{ inputs.token }}
         APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
 
-    - name: Run 'setup-system.ps1' script
+    - name: Run setup.ps1 script
       shell: powershell
       if: ${{ runner.os == 'Windows' }}
-      run: ./.github/scripts/setup-system.ps1
+      run: ./scripts/setup.ps1
       env:
         GITHUB_TOKEN: ${{ inputs.token }}

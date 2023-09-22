@@ -1,3 +1,10 @@
+[env]
+PROTOC = "/Users/vitor/Workspace/spacedrive/target/Frameworks/bin/protoc"
+FFMPEG_DIR = "/Users/vitor/Workspace/spacedrive/target/Frameworks"
+[target.x86_64-apple-darwin]
+rustflags = ["-L", "/Users/vitor/Workspace/spacedrive/target/Frameworks/lib"]
+[target.aarch64-apple-darwin]
+rustflags = ["-L", "/Users/vitor/Workspace/spacedrive/target/Frameworks/lib"]
 [alias]
 prisma = "run -p prisma-cli --bin prisma --"
 prisma-sync = "run -p prisma-cli --bin sync --"
