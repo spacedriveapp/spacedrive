@@ -22,4 +22,6 @@ runs:
 
     - name: Install pnpm deps
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
-      run: env NODE_ENV=debug pnpm i --frozen-lockfile
+      env:
+          NODE_ENV: debug
+      run: pnpm i --frozen-lockfile
