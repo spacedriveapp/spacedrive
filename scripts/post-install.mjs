@@ -14,6 +14,8 @@ import { which } from './which.mjs';
 
 umask(0o026);
 
+if (env.IGNORE_POSTINSTALL === 'true') process.exit(0);
+
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
 	console.error('Bash for windows is not supported, please execute this from Powershell or CMD');
 	process.exit(255);
