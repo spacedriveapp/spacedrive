@@ -758,7 +758,10 @@ export default () => {
 		const view = explorerView.ref.current;
 		const scroll = explorer.scrollRef.current;
 		if (!view || !scroll) return;
-		setTop(explorerView.top ?? parseInt(getComputedStyle(scroll).paddingTop));
+		setTop(
+			explorerView.top ??
+				parseInt(getComputedStyle(scroll).paddingTop) + scroll.getBoundingClientRect().top
+		);
 		setListOffset(tableRef.current?.offsetTop ?? 0);
 	});
 
@@ -788,7 +791,10 @@ export default () => {
 								<div
 									ref={tableHeaderRef}
 									className={clsx(
-										'top-bar-blur border-y !border-sidebar-divider bg-app/90',
+										'top-bar-blur !border-sidebar-divider bg-app/90',
+										explorerView.listViewOptions?.hideHeaderBorder
+											? 'border-b'
+											: 'border-y',
 										// Prevent drag scroll
 										isLeftMouseDown
 											? 'overflow-hidden'

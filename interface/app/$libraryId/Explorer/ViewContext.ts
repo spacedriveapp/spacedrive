@@ -10,6 +10,9 @@ export interface ExplorerViewContext {
 	padding?: { x?: number; y?: number };
 	gap?: number | { x?: number; y?: number };
 	selectable: boolean;
+	listViewOptions?: {
+		hideHeaderBorder?: boolean;
+	};
 }
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);
