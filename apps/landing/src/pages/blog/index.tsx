@@ -3,7 +3,6 @@ import { InferGetStaticPropsType } from 'next';
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-
 import { BlogTag } from '~/components/BlogTag';
 import PageWrapper from '~/components/PageWrapper';
 

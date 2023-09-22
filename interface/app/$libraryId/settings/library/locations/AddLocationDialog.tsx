@@ -10,10 +10,10 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Dialog, ErrorMessage, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import IndexerRuleEditor from './IndexerRuleEditor';
 import { LocationPathInputField } from './PathInput';
 
@@ -197,6 +197,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			onSubmit={onSubmit}
 			ctaLabel="Add"
+			errorMessageException="Location is already linked"
 			description={
 				platform.platform === 'web'
 					? 'As you are using the browser version of Spacedrive you will (for now) ' +

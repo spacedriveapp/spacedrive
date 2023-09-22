@@ -2,7 +2,6 @@ import { allDocs } from '@contentlayer/generated';
 import { InferGetStaticPropsType } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-
 import DocsLayout from '~/components/DocsLayout';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';

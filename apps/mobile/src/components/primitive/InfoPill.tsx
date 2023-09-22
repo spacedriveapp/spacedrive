@@ -1,6 +1,5 @@
 import React from 'react';
 import { Text, TextStyle, View, ViewStyle } from 'react-native';
-
 import { twStyle } from '~/lib/tailwind';
 
 type Props = {

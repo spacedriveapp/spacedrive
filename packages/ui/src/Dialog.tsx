@@ -126,6 +126,7 @@ export interface DialogProps<S extends FieldValues>
 	transformOrigin?: string;
 	buttonsSideContent?: ReactNode;
 	invertButtonFocus?: boolean; //this reverses the focus order of submit/cancel buttons
+	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 }
 
 export function Dialog<S extends FieldValues>({
@@ -175,14 +176,18 @@ export function Dialog<S extends FieldValues>({
 			</Button>
 		</RDialog.Close>
 	);
+	const disableCheck = props.errorMessageException
+		? !form.formState.isValid &&
+		  !form.formState.errors.root?.serverError?.message?.startsWith(
+				props.errorMessageException as string
+		  )
+		: !form.formState.isValid;
 
 	const submitButton = (
 		<Button
 			type="submit"
 			size="sm"
-			disabled={
-				form.formState.isSubmitting || props.submitDisabled || !form.formState.isValid
-			}
+			disabled={form.formState.isSubmitting || props.submitDisabled || disableCheck}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(
 				props.ctaDanger &&

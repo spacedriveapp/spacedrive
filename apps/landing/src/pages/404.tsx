@@ -1,8 +1,7 @@
+import { SmileyXEyes } from '@phosphor-icons/react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { SmileyXEyes } from '@phosphor-icons/react';
 import { Button } from '@sd/ui';
-
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
 

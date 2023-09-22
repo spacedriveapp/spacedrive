@@ -9,8 +9,8 @@ import {
 	isDarkTheme,
 	type ExplorerItem
 } from '@sd/client';
-
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
+
 import { tw } from '../../lib/tailwind';
 
 export const getThumbnailUrlByThumbKey = (thumbKey: string[]) =>

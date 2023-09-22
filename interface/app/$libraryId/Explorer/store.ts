@@ -156,7 +156,7 @@ export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyStat
 
 export const filePathOrderingKeysSchema = z.union([
 	z.literal('name').describe('Name'),
-	// z.literal('sizeInBytes').describe('Size'),
+	z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateModified').describe('Date Modified'),
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),

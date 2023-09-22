@@ -1,7 +1,6 @@
 import { Pencil, Plus, Trash } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
-
 import { AddLocationDialog } from '~/app/$libraryId/settings/library/locations/AddLocationDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/locations/DeleteDialog';
 import { openDirectoryPickerDialog } from '~/app/$libraryId/settings/library/locations/openDirectoryPickerDialog';

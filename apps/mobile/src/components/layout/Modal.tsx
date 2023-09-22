@@ -11,9 +11,9 @@ import {
 import { X } from 'phosphor-react-native';
 import { forwardRef, ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
+
 import { Button } from '../primitive/Button';
 
 const ModalBackdrop = (props: BottomSheetBackdropProps) => (

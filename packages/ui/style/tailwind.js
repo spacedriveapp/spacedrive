@@ -59,7 +59,7 @@ module.exports = function (app, options) {
 						divider: alpha('--color-sidebar-divider'),
 						button: alpha('--color-sidebar-button'),
 						selected: alpha('--color-sidebar-selected'),
-						shade: alpha('--color-sidebar-shade'),
+						shade: alpha('--color-sidebar-shade')
 					},
 					app: {
 						DEFAULT: alpha('--color-app'),
@@ -79,7 +79,7 @@ module.exports = function (app, options) {
 						shade: alpha('--color-app-shade'),
 						frame: alpha('--color-app-frame'),
 						slider: alpha('--color-app-slider'),
-						explorerScrollbar: alpha('--color-app-explorer-scrollbar'),
+						explorerScrollbar: alpha('--color-app-explorer-scrollbar')
 					},
 					menu: {
 						DEFAULT: alpha('--color-menu'),

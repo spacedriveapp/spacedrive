@@ -17,7 +17,6 @@ import {
 	useLibraryQuery,
 	type ExplorerItem
 } from '@sd/client';
-
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';

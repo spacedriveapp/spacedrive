@@ -39,7 +39,7 @@ export default () => {
 				<div className="h-3" />
 			)}
 
-			<div className="px-4 py-3 space-y-6">
+			<div className="space-y-6 px-4 py-3">
 				<Section>
 					<Heading>Client</Heading>
 					<SidebarLink to="client/general">

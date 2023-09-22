@@ -10,9 +10,11 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, generate_thumbnail, location_with_indexer_rules,
+		find_location, generate_thumbnail,
+		indexer::reverse_update_directories_sizes,
+		location_with_indexer_rules,
 		manager::LocationManagerError,
-		scan_location_sub_path,
+		scan_location_sub_path, update_location_size,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -38,7 +40,7 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
@@ -57,11 +59,12 @@ use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
+	time::Instant,
 };
 use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
-use super::INodeAndDevice;
+use super::{INodeAndDevice, HUNDRED_MILLIS};
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
@@ -314,25 +317,6 @@ async fn inner_create_file(
 	invalidate_query!(library, "search.paths");
 
 	Ok(())
-}
-
-pub(super) async fn create_dir_or_file(
-	location_id: location::id::Type,
-	path: impl AsRef<Path>,
-	node: &Arc<Node>,
-	library: &Arc<Library>,
-) -> Result<Metadata, LocationManagerError> {
-	let path = path.as_ref();
-	let metadata = fs::metadata(path)
-		.await
-		.map_err(|e| FileIOError::from((path, e)))?;
-
-	if metadata.is_dir() {
-		create_dir(location_id, path, &metadata, node, library).await
-	} else {
-		create_file(location_id, path, &metadata, node, library).await
-	}
-	.map(|_| metadata)
 }
 
 pub(super) async fn update_file(
@@ -824,4 +808,61 @@ pub(super) async fn extract_location_path(
 			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
 			|location| Ok(maybe_missing(location.path, "location.path")?.into()),
 		)
+}
+
+pub(super) async fn recalculate_directories_size(
+	candidates: &mut HashMap<PathBuf, Instant>,
+	buffer: &mut Vec<(PathBuf, Instant)>,
+	location_id: location::id::Type,
+	library: &Library,
+) -> Result<(), LocationManagerError> {
+	let mut location_path_cache = None;
+	let mut should_invalidate = false;
+	let mut should_update_location_size = false;
+	buffer.clear();
+
+	for (path, instant) in candidates.drain() {
+		if instant.elapsed() > HUNDRED_MILLIS * 5 {
+			if location_path_cache.is_none() {
+				location_path_cache = Some(PathBuf::from(maybe_missing(
+					find_location(library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationManagerError::MissingLocation(location_id))?
+						.path,
+					"location.path",
+				)?))
+			}
+
+			if let Some(location_path) = &location_path_cache {
+				if path != *location_path {
+					trace!(
+						"Reverse calculating directory sizes starting at {} until {}",
+						path.display(),
+						location_path.display(),
+					);
+					reverse_update_directories_sizes(path, location_id, location_path, library)
+						.await?;
+					should_invalidate = true;
+				} else {
+					should_update_location_size = true;
+				}
+			}
+		} else {
+			buffer.push((path, instant));
+		}
+	}
+
+	if should_update_location_size {
+		update_location_size(location_id, library).await?;
+	}
+
+	if should_invalidate {
+		invalidate_query!(library, "search.paths");
+	}
+
+	candidates.extend(buffer.drain(..));
+
+	Ok(())
 }
