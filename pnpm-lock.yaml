@@ -26,9 +26,15 @@ importers:
       '@storybook/react-vite':
         specifier: ^7.0.20
         version: 7.0.20(react-dom@18.2.0)(react@18.2.0)(typescript@5.0.4)(vite@4.3.9)
+      archive-wasm:
+        specifier: ^1.4.0
+        version: 1.4.0
       cspell:
         specifier: ^6.31.1
         version: 6.31.1
+      mustache:
+        specifier: ^4.2.0
+        version: 4.2.0
       prettier:
         specifier: ^3.0.3
         version: 3.0.3
@@ -53,6 +59,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@iarna/toml':
+        specifier: ^2.2.5
+        version: 2.2.5
       '@rspc/client':
         specifier: '=0.0.0-main-799eec5d'
         version: 0.0.0-main-799eec5d
@@ -90,9 +99,6 @@ importers:
         specifier: 6.9.0
         version: 6.9.0(react-dom@18.2.0)(react@18.2.0)
     devDependencies:
-      '@iarna/toml':
-        specifier: ^2.2.5
-        version: 2.2.5
       '@sd/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -5684,7 +5690,7 @@ packages:
 
   /@iarna/toml@2.2.5:
     resolution: {integrity: sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==}
-    dev: true
+    dev: false
 
   /@icons-pack/react-simple-icons@7.2.0(react@18.2.0):
     resolution: {integrity: sha512-XmyAiE+cDWDoCQGboie4se79ph2xAj/lQV+YVmLlX0nAFf92lci2ciVxWSN28f4MWZojskRWsu9S9BoH8UCQgg==}
@@ -11169,6 +11175,11 @@ packages:
 
   /aproba@2.0.0:
     resolution: {integrity: sha512-lYe4Gx7QT+MKGbDsA+Z+he/Wtef0BiwDOlK/XkBrdfsh9J/jPPXbX0tE9x9cl27Tmu5gg3QUbUrQYa/y+KOHPQ==}
+
+  /archive-wasm@1.4.0:
+    resolution: {integrity: sha512-1pJ+KGShGvNDkg1hjh8FaNxuKkWheGkBxgxug87RAaIAhgsFbjMHrA/IGP07RrRk/E1JVpwTHF6fpry2hAuHmg==}
+    engines: {node: '>=18'}
+    dev: true
 
   /are-we-there-yet@2.0.0:
     resolution: {integrity: sha512-Ci/qENmwHnsYo9xKIcUJN5LeDKdJ6R1Z1j9V/J5wyq8nh/mYPEpIKJbBZXtZjG04HiK7zV/p6Vs9952MrMeUIw==}
@@ -18501,6 +18512,11 @@ packages:
 
   /ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+
+  /mustache@4.2.0:
+    resolution: {integrity: sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ==}
+    hasBin: true
+    dev: true
 
   /mv@2.1.1:
     resolution: {integrity: sha512-at/ZndSy3xEGJ8i0ygALh8ru9qy7gWW1cmkaqBN29JmMlIvM//MEO9y1sk/avxuwnPcfhkejkLsuPxH81BrkSg==}

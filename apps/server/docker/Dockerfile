@@ -65,7 +65,7 @@ RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
 ENV PATH="/root/.cargo/bin:$PATH"
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	env CI=true .github/scripts/setup-system.sh
+	env CI=true ./scripts/setup.sh
 
 RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 	pnpm prep
