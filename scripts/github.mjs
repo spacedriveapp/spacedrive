@@ -42,6 +42,9 @@ async function getCache(resource, headers) {
 	/** @type {[string, string] | undefined} */
 	let header;
 
+	// Don't cache in CI
+	if (env.CI === 'true') return null
+
 	if (headers)
 		resource += Array.from(headers.entries())
 			.filter(([name]) => name !== 'If-None-Match' && name !== 'If-Modified-Since')
@@ -81,6 +84,11 @@ async function getCache(resource, headers) {
  * @returns {Promise<Buffer>}
  */
 async function setCache(response, resource, cachedData, headers) {
+	const data = Buffer.from(await response.arrayBuffer());
+
+	// Don't cache in CI
+	if (env.CI === 'true') return data
+
 	const etag = response.headers.get('ETag') || undefined;
 	const modifiedSince = response.headers.get('Last-Modified') || undefined;
 	if (headers)
@@ -88,8 +96,6 @@ async function setCache(response, resource, cachedData, headers) {
 			.filter(([name]) => name !== 'If-None-Match' && name !== 'If-Modified-Since')
 			.flat()
 			.join(':');
-
-	const data = Buffer.from(await response.arrayBuffer());
 
 	if (response.status === 304 || (response.ok && data.length === 0)) {
 		// Cache hit
