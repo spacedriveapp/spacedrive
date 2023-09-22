@@ -14,24 +14,23 @@ use std::{
 	fmt::Debug,
 	fs::Metadata,
 	io::{self, SeekFrom},
-	panic::Location,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::{atomic::Ordering, Arc},
-	time::{Duration, UNIX_EPOCH},
+	time::Duration,
 };
 
 use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::{self, header, request, HeaderValue, Method, Request, Response, StatusCode},
-	middleware::{self, Next},
+	http::{HeaderValue, Request, Response, StatusCode},
+	middleware,
 	routing::get,
 	Router,
 };
 use bytes::Bytes;
-use http_range::HttpRange;
+
 use mini_moka::sync::Cache;
 use sd_file_ext::text::is_text;
 use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
@@ -41,16 +40,21 @@ use tokio::{
 	sync::RwLock,
 	time::sleep,
 };
-use tokio_util::{io::ReaderStream, sync::PollSender};
-use tracing::{debug, error};
+use tokio_util::sync::PollSender;
+use tracing::error;
 use uuid::Uuid;
 
-use self::{async_read_body::AsyncReadBody, mpsc_to_async_write::MpscToAsyncWrite};
+use self::{
+	limited_by_lines::LimitedByLinesBody, mpsc_to_async_write::MpscToAsyncWrite,
+	serve_file::serve_file, utils::*,
+};
 
 mod async_read_body;
 mod count_lines;
+mod limited_by_lines;
 mod mpsc_to_async_write;
 mod serve_file;
+mod utils;
 
 type CacheKey = (Uuid, file_path::id::Type);
 
@@ -69,9 +73,6 @@ struct CacheValue {
 }
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
-
-// default capacity 64KiB
-const DEFAULT_CAPACITY: usize = 65536;
 
 #[derive(Debug, Clone)]
 pub enum ServeFrom {
@@ -197,23 +198,27 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 					// Prevent directory traversal attacks (Eg. requesting `../../../etc/passwd`)
 					// For now we only support `webp` thumbnails.
-					(path.starts_with(&thumbnail_path) && path.extension() == Some(OsStr::new("webp"))).then_some(()).ok_or_else(|| not_found(()))?;
+					(path.starts_with(&thumbnail_path)
+						&& path.extension() == Some(OsStr::new("webp")))
+					.then_some(())
+					.ok_or_else(|| not_found(()))?;
 
 					let file = File::open(&path).await.map_err(|err| {
 						InfallibleResponse::builder()
-								.status(if err.kind() == io::ErrorKind::NotFound {
-									StatusCode::NOT_FOUND
-								} else {
-									StatusCode::INTERNAL_SERVER_ERROR
-								})
-								.body(body::boxed(Full::from("")))
+							.status(if err.kind() == io::ErrorKind::NotFound {
+								StatusCode::NOT_FOUND
+							} else {
+								StatusCode::INTERNAL_SERVER_ERROR
+							})
+							.body(body::boxed(Full::from("")))
 					})?;
 					let metadata = file.metadata().await;
 					serve_file(
 						file,
 						metadata,
 						request.into_parts().0,
-						InfallibleResponse::builder().header("Content-Type", HeaderValue::from_static("image/webp")),
+						InfallibleResponse::builder()
+							.header("Content-Type", HeaderValue::from_static("image/webp")),
 					)
 					.await
 				},
@@ -222,51 +227,94 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 		.route(
 			"/file/:lib_id/:loc_id/:path_id",
 			get(
-				|State(state): State<LocalState>,
-				 path: ExtractedPath,
-				 request: Request<Body>| async move {
-					let (CacheValue {
-						name: file_path_full_path,
-						ext: extension,
-						file_path_pub_id,
-						serve_from,
-						..
-					}, library) = get_or_init_lru_entry(&state, path).await?;
+				|State(state): State<LocalState>, path: ExtractedPath, request: Request<Body>| async move {
+					let (
+						CacheValue {
+							name: file_path_full_path,
+							ext: extension,
+							file_path_pub_id,
+							serve_from,
+							..
+						},
+						library,
+					) = get_or_init_lru_entry(&state, path).await?;
 
 					match serve_from {
 						ServeFrom::Local => {
-							let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
-							(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
+							let metadata = file_path_full_path
+								.metadata()
+								.map_err(internal_server_error)?;
+							(!metadata.is_dir())
+								.then_some(())
+								.ok_or_else(|| not_found(()))?;
 
-							let mut file = File::open(&file_path_full_path).await.map_err(|err| {
-								InfallibleResponse::builder()
+							let mut file =
+								File::open(&file_path_full_path).await.map_err(|err| {
+									InfallibleResponse::builder()
 										.status(if err.kind() == io::ErrorKind::NotFound {
 											StatusCode::NOT_FOUND
 										} else {
 											StatusCode::INTERNAL_SERVER_ERROR
 										})
 										.body(body::boxed(Full::from("")))
-							})?;
+								})?;
 
-							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_magic_bytes_code_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
-								error!("Error converting mime-type into header value: {}", err);
-								internal_server_error(())
-							})?);
+							let resp = InfallibleResponse::builder().header(
+								"Content-Type",
+								HeaderValue::from_str(
+									&infer_the_mime_type(&extension, &mut file, &metadata).await?,
+								)
+								.map_err(|err| {
+									error!("Error converting mime-type into header value: {}", err);
+									internal_server_error(())
+								})?,
+							);
+
+							// We aware using `X-SD-Lines` prevents any browser-level caching and will always use chunked transfer encoding
+							if let Some(lines) = request.headers().get("X-SD-Lines") {
+								// TODO: Add cursor to response
+
+								let lines = lines
+									.to_str()
+									.map_err(bad_request)?
+									.parse()
+									.map_err(bad_request)?;
+
+								return Ok(resp.status(StatusCode::OK).body(body::boxed(
+									LimitedByLinesBody::with_lines_limited(
+										BufReader::new(file),
+										lines,
+									),
+								)));
+							}
 
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
 							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
-								return Ok(not_found(()))
+								return Ok(not_found(()));
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
 							// TODO: Handle the wacky new pagination type system
 							#[allow(clippy::unwrap_used)]
-							match *state.node.nlm.state().await.get(&library.id).unwrap().instances.get(&identity).unwrap() {
-								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
+							match *state
+								.node
+								.nlm
+								.state()
+								.await
+								.get(&library.id)
+								.unwrap()
+								.instances
+								.get(&identity)
+								.unwrap()
+							{
+								InstanceState::Discovered(_) | InstanceState::Unavailable => {
+									Ok(not_found(()))
+								}
 								InstanceState::Connected(peer_id) => {
-									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+									let (tx, mut rx) =
+										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
 									let node = state.node.clone();
 									tokio::spawn(async move {
@@ -283,16 +331,16 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 									// TODO: Support file line number hint
 									// TODO: Content Type
-									Ok(InfallibleResponse::builder()
-										.status(StatusCode::OK)
-										.body(body::boxed(StreamBody::new(stream! {
+									Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
+										body::boxed(StreamBody::new(stream! {
 											while let Some(item) = rx.recv().await {
 												yield item;
 											}
-										}))))
+										})),
+									))
 								}
 							}
-						},
+						}
 					}
 				},
 			),
@@ -300,21 +348,22 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 		.route(
 			"/lines/:lib_id/:loc_id/:path_id",
 			get(
-				|State(state): State<LocalState>,
-				 path: ExtractedPath| async move {
-					let (CacheValue {
-						file_lines,
-						..
-					}, _) = get_or_init_lru_entry(&state, path).await?;
+				|State(state): State<LocalState>, path: ExtractedPath| async move {
+					let (CacheValue { file_lines, .. }, _) =
+						get_or_init_lru_entry(&state, path).await?;
 
 					let lines = file_lines.read().await;
 
 					// TODO: I really don't get why Rust can't infer the error type from `get_or_init_lru_entry` but whatever
-					Ok::<_, Response<BoxBody>>(InfallibleResponse::builder()
-						.status(StatusCode::OK)
-						.body(body::boxed(Full::from(serde_json::to_string(&*lines).map_err(internal_server_error)?))))
-				 }
-			)
+					Ok::<_, Response<BoxBody>>(
+						InfallibleResponse::builder()
+							.status(StatusCode::OK)
+							.body(body::boxed(Full::from(
+								serde_json::to_string(&*lines).map_err(internal_server_error)?,
+							))),
+					)
+				},
+			),
 		)
 		.route_layer(middleware::from_fn(cors_middleware))
 		.with_state(LocalState {
@@ -323,199 +372,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 		})
 }
 
-#[track_caller]
-fn bad_request(err: impl Debug) -> http::Response<BoxBody> {
-	debug!("400: Bad Request at {}: {err:?}", Location::caller());
-
-	InfallibleResponse::builder()
-		.status(StatusCode::BAD_REQUEST)
-		.body(body::boxed(Full::from("")))
-}
-
-#[track_caller]
-fn not_found(err: impl Debug) -> http::Response<BoxBody> {
-	debug!("404: Not Found at {}: {err:?}", Location::caller());
-
-	InfallibleResponse::builder()
-		.status(StatusCode::NOT_FOUND)
-		.body(body::boxed(Full::from("")))
-}
-
-#[track_caller]
-fn internal_server_error(err: impl Debug) -> http::Response<BoxBody> {
-	debug!(
-		"500 - Internal Server Error at {}: {err:?}",
-		Location::caller()
-	);
-
-	InfallibleResponse::builder()
-		.status(StatusCode::INTERNAL_SERVER_ERROR)
-		.body(body::boxed(Full::from("")))
-}
-
-async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Response<BoxBody> {
-	if req.method() == Method::OPTIONS {
-		return Response::builder()
-			.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
-			.header("Access-Control-Allow-Headers", "*")
-			.header("Access-Control-Max-Age", "86400")
-			.status(StatusCode::OK)
-			.body(body::boxed(Full::from("")))
-			.expect("Invalid static response!");
-	}
-
-	let mut response = next.run(req).await;
-
-	response
-		.headers_mut()
-		.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
-
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection
-	response
-		.headers_mut()
-		.insert("Connection", HeaderValue::from_static("Keep-Alive"));
-
-	response
-		.headers_mut()
-		.insert("Server", HeaderValue::from_static("Spacedrive"));
-
-	response
-}
-
-/// Serve a Tokio file as a HTTP response.
-///
-/// This function takes care of:
-///  - 304 Not Modified using ETag's
-///  - Range requests for partial content
-///
-/// BE AWARE this function does not do any path traversal protection so that's up to the caller!
-async fn serve_file(
-	mut file: File,
-	metadata: io::Result<Metadata>,
-	req: request::Parts,
-	mut resp: InfallibleResponse,
-) -> Result<Response<BoxBody>, Response<BoxBody>> {
-	if let Ok(metadata) = metadata {
-		// We only accept range queries if `files.metadata() == Ok(_)`
-		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
-		resp = resp
-			.header("Accept-Ranges", HeaderValue::from_static("bytes"))
-			.header(
-				"Content-Length",
-				HeaderValue::from_str(&metadata.len().to_string())
-					.expect("number won't fail conversion"),
-			);
-
-		// Empty files
-		if metadata.len() == 0 {
-			return Ok(resp
-				.status(StatusCode::OK)
-				.header("Content-Length", HeaderValue::from_static("0"))
-				.body(body::boxed(Full::from(""))));
-		}
-
-		// ETag
-		let mut status_code = StatusCode::PARTIAL_CONTENT;
-		if let Ok(time) = metadata.modified() {
-			let etag_header = format!(
-				r#""{}""#,
-				// The ETag's can be any value so we just use the modified time to make it easy.
-				time.duration_since(UNIX_EPOCH)
-					.expect("are you a time traveller? cause that's the only explanation for this error")
-					.as_millis()
-			);
-
-			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
-			if let Ok(etag_header) = HeaderValue::from_str(&etag_header) {
-				resp = resp.header("etag", etag_header);
-			} else {
-				error!("Failed to convert ETag into header value!");
-			}
-
-			// Used for normal requests
-			if let Some(etag) = req.headers.get("If-None-Match") {
-				if etag.as_bytes() == etag_header.as_bytes() {
-					return Ok(resp
-						.status(StatusCode::NOT_MODIFIED)
-						.body(body::boxed(Full::from(""))));
-				}
-			}
-
-			// Used checking if the resource has been modified since starting the download
-			if let Some(if_range) = req.headers.get("If-Range") {
-				// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Range
-				if if_range.as_bytes() != etag_header.as_bytes() {
-					status_code = StatusCode::OK
-				}
-			}
-		};
-
-		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
-		if req.method == Method::GET {
-			if let Some(range) = req.headers.get("range") {
-				// TODO: Error handling
-				let ranges = HttpRange::parse(range.to_str().map_err(bad_request)?, metadata.len())
-					.map_err(bad_request)?;
-
-				// TODO: Multipart requests are not support, yet
-				if ranges.len() != 1 {
-					return Ok(resp
-						.header(
-							header::CONTENT_RANGE,
-							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
-								.map_err(internal_server_error)?,
-						)
-						.status(StatusCode::RANGE_NOT_SATISFIABLE)
-						.body(body::boxed(Full::from(""))));
-				}
-				let range = ranges.first().expect("checked above");
-
-				if (range.start + range.length) > metadata.len() {
-					return Ok(resp
-						.header(
-							header::CONTENT_RANGE,
-							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
-								.map_err(internal_server_error)?,
-						)
-						.status(StatusCode::RANGE_NOT_SATISFIABLE)
-						.body(body::boxed(Full::from(""))));
-				}
-
-				file.seek(SeekFrom::Start(range.start))
-					.await
-					.map_err(internal_server_error)?;
-
-				return Ok(resp
-					.status(status_code)
-					.header(
-						"Content-Range",
-						HeaderValue::from_str(&format!(
-							"bytes {}-{}/{}",
-							range.start,
-							range.start + range.length - 1,
-							metadata.len()
-						))
-						.map_err(internal_server_error)?,
-					)
-					.header(
-						"Content-Length",
-						HeaderValue::from_str(&range.length.to_string())
-							.map_err(internal_server_error)?,
-					)
-					.body(body::boxed(AsyncReadBody::with_capacity_limited(
-						file,
-						DEFAULT_CAPACITY,
-						range.length,
-					))));
-			}
-		}
-	}
-
-	Ok(resp.body(body::boxed(StreamBody::new(ReaderStream::new(file)))))
-}
-
-// TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
-async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_magic_bytes_code_instead_of_adding_variants_to_it(
+// TODO: This should possibly be determined from magic bytes when the file is indexed and stored it in the DB on the file path
+async fn infer_the_mime_type(
 	ext: &str,
 	file: &mut File,
 	metadata: &Metadata,

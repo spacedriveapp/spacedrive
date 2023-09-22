@@ -4,6 +4,7 @@ use std::{
 	task::{Context, Poll},
 };
 
+use futures::ready;
 use pin_project_lite::pin_project;
 use tokio::io::AsyncBufRead;
 
@@ -32,9 +33,9 @@ impl<B: AsyncBufRead> Future for CountLines<B> {
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let mut this = self.project();
 		loop {
-			let i = match this.reader.as_mut().poll_fill_buf(cx) {
-				Poll::Ready(Ok(buf)) if buf.len() == 0 => return Poll::Ready(Ok(*this.lines)),
-				Poll::Ready(Ok(buf)) => match memchr::memchr(b'\n', buf) {
+			let i = match ready!(this.reader.as_mut().poll_fill_buf(cx)) {
+				Ok(buf) if buf.len() == 0 => return Poll::Ready(Ok(*this.lines)),
+				Ok(buf) => match memchr::memchr(b'\n', buf) {
 					Some(i) => {
 						*this.lines += 1;
 
@@ -42,8 +43,7 @@ impl<B: AsyncBufRead> Future for CountLines<B> {
 					}
 					None => buf.len(), // no newline found, consume whole buffer
 				},
-				Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-				Poll::Pending => return Poll::Pending,
+				Err(e) => return Poll::Ready(Err(e)),
 			};
 
 			this.reader.as_mut().consume(i);
