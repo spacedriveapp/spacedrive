@@ -104,43 +104,6 @@ await Promise.all(deps).catch((e) => {
 	process.exit(1);
 });
 
-// Generate .cargo/config.toml
-console.log('Generating cargo config...');
-try {
-	await fs.writeFile(
-		path.join(__root, '.cargo', 'config.toml'),
-		mustache
-			.render(
-				await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
-					encoding: 'utf8'
-				}),
-				{
-					ffmpeg: machineId[0] === 'Linux' ? false : framework.replaceAll('\\', '\\\\'),
-					protoc: path
-						.join(
-							framework,
-							'bin',
-							machineId[0] === 'Windows_NT' ? 'protoc.exe' : 'protoc'
-						)
-						.replaceAll('\\', '\\\\'),
-					projectRoot: __root.replaceAll('\\', '\\\\'),
-					isWin: machineId[0] === 'Windows_NT',
-					isMacOS: machineId[0] === 'Darwin',
-					isLinux: machineId[0] === 'Linux'
-				}
-			)
-			.replace(/\n\n+/g, '\n'),
-		{ mode: 0o751, flag: 'w+' }
-	);
-} catch (error) {
-	console.error(
-		'Failed to generate .cargo/config.toml, please open an issue on: ' +
-			'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-	);
-	if (__debug) console.error(error);
-	process.exit(1);
-}
-
 // Setup macOS Frameworks
 if (machineId[0] === 'Darwin') {
 	try {

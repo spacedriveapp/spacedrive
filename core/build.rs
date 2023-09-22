@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::Path, process::Command};
 
 fn main() {
 	let output = Command::new("git")
@@ -8,4 +8,7 @@ fn main() {
 	let git_hash = String::from_utf8(output.stdout)
 		.expect("Error passing output of `git rev-parse --short HEAD`");
 	println!("cargo:rustc-env=GIT_HASH={git_hash}");
+
+	let frameworks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/Frameworks/lib");
+	println!("cargo:rustc-link-search={}", frameworks_path.display());
 }
