@@ -29,7 +29,7 @@ impl<B: AsyncBufRead> CountLines<B> {
 impl<B: AsyncBufRead> Future for CountLines<B> {
 	type Output = Result<usize, std::io::Error>;
 
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let mut this = self.project();
 		loop {
 			let i = match this.reader.as_mut().poll_fill_buf(cx) {

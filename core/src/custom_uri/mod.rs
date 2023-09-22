@@ -1,9 +1,10 @@
 use crate::{
+	custom_uri::count_lines::CountLines,
 	library::Library,
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
 	prisma::{file_path, location},
-	util::{db::*, CountLines, InfallibleResponse},
+	util::{db::*, InfallibleResponse},
 	Node,
 };
 
@@ -15,39 +16,41 @@ use std::{
 	io::{self, SeekFrom},
 	panic::Location,
 	path::{Path, PathBuf},
-	pin::Pin,
 	str::FromStr,
 	sync::{atomic::Ordering, Arc},
-	task::{Context, Poll},
 	time::{Duration, UNIX_EPOCH},
 };
 
 use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Full, HttpBody, StreamBody},
+	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
-	http::{self, header, request, HeaderMap, HeaderValue, Method, Request, Response, StatusCode},
+	http::{self, header, request, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
 	routing::get,
 	Router,
 };
 use bytes::Bytes;
-use chrono::Local;
-use futures::Stream;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
-use pin_project_lite::pin_project;
 use sd_file_ext::text::is_text;
 use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, BufReader, Take},
+	io::{AsyncReadExt, AsyncSeekExt, BufReader},
 	sync::RwLock,
 	time::sleep,
 };
 use tokio_util::{io::ReaderStream, sync::PollSender};
 use tracing::{debug, error};
 use uuid::Uuid;
+
+use self::{async_read_body::AsyncReadBody, mpsc_to_async_write::MpscToAsyncWrite};
+
+mod async_read_body;
+mod count_lines;
+mod mpsc_to_async_write;
+mod serve_file;
 
 type CacheKey = (Uuid, file_path::id::Type);
 
@@ -245,7 +248,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 										.body(body::boxed(Full::from("")))
 							})?;
 
-							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
+							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_magic_bytes_code_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
 								error!("Error converting mime-type into header value: {}", err);
 								internal_server_error(())
 							})?);
@@ -258,6 +261,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
+							// TODO: Handle the wacky new pagination type system
 							#[allow(clippy::unwrap_used)]
 							match *state.node.nlm.state().await.get(&library.id).unwrap().instances.get(&identity).unwrap() {
 								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
@@ -272,7 +276,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 												&library,
 												file_path_pub_id,
 												Range::Full,
-												MpscToAsyncWrite(PollSender::new(tx)),
+												MpscToAsyncWrite::new(PollSender::new(tx)),
 											)
 											.await;
 									});
@@ -297,8 +301,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 			"/lines/:lib_id/:loc_id/:path_id",
 			get(
 				|State(state): State<LocalState>,
-				 path: ExtractedPath,
-				 request: Request<Body>| async move {
+				 path: ExtractedPath| async move {
 					let (CacheValue {
 						file_lines,
 						..
@@ -512,7 +515,7 @@ async fn serve_file(
 }
 
 // TODO: This should be determined from magic bytes when the file is indexed and stored it in the DB on the file path
-async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(
+async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_magic_bytes_code_instead_of_adding_variants_to_it(
 	ext: &str,
 	file: &mut File,
 	metadata: &Metadata,
@@ -638,81 +641,4 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	} else {
 		mime_type.to_string()
 	})
-}
-
-// This code was taken from: https://github.com/tower-rs/tower-http/blob/e8eb54966604ea7fa574a2a25e55232f5cfe675b/tower-http/src/services/fs/mod.rs#L30
-pin_project! {
-	// NOTE: This could potentially be upstreamed to `http-body`.
-	/// Adapter that turns an [`impl AsyncRead`][tokio::io::AsyncRead] to an [`impl Body`][http_body::Body].
-	#[derive(Debug)]
-	pub struct AsyncReadBody<T> {
-		#[pin]
-		reader: ReaderStream<T>,
-	}
-}
-
-impl<T> AsyncReadBody<T>
-where
-	T: AsyncRead,
-{
-	fn with_capacity_limited(
-		read: T,
-		capacity: usize,
-		max_read_bytes: u64,
-	) -> AsyncReadBody<Take<T>> {
-		AsyncReadBody {
-			reader: ReaderStream::with_capacity(read.take(max_read_bytes), capacity),
-		}
-	}
-}
-
-impl<T> HttpBody for AsyncReadBody<T>
-where
-	T: AsyncRead,
-{
-	type Data = Bytes;
-	type Error = io::Error;
-
-	fn poll_data(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Option<Result<Self::Data, Self::Error>>> {
-		self.project().reader.poll_next(cx)
-	}
-
-	fn poll_trailers(
-		self: Pin<&mut Self>,
-		_cx: &mut Context<'_>,
-	) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
-		Poll::Ready(Ok(None))
-	}
-}
-
-/// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
-pub struct MpscToAsyncWrite(PollSender<io::Result<Bytes>>);
-
-impl AsyncWrite for MpscToAsyncWrite {
-	fn poll_write(
-		mut self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &[u8],
-	) -> Poll<Result<usize, io::Error>> {
-		#[allow(clippy::unwrap_used)]
-		match self.0.poll_reserve(cx) {
-			Poll::Ready(Ok(())) => {
-				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
-				Poll::Ready(Ok(buf.len()))
-			}
-			Poll::Ready(Err(_)) => todo!(),
-			Poll::Pending => Poll::Pending,
-		}
-	}
-
-	fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-		Poll::Ready(Ok(()))
-	}
-
-	fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-		Poll::Ready(Ok(()))
-	}
 }
