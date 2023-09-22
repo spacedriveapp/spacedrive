@@ -32,28 +32,26 @@ script_failure() {
 
 trap 'script_failure ${LINENO:-}' ERR
 
-if [ -z "${CI:-}" ]; then
+if [ "${CI:-}" != "true" ]; then
   echo 'Spacedrive Development Environment Setup'
   echo 'To set up your machine for Spacedrive development, this script will install some required dependencies with your system package manager'
   echo
   echo 'Press Enter to continue'
   read -r
-fi
 
-if ! has pnpm; then
-  err 'pnpm was not found.' \
-    "Ensure the 'pnpm' command is in your \$PATH." \
-    'You must use pnpm for this project; yarn and npm are not allowed.' \
-    'https://pnpm.io/installation'
-fi
+  if ! has pnpm; then
+    err 'pnpm was not found.' \
+      "Ensure the 'pnpm' command is in your \$PATH." \
+      'You must use pnpm for this project; yarn and npm are not allowed.' \
+      'https://pnpm.io/installation'
+  fi
 
-if ! has rustc cargo; then
-  err 'Rust was not found.' \
-    "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
-    'https://rustup.rs'
-fi
+  if ! has rustc cargo; then
+    err 'Rust was not found.' \
+      "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
+      'https://rustup.rs'
+  fi
 
-if [ "${CI:-}" != "true" ]; then
   echo "Installing Rust tools..."
   cargo install cargo-watch
 
