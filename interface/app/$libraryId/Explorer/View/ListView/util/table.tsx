@@ -45,8 +45,7 @@ export const useTable = () => {
 				cell: (cell) => {
 					const item = cell.row.original;
 
-					const selected = explorer.selectedItems.has(cell.row.original);
-
+					const selected = explorer.selectedItems.has(item);
 					const cut = isCut(item, explorerStore.cutCopyState);
 
 					return (

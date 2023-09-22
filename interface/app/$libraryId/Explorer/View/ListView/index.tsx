@@ -40,7 +40,7 @@ interface ListViewItemProps {
 	columnSizing: ColumnSizingState;
 	columnVisibility: VisibilityState;
 	isCut: boolean;
-	isRenaming: boolean;
+	isSelected: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
@@ -91,7 +91,7 @@ export default () => {
 	const layout = useLayoutContext();
 	const explorer = useExplorerContext();
 	const explorerStore = useExplorerStore();
-	const { isRenaming, ...explorerView } = useExplorerViewContext();
+	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
 
 	const tableRef = useRef<HTMLDivElement>(null);
@@ -972,7 +972,7 @@ export default () => {
 											columnSizing={columnSizing}
 											columnVisibility={columnVisibility}
 											isCut={cut}
-											isRenaming={isRenaming}
+											isSelected={selected}
 										/>
 									</div>
 								);
