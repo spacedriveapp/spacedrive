@@ -144,6 +144,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup shared libraries
+        run: |
+          pushd $HOME
+          npm i archive-wasm mustache
+          popd
+          node scripts/post-install.mjs
+
       - name: Run Clippy
         if: steps.filter.outputs.changes == 'true'
         uses: actions-rs/clippy-check@v1
