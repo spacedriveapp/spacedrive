@@ -486,6 +486,7 @@ export default () => {
 		if (!table || !header || !body) return;
 
 		const handleWheel = (event: WheelEvent) => {
+			if (event.deltaY) return;
 			event.deltaX !== 0 && event.preventDefault();
 			header.scrollLeft += event.deltaX;
 			body.scrollLeft += event.deltaX;
