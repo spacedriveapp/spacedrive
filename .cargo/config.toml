@@ -1,0 +1,6 @@
+[alias]
+prisma = "run -p prisma-cli --bin prisma --"
+prisma-sync = "run -p prisma-cli --bin sync --"
+
+[env]
+FFMPEG_DIR = { value = "./target/Frameworks", relative = true, force = true }
