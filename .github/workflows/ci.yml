@@ -24,6 +24,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignorePostInstall: true
 
       - name: Perform typechecks
         run: pnpm typecheck
@@ -39,6 +40,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignorePostInstall: true
 
       - name: Perform linting
         run: pnpm lint

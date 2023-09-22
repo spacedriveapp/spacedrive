@@ -5,6 +5,10 @@ inputs:
     description: Github token
     required: false
     default: ''
+  ignorePostInstall:
+    description: Don't run post install
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -24,4 +28,5 @@ runs:
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
       env:
           NODE_ENV: debug
+          IGNORE_POSTINSTALL: ${{ inputs.ignorePostInstall }}
       run: pnpm i --frozen-lockfile
