@@ -10,7 +10,7 @@ use crate::{
 			ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 			IsolatedFilePathData,
 		},
-		location_with_indexer_rules,
+		location_with_indexer_rules, update_location_size,
 	},
 	prisma::{file_path, location},
 	to_remove_db_fetcher_fn,
@@ -496,24 +496,33 @@ impl StatefulJob for IndexerJobInit {
 			ctx.library.orphan_remover.invoke().await;
 		}
 
-		if let Some(data) = data {
-			update_directories_sizes(
-				&run_metadata.paths_and_sizes,
-				init.location.id,
-				&data.indexed_path,
-				&ctx.library,
-			)
-			.await?;
-
-			if data.indexed_path != data.location_path {
-				reverse_update_directories_sizes(
-					&data.indexed_path,
+		if run_metadata.indexed_count > 0
+			|| run_metadata.removed_count > 0
+			|| run_metadata.updated_count > 0
+		{
+			if let Some(data) = data {
+				update_directories_sizes(
+					&run_metadata.paths_and_sizes,
 					init.location.id,
-					&data.location_path,
+					&data.indexed_path,
 					&ctx.library,
 				)
-				.await
-				.map_err(IndexerError::from)?;
+				.await?;
+
+				if data.indexed_path != data.location_path {
+					reverse_update_directories_sizes(
+						&data.indexed_path,
+						init.location.id,
+						&data.location_path,
+						&ctx.library,
+					)
+					.await
+					.map_err(IndexerError::from)?;
+				}
+
+				update_location_size(init.location.id, &ctx.library)
+					.await
+					.map_err(IndexerError::from)?;
 			}
 		}
 
