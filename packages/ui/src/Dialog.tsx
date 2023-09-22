@@ -176,20 +176,18 @@ export function Dialog<S extends FieldValues>({
 			</Button>
 		</RDialog.Close>
 	);
+	const disableCheck = props.errorMessageException
+		? !form.formState.isValid &&
+		  !form.formState.errors.root?.serverError?.message?.startsWith(
+				props.errorMessageException as string
+		  )
+		: !form.formState.isValid;
 
 	const submitButton = (
 		<Button
 			type="submit"
 			size="sm"
-			disabled={
-				form.formState.isSubmitting ||
-				props.submitDisabled ||
-				(!form.formState.isValid || props.errorMessageException
-					? !form.formState.errors.root?.serverError?.message?.startsWith(
-							props.errorMessageException as string
-					  )
-					: false)
-			}
+			disabled={form.formState.isSubmitting || props.submitDisabled || disableCheck}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
 			className={clsx(
 				props.ctaDanger &&
