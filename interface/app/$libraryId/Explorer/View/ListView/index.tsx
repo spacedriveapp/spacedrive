@@ -98,17 +98,13 @@ export default () => {
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
 	const tableBodyRef = useRef<HTMLDivElement>(null);
 
-	const scrollLeft = useRef(0);
-
 	const [sized, setSized] = useState(false);
 	const [locked, setLocked] = useState(false);
 	const [resizing, setResizing] = useState(false);
 	const [top, setTop] = useState(0);
 	const [listOffset, setListOffset] = useState(0);
 	const [ranges, setRanges] = useState<Range[]>([]);
-
 	const [isLeftMouseDown, setIsLeftMouseDown] = useState(false);
-	const [dragging, setDragging] = useState(false);
 
 	const { table } = useTable();
 	const { columnVisibility, columnSizing } = table.getState();
@@ -489,19 +485,32 @@ export default () => {
 
 		if (!table || !header || !body) return;
 
-		const onScroll = (event: WheelEvent) => {
+		const handleWheel = (event: WheelEvent) => {
 			event.deltaX !== 0 && event.preventDefault();
 			header.scrollLeft += event.deltaX;
 			body.scrollLeft += event.deltaX;
 		};
 
-		body.addEventListener('scroll', (e) => e.preventDefault());
-		table.addEventListener('wheel', onScroll);
-		return () => {
-			table.removeEventListener('wheel', onScroll);
-			body.removeEventListener('scroll', (e) => e.preventDefault());
+		const handleScroll = (element: HTMLDivElement) => {
+			if (isLeftMouseDown) return;
+			// Sorting sometimes resets scrollLeft
+			// so we reset it here in case it does
+			// to keep the scroll in sync
+			// TODO: Find a better solution
+			header.scrollLeft = element.scrollLeft;
+			body.scrollLeft = element.scrollLeft;
 		};
-	}, [sized]);
+
+		table.addEventListener('wheel', handleWheel);
+		header.addEventListener('scroll', () => handleScroll(header));
+		body.addEventListener('scroll', () => handleScroll(body));
+
+		return () => {
+			table.removeEventListener('wheel', handleWheel);
+			header.addEventListener('scroll', () => handleScroll(header));
+			body.addEventListener('scroll', () => handleScroll(body));
+		};
+	}, [sized, isLeftMouseDown]);
 
 	// Handle key selection
 	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
@@ -703,24 +712,13 @@ export default () => {
 
 	// Reset resizing cursor
 	useWindowEventListener('mouseup', () => {
+		// We timeout the reset so the col sorting
+		// doesn't get triggered on mouse up
 		setTimeout(() => {
 			setResizing(false);
+			setIsLeftMouseDown(false);
+			if (layout.ref.current) layout.ref.current.style.cursor = '';
 		});
-		setDragging(false);
-		setIsLeftMouseDown(false);
-
-		if (layout.ref.current) layout.ref.current.style.cursor = '';
-		if (tableHeaderRef.current) {
-			tableHeaderRef.current.style.overflowX = 'auto';
-			tableHeaderRef.current.scrollLeft = scrollLeft.current;
-		}
-	});
-
-	useWindowEventListener('mousemove', () => {
-		if (!isLeftMouseDown) return;
-
-		setDragging(true);
-		if (tableHeaderRef.current) tableHeaderRef.current.style.overflowX = 'hidden';
 	});
 
 	// Handle table resize
@@ -766,13 +764,10 @@ export default () => {
 	// Set list offset
 	useLayoutEffect(() => setListOffset(tableRef.current?.offsetTop ?? 0), []);
 
-	// console.log('is dragging', isRenaming);
-
 	return (
 		<div
 			ref={tableRef}
 			onMouseDown={(e) => {
-				// console.log('mousedown');
 				e.stopPropagation();
 				setIsLeftMouseDown(true);
 			}}
@@ -792,13 +787,12 @@ export default () => {
 								<div
 									ref={tableHeaderRef}
 									className={clsx(
-										'no-scrollbar top-bar-blur overflow-x-auto overscroll-x-none border-y !border-sidebar-divider bg-app/90',
-										// Prevent drag scroll when resizing
-										dragging && 'overflow-hidden'
+										'top-bar-blur border-y !border-sidebar-divider bg-app/90',
+										// Prevent drag scroll
+										isLeftMouseDown
+											? 'overflow-hidden'
+											: 'no-scrollbar overflow-x-auto overscroll-x-none'
 									)}
-									onScroll={(e) =>
-										(scrollLeft.current = e.currentTarget.scrollLeft)
-									}
 								>
 									{table.getHeaderGroups().map((headerGroup) => (
 										<div key={headerGroup.id} className="flex w-fit">
@@ -864,9 +858,6 @@ export default () => {
 																)}
 
 																<div
-																	onClick={(e) =>
-																		e.stopPropagation()
-																	}
 																	onMouseDown={(e) => {
 																		setResizing(true);
 																		setLocked(false);
@@ -914,11 +905,11 @@ export default () => {
 					<div
 						ref={tableBodyRef}
 						className={clsx(
-							'no-scrollbar overflow-x-auto overscroll-x-none',
 							// Prevent drag scroll
-							dragging && 'pointer-events-none'
+							isLeftMouseDown
+								? 'overflow-hidden'
+								: 'no-scrollbar overflow-x-auto overscroll-x-none'
 						)}
-						onScroll={(e) => (scrollLeft.current = e.currentTarget.scrollLeft)}
 					>
 						<div
 							className="relative"
