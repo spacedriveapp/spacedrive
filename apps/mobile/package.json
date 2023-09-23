@@ -8,7 +8,7 @@
 		"start": "expo start --dev-client",
 		"android": "expo run:android",
 		"ios": "expo run:ios",
-    "prebuild": "expo prebuild",
+		"prebuild": "expo prebuild",
 		"xcode": "open ios/Spacedrive.xcworkspace",
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src --cache",

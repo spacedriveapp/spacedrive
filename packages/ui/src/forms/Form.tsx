@@ -1,6 +1,6 @@
+import { Warning } from '@phosphor-icons/react';
 import { animated, useTransition } from '@react-spring/web';
 import { cva, VariantProps } from 'class-variance-authority';
-import { Warning } from '@phosphor-icons/react';
 import { ComponentProps } from 'react';
 import {
 	FieldErrors,

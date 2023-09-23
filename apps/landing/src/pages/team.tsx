@@ -1,7 +1,6 @@
+import { ArrowRight } from '@phosphor-icons/react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { ArrowRight } from '@phosphor-icons/react';
-
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
 import { TeamMember, TeamMemberProps } from '~/components/TeamMember';

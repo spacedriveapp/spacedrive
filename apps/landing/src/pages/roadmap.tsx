@@ -2,7 +2,6 @@ import clsx from 'clsx';
 import Head from 'next/head';
 import Link from 'next/link';
 import { Fragment } from 'react';
-
 import PageWrapper from '~/components/PageWrapper';
 
 const items = [

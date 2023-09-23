@@ -1,9 +1,9 @@
 import { createDrawerNavigator, DrawerScreenProps } from '@react-navigation/drawer';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
-
 import DrawerContent from '~/components/drawer/DrawerContent';
 import { tw } from '~/lib/tailwind';
+
 import type { RootStackParamList } from '.';
 import type { TabParamList } from './TabNavigator';
 import TabNavigator from './TabNavigator';

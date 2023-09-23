@@ -1,5 +1,4 @@
 import { View } from 'react-native';
-
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import OverviewStats from '~/components/overview/OverviewStats';
 import { tw } from '~/lib/tailwind';

@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Tag, useLibraryQuery } from '@sd/client';
-
 import { ModalRef } from '~/components/layout/Modal';
 import DeleteTagModal from '~/components/modal/confirmModals/DeleteTagModal';
 import CreateTagModal from '~/components/modal/tag/CreateTagModal';

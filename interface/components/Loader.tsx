@@ -1,6 +1,5 @@
 import clsx from 'clsx';
 import { Puff } from 'react-loading-icons';
-
 import { useIsDark } from '~/hooks';
 
 interface Props {

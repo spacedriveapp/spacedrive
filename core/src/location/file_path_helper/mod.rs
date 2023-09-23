@@ -80,6 +80,7 @@ file_path::select!(file_path_walker {
 	date_modified
 	inode
 	device
+	size_in_bytes_bytes
 });
 file_path::select!(file_path_to_handle_custom_uri {
 	pub_id
@@ -133,6 +134,7 @@ pub struct FilePathMetadata {
 pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 	#[cfg(target_family = "unix")]
 	{
+		let _ = metadata; // just to avoid warnings on Linux
 		if path
 			.file_name()
 			.and_then(OsStr::to_str)

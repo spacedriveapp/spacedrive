@@ -1,4 +1,3 @@
-import Head from 'next/head';
 import {
 	Clock,
 	CurrencyDollar,
@@ -10,9 +9,9 @@ import {
 	Star,
 	TrendUp
 } from '@phosphor-icons/react';
+import Head from 'next/head';
 import { useRef } from 'react';
 import { Button } from '@sd/ui';
-
 import PageWrapper from '~/components/PageWrapper';
 
 interface PositionPosting {
