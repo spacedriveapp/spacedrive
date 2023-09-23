@@ -19,7 +19,7 @@ use std::{
 use chrono::{DateTime, Duration, FixedOffset};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tracing::trace;
+use tracing::{debug, trace};
 use uuid::Uuid;
 
 use super::{
@@ -380,33 +380,88 @@ where
 						let (inode, device) =
 							(inode_from_db(&inode[0..8]), device_from_db(&device[0..8]));
 
-						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
-						// instead of using != operator
-						if (inode != metadata.inode
-							|| device != metadata.device || DateTime::<FixedOffset>::from(
-							metadata.modified_at,
-						) - *date_modified
-							> Duration::milliseconds(1)) && !(entry.iso_file_path.is_dir
-							&& metadata.size_in_bytes
-								!= file_path
-									.size_in_bytes_bytes
-									.as_ref()
-									.map(|size_in_bytes_bytes| {
-										u64::from_be_bytes([
-											size_in_bytes_bytes[0],
-											size_in_bytes_bytes[1],
-											size_in_bytes_bytes[2],
-											size_in_bytes_bytes[3],
-											size_in_bytes_bytes[4],
-											size_in_bytes_bytes[5],
-											size_in_bytes_bytes[6],
-											size_in_bytes_bytes[7],
-										])
-									})
-									.unwrap_or_default())
-						// We ignore the size of directories because it is not reliable, we need to
-						// calculate it ourselves later
+						let update_conditions = [
+							inode != metadata.inode,
+							device != metadata.device,
+							// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
+							// instead of using != operator
+							DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
+								> Duration::milliseconds(1),
+							// We ignore the size of directories because it is not reliable, we need to
+							// calculate it ourselves later
+							!(entry.iso_file_path.is_dir
+								&& metadata.size_in_bytes
+									!= file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()),
+						];
+
+						if (update_conditions[0] || update_conditions[1] || update_conditions[2])
+							&& update_conditions[3]
 						{
+							debug!(
+								"File {} is already in DB, update conditions: \
+								((Different inode: {} || Different device: {} || \
+								Different modified_at: {}) && Not a directory with different size: {})",
+								entry.iso_file_path,
+								update_conditions[0],
+								update_conditions[1],
+								update_conditions[2],
+								update_conditions[3],
+							);
+
+							if update_conditions[0] {
+								debug!("inode: {} != {}", inode, metadata.inode);
+							}
+
+							if update_conditions[1] {
+								debug!("device: {} != {}", device, metadata.device);
+							}
+
+							if update_conditions[2] {
+								debug!(
+									"modified_at: {} != {}",
+									DateTime::<FixedOffset>::from(metadata.modified_at),
+									*date_modified
+								);
+							}
+
+							if update_conditions[3] {
+								debug!(
+									"size_in_bytes: {} != {}",
+									metadata.size_in_bytes,
+									file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()
+								);
+							}
+
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
 							);

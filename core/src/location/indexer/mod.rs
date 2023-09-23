@@ -370,23 +370,56 @@ macro_rules! to_remove_db_fetcher_fn {
 					.into_iter()
 					.map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
 					.flatten()
-					.collect::<Vec<_>>()
+					.collect::<::std::collections::HashSet<_>>()
 			})?;
 
-			$db.file_path()
-				.find_many(vec![
-					$crate::prisma::file_path::location_id::equals(Some(location_id)),
-					$crate::prisma::file_path::materialized_path::equals(Some(
-						parent_iso_file_path
-							.materialized_path_for_children()
-							.expect("the received isolated file path must be from a directory"),
-					)),
-					$crate::prisma::file_path::id::not_in_vec(founds_ids),
-				])
-				.select($crate::location::file_path_helper::file_path_pub_and_cas_ids::select())
-				.exec()
-				.await
-				.map_err(Into::into)
+			// NOTE: This batch size can be increased if we wish to trade memory for more performance
+			const BATCH_SIZE: i64 = 1000;
+
+			let mut to_remove = vec![];
+			let mut cursor = 1;
+
+			loop {
+				let found = $db.file_path()
+					.find_many(vec![
+						$crate::prisma::file_path::location_id::equals(Some(location_id)),
+						$crate::prisma::file_path::materialized_path::equals(Some(
+							parent_iso_file_path
+								.materialized_path_for_children()
+								.expect("the received isolated file path must be from a directory"),
+						)),
+					])
+					.order_by($crate::prisma::file_path::id::order($crate::prisma::SortOrder::Asc))
+					.take(BATCH_SIZE)
+					.cursor($crate::prisma::file_path::id::equals(cursor))
+					.select($crate::prisma::file_path::select!({ id pub_id cas_id }))
+					.exec()
+					.await?;
+
+				let should_stop = (found.len() as i64) < BATCH_SIZE;
+
+				if let Some(last) = found.last() {
+					cursor = last.id;
+				} else {
+					break;
+				}
+
+				to_remove.extend(
+					found
+						.into_iter()
+						.filter(|file_path| !founds_ids.contains(&file_path.id))
+						.map(|file_path| $crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
+							pub_id: file_path.pub_id,
+							cas_id: file_path.cas_id,
+						}),
+				);
+
+				if should_stop {
+					break;
+				}
+			}
+
+			Ok(to_remove)
 		}
 	}};
 }
