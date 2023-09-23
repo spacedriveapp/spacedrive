@@ -154,7 +154,12 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		}, [blur]);
 
 		return (
-			<Tooltip label={!isTruncated || allowRename ? null : text} asChild>
+			<Tooltip
+				labelClassName="break-all"
+				tooltipClassName="!max-w-[250px]"
+				label={!isTruncated || allowRename ? null : text}
+				asChild
+			>
 				<div
 					ref={ref}
 					role="textbox"
