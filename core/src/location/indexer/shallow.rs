@@ -183,9 +183,11 @@ pub async fn shallow(
 		update_location_size(location.id, library)
 			.await
 			.map_err(IndexerError::from)?;
+
+		invalidate_query!(library, "search.paths");
 	}
 
-	invalidate_query!(library, "search.paths");
+
 
 	library.orphan_remover.invoke().await;
 
