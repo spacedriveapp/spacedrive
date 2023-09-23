@@ -422,6 +422,46 @@ where
 								update_conditions[2],
 								update_conditions[3],
 							);
+
+							if update_conditions[0] {
+								debug!("inode: {} != {}", inode, metadata.inode);
+							}
+
+							if update_conditions[1] {
+								debug!("device: {} != {}", device, metadata.device);
+							}
+
+							if update_conditions[2] {
+								debug!(
+									"modified_at: {} != {}",
+									DateTime::<FixedOffset>::from(metadata.modified_at),
+									*date_modified
+								);
+							}
+
+							if update_conditions[3] {
+								debug!(
+									"size_in_bytes: {} != {}",
+									metadata.size_in_bytes,
+									file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()
+								);
+							}
+
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
 							);
