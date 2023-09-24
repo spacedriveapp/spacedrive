@@ -39,6 +39,7 @@ import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/stor
 import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext, ViewContext, type ExplorerViewContext } from '../ViewContext';
+import { ExplorerPath, Path } from './ExplorerPath';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -84,59 +85,40 @@ export default memo(
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
-		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
-			e.stopPropagation();
-			doubleClick();
-		});
-
-		return (
-			<>
-				<div
-					ref={ref}
-					style={style}
-					className={clsx('h-full w-full', className)}
-					onMouseDown={(e) => {
-						if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
-
-						explorer.resetSelectedItems();
-					}}
-				>
-					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-						<ViewContext.Provider
-							value={{
-								...contextProps,
-								selectable:
-									explorer.selectable &&
-									!isContextMenuOpen &&
-									!isRenaming &&
-									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
-								ref,
-								padding: {
-									x: typeof padding === 'object' ? padding.x : padding,
-									y: typeof padding === 'object' ? padding.y : padding
-								}
-							}}
-						>
-							{layoutMode === 'grid' && <GridView />}
-							{layoutMode === 'list' && <ListView />}
-							{layoutMode === 'media' && <MediaView />}
-							{showLoading && (
-								<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
-							)}
-						</ViewContext.Provider>
-					) : (
-						emptyNotice
-					)}
-				</div>
-
-				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-			</>
-		);
-	}
-);
+					explorer.resetSelectedItems();
+				}}
+			>
+				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
+					<ViewContext.Provider
+						value={{
+							...contextProps,
+							selectable:
+								explorer.selectable &&
+								!isContextMenuOpen &&
+								!isRenaming &&
+								(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+							setIsContextMenuOpen,
+							isRenaming,
+							setIsRenaming,
+							ref
+						}}
+					>
+						{layoutMode === 'grid' && <GridView />}
+						{layoutMode === 'list' && <ListView />}
+						{layoutMode === 'media' && <MediaView />}
+						<ExplorerPath />
+						{showLoading && (
+							<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
+						)}
+					</ViewContext.Provider>
+				) : (
+					emptyNotice
+				)}
+			</div>
+			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
+		</>
+	);
+});
 
 export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
@@ -155,7 +137,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	};
 
 	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
