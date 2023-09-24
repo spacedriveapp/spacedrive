@@ -671,14 +671,11 @@ importers:
         specifier: ^4.22.0
         version: 4.22.0(@tanstack/react-query@4.29.1)(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/react-table':
-        specifier: ^8.8.5
-        version: 8.8.5(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^8.10.0
+        version: 8.10.0(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/react-virtual':
         specifier: 3.0.0-beta.54
         version: 3.0.0-beta.54(react@18.2.0)
-      '@types/react-scroll-sync':
-        specifier: ^0.8.4
-        version: 0.8.4
       '@types/uuid':
         specifier: ^9.0.2
         version: 9.0.2
@@ -748,9 +745,6 @@ importers:
       react-router-dom:
         specifier: 6.9.0
         version: 6.9.0(react-dom@18.2.0)(react@18.2.0)
-      react-scroll-sync:
-        specifier: ^0.11.0
-        version: 0.11.0(react-dom@18.2.0)(react@18.2.0)
       react-selecto:
         specifier: ^1.26.0
         version: 1.26.0
@@ -10081,14 +10075,14 @@ packages:
       react-native: 0.72.4(@babel/core@7.22.11)(@babel/preset-env@7.22.10)(react@18.2.0)
       use-sync-external-store: 1.2.0(react@18.2.0)
 
-  /@tanstack/react-table@8.8.5(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-g/t21E/ICHvaCOJOhsDNr5QaB/6aDQEHFbx/YliwwU/CJThMqG+dS28vnToIBV/5MBgpeXoGRi2waDJVJlZrtg==}
+  /@tanstack/react-table@8.10.0(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-FNhKE3525hryvuWw90xRbP16qNiq7OLJkDZopOKcwyktErLi1ibJzAN9DFwA/gR1br9SK4StXZh9JPvp9izrrQ==}
     engines: {node: '>=12'}
     peerDependencies:
       react: '>=16'
       react-dom: '>=16'
     dependencies:
-      '@tanstack/table-core': 8.8.5
+      '@tanstack/table-core': 8.10.0
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
@@ -10102,8 +10096,8 @@ packages:
       react: 18.2.0
     dev: false
 
-  /@tanstack/table-core@8.8.5:
-    resolution: {integrity: sha512-Xnwa1qxpgvSW7ozLiexmKp2PIYcLBiY/IizbdGriYCL6OOHuZ9baRhrrH51zjyz+61ly6K59rmt6AI/3RR+97Q==}
+  /@tanstack/table-core@8.10.0:
+    resolution: {integrity: sha512-e701yAJ18aGDP6mzVworlFAmQ+gi3Wtqx5mGZUe2BUv4W4D80dJxUfkHdtEGJ6GryAnlCCNTej7eaJiYmPhyYg==}
     engines: {node: '>=12'}
     dev: false
 
@@ -10577,12 +10571,6 @@ packages:
       '@types/history': 4.7.11
       '@types/react': 18.0.38
     dev: true
-
-  /@types/react-scroll-sync@0.8.4:
-    resolution: {integrity: sha512-88N2vgZdVqlwr5ayH/5GNAAjfdlzhted/qPTyXgT/DzQwsuIWkwFpZtoOhyGCRmxUC3w5wA+ZhkpbzagIXWNaQ==}
-    dependencies:
-      '@types/react': 18.0.38
-    dev: false
 
   /@types/react@18.0.38:
     resolution: {integrity: sha512-ExsidLLSzYj4cvaQjGnQCk4HFfVT9+EZ9XZsQ8Hsrcn8QNgXtpZ3m9vSIC2MWtx7jHictK6wYhQgGh6ic58oOw==}
@@ -20415,17 +20403,6 @@ packages:
     dependencies:
       '@remix-run/router': 1.4.0
       react: 18.2.0
-    dev: false
-
-  /react-scroll-sync@0.11.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-COfA885/2NAQPxusIU6sukKiSFXgAd9+OWD7iBWA4NF5Y1Np8poBKLwgZ3y4iywo5/+ch0PLGz887myIbm+fPw==}
-    peerDependencies:
-      react: 16.x || 17.x || 18.x
-      react-dom: 16.x || 17.x || 18.x
-    dependencies:
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
     dev: false
 
   /react-selecto@1.26.0:

@@ -46,7 +46,7 @@ export const Component = () => {
 
 			<div className="flex flex-1">
 				<View
-					top={68}
+					top={114}
 					className={settings.layoutMode === 'list' ? 'min-w-0' : undefined}
 					contextMenu={
 						<ContextMenu>
