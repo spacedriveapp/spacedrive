@@ -42,232 +42,101 @@ import { useExplorerViewContext, ViewContext, type ExplorerViewContext } from '.
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
-
-interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement> {
-	data: ExplorerItem;
-}
-
-export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
-	const explorer = useExplorerContext();
-	const explorerView = useExplorerViewContext();
-
-	const navigate = useNavigate();
-	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
-
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-	const metaCtrlKey = useKeyMatcher('Meta').key;
-
-	useKeys([metaCtrlKey, 'ArrowUp'], async (e) => {
-		e.stopPropagation();
-		await onDoubleClick();
-	});
-
-	const onDoubleClick = async () => {
-		const selectedItems = [...explorer.selectedItems];
-
-		if (!isNonEmpty(selectedItems)) return;
-
-		let itemIndex = 0;
-		const items = selectedItems.reduce(
-			(items, item, i) => {
-				const sameAsClicked = uniqueId(data) === uniqueId(item);
-
-				if (sameAsClicked) itemIndex = i;
-
-				switch (item.type) {
-					case 'Location': {
-						items.locations.splice(sameAsClicked ? 0 : -1, 0, item.item);
-						break;
-					}
-					case 'NonIndexedPath': {
-						items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, item.item);
-						break;
-					}
-					default: {
-						for (const filePath of item.type === 'Path'
-							? [item.item]
-							: item.item.file_paths) {
-							if (isPath(item) && item.item.is_dir) {
-								items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
-							} else {
-								items.paths.splice(sameAsClicked ? 0 : -1, 0, filePath);
-							}
-						}
-						break;
-					}
-				}
-
-				return items;
-			},
-			{
-				dirs: [],
-				paths: [],
-				locations: [],
-				non_indexed: []
-			} as {
-				dirs: FilePath[];
-				paths: FilePath[];
-				locations: Location[];
-				non_indexed: NonIndexedPathItem[];
-			}
-		);
-
-		if (items.paths.length > 0 && !explorerView.isRenaming) {
-			if (explorer.settingsStore.openOnDoubleClick === 'openFile' && openFilePaths) {
-				updateAccessTime
-					.mutateAsync(items.paths.map(({ object_id }) => object_id!).filter(Boolean))
-					.catch(console.error);
-
-				try {
-					await openFilePaths(
-						library.uuid,
-						items.paths.map(({ id }) => id)
-					);
-				} catch (error) {
-					toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
-				}
-			} else if (explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
-				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
-					getQuickPreviewStore().itemIndex = itemIndex;
-					getQuickPreviewStore().open = true;
-					return;
-				}
-			}
-		}
-
-		if (items.dirs.length > 0) {
-			const [item] = items.dirs;
-			if (item) {
-				navigate({
-					pathname: `../location/${item.location_id}`,
-					search: createSearchParams({
-						path: `${item.materialized_path}${item.name}/`
-					}).toString()
-				});
-				return;
-			}
-		}
-
-		if (items.locations.length > 0) {
-			const [location] = items.locations;
-			if (location) {
-				navigate({
-					pathname: `../location/${location.id}`,
-					search: createSearchParams({
-						path: `/`
-					}).toString()
-				});
-				return;
-			}
-		}
-
-		if (items.non_indexed.length > 0) {
-			const [non_indexed] = items.non_indexed;
-			if (non_indexed) {
-				navigate({
-					search: createSearchParams({ path: non_indexed.path }).toString()
-				});
-				return;
-			}
-		}
-	};
-
-	return (
-		<ContextMenu.Root
-			trigger={
-				<div onDoubleClick={onDoubleClick} {...props}>
-					{children}
-				</div>
-			}
-			onOpenChange={explorerView.setIsContextMenuOpen}
-			disabled={explorerView.contextMenu === undefined}
-			asChild={false}
-			onMouseDown={(e) => e.stopPropagation()}
-		>
-			{explorerView.contextMenu}
-		</ContextMenu.Root>
-	);
-};
+import { useViewItemDoubleClick } from './ViewItem';
 
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref'
+		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
+	padding?: number | { x?: number; y?: number };
 }
 
-export default memo(({ className, style, emptyNotice, ...contextProps }: ExplorerViewProps) => {
-	const explorer = useExplorerContext();
-	const quickPreviewStore = useQuickPreviewStore();
+export default memo(
+	({ className, style, emptyNotice, padding, ...contextProps }: ExplorerViewProps) => {
+		const explorer = useExplorerContext();
+		const quickPreview = useQuickPreviewContext();
+		const quickPreviewStore = useQuickPreviewStore();
 
-	const quickPreview = useQuickPreviewContext();
+		const { doubleClick } = useViewItemDoubleClick();
 
-	const { layoutMode } = explorer.useSettingsSnapshot();
+		const { layoutMode } = explorer.useSettingsSnapshot();
 
-	const ref = useRef<HTMLDivElement>(null);
+		const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
-	const [isRenaming, setIsRenaming] = useState(false);
-	const [showLoading, setShowLoading] = useState(false);
+		const ref = useRef<HTMLDivElement>(null);
 
-	useKeyDownHandlers({
-		disabled: isRenaming || quickPreviewStore.open
-	});
+		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+		const [isRenaming, setIsRenaming] = useState(false);
+		const [showLoading, setShowLoading] = useState(false);
 
-	useEffect(() => {
-		if (explorer.isFetchingNextPage) {
-			const timer = setTimeout(() => setShowLoading(true), 100);
-			return () => clearTimeout(timer);
-		} else setShowLoading(false);
-	}, [explorer.isFetchingNextPage]);
+		useKeyDownHandlers({
+			disabled: isRenaming || quickPreviewStore.open
+		});
 
-	return (
-		<>
-			<div
-				ref={ref}
-				style={style}
-				className={clsx('h-full w-full', className)}
-				onMouseDown={(e) => {
-					if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+		useEffect(() => {
+			if (explorer.isFetchingNextPage) {
+				const timer = setTimeout(() => setShowLoading(true), 100);
+				return () => clearTimeout(timer);
+			} else setShowLoading(false);
+		}, [explorer.isFetchingNextPage]);
 
-					explorer.resetSelectedItems();
-				}}
-			>
-				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-					<ViewContext.Provider
-						value={{
-							...contextProps,
-							selectable:
-								explorer.selectable &&
-								!isContextMenuOpen &&
-								!isRenaming &&
-								(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-							setIsContextMenuOpen,
-							isRenaming,
-							setIsRenaming,
-							ref
-						}}
-					>
-						{layoutMode === 'grid' && <GridView />}
-						{layoutMode === 'list' && <ListView />}
-						{layoutMode === 'media' && <MediaView />}
-						{showLoading && (
-							<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
-						)}
-					</ViewContext.Provider>
-				) : (
-					emptyNotice
-				)}
-			</div>
+		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
+			e.stopPropagation();
+			doubleClick();
+		});
 
-			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-		</>
-	);
-});
+		return (
+			<>
+				<div
+					ref={ref}
+					style={style}
+					className={clsx('h-full w-full', className)}
+					onMouseDown={(e) => {
+						if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+
+						explorer.resetSelectedItems();
+					}}
+				>
+					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
+						<ViewContext.Provider
+							value={{
+								...contextProps,
+								selectable:
+									explorer.selectable &&
+									!isContextMenuOpen &&
+									!isRenaming &&
+									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+								setIsContextMenuOpen,
+								isRenaming,
+								setIsRenaming,
+								ref,
+								padding: {
+									x: typeof padding === 'object' ? padding.x : padding,
+									y: typeof padding === 'object' ? padding.y : padding
+								}
+							}}
+						>
+							{layoutMode === 'grid' && <GridView />}
+							{layoutMode === 'list' && <ListView />}
+							{layoutMode === 'media' && <MediaView />}
+							{showLoading && (
+								<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
+							)}
+						</ViewContext.Provider>
+					) : (
+						emptyNotice
+					)}
+				</div>
+
+				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
+			</>
+		);
+	}
+);
 
 export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();

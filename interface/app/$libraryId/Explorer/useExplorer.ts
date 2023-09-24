@@ -170,6 +170,10 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 				updateHashes();
 			},
 			[selectedItemHashes.value, updateHashes]
+		),
+		isItemSelected: useCallback(
+			(item: ExplorerItem) => selectedItems.has(item),
+			[selectedItems]
 		)
 	};
 }
