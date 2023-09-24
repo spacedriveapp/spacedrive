@@ -1,9 +1,9 @@
 import { CaretRight } from '@phosphor-icons/react';
+import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { ExplorerItem } from '@sd/client';
-import { getIcon } from '~/../packages/assets/util';
 import { SearchParamsSchema } from '~/app/route-schemas';
 import { useIsDark, useZodSearchParams } from '~/hooks';
 
