@@ -104,7 +104,7 @@ export const ExplorerPath = memo(() => {
 				);
 			})}
 			{selectedItem && (
-				<div className="flex items-center gap-1 transition-all duration-300 hover:brightness-125">
+				<div className="pointer-events-none flex items-center gap-1">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
 					<FileThumb size={12} data={selectedItem} />
 					{'name' in selectedItem.item && <p>{selectedItem.item.name}</p>}
