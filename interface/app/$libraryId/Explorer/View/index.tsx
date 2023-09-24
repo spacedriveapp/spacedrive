@@ -7,25 +7,12 @@ import {
 	useEffect,
 	useRef,
 	useState,
-	type HTMLAttributes,
-	type PropsWithChildren,
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKeys } from 'rooks';
-import {
-	getItemObject,
-	isPath,
-	useLibraryContext,
-	useLibraryMutation,
-	type ExplorerItem,
-	type FilePath,
-	type Location,
-	type NonIndexedPathItem,
-	type Object
-} from '@sd/client';
-import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+import { getItemObject, useLibraryContext, type Object } from '@sd/client';
+import { dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
@@ -35,10 +22,10 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore } from '../store';
-import { uniqueId } from '../util';
-import { useExplorerViewContext, ViewContext, type ExplorerViewContext } from '../ViewContext';
+import { ViewContext, type ExplorerViewContext } from '../ViewContext';
+import { ExplorerPath } from './ExplorerPath';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -130,6 +117,7 @@ export default memo(
 					) : (
 						emptyNotice
 					)}
+					<ExplorerPath />
 				</div>
 
 				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
