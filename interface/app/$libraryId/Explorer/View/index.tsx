@@ -7,25 +7,12 @@ import {
 	useEffect,
 	useRef,
 	useState,
-	type HTMLAttributes,
-	type PropsWithChildren,
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useKeys } from 'rooks';
-import {
-	getItemObject,
-	isPath,
-	useLibraryContext,
-	useLibraryMutation,
-	type ExplorerItem,
-	type FilePath,
-	type Location,
-	type NonIndexedPathItem,
-	type Object
-} from '@sd/client';
-import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+import { getItemObject, useLibraryContext, type Object } from '@sd/client';
+import { dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
@@ -35,11 +22,10 @@ import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
-import { getQuickPreviewStore, useQuickPreviewStore } from '../QuickPreview/store';
+import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore } from '../store';
-import { uniqueId } from '../util';
-import { useExplorerViewContext, ViewContext, type ExplorerViewContext } from '../ViewContext';
-import { ExplorerPath, Path } from './ExplorerPath';
+import { ViewContext, type ExplorerViewContext } from '../ViewContext';
+import { ExplorerPath } from './ExplorerPath';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
@@ -85,40 +71,60 @@ export default memo(
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
-					explorer.resetSelectedItems();
-				}}
-			>
-				{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-					<ViewContext.Provider
-						value={{
-							...contextProps,
-							selectable:
-								explorer.selectable &&
-								!isContextMenuOpen &&
-								!isRenaming &&
-								(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-							setIsContextMenuOpen,
-							isRenaming,
-							setIsRenaming,
-							ref
-						}}
-					>
-						{layoutMode === 'grid' && <GridView />}
-						{layoutMode === 'list' && <ListView />}
-						{layoutMode === 'media' && <MediaView />}
-						<ExplorerPath />
-						{showLoading && (
-							<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
-						)}
-					</ViewContext.Provider>
-				) : (
-					emptyNotice
-				)}
-			</div>
-			{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-		</>
-	);
-});
+		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
+			e.stopPropagation();
+			doubleClick();
+		});
+
+		return (
+			<>
+				<div
+					ref={ref}
+					style={style}
+					className={clsx('h-full w-full', className)}
+					onMouseDown={(e) => {
+						if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
+
+						explorer.resetSelectedItems();
+					}}
+				>
+					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
+						<ViewContext.Provider
+							value={{
+								...contextProps,
+								selectable:
+									explorer.selectable &&
+									!isContextMenuOpen &&
+									!isRenaming &&
+									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+								setIsContextMenuOpen,
+								isRenaming,
+								setIsRenaming,
+								ref,
+								padding: {
+									x: typeof padding === 'object' ? padding.x : padding,
+									y: typeof padding === 'object' ? padding.y : padding
+								}
+							}}
+						>
+							{layoutMode === 'grid' && <GridView />}
+							{layoutMode === 'list' && <ListView />}
+							{layoutMode === 'media' && <MediaView />}
+							{showLoading && (
+								<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
+							)}
+						</ViewContext.Provider>
+					) : (
+						emptyNotice
+					)}
+					<ExplorerPath />
+				</div>
+
+				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
+			</>
+		);
+	}
+);
 
 export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
@@ -137,7 +143,7 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 	};
 
 	return (
-		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
