@@ -1,4 +1,5 @@
 import { CaretRight } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { ExplorerItem } from '@sd/client';
@@ -39,11 +40,7 @@ export const ExplorerPath = memo(() => {
 		return newPath;
 	};
 
-	const pathRedirectHandler = (pathName: string): void => {
-		const isPathNameEqualLocationName =
-			pathName ===
-			(explorerContext.parent?.type === 'Location' && explorerContext.parent?.location.name);
-
+	const pathRedirectHandler = (pathName: string, index: number): void => {
 		if (isEphemeralLocation) {
 			const getPaths = data?.map((p) => p.name).join('/');
 			const newPath = `/${pathBuilder(getPaths as string, pathName)}`;
@@ -52,7 +49,7 @@ export const ExplorerPath = memo(() => {
 			});
 		}
 		const newPath = pathBuilder(path as string, pathName);
-		setSearchParams((p) => ({ ...p, path: isPathNameEqualLocationName ? '' : newPath }), {
+		setSearchParams((p) => ({ ...p, path: index === 0 ? '' : newPath }), {
 			replace: true
 		});
 	};
@@ -91,9 +88,12 @@ export const ExplorerPath = memo(() => {
 			{data?.map((p, index) => {
 				return (
 					<div
-						onClick={() => pathRedirectHandler(p.name)}
+						onClick={() => pathRedirectHandler(p.name, index)}
 						key={p.name}
-						className="flex items-center gap-1 transition-all duration-300 hover:brightness-125"
+						className={clsx(
+							'flex items-center gap-1 transition-all duration-300',
+							index !== data.length - 1 && ' cursor-pointer hover:brightness-125'
+						)}
 					>
 						<img src={getIcon('Folder', isDark)} alt="folder" className="h-3 w-3" />
 						<p className="truncate">{p.name}</p>
