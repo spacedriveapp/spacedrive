@@ -68,7 +68,6 @@ export const ExplorerPath = memo(() => {
 			extension: '',
 			name: path
 		}));
-
 		setData(updatedData);
 	}, [pathInfo, isEphemeralLocation]);
 
@@ -89,7 +88,7 @@ export const ExplorerPath = memo(() => {
 				return (
 					<div
 						onClick={() => pathRedirectHandler(p.name, index)}
-						key={p.name}
+						key={(p.name + index).toString()}
 						className={clsx(
 							'flex items-center gap-1 transition-all duration-300',
 							index !== data.length - 1 && ' cursor-pointer hover:brightness-125'
