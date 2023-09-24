@@ -1,7 +1,7 @@
-import { forwardRef, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { forwardRef } from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { useBridgeQuery, useJobProgress } from '@sd/client';
-
+import { useJobProgress, useLibraryQuery } from '@sd/client';
 import JobGroup from '~/components/job/JobGroup';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { tw } from '~/lib/tailwind';
@@ -11,18 +11,10 @@ import { tw } from '~/lib/tailwind';
 // - Add clear all jobs button
 
 export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
-	const jobGroupsById = useBridgeQuery(['jobs.reports']);
+	const queryClient = useQueryClient();
 
-	// TODO: Currently we're only clustering togheter all job reports from all libraries without any distinction.
-	// TODO: We should probably cluster them by library in the job manager UI
-
-	const jobGroups = useMemo(() => {
-		if (!jobGroupsById.data) return [];
-		return Object.values(jobGroupsById.data).flat();
-	}, [jobGroupsById.data]);
-
-	const progress = useJobProgress(jobGroups);
-
+	const jobGroups = useLibraryQuery(['jobs.reports']);
+	const progress = useJobProgress(jobGroups.data);
 	// const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 	// 	onError: () => {
 	// 		// TODO: Show error toast
@@ -35,7 +27,7 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	return (
 		<Modal ref={ref} snapPoints={['60']} title="Recent Jobs" showCloseButton>
 			<FlatList
-				data={jobGroups}
+				data={jobGroups.data}
 				style={tw`flex-1`}
 				keyExtractor={(i) => i.id}
 				contentContainerStyle={tw`mt-4`}

@@ -10,9 +10,11 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, generate_thumbnail, location_with_indexer_rules,
+		find_location, generate_thumbnail,
+		indexer::reverse_update_directories_sizes,
+		location_with_indexer_rules,
 		manager::LocationManagerError,
-		scan_location_sub_path,
+		scan_location_sub_path, update_location_size,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -38,7 +40,7 @@ use crate::location::file_path_helper::get_inode_and_device;
 use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
@@ -54,11 +56,15 @@ use prisma_client_rust::{raw, PrismaValue};
 use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde_json::json;
-use tokio::{fs, io::ErrorKind};
+use tokio::{
+	fs,
+	io::{self, ErrorKind},
+	time::Instant,
+};
 use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
-use super::INodeAndDevice;
+use super::{INodeAndDevice, HUNDRED_MILLIS};
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
@@ -95,20 +101,6 @@ pub(super) async fn create_dir(
 
 	let iso_file_path = IsolatedFilePathData::new(location.id, location_path, path, true)?;
 
-	let (inode, device) = {
-		#[cfg(target_family = "unix")]
-		{
-			get_inode_and_device(metadata)?
-		}
-
-		#[cfg(target_family = "windows")]
-		{
-			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = metadata; // To avoid unused variable warning
-			get_inode_and_device_from_path(path).await?
-		}
-	};
-
 	let parent_iso_file_path = iso_file_path.parent();
 	if !parent_iso_file_path.is_root()
 		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, &library.db).await?
@@ -130,13 +122,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path,
 		None,
-		FilePathMetadata {
-			inode,
-			device,
-			size_in_bytes: metadata.len(),
-			created_at: metadata.created_or_now().into(),
-			modified_at: metadata.modified_or_now().into(),
-		},
+		FilePathMetadata::from_path(path, metadata).await?,
 	)
 	.await?;
 
@@ -188,19 +174,7 @@ async fn inner_create_file(
 	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
 	let extension = iso_file_path.extension.to_string();
 
-	let (inode, device) = {
-		#[cfg(target_family = "unix")]
-		{
-			get_inode_and_device(metadata)?
-		}
-
-		#[cfg(target_family = "windows")]
-		{
-			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			let _ = metadata; // To avoid unused variable warning
-			get_inode_and_device_from_path(path).await?
-		}
-	};
+	let metadata = FilePathMetadata::from_path(path, metadata).await?;
 
 	// First we check if already exist a file with these same inode and device numbers
 	// if it does, we just update it
@@ -208,8 +182,8 @@ async fn inner_create_file(
 		.file_path()
 		.find_unique(file_path::location_id_inode_device(
 			location_id,
-			inode.to_le_bytes().to_vec(),
-			device.to_le_bytes().to_vec(),
+			metadata.inode.to_le_bytes().to_vec(),
+			metadata.device.to_le_bytes().to_vec(),
 		))
 		.include(file_path_with_object::include())
 		.exec()
@@ -244,7 +218,7 @@ async fn inner_create_file(
 			path,
 			node,
 			library,
-			Some((inode, device)),
+			Some((metadata.inode, metadata.device)),
 		)
 		.await;
 	}
@@ -266,19 +240,7 @@ async fn inner_create_file(
 
 	debug!("Creating path: {}", iso_file_path);
 
-	let created_file = create_file_path(
-		library,
-		iso_file_path,
-		cas_id.clone(),
-		FilePathMetadata {
-			inode,
-			device,
-			size_in_bytes: metadata.len(),
-			created_at: metadata.created_or_now().into(),
-			modified_at: metadata.modified_or_now().into(),
-		},
-	)
-	.await?;
+	let created_file = create_file_path(library, iso_file_path, cas_id.clone(), metadata).await?;
 
 	object::select!(object_just_id { id });
 
@@ -357,25 +319,6 @@ async fn inner_create_file(
 	Ok(())
 }
 
-pub(super) async fn create_dir_or_file(
-	location_id: location::id::Type,
-	path: impl AsRef<Path>,
-	node: &Arc<Node>,
-	library: &Arc<Library>,
-) -> Result<Metadata, LocationManagerError> {
-	let path = path.as_ref();
-	let metadata = fs::metadata(path)
-		.await
-		.map_err(|e| FileIOError::from((path, e)))?;
-
-	if metadata.is_dir() {
-		create_dir(location_id, path, &metadata, node, library).await
-	} else {
-		create_file(location_id, path, &metadata, node, library).await
-	}
-	.map(|_| metadata)
-}
-
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
@@ -383,6 +326,16 @@ pub(super) async fn update_file(
 	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
+
+	let metadata = match fs::metadata(full_path).await {
+		Ok(metadata) => metadata,
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// If the file doesn't exist anymore, it was just a temporary file
+			return Ok(());
+		}
+		Err(e) => return Err(FileIOError::from((full_path, e)).into()),
+	};
+
 	let location_path = extract_location_path(location_id, library).await?;
 
 	if let Some(ref file_path) = library
@@ -402,9 +355,7 @@ pub(super) async fn update_file(
 			location_id,
 			location_path,
 			full_path,
-			&fs::metadata(full_path)
-				.await
-				.map_err(|e| FileIOError::from((full_path, e)))?,
+			&metadata,
 			node,
 			library,
 		)
@@ -702,6 +653,8 @@ pub(super) async fn rename(
 			trace!("Updated {updated} file_paths");
 		}
 
+		let metadata = FilePathMetadata::from_path(new_path, &new_path_metadata).await?;
+
 		library
 			.db
 			.file_path()
@@ -714,6 +667,7 @@ pub(super) async fn rename(
 					file_path::date_modified::set(Some(
 						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
 					)),
+					file_path::hidden::set(Some(metadata.hidden)),
 				],
 			)
 			.exec()
@@ -854,4 +808,61 @@ pub(super) async fn extract_location_path(
 			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
 			|location| Ok(maybe_missing(location.path, "location.path")?.into()),
 		)
+}
+
+pub(super) async fn recalculate_directories_size(
+	candidates: &mut HashMap<PathBuf, Instant>,
+	buffer: &mut Vec<(PathBuf, Instant)>,
+	location_id: location::id::Type,
+	library: &Library,
+) -> Result<(), LocationManagerError> {
+	let mut location_path_cache = None;
+	let mut should_invalidate = false;
+	let mut should_update_location_size = false;
+	buffer.clear();
+
+	for (path, instant) in candidates.drain() {
+		if instant.elapsed() > HUNDRED_MILLIS * 5 {
+			if location_path_cache.is_none() {
+				location_path_cache = Some(PathBuf::from(maybe_missing(
+					find_location(library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationManagerError::MissingLocation(location_id))?
+						.path,
+					"location.path",
+				)?))
+			}
+
+			if let Some(location_path) = &location_path_cache {
+				if path != *location_path {
+					trace!(
+						"Reverse calculating directory sizes starting at {} until {}",
+						path.display(),
+						location_path.display(),
+					);
+					reverse_update_directories_sizes(path, location_id, location_path, library)
+						.await?;
+					should_invalidate = true;
+				} else {
+					should_update_location_size = true;
+				}
+			}
+		} else {
+			buffer.push((path, instant));
+		}
+	}
+
+	if should_update_location_size {
+		update_location_size(location_id, library).await?;
+	}
+
+	if should_invalidate {
+		invalidate_query!(library, "search.paths");
+	}
+
+	candidates.extend(buffer.drain(..));
+
+	Ok(())
 }

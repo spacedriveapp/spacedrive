@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-
 import { MacTrafficLights } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+
 import Contents from './Contents';
 import Footer from './Footer';
 import { macOnly } from './helpers';

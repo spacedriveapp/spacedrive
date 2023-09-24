@@ -11,8 +11,8 @@ import {
 import { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
-
 import { tw } from '~/lib/tailwind';
+
 import { ProgressBar } from '../animation/ProgressBar';
 import JobContainer from './JobContainer';
 

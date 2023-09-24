@@ -5,7 +5,6 @@ import { Controller } from 'react-hook-form';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { z } from 'zod';
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
-
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
 import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';

@@ -11,10 +11,11 @@ import {
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
-
 import { GridList, useGridList } from '~/components';
 import { useOperatingSystem } from '~/hooks';
+
 import { useExplorerContext } from '../Context';
+import { getQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from '../ViewContext';
@@ -164,6 +165,25 @@ export default ({ children }: { children: RenderItem }) => {
 		return grid.getItem(index) ?? null;
 	}
 
+	function getActiveItem(elements: Element[]) {
+		// Get selected item with least index.
+		// Might seem kinda weird but it's the same behaviour as Finder.
+		const activeItem =
+			elements.reduce(
+				(least, current) => {
+					const currentItem = getElementItem(current);
+					if (!currentItem) return least;
+
+					if (!least) return currentItem;
+
+					return currentItem.index < least.index ? currentItem : least;
+				},
+				null as ReturnType<typeof getElementItem>
+			)?.data ?? null;
+
+		return activeItem;
+	}
+
 	useEffect(
 		() => {
 			const element = explorer.scrollRef.current;
@@ -200,6 +220,8 @@ export default ({ children }: { children: RenderItem }) => {
 		selectoUnSelected.current = set;
 		selecto.current.setSelectedTargets(items as HTMLElement[]);
 
+		activeItem.current = getActiveItem(items);
+
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [grid.columnCount, explorer.items]);
 
@@ -217,8 +239,28 @@ export default ({ children }: { children: RenderItem }) => {
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
-	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft'], (e) => {
+	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'Escape'], (e) => {
 		if (!explorerView.selectable) return;
+
+		if (e.key === 'Escape') {
+			explorer.resetSelectedItems([]);
+			selecto.current?.setSelectedTargets([]);
+			return;
+		}
+
+		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+			const item = grid.getItem(0);
+			if (!item?.data) return;
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${uniqueId(item.data)}"]`
+			);
+			if (selectedItemDom) {
+				explorer.resetSelectedItems([item.data]);
+				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
+				activeItem.current = item.data;
+			}
+			return;
+		}
 
 		if (explorer.selectedItems.size > 0) e.preventDefault();
 
@@ -262,7 +304,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 			if (!selectedItemDom) return;
 
-			if (e.shiftKey) {
+			if (e.shiftKey && !getQuickPreviewStore().open) {
 				if (!explorer.selectedItems.has(newSelectedItem.data)) {
 					explorer.addSelectedItem(newSelectedItem.data);
 					selecto.current?.setSelectedTargets([
@@ -349,21 +391,7 @@ export default ({ children }: { children: RenderItem }) => {
 						setDragFromThumbnail(false);
 
 						const allSelected = selecto.current?.getSelectedTargets() ?? [];
-
-						// Sets active item to selected item with least index.
-						// Might seem kinda weird but it's the same behaviour as Finder.
-						activeItem.current =
-							allSelected.reduce(
-								(least, current) => {
-									const currentItem = getElementItem(current);
-									if (!currentItem) return least;
-
-									if (!least) return currentItem;
-
-									return currentItem.index < least.index ? currentItem : least;
-								},
-								null as ReturnType<typeof getElementItem>
-							)?.data ?? null;
+						activeItem.current = getActiveItem(allSelected);
 					}}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();

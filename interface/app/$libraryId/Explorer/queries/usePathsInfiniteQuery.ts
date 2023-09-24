@@ -22,6 +22,7 @@ export function usePathsInfiniteQuery({
 
 	if (explorerSettings.order) {
 		arg.orderAndPagination = { orderOnly: explorerSettings.order };
+		if (arg.orderAndPagination.orderOnly.field === 'sizeInBytes') delete arg.take;
 	}
 
 	return useInfiniteQuery({
@@ -44,21 +45,19 @@ export function usePathsInfiniteQuery({
 							const data = cItem.item.name;
 							if (data !== null)
 								variant = {
-									name: {
-										order: order.value,
-										data
-									}
+									name: { order: order.value, data }
 								};
+							break;
+						}
+						case 'sizeInBytes': {
+							variant = { sizeInBytes: order.value };
 							break;
 						}
 						case 'dateCreated': {
 							const data = cItem.item.date_created;
 							if (data !== null)
 								variant = {
-									dateCreated: {
-										order: order.value,
-										data
-									}
+									dateCreated: { order: order.value, data }
 								};
 							break;
 						}
@@ -66,10 +65,7 @@ export function usePathsInfiniteQuery({
 							const data = cItem.item.date_modified;
 							if (data !== null)
 								variant = {
-									dateModified: {
-										order: order.value,
-										data
-									}
+									dateModified: { order: order.value, data }
 								};
 							break;
 						}
@@ -77,10 +73,7 @@ export function usePathsInfiniteQuery({
 							const data = cItem.item.date_indexed;
 							if (data !== null)
 								variant = {
-									dateIndexed: {
-										order: order.value,
-										data
-									}
+									dateIndexed: { order: order.value, data }
 								};
 							break;
 						}
@@ -95,10 +88,7 @@ export function usePathsInfiniteQuery({
 									const data = object.date_accessed;
 									if (data !== null)
 										objectCursor = {
-											dateAccessed: {
-												order: order.value.value,
-												data
-											}
+											dateAccessed: { order: order.value.value, data }
 										};
 									break;
 								}
@@ -106,19 +96,13 @@ export function usePathsInfiniteQuery({
 									const data = object.kind;
 									if (data !== null)
 										objectCursor = {
-											kind: {
-												order: order.value.value,
-												data
-											}
+											kind: { order: order.value.value, data }
 										};
 									break;
 								}
 							}
 
-							if (objectCursor)
-								variant = {
-									object: objectCursor
-								};
+							if (objectCursor) variant = { object: objectCursor };
 
 							break;
 						}
@@ -138,6 +122,7 @@ export function usePathsInfiniteQuery({
 			return ctx.client.query(['search.paths', arg]);
 		},
 		getNextPageParam: (lastPage) => {
+			if (arg.take === null || arg.take === undefined) return undefined;
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.items[arg.take - 1];
 		},

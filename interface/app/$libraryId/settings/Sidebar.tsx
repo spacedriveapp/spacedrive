@@ -15,8 +15,8 @@ import {
 } from '@phosphor-icons/react';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
-
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+
 import Icon from '../Layout/Sidebar/Icon';
 import SidebarLink from '../Layout/Sidebar/Link';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
@@ -62,7 +62,7 @@ export default () => {
 						<Icon component={Database} />
 						Backups
 					</SidebarLink>
-					<SidebarLink to="client/keybindings" disabled>
+					<SidebarLink to="client/keybindings">
 						<Icon component={KeyReturn} />
 						Keybinds
 					</SidebarLink>

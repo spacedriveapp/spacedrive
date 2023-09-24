@@ -73,17 +73,29 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
 		showBytesInGridView: true as boolean,
+		showHiddenFiles: false as boolean,
 		mediaColumns: 8 as number,
 		mediaAspectSquare: false as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
+		colVisibility: {
+			name: true,
+			kind: true,
+			sizeInBytes: true,
+			dateCreated: true,
+			dateModified: true,
+			dateAccessed: false,
+			dateIndexed: false,
+			contentId: false,
+			objectId: false
+		},
 		colSizes: {
-			kind: 150,
 			name: 350,
+			kind: 150,
 			sizeInBytes: 100,
-			dateModified: 150,
-			dateIndexed: 150,
 			dateCreated: 150,
+			dateModified: 150,
 			dateAccessed: 150,
+			dateIndexed: 150,
 			contentId: 180,
 			objectId: 180
 		}
@@ -144,7 +156,7 @@ export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyStat
 
 export const filePathOrderingKeysSchema = z.union([
 	z.literal('name').describe('Name'),
-	// z.literal('sizeInBytes').describe('Size'),
+	z.literal('sizeInBytes').describe('Size'),
 	z.literal('dateModified').describe('Date Modified'),
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),

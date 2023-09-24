@@ -17,12 +17,11 @@ use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
 	collections::HashMap,
-	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
 };
 
-use futures_concurrency::future::{Join, TryJoin};
+use futures::future::{join_all, try_join_all};
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -177,7 +176,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
 	file_path: P,
 	output_path: P,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
 	use sd_ffmpeg::to_thumbnail;
 
 	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY).await?;
@@ -281,11 +280,7 @@ pub(super) async fn process(
 	}
 
 	// Resolving these futures first, as we want to fail early if we can't create the directories
-	to_create_dirs
-		.into_values()
-		.collect::<Vec<_>>()
-		.try_join()
-		.await?;
+	try_join_all(to_create_dirs.into_values()).await?;
 
 	// Running thumbs generation sequentially to don't overload the system, if we're wasting too much time on I/O we can
 	// try to run them in parallel
@@ -298,7 +293,7 @@ pub(super) async fn process(
 			output_path,
 			metadata_res,
 		},
-	) in entries.join().await.into_iter().enumerate()
+	) in join_all(entries).await.into_iter().enumerate()
 	{
 		ctx_update_fn(idx + 1);
 		match metadata_res {

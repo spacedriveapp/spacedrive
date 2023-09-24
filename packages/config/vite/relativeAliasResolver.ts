@@ -1,3 +1,5 @@
+// BE REALLY DAMN CAREFUL MODIFYING THIS FILE: https://github.com/spacedriveapp/spacedrive/pull/1353
+
 import fs from 'fs/promises';
 import path from 'path';
 import { Alias } from 'vite';

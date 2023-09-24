@@ -1,5 +1,4 @@
 import { Text, TouchableOpacity, View } from 'react-native';
-
 import { tw } from '~/lib/tailwind';
 import { RootStackScreenProps } from '~/navigation';
 

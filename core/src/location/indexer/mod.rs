@@ -7,16 +7,20 @@ use crate::{
 	},
 };
 
-use std::path::Path;
-
-use chrono::Utc;
-use rspc::ErrorCode;
 use sd_prisma::prisma_sync;
 use sd_sync::*;
+use sd_utils::from_bytes_to_uuid;
+
+use std::{collections::HashMap, path::Path};
+
+use chrono::Utc;
+use itertools::Itertools;
+use prisma_client_rust::operator::or;
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::{
 	file_path_helper::{file_path_pub_and_cas_ids, FilePathError, IsolatedFilePathData},
@@ -153,6 +157,10 @@ async fn execute_indexer_save_step(
 				(
 					(date_indexed::NAME, json!(Utc::now())),
 					date_indexed::set(Some(Utc::now().into())),
+				),
+				(
+					(hidden::NAME, json!(entry.metadata.hidden)),
+					hidden::set(Some(entry.metadata.hidden)),
 				),
 			]
 			.into_iter()
@@ -333,28 +341,15 @@ macro_rules! file_paths_db_fetcher_fn {
 #[macro_export]
 macro_rules! to_remove_db_fetcher_fn {
 	($location_id:expr, $db:expr) => {{
-		|iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
-			struct PubAndCasId {
-				pub_id: ::uuid::Uuid,
-				maybe_cas_id: Option<String>,
-			}
-
-			impl ::std::hash::Hash for PubAndCasId {
-				fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-					self.pub_id.hash(state);
-				}
-			}
-
-			impl ::std::cmp::PartialEq for PubAndCasId {
-				fn eq(&self, other: &Self) -> bool {
-					self.pub_id == other.pub_id
-				}
-			}
-
-			impl ::std::cmp::Eq for PubAndCasId {}
-
-			let iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<'static> =
-				iso_file_path;
+		|parent_iso_file_path, unique_location_id_materialized_path_name_extension_params| async {
+			let location_id: $crate::prisma::location::id::Type = $location_id;
+			let db: &$crate::prisma::PrismaClient = $db;
+			let parent_iso_file_path: $crate::location::file_path_helper::IsolatedFilePathData<
+				'static,
+			> = parent_iso_file_path;
+			let unique_location_id_materialized_path_name_extension_params: ::std::vec::Vec<
+				$crate::prisma::file_path::WhereParam,
+			> = unique_location_id_materialized_path_name_extension_params;
 
 			// FIXME: Can't pass this chunks variable direct to _batch because of lifetime issues
 			let chunks = unique_location_id_materialized_path_name_extension_params
@@ -362,63 +357,203 @@ macro_rules! to_remove_db_fetcher_fn {
 				.chunks(200)
 				.into_iter()
 				.map(|unique_params| {
-					$db.file_path()
-						.find_many(vec![
-							$crate::prisma::file_path::location_id::equals(Some($location_id)),
-							$crate::prisma::file_path::materialized_path::equals(Some(
-								iso_file_path.materialized_path_for_children().expect(
-									"the received isolated file path must be from a directory",
-								),
-							)),
-							::prisma_client_rust::operator::not(vec![
-								::prisma_client_rust::operator::or(unique_params.collect()),
-							]),
-						])
-						.select(
-							$crate::location::file_path_helper::file_path_pub_and_cas_ids::select(),
-						)
+					db.file_path()
+						.find_many(vec![::prisma_client_rust::operator::or(
+							unique_params.collect(),
+						)])
+						.select($crate::prisma::file_path::select!({ id }))
 				})
 				.collect::<::std::vec::Vec<_>>();
 
-			$db._batch(chunks)
-				.await
-				.map(|to_remove| {
-					// This is an intersection between all sets
-					let mut sets = to_remove
-						.into_iter()
-						.map(|fetched_vec| {
-							fetched_vec
-								.into_iter()
-								.map(|fetched| PubAndCasId {
-									pub_id: ::uuid::Uuid::from_slice(&fetched.pub_id)
-										.expect("file_path.pub_id is invalid!"),
-									maybe_cas_id: fetched.cas_id,
-								})
-								.collect::<::std::collections::HashSet<_>>()
-						})
-						.collect::<Vec<_>>();
+			let founds_ids = db._batch(chunks).await.map(|founds_chunk| {
+				founds_chunk
+					.into_iter()
+					.map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
+					.flatten()
+					.collect::<::std::collections::HashSet<_>>()
+			})?;
 
-					let mut intersection = ::std::collections::HashSet::new();
-					while let Some(set) = sets.pop() {
-						for pub_and_cas_ids in set {
-							// Remove returns true if the element was present in the set
-							if sets.iter_mut().all(|set| set.remove(&pub_and_cas_ids)) {
-								intersection.insert(pub_and_cas_ids);
-							}
-						}
-					}
+			// NOTE: This batch size can be increased if we wish to trade memory for more performance
+			const BATCH_SIZE: i64 = 1000;
 
-					intersection
+			let mut to_remove = vec![];
+			let mut cursor = 1;
+
+			loop {
+				let found = $db.file_path()
+					.find_many(vec![
+						$crate::prisma::file_path::location_id::equals(Some(location_id)),
+						$crate::prisma::file_path::materialized_path::equals(Some(
+							parent_iso_file_path
+								.materialized_path_for_children()
+								.expect("the received isolated file path must be from a directory"),
+						)),
+					])
+					.order_by($crate::prisma::file_path::id::order($crate::prisma::SortOrder::Asc))
+					.take(BATCH_SIZE)
+					.cursor($crate::prisma::file_path::id::equals(cursor))
+					.select($crate::prisma::file_path::select!({ id pub_id cas_id }))
+					.exec()
+					.await?;
+
+				let should_stop = (found.len() as i64) < BATCH_SIZE;
+
+				if let Some(last) = found.last() {
+					cursor = last.id;
+				} else {
+					break;
+				}
+
+				to_remove.extend(
+					found
 						.into_iter()
-						.map(|pub_and_cas_ids| {
-							$crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
-								pub_id: pub_and_cas_ids.pub_id.as_bytes().to_vec(),
-								cas_id: pub_and_cas_ids.maybe_cas_id,
-							}
-						})
-						.collect()
-				})
-				.map_err(::std::convert::Into::into)
+						.filter(|file_path| !founds_ids.contains(&file_path.id))
+						.map(|file_path| $crate::location::file_path_helper::file_path_pub_and_cas_ids::Data {
+							pub_id: file_path.pub_id,
+							cas_id: file_path.cas_id,
+						}),
+				);
+
+				if should_stop {
+					break;
+				}
+			}
+
+			Ok(to_remove)
 		}
 	}};
+}
+
+pub async fn reverse_update_directories_sizes(
+	base_path: impl AsRef<Path>,
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	library: &Library,
+) -> Result<(), FilePathError> {
+	let base_path = base_path.as_ref();
+	let location_path = location_path.as_ref();
+
+	let Library { sync, db, .. } = library;
+
+	let ancestors = base_path
+		.ancestors()
+		.take_while(|&ancestor| ancestor != location_path)
+		.map(|ancestor| IsolatedFilePathData::new(location_id, location_path, ancestor, true))
+		.collect::<Result<Vec<_>, _>>()?;
+
+	let chunked_queries = ancestors
+		.iter()
+		.chunks(200)
+		.into_iter()
+		.map(|ancestors_iso_file_paths_chunk| {
+			db.file_path()
+				.find_many(vec![or(ancestors_iso_file_paths_chunk
+					.into_iter()
+					.map(file_path::WhereParam::from)
+					.collect::<Vec<_>>())])
+				.select(file_path::select!({ pub_id materialized_path name }))
+		})
+		.collect::<Vec<_>>();
+
+	let mut pub_id_by_ancestor_materialized_path = db
+		._batch(chunked_queries)
+		.await?
+		.into_iter()
+		.flatten()
+		.filter_map(
+			|file_path| match (file_path.materialized_path, file_path.name) {
+				(Some(materialized_path), Some(name)) => {
+					Some((format!("{materialized_path}{name}/"), (file_path.pub_id, 0)))
+				}
+				_ => {
+					warn!(
+						"Found a file_path missing its materialized_path or name: <pub_id='{:#?}'>",
+						from_bytes_to_uuid(&file_path.pub_id)
+					);
+					None
+				}
+			},
+		)
+		.collect::<HashMap<_, _>>();
+
+	db.file_path()
+		.find_many(vec![
+			file_path::location_id::equals(Some(location_id)),
+			file_path::materialized_path::in_vec(
+				ancestors
+					.iter()
+					.map(|ancestor_iso_file_path| {
+						ancestor_iso_file_path
+							.materialized_path_for_children()
+							.expect("each ancestor is a directory")
+					})
+					.collect(),
+			),
+		])
+		.select(file_path::select!({ materialized_path size_in_bytes_bytes }))
+		.exec()
+		.await?
+		.into_iter()
+		.for_each(|file_path| {
+			if let Some(materialized_path) = file_path.materialized_path {
+				if let Some((_, size)) =
+					pub_id_by_ancestor_materialized_path.get_mut(&materialized_path)
+				{
+					*size += file_path
+						.size_in_bytes_bytes
+						.map(|size_in_bytes_bytes| {
+							u64::from_be_bytes([
+								size_in_bytes_bytes[0],
+								size_in_bytes_bytes[1],
+								size_in_bytes_bytes[2],
+								size_in_bytes_bytes[3],
+								size_in_bytes_bytes[4],
+								size_in_bytes_bytes[5],
+								size_in_bytes_bytes[6],
+								size_in_bytes_bytes[7],
+							])
+						})
+						.unwrap_or_else(|| {
+							warn!("Got a directory missing its size in bytes");
+							0
+						});
+				}
+			} else {
+				warn!("Corrupt database possesing a file_path entry without materialized_path");
+			}
+		});
+
+	let to_sync_and_update = ancestors
+		.into_iter()
+		.filter_map(|ancestor_iso_file_path| {
+			if let Some((pub_id, size)) = pub_id_by_ancestor_materialized_path.remove(
+				&ancestor_iso_file_path
+					.materialized_path_for_children()
+					.expect("each ancestor is a directory"),
+			) {
+				let size_bytes = size.to_be_bytes().to_vec();
+
+				Some((
+					sync.shared_update(
+						prisma_sync::file_path::SyncId {
+							pub_id: pub_id.clone(),
+						},
+						file_path::size_in_bytes_bytes::NAME,
+						json!(size_bytes.clone()),
+					),
+					db.file_path().update(
+						file_path::pub_id::equals(pub_id),
+						vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
+					),
+				))
+			} else {
+				warn!("Got a missing ancestor for a file_path in the database, maybe we have a corruption");
+				None
+			}
+		})
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	sync.write_ops(db, to_sync_and_update).await?;
+
+	Ok(())
 }

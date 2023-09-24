@@ -1,9 +1,14 @@
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { getExplorerItemData, useLibraryQuery, type EphemeralPathOrder } from '@sd/client';
+import {
+	ExplorerItem,
+	getExplorerItemData,
+	useLibraryQuery,
+	type EphemeralPathOrder
+} from '@sd/client';
 import { Tooltip } from '@sd/ui';
-
 import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
+
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
 import {
@@ -52,16 +57,29 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 	);
 
-	const items =
-		useMemo(() => {
-			const items = query.data?.entries;
-			if (settingsSnapshot.layoutMode !== 'media') return items;
+	const items = useMemo(() => {
+		if (!query.data) return [];
 
-			return items?.filter((item) => {
+		const ret: ExplorerItem[] = [];
+
+		for (const item of query.data.entries) {
+			if (
+				!settingsSnapshot.showHiddenFiles &&
+				item.type === 'NonIndexedPath' &&
+				item.item.hidden
+			)
+				continue;
+
+			if (settingsSnapshot.layoutMode !== 'media') ret.push(item);
+			else {
 				const { kind } = getExplorerItemData(item);
-				return kind === 'Video' || kind === 'Image';
-			});
-		}, [query.data, settingsSnapshot.layoutMode]) ?? [];
+
+				if (kind === 'Video' || kind === 'Image') ret.push(item);
+			}
+		}
+
+		return ret;
+	}, [query.data, settingsSnapshot.layoutMode, settingsSnapshot.showHiddenFiles]);
 
 	const explorer = useExplorer({
 		items,

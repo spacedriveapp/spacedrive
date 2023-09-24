@@ -3,7 +3,6 @@ import fullscreenIconPath from '@sd/assets/svgs/macos_fullscreen.svg';
 import minimizeIconPath from '@sd/assets/svgs/macos_minimize.svg';
 import clsx from 'clsx';
 import { ComponentProps, HTMLAttributes, useEffect, useRef } from 'react';
-
 import { useFocusState } from '~/hooks/useFocusState';
 
 export interface TrafficLightsProps extends ComponentProps<'div'> {

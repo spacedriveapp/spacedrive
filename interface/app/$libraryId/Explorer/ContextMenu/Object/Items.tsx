@@ -2,10 +2,10 @@ import { ArrowBendUpRight, TagSimple } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
-
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { Menu } from '~/components/Menu';
 import { isNonEmpty } from '~/util';
+
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 

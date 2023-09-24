@@ -1,7 +1,6 @@
 use crate::{
 	location::file_path_helper::{
 		file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
-		MetadataExt,
 	},
 	prisma::file_path,
 	util::{
@@ -9,12 +8,6 @@ use crate::{
 		error::FileIOError,
 	},
 };
-
-#[cfg(target_family = "unix")]
-use crate::location::file_path_helper::get_inode_and_device;
-
-#[cfg(target_family = "windows")]
-use crate::location::file_path_helper::get_inode_and_device_from_path;
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
@@ -26,7 +19,7 @@ use std::{
 use chrono::{DateTime, Duration, FixedOffset};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tracing::trace;
+use tracing::{debug, trace};
 use uuid::Uuid;
 
 use super::{
@@ -51,6 +44,7 @@ pub struct WalkedEntry {
 pub struct ToWalkEntry {
 	path: PathBuf,
 	parent_dir_accepted_by_its_children: Option<bool>,
+	maybe_parent: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -116,6 +110,7 @@ where
 	pub to_walk: VecDeque<ToWalkEntry>,
 	pub to_remove: ToRemove,
 	pub errors: Vec<IndexerError>,
+	pub paths_and_sizes: HashMap<PathBuf, u64>,
 }
 
 /// This function walks through the filesystem, applying the rules to each entry and then returning
@@ -151,16 +146,18 @@ where
 	to_walk.push_back(ToWalkEntry {
 		path: root.to_path_buf(),
 		parent_dir_accepted_by_its_children: None,
+		maybe_parent: None,
 	});
 	let mut indexed_paths = HashSet::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
-	let mut paths_buffer = Vec::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALKER_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_and_sizes = HashMap::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut to_remove = vec![];
 
-	while let Some(ref entry) = to_walk.pop_front() {
-		let current_to_remove = inner_walk_single_dir(
+	while let Some(entry) = to_walk.pop_front() {
+		let (entry_size, current_to_remove) = inner_walk_single_dir(
 			root,
-			entry,
+			&entry,
 			indexer_rules,
 			&mut update_notifier,
 			&to_remove_db_fetcher,
@@ -175,6 +172,14 @@ where
 		.await;
 		to_remove.push(current_to_remove);
 
+		// Saving the size of current entry
+		paths_and_sizes.insert(entry.path, entry_size);
+
+		// Adding the size of current entry to its parent
+		if let Some(parent) = entry.maybe_parent {
+			*paths_and_sizes.entry(parent).or_default() += entry_size;
+		}
+
 		if indexed_paths.len() >= limit as usize {
 			break;
 		}
@@ -188,6 +193,7 @@ where
 		to_walk,
 		to_remove: to_remove.into_iter().flatten(),
 		errors,
+		paths_and_sizes,
 	})
 }
 
@@ -216,10 +222,10 @@ where
 {
 	let mut to_keep_walking = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
-	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
 
-	let to_remove = inner_walk_single_dir(
+	let (to_walk_entry_size, to_remove) = inner_walk_single_dir(
 		to_walk_entry.path.clone(),
 		to_walk_entry,
 		indexer_rules,
@@ -243,6 +249,16 @@ where
 		to_walk: to_keep_walking,
 		to_remove: to_remove.into_iter(),
 		errors,
+		paths_and_sizes: [
+			Some((to_walk_entry.path.clone(), to_walk_entry_size)),
+			to_walk_entry
+				.maybe_parent
+				.as_ref()
+				.map(|parent_path| (parent_path.clone(), to_walk_entry_size)),
+		]
+		.into_iter()
+		.flatten()
+		.collect(),
 	})
 }
 
@@ -263,6 +279,7 @@ pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
 		impl Iterator<Item = WalkedEntry>,
 		Vec<file_path_pub_and_cas_ids::Data>,
 		Vec<IndexerError>,
+		u64,
 	),
 	IndexerError,
 >
@@ -280,38 +297,21 @@ where
 			.await
 			.map_err(|e| FileIOError::from((root, e)))?;
 
-		let (inode, device) = {
-			#[cfg(target_family = "unix")]
-			{
-				get_inode_and_device(&metadata)
-			}
-
-			#[cfg(target_family = "windows")]
-			{
-				get_inode_and_device_from_path(&root).await
-			}
-		}?;
-
 		indexed_paths.insert(WalkingEntry {
 			iso_file_path: iso_file_path_factory(root, true)?,
-			maybe_metadata: Some(FilePathMetadata {
-				inode,
-				device,
-				size_in_bytes: metadata.len(),
-				created_at: metadata.created_or_now().into(),
-				modified_at: metadata.modified_or_now().into(),
-			}),
+			maybe_metadata: Some(FilePathMetadata::from_path(root, &metadata).await?),
 		});
 	}
 
-	let mut paths_buffer = Vec::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
+	let mut paths_buffer = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 	let mut errors = vec![];
 
-	let to_remove = inner_walk_single_dir(
+	let (root_size, to_remove) = inner_walk_single_dir(
 		root,
 		&ToWalkEntry {
 			path: root.to_path_buf(),
 			parent_dir_accepted_by_its_children: None,
+			maybe_parent: None,
 		},
 		indexer_rules,
 		&mut update_notifier,
@@ -328,7 +328,7 @@ where
 
 	let (walked, to_update) = filter_existing_paths(indexed_paths, file_paths_db_fetcher).await?;
 
-	Ok((walked, to_update, to_remove, errors))
+	Ok((walked, to_update, to_remove, errors, root_size))
 }
 
 async fn filter_existing_paths<F>(
@@ -380,14 +380,88 @@ where
 						let (inode, device) =
 							(inode_from_db(&inode[0..8]), device_from_db(&device[0..8]));
 
-						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
-						// instead of using != operator
-						if inode != metadata.inode
-							|| device != metadata.device || DateTime::<FixedOffset>::from(
-							metadata.modified_at,
-						) - *date_modified
-							> Duration::milliseconds(1)
+						let update_conditions = [
+							inode != metadata.inode,
+							device != metadata.device,
+							// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
+							// instead of using != operator
+							DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
+								> Duration::milliseconds(1),
+							// We ignore the size of directories because it is not reliable, we need to
+							// calculate it ourselves later
+							!(entry.iso_file_path.is_dir
+								&& metadata.size_in_bytes
+									!= file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()),
+						];
+
+						if (update_conditions[0] || update_conditions[1] || update_conditions[2])
+							&& update_conditions[3]
 						{
+							debug!(
+								"File {} is already in DB, update conditions: \
+								((Different inode: {} || Different device: {} || \
+								Different modified_at: {}) && Not a directory with different size: {})",
+								entry.iso_file_path,
+								update_conditions[0],
+								update_conditions[1],
+								update_conditions[2],
+								update_conditions[3],
+							);
+
+							if update_conditions[0] {
+								debug!("inode: {} != {}", inode, metadata.inode);
+							}
+
+							if update_conditions[1] {
+								debug!("device: {} != {}", device, metadata.device);
+							}
+
+							if update_conditions[2] {
+								debug!(
+									"modified_at: {} != {}",
+									DateTime::<FixedOffset>::from(metadata.modified_at),
+									*date_modified
+								);
+							}
+
+							if update_conditions[3] {
+								debug!(
+									"size_in_bytes: {} != {}",
+									metadata.size_in_bytes,
+									file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()
+								);
+							}
+
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
 							);
@@ -407,7 +481,7 @@ where
 
 struct WorkingTable<'a> {
 	indexed_paths: &'a mut HashSet<WalkingEntry>,
-	paths_buffer: &'a mut Vec<WalkingEntry>,
+	paths_buffer: &'a mut HashSet<WalkingEntry>,
 	maybe_to_walk: Option<&'a mut VecDeque<ToWalkEntry>>,
 	errors: &'a mut Vec<IndexerError>,
 }
@@ -417,6 +491,7 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 	ToWalkEntry {
 		path,
 		parent_dir_accepted_by_its_children,
+		..
 	}: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
 	update_notifier: &mut impl FnMut(&Path, usize),
@@ -431,21 +506,21 @@ async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
 		mut maybe_to_walk,
 		errors,
 	}: WorkingTable<'_>,
-) -> Vec<file_path_pub_and_cas_ids::Data>
+) -> (u64, Vec<file_path_pub_and_cas_ids::Data>)
 where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
 	let Ok(iso_file_path_to_walk) = iso_file_path_factory(path, true).map_err(|e| errors.push(e))
 	else {
-		return vec![];
+		return (0, vec![]);
 	};
 
 	let Ok(mut read_dir) = fs::read_dir(path)
 		.await
 		.map_err(|e| errors.push(FileIOError::from((path.clone(), e)).into()))
 	else {
-		return vec![];
+		return (0, vec![]);
 	};
 
 	let root = root.as_ref();
@@ -525,21 +600,6 @@ where
 
 		let is_dir = metadata.is_dir();
 
-		let Ok((inode, device)) = {
-			#[cfg(target_family = "unix")]
-			{
-				get_inode_and_device(&metadata)
-			}
-
-			#[cfg(target_family = "windows")]
-			{
-				get_inode_and_device_from_path(&current_path).await
-			}
-		}
-		.map_err(|e| errors.push(e.into())) else {
-			continue 'entries;
-		};
-
 		if is_dir {
 			// If it is a directory, first we check if we must reject it and its children entirely
 			if rules_per_kind
@@ -577,6 +637,7 @@ where
 				to_walk.push_back(ToWalkEntry {
 					path: entry.path(),
 					parent_dir_accepted_by_its_children: accept_by_children_dir,
+					maybe_parent: Some(path.clone()),
 				});
 			}
 		}
@@ -600,15 +661,16 @@ where
 				continue 'entries;
 			};
 
-			paths_buffer.push(WalkingEntry {
+			let Ok(metadata) = FilePathMetadata::from_path(&current_path, &metadata)
+				.await
+				.map_err(|e| errors.push(e.into()))
+			else {
+				continue;
+			};
+
+			paths_buffer.insert(WalkingEntry {
 				iso_file_path,
-				maybe_metadata: Some(FilePathMetadata {
-					inode,
-					device,
-					size_in_bytes: metadata.len(),
-					created_at: metadata.created_or_now().into(),
-					modified_at: metadata.modified_or_now().into(),
-				}),
+				maybe_metadata: Some(metadata),
 			});
 
 			// If the ancestors directories wasn't indexed before, now we do
@@ -637,31 +699,17 @@ where
 						// Checking the next ancestor, as this one we got an error
 						continue;
 					};
-					let Ok((inode, device)) = {
-						#[cfg(target_family = "unix")]
-						{
-							get_inode_and_device(&metadata)
-						}
 
-						#[cfg(target_family = "windows")]
-						{
-							get_inode_and_device_from_path(ancestor).await
-						}
-					}
-					.map_err(|e| errors.push(e.into())) else {
-						// Checking the next ancestor, as this one we got an error
+					let Ok(metadata) = FilePathMetadata::from_path(ancestor, &metadata)
+						.await
+						.map_err(|e| errors.push(e.into()))
+					else {
 						continue;
 					};
 
-					ancestor_iso_walking_entry.maybe_metadata = Some(FilePathMetadata {
-						inode,
-						device,
-						size_in_bytes: metadata.len(),
-						created_at: metadata.created_or_now().into(),
-						modified_at: metadata.modified_or_now().into(),
-					});
+					ancestor_iso_walking_entry.maybe_metadata = Some(metadata);
 
-					paths_buffer.push(ancestor_iso_walking_entry);
+					paths_buffer.insert(ancestor_iso_walking_entry);
 				} else {
 					// If indexed_paths contains the current ancestors, then it will contain
 					// also all if its ancestors too, so we can stop here
@@ -688,11 +736,18 @@ where
 		vec![]
 	});
 
+	let mut to_walk_entry_size = 0;
+
 	// Just merging the `found_paths` with `indexed_paths` here in the end to avoid possibly
 	// multiple rehashes during function execution
-	indexed_paths.extend(paths_buffer.drain(..));
+	indexed_paths.extend(paths_buffer.drain().map(|walking_entry| {
+		if let Some(metadata) = &walking_entry.maybe_metadata {
+			to_walk_entry_size += metadata.size_in_bytes;
+		}
+		walking_entry
+	}));
 
-	to_remove
+	(to_walk_entry_size, to_remove)
 }
 
 #[cfg(test)]
@@ -788,6 +843,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -858,6 +914,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -922,6 +979,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();
@@ -995,6 +1053,7 @@ mod tests {
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
+			hidden: false,
 		};
 
 		let f = |path, is_dir| IsolatedFilePathData::new(0, root_path, path, is_dir).unwrap();

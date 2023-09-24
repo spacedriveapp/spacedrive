@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
+	ExplorerItem,
 	ExplorerSettings,
 	FilePathFilterArgs,
 	FilePathOrder,
@@ -12,10 +13,10 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
-
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
 import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
@@ -157,7 +158,22 @@ const useItems = ({
 		settings
 	});
 
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
+	const items = useMemo(() => {
+		if (!query.data) return null;
+
+		const ret: ExplorerItem[] = [];
+
+		for (const page of query.data.pages) {
+			for (const item of page.items) {
+				if (item.type === 'Path' && !explorerSettings.showHiddenFiles && item.item.hidden)
+					continue;
+
+				ret.push(item);
+			}
+		}
+
+		return ret;
+	}, [query.data, explorerSettings.showHiddenFiles]);
 
 	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {

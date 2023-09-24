@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { Columns, GridFour, MonitorPlay, Rows, type Icon } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import {
 	isValidElement,
 	memo,
@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createSearchParams, useNavigate } from 'react-router-dom';
+import { useKeys } from 'rooks';
 import {
 	getItemObject,
 	isPath,
@@ -25,13 +26,12 @@ import {
 	type Object
 } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
-
 import { Loader } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
+
 import CreateDialog from '../../settings/library/tags/CreateDialog';
-import { useExplorerConfigStore } from '../config';
 import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
@@ -51,13 +51,17 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
 
-	const explorerConfig = useExplorerConfigStore();
-
 	const navigate = useNavigate();
 	const { library } = useLibraryContext();
 	const { openFilePaths } = usePlatform();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const metaCtrlKey = useKeyMatcher('Meta').key;
+
+	useKeys([metaCtrlKey, 'ArrowUp'], async (e) => {
+		e.stopPropagation();
+		await onDoubleClick();
+	});
 
 	const onDoubleClick = async () => {
 		const selectedItems = [...explorer.selectedItems];
@@ -110,7 +114,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 		);
 
 		if (items.paths.length > 0 && !explorerView.isRenaming) {
-			if (explorerConfig.openOnDoubleClick && openFilePaths) {
+			if (explorer.settingsStore.openOnDoubleClick === 'openFile' && openFilePaths) {
 				updateAccessTime
 					.mutateAsync(items.paths.map(({ object_id }) => object_id!).filter(Boolean))
 					.catch(console.error);
@@ -123,7 +127,7 @@ export const ViewItem = ({ data, children, ...props }: ViewItemProps) => {
 				} catch (error) {
 					toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
 				}
-			} else if (!explorerConfig.openOnDoubleClick) {
+			} else if (explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
 				if (data.type !== 'Location' && !(isPath(data) && data.item.is_dir)) {
 					getQuickPreviewStore().itemIndex = itemIndex;
 					getQuickPreviewStore().open = true;
@@ -241,7 +245,7 @@ export default memo(({ className, style, emptyNotice, ...contextProps }: Explore
 								explorer.selectable &&
 								!isContextMenuOpen &&
 								!isRenaming &&
-								!quickPreviewStore.open,
+								(!quickPreviewStore.open || explorer.selectedItems.size === 1),
 							setIsContextMenuOpen,
 							isRenaming,
 							setIsRenaming,

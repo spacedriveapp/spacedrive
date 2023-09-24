@@ -21,7 +21,7 @@ use std::{
 	path::Path,
 };
 
-use futures_concurrency::future::Join;
+use futures::future::join_all;
 use serde_json::json;
 use tokio::fs;
 use tracing::{error, trace};
@@ -104,33 +104,34 @@ async fn identifier_job_step(
 ) -> Result<(usize, usize), JobError> {
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
-	let file_paths_metadatas = file_paths
-		.iter()
-		.filter_map(|file_path| {
-			IsolatedFilePathData::try_from((location.id, file_path))
-				.map(|iso_file_path| (iso_file_path, file_path))
-				.map_err(|e| error!("Failed to extract isolated file path data: {e:#?}"))
-				.ok()
-		})
-		.map(|(iso_file_path, file_path)| async move {
-			FileMetadata::new(&location_path, &iso_file_path)
-				.await
-				.map(|metadata| {
-					(
-						// SAFETY: This should never happen
-						Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
-						(metadata, file_path),
-					)
-				})
-				.map_err(|e| error!("Failed to extract file metadata: {e:#?}"))
-				.ok()
-		})
-		.collect::<Vec<_>>()
-		.join()
-		.await
-		.into_iter()
-		.flatten()
-		.collect::<HashMap<_, _>>();
+	let file_paths_metadatas = join_all(
+		file_paths
+			.iter()
+			.filter_map(|file_path| {
+				IsolatedFilePathData::try_from((location.id, file_path))
+					.map(|iso_file_path| (iso_file_path, file_path))
+					.map_err(|e| error!("Failed to extract isolated file path data: {e:#?}"))
+					.ok()
+			})
+			.map(|(iso_file_path, file_path)| async move {
+				FileMetadata::new(&location_path, &iso_file_path)
+					.await
+					.map(|metadata| {
+						(
+							// SAFETY: This should never happen
+							Uuid::from_slice(&file_path.pub_id)
+								.expect("file_path.pub_id is invalid!"),
+							(metadata, file_path),
+						)
+					})
+					.map_err(|e| error!("Failed to extract file metadata: {e:#?}"))
+					.ok()
+			}),
+	)
+	.await
+	.into_iter()
+	.flatten()
+	.collect::<HashMap<_, _>>();
 
 	let unique_cas_ids = file_paths_metadatas
 		.values()

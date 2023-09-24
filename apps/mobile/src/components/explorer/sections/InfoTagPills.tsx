@@ -8,7 +8,6 @@ import {
 	isPath,
 	useLibraryQuery
 } from '@sd/client';
-
 import { InfoPill, PlaceholderPill } from '~/components/primitive/InfoPill';
 import { tw, twStyle } from '~/lib/tailwind';
 
