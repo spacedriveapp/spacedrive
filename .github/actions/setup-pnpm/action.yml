@@ -28,5 +28,6 @@ runs:
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
       env:
           NODE_ENV: debug
+          GITHUB_TOKEN: ${{ inputs.token }}
           IGNORE_POSTINSTALL: ${{ inputs.ignorePostInstall }}
       run: pnpm i --frozen-lockfile

@@ -148,6 +148,7 @@ jobs:
         if: steps.filter.outputs.changes == 'true'
         env:
           NODE_ENV: debug
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pushd ..
           npm i archive-wasm mustache
