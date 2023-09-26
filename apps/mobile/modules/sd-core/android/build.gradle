@@ -2,6 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'maven-publish'
 
+
 group = 'com.spacedrive.core'
 version = '0.0.1'
 
@@ -101,21 +102,45 @@ if (System.getenv('SPACEDRIVE_CI') != "1") {
 }
 
 cargo {
+	  final String osName = System.getProperty("os.name").toLowerCase();
+
     module  = "./crate"
     libname = "sd_mobile_android"
     pythonCommand = 'python3'
     profile = 'release' // 'debug'
     targets = cargoTargets
     targetDirectory = "../../../../../target" // Monorepo moment
+		if (osName.contains("linux")) {
+			exec { spec, toolchain ->
 
-		exec { spec, toolchain ->
+				def dir = "${android.ndkDirectory}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+
+		    spec.environment("RANLIB_armv7-linux-androideabi", "${dir}")
+				spec.environment("RANLIB_aarch64-linux-android", "${dir}")
+				spec.environment("RANLIB_i686-linux-android", "${dir}")
+				spec.environment("RANLIB_x86_64-linux-android", "${dir}")
+    	}
+		} else if (osName.contains("windows")) {
+			exec { spec, toolchain ->
+
+				def dir = "${android.ndkDirectory}/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ranlib"
+
+		    spec.environment("RANLIB_armv7-linux-androideabi", "${dir}")
+				spec.environment("RANLIB_aarch64-linux-android", "${dir}")
+				spec.environment("RANLIB_i686-linux-android", "${dir}")
+				spec.environment("RANLIB_x86_64-linux-android", "${dir}")
+    	}
+		} else {
+						exec { spec, toolchain ->
+
 				def dir = "${android.ndkDirectory}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
 		    spec.environment("RANLIB_armv7-linux-androideabi", "${dir}")
 				spec.environment("RANLIB_aarch64-linux-android", "${dir}")
 				spec.environment("RANLIB_i686-linux-android", "${dir}")
 				spec.environment("RANLIB_x86_64-linux-android", "${dir}")
-    }
+    	}
+		}
 }
 
 tasks.whenTaskAdded { task ->
