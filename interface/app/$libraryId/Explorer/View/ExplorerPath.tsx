@@ -3,9 +3,9 @@ import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, getExplorerLayoutStore, useExplorerLayoutStore } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
-import { useIsDark, useZodSearchParams } from '~/hooks';
+import { useIsDark, useKeyBind, useKeyMatcher, useZodSearchParams } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -18,6 +18,8 @@ export const ExplorerPath = memo(() => {
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);
+	const metaCtrlKey = useKeyMatcher('Meta').key;
+	const layoutStore = useExplorerLayoutStore();
 
 	const explorerContext = useExplorerContext();
 	const [{ path }] = useExplorerSearchParams();
@@ -78,6 +80,13 @@ export const ExplorerPath = memo(() => {
 			setSelectedItem(first);
 		} else setSelectedItem(undefined);
 	}, [pathInfo, explorerContext.selectedItems, formatPathData]);
+
+	useKeyBind([metaCtrlKey, 'p'], (e) => {
+		e.stopPropagation();
+		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
+	});
+
+	if (!layoutStore.showPathBar) return null;
 
 	return (
 		<div
