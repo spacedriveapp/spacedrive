@@ -103,7 +103,7 @@ export const ExplorerPath = memo(() => {
 							index !== data.length - 1 && ' cursor-pointer hover:brightness-125'
 						)}
 					>
-						<img src={getIcon('Folder', isDark)} alt="folder" className="h-3 w-3" />
+						<img src={getIcon('Folder', isDark)} alt="folder" className="h-4 w-4" />
 						<p className="truncate">{p.name}</p>
 						{index !== (data?.length as number) - 1 && (
 							<CaretRight weight="bold" size={10} />
@@ -114,7 +114,7 @@ export const ExplorerPath = memo(() => {
 			{selectedItem && (
 				<div className="pointer-events-none flex items-center gap-1">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
-					<FileThumb size={12} data={selectedItem} />
+					<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
 					{'name' in selectedItem.item && <p>{selectedItem.item.name}</p>}
 				</div>
 			)}
