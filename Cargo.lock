@@ -6563,6 +6563,7 @@ dependencies = [
  "plist",
  "prisma-client-rust",
  "regex",
+ "reqwest",
  "rmp",
  "rmp-serde",
  "rmpv",

@@ -3,6 +3,7 @@
 
 export type Procedures = {
     queries: 
+        { key: "auth.me", input: never, result: null } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
@@ -89,6 +90,7 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
+        { key: "auth.listen", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
@@ -361,6 +363,8 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RescanArgs = { location_id: number; sub_path: string }
+
+export type Response = { Start: string } | { Token: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
