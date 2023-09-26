@@ -179,7 +179,6 @@ model FilePath {
     size_in_bytes_bytes Bytes?
 
     inode  Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
-    device Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
 
     // the unique Object for this file path
     object_id Int?
@@ -195,7 +194,7 @@ model FilePath {
     // key Key? @relation(fields: [key_id], references: [id])
 
     @@unique([location_id, materialized_path, name, extension])
-    @@unique([location_id, inode, device])
+    @@unique([location_id, inode])
     @@index([location_id])
     @@index([location_id, materialized_path])
     @@map("file_path")

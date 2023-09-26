@@ -14,7 +14,7 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			check_file_path_exists, get_inode_and_device, FilePathError, IsolatedFilePathData,
+			check_file_path_exists, get_inode, FilePathError, IsolatedFilePathData,
 		},
 		manager::LocationManagerError,
 	},
@@ -39,10 +39,10 @@ use tracing::{error, trace, warn};
 
 use super::{
 	utils::{
-		create_dir, create_file, extract_inode_and_device_from_path, extract_location_path,
+		create_dir, create_file, extract_inode_from_path, extract_location_path,
 		recalculate_directories_size, remove, rename, update_file,
 	},
-	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
+	EventHandler, INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
 #[derive(Debug)]
@@ -54,9 +54,9 @@ pub(super) struct MacOsEventHandler<'lib> {
 	reincident_to_update_files: HashMap<PathBuf, Instant>,
 	last_events_eviction_check: Instant,
 	latest_created_dir: Option<PathBuf>,
-	old_paths_map: HashMap<INodeAndDevice, InstantAndPath>,
-	new_paths_map: HashMap<INodeAndDevice, InstantAndPath>,
-	paths_map_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
+	old_paths_map: HashMap<INode, InstantAndPath>,
+	new_paths_map: HashMap<INode, InstantAndPath>,
+	paths_map_buffer: Vec<(INode, InstantAndPath)>,
 	to_recalculate_size: HashMap<PathBuf, Instant>,
 	path_and_instant_buffer: Vec<(PathBuf, Instant)>,
 }
@@ -260,7 +260,7 @@ impl MacOsEventHandler<'_> {
 		self.paths_map_buffer.clear();
 		let mut should_invalidate = false;
 
-		for (inode_and_device, (instant, path)) in self.new_paths_map.drain() {
+		for (inode, (instant, path)) in self.new_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
 				if !self.files_to_update.contains_key(&path) {
 					let metadata = fs::metadata(&path)
@@ -287,8 +287,7 @@ impl MacOsEventHandler<'_> {
 					should_invalidate = true;
 				}
 			} else {
-				self.paths_map_buffer
-					.push((inode_and_device, (instant, path)));
+				self.paths_map_buffer.push((inode, (instant, path)));
 			}
 		}
 
@@ -306,7 +305,7 @@ impl MacOsEventHandler<'_> {
 		self.paths_map_buffer.clear();
 		let mut should_invalidate = false;
 
-		for (inode_and_device, (instant, path)) in self.old_paths_map.drain() {
+		for (inode, (instant, path)) in self.old_paths_map.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
 				if let Some(parent) = path.parent() {
 					if parent != Path::new("") {
@@ -318,8 +317,7 @@ impl MacOsEventHandler<'_> {
 				trace!("Removed file_path due timeout: {}", path.display());
 				should_invalidate = true;
 			} else {
-				self.paths_map_buffer
-					.push((inode_and_device, (instant, path)));
+				self.paths_map_buffer.push((inode, (instant, path)));
 			}
 		}
 
@@ -341,7 +339,7 @@ impl MacOsEventHandler<'_> {
 				// File or directory exists, so this can be a "new path" to an actual rename/move or a creation
 				trace!("Path exists: {}", path.display());
 
-				let inode_and_device = get_inode_and_device(&meta)?;
+				let inode = get_inode(&meta);
 				let location_path = extract_location_path(self.location_id, self.library).await?;
 
 				if !check_file_path_exists::<FilePathError>(
@@ -355,7 +353,7 @@ impl MacOsEventHandler<'_> {
 				)
 				.await?
 				{
-					if let Some((_, old_path)) = self.old_paths_map.remove(&inode_and_device) {
+					if let Some((_, old_path)) = self.old_paths_map.remove(&inode) {
 						trace!(
 							"Got a match new -> old: {} -> {}",
 							path.display(),
@@ -366,8 +364,7 @@ impl MacOsEventHandler<'_> {
 						rename(self.location_id, &path, &old_path, meta, self.library).await?;
 					} else {
 						trace!("No match for new path yet: {}", path.display());
-						self.new_paths_map
-							.insert(inode_and_device, (Instant::now(), path));
+						self.new_paths_map.insert(inode, (Instant::now(), path));
 					}
 				} else {
 					warn!(
@@ -382,11 +379,9 @@ impl MacOsEventHandler<'_> {
 
 				trace!("Path doesn't exists: {}", path.display());
 
-				let inode_and_device =
-					match extract_inode_and_device_from_path(self.location_id, &path, self.library)
-						.await
-					{
-						Ok(inode_and_device) => inode_and_device,
+				let inode =
+					match extract_inode_from_path(self.location_id, &path, self.library).await {
+						Ok(inode) => inode,
 						Err(LocationManagerError::FilePath(FilePathError::NotFound(_))) => {
 							// temporary file, we can ignore it
 							return Ok(());
@@ -394,7 +389,7 @@ impl MacOsEventHandler<'_> {
 						Err(e) => return Err(e),
 					};
 
-				if let Some((_, new_path)) = self.new_paths_map.remove(&inode_and_device) {
+				if let Some((_, new_path)) = self.new_paths_map.remove(&inode) {
 					trace!(
 						"Got a match old -> new: {} -> {}",
 						path.display(),
@@ -415,8 +410,7 @@ impl MacOsEventHandler<'_> {
 				} else {
 					trace!("No match for old path yet: {}", path.display());
 					// We didn't find a new path for this old path, so we store ir for later
-					self.old_paths_map
-						.insert(inode_and_device, (Instant::now(), path));
+					self.old_paths_map.insert(inode, (Instant::now(), path));
 				}
 			}
 			Err(e) => return Err(FileIOError::from((path, e)).into()),
