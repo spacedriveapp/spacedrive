@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the column `dimensions` on the `media_data` table. All the data in the column will be lost.
-
-*/
 -- RedefineTables
 PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_media_data" (
