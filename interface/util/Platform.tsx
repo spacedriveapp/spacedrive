@@ -29,7 +29,8 @@ export type Platform = {
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 	auth: {
-		start(key: string): void;
+		start(key: string): any;
+		finish?(ret: any): void;
 	};
 };
 

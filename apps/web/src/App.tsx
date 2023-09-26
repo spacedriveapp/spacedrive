@@ -42,7 +42,15 @@ const platform: Platform = {
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
-	confirm: (message, cb) => cb(window.confirm(message))
+	confirm: (message, cb) => cb(window.confirm(message)),
+	auth: {
+		start(key) {
+			return window.open(`http://localhost:3000/device-session?key=${key}`);
+		},
+		finish(win: Window | null) {
+			win?.close();
+		}
+	}
 };
 
 const queryClient = new QueryClient({

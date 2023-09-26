@@ -1,16 +1,12 @@
 use std::time::Duration;
 
-use crate::prisma::location;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::alpha::AlphaRouter;
 
-use sd_prisma::prisma::instance;
 use serde::Deserialize;
 use serde::Serialize;
 use specta::Type;
-use tracing::error;
-use uuid::Uuid;
 
-use super::{locations::ExplorerItem, utils::library, Ctx, R};
+use super::{Ctx, R};
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -21,7 +17,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				Token(String),
 			}
 
-			R.subscription(|node, args: ()| async move {
+			R.subscription(|_, _: ()| async move {
 				const DEVICE_SESSION_URL: &str = "http://localhost:3000/api/auth/device-session";
 
 				let client = reqwest::Client::new();

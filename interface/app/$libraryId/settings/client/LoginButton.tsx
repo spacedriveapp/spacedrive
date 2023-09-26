@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useBridgeSubscription } from '@sd/client';
 import { Button } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
@@ -16,14 +16,17 @@ export function LoginButton() {
 
 	const platform = usePlatform();
 
+	const ret = useRef(null);
+
 	useBridgeSubscription(['auth.loginSession'], {
 		enabled: state.status === 'LoggingIn',
 		onData(data) {
 			if ('Start' in data) {
 				const key = data.Start;
-				platform.auth.start(key);
+				ret.current = platform.auth.start(key);
 			} else {
 				setState({ status: 'LoggedIn', token: data.Token });
+				platform.auth.finish?.(ret.current);
 			}
 		}
 	});
