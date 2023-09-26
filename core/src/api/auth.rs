@@ -22,39 +22,41 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.subscription(|node, args: ()| async move {
-				const DEVICE_SESSION_URL: &str =
-					"https://app.spacedrive.com/api/auth/device-session";
+				const DEVICE_SESSION_URL: &str = "http://localhost:3000/api/auth/device-session";
 
 				let client = reqwest::Client::new();
 
 				async_stream::stream! {
-					let key = client.post(DEVICE_SESSION_URL)
+					let key = client
+						.post(DEVICE_SESSION_URL)
 						.send()
-						.await.unwrap()
+						.await
+						.unwrap()
 						.text()
-						.await.unwrap();
+						.await
+						.unwrap();
 
 					yield Response::Start(key.clone());
 
 					loop {
 						tokio::time::sleep(Duration::from_secs(3)).await;
 
-						#[derive(Deserialize)]
-						#[serde(rename_all = "camelCase", tag= "state")]
+						#[derive(Debug, Deserialize)]
+						#[serde(rename_all = "camelCase", tag = "status")]
 						enum AuthResponse {
 							Pending,
-							Complete {
-								token: String
-							}
+							Complete { token: String },
 						}
 
 						let result: AuthResponse = client
 							.get(DEVICE_SESSION_URL)
 							.query(&[("key", &key)])
 							.send()
-							.await.unwrap()
+							.await
+							.unwrap()
 							.json()
-							.await.unwrap();
+							.await
+							.unwrap();
 
 						if let AuthResponse::Complete { token } = result {
 							yield Response::Token(token.clone());

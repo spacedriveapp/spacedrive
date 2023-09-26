@@ -12,6 +12,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
+import { LoginButton } from './LoginButton';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -44,6 +45,11 @@ export const Component = () => {
 			<Heading
 				title="General Settings"
 				description="General settings related to this client."
+				rightArea={
+					<div>
+						<LoginButton />
+					</div>
+				}
 			/>
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
