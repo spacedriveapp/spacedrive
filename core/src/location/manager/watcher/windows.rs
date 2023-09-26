@@ -11,7 +11,7 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::{
-		file_path_helper::{get_inode_and_device_from_path, FilePathError},
+		file_path_helper::{get_inode_from_path, FilePathError},
 		manager::LocationManagerError,
 	},
 	prisma::location,
@@ -35,10 +35,10 @@ use tracing::{error, trace};
 
 use super::{
 	utils::{
-		create_dir, extract_inode_and_device_from_path, recalculate_directories_size, remove,
-		rename, update_file,
+		create_dir, extract_inode_from_path, recalculate_directories_size, remove, rename,
+		update_file,
 	},
-	EventHandler, INodeAndDevice, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
+	EventHandler, INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
 /// Windows file system event handler
@@ -48,10 +48,10 @@ pub(super) struct WindowsEventHandler<'lib> {
 	library: &'lib Arc<Library>,
 	node: &'lib Arc<Node>,
 	last_events_eviction_check: Instant,
-	rename_from_map: BTreeMap<INodeAndDevice, InstantAndPath>,
-	rename_to_map: BTreeMap<INodeAndDevice, InstantAndPath>,
-	files_to_remove: HashMap<INodeAndDevice, InstantAndPath>,
-	files_to_remove_buffer: Vec<(INodeAndDevice, InstantAndPath)>,
+	rename_from_map: BTreeMap<INode, InstantAndPath>,
+	rename_to_map: BTreeMap<INode, InstantAndPath>,
+	files_to_remove: HashMap<INode, InstantAndPath>,
+	files_to_remove_buffer: Vec<(INode, InstantAndPath)>,
 	files_to_update: HashMap<PathBuf, Instant>,
 	reincident_to_update_files: HashMap<PathBuf, Instant>,
 	to_recalculate_size: HashMap<PathBuf, Instant>,
@@ -92,8 +92,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 
 		match kind {
 			EventKind::Create(CreateKind::Any) => {
-				let inode_and_device = match get_inode_and_device_from_path(&paths[0]).await {
-					Ok(inode_and_device) => inode_and_device,
+				let inode = match get_inode_from_path(&paths[0]).await {
+					Ok(inode) => inode,
 					Err(FilePathError::FileIO(FileIOError { source, .. }))
 						if source.raw_os_error() == Some(32) =>
 					{
@@ -108,8 +108,8 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					}
 				};
 
-				if let Some((_, old_path)) = self.files_to_remove.remove(&inode_and_device) {
-					// if previously we added a file to be removed with the same inode and device
+				if let Some((_, old_path)) = self.files_to_remove.remove(&inode) {
+					// if previously we added a file to be removed with the same inode
 					// of this "newly created" created file, it means that the file was just moved to another location
 					// so we can treat if just as a file rename, like in other OSes
 
@@ -171,11 +171,9 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
 				let path = paths.remove(0);
 
-				let inode_and_device =
-					extract_inode_and_device_from_path(self.location_id, &path, self.library)
-						.await?;
+				let inode = extract_inode_from_path(self.location_id, &path, self.library).await?;
 
-				if let Some((_, new_path)) = self.rename_to_map.remove(&inode_and_device) {
+				if let Some((_, new_path)) = self.rename_to_map.remove(&inode) {
 					// We found a new path for this old path, so we can rename it
 					rename(
 						self.location_id,
@@ -188,16 +186,15 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					)
 					.await?;
 				} else {
-					self.rename_from_map
-						.insert(inode_and_device, (Instant::now(), path));
+					self.rename_from_map.insert(inode, (Instant::now(), path));
 				}
 			}
 			EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
 				let path = paths.remove(0);
 
-				let inode_and_device = get_inode_and_device_from_path(&path).await?;
+				let inode = get_inode_from_path(&path).await?;
 
-				if let Some((_, old_path)) = self.rename_from_map.remove(&inode_and_device) {
+				if let Some((_, old_path)) = self.rename_from_map.remove(&inode) {
 					// We found a old path for this new path, so we can rename it
 					rename(
 						self.location_id,
@@ -210,15 +207,13 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					)
 					.await?;
 				} else {
-					self.rename_to_map
-						.insert(inode_and_device, (Instant::now(), path));
+					self.rename_to_map.insert(inode, (Instant::now(), path));
 				}
 			}
 			EventKind::Remove(_) => {
 				let path = paths.remove(0);
 				self.files_to_remove.insert(
-					extract_inode_and_device_from_path(self.location_id, &path, self.library)
-						.await?,
+					extract_inode_from_path(self.location_id, &path, self.library).await?,
 					(Instant::now(), path),
 				);
 			}
@@ -335,7 +330,7 @@ impl WindowsEventHandler<'_> {
 		self.files_to_remove_buffer.clear();
 		let mut should_invalidate = false;
 
-		for (inode_and_device, (instant, path)) in self.files_to_remove.drain() {
+		for (inode, (instant, path)) in self.files_to_remove.drain() {
 			if instant.elapsed() > HUNDRED_MILLIS {
 				if let Some(parent) = path.parent() {
 					if parent != Path::new("") {
@@ -347,8 +342,7 @@ impl WindowsEventHandler<'_> {
 				should_invalidate = true;
 				trace!("Removed file_path due timeout: {}", path.display());
 			} else {
-				self.files_to_remove_buffer
-					.push((inode_and_device, (instant, path)));
+				self.files_to_remove_buffer.push((inode, (instant, path)));
 			}
 		}
 		if should_invalidate {

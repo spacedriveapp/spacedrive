@@ -1,10 +1,7 @@
 use crate::{
 	library::Library,
 	prisma::{file_path, location, PrismaClient},
-	util::{
-		db::{device_to_db, inode_to_db},
-		error::FileIOError,
-	},
+	util::{db::inode_to_db, error::FileIOError},
 };
 
 use sd_prisma::prisma_sync;
@@ -143,10 +140,6 @@ async fn execute_indexer_save_step(
 					inode::set(Some(inode_to_db(entry.metadata.inode))),
 				),
 				(
-					(device::NAME, json!(entry.metadata.device.to_le_bytes())),
-					device::set(Some(device_to_db(entry.metadata.device))),
-				),
-				(
 					(date_created::NAME, json!(entry.metadata.created_at)),
 					date_created::set(Some(entry.metadata.created_at.into())),
 				),
@@ -230,10 +223,6 @@ async fn execute_indexer_update_step(
 				(
 					(inode::NAME, json!(entry.metadata.inode.to_le_bytes())),
 					inode::set(Some(inode_to_db(entry.metadata.inode))),
-				),
-				(
-					(device::NAME, json!(entry.metadata.device.to_le_bytes())),
-					device::set(Some(device_to_db(entry.metadata.device))),
 				),
 				(
 					(date_created::NAME, json!(entry.metadata.created_at)),
