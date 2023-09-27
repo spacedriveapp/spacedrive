@@ -41,7 +41,7 @@ runs:
       working-directory: core
       if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       shell: bash
-      run: cargo prisma
+      run: cargo prisma generate
 
     - name: Save Prisma codegen
       id: cache-prisma-save
