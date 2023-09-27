@@ -1,5 +1,5 @@
 // import { RadioGroup } from '@headlessui/react';
-// import { Info } from 'phosphor-react';
+// import { Info } from '@phosphor-icons/react';
 // import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 // import { Button, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
 // import { PasswordInput, Switch, useZodForm, z } from '@sd/ui/src/forms';

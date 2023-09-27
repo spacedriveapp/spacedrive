@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import { useEffect, useMemo } from 'react';
+
 import { JobReport } from '../../core';
 import { useForceUpdate } from '../../hooks';
 

@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+
 import { valtioPersist } from '../lib';
 
 /**

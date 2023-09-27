@@ -1,7 +1,7 @@
+import { Check } from '@phosphor-icons/react';
 import * as Checkbox from '@radix-ui/react-checkbox';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Check } from 'phosphor-react';
 import { ComponentProps, forwardRef } from 'react';
 
 const styles = cva(

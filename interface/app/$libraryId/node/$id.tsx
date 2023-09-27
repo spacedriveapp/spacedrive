@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 import { ExplorerItem, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
+
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { createDefaultExplorerSettings } from '../Explorer/store';
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { TopBarPortal } from '../TopBar/Portal';
 

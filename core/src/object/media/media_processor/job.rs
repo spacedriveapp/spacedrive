@@ -37,6 +37,7 @@ const BATCH_SIZE: usize = 10;
 pub struct MediaProcessorJobInit {
 	pub location: location::Data,
 	pub sub_path: Option<PathBuf>,
+	pub regenerate_thumbnails: bool,
 }
 
 impl Hash for MediaProcessorJobInit {
@@ -181,6 +182,7 @@ impl StatefulJob for MediaProcessorJobInit {
 			self.location.id,
 			&data.location_path,
 			&data.thumbnails_base_dir,
+			self.regenerate_thumbnails,
 			&ctx.library,
 			|completed_count| {
 				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(

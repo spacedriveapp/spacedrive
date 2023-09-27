@@ -25,7 +25,8 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 				// ...args,
 				filter: {
 					search: deferredSearch
-				}
+				},
+				take: 100
 			}
 		],
 		{

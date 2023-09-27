@@ -1,7 +1,8 @@
-import { VariantProps, cva } from 'class-variance-authority';
+import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from '@phosphor-icons/react';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from 'phosphor-react';
-import { PropsWithChildren, createElement, forwardRef, isValidElement, useState } from 'react';
+import { createElement, forwardRef, isValidElement, useState } from 'react';
+
 import { Button } from './Button';
 
 export interface InputBaseProps extends VariantProps<typeof inputStyles> {
@@ -140,11 +141,11 @@ export function Label({ slug, children, className, ...props }: LabelProps) {
 	);
 }
 
-interface PasswordInputProps extends InputProps {
+interface Props extends InputProps {
 	buttonClassnames?: string;
 }
 
-export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>((props, ref) => {
+export const PasswordInput = forwardRef<HTMLInputElement, Props>((props, ref) => {
 	const [showPassword, setShowPassword] = useState(false);
 
 	const CurrentEyeIcon = showPassword ? EyeSlash : Eye;

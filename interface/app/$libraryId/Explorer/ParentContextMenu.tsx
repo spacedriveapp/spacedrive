@@ -1,10 +1,10 @@
-import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
+import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
+
 import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
@@ -51,10 +51,7 @@ export default (props: PropsWithChildren) => {
 										target_file_name_suffix: sameLocation ? ' copy' : null
 									});
 								} else if (sameLocation) {
-									showAlertDialog({
-										title: 'Error',
-										value: `File already exists in this location`
-									});
+									toast.error('File already exists in this location');
 								} else {
 									await cutFiles.mutateAsync({
 										source_location_id: sourceLocationId,
@@ -64,9 +61,9 @@ export default (props: PropsWithChildren) => {
 									});
 								}
 							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to ${type.toLowerCase()} file, due to an error: ${error}`
+								toast.error({
+									title: `Failed to ${type.toLowerCase()} file`,
+									body: `Error: ${error}.`
 								});
 							}
 						}}
@@ -118,9 +115,9 @@ export default (props: PropsWithChildren) => {
 										sub_path: currentPath ?? ''
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to re-index location, due to an error: ${error}`
+									toast.error({
+										title: `Failed to re-index location`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}
@@ -133,12 +130,13 @@ export default (props: PropsWithChildren) => {
 								try {
 									await generateThumbsForLocation.mutateAsync({
 										id: parent.location.id,
-										path: currentPath ?? '/'
+										path: currentPath ?? '/',
+										regenerate: true
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to generate thumbanails, due to an error: ${error}`
+									toast.error({
+										title: `Failed to generate thumbnails`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}
@@ -154,9 +152,9 @@ export default (props: PropsWithChildren) => {
 										path: currentPath ?? '/'
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to generate checksum, due to an error: ${error}`
+									toast.error({
+										title: `Failed to generate checksum`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}

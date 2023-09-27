@@ -7,6 +7,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "files.getEphemeralMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
@@ -27,7 +28,7 @@ export type Procedures = {
         { key: "notifications.get", input: never, result: Notification[] } | 
         { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<NonIndexedPath>, result: NonIndexedFileSystemEntries } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -105,7 +106,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "syncEmitMessages"
+export type BackendFeature = "syncEmitMessages" | "filesOverP2P"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -128,6 +129,8 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type CreateLibraryArgs = { name: LibraryName }
 
+export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
 export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
@@ -135,6 +138,10 @@ export type DiskType = "SSD" | "HDD" | "Removable"
 export type DoubleClickAction = "openFile" | "quickPreview"
 
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
+
+export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
+
+export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
 
 export type Error = { code: ErrorCode; message: string }
 
@@ -147,7 +154,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colSizes: { [key: string]: number } | null; order?: TOrder | null }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type FileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string; target_file_name_suffix: string | null }
 
@@ -157,17 +164,21 @@ export type FileDeleterJobInit = { location_id: number; file_path_ids: number[] 
 
 export type FileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
-export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
+export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
+
+export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
+
+export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { sizeInBytes: SortOrder } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
 
 export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; object?: ObjectFilterArgs | null }
 
-export type FilePathPagination = { cursor: { pub_id: number[] } } | { offset: number }
+export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type FilePathSearchArgs = { take?: number | null; order?: FilePathSearchOrdering | null; pagination?: FilePathPagination | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
-export type FilePathSearchOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectSearchOrdering }
+export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
-export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; device: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
+export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
 export type Flash = { mode: FlashMode; fired: boolean | null; returned: boolean | null; red_eye_reduction: boolean | null }
 
@@ -177,7 +188,7 @@ export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
-export type GenerateThumbsForLocationArgs = { id: number; path: string }
+export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
 
@@ -211,7 +222,7 @@ export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateO
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
-export type JobProgressEvent = { id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
 export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
 
@@ -237,7 +248,7 @@ export type LibraryPreferences = { location?: { [key: string]: LocationSettings 
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -246,7 +257,7 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
-export type LocationSettings = { explorer: ExplorerSettings<FilePathSearchOrdering> }
+export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 
 /**
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
@@ -256,15 +267,15 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathSearchOrderi
  * It is important to note that only the indexer rule ids in this vector will be used from now on.
  * Old rules that aren't in this vector will be purged.
  */
-export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[] }
+export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
-export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
 export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
-export type MediaLocation = { latitude: number; longitude: number; altitude: number | null; direction: number | null }
+export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
@@ -279,11 +290,7 @@ export type NodeState = ({ id: string; name: string; p2p_port: number | null; fe
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
-export type NonIndexedPath = { path: string; withHiddenFiles: boolean; order?: NonIndexedPathOrdering | null }
-
-export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[] }
-
-export type NonIndexedPathOrdering = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
+export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
 /**
  * Represents a single notification.
@@ -300,15 +307,15 @@ export type NotificationId = { type: "library"; id: [string, number] } | { type:
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
+export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
+
 export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
-export type ObjectPagination = { cursor: { pub_id: number[] } } | { offset: number }
+export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
 
-export type ObjectSearchArgs = { take?: number | null; order?: ObjectSearchOrdering | null; pagination?: ObjectPagination | null; filter?: ObjectFilterArgs }
-
-export type ObjectSearchOrdering = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
+export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -322,7 +329,9 @@ export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" 
 
 export type OptionalRange<T> = { from: T | null; to: T | null }
 
-export type Orientation = "Normal" | "MirroredHorizontal" | "CW90" | "MirroredVertical" | "MirroredHorizontalAnd270CW" | "MirroredHorizontalAnd90CW" | "CW180" | "CW270"
+export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
+
+export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVertical" | "MirroredHorizontal" | "MirroredHorizontalAnd90CW" | "MirroredHorizontalAnd270CW"
 
 /**
  * TODO: P2P event for the frontend
@@ -336,6 +345,8 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 export type PeerId = string
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+
+export type PlusCode = string
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 

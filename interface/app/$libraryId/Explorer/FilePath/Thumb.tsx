@@ -1,22 +1,23 @@
 import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
-	type CSSProperties,
-	type ImgHTMLAttributes,
-	type RefObject,
-	type VideoHTMLAttributes,
 	memo,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
-	useState
+	useState,
+	type CSSProperties,
+	type ImgHTMLAttributes,
+	type RefObject,
+	type VideoHTMLAttributes
 } from 'react';
-import { type ExplorerItem, getItemFilePath, useLibraryContext } from '@sd/client';
+import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
 import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
+import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
@@ -110,7 +111,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 				break;
 
 			case ThumbType.Thumbnail:
-				if (itemData.thumbnailKey) {
+				if (itemData.thumbnailKey.length > 0) {
 					setSrc(platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);
@@ -153,12 +154,12 @@ export const FileThumb = memo((props: ThumbProps) => {
 			{(() => {
 				if (!src) return;
 
-				const className = clsx(
-					childClassName,
+				const _childClassName =
 					typeof props.childClassName === 'function'
 						? props.childClassName(thumbType)
-						: props.childClassName
-				);
+						: props.childClassName;
+
+				const className = clsx(childClassName, _childClassName);
 
 				switch (thumbType) {
 					case ThumbType.Original: {
@@ -191,7 +192,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 												? 'overflow-hidden'
 												: 'overflow-auto',
 											className,
-											props.frame && [frameClassName, '!bg-none']
+											props.frame && [frameClassName, '!bg-none p-2']
 										)}
 										codeExtension={
 											((itemData.kind === 'Code' ||
@@ -262,7 +263,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 								decoding={props.size ? 'async' : 'sync'}
 								className={clsx(
 									props.cover
-										? 'min-h-full min-w-full object-cover object-center'
+										? [
+												'min-h-full min-w-full object-cover object-center',
+												_childClassName
+										  ]
 										: className,
 									props.frame && !(itemData.kind === 'Video' && props.blackBars)
 										? frameClassName
@@ -294,7 +298,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 								onLoad={onLoad}
 								onError={() => setLoaded(false)}
 								decoding={props.size ? 'async' : 'sync'}
-								className={childClassName}
+								className={className}
 								draggable={false}
 							/>
 						);

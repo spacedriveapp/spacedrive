@@ -5,8 +5,9 @@ import { Input } from '~/components/form/Input';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
-import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
+
 import { useOnboardingContext } from './context';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
 const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {
 	const form = useOnboardingContext().forms.useForm('NewLibrary');

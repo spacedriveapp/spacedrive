@@ -1,6 +1,6 @@
-import { AppLogo } from '@sd/assets/images';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
+import { AppLogo } from '@sd/assets/images';
 import { CheckCircle, Gear } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
@@ -8,6 +8,7 @@ import { JobManagerContextProvider, useLibraryQuery } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
+
 import { PulseAnimation } from '../animation/lottie';
 import { ModalRef } from '../layout/Modal';
 import { JobManagerModal } from '../modal/job/JobManagerModal';
@@ -56,8 +57,8 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					<Pressable onPress={() => navigation.navigate('Settings')}>
 						<Gear color="white" size={24} />
 					</Pressable>
+					{/* Job Manager */}
 					<JobManagerContextProvider>
-						{/* Job Manager */}
 						<Pressable onPress={() => modalRef.current?.present()}>
 							<JobIcon />
 						</Pressable>

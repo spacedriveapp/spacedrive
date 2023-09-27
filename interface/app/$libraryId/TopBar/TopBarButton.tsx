@@ -1,5 +1,5 @@
+import { Check } from '@phosphor-icons/react';
 import { cva } from 'class-variance-authority';
-import { Check } from 'phosphor-react';
 import { forwardRef } from 'react';
 import { Button } from '@sd/ui';
 

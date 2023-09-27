@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { sendEmail } from '~/server/aws';
 import { db, eq, waitlistTable } from '~/server/db';
+
 import { welcomeTemplate } from './welcomeEmail';
 
 export const runtime = 'edge';

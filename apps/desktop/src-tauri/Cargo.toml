@@ -9,7 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "window-all"] }
+tauri = { version = "=1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "window-all"] }
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
@@ -19,15 +19,15 @@ sd-core = { path = "../../../core", features = [
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.1"
 tracing = { workspace = true }
-serde = "1.0.163"
-percent-encoding = "2.2.0"
+serde = "1.0.188"
+percent-encoding = "2.3.0"
 http = "0.2.9"
 opener = { version = "0.6.1", features = ["reveal"] }
 specta = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
-uuid = { version = "1.3.3", features = ["serde"] }
+uuid = { version = "1.4.1", features = ["serde"] }
 futures = "0.3"
-axum = { version = "0.6.18", features = ["headers", "query"] }
+axum = { version = "0.6.20", features = ["headers", "query"] }
 rand = "0.8.5"
 
 prisma-client-rust = { workspace = true }
@@ -43,7 +43,7 @@ sd-desktop-macos = { path = "../crates/macos" }
 sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
-tauri-build = { version = "1.3.0", features = [] }
+tauri-build = { version = "1.4.0", features = [] }
 
 [features]
 default = ["custom-protocol"]

@@ -1,4 +1,4 @@
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import { FC, useMemo } from 'react';
 import { Pressable, PressableProps, View, ViewProps } from 'react-native';

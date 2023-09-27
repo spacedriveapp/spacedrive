@@ -9,19 +9,19 @@ use std::path::Path;
 pub enum Orientation {
 	#[default]
 	Normal,
-	MirroredHorizontal,
 	CW90,
-	MirroredVertical,
-	MirroredHorizontalAnd270CW,
-	MirroredHorizontalAnd90CW,
 	CW180,
 	CW270,
+	MirroredVertical,
+	MirroredHorizontal,
+	MirroredHorizontalAnd90CW,
+	MirroredHorizontalAnd270CW,
 }
 
 impl Orientation {
 	/// This is used for quickly sourcing [`Orientation`] data from a path, to be later used by one of the modification functions.
 	#[allow(clippy::future_not_send)]
-	pub fn source_orientation(path: impl AsRef<Path>) -> Option<Self> {
+	pub fn from_path(path: impl AsRef<Path>) -> Option<Self> {
 		let reader = ExifReader::from_path(path).ok()?;
 		reader.get_tag_int(Tag::Orientation).map(Into::into)
 	}

@@ -1,5 +1,6 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
 import { SortOrderSchema } from '~/app/route-schemas';
+
 import { useExplorerContext } from './Context';
 import {
 	createOrdering,
@@ -116,19 +117,31 @@ export default () => {
 				</div>
 			)}
 
-			{settings.layoutMode === 'grid' && (
+			<div className="flex flex-col gap-2">
+				{settings.layoutMode === 'grid' && (
+					<RadixCheckbox
+						checked={settings.showBytesInGridView}
+						label="Show Object size"
+						name="showBytesInGridView"
+						onCheckedChange={(value) => {
+							if (typeof value !== 'boolean') return;
+
+							explorer.settingsStore.showBytesInGridView = value;
+						}}
+					/>
+				)}
+
 				<RadixCheckbox
-					checked={settings.showBytesInGridView}
-					label="Show Object size"
-					name="showBytesInGridView"
+					checked={settings.showHiddenFiles}
+					label="Show Hidden Files"
+					name="showHiddenFiles"
 					onCheckedChange={(value) => {
 						if (typeof value !== 'boolean') return;
 
-						explorer.settingsStore.showBytesInGridView = value;
+						explorer.settingsStore.showHiddenFiles = value;
 					}}
-					className="mt-1"
 				/>
-			)}
+			</div>
 
 			{settings.layoutMode === 'media' && (
 				<RadixCheckbox
@@ -140,7 +153,6 @@ export default () => {
 
 						explorer.settingsStore.mediaAspectSquare = value;
 					}}
-					className="mt-1"
 				/>
 			)}
 			<div>

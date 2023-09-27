@@ -1,22 +1,21 @@
-import clsx from 'clsx';
-import { CaretDown } from 'phosphor-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Controller, get } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 import {
-	UnionToTuple,
 	extractInfoRSPCError,
+	UnionToTuple,
 	useLibraryMutation,
 	useLibraryQuery,
 	usePlausibleEvent,
 	useZodForm
 } from '@sd/client';
-import { Dialog, ErrorMessage, InputField, UseDialogProps, useDialog, z } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { Dialog, ErrorMessage, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
-import { Platform, usePlatform } from '~/util/Platform';
+import { usePlatform } from '~/util/Platform';
+
 import IndexerRuleEditor from './IndexerRuleEditor';
+import { LocationPathInputField } from './PathInput';
 
 const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 const REMOTE_ERROR_FORM_MESSAGE = {
@@ -39,18 +38,6 @@ const schema = z.object({
 });
 
 type SchemaType = z.infer<typeof schema>;
-
-export const openDirectoryPickerDialog = async (platform: Platform): Promise<null | string> => {
-	if (!platform.openDirectoryPickerDialog) return null;
-
-	const path = await platform.openDirectoryPickerDialog();
-	if (!path) return '';
-	if (typeof path !== 'string')
-		// TODO: Should adding multiple locations simultaneously be implemented?
-		throw new Error('Adding multiple locations simultaneously is not supported');
-
-	return path;
-};
 
 export interface AddLocationDialog extends UseDialogProps {
 	path: string;
@@ -76,7 +63,10 @@ export const AddLocationDialog = ({
 		[listIndexerRules.data]
 	);
 
-	const form = useZodForm({ schema, defaultValues: { path, method, indexerRulesIds } });
+	const form = useZodForm({
+		schema,
+		defaultValues: { path, method, indexerRulesIds }
+	});
 
 	useEffect(() => {
 		// Update form values when default value changes and the user hasn't made any changes
@@ -127,7 +117,7 @@ export const AddLocationDialog = ({
 					throw new Error('Unimplemented custom remote error handling');
 			}
 		},
-		[createLocation, relinkLocation, addLocationToLibrary, addLocationToLibrary]
+		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);
 
 	const handleAddError = useCallback(
@@ -192,10 +182,7 @@ export const AddLocationDialog = ({
 				throw error;
 			}
 
-			showAlertDialog({
-				title: 'Error',
-				value: String(error) || 'Failed to add location'
-			});
+			toast.error({ title: 'Failed to add location', body: `Error: ${error}.` });
 
 			return;
 		}
@@ -210,6 +197,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			onSubmit={onSubmit}
 			ctaLabel="Add"
+			errorMessageException="Location is already linked"
 			description={
 				platform.platform === 'web'
 					? 'As you are using the browser version of Spacedrive you will (for now) ' +
@@ -217,20 +205,9 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
 
-			<InputField
-				size="md"
-				label="Path:"
-				onClick={() =>
-					openDirectoryPickerDialog(platform)
-						.then((path) => path && form.setValue('path', path))
-						.catch((error) => showAlertDialog({ title: 'Error', value: String(error) }))
-				}
-				readOnly={platform.platform !== 'web'}
-				className={clsx('mb-3', platform.platform === 'web' || 'cursor-pointer')}
-				{...form.register('path')}
-			/>
+			<LocationPathInputField {...form.register('path')} />
 
 			<input type="hidden" {...form.register('method')} />
 

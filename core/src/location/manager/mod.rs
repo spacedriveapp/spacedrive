@@ -101,9 +101,9 @@ pub enum LocationManagerError {
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
 	UpdateNonExistingFile(PathBuf),
 	#[error("Database error: {0}")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error("File path related error (error: {0})")]
-	FilePathError(#[from] FilePathError),
+	FilePath(#[from] FilePathError),
 	#[error("Corrupted location pub_id on database: (error: {0})")]
 	CorruptedLocationPubId(#[from] uuid::Error),
 	#[error("Job Manager error: (error: {0})")]
@@ -527,7 +527,7 @@ impl Locations {
 						to_remove.remove(&key);
 					} else if let Some(location) = get_location(location_id, &library).await {
 						// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-						if location.instance_id == Some(library.config.instance_id) {
+						if location.instance_id == Some(library.config().instance_id) {
 							let is_online = match check_online(&location, &node, &library).await {
 								Ok(is_online) => is_online,
 								Err(e) => {

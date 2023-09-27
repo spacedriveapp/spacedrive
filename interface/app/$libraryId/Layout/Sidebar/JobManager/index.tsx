@@ -1,10 +1,11 @@
+import { Check, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Trash, X } from 'phosphor-react';
+import { useState } from 'react';
 import { useJobProgress, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, PopoverClose, Tooltip, toast } from '@sd/ui';
+import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
+
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
-import { useState } from 'react';
 
 export function JobManager() {
 	const queryClient = useQueryClient();
@@ -18,58 +19,67 @@ export function JobManager() {
 		onError: () => {
 			toast.error({
 				title: 'Error',
-				description: 'Failed to clear all jobs.'
+				body: 'Failed to clear all jobs.'
 			});
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries(['jobs.reports ']);
-			setToggleConfirmation(t => !t)
+			setToggleConfirmation((t) => !t);
 			toast.success({
 				title: 'Success',
-				description: 'All jobs have been cleared.'
+				body: 'All jobs have been cleared.'
 			});
 		}
 	});
 
 	const clearAllJobsHandler = () => {
-		clearAllJobs.mutate(null)
+		clearAllJobs.mutate(null);
 	};
 
 	return (
-		<div className="h-full pb-10 overflow-hidden">
-				<div className="z-20 flex items-center w-full px-2 border-b h-9 rounded-t-md border-app-line/50 bg-app-button/30">
-					<span className=" ml-1.5 font-medium">Recent Jobs</span>
-					<div className="grow" />
-					{toggleConfirmation ? <div className="w-fit h-[85%] bg-app/40 rounded-md flex gap-2 items-center justify-center px-2 border border-app-line">
-						<p className='text-[10px]'>Are you sure?</p>
+		<div className="h-full overflow-hidden pb-10">
+			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
+				<span className=" ml-1.5 font-medium">Recent Jobs</span>
+				<div className="grow" />
+				{toggleConfirmation ? (
+					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
+						<p className="text-[10px]">Are you sure?</p>
 						<PopoverClose asChild>
-						<Check onClick={clearAllJobsHandler} className='w-3 h-3 transition-opacity duration-300 hover:opacity-70' color='white'/>
+							<Check
+								onClick={clearAllJobsHandler}
+								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
+								color="white"
+							/>
 						</PopoverClose>
-						<X className="w-3 h-3 transition-opacity hover:opacity-70" onClick={() => setToggleConfirmation(t => !t)} />
-					</div> :
+						<X
+							className="h-3 w-3 transition-opacity hover:opacity-70"
+							onClick={() => setToggleConfirmation((t) => !t)}
+						/>
+					</div>
+				) : (
 					<Button
 						className="opacity-70"
-						onClick={() => setToggleConfirmation(t => !t)}
+						onClick={() => setToggleConfirmation((t) => !t)}
 						size="icon"
 					>
 						<Tooltip label="Clear out finished jobs">
-							<Trash className="w-4 h-4" />
+							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
-					}
-					<PopoverClose asChild>
+				)}
+				<PopoverClose asChild>
 					<Button className="opacity-70" size="icon">
 						<Tooltip label="Close">
-							<X className="w-4 h-4" />
+							<X className="h-4 w-4" />
 						</Tooltip>
 					</Button>
-					</PopoverClose>
-				</div>
-			<div className="h-full overflow-x-hidden custom-scroll job-manager-scroll">
+				</PopoverClose>
+			</div>
+			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className="h-full border-r border-app-line/50">
 					{jobGroups.data &&
 						(jobGroups.data.length === 0 ? (
-							<div className="flex items-center justify-center h-32 text-sidebar-inkDull">
+							<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
 								No jobs.
 							</div>
 						) : (

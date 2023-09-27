@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout

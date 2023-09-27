@@ -1,5 +1,7 @@
-import { Integrations, init } from '@sentry/browser';
+import { init, Integrations } from '@sentry/browser';
+
 import '@fontsource/inter/variable.css';
+
 import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -14,8 +16,9 @@ import {
 	useDebugState,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
-import ErrorFallback from './ErrorFallback';
+
 import { P2P } from './app/p2p';
+import ErrorFallback from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';

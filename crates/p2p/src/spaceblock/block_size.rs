@@ -1,9 +1,21 @@
+use std::io;
+
+use tokio::io::{AsyncRead, AsyncReadExt};
+
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockSize(u32); // Max block size is gonna be 3.9GB which is stupidly overkill
 
 impl BlockSize {
 	// TODO: Validating `BlockSize` are multiple of 2, i think. Idk why but BEP does it.
+
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> io::Result<Self> {
+		stream.read_u32_le().await.map(Self)
+	}
+
+	pub fn to_bytes(&self) -> [u8; 4] {
+		self.0.to_le_bytes()
+	}
 
 	pub fn from_size(size: u64) -> Self {
 		// TODO: Something like: https://docs.syncthing.net/specs/bep-v1.html#selection-of-block-size

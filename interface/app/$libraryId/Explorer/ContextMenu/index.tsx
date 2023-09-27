@@ -1,19 +1,21 @@
-import { Plus } from 'phosphor-react';
-import { type ReactNode, useMemo } from 'react';
+import { Plus } from '@phosphor-icons/react';
+import { useMemo, type PropsWithChildren } from 'react';
+import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { isNonEmpty } from '~/util';
+
 import { useExplorerContext } from '../Context';
 import { Conditional, type ConditionalGroupProps } from './ConditionalItem';
+import { ContextMenuContextProvider } from './context';
 import * as FilePathItems from './FilePath/Items';
 import * as ObjectItems from './Object/Items';
 import * as SharedItems from './SharedItems';
-import { ContextMenuContextProvider } from './context';
 
 export * as FilePathItems from './FilePath/Items';
 export * as ObjectItems from './Object/Items';
 export * as SharedItems from './SharedItems';
 
-const Items = ({ children }: { children?: () => ReactNode }) => (
+const Items = ({ children }: PropsWithChildren) => (
 	<>
 		<Conditional items={[FilePathItems.OpenOrDownload]} />
 		<SharedItems.OpenQuickView />
@@ -28,7 +30,8 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 				SharedItems.Deselect
 			]}
 		/>
-		{children?.()}
+
+		{children}
 
 		<ContextMenu.Separator />
 		<SharedItems.Share />
@@ -56,15 +59,19 @@ const Items = ({ children }: { children?: () => ReactNode }) => (
 	</>
 );
 
-export default ({ children }: { children?: () => ReactNode }) => {
+export default (props: PropsWithChildren<{ items?: ExplorerItem[]; custom?: boolean }>) => {
 	const explorer = useExplorerContext();
 
-	const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
+	const selectedItems = useMemo(
+		() => props.items || [...explorer.selectedItems],
+		[explorer.selectedItems, props.items]
+	);
+
 	if (!isNonEmpty(selectedItems)) return null;
 
 	return (
 		<ContextMenuContextProvider selectedItems={selectedItems}>
-			<Items>{children}</Items>
+			{props.custom ? <>{props.children}</> : <Items>{props.children}</Items>}
 		</ContextMenuContextProvider>
 	);
 };
@@ -72,7 +79,7 @@ export default ({ children }: { children?: () => ReactNode }) => {
 /**
  * A `Conditional` that inserts a `<ContextMenu.Separator />` above its items.
  */
-const SeparatedConditional = ({ items, children }: ConditionalGroupProps) => (
+export const SeparatedConditional = ({ items, children }: ConditionalGroupProps) => (
 	<Conditional items={items}>
 		{(c) => (
 			<>

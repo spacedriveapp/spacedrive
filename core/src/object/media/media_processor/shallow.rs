@@ -124,6 +124,7 @@ pub async fn shallow(
 			location.id,
 			&location_path,
 			&thumbnails_base_dir,
+			false,
 			library,
 			|_| {},
 		)
@@ -135,7 +136,7 @@ pub async fn shallow(
 		}
 	}
 
-	debug!("Media shallow processor run metadata: {run_metadata:#?}");
+	debug!("Media shallow processor run metadata: {run_metadata:?}");
 
 	if run_metadata.media_data.extracted > 0 || run_metadata.thumbnailer.created > 0 {
 		invalidate_query!(library, "search.paths");

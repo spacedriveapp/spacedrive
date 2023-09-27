@@ -184,7 +184,7 @@ fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, Backup
 		id,
 		timestamp,
 		library_id: library.id,
-		library_name: library.config.name.to_string(),
+		library_name: library.config().name.to_string(),
 	}
 	.write(&mut bkp_file)?;
 

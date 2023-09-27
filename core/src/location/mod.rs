@@ -16,7 +16,7 @@ use crate::{
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	util::error::FileIOError,
+	util::{db::maybe_missing, error::FileIOError},
 	Node,
 };
 
@@ -94,19 +94,33 @@ impl LocationCreateArgs {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
-		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
-			return if let Some(old_path) = metadata.location_path(library.id) {
-				if old_path == self.path {
-					Err(LocationError::LocationAlreadyExists(self.path))
+		if let Some(mut metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
+			metadata
+				.clean_stale_libraries(
+					&node
+						.libraries
+						.get_all()
+						.await
+						.into_iter()
+						.map(|library| library.id)
+						.collect(),
+				)
+				.await?;
+
+			if !metadata.is_empty() {
+				return if let Some(old_path) = metadata.location_path(library.id) {
+					if old_path == self.path {
+						Err(LocationError::LocationAlreadyExists(self.path))
+					} else {
+						Err(LocationError::NeedRelink {
+							old_path: old_path.to_path_buf(),
+							new_path: self.path,
+						})
+					}
 				} else {
-					Err(LocationError::NeedRelink {
-						old_path: old_path.to_path_buf(),
-						new_path: self.path,
-					})
-				}
-			} else {
-				Err(LocationError::AddLibraryToMetadata(self.path))
-			};
+					Err(LocationError::AddLibraryToMetadata(self.path))
+				};
+			}
 		}
 
 		debug!(
@@ -167,6 +181,18 @@ impl LocationCreateArgs {
 		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
 			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
+
+		metadata
+			.clean_stale_libraries(
+				&node
+					.libraries
+					.get_all()
+					.await
+					.into_iter()
+					.map(|library| library.id)
+					.collect(),
+			)
+			.await?;
 
 		if metadata.has_library(library.id) {
 			return Err(LocationError::NeedRelink {
@@ -230,16 +256,17 @@ impl LocationCreateArgs {
 /// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
-	pub id: location::id::Type,
-	pub name: Option<String>,
-	pub generate_preview_media: Option<bool>,
-	pub sync_preview_media: Option<bool>,
-	pub hidden: Option<bool>,
-	pub indexer_rules_ids: Vec<i32>,
+	id: location::id::Type,
+	name: Option<String>,
+	generate_preview_media: Option<bool>,
+	sync_preview_media: Option<bool>,
+	hidden: Option<bool>,
+	indexer_rules_ids: Vec<i32>,
+	path: Option<String>,
 }
 
 impl LocationUpdateArgs {
-	pub async fn update(self, library: &Arc<Library>) -> Result<(), LocationError> {
+	pub async fn update(self, node: &Node, library: &Arc<Library>) -> Result<(), LocationError> {
 		let Library { sync, db, .. } = &**library;
 
 		let location = find_location(library, self.id)
@@ -248,9 +275,10 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
+		let name = self.name.clone();
+
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			self.name
-				.clone()
 				.filter(|name| location.name.as_ref() != Some(name))
 				.map(|v| {
 					(
@@ -274,6 +302,12 @@ impl LocationUpdateArgs {
 				(
 					(location::hidden::NAME, json!(v)),
 					location::hidden::set(Some(v)),
+				)
+			}),
+			self.path.clone().map(|v| {
+				(
+					(location::path::NAME, json!(v)),
+					location::path::set(Some(v)),
 				)
 			}),
 		]
@@ -304,16 +338,21 @@ impl LocationUpdateArgs {
 			.await?;
 
 			// TODO(N): This will probs fall apart with removable media.
-			if location.instance_id == Some(library.config.instance_id) {
+			if location.instance_id == Some(library.config().instance_id) {
 				if let Some(path) = &location.path {
 					if let Some(mut metadata) =
 						SpacedriveLocationMetadataFile::try_load(path).await?
 					{
 						metadata
-							.update(library.id, self.name.expect("TODO"))
+							.update(library.id, maybe_missing(name, "location.name")?)
 							.await?;
 					}
 				}
+			}
+
+			if self.path.is_some() {
+				node.locations.remove(self.id, library.clone()).await?;
+				node.locations.add(self.id, library.clone()).await?;
 			}
 		}
 
@@ -392,7 +431,7 @@ pub async fn scan_location(
 	location: location_with_indexer_rules::Data,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -412,6 +451,7 @@ pub async fn scan_location(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: None,
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -427,7 +467,7 @@ pub async fn scan_location_sub_path(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -450,6 +490,7 @@ pub async fn scan_location_sub_path(
 	.queue_next(MediaProcessorJobInit {
 		location: location_base_data,
 		sub_path: Some(sub_path),
+		regenerate_thumbnails: false,
 	})
 	.spawn(node, library)
 	.await
@@ -465,7 +506,7 @@ pub async fn light_scan_location(
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id != Some(library.config.instance_id) {
+	if location.instance_id != Some(library.config().instance_id) {
 		return Ok(());
 	}
 
@@ -636,7 +677,7 @@ async fn create_location(
 							location::name::set(Some(name.clone())),
 							location::path::set(Some(path)),
 							location::date_created::set(Some(date_created.into())),
-							location::instance_id::set(Some(library.config.instance_id)),
+							location::instance_id::set(Some(library.config().instance_id)),
 							// location::instance::connect(instance::id::equals(
 							// 	library.config.instance_id.as_bytes().to_vec(),
 							// )),
@@ -696,9 +737,21 @@ pub async fn delete_location(
 	// TODO: This should really be queued to the proper node so it will always run
 	// TODO: Deal with whether a location is online or not
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id == Some(library.config.instance_id) {
+	if location.instance_id == Some(library.config().instance_id) {
 		if let Some(path) = &location.path {
 			if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(path).await {
+				metadata
+					.clean_stale_libraries(
+						&node
+							.libraries
+							.get_all()
+							.await
+							.into_iter()
+							.map(|library| library.id)
+							.collect(),
+					)
+					.await?;
+
 				metadata.remove_library(library.id).await?;
 			}
 		}
@@ -754,6 +807,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
 			is_archived: data.is_archived,
+			size_in_bytes: data.size_in_bytes,
 			generate_preview_media: data.generate_preview_media,
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
@@ -775,6 +829,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
+			size_in_bytes: data.size_in_bytes.clone(),
 			is_archived: data.is_archived,
 			generate_preview_media: data.generate_preview_media,
 			sync_preview_media: data.sync_preview_media,
@@ -860,7 +915,7 @@ pub(super) async fn generate_thumbnail(
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else {
-		debug!(
+		trace!(
 			"Skipping thumbnail generation for {} because it already exists",
 			path.display()
 		);
@@ -895,4 +950,52 @@ pub(super) async fn generate_thumbnail(
 	node.emit(CoreEvent::NewThumbnail {
 		thumb_key: get_thumb_key(cas_id),
 	});
+}
+
+pub async fn update_location_size(
+	location_id: location::id::Type,
+	library: &Library,
+) -> Result<(), QueryError> {
+	let Library { db, .. } = library;
+
+	let total_size = db
+		.file_path()
+		.find_many(vec![
+			file_path::location_id::equals(Some(location_id)),
+			file_path::materialized_path::equals(Some("/".to_string())),
+		])
+		.select(file_path::select!({ size_in_bytes_bytes }))
+		.exec()
+		.await?
+		.into_iter()
+		.filter_map(|file_path| {
+			file_path.size_in_bytes_bytes.map(|size_in_bytes_bytes| {
+				u64::from_be_bytes([
+					size_in_bytes_bytes[0],
+					size_in_bytes_bytes[1],
+					size_in_bytes_bytes[2],
+					size_in_bytes_bytes[3],
+					size_in_bytes_bytes[4],
+					size_in_bytes_bytes[5],
+					size_in_bytes_bytes[6],
+					size_in_bytes_bytes[7],
+				])
+			})
+		})
+		.sum::<u64>();
+
+	db.location()
+		.update(
+			location::id::equals(location_id),
+			vec![location::size_in_bytes::set(Some(
+				total_size.to_be_bytes().to_vec(),
+			))],
+		)
+		.exec()
+		.await?;
+
+	invalidate_query!(library, "locations.list");
+	invalidate_query!(library, "locations.get");
+
+	Ok(())
 }

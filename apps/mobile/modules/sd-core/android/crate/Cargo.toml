@@ -1,0 +1,20 @@
+[package]
+name = "sd-mobile-android"
+version = "0.1.0"
+rust-version = "1.64.0"
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+# Android can use dynamic linking since all FFI is done via JNI
+crate-type = ["cdylib"]
+
+[dependencies]
+sd-mobile-core = { path = "../../core" }
+
+# FFI
+jni = "0.21.1"
+
+# Other
+tracing = { workspace = true }

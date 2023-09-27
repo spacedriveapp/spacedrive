@@ -1,5 +1,6 @@
 import { Doc, DocumentTypes } from '@contentlayer/generated';
-import { Circle, Cube, Icon, Sparkle, Star } from 'phosphor-react';
+import { Circle, Cube, Icon, Sparkle, Star } from '@phosphor-icons/react';
+
 import { toTitleCase } from './util';
 
 type DocsCategory = {
@@ -19,23 +20,29 @@ export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 
 	const docsNavigation: DocsNavigation = [];
 
-	const docsBySection = coreDocs.reduce((acc, doc) => {
-		const section = doc.section;
-		acc[section] = acc[section] || [];
-		acc[section].push(doc);
-		return acc;
-	}, {} as Record<string, CoreContent<Doc>[]>);
+	const docsBySection = coreDocs.reduce(
+		(acc, doc) => {
+			const section = doc.section;
+			acc[section] = acc[section] || [];
+			acc[section].push(doc);
+			return acc;
+		},
+		{} as Record<string, CoreContent<Doc>[]>
+	);
 
 	// console.log('docsBySection', docsBySection);
 
 	for (const section in docsBySection) {
 		const docs = docsBySection[section];
-		const docsByCategory = docs.reduce((acc, doc) => {
-			const category = doc.category;
-			acc[category] = acc[category] || [];
-			acc[category].push(doc);
-			return acc;
-		}, {} as Record<string, CoreContent<Doc>[]>);
+		const docsByCategory = docs.reduce(
+			(acc, doc) => {
+				const category = doc.category;
+				acc[category] = acc[category] || [];
+				acc[category].push(doc);
+				return acc;
+			},
+			{} as Record<string, CoreContent<Doc>[]>
+		);
 
 		// console.log('docsByCategory', docsByCategory);
 

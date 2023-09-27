@@ -1,6 +1,7 @@
 import { useFeatureFlag, useP2PEvents, withFeatureFlag } from '@sd/client';
-import { SpacedropUI } from './Spacedrop';
+
 import { startPairing } from './pairing';
+import { SpacedropUI } from './Spacedrop';
 
 export const SpacedropUI2 = withFeatureFlag('spacedrop', SpacedropUI);
 

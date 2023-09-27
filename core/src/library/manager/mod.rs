@@ -233,23 +233,26 @@ impl Libraries {
 		description: MaybeUndefined<String>,
 	) -> Result<(), LibraryManagerError> {
 		// check library is valid
-		let libraries = self.libraries.write().await;
+		let libraries = self.libraries.read().await;
 		let library = libraries
 			.get(&id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		// update the library
-		let mut config = library.config.clone();
-		if let Some(name) = name {
-			config.name = name;
-		}
-		match description {
-			MaybeUndefined::Undefined => {}
-			MaybeUndefined::Null => config.description = None,
-			MaybeUndefined::Value(description) => config.description = Some(description),
-		}
+		{
+			let mut config = library.config_mut();
 
-		LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
+			// update the library
+			if let Some(name) = name {
+				config.name = name;
+			}
+			match description {
+				MaybeUndefined::Undefined => {}
+				MaybeUndefined::Null => config.description = None,
+				MaybeUndefined::Value(description) => config.description = Some(description),
+			}
+
+			LibraryConfig::save(&config, &self.libraries_dir.join(format!("{id}.sdlibrary")))?;
+		}
 
 		self.tx
 			.emit(LibraryManagerEvent::Edit(library.clone()))

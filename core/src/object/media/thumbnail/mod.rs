@@ -9,6 +9,7 @@ use crate::{
 };
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
+use sd_images::format_image;
 use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
@@ -16,17 +17,16 @@ use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
 	collections::HashMap,
-	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
 };
 
-use futures_concurrency::future::{Join, TryJoin};
+use futures::future::{join_all, try_join_all};
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, task::block_in_place};
+use tokio::{fs, io};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -36,8 +36,6 @@ mod shard;
 pub use directory::init_thumbnail_dir;
 pub use shard::get_shard_hex;
 
-const THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
-const THUMBNAIL_QUALITY: f32 = 30.0;
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 /// This does not check if a thumbnail exists, it just returns the path that it would exist at
@@ -86,6 +84,26 @@ pub enum ThumbnailerError {
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
+	#[error("failed to encode webp")]
+	Encoding,
+	#[error("error while converting the image: {0}")]
+	SdImages(#[from] sd_images::Error),
+}
+
+/// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
+/// to [`TARGET_QUALITY`].
+const TAGRET_PX: f32 = 262144_f32;
+
+/// This is the target quality that we render thumbnails at, it is a float between 0-100
+/// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
+const TARGET_QUALITY: f32 = 30_f32;
+
+/// This takes in a width and a height, and returns a scaled width and height
+/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
+/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
+fn calculate_factor(w: f32, h: f32) -> (u32, u32) {
+	let sf = (TAGRET_PX / (w * h)).sqrt();
+	((w * sf).round() as u32, (h * sf).round() as u32)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -101,62 +119,41 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-// TOOD(brxken128): validate avci and avcs
-#[cfg(all(feature = "heif", not(target_os = "linux")))]
-const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
-
 pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
-) -> Result<(), Box<dyn Error>> {
-	// Webp creation has blocking code
-	let webp = block_in_place(|| -> Result<Vec<u8>, Box<dyn Error>> {
-		#[cfg(all(feature = "heif", not(target_os = "linux")))]
-		let img = {
-			let ext = file_path
-				.as_ref()
-				.extension()
-				.unwrap_or_default()
-				.to_ascii_lowercase();
-			if HEIF_EXTENSIONS
-				.iter()
-				.any(|e| ext == std::ffi::OsStr::new(e))
-			{
-				sd_heif::heif_to_dynamic_image(file_path.as_ref())?
-			} else {
-				image::open(file_path.as_ref())?
-			}
-		};
+) -> Result<(), ThumbnailerError> {
+	let file_path = file_path.as_ref().to_path_buf();
 
-		#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-		let img = image::open(file_path.as_ref())?;
-
-		let orientation = Orientation::source_orientation(&file_path);
+	let webp = tokio::task::block_in_place(move || -> Result<_, ThumbnailerError> {
+		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
+		let (w_scale, h_scale) = calculate_factor(w as f32, h as f32);
+
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			// FIXME : Think of a better heuristic to get the thumbnail size
-			(w as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
-			(h as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
+			w_scale,
+			h_scale,
 			imageops::FilterType::Triangle,
 		));
 
-		// this corrects the rotation/flip of the image based on the available exif data
-		if let Some(x) = orientation {
-			img = x.correct_thumbnail(img);
+		// this corrects the rotation/flip of the image based on the *available* exif data
+		// not all images have exif data, so we don't error
+		if let Some(orientation) = Orientation::from_path(file_path) {
+			img = orientation.correct_thumbnail(img);
 		}
 
 		// Create the WebP encoder for the above image
-		let encoder = Encoder::from_image(&img)?;
-
-		// Encode the image at a specified quality 0-100
+		let Ok(encoder) = Encoder::from_image(&img) else {
+			return Err(ThumbnailerError::Encoding);
+		};
 
 		// Type WebPMemory is !Send, which makes the Future in this function !Send,
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
-		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
+		Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
 	})?;
 
 	let output_path = output_path.as_ref();
@@ -166,11 +163,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 			.await
 			.map_err(|e| FileIOError::from((shard_dir, e)))?;
 	} else {
-		return Err(io::Error::new(
-			io::ErrorKind::InvalidInput,
-			"Cannot determine parent shard directory for thumbnail",
-		)
-		.into());
+		return Err(ThumbnailerError::Encoding);
 	}
 
 	fs::write(output_path, &webp)
@@ -180,13 +173,13 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 }
 
 #[cfg(feature = "ffmpeg")]
-pub async fn generate_video_thumbnail<P: AsRef<Path>>(
+pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
 	file_path: P,
 	output_path: P,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
 	use sd_ffmpeg::to_thumbnail;
 
-	to_thumbnail(file_path, output_path, 256, THUMBNAIL_QUALITY).await?;
+	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY).await?;
 
 	Ok(())
 }
@@ -201,16 +194,10 @@ pub const fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) 
 pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
 	use ImageExtension::*;
 
-	#[cfg(all(feature = "heif", not(target_os = "linux")))]
-	let res = matches!(
+	matches!(
 		image_extension,
-		Jpg | Jpeg | Png | Webp | Gif | Heic | Heics | Heif | Heifs | Avif
-	);
-
-	#[cfg(not(all(feature = "heif", not(target_os = "linux"))))]
-	let res = matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif);
-
-	res
+		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif | Bmp | Ico
+	)
 }
 
 pub(super) async fn process(
@@ -218,6 +205,7 @@ pub(super) async fn process(
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	thumbnails_base_dir: impl AsRef<Path>,
+	regenerate: bool,
 	library: &Library,
 	ctx_update_fn: impl Fn(usize),
 ) -> Result<(ThumbnailerMetadata, JobRunErrors), ThumbnailerError> {
@@ -292,11 +280,7 @@ pub(super) async fn process(
 	}
 
 	// Resolving these futures first, as we want to fail early if we can't create the directories
-	to_create_dirs
-		.into_values()
-		.collect::<Vec<_>>()
-		.try_join()
-		.await?;
+	try_join_all(to_create_dirs.into_values()).await?;
 
 	// Running thumbs generation sequentially to don't overload the system, if we're wasting too much time on I/O we can
 	// try to run them in parallel
@@ -309,17 +293,34 @@ pub(super) async fn process(
 			output_path,
 			metadata_res,
 		},
-	) in entries.join().await.into_iter().enumerate()
+	) in join_all(entries).await.into_iter().enumerate()
 	{
 		ctx_update_fn(idx + 1);
 		match metadata_res {
 			Ok(_) => {
-				trace!(
-					"Thumb already exists, skipping generation for {}",
-					output_path.display()
-				);
-				run_metadata.skipped += 1;
-				continue;
+				if !regenerate {
+					trace!(
+						"Thumbnail already exists, skipping generation for {}",
+						input_path.display()
+					);
+					run_metadata.skipped += 1;
+				} else {
+					tracing::debug!(
+						"Renegerating thumbnail {} to {}",
+						input_path.display(),
+						output_path.display()
+					);
+					process_single_thumbnail(
+						cas_id,
+						kind,
+						&input_path,
+						&output_path,
+						&mut errors,
+						&mut run_metadata,
+						library,
+					)
+					.await;
+				}
 			}
 
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -329,41 +330,16 @@ pub(super) async fn process(
 					output_path.display()
 				);
 
-				match kind {
-					ThumbnailerEntryKind::Image => {
-						if let Err(e) = generate_image_thumbnail(&input_path, &output_path).await {
-							error!(
-								"Error generating thumb for image \"{}\": {e:#?}",
-								input_path.display()
-							);
-							errors.push(format!(
-								"Had an error generating thumbnail for \"{}\"",
-								input_path.display()
-							));
-							continue;
-						}
-					}
-					#[cfg(feature = "ffmpeg")]
-					ThumbnailerEntryKind::Video => {
-						if let Err(e) = generate_video_thumbnail(&input_path, &output_path).await {
-							error!(
-								"Error generating thumb for video \"{}\": {e:#?}",
-								input_path.display()
-							);
-							errors.push(format!(
-								"Had an error generating thumbnail for \"{}\"",
-								input_path.display()
-							));
-							continue;
-						}
-					}
-				}
-
-				trace!("Emitting new thumbnail event");
-				library.emit(CoreEvent::NewThumbnail {
-					thumb_key: get_thumb_key(cas_id),
-				});
-				run_metadata.created += 1;
+				process_single_thumbnail(
+					cas_id,
+					kind,
+					&input_path,
+					&output_path,
+					&mut errors,
+					&mut run_metadata,
+					library,
+				)
+				.await;
 			}
 			Err(e) => {
 				error!(
@@ -379,4 +355,54 @@ pub(super) async fn process(
 	}
 
 	Ok((run_metadata, errors.into()))
+}
+
+// Using &Path as this function if private only to this module, always being used with a &Path, so we
+// don't pay the compile price for generics
+async fn process_single_thumbnail(
+	cas_id: &str,
+	kind: ThumbnailerEntryKind,
+	input_path: &Path,
+	output_path: &Path,
+	errors: &mut Vec<String>,
+	run_metadata: &mut ThumbnailerMetadata,
+	library: &Library,
+) {
+	match kind {
+		ThumbnailerEntryKind::Image => {
+			if let Err(e) = generate_image_thumbnail(&input_path, &output_path).await {
+				error!(
+					"Error generating thumb for image \"{}\": {e:#?}",
+					input_path.display()
+				);
+				errors.push(format!(
+					"Had an error generating thumbnail for \"{}\"",
+					input_path.display()
+				));
+
+				return;
+			}
+		}
+		#[cfg(feature = "ffmpeg")]
+		ThumbnailerEntryKind::Video => {
+			if let Err(e) = generate_video_thumbnail(&input_path, &output_path).await {
+				error!(
+					"Error generating thumb for video \"{}\": {e:#?}",
+					input_path.display()
+				);
+				errors.push(format!(
+					"Had an error generating thumbnail for \"{}\"",
+					input_path.display()
+				));
+
+				return;
+			}
+		}
+	}
+
+	trace!("Emitting new thumbnail event");
+	library.emit(CoreEvent::NewThumbnail {
+		thumb_key: get_thumb_key(cas_id),
+	});
+	run_metadata.created += 1;
 }

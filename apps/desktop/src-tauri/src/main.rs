@@ -97,7 +97,7 @@ async fn main() -> tauri::Result<()> {
 				move || node.clone()
 			}))
 			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
-			.manage(node.clone()),
+			.manage(node),
 		Err(err) => {
 			error!("Error starting up the node: {err}");
 			app.plugin(sd_error_plugin(err))

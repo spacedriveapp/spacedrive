@@ -1,9 +1,9 @@
-import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import { Check } from '@phosphor-icons/react';
 import * as RS from '@radix-ui/react-select';
-import { VariantProps, cva } from 'class-variance-authority';
+import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Check } from 'phosphor-react';
-import { PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, PropsWithChildren } from 'react';
 
 export const selectStyles = cva(
 	[

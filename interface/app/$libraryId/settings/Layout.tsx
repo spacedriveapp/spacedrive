@@ -1,12 +1,11 @@
 import { PropsWithChildren, ReactNode, Suspense } from 'react';
 import { Outlet } from 'react-router';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+
 import DragRegion from '../../../components/DragRegion';
 import Sidebar from './Sidebar';
 
 export const Component = () => {
-	const os = useOperatingSystem();
-
 	return (
 		<div className="app-background flex w-full flex-row">
 			<Sidebar />

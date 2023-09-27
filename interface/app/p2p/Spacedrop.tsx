@@ -8,20 +8,22 @@ import {
 } from '@sd/client';
 import {
 	Dialog,
+	dialogManager,
 	Input,
 	ProgressBar,
 	SelectField,
 	SelectOption,
-	UseDialogProps,
-	dialogManager,
 	toast,
+	ToastId,
 	useDialog,
+	UseDialogProps,
 	z
 } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
+
 import { getSpacedropState, subscribeSpacedropState } from '../../hooks/useSpacedropState';
 
-function SpacedropProgress({ toastId, dropId }: { toastId: string | number; dropId: string }) {
+function SpacedropProgress({ toastId, dropId }: { toastId: ToastId; dropId: string }) {
 	const progress = useSpacedropProgress(dropId);
 
 	useEffect(() => {
@@ -41,7 +43,6 @@ export function SpacedropUI() {
 	const platform = usePlatform();
 	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
-	const [[spacedropToasts], _] = useState([new Map<string, null>()]);
 	const filePathInput = useRef<HTMLInputElement>(null);
 
 	useP2PEvents((data) => {
@@ -50,34 +51,29 @@ export function SpacedropUI() {
 				{
 					title: 'Incoming Spacedrop',
 					// TODO: Make this pretty
-					description: () => {
-						return (
-							<>
-								<p>
-									File '{data.file_name}' from '{data.peer_name}'
-								</p>
-								{/* TODO: This will be removed in the future for now it's just a hack */}
-								{platform.saveFilePickerDialog ? null : (
-									<Input
-										ref={filePathInput}
-										name="file_path"
-										size="sm"
-										placeholder="/Users/oscar/Desktop/demo.txt"
-										className="w-full"
-									/>
-								)}
-								{/* TODO: Button to expand the toast and show the entire PeerID for manual verification? */}
-							</>
-						);
-					}
+					body: (
+						<>
+							<p>
+								File '{data.file_name}' from '{data.peer_name}'
+							</p>
+							{/* TODO: This will be removed in the future for now it's just a hack */}
+							{platform.saveFilePickerDialog ? null : (
+								<Input
+									ref={filePathInput}
+									name="file_path"
+									size="sm"
+									placeholder="/Users/oscar/Desktop/demo.txt"
+									className="w-full"
+								/>
+							)}
+							{/* TODO: Button to expand the toast and show the entire PeerID for manual verification? */}
+						</>
+					)
 				},
 				{
 					duration: 30 * 1000,
-					onDismiss: () => {
-						acceptSpacedrop.mutate([data.id, null]);
-					},
-					onAutoClose: () => {
-						acceptSpacedrop.mutate([data.id, null]);
+					onClose: ({ event }) => {
+						event !== 'on-action' && acceptSpacedrop.mutate([data.id, null]);
 					},
 					action: {
 						label: 'Accept',
@@ -97,40 +93,29 @@ export function SpacedropUI() {
 							await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
 						}
 					},
+					cancel: 'Reject'
+				}
+			);
+		} else if (data.type === 'SpacedropProgress') {
+			toast.info(
+				(id) => ({
+					title: 'Spacedrop',
+					body: <SpacedropProgress toastId={id} dropId={data.id} />
+				}),
+				{
+					id: data.id,
+					duration: Infinity,
 					cancel: {
-						label: 'Reject',
+						label: 'Cancel',
 						onClick() {
-							acceptSpacedrop.mutate([data.id, null]);
+							cancelSpacedrop.mutate(data.id);
 						}
 					}
 				}
 			);
-		} else if (data.type === 'SpacedropProgress') {
-			if (!spacedropToasts.has(data.id)) {
-				toast.info(
-					{
-						title: 'Spacedrop',
-						description: (id) => <SpacedropProgress toastId={id} dropId={data.id} />
-					},
-					{
-						duration: Infinity,
-						cancel: {
-							label: 'Cancel',
-							onClick() {
-								cancelSpacedrop.mutate(data.id);
-							}
-						}
-					}
-				);
-				spacedropToasts.set(data.id, null);
-			}
 		} else if (data.type === 'SpacedropRejected') {
 			// TODO: Add more information to this like peer name, etc in future
-
-			// TODO: We need a `toast.warn` for this
-			toast.info({
-				title: 'Spacedrop Rejected'
-			});
+			toast.warning('Spacedrop Rejected');
 		}
 	});
 

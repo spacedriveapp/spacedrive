@@ -32,7 +32,6 @@ export interface UseGridListProps<IdT extends ItemId = number, DataT extends Ite
 	gap?: number | { x?: number; y?: number };
 	overscan?: number;
 	top?: number;
-	rowsBeforeLoadMore?: number;
 	onLoadMore?: () => void;
 	getItemId?: (index: number) => IdT | undefined;
 	getItemData?: (index: number) => DataT;
@@ -211,15 +210,10 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 		const lastRow = virtualRows[virtualRows.length - 1];
 		if (!lastRow) return;
 
-		const rowsBeforeLoadMore = grid.rowsBeforeLoadMore || 1;
+		const loadMoreFromRow = Math.ceil(grid.rowCount * 0.75);
 
-		const loadMoreOnIndex =
-			rowsBeforeLoadMore > grid.rowCount || lastRow.index > grid.rowCount - rowsBeforeLoadMore
-				? grid.rowCount - 1
-				: grid.rowCount - rowsBeforeLoadMore;
-
-		if (lastRow.index === loadMoreOnIndex || lastRow.index > grid.rowCount) grid.onLoadMore();
-	}, [virtualRows, grid.rowCount, grid.rowsBeforeLoadMore, grid.onLoadMore, grid]);
+		if (lastRow.index >= loadMoreFromRow - 1) grid.onLoadMore();
+	}, [virtualRows, grid.rowCount, grid.onLoadMore, grid]);
 
 	useMutationObserver(scrollRef, () => setListOffset(ref.current?.offsetTop ?? 0));
 

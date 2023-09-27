@@ -19,6 +19,7 @@ import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
+
 import FileInfoModal from './FileInfoModal';
 
 type ActionsContainerProps = PropsWithChildren<{

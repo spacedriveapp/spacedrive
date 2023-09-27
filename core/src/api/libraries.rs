@@ -39,7 +39,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						uuid: lib.id,
 						instance_id: lib.instance_uuid,
 						instance_public_key: lib.identity.to_remote_identity(),
-						config: lib.config.clone(),
+						config: lib.config(),
 					})
 					.collect::<Vec<_>>()
 			})
@@ -121,7 +121,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					uuid: library.id,
 					instance_id: library.instance_uuid,
 					instance_public_key: library.identity.to_remote_identity(),
-					config: library.config.clone(),
+					config: library.config(),
 				})
 			})
 		})

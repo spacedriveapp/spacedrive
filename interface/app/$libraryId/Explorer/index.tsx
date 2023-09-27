@@ -1,22 +1,21 @@
-import { FolderNotchOpen } from 'phosphor-react';
-import { type PropsWithChildren, type ReactNode, useEffect } from 'react';
+import { FolderNotchOpen } from '@phosphor-icons/react';
+import { useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import { useLibrarySubscription } from '@sd/client';
+
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
-import { Inspector } from './Inspector';
+import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
+import View, { EmptyNotice, ExplorerViewProps } from './View';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
 	contextMenu?: () => ReactNode;
 }
-
-const INSPECTOR_WIDTH = 260;
 
 /**
  * This component is used in a few routes and acts as the reference demonstration of how to combine
@@ -25,7 +24,6 @@ const INSPECTOR_WIDTH = 260;
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
-	const [{ path }] = useExplorerSearchParams();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -64,6 +62,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 									/>
 								)
 							}
+							listViewOptions={{ hideHeaderBorder: true }}
 						/>
 					</div>
 				</div>
@@ -72,7 +71,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			{explorerStore.showInspector && (
 				<Inspector
 					className="no-scrollbar absolute inset-y-0 right-1.5 pb-3 pl-3 pr-1.5"
-					style={{ paddingTop: TOP_BAR_HEIGHT + 12, width: INSPECTOR_WIDTH }}
+					style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
 				/>
 			)}
 		</>

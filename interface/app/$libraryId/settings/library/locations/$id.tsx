@@ -1,6 +1,6 @@
+import { Archive, ArrowsClockwise, Info, Trash } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Archive, ArrowsClockwise, Info, Trash } from 'phosphor-react';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import {
@@ -12,22 +12,24 @@ import {
 	Label,
 	RadioGroupField,
 	SwitchField,
+	toast,
 	Tooltip,
 	tw,
 	z
 } from '@sd/ui';
 import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { showAlertDialog } from '~/components';
 import { useZodRouteParams } from '~/hooks';
+
 import IndexerRuleEditor from './IndexerRuleEditor';
+import { LocationPathInputField } from './PathInput';
 
 const FlexCol = tw.label`flex flex-col flex-1`;
 const ToggleSection = tw.label`flex flex-row w-full`;
 
 const schema = z.object({
 	name: z.string().nullable(),
-	path: z.string().nullable(),
+	path: z.string().min(1).nullable(),
 	hidden: z.boolean().nullable(),
 	indexerRulesIds: z.array(z.number()),
 	locationType: z.string(),
@@ -51,23 +53,6 @@ const EditLocationForm = () => {
 
 	const locationData = useLibraryQuery(['locations.getWithRules', locationId], {
 		suspense: true
-		// onSettled: (data, error) => {
-		// 	if (isFirstLoad) {
-		// 		// @ts-expect-error // TODO: Fix the types
-		// 		if (!data && error == null) error = new Error('Failed to load location settings');
-
-		// 		// Return to previous page when no data is available at first load
-		// 		if (error) navigate(-1);
-		// 		else setIsFirstLoad(false);
-		// 	}
-
-		// 	if (error) {
-		// 		showAlertDialog({
-		// 			title: 'Error',
-		// 			value: 'Failed to load location settings'
-		// 		});
-		// 	}
-		// }
 	});
 
 	const form = useZodForm({
@@ -86,10 +71,7 @@ const EditLocationForm = () => {
 
 	const updateLocation = useLibraryMutation('locations.update', {
 		onError: () => {
-			showAlertDialog({
-				title: 'Error',
-				value: 'Failed to update location settings'
-			});
+			toast.error('Failed to update location settings');
 		},
 		onSuccess: () => {
 			form.reset(form.getValues());
@@ -97,18 +79,16 @@ const EditLocationForm = () => {
 		}
 	});
 
-	const { isDirty } = form.formState;
-
-	const onSubmit = form.handleSubmit(
-		({ name, hidden, indexerRulesIds, syncPreviewMedia, generatePreviewMedia }) =>
-			updateLocation.mutateAsync({
-				id: locationId,
-				name,
-				hidden,
-				indexer_rules_ids: indexerRulesIds,
-				sync_preview_media: syncPreviewMedia,
-				generate_preview_media: generatePreviewMedia
-			})
+	const onSubmit = form.handleSubmit((data) =>
+		updateLocation.mutateAsync({
+			id: locationId,
+			path: data.path,
+			name: data.name,
+			hidden: data.hidden,
+			indexer_rules_ids: data.indexerRulesIds,
+			sync_preview_media: data.syncPreviewMedia,
+			generate_preview_media: data.generatePreviewMedia
+		})
 	);
 
 	return (
@@ -117,15 +97,15 @@ const EditLocationForm = () => {
 				title="Edit Location"
 				topRight={
 					<div className="flex flex-row space-x-3">
-						{isDirty && (
+						{form.formState.isDirty && (
 							<Button onClick={() => form.reset()} variant="outline" size="sm">
 								Reset
 							</Button>
 						)}
 						<Button
 							type="submit"
-							disabled={!isDirty || form.formState.isSubmitting}
-							variant={isDirty ? 'accent' : 'outline'}
+							disabled={!form.formState.isDirty || form.formState.isSubmitting}
+							variant={form.formState.isDirty ? 'accent' : 'outline'}
 							size="sm"
 						>
 							Save Changes
@@ -142,12 +122,7 @@ const EditLocationForm = () => {
 						</InfoText>
 					</FlexCol>
 					<FlexCol>
-						<InputField
-							label="Local Path"
-							readOnly={true}
-							className="text-ink-dull"
-							{...form.register('path')}
-						/>
+						<LocationPathInputField label="Path" {...form.register('path')} />
 						<InfoText className="mt-2">
 							The path to this Location, this is where the files will be stored on
 							disk.

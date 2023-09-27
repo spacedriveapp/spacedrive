@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
+
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
 
@@ -125,6 +126,7 @@ export interface DialogProps<S extends FieldValues>
 	transformOrigin?: string;
 	buttonsSideContent?: ReactNode;
 	invertButtonFocus?: boolean; //this reverses the focus order of submit/cancel buttons
+	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 }
 
 export function Dialog<S extends FieldValues>({
@@ -174,14 +176,23 @@ export function Dialog<S extends FieldValues>({
 			</Button>
 		</RDialog.Close>
 	);
+	const disableCheck = props.errorMessageException
+		? !form.formState.isValid &&
+		  !form.formState.errors.root?.serverError?.message?.startsWith(
+				props.errorMessageException as string
+		  )
+		: !form.formState.isValid;
 
 	const submitButton = (
 		<Button
 			type="submit"
 			size="sm"
-			disabled={form.formState.isSubmitting || props.submitDisabled}
+			disabled={form.formState.isSubmitting || props.submitDisabled || disableCheck}
 			variant={props.ctaDanger ? 'colored' : 'accent'}
-			className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+			className={clsx(
+				props.ctaDanger &&
+					'border-red-500 bg-red-500 focus:ring-1 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-app-selected'
+			)}
 		>
 			{props.ctaLabel}
 		</Button>
@@ -210,9 +221,7 @@ export function Dialog<S extends FieldValues>({
 									e?.preventDefault();
 									await onSubmit?.(e);
 									dialog.onSubmit?.();
-									if (form.formState.isValid) {
-										setOpen(false);
-									}
+									setOpen(false);
 								}}
 								className="!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md border border-app-line bg-app-box text-ink shadow-app-shade"
 							>

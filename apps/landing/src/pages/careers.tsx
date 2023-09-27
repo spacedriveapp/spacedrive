@@ -1,4 +1,3 @@
-import Head from 'next/head';
 import {
 	Clock,
 	CurrencyDollar,
@@ -9,7 +8,8 @@ import {
 	Smiley,
 	Star,
 	TrendUp
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
+import Head from 'next/head';
 import { useRef } from 'react';
 import { Button } from '@sd/ui';
 import PageWrapper from '~/components/PageWrapper';

@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 };
 
@@ -190,6 +190,10 @@ impl SpacedriveLocationMetadataFile {
 			.map(|l| l.path.as_path())
 	}
 
+	pub(super) fn is_empty(&self) -> bool {
+		self.metadata.libraries.is_empty()
+	}
+
 	pub(super) async fn remove_library(
 		&mut self,
 		library_id: LibraryId,
@@ -207,6 +211,30 @@ impl SpacedriveLocationMetadataFile {
 			fs::remove_file(&self.path)
 				.await
 				.map_err(|e| LocationMetadataError::Delete(e, self.path.clone()))
+		}
+	}
+
+	pub(super) async fn clean_stale_libraries(
+		&mut self,
+		existing_libraries_ids: &HashSet<LibraryId>,
+	) -> Result<(), LocationMetadataError> {
+		let previous_libraries_count = self.metadata.libraries.len();
+		self.metadata
+			.libraries
+			.retain(|library_id, _| existing_libraries_ids.contains(library_id));
+
+		if self.metadata.libraries.len() != previous_libraries_count {
+			self.metadata.updated_at = Utc::now();
+
+			if !self.metadata.libraries.is_empty() {
+				self.write_metadata().await
+			} else {
+				fs::remove_file(&self.path)
+					.await
+					.map_err(|e| LocationMetadataError::Delete(e, self.path.clone()))
+			}
+		} else {
+			Ok(())
 		}
 	}
 

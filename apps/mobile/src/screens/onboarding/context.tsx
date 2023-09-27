@@ -63,10 +63,18 @@ const useFormState = () => {
 	});
 
 	const navigation = useNavigation<OnboardingStackScreenProps<any>['navigation']>();
-	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const createLibrary = useBridgeMutation('library.create');
+	const queryClient = useQueryClient();
+	const createLibrary = useBridgeMutation('library.create', {
+		onSuccess: (lib) => {
+			// We do this instead of invalidating the query because it triggers a full app re-render??
+			queryClient.setQueryData(['library.list'], (libraries: any) => [
+				...(libraries || []),
+				lib
+			]);
+		}
+	});
 
 	const submit = handleSubmit(
 		async (data) => {
@@ -83,11 +91,6 @@ const useFormState = () => {
 						name: data.NewLibrary.name
 					}),
 					new Promise((res) => setTimeout(res, 500))
-				]);
-
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries ?? []),
-					library
 				]);
 
 				if (telemetryStore.shareFullTelemetry) {

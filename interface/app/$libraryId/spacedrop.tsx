@@ -1,12 +1,13 @@
-import { Broadcast } from 'phosphor-react';
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { type NonIndexedPathOrdering, useDiscoveredPeers } from '@sd/client';
-import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
+import { Broadcast } from '@phosphor-icons/react';
+import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { useDiscoveredPeers } from '@sd/client';
+import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
+
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { createDefaultExplorerSettings, nonIndexedPathOrderingSchema } from './Explorer/store';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
 
@@ -19,7 +20,7 @@ const Spacedrop = memo((props: { args: PathParams }) => {
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<NonIndexedPathOrdering>({
+				createDefaultExplorerSettings({
 					order: {
 						field: 'name',
 						value: 'Asc'

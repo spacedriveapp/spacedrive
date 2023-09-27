@@ -36,7 +36,7 @@
 		"@cspell/dict-rust": "^2.0.1",
 		"@cspell/dict-typescript": "^2.0.2",
 		"@storybook/react-vite": "^7.0.20",
-		"@trivago/prettier-plugin-sort-imports": "^4.2.0",
+		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
 		"cspell": "^6.31.1",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.3",

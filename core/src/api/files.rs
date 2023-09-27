@@ -14,20 +14,29 @@ use crate::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
 			erase::FileEraserJobInit,
 		},
-		media::media_data_image_from_prisma_data,
+		media::{
+			media_data_extractor::{
+				can_extract_media_data_for_image, extract_media_data, MediaDataError,
+			},
+			media_data_image_from_prisma_data,
+		},
 	},
 	prisma::{file_path, location, object},
 	util::{db::maybe_missing, error::FileIOError},
 };
 
-use std::path::Path;
+use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
+use sd_media_metadata::MediaMetadata;
+
+use std::{
+	path::{Path, PathBuf},
+	str::FromStr,
+};
 
 use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_file_ext::kind::ObjectKind;
-use sd_media_metadata::MediaMetadata;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io};
@@ -77,6 +86,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
 						})
 				})
+		})
+		.procedure("getEphemeralMediaData", {
+			R.query(|_, full_path: PathBuf| async move {
+				let Some(extension) = full_path.extension().and_then(|ext| ext.to_str()) else {
+					return Ok(None);
+				};
+
+				// TODO(fogodev): change this when we have media data for audio and videos
+				let image_extension = ImageExtension::from_str(extension).map_err(|e| {
+					error!("Failed to parse image extension: {e:#?}");
+					rspc::Error::new(ErrorCode::BadRequest, "Invalid image extension".to_string())
+				})?;
+
+				if !can_extract_media_data_for_image(&image_extension) {
+					return Ok(None);
+				}
+
+				match extract_media_data(full_path).await {
+					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
+					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
+						_,
+					))) => Ok(None),
+					Err(e) => Err(rspc::Error::with_cause(
+						ErrorCode::InternalServerError,
+						"Failed to extract media data".to_string(),
+						e,
+					)),
+				}
+			})
 		})
 		.procedure("getPath", {
 			R.with2(library())

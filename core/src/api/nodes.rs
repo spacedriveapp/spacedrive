@@ -16,8 +16,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
 			}
-			// TODO: validate name isn't empty or too long
-
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = args.name {
 					if name.is_empty() || name.len() > 32 {
@@ -55,7 +53,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.instance()
 						.find_many(vec![node_id
 							.map(|id| instance::node_id::equals(id.as_bytes().to_vec()))
-							.unwrap_or(instance::id::equals(library.config.instance_id))])
+							.unwrap_or(instance::id::equals(library.config().instance_id))])
 						.exec()
 						.await?;
 

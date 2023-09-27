@@ -1,10 +1,11 @@
-import { Image, Package, Trash, TrashSimple } from 'phosphor-react';
+import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
-import { ContextMenu, ModifierKeys, dialogManager } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
@@ -29,7 +30,7 @@ export const Delete = new ConditionalItem({
 		const keybind = useKeybindFactory();
 
 		return (
-			<ContextMenu.Item
+			<Menu.Item
 				icon={Trash}
 				label="Delete"
 				variant="danger"
@@ -73,7 +74,7 @@ export const Compress = new ConditionalItem({
 		const keybind = useKeybindFactory();
 
 		return (
-			<ContextMenu.Item
+			<Menu.Item
 				label="Compress"
 				icon={Package}
 				keybind={keybind([ModifierKeys.Control], ['B'])}
@@ -157,7 +158,7 @@ export const SecureDelete = new ConditionalItem({
 		return { locationId, selectedFilePaths };
 	},
 	Component: ({ locationId, selectedFilePaths }) => (
-		<ContextMenu.Item
+		<Menu.Item
 			variant="danger"
 			label="Secure delete"
 			icon={TrashSimple}
@@ -195,9 +196,9 @@ export const ParentFolderActions = new ConditionalItem({
 								reidentify_objects: false
 							});
 						} catch (error) {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to rescan location, due to an error: ${error}`
+							toast.error({
+								title: `Failed to rescan location`,
+								body: `Error: ${error}.`
 							});
 						}
 					}}
@@ -209,12 +210,13 @@ export const ParentFolderActions = new ConditionalItem({
 						try {
 							await generateThumbnails.mutateAsync({
 								id: parent.location.id,
-								path: selectedFilePaths[0]?.materialized_path ?? '/'
+								path: selectedFilePaths[0]?.materialized_path ?? '/',
+								regenerate: true
 							});
 						} catch (error) {
-							showAlertDialog({
-								title: 'Error',
-								value: `Failed to generate thumbnails, due to an error: ${error}`
+							toast.error({
+								title: `Failed to generate thumbnails`,
+								body: `Error: ${error}.`
 							});
 						}
 					}}
@@ -242,11 +244,11 @@ export const OpenOrDownload = new ConditionalItem({
 
 		const { library } = useLibraryContext();
 
-		if (platform === 'web') return <ContextMenu.Item label="Download" />;
+		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
 			return (
 				<>
-					<ContextMenu.Item
+					<Menu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
 						onClick={async () => {
@@ -264,9 +266,9 @@ export const OpenOrDownload = new ConditionalItem({
 									selectedFilePaths.map((p) => p.id)
 								);
 							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to open file, due to an error: ${error}`
+								toast.error({
+									title: `Failed to open file`,
+									body: `Error: ${error}.`
 								});
 							}
 						}}

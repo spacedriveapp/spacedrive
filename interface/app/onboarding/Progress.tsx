@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useMatch, useNavigate } from 'react-router';
 import { getOnboardingStore, unlockOnboardingScreen, useOnboardingStore } from '@sd/client';
+
 import routes from '.';
 
 export default function OnboardingProgress() {

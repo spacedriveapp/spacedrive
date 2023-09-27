@@ -95,9 +95,9 @@ where
 	async fn inner_advertise(&self) {
 		let metadata = self.metadata_manager.get().to_hashmap();
 
-		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vec<Ip>, port)>`
-		let mut services = HashMap::<u16, ServiceInfo>::new();
-		for addr in self.state.listen_addrs.read().await.iter() {
+		let mut ports_to_service = HashMap::new();
+		let listen_addrs = self.state.listen_addrs.read().await;
+		for addr in listen_addrs.iter() {
 			let addr = match addr {
 				SocketAddr::V4(addr) => addr,
 				// TODO: Our mdns library doesn't support Ipv6. This code has the infra to support it so once this issue is fixed upstream we can just flip it on.
@@ -105,29 +105,28 @@ where
 				SocketAddr::V6(_) => continue,
 			};
 
-			if let Some(mut service) = services.remove(&addr.port()) {
-				service.insert_ipv4addr(*addr.ip());
-				services.insert(addr.port(), service);
-			} else {
-				let service = match ServiceInfo::new(
-					&self.service_name,
-					&self.peer_id.to_string(),
-					&format!("{}.", self.peer_id),
-					*addr.ip(),
-					addr.port(),
-					Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
-				) {
-					Ok(service) => service,
-					Err(err) => {
-						warn!("error creating mdns service info: {}", err);
-						continue;
-					}
-				};
-				services.insert(addr.port(), service);
-			}
+			ports_to_service
+				.entry(addr.port())
+				.or_insert_with(Vec::new)
+				.push(addr.ip());
 		}
 
-		for (_, service) in services.into_iter() {
+		for (port, ips) in ports_to_service.into_iter() {
+			let service = match ServiceInfo::new(
+				&self.service_name,
+				&self.peer_id.to_string(),
+				&format!("{}.", self.peer_id),
+				&*ips,
+				port,
+				Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
+			) {
+				Ok(service) => service,
+				Err(err) => {
+					warn!("error creating mdns service info: {}", err);
+					continue;
+				}
+			};
+
 			trace!("advertising mdns service: {:?}", service);
 			match self.mdns_daemon.register(service) {
 				Ok(_) => {}
@@ -163,7 +162,7 @@ where
 									&info
 										.get_properties()
 										.iter()
-										.map(|v| (v.key().to_owned(), v.val().to_owned()))
+										.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
 										.collect(),
 								) {
 									Ok(metadata) => {

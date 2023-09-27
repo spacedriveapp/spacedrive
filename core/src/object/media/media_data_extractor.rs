@@ -10,7 +10,7 @@ use sd_media_metadata::ImageMetadata;
 
 use std::{collections::HashSet, path::Path};
 
-use futures_concurrency::future::Join;
+use futures::future::join_all;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -88,7 +88,15 @@ pub async fn process(
 		)])
 		.select(media_data::select!({ object_id }))
 		.exec()
-		.await?
+		.await?;
+
+	if files_paths.len() == objects_already_with_media_data.len() {
+		// All files already have media data, skipping
+		run_metadata.skipped = files_paths.len() as u32;
+		return Ok((run_metadata, JobRunErrors::default()));
+	}
+
+	let objects_already_with_media_data = objects_already_with_media_data
 		.into_iter()
 		.map(|media_data| media_data.object_id)
 		.collect::<HashSet<_>>();
@@ -96,26 +104,26 @@ pub async fn process(
 	run_metadata.skipped = objects_already_with_media_data.len() as u32;
 
 	let (media_datas, errors) = {
-		let maybe_media_data = files_paths
-			.into_iter()
-			.filter_map(|file_path| {
-				file_path.object_id.and_then(|object_id| {
-					(!objects_already_with_media_data.contains(&object_id))
-						.then_some((file_path, object_id))
+		let maybe_media_data = join_all(
+			files_paths
+				.into_iter()
+				.filter_map(|file_path| {
+					file_path.object_id.and_then(|object_id| {
+						(!objects_already_with_media_data.contains(&object_id))
+							.then_some((file_path, object_id))
+					})
 				})
-			})
-			.filter_map(|(file_path, object_id)| {
-				IsolatedFilePathData::try_from((location_id, file_path))
-					.map_err(|e| error!("{e:#?}"))
-					.ok()
-					.map(|iso_file_path| (location_path.join(iso_file_path), object_id))
-			})
-			.map(
-				|(path, object_id)| async move { (extract_media_data(&path).await, path, object_id) },
-			)
-			.collect::<Vec<_>>()
-			.join()
-			.await;
+				.filter_map(|(file_path, object_id)| {
+					IsolatedFilePathData::try_from((location_id, file_path))
+						.map_err(|e| error!("{e:#?}"))
+						.ok()
+						.map(|iso_file_path| (location_path.join(iso_file_path), object_id))
+				})
+				.map(|(path, object_id)| async move {
+					(extract_media_data(&path).await, path, object_id)
+				}),
+		)
+		.await;
 
 		let total_media_data = maybe_media_data.len();
 
@@ -150,6 +158,7 @@ pub async fn process(
 				})
 				.collect(),
 		)
+		.skip_duplicates()
 		.exec()
 		.await?;
 

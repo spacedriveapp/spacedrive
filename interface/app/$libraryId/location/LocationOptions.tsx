@@ -1,8 +1,16 @@
+import {
+	Archive,
+	Check,
+	Copy,
+	FolderDotted,
+	Gear,
+	IconContext,
+	Image
+} from '@phosphor-icons/react';
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
-import { Archive, Check, Copy, FolderDotted, Gear, IconContext, Image } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { type Location, useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, type Location } from '@sd/client';
 import {
 	Button,
 	Input,
@@ -10,11 +18,12 @@ import {
 	PopoverContainer,
 	PopoverDivider,
 	PopoverSection,
+	toast,
 	TOAST_TIMEOUT,
 	Tooltip,
-	toast,
 	tw
 } from '@sd/ui';
+
 import TopBarButton from '../TopBar/TopBarButton';
 
 const OptionButton = tw(TopBarButton)`w-full gap-1 !px-1.5 !py-1`;
@@ -66,7 +75,7 @@ export default function LocationOptions({ location, path }: { location: Location
 
 												toast.info({
 													title: 'Path copied to clipboard',
-													description: `Path for location "${location.name}" copied to clipboard.`
+													body: `Path for location "${location.name}" copied to clipboard.`
 												});
 
 												setCopied(true);

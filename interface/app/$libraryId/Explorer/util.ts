@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { type ExplorerItem, getExplorerItemData } from '@sd/client';
+import { getExplorerItemData, type ExplorerItem } from '@sd/client';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
+
 import { flattenThumbnailKey, useExplorerStore } from './store';
 
 export function useExplorerSearchParams() {

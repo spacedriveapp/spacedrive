@@ -10,3 +10,4 @@ export * from './TextViewer';
 export * from './PasswordMeter';
 export * from './SubtleButton';
 export * from './TrafficLights';
+export * from './Loader';

@@ -1,20 +1,10 @@
-import {
-	ArchiveBox,
-	ArrowsClockwise,
-	Broadcast,
-	CopySimple,
-	Crosshair,
-	Eraser,
-	FilmStrip,
-	Planet
-} from 'phosphor-react';
+import { ArrowsClockwise, Broadcast, Planet } from '@phosphor-icons/react';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
-import { SubtleButton } from '~/components/SubtleButton';
+
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
 import SidebarLink from './Link';
-import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();

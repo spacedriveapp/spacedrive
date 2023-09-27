@@ -1,15 +1,15 @@
+import { Warning } from '@phosphor-icons/react';
 import { animated, useTransition } from '@react-spring/web';
-import { VariantProps, cva } from 'class-variance-authority';
-import { Warning } from 'phosphor-react';
+import { cva, VariantProps } from 'class-variance-authority';
 import { ComponentProps } from 'react';
 import {
 	FieldErrors,
 	FieldValues,
 	FormProvider,
-	UseFormHandleSubmit,
-	UseFormReturn,
 	get,
-	useFormContext
+	useFormContext,
+	UseFormHandleSubmit,
+	UseFormReturn
 } from 'react-hook-form';
 
 export interface FormProps<T extends FieldValues> extends Omit<ComponentProps<'form'>, 'onSubmit'> {

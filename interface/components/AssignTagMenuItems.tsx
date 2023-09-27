@@ -1,20 +1,15 @@
+import { Plus } from '@phosphor-icons/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
-import { Plus } from 'phosphor-react';
 import { useRef } from 'react';
 import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
-import {
-	ContextMenu,
-	DropdownMenu,
-	ModifierKeys,
-	dialogManager,
-	useContextMenu,
-	useDropdownMenu
-} from '@sd/ui';
+import { dialogManager, ModifierKeys } from '@sd/ui';
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
+
+import { Menu } from './Menu';
 
 export default (props: { objects: Object[] }) => {
 	const os = useOperatingSystem();
@@ -44,11 +39,6 @@ export default (props: { objects: Object[] }) => {
 
 	const { isScrolled } = useScrolled(parentRef, 10);
 
-	const isDropdownMenu = useDropdownMenu();
-	const isContextMenu = useContextMenu();
-	const Menu = isDropdownMenu ? DropdownMenu : isContextMenu ? ContextMenu : undefined;
-
-	if (!Menu) return null;
 	return (
 		<>
 			<Menu.Item

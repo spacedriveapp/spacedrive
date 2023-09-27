@@ -1,7 +1,7 @@
 use std::{
 	borrow::Cow,
 	collections::HashMap,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -10,10 +10,11 @@ use std::{
 };
 
 use sd_p2p::{
-	spaceblock::{BlockSize, SpaceblockRequest, Transfer},
+	spaceblock::{BlockSize, Range, SpaceblockRequest, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
 	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 };
+use sd_prisma::prisma::file_path;
 use serde::Serialize;
 use specta::Type;
 use tokio::{
@@ -26,6 +27,8 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
+	library::Library,
+	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
 	node::config::{self, NodeConfig},
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
@@ -146,7 +149,6 @@ impl P2PManager {
 			let spacedrop_cancelations = self.spacedrop_cancelations.clone();
 
 			let pairing = self.pairing.clone();
-			let node = node.clone();
 
 			async move {
 				let mut shutdown = false;
@@ -321,6 +323,76 @@ impl P2PManager {
 											}
 										};
 									}
+									Header::File {
+										library_id,
+										file_path_id,
+										range,
+									} => {
+										if !node.files_over_p2p_flag.load(Ordering::Relaxed) {
+											panic!("Files over P2P is disabled!");
+										}
+
+										// TODO: Tunnel and authentication
+										// TODO: Use BufReader
+
+										let library =
+											node.libraries.get_library(&library_id).await.unwrap();
+
+										let file_path = library
+											.db
+											.file_path()
+											.find_unique(file_path::pub_id::equals(
+												file_path_id.as_bytes().to_vec(),
+											))
+											.select(file_path_to_handle_p2p_serve_file::select())
+											.exec()
+											.await
+											.unwrap()
+											.unwrap();
+
+										let location = file_path.location.as_ref().unwrap();
+										let location_path = location.path.as_ref().unwrap();
+										let path = Path::new(location_path).join(
+											IsolatedFilePathData::try_from((
+												location.id,
+												&file_path,
+											))
+											.unwrap(),
+										);
+
+										debug!("Serving path '{:?}' over P2P", path);
+
+										let file = File::open(&path).await.unwrap();
+
+										let metadata = file.metadata().await.unwrap();
+										let block_size = BlockSize::from_size(metadata.len());
+
+										stream.write_all(&block_size.to_bytes()).await.unwrap();
+										stream
+											.write_all(&metadata.len().to_le_bytes())
+											.await
+											.unwrap();
+
+										let file = BufReader::new(file);
+										Transfer::new(
+											&SpaceblockRequest {
+												// TODO: Removing need for this field in this case
+												name: "todo".to_string(),
+												size: metadata.len(),
+												block_size,
+												range,
+											},
+											|percent| {
+												debug!(
+													"P2P loading file path '{}' - progress {}%",
+													file_path_id, percent
+												);
+											},
+											&Arc::new(AtomicBool::new(false)),
+										)
+										.send(&mut stream, file)
+										.await;
+									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
 											&node.nlm,
@@ -490,6 +562,7 @@ impl P2PManager {
 				.to_string(),
 			size: metadata.len(),
 			block_size: BlockSize::from_size(metadata.len()), // TODO: This should be dynamic
+			range: Range::Full,                               // range: None,
 		});
 		stream.write_all(&header.to_bytes()).await.map_err(|_| ())?;
 
@@ -535,6 +608,56 @@ impl P2PManager {
 		);
 
 		Ok(Some(id))
+	}
+
+	// DO NOT USE THIS WITHOUT `node.files_over_p2p_flag == true`
+	// TODO: Error handling
+	pub async fn request_file(
+		&self,
+		peer_id: PeerId,
+		library: &Library,
+		file_path_id: Uuid,
+		range: Range,
+		output: impl AsyncWrite + Unpin,
+	) {
+		let mut stream = self.manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
+
+		// TODO: Tunnel for encryption + authentication
+
+		stream
+			.write_all(
+				&Header::File {
+					library_id: library.id,
+					file_path_id,
+					range: range.clone(),
+				}
+				.to_bytes(),
+			)
+			.await
+			.unwrap();
+
+		let block_size = BlockSize::from_stream(&mut stream).await.unwrap();
+		let size = stream.read_u64_le().await.unwrap();
+
+		Transfer::new(
+			&SpaceblockRequest {
+				// TODO: Removing need for this field in this case
+				name: "todo".to_string(),
+				// TODO: Maybe removing need for `size` from this side
+				size,
+				block_size,
+				range,
+			},
+			|percent| {
+				debug!(
+					"P2P receiving file path '{}' - progress {}%",
+					file_path_id, percent
+				);
+			},
+			&Arc::new(AtomicBool::new(false)),
+		)
+		.receive(&mut stream, output)
+		.await;
 	}
 
 	pub async fn shutdown(&self) {

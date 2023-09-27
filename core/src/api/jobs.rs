@@ -133,8 +133,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										group.status = report.status;
 									}
 
-									// if group.status.is_finished() && !report.status.is_finished() {
-									// }
 									group.jobs.push_front(report.clone());
 								}
 							}
@@ -161,7 +159,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("isActive", {
 			R.with2(library())
-				.query(|(node, _), _: ()| async move { Ok(node.jobs.has_active_workers().await) })
+				.query(|(node, library), _: ()| async move {
+					Ok(node.jobs.has_active_workers(library.id).await)
+				})
 		})
 		.procedure("clear", {
 			R.with2(library())
@@ -227,17 +227,25 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct GenerateThumbsForLocationArgs {
 				pub id: location::id::Type,
 				pub path: PathBuf,
+				#[serde(default)]
+				pub regenerate: bool,
 			}
 
 			R.with2(library()).mutation(
-				|(node, library), args: GenerateThumbsForLocationArgs| async move {
-					let Some(location) = find_location(&library, args.id).exec().await? else {
-						return Err(LocationError::IdNotFound(args.id).into());
+				|(node, library),
+				 GenerateThumbsForLocationArgs {
+				     id,
+				     path,
+				     regenerate,
+				 }: GenerateThumbsForLocationArgs| async move {
+					let Some(location) = find_location(&library, id).exec().await? else {
+						return Err(LocationError::IdNotFound(id).into());
 					};
 
 					Job::new(MediaProcessorJobInit {
 						location,
-						sub_path: Some(args.path),
+						sub_path: Some(path),
+						regenerate_thumbnails: regenerate,
 					})
 					.spawn(&node, &library)
 					.await

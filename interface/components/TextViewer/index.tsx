@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { memo, useEffect, useRef, useState } from 'react';
+
 import './prism.css';
 
 export interface TextViewerProps {
@@ -70,6 +71,7 @@ export const TextViewer = memo(
 				ref={ref}
 				tabIndex={0}
 				className={clsx(
+					'text-ink',
 					className,
 					highlight && ['relative !pl-[3.8em]', `language-${highlight.language}`]
 				)}

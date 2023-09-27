@@ -15,12 +15,14 @@ use crate::{
 use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::{operator, or};
+use prisma_client_rust::{operator, or, WhereQuery};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{Ctx, R};
+
+const MAX_TAKE: u8 = 100;
 
 #[derive(Serialize, Type, Debug)]
 struct SearchData<T> {
@@ -53,16 +55,16 @@ impl From<SortOrder> for prisma::SortOrder {
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "field", content = "value")]
-pub enum FilePathSearchOrdering {
+pub enum FilePathOrder {
 	Name(SortOrder),
 	SizeInBytes(SortOrder),
 	DateCreated(SortOrder),
 	DateModified(SortOrder),
 	DateIndexed(SortOrder),
-	Object(Box<ObjectSearchOrdering>),
+	Object(Box<ObjectOrder>),
 }
 
-impl FilePathSearchOrdering {
+impl FilePathOrder {
 	fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::Name(v) => v,
@@ -184,14 +186,55 @@ impl FilePathFilterArgs {
 	}
 }
 
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CursorOrderItem<T> {
+	order: SortOrder,
+	data: T,
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum FilePathObjectCursor {
+	DateAccessed(CursorOrderItem<DateTime<FixedOffset>>),
+	Kind(CursorOrderItem<i32>),
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum FilePathCursorVariant {
+	None,
+	Name(CursorOrderItem<String>),
+	SizeInBytes(SortOrder),
+	DateCreated(CursorOrderItem<DateTime<FixedOffset>>),
+	DateModified(CursorOrderItem<DateTime<FixedOffset>>),
+	DateIndexed(CursorOrderItem<DateTime<FixedOffset>>),
+	Object(FilePathObjectCursor),
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FilePathCursor {
+	is_dir: bool,
+	variant: FilePathCursorVariant,
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum ObjectCursor {
+	None,
+	DateAccessed(CursorOrderItem<DateTime<FixedOffset>>),
+	Kind(CursorOrderItem<i32>),
+}
+
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "field", content = "value")]
-pub enum ObjectSearchOrdering {
+pub enum ObjectOrder {
 	DateAccessed(SortOrder),
 	Kind(SortOrder),
 }
 
-impl ObjectSearchOrdering {
+impl ObjectOrder {
 	fn get_sort_order(&self) -> prisma::SortOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
@@ -209,6 +252,14 @@ impl ObjectSearchOrdering {
 			Self::Kind(_) => kind::order(dir),
 		}
 	}
+}
+
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum OrderAndPagination<TId, TOrder, TCursor> {
+	OrderOnly(TOrder),
+	Offset { offset: i32, order: Option<TOrder> },
+	Cursor { id: TId, cursor: TCursor },
 }
 
 #[derive(Deserialize, Type, Debug, Default, Clone, Copy)]
@@ -277,7 +328,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("ephemeralPaths", {
 			#[derive(Serialize, Deserialize, Type, Debug, Clone)]
 			#[serde(rename_all = "camelCase", tag = "field", content = "value")]
-			enum NonIndexedPathOrdering {
+			enum EphemeralPathOrder {
 				Name(SortOrder),
 				SizeInBytes(SortOrder),
 				DateCreated(SortOrder),
@@ -286,16 +337,16 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
-			struct NonIndexedPath {
+			struct EphemeralPathSearchArgs {
 				path: PathBuf,
 				with_hidden_files: bool,
 				#[specta(optional)]
-				order: Option<NonIndexedPathOrdering>,
+				order: Option<EphemeralPathOrder>,
 			}
 
 			R.with2(library()).query(
 				|(node, library),
-				 NonIndexedPath {
+				 EphemeralPathSearchArgs {
 				     path,
 				     with_hidden_files,
 				     order,
@@ -303,53 +354,36 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut paths =
 						non_indexed::walk(path, with_hidden_files, node, library).await?;
 
+					macro_rules! order_match {
+						($order:ident, [$(($variant:ident, |$i:ident| $func:expr)),+]) => {{
+							match $order {
+								$(EphemeralPathOrder::$variant(order) => {
+									paths.entries.sort_unstable_by(|path1, path2| {
+										let func = |$i: &ExplorerItem| $func;
+
+										let one = func(path1);
+										let two = func(path2);
+
+										match order {
+											SortOrder::Desc => two.cmp(&one),
+											SortOrder::Asc => one.cmp(&two),
+										}
+									});
+								})+
+							}
+						}};
+					}
+
 					if let Some(order) = order {
-						match order {
-							NonIndexedPathOrdering::Name(order) => {
-								paths.entries.sort_unstable_by(|path1, path2| {
-									let one = path1.name().to_lowercase();
-									let two = path2.name().to_lowercase();
-
-									match order {
-										SortOrder::Desc => two.cmp(&one),
-										SortOrder::Asc => one.cmp(&two),
-									}
-								});
-							}
-							NonIndexedPathOrdering::SizeInBytes(order) => {
-								paths.entries.sort_unstable_by(|path1, path2| {
-									let one = path1.size_in_bytes();
-									let two = path2.size_in_bytes();
-
-									match order {
-										SortOrder::Desc => two.cmp(&one),
-										SortOrder::Asc => one.cmp(&two),
-									}
-								});
-							}
-							NonIndexedPathOrdering::DateCreated(order) => {
-								paths.entries.sort_unstable_by(|path1, path2| {
-									let one = path1.date_created();
-									let two = path2.date_created();
-
-									match order {
-										SortOrder::Desc => two.cmp(&one),
-										SortOrder::Asc => one.cmp(&two),
-									}
-								});
-							}
-							NonIndexedPathOrdering::DateModified(order) => {
-								paths.entries.sort_unstable_by(|path1, path2| {
-									let one = path1.date_modified();
-									let two = path2.date_modified();
-
-									match order {
-										SortOrder::Desc => two.cmp(&one),
-										SortOrder::Asc => one.cmp(&two),
-									}
-								});
-							}
-						}
+						order_match!(
+							order,
+							[
+								(Name, |p| p.name().to_lowercase()),
+								(SizeInBytes, |p| p.size_in_bytes()),
+								(DateCreated, |p| p.date_created()),
+								(DateModified, |p| p.date_modified())
+							]
+						)
 					}
 
 					Ok(paths)
@@ -359,20 +393,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("paths", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
-			enum FilePathPagination {
-				Cursor { pub_id: file_path::pub_id::Type },
-				Offset(i32),
-			}
-
-			#[derive(Deserialize, Type, Debug)]
-			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
 				#[specta(optional)]
-				take: Option<i32>,
+				take: Option<u8>,
 				#[specta(optional)]
-				order: Option<FilePathSearchOrdering>,
-				#[specta(optional)]
-				pagination: Option<FilePathPagination>,
+				order_and_pagination:
+					Option<OrderAndPagination<file_path::id::Type, FilePathOrder, FilePathCursor>>,
 				#[serde(default)]
 				filter: FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
@@ -387,19 +413,17 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				|(node, library),
 				 FilePathSearchArgs {
 				     take,
-				     order,
-				     pagination,
+				     order_and_pagination,
 				     filter,
 				     group_directories,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.unwrap_or(100);
+					let mut query = db.file_path().find_many(filter.into_params(db).await?);
 
-					let mut query = db
-						.file_path()
-						.find_many(filter.into_params(db).await?)
-						.take(take as i64 + 1);
+					if let Some(take) = take {
+						query = query.take(take as i64);
+					}
 
 					// WARN: this order_by for grouping directories MUST always come before the other order_by
 					if group_directories {
@@ -407,32 +431,113 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					// WARN: this order_by for sorting data MUST always come after the other order_by
-					if let Some(order) = order {
-						query = query.order_by(order.into_param());
-					}
-
-					if let Some(pagination) = pagination {
-						match pagination {
-							FilePathPagination::Cursor { pub_id } => {
-								query = query.cursor(file_path::pub_id::equals(pub_id));
+					if let Some(order_and_pagination) = order_and_pagination {
+						match order_and_pagination {
+							OrderAndPagination::OrderOnly(order) => {
+								query = query.order_by(order.into_param());
 							}
-							FilePathPagination::Offset(offset) => query = query.skip(offset as i64),
+							OrderAndPagination::Offset { offset, order } => {
+								query = query.skip(offset as i64);
+
+								if let Some(order) = order {
+									query = query.order_by(order.into_param())
+								}
+							}
+							OrderAndPagination::Cursor { id, cursor } => {
+								// This may seem dumb but it's vital!
+								// If we're grouping by directories + all directories have been fetched,
+								// we don't want to include them in the results.
+								// It's important to keep in mind that since the `order_by` for
+								// `group_directories` comes before all other orderings,
+								// all other orderings will be applied independently to directories and paths.
+								if group_directories && !cursor.is_dir {
+									query.add_where(file_path::is_dir::not(Some(true)))
+								}
+
+								macro_rules! arm {
+									($field:ident, $item:ident) => {{
+										let item = $item;
+
+										let data = item.data.clone();
+
+										query.add_where(or![
+											match item.order {
+												SortOrder::Asc => file_path::$field::gt(data),
+												SortOrder::Desc => file_path::$field::lt(data),
+											},
+											prisma_client_rust::and![
+												file_path::$field::equals(Some(item.data)),
+												match item.order {
+													SortOrder::Asc => file_path::id::gt(id),
+													SortOrder::Desc => file_path::id::lt(id),
+												}
+											]
+										]);
+
+										query = query
+											.order_by(file_path::$field::order(item.order.into()));
+									}};
+								}
+
+								match cursor.variant {
+									FilePathCursorVariant::None => {
+										query.add_where(file_path::id::gt(id));
+									}
+									FilePathCursorVariant::SizeInBytes(order) => {
+										query = query.order_by(
+											file_path::size_in_bytes_bytes::order(order.into()),
+										);
+									}
+									FilePathCursorVariant::Name(item) => arm!(name, item),
+									FilePathCursorVariant::DateCreated(item) => {
+										arm!(date_created, item)
+									}
+									FilePathCursorVariant::DateModified(item) => {
+										arm!(date_modified, item)
+									}
+									FilePathCursorVariant::DateIndexed(item) => {
+										arm!(date_indexed, item)
+									}
+									FilePathCursorVariant::Object(obj) => {
+										macro_rules! arm {
+											($field:ident, $item:ident) => {{
+												let item = $item;
+
+												query.add_where(match item.order {
+													SortOrder::Asc => file_path::object::is(vec![
+														object::$field::gt(item.data),
+													]),
+													SortOrder::Desc => file_path::object::is(vec![
+														object::$field::lt(item.data),
+													]),
+												});
+
+												query =
+													query.order_by(file_path::object::order(vec![
+														object::$field::order(item.order.into()),
+													]));
+											}};
+										}
+
+										match obj {
+											FilePathObjectCursor::Kind(item) => arm!(kind, item),
+											FilePathObjectCursor::DateAccessed(item) => {
+												arm!(date_accessed, item)
+											}
+										};
+									}
+								};
+
+								query =
+									query.order_by(file_path::id::order(prisma::SortOrder::Asc));
+							}
 						}
 					}
 
-					let (file_paths, cursor) = {
-						let mut paths = query
-							.include(file_path_with_object::include())
-							.exec()
-							.await?;
-
-						let cursor = (paths.len() as i32 > take)
-							.then(|| paths.pop())
-							.flatten()
-							.map(|r| r.pub_id);
-
-						(paths, cursor)
-					};
+					let file_paths = query
+						.include(file_path_with_object::include())
+						.exec()
+						.await?;
 
 					let mut items = Vec::with_capacity(file_paths.len());
 
@@ -453,7 +558,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
-					Ok(SearchData { items, cursor })
+					Ok(SearchData {
+						items,
+						cursor: None,
+					})
 				},
 			)
 		})
@@ -480,20 +588,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("objects", {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
-			enum ObjectPagination {
-				Cursor { pub_id: object::pub_id::Type },
-				Offset(i32),
-			}
-
-			#[derive(Deserialize, Type, Debug)]
-			#[serde(rename_all = "camelCase")]
 			struct ObjectSearchArgs {
+				take: u8,
 				#[specta(optional)]
-				take: Option<i32>,
-				#[specta(optional)]
-				order: Option<ObjectSearchOrdering>,
-				#[specta(optional)]
-				pagination: Option<ObjectPagination>,
+				order_and_pagination:
+					Option<OrderAndPagination<object::id::Type, ObjectOrder, ObjectCursor>>,
 				#[serde(default)]
 				filter: ObjectFilterArgs,
 			}
@@ -502,30 +601,66 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				|(node, library),
 				 ObjectSearchArgs {
 				     take,
-				     order,
-				     pagination,
+				     order_and_pagination,
 				     filter,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.unwrap_or(100);
+					let take = take.max(MAX_TAKE);
 
 					let mut query = db
 						.object()
 						.find_many(filter.into_params())
-						.take(take as i64 + 1);
+						.take(take as i64);
 
-					if let Some(order) = order {
-						query = query.order_by(order.into_param());
-					}
-
-					if let Some(pagination) = pagination {
-						match pagination {
-							ObjectPagination::Cursor { pub_id } => {
-								query = query.cursor(object::pub_id::equals(pub_id));
+					if let Some(order_and_pagination) = order_and_pagination {
+						match order_and_pagination {
+							OrderAndPagination::OrderOnly(order) => {
+								query = query.order_by(order.into_param());
 							}
-							ObjectPagination::Offset(offset) => {
+							OrderAndPagination::Offset { offset, order } => {
 								query = query.skip(offset as i64);
+
+								if let Some(order) = order {
+									query = query.order_by(order.into_param())
+								}
+							}
+							OrderAndPagination::Cursor { id, cursor } => {
+								macro_rules! arm {
+									($field:ident, $item:ident) => {{
+										let item = $item;
+
+										let data = item.data.clone();
+
+										query.add_where(or![
+											match item.order {
+												SortOrder::Asc => object::$field::gt(data),
+												SortOrder::Desc => object::$field::lt(data),
+											},
+											prisma_client_rust::and![
+												object::$field::equals(Some(item.data)),
+												match item.order {
+													SortOrder::Asc => object::id::gt(id),
+													SortOrder::Desc => object::id::lt(id),
+												}
+											]
+										]);
+
+										query = query
+											.order_by(object::$field::order(item.order.into()));
+									}};
+								}
+
+								match cursor {
+									ObjectCursor::None => {
+										query.add_where(object::id::gt(id));
+									}
+									ObjectCursor::Kind(item) => arm!(kind, item),
+									ObjectCursor::DateAccessed(item) => arm!(date_accessed, item),
+								}
+
+								query =
+									query.order_by(object::pub_id::order(prisma::SortOrder::Asc))
 							}
 						}
 					}
@@ -536,7 +671,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?;
 
-						let cursor = (objects.len() as i32 > take)
+						let cursor = (objects.len() as u8 > take)
 							.then(|| objects.pop())
 							.flatten()
 							.map(|r| r.pub_id);

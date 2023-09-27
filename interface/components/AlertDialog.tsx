@@ -1,7 +1,7 @@
-import { Clipboard } from 'phosphor-react';
+import { Clipboard } from '@phosphor-icons/react';
 import { ReactNode } from 'react';
 import { useZodForm } from '@sd/client';
-import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
+import { Button, Dialog, dialogManager, Input, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	title: string; // dialog title

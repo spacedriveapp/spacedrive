@@ -1,9 +1,12 @@
-use std::{num::ParseFloatError, path::PathBuf};
+use std::{
+	num::ParseFloatError,
+	path::{Path, PathBuf},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	#[error("there was an i/o error")]
-	Io(#[from] std::io::Error),
+	#[error("there was an i/o error {0} at {}", .1.display())]
+	Io(std::io::Error, Box<Path>),
 	#[error("error from the exif crate: {0}")]
 	Exif(#[from] exif::Error),
 	#[error("there was an error while parsing time with chrono: {0}")]

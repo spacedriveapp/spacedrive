@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import { Outlet } from 'react-router';
+
 import TopBar from '.';
 
 interface TopBarContext {

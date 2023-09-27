@@ -15,7 +15,6 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 	const progress = useJobProgress(jobGroups.data);
-
 	// const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 	// 	onError: () => {
 	// 		// TODO: Show error toast

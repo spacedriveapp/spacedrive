@@ -3,8 +3,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
-	LibraryContextProvider,
 	initPlausible,
+	LibraryContextProvider,
 	useClientContext,
 	usePlausibleEvent,
 	usePlausiblePageViewMonitor,
@@ -14,6 +14,7 @@ import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { useOperatingSystem, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
 import { LayoutContext } from './Context';
 import Sidebar from './Sidebar';

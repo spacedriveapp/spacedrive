@@ -2,6 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { PulseAnimation } from '~/components/animation/lottie';
 import { tw } from '~/lib/tailwind';
+
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
 const CreatingLibraryScreen = () => {

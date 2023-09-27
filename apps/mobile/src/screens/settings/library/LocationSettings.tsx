@@ -3,16 +3,16 @@ import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
-	Location,
 	arraysEqual,
+	Location,
 	useLibraryMutation,
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import { ModalRef } from '~/components/layout/Modal';
-import ImportModal from '~/components/modal/ImportModal';
 import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
+import ImportModal from '~/components/modal/ImportModal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';

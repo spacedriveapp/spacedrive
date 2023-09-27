@@ -295,8 +295,8 @@ impl PairingManager {
 			.write_all(
 				&PairingResponse::Accepted {
 					library_id: library.id,
-					library_name: library.config.name.clone().into(),
-					library_description: library.config.description.clone(),
+					library_name: library.config().name.into(),
+					library_description: library.config().description,
 					instances: library
 						.db
 						.instance()

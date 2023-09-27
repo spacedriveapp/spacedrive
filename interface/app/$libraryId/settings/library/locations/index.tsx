@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 import { useLibraryQuery } from '@sd/client';
 import { SearchInput } from '@sd/ui';
+
 import { Heading } from '../../Layout';
 import { AddLocationButton } from './AddLocationButton';
 import ListItem from './ListItem';
@@ -14,8 +15,8 @@ export const Component = () => {
 
 	const filteredLocations = useMemo(
 		() =>
-			locations.data?.filter((location) =>
-				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+			locations.data?.filter(
+				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			),
 		[debouncedSearch, locations.data]
 	);

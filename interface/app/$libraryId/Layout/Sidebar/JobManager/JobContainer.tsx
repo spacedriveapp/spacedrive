@@ -1,7 +1,8 @@
 import clsx from 'clsx';
-import { ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode, forwardRef } from 'react';
+import { forwardRef, ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode } from 'react';
 import { TextItems } from '@sd/client';
 import { Tooltip, tw } from '@sd/ui';
+
 import classes from './Job.module.scss';
 
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
@@ -43,8 +44,8 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 				)
 			)}
 			<MetaContainer>
-				<Tooltip asChild tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
-					<p className="truncate w-fit max-w-[83%] pl-1.5 font-semibold">{name}</p>
+				<Tooltip asChild tooltipClassName="max-w-[400px]" position="top" label={name}>
+					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {
 					// filter out undefined text so we don't render empty TextItems
@@ -53,11 +54,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
 
 					return (
-						<Tooltip
-							label={popoverText}
-							key={index}
-							tooltipClassName="bg-black max-w-[400px]"
-						>
+						<Tooltip label={popoverText} key={index} tooltipClassName="max-w-[400px]">
 							<TextLine>
 								{filteredItems.map((textItem, index) => {
 									const Icon = textItem?.icon;

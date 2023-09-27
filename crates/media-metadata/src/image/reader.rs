@@ -15,7 +15,10 @@ pub struct ExifReader(Exif);
 impl ExifReader {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
 		exif::Reader::new()
-			.read_from_container(&mut BufReader::new(File::open(&path)?))
+			.read_from_container(&mut BufReader::new(
+				File::open(&path)
+					.map_err(|e| Error::Io(e, path.as_ref().to_path_buf().into_boxed_path()))?,
+			))
 			.map_or_else(
 				|_| Err(Error::NoExifDataOnPath(path.as_ref().to_path_buf())),
 				|reader| Ok(Self(reader)),

@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { Navigate, Outlet, type RouteObject, useMatches } from 'react-router-dom';
+import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useKeybindHandler, useTheme } from '~/hooks';
+
 import libraryRoutes from './$libraryId';
-import { RootContext } from './RootContext';
 import onboardingRoutes from './onboarding';
+import { RootContext } from './RootContext';
+
 import './style.scss';
 
 const Index = () => {

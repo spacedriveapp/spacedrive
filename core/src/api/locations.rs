@@ -189,8 +189,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("update", {
 			R.with2(library())
-				.mutation(|(_, library), args: LocationUpdateArgs| async move {
-					let ret = args.update(&library).await.map_err(Into::into);
+				.mutation(|(node, library), args: LocationUpdateArgs| async move {
+					let ret = args.update(&node, &library).await.map_err(Into::into);
 					invalidate_query!(library, "locations.list");
 					ret
 				})

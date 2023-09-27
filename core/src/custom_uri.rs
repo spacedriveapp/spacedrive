@@ -1,5 +1,6 @@
 use crate::{
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
+	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -13,34 +14,59 @@ use std::{
 	io::{self, SeekFrom},
 	panic::Location,
 	path::{Path, PathBuf},
+	pin::Pin,
 	str::FromStr,
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
+	task::{Context, Poll},
 	time::UNIX_EPOCH,
 };
 
+use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Full, StreamBody},
+	body::{self, Body, BoxBody, Full, HttpBody, StreamBody},
 	extract::{self, State},
-	http::{self, request, HeaderValue, Method, Request, Response, StatusCode},
+	http::{self, header, request, HeaderMap, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
 	routing::get,
 	Router,
 };
+use bytes::Bytes;
+use futures::Stream;
 use http_range::HttpRange;
 use mini_moka::sync::Cache;
+use pin_project_lite::pin_project;
 use sd_file_ext::text::is_text;
+use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncSeekExt},
+	io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, Take},
 };
-use tokio_util::io::ReaderStream;
+use tokio_util::{io::ReaderStream, sync::PollSender};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-type MetadataCacheKey = (Uuid, file_path::id::Type);
-type NameAndExtension = (PathBuf, String);
+type CacheKey = (Uuid, file_path::id::Type);
+
+#[derive(Debug, Clone)]
+struct CacheValue {
+	name: PathBuf,
+	ext: String,
+	file_path_pub_id: Uuid,
+	serve_from: ServeFrom,
+}
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
+
+// default capacity 64KiB
+const DEFAULT_CAPACITY: usize = 65536;
+
+#[derive(Debug, Clone)]
+pub enum ServeFrom {
+	/// Serve from the local filesystem
+	Local,
+	/// Serve from a specific instance
+	Remote(RemoteIdentity),
+}
 
 #[derive(Clone)]
 struct LocalState {
@@ -49,7 +75,7 @@ struct LocalState {
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
 	// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 	// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
-	file_metadata_cache: Cache<MetadataCacheKey, NameAndExtension>,
+	file_metadata_cache: Cache<CacheKey, CacheValue>,
 }
 
 // We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
@@ -104,18 +130,18 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					let file_path_id = path_id.parse::<file_path::id::Type>().map_err(bad_request)?;
 
 					let lru_cache_key = (library_id, file_path_id);
+					let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
 
-					let (file_path_full_path, extension) = if let Some(entry) =
+					let CacheValue { name: file_path_full_path, ext: extension, file_path_pub_id, serve_from } = if let Some(entry) =
 						state.file_metadata_cache.get(&lru_cache_key)
 					{
 						entry
 					} else {
-						let library = state.node.libraries.get_library(&library_id).await.ok_or_else(|| internal_server_error(()))?;
-
 						let file_path = library
 							.db
 							.file_path()
 							.find_unique(file_path::id::equals(file_path_id))
+							// TODO: This query could be seen as a security issue as it could load the private key (`identity`) when we 100% don't need it. We are gonna wanna fix that!
 							.select(file_path_to_handle_custom_uri::select())
 							.exec()
 							.await
@@ -126,13 +152,24 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							maybe_missing(&file_path.location, "file_path.location").map_err(internal_server_error)?;
 						let path =
 							maybe_missing(&location.path, "file_path.location.path").map_err(internal_server_error)?;
+						let instance =
+							maybe_missing(&location.instance, "file_path.location.instance").map_err(internal_server_error)?;
 
-						let lru_entry = (
-							Path::new(path).join(
-								IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
-							),
-							maybe_missing(file_path.extension, "extension").map_err(not_found)?
+						let path = Path::new(path).join(
+							IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?
 						);
+
+						let identity = IdentityOrRemoteIdentity::from_bytes(&instance.identity).map_err(internal_server_error)?.remote_identity();
+						let lru_entry = CacheValue {
+							name: path,
+							ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
+							file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
+							serve_from: if identity == library.identity.to_remote_identity() {
+								ServeFrom::Local
+							} else {
+								ServeFrom::Remote(identity)
+							},
+						};
 
 						state
 							.file_metadata_cache
@@ -141,25 +178,65 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 						lru_entry
 					};
 
-					let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
-					(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
+					match serve_from {
+						ServeFrom::Local => {
+							let metadata = file_path_full_path.metadata().map_err(internal_server_error)?;
+							(!metadata.is_dir()).then_some(()).ok_or_else(|| not_found(()))?;
 
-					let mut file = File::open(&file_path_full_path).await.map_err(|err| {
-						InfallibleResponse::builder()
-								.status(if err.kind() == io::ErrorKind::NotFound {
-									StatusCode::NOT_FOUND
-								} else {
-									StatusCode::INTERNAL_SERVER_ERROR
-								})
-								.body(body::boxed(Full::from("")))
-					})?;
+							let mut file = File::open(&file_path_full_path).await.map_err(|err| {
+								InfallibleResponse::builder()
+										.status(if err.kind() == io::ErrorKind::NotFound {
+											StatusCode::NOT_FOUND
+										} else {
+											StatusCode::INTERNAL_SERVER_ERROR
+										})
+										.body(body::boxed(Full::from("")))
+							})?;
 
-					let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
-						error!("Error converting mime-type into header value: {}", err);
-						internal_server_error(())
-					})?);
+							let resp = InfallibleResponse::builder().header("Content-Type", HeaderValue::from_str(&plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_of_adding_variants_to_it(&extension, &mut file, &metadata).await?).map_err(|err| {
+								error!("Error converting mime-type into header value: {}", err);
+								internal_server_error(())
+							})?);
 
-					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
+						}
+						ServeFrom::Remote(identity) => {
+							if !state.node.files_over_p2p_flag.load(Ordering::Relaxed) {
+								return Ok(not_found(()))
+							}
+
+							// TODO: Support `Range` requests and `ETag` headers
+							#[allow(clippy::unwrap_used)]
+							match *state.node.nlm.state().await.get(&library_id).unwrap().instances.get(&identity).unwrap() {
+								InstanceState::Discovered(_) | InstanceState::Unavailable => Ok(not_found(())),
+								InstanceState::Connected(peer_id) => {
+									let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
+									let node = state.node.clone();
+									tokio::spawn(async move {
+										node.p2p
+											.request_file(
+												peer_id,
+												&library,
+												file_path_pub_id,
+												Range::Full,
+												MpscToAsyncWrite(PollSender::new(tx)),
+											)
+											.await;
+									});
+
+									// TODO: Content Type
+									Ok(InfallibleResponse::builder()
+										.status(StatusCode::OK)
+										.body(body::boxed(StreamBody::new(stream! {
+											while let Some(item) = rx.recv().await {
+												yield item;
+											}
+										}))))
+								}
+							}
+						},
+					}
 				},
 			),
 		)
@@ -245,7 +322,13 @@ async fn serve_file(
 	if let Ok(metadata) = metadata {
 		// We only accept range queries if `files.metadata() == Ok(_)`
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
-		resp = resp.header("Accept-Ranges", HeaderValue::from_static("bytes"));
+		resp = resp
+			.header("Accept-Ranges", HeaderValue::from_static("bytes"))
+			.header(
+				"Content-Length",
+				HeaderValue::from_str(&metadata.len().to_string())
+					.expect("number won't fail conversion"),
+			);
 
 		// Empty files
 		if metadata.len() == 0 {
@@ -256,6 +339,7 @@ async fn serve_file(
 		}
 
 		// ETag
+		let mut status_code = StatusCode::PARTIAL_CONTENT;
 		if let Ok(time) = metadata.modified() {
 			let etag_header = format!(
 				r#""{}""#,
@@ -272,6 +356,7 @@ async fn serve_file(
 				error!("Failed to convert ETag into header value!");
 			}
 
+			// Used for normal requests
 			if let Some(etag) = req.headers.get("If-None-Match") {
 				if etag.as_bytes() == etag_header.as_bytes() {
 					return Ok(resp
@@ -279,7 +364,15 @@ async fn serve_file(
 						.body(body::boxed(Full::from(""))));
 				}
 			}
-		}
+
+			// Used checking if the resource has been modified since starting the download
+			if let Some(if_range) = req.headers.get("If-Range") {
+				// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Range
+				if if_range.as_bytes() != etag_header.as_bytes() {
+					status_code = StatusCode::OK
+				}
+			}
+		};
 
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
 		if req.method == Method::GET {
@@ -290,23 +383,34 @@ async fn serve_file(
 
 				// TODO: Multipart requests are not support, yet
 				if ranges.len() != 1 {
-					todo!(); // TODO: Error handling
+					return Ok(resp
+						.header(
+							header::CONTENT_RANGE,
+							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
+								.map_err(internal_server_error)?,
+						)
+						.status(StatusCode::RANGE_NOT_SATISFIABLE)
+						.body(body::boxed(Full::from(""))));
 				}
 				let range = ranges.first().expect("checked above");
+
+				if (range.start + range.length) > metadata.len() {
+					return Ok(resp
+						.header(
+							header::CONTENT_RANGE,
+							HeaderValue::from_str(&format!("bytes */{}", metadata.len()))
+								.map_err(internal_server_error)?,
+						)
+						.status(StatusCode::RANGE_NOT_SATISFIABLE)
+						.body(body::boxed(Full::from(""))));
+				}
 
 				file.seek(SeekFrom::Start(range.start))
 					.await
 					.map_err(internal_server_error)?;
 
-				// TODO: Serve using streaming body instead of loading the entire chunk. - Right now my impl is not working correctly
-				let mut buf = Vec::with_capacity(range.length as usize);
-				file.take(range.length)
-					.read_to_end(&mut buf)
-					.await
-					.map_err(internal_server_error)?;
-
 				return Ok(resp
-					.status(StatusCode::PARTIAL_CONTENT)
+					.status(status_code)
 					.header(
 						"Content-Range",
 						HeaderValue::from_str(&format!(
@@ -322,12 +426,11 @@ async fn serve_file(
 						HeaderValue::from_str(&range.length.to_string())
 							.map_err(internal_server_error)?,
 					)
-					.body(body::boxed(Full::from(buf))));
-				// TODO: Serve as stream instead of fixed set of bytes -> Show allow only loading part in the chunk into memory at a time. This will also be probs be required or P2P over custom URI.
-				// .body(body::boxed(Limited::new(
-				// 	StreamBody::new(ReaderStream::new(file)),
-				// 	range.length.try_into().expect("integer overflow"),
-				// )));
+					.body(body::boxed(AsyncReadBody::with_capacity_limited(
+						file,
+						DEFAULT_CAPACITY,
+						range.length,
+					))));
 			}
 		}
 	}
@@ -462,4 +565,81 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	} else {
 		mime_type.to_string()
 	})
+}
+
+// This code was taken from: https://github.com/tower-rs/tower-http/blob/e8eb54966604ea7fa574a2a25e55232f5cfe675b/tower-http/src/services/fs/mod.rs#L30
+pin_project! {
+	// NOTE: This could potentially be upstreamed to `http-body`.
+	/// Adapter that turns an [`impl AsyncRead`][tokio::io::AsyncRead] to an [`impl Body`][http_body::Body].
+	#[derive(Debug)]
+	pub struct AsyncReadBody<T> {
+		#[pin]
+		reader: ReaderStream<T>,
+	}
+}
+
+impl<T> AsyncReadBody<T>
+where
+	T: AsyncRead,
+{
+	fn with_capacity_limited(
+		read: T,
+		capacity: usize,
+		max_read_bytes: u64,
+	) -> AsyncReadBody<Take<T>> {
+		AsyncReadBody {
+			reader: ReaderStream::with_capacity(read.take(max_read_bytes), capacity),
+		}
+	}
+}
+
+impl<T> HttpBody for AsyncReadBody<T>
+where
+	T: AsyncRead,
+{
+	type Data = Bytes;
+	type Error = io::Error;
+
+	fn poll_data(
+		self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+	) -> Poll<Option<Result<Self::Data, Self::Error>>> {
+		self.project().reader.poll_next(cx)
+	}
+
+	fn poll_trailers(
+		self: Pin<&mut Self>,
+		_cx: &mut Context<'_>,
+	) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
+		Poll::Ready(Ok(None))
+	}
+}
+
+/// Allowing wrapping an `mpsc::Sender` into an `AsyncWrite`
+pub struct MpscToAsyncWrite(PollSender<io::Result<Bytes>>);
+
+impl AsyncWrite for MpscToAsyncWrite {
+	fn poll_write(
+		mut self: Pin<&mut Self>,
+		cx: &mut Context<'_>,
+		buf: &[u8],
+	) -> Poll<Result<usize, io::Error>> {
+		#[allow(clippy::unwrap_used)]
+		match self.0.poll_reserve(cx) {
+			Poll::Ready(Ok(())) => {
+				self.0.send_item(Ok(Bytes::from(buf.to_vec()))).unwrap();
+				Poll::Ready(Ok(buf.len()))
+			}
+			Poll::Ready(Err(_)) => todo!(),
+			Poll::Pending => Poll::Pending,
+		}
+	}
+
+	fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
+	}
+
+	fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+		Poll::Ready(Ok(()))
+	}
 }

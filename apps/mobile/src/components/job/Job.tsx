@@ -12,6 +12,7 @@ import { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { tw } from '~/lib/tailwind';
+
 import { ProgressBar } from '../animation/ProgressBar';
 import JobContainer from './JobContainer';
 
@@ -24,7 +25,7 @@ type JobProps = {
 
 const JobIcon: Record<string, Icon> = {
 	indexer: Folder,
-	thumbnailer: Image,
+	media_processor: Image,
 	file_identifier: Fingerprint,
 	file_copier: Copy,
 	file_deleter: Trash,

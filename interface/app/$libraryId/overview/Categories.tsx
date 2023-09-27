@@ -1,13 +1,14 @@
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight } from 'phosphor-react';
 import { RefObject, useEffect, useRef, useState } from 'react';
 import Sticky from 'react-sticky-el';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useIsDark } from '~/hooks';
+
 import { useLayoutContext } from '../Layout/Context';
 import { usePageLayoutContext } from '../PageLayout/Context';
 import CategoryButton from './CategoryButton';

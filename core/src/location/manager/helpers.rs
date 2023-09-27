@@ -28,7 +28,7 @@ pub(super) async fn check_online(
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if location.instance_id == Some(library.config.instance_id) {
+	if location.instance_id == Some(library.config().instance_id) {
 		match fs::metadata(&location_path).await {
 			Ok(_) => {
 				node.locations.add_online(pub_id).await;
@@ -143,7 +143,7 @@ pub(super) async fn handle_remove_location_request(
 	let key = (location_id, library.id);
 	if let Some(location) = get_location(location_id, &library).await {
 		// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-		if location.instance_id == Some(library.config.instance_id) {
+		if location.instance_id == Some(library.config().instance_id) {
 			unwatch_location(location, library.id, locations_watched, locations_unwatched);
 			locations_unwatched.remove(&key);
 			forced_unwatch.remove(&key);

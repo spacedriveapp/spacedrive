@@ -1,7 +1,7 @@
 // import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 // import { animated, useTransition } from '@react-spring/web';
 // import clsx from 'clsx';
-// import { Lock, Plus } from 'phosphor-react';
+// import { Lock, Plus } from '@phosphor-icons/react';
 // import { PropsWithChildren, ReactNode, useState } from 'react';
 // import QRCode from 'react-qr-code';
 // import { useLibraryMutation, useLibraryQuery } from '@sd/client';

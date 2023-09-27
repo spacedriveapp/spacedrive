@@ -3,9 +3,12 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
+	DistanceFormat,
 	getOnboardingStore,
+	getUnitFormatStore,
 	resetOnboardingStore,
 	telemetryStore,
+	TemperatureFormat,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -73,6 +76,12 @@ const useFormState = () => {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
+
+	if (window.navigator.language === 'en-US') {
+		// not perfect as some linux users use en-US by default, same w/ windows
+		getUnitFormatStore().distanceFormat = 'miles';
+		getUnitFormatStore().temperatureFormat = 'fahrenheit';
+	}
 
 	const createLibrary = useBridgeMutation('library.create');
 

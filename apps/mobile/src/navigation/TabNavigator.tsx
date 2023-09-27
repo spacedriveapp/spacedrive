@@ -2,6 +2,7 @@ import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigatio
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { Broadcast, CirclesFour, Planet } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
+
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
 import SpacedropStack, { SpacedropStackParamList } from './tabs/SpacedropStack';

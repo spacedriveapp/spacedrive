@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+
 import { useTopBarContext } from './Layout';
 
 interface Props {

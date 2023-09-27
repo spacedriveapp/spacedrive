@@ -1,7 +1,7 @@
 import { PointMaterial, Points, Trail } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
-import { type FunctionComponent, useRef, useState } from 'react';
+import { useRef, useState, type FunctionComponent } from 'react';
 import { Color, type Mesh } from 'three';
 
 const Stars = (props: any) => {
