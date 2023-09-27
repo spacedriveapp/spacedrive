@@ -745,9 +745,6 @@ importers:
       react-router-dom:
         specifier: 6.9.0
         version: 6.9.0(react-dom@18.2.0)(react@18.2.0)
-      react-scroll-sync:
-        specifier: ^0.11.0
-        version: 0.11.0(react-dom@18.2.0)(react@18.2.0)
       react-selecto:
         specifier: ^1.26.0
         version: 1.26.0
@@ -20400,17 +20397,6 @@ packages:
     dependencies:
       '@remix-run/router': 1.4.0
       react: 18.2.0
-    dev: false
-
-  /react-scroll-sync@0.11.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-COfA885/2NAQPxusIU6sukKiSFXgAd9+OWD7iBWA4NF5Y1Np8poBKLwgZ3y4iywo5/+ch0PLGz887myIbm+fPw==}
-    peerDependencies:
-      react: 16.x || 17.x || 18.x
-      react-dom: 16.x || 17.x || 18.x
-    dependencies:
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
     dev: false
 
   /react-selecto@1.26.0:

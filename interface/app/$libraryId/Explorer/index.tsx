@@ -62,6 +62,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 									/>
 								)
 							}
+							listViewOptions={{ hideHeaderBorder: true }}
 						/>
 					</div>
 				</div>

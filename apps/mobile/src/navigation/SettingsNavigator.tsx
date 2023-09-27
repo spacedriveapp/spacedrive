@@ -1,5 +1,4 @@
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
-
 import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';

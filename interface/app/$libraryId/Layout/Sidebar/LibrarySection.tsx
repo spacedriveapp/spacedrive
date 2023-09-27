@@ -11,9 +11,9 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
 import { Folder, SubtleButton } from '~/components';
+
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';

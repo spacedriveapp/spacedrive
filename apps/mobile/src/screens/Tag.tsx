@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useLibraryQuery } from '@sd/client';
-
 import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 

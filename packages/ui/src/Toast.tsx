@@ -1,5 +1,5 @@
-import clsx from 'clsx';
 import { CheckCircle, Icon, Info, Warning, WarningCircle, X } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { CSSProperties, ReactNode, useEffect, useState } from 'react';
 import { toast as SonnerToast } from 'sonner';
 
@@ -111,9 +111,17 @@ const Toast = ({ closable = true, action, cancel, ...props }: ToastProps) => {
 			)}
 
 			<div className="flex grow flex-col">
-				{title && <span className="font-medium text-ink">{title}</span>}
+				{title && (
+					<span className="font-medium text-ink" style={{ wordBreak: 'break-word' }}>
+						{title}
+					</span>
+				)}
 
-				<div className="mt-0.5">{body}</div>
+				{body && (
+					<div className="mt-0.5" style={{ wordBreak: 'break-word' }}>
+						{body}
+					</div>
+				)}
 
 				{(action || cancel) && (
 					<div className="mt-2.5 flex gap-2">

@@ -61,16 +61,8 @@ pub fn inode_from_db(db_inode: &[u8]) -> u64 {
 	u64::from_le_bytes(db_inode.try_into().expect("corrupted inode in database"))
 }
 
-pub fn device_from_db(db_device: &[u8]) -> u64 {
-	u64::from_le_bytes(db_device.try_into().expect("corrupted device in database"))
-}
-
 pub fn inode_to_db(inode: u64) -> Vec<u8> {
 	inode.to_le_bytes().to_vec()
-}
-
-pub fn device_to_db(device: u64) -> Vec<u8> {
-	device.to_le_bytes().to_vec()
 }
 
 #[derive(Error, Debug)]

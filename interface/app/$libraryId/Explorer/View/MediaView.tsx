@@ -1,14 +1,14 @@
-import clsx from 'clsx';
 import { ArrowsOutSimple } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 
-import { ViewItem } from '.';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import GridList from './GridList';
+import { ViewItem } from './ViewItem';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;

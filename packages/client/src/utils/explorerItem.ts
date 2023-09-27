@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { ExplorerItem, FilePath, Object } from '../core';
+import type { ExplorerItem, FilePath, NonIndexedPathItem, Object } from '../core';
 import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
 
@@ -32,6 +32,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 
 	const itemData = {
 		name: null as string | null,
+		fullName: null as string | null,
 		size: byteSize(0),
 		kind,
 		isDir: false,
@@ -52,6 +53,9 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 	const location = getItemLocation(data);
 	if (filePath) {
 		itemData.name = filePath.name;
+		itemData.fullName = `${filePath.name}${
+			filePath.extension ? `.${filePath.extension}` : ''
+		}}`;
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
 		itemData.extension = filePath.extension;
@@ -65,6 +69,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 			itemData.size = byteSize(location.total_capacity - location.available_capacity);
 
 		itemData.name = location.name;
+		itemData.fullName = location.name;
 		itemData.kind = ObjectKind[ObjectKind.Folder] ?? 'Unknown';
 		itemData.isDir = true;
 		itemData.locationId = location.id;

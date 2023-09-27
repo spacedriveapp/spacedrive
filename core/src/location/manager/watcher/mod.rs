@@ -40,7 +40,7 @@ type Handler<'lib> = windows::WindowsEventHandler<'lib>;
 
 pub(super) type IgnorePath = (PathBuf, bool);
 
-type INodeAndDevice = (u64, u64);
+type INode = u64;
 type InstantAndPath = (Instant, PathBuf);
 
 const ONE_SECOND: Duration = Duration::from_secs(1);

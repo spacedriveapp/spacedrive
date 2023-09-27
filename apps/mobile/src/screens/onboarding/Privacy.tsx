@@ -1,10 +1,10 @@
 import React from 'react';
 import { Controller } from 'react-hook-form';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
-
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
+
 import { useOnboardingContext } from './context';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
