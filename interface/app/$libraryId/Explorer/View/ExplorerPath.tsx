@@ -106,7 +106,7 @@ export const ExplorerPath = memo(() => {
 						)}
 					>
 						<img src={getIcon('Folder', isDark)} alt="folder" className="h-4 w-4" />
-						<p className="truncate">{p.name}</p>
+						<span className="max-w-xs truncate">{p.name}</span>
 						{index !== (data?.length as number) - 1 && (
 							<CaretRight weight="bold" size={10} />
 						)}
@@ -117,7 +117,9 @@ export const ExplorerPath = memo(() => {
 				<div className="pointer-events-none flex items-center gap-1">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
 					<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
-					{'name' in selectedItem.item && <p>{selectedItem.item.name}</p>}
+					{'name' in selectedItem.item && (
+						<span className="max-w-xs truncate">{selectedItem.item.name}</span>
+					)}
 				</div>
 			)}
 		</div>
