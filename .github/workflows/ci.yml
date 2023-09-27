@@ -138,6 +138,12 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
 
+      - name: Setup System and Rust
+        if: steps.filter.outputs.changes == 'true'
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup shared libraries
         if: steps.filter.outputs.changes == 'true'
         env:
@@ -148,12 +154,6 @@ jobs:
           npm i archive-wasm mustache
           popd
           node scripts/post-install.mjs
-
-      - name: Setup System and Rust
-        if: steps.filter.outputs.changes == 'true'
-        uses: ./.github/actions/setup-system
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Clippy
         if: steps.filter.outputs.changes == 'true'
