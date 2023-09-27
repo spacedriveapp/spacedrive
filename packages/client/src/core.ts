@@ -116,6 +116,8 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
+export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
+
 /**
  * Meow
  */
@@ -130,8 +132,6 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 export type CreateLibraryArgs = { name: LibraryName }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
-
-export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -174,7 +174,7 @@ export type FilePathFilterArgs = { locationId?: number | null; search?: string |
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
+export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder } | { field: "dateImageTaken"; value: ObjectOrder } | { field: "imageResolution"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
@@ -198,9 +198,7 @@ export type Header = { id: string; timestamp: string; library_id: string; librar
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type ImageData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
-
-export type ImageMetadata = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: ImageData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
+export type ImageMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
 export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
@@ -275,16 +273,14 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
+/**
+ * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
+ */
+export type MediaDate = { Naive: string } | { Utc: string }
+
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
-
-/**
- * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
- * 
- * This may also be `undefined`.
- */
-export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -313,7 +309,7 @@ export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHidde
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
-export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
+export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "dateImageTaken"; value: SortOrder } | { field: "imageResolution"; value: SortOrder }
 
 export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 
@@ -361,6 +357,8 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RescanArgs = { location_id: number; sub_path: string }
+
+export type Resolution = { width: number; height: number }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
