@@ -17,12 +17,14 @@ pub fn media_data_image_to_query(
 		_params: vec![
 			camera_data::set(serde_json::to_vec(&mdi.camera_data).ok()),
 			media_date::set(serde_json::to_vec(&mdi.date_taken).ok()),
-			dimensions::set(serde_json::to_vec(&mdi.dimensions).ok()),
+			resolution::set(serde_json::to_vec(&mdi.resolution).ok()),
 			media_location::set(serde_json::to_vec(&mdi.location).ok()),
-			artist::set(serde_json::to_string(&mdi.artist).ok()),
-			description::set(serde_json::to_string(&mdi.description).ok()),
-			copyright::set(serde_json::to_string(&mdi.copyright).ok()),
-			exif_version::set(serde_json::to_string(&mdi.exif_version).ok()),
+			artist::set(mdi.artist),
+			description::set(mdi.description),
+			copyright::set(mdi.copyright),
+			exif_version::set(mdi.exif_version),
+			epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
+			pixel_count::set(Some(mdi.resolution.total_pixel_count())),
 		],
 	})
 }
@@ -31,14 +33,14 @@ pub fn media_data_image_from_prisma_data(
 	data: sd_prisma::prisma::media_data::Data,
 ) -> Result<ImageMetadata, MediaDataError> {
 	Ok(ImageMetadata {
-		dimensions: from_slice_option_to_option(data.dimensions).unwrap_or_default(),
 		camera_data: from_slice_option_to_option(data.camera_data).unwrap_or_default(),
 		date_taken: from_slice_option_to_option(data.media_date).unwrap_or_default(),
-		description: from_string_option_to_option(data.description),
-		copyright: from_string_option_to_option(data.copyright),
-		artist: from_string_option_to_option(data.artist),
+		resolution: from_slice_option_to_option(data.resolution).unwrap_or_default(),
 		location: from_slice_option_to_option(data.media_location),
-		exif_version: from_string_option_to_option(data.exif_version),
+		artist: data.artist,
+		description: data.description,
+		copyright: data.copyright,
+		exif_version: data.exif_version,
 	})
 }
 
@@ -48,14 +50,5 @@ fn from_slice_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned
 ) -> Option<T> {
 	value
 		.map(|x| serde_json::from_slice(&x).ok())
-		.unwrap_or_default()
-}
-
-#[must_use]
-fn from_string_option_to_option<T: serde::Serialize + serde::de::DeserializeOwned>(
-	value: Option<String>,
-) -> Option<T> {
-	value
-		.map(|x| serde_json::from_str(&x).ok())
 		.unwrap_or_default()
 }
