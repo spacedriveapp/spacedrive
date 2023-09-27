@@ -2,7 +2,7 @@ import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
-import { useKeyBind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -15,7 +15,7 @@ export default () => {
 	const navigate = useNavigate();
 	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
 
-	useKeyBind(['g', 's'], (e) => {
+	useKeybind(['g', 's'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
