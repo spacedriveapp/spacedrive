@@ -1,10 +1,6 @@
+import { EjectSimple } from '@phosphor-icons/react';
 import { Laptop, Mobile, Server } from '@sd/assets/icons';
-import { SD } from '@sd/assets/icons';
-import { Globe } from '@sd/assets/icons';
-import { Drive } from '@sd/assets/icons';
-import { Node } from '@sd/assets/icons';
 import clsx from 'clsx';
-import { Eject, EjectSimple } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {

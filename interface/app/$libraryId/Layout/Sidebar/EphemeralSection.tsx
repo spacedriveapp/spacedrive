@@ -1,10 +1,9 @@
+import { EjectSimple } from '@phosphor-icons/react';
 import { Drive, Globe, HDD, Home, SD } from '@sd/assets/icons';
 import clsx from 'clsx';
-import { EjectSimple } from 'phosphor-react';
 import { useState } from 'react';
 import { useBridgeQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
-import { Folder } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 import SidebarLink from './Link';
