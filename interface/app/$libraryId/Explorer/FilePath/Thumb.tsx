@@ -44,6 +44,7 @@ export interface ThumbProps {
 	pauseVideo?: boolean;
 	className?: string;
 	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
+	isSidebarPreview?: boolean;
 }
 
 export const FileThumb = memo((props: ThumbProps) => {
@@ -196,6 +197,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 												itemData.extension) ||
 											''
 										}
+										isSidebarPreview={props.isSidebarPreview}
 									/>
 								);
 

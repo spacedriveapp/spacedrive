@@ -7,92 +7,88 @@ import * as prism from './prism';
 
 export interface TextViewerProps {
 	src: string;
+	className?: string;
 	onLoad?: (event: HTMLElementEventMap['load']) => void;
 	onError?: (event: HTMLElementEventMap['error']) => void;
 	codeExtension?: string;
+	isSidebarPreview?: boolean;
 }
 
 // TODO: ANSI support
 
-export const TextViewer = memo(({ src, onLoad, onError, codeExtension }: TextViewerProps) => {
-	const [lines, setLines] = useState<string[]>([]);
+export const TextViewer = memo(
+	({ src, className, onLoad, onError, codeExtension, isSidebarPreview }: TextViewerProps) => {
+		const [lines, setLines] = useState<string[]>([]);
 
-	const parentRef = useRef<HTMLPreElement>(null);
-	const rowVirtualizer = useVirtualizer({
-		count: lines.length,
-		getScrollElement: () => parentRef.current,
-		estimateSize: () => 25
-	});
+		const parentRef = useRef<HTMLPreElement>(null);
+		const rowVirtualizer = useVirtualizer({
+			count: lines.length,
+			getScrollElement: () => parentRef.current,
+			estimateSize: () => 25
+		});
 
-	useEffect(() => {
-		// Ignore empty urls
-		if (!src || src === '#') return;
+		useEffect(() => {
+			// Ignore empty urls
+			if (!src || src === '#') return;
 
-		// TODO: Max out at 128MB of loaded data -> Like Apple do
-
-		let fileOffset = 0;
-		const controller = new AbortController();
-		fetch(src, {
-			mode: 'cors',
-			signal: controller.signal
-		})
-			.then(async (response) => {
-				if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
-				if (!response.body) return;
-				onLoad?.(new UIEvent('load', {}));
-
-				const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-				const ingestLines = async () => {
-					const { done, value } = await reader.read();
-					if (done) return;
-					fileOffset += value.length;
-					console.log(fileOffset);
-
-					const chunks = value.split('\n');
-
-					setLines((lines) => [...lines, ...chunks]);
-
-					await ingestLines();
-				};
-				ingestLines();
+			const controller = new AbortController();
+			fetch(src, {
+				mode: 'cors',
+				signal: controller.signal
 			})
-			.catch((error) => {
-				if (!controller.signal.aborted)
-					onError?.(new ErrorEvent('error', { message: `${error}` }));
-			});
+				.then(async (response) => {
+					if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
+					if (!response.body) return;
+					onLoad?.(new UIEvent('load', {}));
 
-		return () => controller.abort();
-	}, [src, onError, onLoad, codeExtension]);
+					const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+					const ingestLines = async () => {
+						const { done, value } = await reader.read();
+						if (done) return;
 
-	return (
-		<pre
-			ref={parentRef}
-			tabIndex={0}
-			className={clsx('h-full w-full overflow-x-hidden overflow-y-scroll')}
-		>
-			<div
-				tabIndex={0}
-				className={clsx(
-					'relative w-full whitespace-pre text-ink',
-					codeExtension &&
-						`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
-				)}
-				style={{
-					height: `${rowVirtualizer.getTotalSize()}px`
-				}}
-			>
-				{rowVirtualizer.getVirtualItems().map((row) => (
-					<TextRow
-						key={row.key}
-						codeExtension={codeExtension}
-						row={row}
-						content={lines[row.index]!}
-					/>
-				))}
-			</div>
-		</pre>
-	);
-});
+						const chunks = value.split('\n');
+						setLines((lines) => [...lines, ...chunks]);
+
+						if (isSidebarPreview) return;
+
+						await ingestLines();
+					};
+					ingestLines();
+				})
+				.catch((error) => {
+					if (!controller.signal.aborted)
+						onError?.(new ErrorEvent('error', { message: `${error}` }));
+				});
+
+			return () => controller.abort();
+		}, [src, onError, onLoad, codeExtension, isSidebarPreview]);
+
+		return (
+			<pre ref={parentRef} tabIndex={0} className={className}>
+				<div
+					tabIndex={0}
+					className={clsx(
+						'relative w-full whitespace-pre text-ink',
+						codeExtension &&
+							`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
+					)}
+					style={{
+						height: `${rowVirtualizer.getTotalSize()}px`
+					}}
+				>
+					{rowVirtualizer.getVirtualItems().map((row) => (
+						<TextRow
+							key={row.key}
+							codeExtension={codeExtension}
+							row={row}
+							content={lines[row.index]!}
+						/>
+					))}
+				</div>
+			</pre>
+		);
+	}
+);
 
 function TextRow({
 	codeExtension,
@@ -106,20 +102,30 @@ function TextRow({
 	const contentRef = useRef<HTMLSpanElement>(null);
 
 	useEffect(() => {
-		const cb: IntersectionObserverCallback = (events) => {
-			for (const event of events) {
-				if (
-					!event.isIntersecting ||
-					contentRef.current?.getAttribute('data-highlighted') === 'true'
-				)
-					continue;
-				contentRef.current?.setAttribute('data-highlighted', 'true');
-				Prism.highlightElement(event.target, false); // Prism's async seems to be broken
-			}
-		};
+		if (contentRef.current) {
+			const cb: IntersectionObserverCallback = (events) => {
+				for (const event of events) {
+					if (
+						!event.isIntersecting ||
+						contentRef.current?.getAttribute('data-highlighted') === 'true'
+					)
+						continue;
+					contentRef.current?.setAttribute('data-highlighted', 'true');
+					Prism.highlightElement(event.target, false); // Prism's async seems to be broken
 
-		if (contentRef.current) new IntersectionObserver(cb).observe(contentRef.current);
-	});
+					// With this class present TOML headers are broken Eg. `[dependencies]` will format over multiple lines
+					const children = contentRef.current?.children;
+					if (children) {
+						for (const elem of children) {
+							elem.classList.remove('table');
+						}
+					}
+				}
+			};
+
+			new IntersectionObserver(cb).observe(contentRef.current);
+		}
+	}, []);
 
 	return (
 		<div

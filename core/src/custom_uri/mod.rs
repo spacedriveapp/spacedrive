@@ -55,11 +55,6 @@ struct CacheValue {
 	ext: String,
 	file_path_pub_id: Uuid,
 	serve_from: ServeFrom,
-	// // This is useful as it allows us to render a properly sized scroll bar without having to load the entire file into the webview.
-	// //
-	// // A `RwLock` is used so that we ensure only a single thread is doing a lookup per-key at a time. Eg. two requests for file at same time should result into only one FS read/count routine
-	// // `None` will be set if we determine the cost of counting the lines in the file to be too high. This will be common if the file is on a NAS or slow HDD.
-	// file_lines: Arc<RwLock<Option<usize>>>,
 }
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
@@ -150,7 +145,6 @@ async fn get_or_init_lru_entry(
 }
 
 // We are using Axum on all platforms because Tauri's custom URI protocols can't be async!
-// TODO(@Oscar): Long-term hopefully this can be moved into rspc but streaming files is a hard thing for rspc to solve (Eg. how does batching work, dyn-safe handler, etc).
 pub fn router(node: Arc<Node>) -> Router<()> {
 	Router::new()
 		.route(
@@ -244,7 +238,6 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							// TODO: Handle the wacky new pagination type system
 							#[allow(clippy::unwrap_used)]
 							match *state
 								.node
@@ -277,7 +270,6 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 											.await;
 									});
 
-									// TODO: Support file line number hint
 									// TODO: Content Type
 									Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
 										body::boxed(StreamBody::new(stream! {
