@@ -671,8 +671,8 @@ importers:
         specifier: ^8.8.5
         version: 8.8.5(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/react-virtual':
-        specifier: 3.0.0-beta.54
-        version: 3.0.0-beta.54(react@18.2.0)
+        specifier: 3.0.0-beta.61
+        version: 3.0.0-beta.61(react@18.2.0)
       '@types/react-scroll-sync':
         specifier: ^0.8.4
         version: 0.8.4
@@ -10087,12 +10087,12 @@ packages:
       react-dom: 18.2.0(react@18.2.0)
     dev: false
 
-  /@tanstack/react-virtual@3.0.0-beta.54(react@18.2.0):
-    resolution: {integrity: sha512-D1mDMf4UPbrtHRZZriCly5bXTBMhylslm4dhcHqTtDJ6brQcgGmk8YD9JdWBGWfGSWPKoh2x1H3e7eh+hgPXtQ==}
+  /@tanstack/react-virtual@3.0.0-beta.61(react@18.2.0):
+    resolution: {integrity: sha512-ElaOqL3FvJE075/6mRbv8VBHhiF5kHjGA7eo1O+x7sPWO7+fzkTr7t7AhNaWzRLxhUpQfbb6XG3ltp8mpfFLQg==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
-      '@tanstack/virtual-core': 3.0.0-beta.54
+      '@tanstack/virtual-core': 3.0.0-beta.61
       react: 18.2.0
     dev: false
 
@@ -10101,8 +10101,8 @@ packages:
     engines: {node: '>=12'}
     dev: false
 
-  /@tanstack/virtual-core@3.0.0-beta.54:
-    resolution: {integrity: sha512-jtkwqdP2rY2iCCDVAFuaNBH3fiEi29aTn2RhtIoky8DTTiCdc48plpHHreLwmv1PICJ4AJUUESaq3xa8fZH8+g==}
+  /@tanstack/virtual-core@3.0.0-beta.61:
+    resolution: {integrity: sha512-C3iu9rkWvjJ/KbYAjuwLTjqiR9fcf9lXjRBLHDzsL/M6cR7/HLSU94abSdVrzuiqRvP7u7e0FeqPK0O3VbvWyg==}
     dev: false
 
   /@tauri-apps/api@1.3.0:

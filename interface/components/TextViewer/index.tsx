@@ -1,3 +1,4 @@
+import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import Prism from 'prismjs';
 import { memo, useEffect, useRef, useState } from 'react';
@@ -11,104 +12,49 @@ export interface TextViewerProps {
 	codeExtension?: string;
 }
 
-/// Large DOM nodes slow down rendering so we break up the text file into a `span` for every line
-/// Doing too many dom manipulations at once will lag out the UI and specically the open modal animation
-/// So we append a chunk of lines to the DOM and then timeout before appending the next chunk
-const noLinesInRenderChunk = 1000;
-
-const awaitSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 // TODO: ANSI support
 
 export const TextViewer = memo(({ src, onLoad, onError, codeExtension }: TextViewerProps) => {
-	const codeRef = useRef<HTMLPreElement>(null);
-	const linesRef = useRef<HTMLPreElement>(null);
+	const [lines, setLines] = useState<string[]>([]);
+
+	const parentRef = useRef<HTMLPreElement>(null);
+	const rowVirtualizer = useVirtualizer({
+		count: lines.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => 25
+	});
 
 	useEffect(() => {
 		// Ignore empty urls
 		if (!src || src === '#') return;
 
-		if (codeRef.current) codeRef.current.innerHTML = '';
-		if (linesRef.current) linesRef.current.innerHTML = '';
+		// TODO: Max out at 128MB of loaded data -> Like Apple do
 
+		let fileOffset = 0;
 		const controller = new AbortController();
-		fetch(src, { mode: 'cors', signal: controller.signal })
+		fetch(src, {
+			mode: 'cors',
+			signal: controller.signal
+		})
 			.then(async (response) => {
 				if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
 				if (!response.body) return;
 				onLoad?.(new UIEvent('load', {}));
 
-				let firstChunk = true;
-
-				// This code is not pretty but be careful when changing it
-				// Download a GH Actions log from our Mobile CI workflow (around 12MB) and test on it!
 				const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-				const renderLines = async () => {
+				const ingestLines = async () => {
 					const { done, value } = await reader.read();
 					if (done) return;
+					fileOffset += value.length;
+					console.log(fileOffset);
 
 					const chunks = value.split('\n');
-					let lineNo = 0;
-					for (
-						let chunkI = 0;
-						chunkI < chunks.length;
-						chunkI += firstChunk ? 200 : noLinesInRenderChunk
-					) {
-						const noInChunk = Math.min(
-							chunks.length - chunkI,
-							firstChunk ? 200 : noLinesInRenderChunk
-						);
-						console.log(noInChunk, chunks.length - chunkI, chunkI, chunks.length);
 
-						const group = document.createElement('span');
-						group.setAttribute('style', 'white-space: pre;');
-						group.textContent =
-							chunks.slice(chunkI, chunkI + noInChunk).join('\r\n') + '\r\n';
+					setLines((lines) => [...lines, ...chunks]);
 
-						let cb: IntersectionObserverCallback = (events) => {
-							for (const event of events) {
-								if (
-									!event.isIntersecting ||
-									group.getAttribute('data-highlighted') === 'true'
-								)
-									continue;
-								group.setAttribute('data-highlighted', 'true');
-								Prism.highlightElement(event.target, false); // Prism's async seems to be broken
-							}
-						};
-
-						// We delay the syntax highlighter of the first chunk so that the modal animation doesn't lag.
-						if (firstChunk) {
-							firstChunk = false;
-							const oldCb = cb;
-							cb = (events, observer) => {
-								setTimeout(() => oldCb(events, observer), 150);
-							};
-						}
-
-						// We use an `IntersectionObserver` to only syntax highlight the visible portions of the document
-						new IntersectionObserver(cb).observe(group);
-						codeRef.current?.append(group);
-
-						linesRef.current?.append(
-							...[...Array(noInChunk)].map((_, i) => {
-								const line = document.createElement('span');
-								line.textContent = `${i + lineNo + 1}`;
-								line.className = clsx(
-									'token block text-end',
-									i % 2 && 'bg-black/40'
-								);
-								return line;
-							})
-						);
-						lineNo += noInChunk;
-
-						await awaitSleep(500);
-					}
-
-					await renderLines();
+					await ingestLines();
 				};
-				renderLines();
+				ingestLines();
 			})
 			.catch((error) => {
 				if (!controller.signal.aborted)
@@ -116,31 +62,87 @@ export const TextViewer = memo(({ src, onLoad, onError, codeExtension }: TextVie
 			});
 
 		return () => controller.abort();
-	}, [src, onError, onLoad, codeExtension, codeRef]);
+	}, [src, onError, onLoad, codeExtension]);
 
 	return (
 		<pre
+			ref={parentRef}
 			tabIndex={0}
-			className={clsx(
-				'flex h-full w-full overflow-y-scroll',
-				codeExtension && 'relative !pl-[3.8em]'
-			)}
+			className={clsx('h-full w-full overflow-x-hidden overflow-y-scroll')}
 		>
-			{codeExtension && (
-				<span
-					ref={linesRef}
-					className="pointer-events-none absolute left-0 w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull"
-				/>
-			)}
-			<code
-				ref={codeRef}
+			<div
 				tabIndex={0}
 				className={clsx(
-					'relative whitespace-pre text-ink',
+					'relative w-full whitespace-pre text-ink',
 					codeExtension &&
 						`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
 				)}
-			/>
+				style={{
+					height: `${rowVirtualizer.getTotalSize()}px`
+				}}
+			>
+				{rowVirtualizer.getVirtualItems().map((row) => (
+					<TextRow
+						key={row.key}
+						codeExtension={codeExtension}
+						row={row}
+						content={lines[row.index]!}
+					/>
+				))}
+			</div>
 		</pre>
 	);
 });
+
+function TextRow({
+	codeExtension,
+	row,
+	content
+}: {
+	codeExtension?: string;
+	row: VirtualItem;
+	content: string;
+}) {
+	const contentRef = useRef<HTMLSpanElement>(null);
+
+	useEffect(() => {
+		const cb: IntersectionObserverCallback = (events) => {
+			for (const event of events) {
+				if (
+					!event.isIntersecting ||
+					contentRef.current?.getAttribute('data-highlighted') === 'true'
+				)
+					continue;
+				contentRef.current?.setAttribute('data-highlighted', 'true');
+				Prism.highlightElement(event.target, false); // Prism's async seems to be broken
+			}
+		};
+
+		if (contentRef.current) new IntersectionObserver(cb).observe(contentRef.current);
+	});
+
+	return (
+		<div
+			className={clsx('absolute left-0 top-0 flex w-full whitespace-pre')}
+			style={{
+				height: `${row.size}px`,
+				transform: `translateY(${row.start}px)`
+			}}
+		>
+			{codeExtension && (
+				<div
+					key={row.key}
+					className={clsx(
+						'token block w-[3.8em] shrink-0 whitespace-pre pl-1 text-end',
+						row.index % 2 && 'bg-black/40'
+					)}
+				>
+					{row.index + 1}
+				</div>
+			)}
+			<span ref={contentRef} className="flex-1 pl-2">
+				{content}
+			</span>
+		</div>
+	);
+}

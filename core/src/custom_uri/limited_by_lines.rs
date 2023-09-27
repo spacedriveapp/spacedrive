@@ -5,7 +5,7 @@ use std::{
 };
 
 use axum::http::HeaderMap;
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures::ready;
 use http_body::Body;
 use pin_project_lite::pin_project;
