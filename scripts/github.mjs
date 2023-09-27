@@ -383,19 +383,3 @@ export async function getGhArtifactContent(repo, id) {
 	 */
 	return await get(new URL(path.join(repo, ARTIFACTS, `${id}.zip`), NIGTHLY), null, true);
 }
-
-/**
- * @param {ArrayBufferLike} zipData
- * @returns {ArrayBufferLike}
- */
-export function extractSingleFileZip(zipData) {
-	const entries = extract(zipData);
-	const { done, value: entry } = entries.next();
-	if (done) throw new Error('Invalid Archive: has no entries');
-	if (entry.type !== 'FILE') throw new Error('Invalid Archive: entry is not a file');
-
-	const data = entry.data;
-	if (!entries.next().done) throw new Error('Invalid Archive: has multiple entries');
-
-	return data;
-}

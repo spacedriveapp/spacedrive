@@ -39,7 +39,7 @@
 		"@cspell/dict-typescript": "^2.0.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
 		"@storybook/react-vite": "^7.0.20",
-		"archive-wasm": "^1.4.0",
+		"archive-wasm": "^1.5.1",
 		"cspell": "^6.31.1",
 		"mustache": "^4.2.0",
 		"prettier": "^3.0.3",
@@ -58,7 +58,7 @@
 		"pnpm": ">=8.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=18.0.0"
+		"node": ">=18.17"
 	},
 	"eslintConfig": {
 		"root": true,

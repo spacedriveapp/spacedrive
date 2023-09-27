@@ -5,7 +5,6 @@ import { env } from 'node:process';
 import { extractTo } from 'archive-wasm/src/fs.mjs';
 
 import {
-	extractSingleFileZip,
 	getGh,
 	getGhArtifactContent,
 	getGhReleasesAssets,
@@ -145,10 +144,11 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 		try {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
 			await extractTo(
-				__osType === 'Darwin' ? extractSingleFileZip(data) : data,
+				data,
 				framework,
 				{
 					chmod: 0o600,
+					recursive: true,
 					overwrite: true
 				}
 			);

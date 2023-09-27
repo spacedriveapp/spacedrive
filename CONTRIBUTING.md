@@ -70,7 +70,7 @@ To run the landing page:
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
 - Rust version: **1.70.0**
-- Node version: **18**
+- Node version: **18.17**
 - Pnpm version: **8.0.0**
 
 After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
