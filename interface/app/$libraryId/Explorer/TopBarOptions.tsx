@@ -74,7 +74,6 @@ export const useExplorerTopBarOptions = () => {
 			keybinds: [controlIcon, 'I'],
 			onClick: () => {
 				getExplorerStore().showInspector = !explorerStore.showInspector;
-				getExplorerStore().showMoreInfo = false;
 			},
 			icon: (
 				<SidebarSimple

@@ -90,11 +90,8 @@ const MediaData = ({ data }: Props) => {
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
-				valtio={{
-					getStore: () => getExplorerStore(),
-					store: explorerStore,
-					stateKey: 'showMoreInfo'
-				}}
+				isOpen={explorerStore.showMoreInfo}
+				onToggle={(isOpen) => (getExplorerStore().showMoreInfo = isOpen)}
 				variant="apple"
 				title="More info"
 			>
