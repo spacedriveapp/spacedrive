@@ -24,8 +24,8 @@ const styles = {
 	}
 };
 
-const Accordion = (props: PropsWithChildren<Props>) => {
-	const [toggle, setToggle] = useState(false);
+const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
+	const [toggle, setToggle] = useState(isOpen);
 	const variant = styles[props.variant ?? 'default'];
 	return (
 		<div className={clsx(variant.box, props.className)}>
@@ -39,13 +39,10 @@ const Accordion = (props: PropsWithChildren<Props>) => {
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
 					size={props.caretSize || 12}
-					className={clsx(
-						(props.isOpen ?? toggle) && 'rotate-180',
-						'transition-all duration-200'
-					)}
+					className={clsx(isOpen && 'rotate-180', 'transition-all duration-200')}
 				/>
 			</div>
-			{(props.isOpen ?? toggle) && <div className={variant.container}>{props.children}</div>}
+			{isOpen && <div className={variant.container}>{props.children}</div>}
 		</div>
 	);
 };
