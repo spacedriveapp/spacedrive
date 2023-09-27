@@ -26,6 +26,10 @@ runs:
         prefix-key: 'v0-rust-deps'
         shared-key: ${{ inputs.targets }}
 
+    - name: Cargo config.toml
+      shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
+      run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
+
     - name: Restore cached Prisma codegen
       id: cache-prisma-restore
       uses: actions/cache/restore@v3
@@ -37,7 +41,7 @@ runs:
       working-directory: core
       if: ${{ steps.cache-prisma-restore.outputs.cache-hit != 'true' }}
       shell: bash
-      run: cargo run -p prisma-cli --bin prisma -- generate
+      run: cargo prisma
 
     - name: Save Prisma codegen
       id: cache-prisma-save
