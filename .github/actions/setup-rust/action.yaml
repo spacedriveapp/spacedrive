@@ -27,7 +27,7 @@ runs:
         shared-key: ${{ inputs.targets }}
 
     - name: Cargo config.toml
-      shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
+      shell: bash
       run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
 
     - name: Restore cached Prisma codegen
