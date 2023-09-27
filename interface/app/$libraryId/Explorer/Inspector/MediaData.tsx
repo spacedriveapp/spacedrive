@@ -8,6 +8,7 @@ import {
 import Accordion from '~/components/Accordion';
 import { Platform, usePlatform } from '~/util/Platform';
 
+import { getExplorerStore, useExplorerStore } from '../store';
 import { MetaData } from './index';
 
 interface Props {
@@ -84,10 +85,19 @@ const orientations = {
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
+	const explorerStore = useExplorerStore();
 
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
-			<Accordion variant="apple" title="More info">
+			<Accordion
+				valtio={{
+					getStore: () => getExplorerStore(),
+					store: explorerStore,
+					stateKey: 'showMoreInfo'
+				}}
+				variant="apple"
+				title="More info"
+			>
 				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
 				<MetaData label="Type" value={data.type} />
 				<MetaData

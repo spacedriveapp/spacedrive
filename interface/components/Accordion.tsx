@@ -7,6 +7,12 @@ interface Props {
 	title: string;
 	variant?: keyof typeof styles;
 	className?: string;
+	//valtio store to keep the toggle state
+	valtio?: {
+		getStore: () => { [key: string]: any };
+		store: { [key: string]: any };
+		stateKey: string;
+	};
 }
 
 const styles = {
@@ -25,16 +31,22 @@ const styles = {
 const Accordion = (props: PropsWithChildren<Props>) => {
 	const [toggle, setToggle] = useState(false);
 	const variant = styles[props.variant ?? 'default'];
+	const valtio = props.valtio;
+	const toggleHandler = () => {
+		setToggle((prev) => !prev);
+		if (valtio) valtio.getStore()[valtio.stateKey] = !toggle;
+	};
+	const toggleValue = valtio?.store[valtio.stateKey] ?? toggle;
 	return (
 		<div className={clsx(variant.box, props.className)}>
-			<div onClick={() => setToggle((t) => !t)} className={variant.title}>
+			<div onClick={toggleHandler} className={variant.title}>
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
 					size={props.caretSize || 12}
-					className={clsx(toggle && 'rotate-180', 'transition-all duration-200')}
+					className={clsx(toggleValue && 'rotate-180', 'transition-all duration-200')}
 				/>
 			</div>
-			{toggle && <div className={variant.container}>{props.children}</div>}
+			{toggleValue && <div className={variant.container}>{props.children}</div>}
 		</div>
 	);
 };
