@@ -25,11 +25,20 @@ import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore } from '../store';
 import { ViewContext, type ExplorerViewContext } from '../ViewContext';
-import { ExplorerPath } from './ExplorerPath';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
+import { useExplorerViewPadding } from './util';
 import { useViewItemDoubleClick } from './ViewItem';
+
+export interface ExplorerViewPadding {
+	x?: number;
+	y?: number;
+	top?: number;
+	bottom?: number;
+	left?: number;
+	right?: number;
+}
 
 export interface ExplorerViewProps
 	extends Omit<
@@ -39,7 +48,7 @@ export interface ExplorerViewProps
 	className?: string;
 	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
-	padding?: number | { x?: number; y?: number };
+	padding?: number | ExplorerViewPadding;
 }
 
 export default memo(
@@ -59,6 +68,8 @@ export default memo(
 		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 		const [isRenaming, setIsRenaming] = useState(false);
 		const [showLoading, setShowLoading] = useState(false);
+
+		const viewPadding = useExplorerViewPadding(padding);
 
 		useKeyDownHandlers({
 			disabled: isRenaming || quickPreviewStore.open
@@ -101,10 +112,7 @@ export default memo(
 								isRenaming,
 								setIsRenaming,
 								ref,
-								padding: {
-									x: typeof padding === 'object' ? padding.x : padding,
-									y: typeof padding === 'object' ? padding.y : padding
-								}
+								padding: viewPadding
 							}}
 						>
 							{layoutMode === 'grid' && <GridView />}
@@ -117,7 +125,6 @@ export default memo(
 					) : (
 						emptyNotice
 					)}
-					<ExplorerPath />
 				</div>
 
 				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}

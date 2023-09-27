@@ -28,13 +28,15 @@ import {
 } from '../../store';
 import { uniqueId } from '../../util';
 import { useExplorerViewContext } from '../../ViewContext';
+import { useExplorerViewPadding } from '../util';
 import { ViewItem } from '../ViewItem';
 import { getRangeDirection, Range, useRanges } from './util/ranges';
 import { useTable } from './util/table';
 
 interface ListViewItemProps {
 	row: Row<ExplorerItem>;
-	paddingX: number;
+	paddingLeft: number;
+	paddingRight: number;
 	// Props below are passed to trigger a rerender
 	// TODO: Find a better solution
 	columnSizing: ColumnSizingState;
@@ -48,7 +50,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 		<ViewItem
 			data={props.row.original}
 			className="relative flex h-full items-center"
-			style={{ paddingLeft: props.paddingX, paddingRight: props.paddingX }}
+			style={{ paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}
 		>
 			{props.row.getVisibleCells().map((cell) => (
 				<div
@@ -86,6 +88,8 @@ const HeaderColumnName = ({ name }: { name: string }) => {
 };
 
 const ROW_HEIGHT = 45;
+const PADDING_X = 16;
+const PADDING_Y = 12;
 
 export default () => {
 	const layout = useLayoutContext();
@@ -115,17 +119,21 @@ export default () => {
 		rows: rowsById
 	});
 
+	const viewPadding = useExplorerViewPadding(explorerView.padding);
+
 	const padding = {
-		x: explorerView.padding?.x ?? 16,
-		y: explorerView.padding?.y ?? 12
+		top: viewPadding.top ?? PADDING_Y,
+		bottom: viewPadding.bottom ?? PADDING_Y,
+		left: viewPadding.left ?? PADDING_X,
+		right: viewPadding.right ?? PADDING_X
 	};
 
 	const rowVirtualizer = useVirtualizer({
 		count: explorer.count ?? rows.length,
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => ROW_HEIGHT, []),
-		paddingStart: padding.y,
-		paddingEnd: padding.y,
+		paddingStart: padding.top,
+		paddingEnd: padding.bottom + (explorerView.bottom ?? 0),
 		scrollMargin: listOffset,
 		overscan: explorer.overscan ?? 10
 	});
@@ -442,7 +450,8 @@ export default () => {
 			);
 
 		const tableWidth = tableRef.current.offsetWidth;
-		const columnsWidth = Object.values(sizing).reduce((a, b) => a + b, 0) + padding.x * 2;
+		const columnsWidth =
+			Object.values(sizing).reduce((a, b) => a + b, 0) + (padding.left + padding.right);
 
 		if (columnsWidth < tableWidth) {
 			const nameWidth = (sizing.name ?? 0) + (tableWidth - columnsWidth);
@@ -463,7 +472,7 @@ export default () => {
 		}
 
 		setSized(true);
-	}, [columnSizing, columnVisibility, padding.x, sized, table]);
+	}, [columnSizing, columnVisibility, padding.left, padding.right, sized, table]);
 
 	// Load more items
 	useEffect(() => {
@@ -671,37 +680,36 @@ export default () => {
 			}
 		} else explorer.resetSelectedItems([item]);
 
-		if (explorer.scrollRef.current) {
-			const tableBodyRect = tableBodyRef.current?.getBoundingClientRect();
+		if (explorer.scrollRef.current && tableBodyRef.current) {
 			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
 
-			const paddingTop = parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop);
-
-			const top =
-				(explorerView.top ? paddingTop + explorerView.top : paddingTop) +
+			const tableTop =
 				scrollRect.top +
-				(explorer.scrollRef.current.scrollTop > listOffset ? 36 : 0);
+				(explorerView.top ??
+					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
+				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
 
 			const rowTop =
+				scrollRect.top +
 				nextRow.index * ROW_HEIGHT +
 				rowVirtualizer.options.paddingStart +
-				(tableBodyRect?.top || 0) +
-				scrollRect.top;
+				tableBodyRef.current.getBoundingClientRect().top;
 
 			const rowBottom = rowTop + ROW_HEIGHT;
 
-			if (rowTop < top) {
-				const scrollBy = rowTop - top - (nextRow.index === 0 ? padding.y : 0);
+			if (rowTop < tableTop) {
+				const scrollBy = rowTop - tableTop - (nextRow.index === 0 ? padding.top : 0);
 
 				explorer.scrollRef.current.scrollBy({
 					top: scrollBy,
 					behavior: 'smooth'
 				});
-			} else if (rowBottom > scrollRect.bottom) {
+			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
 					rowBottom -
 					scrollRect.height +
-					(nextRow.index === rows.length - 1 ? padding.y : 0);
+					(explorerView.bottom ?? 0) +
+					(nextRow.index === rows.length - 1 ? padding.bottom : 0);
 
 				explorer.scrollRef.current.scrollBy({
 					top: scrollBy,
@@ -735,7 +743,8 @@ export default () => {
 					{} as ColumnSizingState
 				);
 
-			const columnsWidth = Object.values(sizing).reduce((a, b) => a + b, 0) + padding.x * 2;
+			const columnsWidth =
+				Object.values(sizing).reduce((a, b) => a + b, 0) + (padding.left + padding.right);
 
 			if (locked) {
 				const newNameSize = (sizing.name ?? 0) + (width - columnsWidth);
@@ -830,7 +839,8 @@ export default () => {
 															width:
 																i === 0 ||
 																i === headerGroup.headers.length - 1
-																	? size + padding.x
+																	? size +
+																	  padding[i ? 'right' : 'left']
 																	: size
 														}}
 														onClick={() => {
@@ -966,7 +976,10 @@ export default () => {
 													selectedNext &&
 													'rounded-b-none border-b-0 border-b-transparent'
 											)}
-											style={{ right: padding.x, left: padding.x }}
+											style={{
+												right: padding.right,
+												left: padding.left
+											}}
 										>
 											{selectedPrior && (
 												<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
@@ -975,7 +988,8 @@ export default () => {
 
 										<ListViewItem
 											row={row}
-											paddingX={padding.x}
+											paddingLeft={padding.left}
+											paddingRight={padding.right}
 											columnSizing={columnSizing}
 											columnVisibility={columnVisibility}
 											isCut={cut}

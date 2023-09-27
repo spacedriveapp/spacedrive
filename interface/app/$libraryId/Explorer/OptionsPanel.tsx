@@ -1,4 +1,5 @@
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
+import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
 import { SortOrderSchema } from '~/app/route-schemas';
 
 import { useExplorerContext } from './Context';
@@ -15,6 +16,7 @@ const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 export default () => {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
+	const layoutStore = useExplorerLayoutStore();
 
 	const settings = explorer.useSettingsSnapshot();
 
@@ -117,44 +119,58 @@ export default () => {
 				</div>
 			)}
 
-			<div className="flex flex-col gap-2">
-				{settings.layoutMode === 'grid' && (
+			<div>
+				<Subheading>Explorer</Subheading>
+				<div className="flex flex-row flex-wrap justify-between gap-1">
 					<RadixCheckbox
-						checked={settings.showBytesInGridView}
-						label="Show Object size"
-						name="showBytesInGridView"
+						checked={layoutStore.showPathBar}
+						label="Show Path Bar"
+						name="showPathBar"
+						onCheckedChange={(value) => {
+							if (typeof value !== 'boolean') return;
+							getExplorerLayoutStore().showPathBar = value;
+						}}
+					/>
+
+					{settings.layoutMode === 'grid' && (
+						<RadixCheckbox
+							checked={settings.showBytesInGridView}
+							label="Show Object size"
+							name="showBytesInGridView"
+							onCheckedChange={(value) => {
+								if (typeof value !== 'boolean') return;
+
+								explorer.settingsStore.showBytesInGridView = value;
+							}}
+						/>
+					)}
+
+					<RadixCheckbox
+						checked={settings.showHiddenFiles}
+						label="Show Hidden Files"
+						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
 
-							explorer.settingsStore.showBytesInGridView = value;
+							explorer.settingsStore.showHiddenFiles = value;
 						}}
 					/>
-				)}
 
-				<RadixCheckbox
-					checked={settings.showHiddenFiles}
-					label="Show Hidden Files"
-					name="showHiddenFiles"
-					onCheckedChange={(value) => {
-						if (typeof value !== 'boolean') return;
+					{settings.layoutMode === 'media' && (
+						<RadixCheckbox
+							checked={settings.mediaAspectSquare}
+							label="Show square thumbnails"
+							name="mediaAspectSquare"
+							onCheckedChange={(value) => {
+								if (typeof value !== 'boolean') return;
 
-						explorer.settingsStore.showHiddenFiles = value;
-					}}
-				/>
+								explorer.settingsStore.mediaAspectSquare = value;
+							}}
+						/>
+					)}
+				</div>
 			</div>
 
-			{settings.layoutMode === 'media' && (
-				<RadixCheckbox
-					checked={settings.mediaAspectSquare}
-					label="Show square thumbnails"
-					name="mediaAspectSquare"
-					onCheckedChange={(value) => {
-						if (typeof value !== 'boolean') return;
-
-						explorer.settingsStore.mediaAspectSquare = value;
-					}}
-				/>
-			)}
 			<div>
 				<Subheading>Double click action</Subheading>
 				<Select
