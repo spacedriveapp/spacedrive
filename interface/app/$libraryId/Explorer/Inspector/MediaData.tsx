@@ -1,8 +1,10 @@
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat'; // import plugin
 import {
 	CoordinatesFormat,
+	MediaDate,
 	MediaLocation,
 	MediaMetadata,
-	MediaTime,
 	useUnitFormatStore
 } from '@sd/client';
 import Accordion from '~/components/Accordion';
@@ -14,11 +16,60 @@ interface Props {
 	data: MediaMetadata;
 }
 
-const formatMediaTime = (time: MediaTime): string | null => {
-	if (time === 'Undefined') return null;
-	if ('Utc' in time) return time.Utc;
-	if ('Naive' in time) return time.Naive;
-	return null;
+const FormatWithTz = 'YYYY-MM-DD HH-MM-SS ZZ';
+const FormatWithoutTz = 'YYYY-MM-DD HH-MM-SS';
+
+// type MediaDateIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+// 	k: infer I
+// ) => void
+// 	? I
+// 	: never;
+
+// type MediaDateValue<U> = MediaDateIntersection<U> extends infer O
+// 	? { [K in keyof O]: O[K] }
+// 	: never;
+
+const formatMediaDate = (
+	datetime: MediaDate
+): { formatted: string | undefined; raw: string } | undefined => {
+	if (datetime === undefined) return undefined;
+	dayjs.extend(customParseFormat);
+
+	// const withTz = dayjs(datetime, );
+	// console.log(datetime);
+
+	// console.log(datetime);
+
+	// return (
+	// 	{
+	// 		formatted: dayjs(dtType, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
+	// 		raw: dtType
+	// 	} ?? {
+	// 		formatted: dayjs(dtType, FormatWithoutTz, true).format('YYYY-MM-DD HH:mm:ss'),
+	// 		raw: dtType
+	// 	}
+	// );
+
+	return undefined;
+
+	// return 'Utc' in datetime
+	// ? {
+	// 		formatted: dayjs(datetime.Utc, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
+	// 		raw: datetime.Utc
+	//   }
+	// 	: 'Naive' in datetime
+	// 	? console.log(datetime.Naive)! && {
+	// 			// ? dayjs(datetime.Naive, FormatWithoutTz).format('YYYY-MM-DD HH:mm:ss')
+	// 		formatted: dayjs(datetime.Naive, FormatWithoutTz, true).format(
+	// 			'YYYY-MM-DD HH:mm:ss'
+	// 		),
+	// 		raw: datetime.Naive
+	//   }
+	// 	: undefined;
+	// if ('Utc' in datetime) return dayjs(datetime.Utc).format(FormatWithTz);
+	// if ('Naive' in datetime) return dayjs(datetime.Naive).format(FormatWithoutTz);
+	// if (datetime.t === 'Utc') return dayjs(datetime.c, FormatWithTz).format('MMM do YYYY');
+	// if (datetime.t === 'Naive') return dayjs(datetime.c, FormatWithoutTz).format('MMM do YYYY');
 };
 
 const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
@@ -84,11 +135,16 @@ const orientations = {
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
+	// if (data.type === 'Image') console.log(data.date_taken);
 
 	return data.type === 'Image' ? (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion variant="apple" title="More info">
-				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
+				<MetaData
+					label="Date"
+					tooltipValue={data.date_taken && formatMediaDate(data.date_taken)?.raw}
+					value={data.date_taken && formatMediaDate(data.date_taken)?.formatted}
+				/>
 				<MetaData label="Type" value={data.type} />
 				<MetaData
 					label="Location"
@@ -124,12 +180,11 @@ const MediaData = ({ data }: Props) => {
 					}
 				/>
 				<MetaData
-					label="Dimensions"
-					value={`${data.dimensions.width} x ${data.dimensions.height}`}
+					label="Resolution"
+					value={`${data.resolution.width} x ${data.resolution.height}`}
 				/>
 				<MetaData label="Device" value={data.camera_data.device_make} />
 				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData label="Orientation" value={orientations[data.camera_data.orientation]} />
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
