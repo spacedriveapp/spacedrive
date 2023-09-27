@@ -284,11 +284,9 @@ export default ({ children }: { children: RenderItem }) => {
 				newIndex += grid.columnCount;
 				break;
 			case 'ArrowRight':
-				if (grid.columnCount === (currentIndex % grid.columnCount) + 1) return;
 				newIndex += 1;
 				break;
 			case 'ArrowLeft':
-				if (currentIndex % grid.columnCount === 0) return;
 				newIndex -= 1;
 				break;
 		}
@@ -324,7 +322,7 @@ export default ({ children }: { children: RenderItem }) => {
 		if (
 			explorer.scrollRef.current &&
 			explorerView.ref.current &&
-			(e.key === 'ArrowUp' || e.key === 'ArrowDown')
+			newSelectedItem.row !== gridItem.row
 		) {
 			const paddingTop = parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop);
 
