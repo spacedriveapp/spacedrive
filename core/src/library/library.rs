@@ -192,7 +192,7 @@ impl Library {
 				},
 				expires
 					.map(|e| vec![notification::expires_at::set(Some(e.fixed_offset()))])
-					.unwrap_or_else(Vec::new),
+					.unwrap_or_default(),
 			)
 			.exec()
 			.await
