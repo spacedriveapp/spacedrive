@@ -11,6 +11,8 @@ import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerSearchParams } from '../util';
 
+export const PATH_BAR_HEIGHT = 32;
+
 export const ExplorerPath = memo(() => {
 	const location = useLocation();
 	const isDark = useIsDark();
@@ -90,8 +92,8 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="fixed bottom-0 flex h-8 w-full items-center gap-1  border-t
-		border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-faint backdrop-blur-lg"
+			className="absolute inset-x-0 bottom-0 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-faint backdrop-blur-lg"
+			style={{ height: PATH_BAR_HEIGHT }}
 		>
 			{data?.map((p, index) => {
 				return (
