@@ -1,5 +1,4 @@
 use crate::{
-	custom_uri::count_lines::CountLines,
 	library::Library,
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
@@ -17,7 +16,6 @@ use std::{
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::{atomic::Ordering, Arc},
-	time::Duration,
 };
 
 use async_stream::stream;
@@ -36,22 +34,15 @@ use sd_file_ext::text::is_text;
 use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
 	fs::File,
-	io::{AsyncReadExt, AsyncSeekExt, BufReader},
-	sync::RwLock,
-	time::sleep,
+	io::{AsyncReadExt, AsyncSeekExt},
 };
 use tokio_util::sync::PollSender;
 use tracing::error;
 use uuid::Uuid;
 
-use self::{
-	limited_by_lines::LimitedByLinesBody, mpsc_to_async_write::MpscToAsyncWrite,
-	serve_file::serve_file, utils::*,
-};
+use self::{mpsc_to_async_write::MpscToAsyncWrite, serve_file::serve_file, utils::*};
 
 mod async_read_body;
-mod count_lines;
-mod limited_by_lines;
 mod mpsc_to_async_write;
 mod serve_file;
 mod utils;
@@ -64,12 +55,11 @@ struct CacheValue {
 	ext: String,
 	file_path_pub_id: Uuid,
 	serve_from: ServeFrom,
-
-	// This is useful as it allows us to render a properly sized scroll bar without having to load the entire file into the webview.
-	//
-	// A `RwLock` is used so that we ensure only a single thread is doing a lookup per-key at a time. Eg. two requests for file at same time should result into only one FS read/count routine
-	// `None` will be set if we determine the cost of counting the lines in the file to be too high. This will be common if the file is on a NAS or slow HDD.
-	file_lines: Arc<RwLock<Option<usize>>>,
+	// // This is useful as it allows us to render a properly sized scroll bar without having to load the entire file into the webview.
+	// //
+	// // A `RwLock` is used so that we ensure only a single thread is doing a lookup per-key at a time. Eg. two requests for file at same time should result into only one FS read/count routine
+	// // `None` will be set if we determine the cost of counting the lines in the file to be too high. This will be common if the file is on a NAS or slow HDD.
+	// file_lines: Arc<RwLock<Option<usize>>>,
 }
 
 const MAX_TEXT_READ_LENGTH: usize = 10 * 1024; // 10KB
@@ -140,29 +130,6 @@ async fn get_or_init_lru_entry(
 			.map_err(internal_server_error)?
 			.remote_identity();
 
-		let file_lines = Arc::new(RwLock::new(None));
-
-		tokio::spawn({
-			let path = path.clone();
-			let file_lines = file_lines.clone();
-			async move {
-				let mut file_lines = file_lines.write().await;
-				let file = File::open(&path).await.unwrap();
-
-				*file_lines = tokio::select! {
-					// If the file can be read quickly we will count the lines and cache it.
-					// This is used to render the proper sized scroll bar in the webview.
-					result = CountLines::new(BufReader::new(file)) => {
-						result.map_err(|err| {
-							tracing::warn!("Error counting lines of file '{path:?}': {err:?}");
-						}).ok()
-					}
-					// If the user is loading the file from something slow like a NAS we will just abort and go back to messy scroll.
-					_ = sleep(Duration::from_secs(1)) => None
-				};
-			}
-		});
-
 		let lru_entry = CacheValue {
 			name: path,
 			ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
@@ -172,7 +139,6 @@ async fn get_or_init_lru_entry(
 			} else {
 				ServeFrom::Remote(identity)
 			},
-			file_lines,
 		};
 
 		state
@@ -270,24 +236,6 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 								})?,
 							);
 
-							// We aware using `X-SD-Lines` prevents any browser-level caching and will always use chunked transfer encoding
-							if let Some(lines) = request.headers().get("X-SD-Lines") {
-								// TODO: Add cursor to response
-
-								let lines = lines
-									.to_str()
-									.map_err(bad_request)?
-									.parse()
-									.map_err(bad_request)?;
-
-								return Ok(resp.status(StatusCode::OK).body(body::boxed(
-									LimitedByLinesBody::with_lines_limited(
-										BufReader::new(file),
-										lines,
-									),
-								)));
-							}
-
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
@@ -342,26 +290,6 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 						}
 					}
-				},
-			),
-		)
-		.route(
-			"/lines/:lib_id/:loc_id/:path_id",
-			get(
-				|State(state): State<LocalState>, path: ExtractedPath| async move {
-					let (CacheValue { file_lines, .. }, _) =
-						get_or_init_lru_entry(&state, path).await?;
-
-					let lines = file_lines.read().await;
-
-					// TODO: I really don't get why Rust can't infer the error type from `get_or_init_lru_entry` but whatever
-					Ok::<_, Response<BoxBody>>(
-						InfallibleResponse::builder()
-							.status(StatusCode::OK)
-							.body(body::boxed(Full::from(
-								serde_json::to_string(&*lines).map_err(internal_server_error)?,
-							))),
-					)
 				},
 			),
 		)
