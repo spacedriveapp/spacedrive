@@ -1,15 +1,21 @@
 import { createContext, useContext, type ReactNode, type RefObject } from 'react';
 
+import { ExplorerViewPadding } from './View';
+
 export interface ExplorerViewContext {
 	ref: RefObject<HTMLDivElement>;
 	top?: number;
+	bottom?: number;
 	contextMenu?: ReactNode;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
 	setIsRenaming: (isRenaming: boolean) => void;
-	padding?: number | { x?: number; y?: number };
+	padding?: Omit<ExplorerViewPadding, 'x' | 'y'>;
 	gap?: number | { x?: number; y?: number };
 	selectable: boolean;
+	listViewOptions?: {
+		hideHeaderBorder?: boolean;
+	};
 }
 
 export const ViewContext = createContext<ExplorerViewContext | null>(null);
