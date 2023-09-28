@@ -86,7 +86,7 @@ const SubMenu = ({
 
 const contextMenuItemStyles = cva(
 	[
-		'flex h-[26px] items-center space-x-2 overflow-hidden rounded px-2',
+		'flex min-h-[26px] max-h-fit items-center space-x-2 overflow-hidden rounded px-2',
 		'text-sm text-menu-ink',
 		'group-radix-highlighted:text-white',
 		'group-radix-disabled:pointer-events-none group-radix-disabled:text-menu-ink/50',
