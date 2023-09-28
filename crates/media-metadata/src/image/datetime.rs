@@ -102,3 +102,23 @@ impl<'de> Deserialize<'de> for MediaDate {
 		deserializer.deserialize_str(MediaDateVisitor)
 	}
 }
+
+// #[cfg(test)]
+// mod tests {
+// 	use crate::ImageMetadata;
+
+// 	use super::*;
+// 	#[test]
+// 	fn x() {
+// 		let z = ImageMetadata::from_path(
+// 			"/Users/broken/exif/PXL_20230714_222933902.ACTION_PAN-02.ORIGINAL.jpg",
+// 		)
+// 		.unwrap();
+
+// 		// let st = z.date_taken.map(|x| x.tostri);
+
+// 		// println!("{st:?}");
+
+// 		// println!("{:?}", serde_json::from_slice::<MediaDate>(&st).unwrap());
+// 	}
+// }
