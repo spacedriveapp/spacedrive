@@ -1,15 +1,36 @@
 use std::time::Duration;
 
+use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use rspc::alpha::AlphaRouter;
 
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 use specta::Type;
 
-use crate::auth::{OAuthToken, DEVICE_CODE_URN};
+use crate::auth::DEVICE_CODE_URN;
 
 use super::{Ctx, R};
+
+async fn json_req<T: DeserializeOwned>(req: RequestBuilder) -> Result<T, rspc::Error> {
+	req.send()
+		.await
+		.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Request failed".to_string(),
+			)
+		})?
+		.json()
+		.await
+		.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"JSON conversion failed".to_string(),
+			)
+		})
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -36,14 +57,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						verification_uri_complete: String,
 					}
 
-					let auth_response: DeviceAuthorizationResponse = node.http
+					let Ok(auth_response) = (match node.http
 						.post(&format!("{}/login/device/code", &node.env.api_url))
 						.send()
-						.await
-						.unwrap()
-						.json()
-						.await
-						.unwrap();
+						.await {
+							Ok(resp) => resp.json::<DeviceAuthorizationResponse>().await,
+							Err(e) => Err(e)
+						}) else {
+							yield Response::Error;
+							return;
+						};
 
 					yield Response::Start {
 						user_code: auth_response.user_code.clone(),
@@ -54,16 +77,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					yield loop {
 						tokio::time::sleep(Duration::from_secs(5)).await;
 
-						let token_resp = node.http
+						let Ok(token_resp) = node.http
 							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
 							.form(&[("grant_type", DEVICE_CODE_URN), ("device_code", &auth_response.device_code)])
 							.send()
-							.await
-							.unwrap();
+							.await else {
+								break Response::Error;
+							};
 
 						match token_resp.status() {
 							StatusCode::OK => {
-								let token: OAuthToken = token_resp.json().await.unwrap();
+								let Ok(token) = token_resp.json().await else {
+									break Response::Error;
+								};
 
 								node.config.write(|mut c| c.auth_token = Some(token)).await.ok();
 
@@ -76,7 +102,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									error: String
 								}
 
-								let resp: OAuth400 = token_resp.json().await.unwrap();
+								let Ok(resp) = token_resp.json::<OAuth400>().await else {
+									break Response::Error;
+								};
 
 								match resp.error.as_str() {
 									"authorization_pending" => continue,
@@ -117,18 +145,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					email: String,
 				}
 
-				let res: Response = node
-					.http
-					.get(&format!("{}/api/v1/user/me", &node.env.api_url))
-					.header("authorization", &auth_token.to_header())
-					.send()
-					.await
-					.unwrap()
-					.json()
-					.await
-					.unwrap();
+				let res: Response = json_req(
+					node.http
+						.get(&format!("{}/api/v1/user/me", &node.env.api_url))
+						.header("authorization", &auth_token.to_header()),
+				)
+				.await?;
 
-				return Ok(res);
+				Ok(res)
 			})
 		})
 }
