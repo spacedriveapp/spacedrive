@@ -16,9 +16,6 @@ interface Props {
 	data: MediaMetadata;
 }
 
-const FormatWithTz = 'YYYY-MM-DD HH-MM-SS ZZ';
-const FormatWithoutTz = 'YYYY-MM-DD HH-MM-SS';
-
 // type MediaDateIntersection<U> = (U extends any ? (k: U) => void : never) extends (
 // 	k: infer I
 // ) => void
@@ -29,28 +26,32 @@ const FormatWithoutTz = 'YYYY-MM-DD HH-MM-SS';
 // 	? { [K in keyof O]: O[K] }
 // 	: never;
 
+const DateFormatWithTz = 'YYYY-MM-DD HH-MM-SS ZZ';
+const DateFormatWithoutTz = 'YYYY-MM-DD HH-MM-SS';
+
 const formatMediaDate = (
 	datetime: MediaDate
 ): { formatted: string | undefined; raw: string } | undefined => {
 	if (datetime === undefined) return undefined;
 	dayjs.extend(customParseFormat);
 
-	// const withTz = dayjs(datetime, );
-	// console.log(datetime);
+	if (datetime)
+		// const withTz = dayjs(datetime, );
+		// console.log(datetime);
 
-	// console.log(datetime);
+		// console.log(datetime);
 
-	// return (
-	// 	{
-	// 		formatted: dayjs(dtType, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
-	// 		raw: dtType
-	// 	} ?? {
-	// 		formatted: dayjs(dtType, FormatWithoutTz, true).format('YYYY-MM-DD HH:mm:ss'),
-	// 		raw: dtType
-	// 	}
-	// );
+		// return (
+		// 	{
+		// 		formatted: dayjs(dtType, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
+		// 		raw: dtType
+		// 	} ?? {
+		// 		formatted: dayjs(dtType, FormatWithoutTz, true).format('YYYY-MM-DD HH:mm:ss'),
+		// 		raw: dtType
+		// 	}
+		// );
 
-	return undefined;
+		return undefined;
 
 	// return 'Utc' in datetime
 	// ? {

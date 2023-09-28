@@ -8,7 +8,8 @@ use serde::de::{self, Deserialize, Deserializer, Visitor};
 pub const UTC_FORMAT_STR: &str = "%F %T %z";
 pub const NAIVE_FORMAT_STR: &str = "%F %T";
 
-/// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
+/// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
+/// where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
 #[derive(Clone, Debug, PartialEq, Eq, specta::Type)]
 pub enum MediaDate {
 	Naive(NaiveDateTime),
