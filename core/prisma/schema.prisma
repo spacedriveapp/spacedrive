@@ -311,7 +311,7 @@ model MediaData {
     // these are also usually one-way, and not reversible
     // (e.g. we can't get `MediaDate::Utc(2023-09-26T22:04:37+01:00)` from `1695758677` as we don't store the TZ)
     epoch_time  BigInt? // time since unix epoch
-    pixel_count BigInt? // total count of pixels
+    pixel_count BigInt? // total count of pixels: justification - av1 (avif) images can be massive but sub-1mib in size, so size ordering won't work
 
     // video-specific
     // duration Int?
