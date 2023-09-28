@@ -1,10 +1,13 @@
 use std::time::Duration;
 
+use reqwest::StatusCode;
 use rspc::alpha::AlphaRouter;
 
 use serde::Deserialize;
 use serde::Serialize;
 use specta::Type;
+
+use crate::auth::{OAuthToken, DEVICE_CODE_URN};
 
 use super::{Ctx, R};
 
@@ -12,73 +15,121 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("loginSession", {
 			#[derive(Serialize, Type)]
+			#[specta(inline)]
 			enum Response {
-				Start(String),
-				Token(String),
+				Start {
+					user_code: String,
+					verification_url: String,
+					verification_url_complete: String,
+				},
+				Complete,
+				Error,
 			}
 
-			R.subscription(|_, _: ()| async move {
-				let device_session_url = format!(
-					"{}/api/auth/device-session",
-					std::env::var("SD_API_URL").unwrap()
-				);
-
-				let client = reqwest::Client::new();
-
+			R.subscription(|node, _: ()| async move {
 				async_stream::stream! {
-					let key = client
-						.post(&device_session_url)
+					#[derive(Deserialize, Type)]
+					struct DeviceAuthorizationResponse {
+						device_code: String,
+						user_code: String,
+						verification_url: String,
+						verification_uri_complete: String,
+					}
+
+					let auth_response: DeviceAuthorizationResponse = node.http
+						.post(&format!("{}/login/device/code", &node.env.api_url))
 						.send()
 						.await
 						.unwrap()
-						.text()
+						.json()
 						.await
 						.unwrap();
 
-					yield Response::Start(key.clone());
+					yield Response::Start {
+						user_code: auth_response.user_code.clone(),
+						verification_url: auth_response.verification_url.clone(),
+						verification_url_complete: auth_response.verification_uri_complete.clone(),
+					};
 
-					loop {
-						tokio::time::sleep(Duration::from_secs(3)).await;
+					yield loop {
+						tokio::time::sleep(Duration::from_secs(5)).await;
 
-						#[derive(Debug, Deserialize)]
-						#[serde(rename_all = "camelCase", tag = "status")]
-						enum AuthResponse {
-							Pending,
-							Complete { token: String },
-						}
-
-						let result: AuthResponse = client
-							.get(&device_session_url)
-							.query(&[("key", &key)])
+						let token_resp = node.http
+							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
+							.form(&[("grant_type", DEVICE_CODE_URN), ("device_code", &auth_response.device_code)])
 							.send()
-							.await
-							.unwrap()
-							.json()
 							.await
 							.unwrap();
 
-						if let AuthResponse::Complete { token } = result {
-							yield Response::Token(token.clone());
+						match token_resp.status() {
+							StatusCode::OK => {
+								let token: OAuthToken = token_resp.json().await.unwrap();
 
-							client
-								.delete(&device_session_url)
-								.query(&[("key", &key)])
-								.send()
-								.await
-								// we don't care if this succeeds - redis will take care of it
-								.ok();
+								node.config.write(|mut c| c.auth_token = Some(token)).await.ok();
 
-							return;
+								break Response::Complete;
+
+							},
+							StatusCode::BAD_REQUEST => {
+								#[derive(Debug, Deserialize)]
+								struct OAuth400 {
+									error: String
+								}
+
+								let resp: OAuth400 = token_resp.json().await.unwrap();
+
+								match resp.error.as_str() {
+									"authorization_pending" => continue,
+									_ => {
+										break Response::Error;
+									}
+								}
+							},
+							_ => {
+								break Response::Error;
+							}
 						}
 					}
 				}
 			})
 		})
-		.procedure("me", {
-			R.query(|_, _: ()| async move {
-				todo!();
+		.procedure(
+			"logout",
+			R.mutation(|node, _: ()| async move {
+				node.config.write(|mut c| c.auth_token = None).await.ok();
 
-				return Ok(());
+				Ok(())
+			}),
+		)
+		.procedure("me", {
+			R.query(|node, _: ()| async move {
+				let client = reqwest::Client::new();
+
+				let Some(auth_token) = node.config.get().await.auth_token else {
+					return Err(rspc::Error::new(
+						rspc::ErrorCode::Unauthorized,
+						"No auth token".to_string(),
+					));
+				};
+
+				#[derive(Serialize, Deserialize, Type)]
+				#[specta(inline)]
+				struct Response {
+					id: String,
+					email: String,
+				}
+
+				let res: Response = client
+					.get(&format!("{}/api/v1/user/me", &node.env.api_url))
+					.header("authorization", &auth_token.to_header())
+					.send()
+					.await
+					.unwrap()
+					.json()
+					.await
+					.unwrap();
+
+				return Ok(res);
 			})
 		})
 }

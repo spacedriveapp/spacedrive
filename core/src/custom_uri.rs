@@ -24,11 +24,10 @@ use std::{
 use async_stream::stream;
 use axum::{
 	body::{self, Body, BoxBody, Full, HttpBody, StreamBody},
-	extract::{self, Query, State},
+	extract::{self, State},
 	http::{self, header, request, HeaderMap, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::{self, Next},
-	response::Html,
-	routing::{get, post},
+	routing::get,
 	Router,
 };
 use bytes::Bytes;

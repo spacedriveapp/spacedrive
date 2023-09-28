@@ -3,7 +3,7 @@
 
 export type Procedures = {
     queries: 
-        { key: "auth.me", input: never, result: null } | 
+        { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
@@ -41,6 +41,7 @@ export type Procedures = {
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
+        { key: "auth.logout", input: never, result: null } | 
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
@@ -364,7 +365,7 @@ export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RescanArgs = { location_id: number; sub_path: string }
 
-export type Response = { Start: string } | { Token: string }
+export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | "Error"
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
