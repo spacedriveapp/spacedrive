@@ -7,8 +7,8 @@ on:
   push:
     paths:
       - 'Cargo.lock'
-      - '.github/scripts/setup-system.sh'
-      - '.github/scripts/setup-system.ps1'
+      - './scripts/setup.sh'
+      - './scripts/setup.ps1'
       - '.github/workflows/cache-factory.yaml'
       - '.github/actions/**/*.yml'
       - '.github/actions/**/*.yaml'
