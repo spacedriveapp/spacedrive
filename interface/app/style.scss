@@ -101,7 +101,9 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[46px] rounded-[6px] bg-transparent;
+		@apply rounded-[6px] bg-transparent;
+		margin-top: var(--scrollbar-margin-top);
+		margin-bottom: var(--scrollbar-margin-bottom);
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-explorerScrollbar;

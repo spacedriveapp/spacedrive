@@ -14,7 +14,6 @@ export const NavigationButtons = () => {
 
 	useEffect(() => {
 		const onMouseDown = (e: MouseEvent) => {
-			e.preventDefault();
 			e.stopPropagation();
 			if (e.buttons === 8) {
 				if (idx === 0 || isFocused) return;

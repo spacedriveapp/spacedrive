@@ -42,6 +42,7 @@ export interface ThumbProps {
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
 	className?: string;
+	frameClassName?: string;
 	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
 }
 
@@ -62,6 +63,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
 		'rounded-sm border-2 border-app-line bg-app-darkBox',
+		props.frameClassName,
 		isDark ? classes.checkers : classes.checkersLight
 	);
 
