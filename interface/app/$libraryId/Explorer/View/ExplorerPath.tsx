@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { ExplorerItem, getExplorerLayoutStore, useExplorerLayoutStore } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
-import { useIsDark, useKeyBind, useKeyMatcher, useZodSearchParams } from '~/hooks';
+import { useIsDark, useKeybind, useKeyMatcher, useZodSearchParams } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -83,7 +83,7 @@ export const ExplorerPath = memo(() => {
 		} else setSelectedItem(undefined);
 	}, [pathInfo, explorerContext.selectedItems, formatPathData]);
 
-	useKeyBind([metaCtrlKey, 'p'], (e) => {
+	useKeybind([metaCtrlKey, 'p'], (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
