@@ -80,11 +80,6 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         env:
@@ -92,6 +87,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           targets: ${{ matrix.settings.target }}
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: |
