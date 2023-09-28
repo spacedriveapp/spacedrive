@@ -91,10 +91,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									break Response::Error;
 								};
 
-								node.config.write(|mut c| c.auth_token = Some(token)).await.ok();
+								if node.config
+									.write(|mut c| c.auth_token = Some(token))
+									.await.is_err() {
+										break Response::Error;
+									};
+
 
 								break Response::Complete;
-
 							},
 							StatusCode::BAD_REQUEST => {
 								#[derive(Debug, Deserialize)]
