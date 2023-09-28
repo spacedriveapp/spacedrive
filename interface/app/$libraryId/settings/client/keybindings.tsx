@@ -70,6 +70,10 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			key: [[[ModifierKeys.Control], ['i']]]
 		},
 		{
+			action: 'Show path bar',
+			key: [[[ModifierKeys.Control], ['p']]]
+		},
+		{
 			action: 'Rename file or folder',
 			key: [[[], ['Enter']]]
 		},

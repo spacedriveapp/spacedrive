@@ -22,8 +22,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { dialogManager, DropdownMenu, Form, ModifierKeys, toast, Tooltip, z } from '@sd/ui';
-import { useIsDark, useOperatingSystem } from '~/hooks';
-import { useKeyBind } from '~/hooks/useKeyBind';
+import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -110,7 +109,7 @@ export const QuickPreview = () => {
 	}, [item, open]);
 
 	// Toggle quick preview
-	useKeyBind(['space'], (e) => {
+	useKeybind(['space'], (e) => {
 		if (isRenaming) return;
 
 		e.preventDefault();
@@ -118,21 +117,21 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	useKeyBind('Escape', (e) => open && e.stopPropagation());
+	useKeybind('Escape', (e) => open && e.stopPropagation());
 
 	// Move between items
-	useKeyBind([['left'], ['right']], (e) => {
+	useKeybind([['left'], ['right']], (e) => {
 		if (isContextMenuOpen || isRenaming) return;
 		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
 
 	// Toggle metadata
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
 		setShowMetadata(!showMetadata)
 	);
 
 	// Open file
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
 		if (!item || !openFilePaths) return;
 
 		try {
@@ -150,7 +149,7 @@ export const QuickPreview = () => {
 	});
 
 	// Reveal in native explorer
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
 		if (!item || !revealItems) return;
 
 		try {
@@ -170,7 +169,7 @@ export const QuickPreview = () => {
 	});
 
 	// Open delete dialog
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
 		if (!item) return;
 
 		const path = getIndexedItemFilePath(item);
