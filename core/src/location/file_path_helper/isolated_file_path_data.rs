@@ -51,11 +51,8 @@ impl IsolatedFilePathData<'static> {
 			.then(|| {
 				full_path
 					.extension()
+					.and_then(|ext| ext.to_str().map(str::to_string))
 					.unwrap_or_default()
-					.to_str()
-					.unwrap_or_default()
-					// Coerce extension to lowercase to make it case-insensitive
-					.to_lowercase()
 			})
 			.unwrap_or_default();
 
