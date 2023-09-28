@@ -29,14 +29,6 @@ pub struct ObjectsForExplorer {
 	// pub context: ExplorerContext,
 }
 
-// #[derive(Debug, Serialize, Deserialize, Type)]
-// pub enum ExplorerContext {
-// 	Location(Box<file_path::Data>),
-// 	Space(Box<space::Data>),
-// 	Tag(Box<tag::Data>),
-// 	// Search(Box<file_path::Data>),
-// }
-
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectData {
 	Object(Box<object::Data>),

@@ -150,7 +150,7 @@ pub async fn walk(
 			let extension = path
 				.extension()
 				.and_then(|s| s.to_str().map(str::to_string))
-				.unwrap_or("".to_string());
+				.unwrap_or_default();
 
 			let kind = Extension::resolve_conflicting(&path, false)
 				.await
@@ -237,7 +237,7 @@ pub async fn walk(
 					hidden: path_is_hidden(Path::new(&directory), &metadata),
 					path: directory,
 					name,
-					extension: "".to_string(),
+					extension: String::new(),
 					kind: ObjectKind::Folder as i32,
 					is_dir: true,
 					date_created: metadata.created_or_now().into(),
