@@ -44,8 +44,8 @@ const platform: Platform = {
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	confirm: (message, cb) => cb(window.confirm(message)),
 	auth: {
-		start(key) {
-			return window.open(`http://localhost:3000/device-session?key=${key}`);
+		start(url) {
+			return window.open(url);
 		},
 		finish(win: Window | null) {
 			win?.close();

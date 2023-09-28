@@ -16,15 +16,12 @@ export function LoginButton({ onLogin }: { onLogin: () => void }) {
 	useBridgeSubscription(['auth.loginSession'], {
 		enabled: state.status === 'LoggingIn',
 		onData(data) {
-			console.log(data);
 			if (data === 'Complete') {
 				onLogin();
 				platform.auth.finish?.(ret.current);
-			} else if (data === 'Error') {
-				setState({ status: 'Idle' });
-			} else {
-				const { user_code } = data.Start;
-				ret.current = platform.auth.start(user_code);
+			} else if (data === 'Error') setState({ status: 'Idle' });
+			else {
+				ret.current = platform.auth.start(data.Start.verification_url_complete);
 			}
 		},
 		onError() {

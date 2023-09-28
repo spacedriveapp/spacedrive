@@ -103,8 +103,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure("me", {
 			R.query(|node, _: ()| async move {
-				let client = reqwest::Client::new();
-
 				let Some(auth_token) = node.config.get().await.auth_token else {
 					return Err(rspc::Error::new(
 						rspc::ErrorCode::Unauthorized,
@@ -119,7 +117,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					email: String,
 				}
 
-				let res: Response = client
+				let res: Response = node
+					.http
 					.get(&format!("{}/api/v1/user/me", &node.env.api_url))
 					.header("authorization", &auth_token.to_header())
 					.send()

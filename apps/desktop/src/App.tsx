@@ -74,13 +74,8 @@ const platform: Platform = {
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
 	auth: {
-		start(userCode: string) {
-			open(
-				`${import.meta.env.VITE_SD_API_URL}/login/device?` +
-					new URLSearchParams({
-						userCode
-					})
-			);
+		start(url) {
+			open(url);
 		}
 	},
 	...commands
