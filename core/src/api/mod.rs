@@ -47,6 +47,7 @@ impl BackendFeature {
 	}
 }
 
+mod auth;
 mod backups;
 mod categories;
 mod files;
@@ -165,6 +166,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(())
 			})
 		})
+		.merge("auth.", auth::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())

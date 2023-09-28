@@ -4,7 +4,6 @@ use crate::{
 };
 
 use std::{
-	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 	time::SystemTime,
@@ -132,6 +131,7 @@ pub struct FilePathMetadata {
 pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 	#[cfg(target_family = "unix")]
 	{
+		use std::ffi::OsStr;
 		let _ = metadata; // just to avoid warnings on Linux
 		if path
 			.file_name()

@@ -119,6 +119,7 @@ type CutCopyState =
 const state = {
 	tagAssignMode: false,
 	showInspector: false,
+	showMoreInfo: false,
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,

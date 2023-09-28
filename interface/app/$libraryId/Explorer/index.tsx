@@ -1,6 +1,6 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { useEffect, type PropsWithChildren, type ReactNode } from 'react';
-import { useLibrarySubscription } from '@sd/client';
+import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -9,8 +9,8 @@ import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { useExplorerStore } from './store';
-import { useExplorerSearchParams } from './util';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
+import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -24,6 +24,7 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
+	const { showPathBar } = useExplorerLayoutStore();
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -45,10 +46,16 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					<div
 						ref={explorer.scrollRef}
 						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
-						style={{
-							paddingTop: TOP_BAR_HEIGHT,
-							paddingRight: explorerStore.showInspector ? INSPECTOR_WIDTH : 0
-						}}
+						style={
+							{
+								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
+								'--scrollbar-margin-bottom': `${
+									showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
+								}px`,
+								'paddingTop': TOP_BAR_HEIGHT,
+								'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+							} as CSSProperties
+						}
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
@@ -63,15 +70,21 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 								)
 							}
 							listViewOptions={{ hideHeaderBorder: true }}
+							bottom={showPathBar ? PATH_BAR_HEIGHT : undefined}
 						/>
 					</div>
 				</div>
 			</ExplorerContextMenu>
 
+			<ExplorerPath />
+
 			{explorerStore.showInspector && (
 				<Inspector
-					className="no-scrollbar absolute inset-y-0 right-1.5 pb-3 pl-3 pr-1.5"
-					style={{ paddingTop: TOP_BAR_HEIGHT + 12 }}
+					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
+					style={{
+						paddingTop: TOP_BAR_HEIGHT + 12,
+						bottom: showPathBar ? PATH_BAR_HEIGHT : 0
+					}}
 				/>
 			)}
 		</>

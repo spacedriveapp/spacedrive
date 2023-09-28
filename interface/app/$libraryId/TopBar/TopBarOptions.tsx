@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
-import { useKeyBind, useKeyMatcher } from '~/hooks';
+import { useKeybind, useKeyMatcher } from '~/hooks';
 
 import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
@@ -35,7 +35,7 @@ export default ({ options }: TopBarChildrenProps) => {
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	useKeyBind([metaCtrlKey, 'v'], (e) => {
+	useKeybind([metaCtrlKey, 'v'], (e) => {
 		e.stopPropagation();
 		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
 		const currentLayout = explorerLayouts.indexOf(

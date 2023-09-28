@@ -64,65 +64,11 @@ function Add-DirectoryToPath($directory) {
     Reset-Path
 }
 
-$ghUrl = 'https://api.github.com/repos'
-$sdGhPath = 'spacedriveapp/spacedrive'
-
-function Invoke-RestMethodGithub {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Uri,
-        [string]$Method = 'GET',
-        [string]$OutFile = $null,
-        [hashtable]$Headers = @{},
-        [string]$UserAgent = 'PowerShell'
-    )
-
-    $headers.Add('Accept', 'application/vnd.github+json')
-    $headers.Add('X-GitHub-Api-Version', '2022-11-28')
-
-    if (![string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
-        $headers.Add('Authorization', "Bearer $($env:GITHUB_TOKEN)")
-    }
-
-    $params = @{
-        Uri       = $Uri
-        Method    = $Method
-        OutFile   = $OutFile
-        Headers   = $Headers
-        UserAgent = $UserAgent
-    }
-
-    Invoke-RestMethod @params
-}
-
-function DownloadArtifact {
-    param (
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$ArtifactPath,
-        [string]$OutFile
-    )
-
-    try {
-        Invoke-RestMethodGithub -Uri "$ghUrl/$sdGhPath/actions/artifacts/$($($ArtifactPath -split '/')[3])/zip" -OutFile $OutFile
-    } catch {
-        # nightly.link is a workaround for the lack of a public GitHub API to download artifacts from a workflow run
-        # https://github.com/actions/upload-artifact/issues/51
-        # Use it when running in environments that are not authenticated with GitHub
-        Write-Host 'Failed to download artifact from Github, falling back to nightly.link' -ForegroundColor Yellow
-        Invoke-RestMethodGithub -Uri "https://nightly.link/${sdGhPath}/${ArtifactPath}" -OutFile $OutFile
-    }
-}
-
 # Reset PATH to ensure the script doesn't have stale Path entries
 Reset-Path
 
-# Get temp folder
-$temp = [System.IO.Path]::GetTempPath()
-
-# Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\.github\scripts)
-$projectRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+# Get project dir (get grandparent dir from script location: <PROJECT_ROOT>\scripts\setup.ps1)
+$projectRoot = Split-Path -Path $PSScriptRoot -Parent
 $packageJson = Get-Content -Raw -Path "$projectRoot\package.json" | ConvertFrom-Json
 
 # Valid winget exit status
@@ -131,13 +77,6 @@ $wingetValidExit = 0, -1978335189, -1978335153, -1978335135
 # Currently LLVM >= 16 is not supported due to incompatibilities with ffmpeg-sys-next
 # See https://github.com/spacedriveapp/spacedrive/issues/677
 $llvmVersion = [Version]'15.0.7'
-
-$ffmpegVersion = '6.0'
-
-# Change CWD to project root
-Set-Location $projectRoot
-Remove-Item -Force -ErrorAction SilentlyContinue -Path "$projectRoot\.cargo\config"
-Remove-Item -Force -ErrorAction SilentlyContinue -Path "$projectRoot\target\Frameworks" -Recurse
 
 Write-Host 'Spacedrive Development Environment Setup' -ForegroundColor Magenta
 Write-Host @"
@@ -149,9 +88,7 @@ To set up your machine for Spacedrive development, this script will do the follo
 4) Install Rust tools
 5) Install Strawberry perl (used by to build the openssl-sys crate)
 6) Install Node.js, npm and pnpm
-7) Install LLVM $llvmVersion (compiler for ffmpeg-rust)
-8) Download the protbuf compiler
-9) Download a compatible ffmpeg build
+7) Install LLVM $llvmVersion (compiler for ffmpeg-sys-next crate)
 "@
 
 # Install System dependencies (GitHub Actions already has all of those installed)
@@ -306,127 +243,13 @@ https://learn.microsoft.com/windows/package-manager/winget/
     }
 }
 
-# Create target folder, continue if already exists
-New-Item -Force -ErrorAction SilentlyContinue -ItemType Directory -Path "$projectRoot\target\Frameworks" | Out-Null
-
-# --
-
-Write-Host
-Write-Host 'Retrieving protobuf build...' -ForegroundColor Yellow
-
-$filename = $null
-$downloadUri = $null
-$releasesUri = "${ghUrl}/protocolbuffers/protobuf/releases"
-$filenamePattern = '*-win64.zip'
-
-$releases = Invoke-RestMethodGithub -Uri $releasesUri
-for ($i = 0; $i -lt $releases.Count; $i++) {
-    $release = $releases[$i]
-    foreach ($asset in $release.assets) {
-        if ($asset.name -like $filenamePattern) {
-            $filename = $asset.name
-            $downloadUri = $asset.browser_download_url
-            $i = $releases.Count
-            break
-        }
-    }
+if ($LASTEXITCODE -ne 0) {
+    Exit-WithError "Something went wrong, exit code: $LASTEXITCODE"
 }
-
-if (-not ($filename -and $downloadUri)) {
-    Exit-WithError "Couldn't find a protobuf compiler installer"
-}
-
-Write-Host "Dowloading protobuf zip from ${downloadUri}..." -ForegroundColor Yellow
-Invoke-RestMethodGithub -Uri $downloadUri -OutFile "$temp\protobuf.zip"
-
-Write-Host 'Expanding protobuf zip...' -ForegroundColor Yellow
-Expand-Archive "$temp\protobuf.zip" "$projectRoot\target\Frameworks" -Force
-Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp\protobuf.zip"
-
-# --
-
-Write-Host "Retrieving ffmpeg-${ffmpegVersion} build..." -ForegroundColor Yellow
-
-$page = 1
-while ($page -gt 0) {
-    $success = ''
-    Invoke-RestMethodGithub -Uri `
-        "${ghUrl}/${sdGhPath}/actions/workflows/ffmpeg-windows.yml/runs?page=$page&per_page=100&status=success" `
-    | ForEach-Object {
-        if (-not $_.workflow_runs) {
-            Exit-WithError "Error: $_"
-        }
-
-        $_.workflow_runs | ForEach-Object {
-            $artifactPath = (
-                (Invoke-RestMethodGithub -Uri ($_.artifacts_url | Out-String) -Method Get).artifacts `
-                | Where-Object {
-                    $_.name -eq "ffmpeg-${ffmpegVersion}-x86_64"
-                } | ForEach-Object {
-                    $id = $_.id
-                    $workflowRunId = $_.workflow_run.id
-                    "suites/${workflowRunId}/artifacts/${id}"
-                } | Select-Object -First 1
-            )
-
-            try {
-                if ([string]::IsNullOrEmpty($artifactPath)) {
-                    throw 'Empty argument'
-                }
-
-                # Download and extract the artifact
-                Write-Host "Dowloading ffmpeg-${ffmpegVersion} zip from artifact ${artifactPath}..." -ForegroundColor Yellow
-
-                DownloadArtifact -ArtifactPath $artifactPath -OutFile "$temp/ffmpeg.zip"
-
-                Write-Host "Expanding ffmpeg-${ffmpegVersion} zip..." -ForegroundColor Yellow
-                Expand-Archive "$temp/ffmpeg.zip" "$projectRoot\target\Frameworks" -Force
-                Remove-Item -Force -ErrorAction SilentlyContinue -Path "$temp/ffmpeg.zip"
-
-                $success = 'yes'
-                break
-            } catch {
-                $errorMessage = $_.Exception.Message
-                Write-Host "Error: $errorMessage" -ForegroundColor Red
-                Write-Host 'Failed to download ffmpeg artifact release, trying again in 1sec...'
-                Start-Sleep -Seconds 1
-                continue
-            }
-        }
-    }
-
-    if ($success -eq 'yes') {
-        break
-    }
-
-    $page++
-    Write-Output 'ffmpeg artifact not found, trying again in 1sec...'
-    Start-Sleep -Seconds 1
-}
-
-if ($success -ne 'yes') {
-    Exit-WithError 'Failed to download ffmpeg files'
-}
-
-@(
-    '[env]',
-    "PROTOC = `"$("$projectRoot\target\Frameworks\bin\protoc" -replace '\\', '\\')`"",
-    "FFMPEG_DIR = `"$("$projectRoot\target\Frameworks" -replace '\\', '\\')`"",
-    '',
-    '[target.x86_64-pc-windows-msvc]',
-    "rustflags = [`"-L`", `"$("$projectRoot\target\Frameworks\lib" -replace '\\', '\\')`"]",
-    '',
-    (Get-Content "$projectRoot\.cargo\config.toml" -Encoding utf8)
-) | Out-File -Force -Encoding utf8 -FilePath "$projectRoot\.cargo\config"
 
 if (-not $env:CI) {
     Write-Host
     Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green
-    Write-Host 'You will need to re-run this script if there are rust dependencies changes or you use `pnpm clean` or `cargo clean`!' -ForegroundColor Red
     Write-Host
     Read-Host 'Press Enter to continue'
-}
-
-if ($LASTEXITCODE -ne 0) {
-    Exit-WithError "Something went wrong, exit code: $LASTEXITCODE"
 }

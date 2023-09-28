@@ -25,17 +25,20 @@ export function HomeCTA() {
 		setLoading(true);
 
 		try {
-			const req = await fetch(`/api/waitlist`, {
+			const req = await fetch(`https://app.spacedrive.com/api/v1/waitlist`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					email
-				})
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email })
 			});
+
 			if (!req.ok) {
 				return setWaitlistError('An error occurred. Please try again.');
+			}
+
+			const response = (await req.json()) as { success: boolean; message: string };
+
+			if (!response.success) {
+				return setWaitlistError(response.message);
 			}
 			setWaitlistSubmitted(true);
 		} catch (e: any) {
@@ -100,7 +103,7 @@ export function HomeCTA() {
 									</p>
 								</div>
 							)}
-							<div className={'flex flex-row'}>
+							<div className="flex flex-row">
 								<Input
 									{...register('email')}
 									type="email"
