@@ -128,9 +128,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"logout",
 			R.mutation(|node, _: ()| async move {
-				node.config.write(|mut c| c.auth_token = None).await.ok();
-
-				Ok(())
+				node.config
+					.write(|mut c| c.auth_token = None)
+					.await
+					.map(|_| ())
+					.map_err(|_| {
+						rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Failed to write config".to_string(),
+						)
+					})
 			}),
 		)
 		.procedure("me", {
