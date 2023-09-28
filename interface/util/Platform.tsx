@@ -28,6 +28,10 @@ export type Platform = {
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	auth: {
+		start(key: string): any;
+		finish?(ret: any): void;
+	};
 };
 
 // Keep this private and use through helpers below

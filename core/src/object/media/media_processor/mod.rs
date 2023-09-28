@@ -7,11 +7,12 @@ use crate::{
 };
 
 use sd_file_ext::extensions::Extension;
-use sd_prisma::prisma::{file_path, location, PrismaClient};
+use sd_prisma::prisma::{location, PrismaClient};
 
 use std::path::Path;
 
 use futures::try_join;
+use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -76,21 +77,34 @@ async fn get_all_children_files_by_extensions(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 ) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
-	db.file_path()
-		.find_many(vec![
-			file_path::location_id::equals(Some(parent_iso_file_path.location_id())),
-			file_path::cas_id::not(None),
-			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::materialized_path::starts_with(
-				parent_iso_file_path
-					.materialized_path_for_children()
-					.expect("sub path iso_file_path must be a directory"),
-			),
-		])
-		.select(file_path_for_media_processor::select())
-		.exec()
-		.await
-		.map_err(Into::into)
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path LIKE {{}}",
+			extensions
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(",")
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(format!(
+			"{}%",
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
+		))
+	))
+	.exec()
+	.await
+	.map_err(Into::into)
 }
 
 async fn get_files_by_extensions(
@@ -98,21 +112,33 @@ async fn get_files_by_extensions(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 ) -> Result<Vec<file_path_for_media_processor::Data>, MediaDataError> {
-	db.file_path()
-		.find_many(vec![
-			file_path::location_id::equals(Some(parent_iso_file_path.location_id())),
-			file_path::cas_id::not(None),
-			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::materialized_path::equals(Some(
-				parent_iso_file_path
-					.materialized_path_for_children()
-					.expect("sub path iso_file_path must be a directory"),
-			)),
-		])
-		.select(file_path_for_media_processor::select())
-		.exec()
-		.await
-		.map_err(Into::into)
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path = {{}}",
+			extensions
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(",")
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
+		)
+	))
+	.exec()
+	.await
+	.map_err(Into::into)
 }
 
 async fn process(
