@@ -28,6 +28,9 @@ export function LoginButton() {
 				setState({ status: 'LoggedIn', token: data.Token });
 				platform.auth.finish?.(ret.current);
 			}
+		},
+		onError() {
+			setState({ status: 'Idle' });
 		}
 	});
 

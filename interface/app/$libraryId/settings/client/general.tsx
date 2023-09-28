@@ -4,6 +4,7 @@ import {
 	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
+	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Switch, tw, z } from '@sd/ui';
@@ -46,9 +47,11 @@ export const Component = () => {
 				title="General Settings"
 				description="General settings related to this client."
 				rightArea={
-					<div>
-						<LoginButton />
-					</div>
+					useFeatureFlag('login') && (
+						<div>
+							<LoginButton />
+						</div>
+					)
 				}
 			/>
 			<Card className="px-5">

@@ -73,6 +73,8 @@ macro_rules! tauri_handlers {
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	dotenv::dotenv().ok();
+
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 

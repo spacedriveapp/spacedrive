@@ -18,13 +18,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.subscription(|_, _: ()| async move {
-				const DEVICE_SESSION_URL: &str = "http://localhost:3000/api/auth/device-session";
+				let device_session_url = format!(
+					"{}/api/auth/device-session",
+					std::env::var("SD_API_URL").unwrap()
+				);
 
 				let client = reqwest::Client::new();
 
 				async_stream::stream! {
 					let key = client
-						.post(DEVICE_SESSION_URL)
+						.post(&device_session_url)
 						.send()
 						.await
 						.unwrap()
@@ -45,7 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						}
 
 						let result: AuthResponse = client
-							.get(DEVICE_SESSION_URL)
+							.get(&device_session_url)
 							.query(&[("key", &key)])
 							.send()
 							.await
@@ -58,7 +61,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							yield Response::Token(token.clone());
 
 							client
-								.delete(DEVICE_SESSION_URL)
+								.delete(&device_session_url)
 								.query(&[("key", &key)])
 								.send()
 								.await

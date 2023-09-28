@@ -75,7 +75,7 @@ const platform: Platform = {
 	userHomeDir: homeDir,
 	auth: {
 		start(key: string) {
-			open(`http://localhost:3000/device-session?key=${key}`);
+			open(`${import.meta.env.VITE_SD_API_URL}/device-session?key=${key}`);
 		}
 	},
 	...commands
