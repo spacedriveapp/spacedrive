@@ -73,6 +73,7 @@ macro_rules! tauri_handlers {
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	#[cfg(debug_assertions)]
 	dotenv::dotenv().ok();
 
 	#[cfg(target_os = "linux")]

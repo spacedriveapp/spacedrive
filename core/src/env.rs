@@ -11,7 +11,8 @@ impl Default for Env {
 impl Env {
 	pub fn new() -> Self {
 		Self {
-			api_url: std::env::var("SD_API_URL").expect("Env var 'SD_API_URL' missing!"),
+			api_url: std::env::var("SD_API_URL")
+				.unwrap_or_else(|| "https://app.spacedrive.com".to_string()),
 		}
 	}
 }
