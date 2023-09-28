@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
 	api::{notifications::Notification, BackendFeature},
+	auth::OAuthToken,
 	util::migrator::{Migrate, MigratorError},
 };
 
@@ -37,6 +38,7 @@ pub struct NodeConfig {
 	// TODO: These will probs be replaced by your Spacedrive account in the near future.
 	pub p2p_email: Option<String>,
 	pub p2p_img_url: Option<String>,
+	pub auth_token: Option<OAuthToken>,
 }
 
 #[async_trait::async_trait]
@@ -62,6 +64,7 @@ impl Migrate for NodeConfig {
 			p2p_email: None,
 			p2p_img_url: None,
 			notifications: vec![],
+			auth_token: None,
 		})
 	}
 
@@ -95,6 +98,7 @@ impl Default for NodeConfig {
 			p2p_email: None,
 			p2p_img_url: None,
 			notifications: vec![],
+			auth_token: None,
 		}
 	}
 }

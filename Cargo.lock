@@ -6563,6 +6563,7 @@ dependencies = [
  "plist",
  "prisma-client-rust",
  "regex",
+ "reqwest",
  "rmp",
  "rmp-serde",
  "rmpv",
@@ -6651,6 +6652,7 @@ name = "sd-desktop"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "dotenv",
  "futures",
  "http",
  "opener",
