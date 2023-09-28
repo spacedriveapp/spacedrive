@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
 		},
 		plugins: [
 			devtoolsPlugin,
-			mode === 'development' &&
+			process.env.SENTRY_AUTH_TOKEN &&
 				sentryVitePlugin({
 					authToken: process.env.SENTRY_AUTH_TOKEN,
 					org: 'spacedriveapp',
