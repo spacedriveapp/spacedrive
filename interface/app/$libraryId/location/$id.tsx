@@ -150,7 +150,10 @@ const useItems = ({
 			: { path: path ?? '' })
 	};
 
-	const count = useLibraryQuery(['search.pathsCount', { filter }]);
+	const count = useLibraryQuery([
+		'search.pathsCount',
+		{ filter: { ...filter, hidden: explorerSettings.showHiddenFiles ? undefined : false } }
+	]);
 
 	const query = usePathsInfiniteQuery({
 		arg: { filter, take },
