@@ -59,7 +59,7 @@ export default function HomePage() {
 
 			const prod = process.env.NODE_ENV === 'production';
 
-			const req = await fetch(`https://api.spacedrive.com/api/waitlist?cuid=${cuid}`, {
+			const req = await fetch(`https://app.spacedrive.com/api/v1/waitlist?cuid=${cuid}`, {
 				method: 'DELETE'
 			});
 

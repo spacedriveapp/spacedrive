@@ -25,7 +25,7 @@ export function HomeCTA() {
 		setLoading(true);
 
 		try {
-			const req = await fetch(`https://app.spacedrive.com/api/waitlist`, {
+			const req = await fetch(`https://app.spacedrive.com/api/v1/waitlist`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ email })
