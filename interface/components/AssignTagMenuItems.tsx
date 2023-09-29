@@ -1,4 +1,5 @@
 import { Plus } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { useRef } from 'react';
@@ -15,7 +16,7 @@ export default (props: { objects: Object[] }) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const submitPlausibleEvent = usePlausibleEvent();
-
+	const queryClient = useQueryClient();
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery([
@@ -42,6 +43,7 @@ export default (props: { objects: Object[] }) => {
 	return (
 		<>
 			<Menu.Item
+				className="tag-menu"
 				label="New tag"
 				icon={Plus}
 				iconProps={{ size: 15 }}
@@ -110,6 +112,8 @@ export default (props: { objects: Object[] }) => {
 														)
 														.map((o) => o.id)
 										});
+										if (unassign)
+											queryClient.invalidateQueries(['search.objects']);
 									}}
 								>
 									<div

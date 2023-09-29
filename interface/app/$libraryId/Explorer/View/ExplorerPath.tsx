@@ -17,6 +17,7 @@ export const ExplorerPath = memo(() => {
 	const location = useLocation();
 	const isDark = useIsDark();
 	const isEphemeralLocation = location.pathname.split('/').includes('ephemeral');
+	const isLocation = location.pathname.split('/').includes('location');
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);
@@ -88,7 +89,7 @@ export const ExplorerPath = memo(() => {
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
-	if (!layoutStore.showPathBar) return null;
+	if (!layoutStore.showPathBar || (!isLocation && !isEphemeralLocation)) return null;
 
 	return (
 		<div

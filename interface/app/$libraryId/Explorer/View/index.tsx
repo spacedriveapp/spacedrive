@@ -133,7 +133,11 @@ export default memo(
 	}
 );
 
-export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+export const EmptyNotice = (props: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+	loading?: boolean;
+}) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -148,6 +152,8 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 
 		return <Icon size={100} opacity={0.3} />;
 	};
+
+	if (props.loading) return null;
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
