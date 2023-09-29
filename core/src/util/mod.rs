@@ -3,6 +3,7 @@ pub mod db;
 #[cfg(debug_assertions)]
 pub mod debug_initializer;
 pub mod error;
+pub mod import_export_manager;
 mod infallible_request;
 mod maybe_undefined;
 pub mod migrator;

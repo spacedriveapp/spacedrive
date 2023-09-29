@@ -88,6 +88,8 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "tags.export", input: LibraryArgs<TagImportExport>, result: null } | 
+        { key: "tags.import", input: LibraryArgs<TagImportArgs>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
@@ -394,6 +396,10 @@ export type Tag = { id: number; pub_id: number[]; name: string | null; color: st
 export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
 
 export type TagCreateArgs = { name: string; color: string }
+
+export type TagImportArgs = { path: string }
+
+export type TagImportExport = { tag_id: number }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 

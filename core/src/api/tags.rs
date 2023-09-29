@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
+use axum::extract::Path;
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_prisma::prisma_sync;
@@ -12,8 +13,15 @@ use serde_json::json;
 use crate::{
 	invalidate_query,
 	library::Library,
-	object::tag::TagCreateArgs,
+	object::tag::{
+		import_export::{JsonTag, TagImportExport},
+		TagCreateArgs,
+	},
 	prisma::{object, tag, tag_on_object},
+	util::import_export_manager::{
+		ExportData, ExportFormat, ExportKind, ExportMetadata, ImportExport, ImportExportManager,
+		ImportExportOptions,
+	},
 };
 
 use super::{utils::library, Ctx, R};
@@ -177,6 +185,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "tags.getForObject");
 					invalidate_query!(library, "tags.getWithObjects");
 
+					Ok(())
+				})
+		})
+		.procedure("export", {
+			R.with2(library())
+				.mutation(|(_, library), args: TagImportExport| async move {
+					let exported_data = args.export(&library).await.unwrap();
+
+					let manager = ImportExportManager::<JsonTag>::new(
+						ImportExportOptions {
+							output_path: "/Users/jamie/Desktop".into(),
+							kind: ExportKind::TagWithAssociations,
+							format: ExportFormat::JSON,
+							compress: true,
+						},
+						ExportData::Single(exported_data),
+					);
+
+					manager.save().await.unwrap();
+					Ok(())
+				})
+		})
+		.procedure("import", {
+			#[derive(Debug, Type, Deserialize)]
+			struct TagImportArgs {
+				pub path: String,
+			}
+			R.with2(library())
+				.mutation(|(_, library), args: TagImportArgs| async move {
+					let manager =
+						ImportExportManager::<JsonTag>::new_from_path(PathBuf::from(args.path))
+							.await
+							.unwrap();
+
+					// TagImportExport::import(&library, manager.get_data().clone())
+					// 	.await
+					// 	.unwrap();
+
+					println!("{:?}", manager.get_data());
 					Ok(())
 				})
 		})

@@ -3,6 +3,7 @@ import { Tag, useLibraryMutation, useZodForm } from '@sd/client';
 import { Button, dialogManager, Form, InputField, Switch, Tooltip, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
 import { useDebouncedFormWatch } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import Setting from '../../Setting';
 import DeleteDialog from './DeleteDialog';
@@ -24,7 +25,10 @@ interface Props {
 }
 
 export default ({ tag, onDelete }: Props) => {
+	const platform = usePlatform();
 	const updateTag = useLibraryMutation('tags.update');
+	const exportTag = useLibraryMutation('tags.export');
+	const importTag = useLibraryMutation('tags.import');
 
 	const form = useZodForm({
 		schema,
@@ -43,7 +47,7 @@ export default ({ tag, onDelete }: Props) => {
 
 	return (
 		<Form form={form}>
-			<div className="flex justify-between">
+			<div className="flex items-center justify-between">
 				<div className="mb-10 flex flex-row space-x-3">
 					<InputField
 						label="Color"
@@ -52,22 +56,24 @@ export default ({ tag, onDelete }: Props) => {
 						icon={<ColorPicker control={form.control} name="color" />}
 						{...form.register('color')}
 					/>
-
 					<InputField maxLength={24} label="Name" {...form.register('name')} />
 				</div>
-				<Button
-					variant="gray"
-					className="mt-[22px] h-[38px]"
-					onClick={() =>
-						dialogManager.create((dp) => (
-							<DeleteDialog {...dp} tagId={tag.id} onSuccess={onDelete} />
-						))
-					}
-				>
-					<Tooltip label="Delete Tag">
-						<Trash className="h-4 w-4" />
-					</Tooltip>
-				</Button>
+
+				<div>
+					<Button
+						variant="gray"
+						// className="mt-[22px] h-[38px]"
+						onClick={() =>
+							dialogManager.create((dp) => (
+								<DeleteDialog {...dp} tagId={tag.id} onSuccess={onDelete} />
+							))
+						}
+					>
+						<Tooltip label="Delete Tag">
+							<Trash className="h-4 w-4" />
+						</Tooltip>
+					</Button>
+				</div>
 			</div>
 			<div className="flex flex-col gap-2">
 				<Setting
@@ -83,6 +89,42 @@ export default ({ tag, onDelete }: Props) => {
 					description="Prevent this tag from showing in the sidebar of the app."
 				>
 					<Switch />
+				</Setting>
+				<Setting
+					mini
+					title="Export Tag"
+					description="Create a zip file containing this tag's metadata and file associations."
+				>
+					<div>
+						<Button
+							variant="accent"
+							className=""
+							onClick={() => exportTag.mutate({ tag_id: tag.id })}
+						>
+							Export
+						</Button>
+					</div>
+				</Setting>
+				<Setting
+					mini
+					title="Import Tag"
+					description="Create a zip file containing this tag's metadata and file associations."
+				>
+					<div>
+						<Button
+							variant="gray"
+							className=""
+							onClick={() => {
+								platform?.openFilePickerDialog?.().then((file) => {
+									if (typeof file !== 'string') return;
+
+									importTag.mutate({ path: file });
+								});
+							}}
+						>
+							Import
+						</Button>
+					</div>
 				</Setting>
 			</div>
 		</Form>

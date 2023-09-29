@@ -280,6 +280,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compression"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb42b2197bf15ccb092b62c74515dbd8b86d0effd934795f6687c93b6e679a2c"
+dependencies = [
+ "flate2",
+ "futures-core",
+ "memchr",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-io"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6532,6 +6545,7 @@ version = "0.1.0"
 dependencies = [
  "aovec",
  "async-channel",
+ "async-compression",
  "async-stream",
  "async-trait",
  "axum",

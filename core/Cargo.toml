@@ -108,6 +108,7 @@ http-body = "0.4.5"
 pin-project-lite = "0.2.13"
 bytes = "1.5.0"
 reqwest = { version = "0.11.20", features = ["json"] }
+async-compression = { version = "0.4.3", features = ["tokio", "gzip"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
