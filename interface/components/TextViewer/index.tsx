@@ -140,7 +140,7 @@ function TextRow({
 					key={row.key}
 					className={clsx(
 						'token block w-[3.8em] shrink-0 whitespace-pre pl-1 text-end',
-						row.index % 2 && 'bg-black/40'
+						row.index % 2 && 'bg-gray/40 dark:bg-black/40'
 					)}
 				>
 					{row.index + 1}
