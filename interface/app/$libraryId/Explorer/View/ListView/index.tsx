@@ -103,6 +103,7 @@ export default () => {
 	const tableBodyRef = useRef<HTMLDivElement>(null);
 
 	const [sized, setSized] = useState(false);
+	const [initialized, setInitialized] = useState(false);
 	const [locked, setLocked] = useState(false);
 	const [resizing, setResizing] = useState(false);
 	const [top, setTop] = useState(0);
@@ -428,8 +429,85 @@ export default () => {
 		}
 	}
 
-	// Reset ranges
-	useEffect(() => setRanges([]), [explorer.items]);
+	const scrollToRow = useCallback(
+		(row: Row<ExplorerItem>, options: { behavior?: ScrollBehavior } = {}) => {
+			if (!explorer.scrollRef.current || !tableBodyRef.current) return;
+
+			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
+
+			const tableTop =
+				scrollRect.top +
+				(explorerView.top ??
+					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
+				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
+
+			const rowTop =
+				scrollRect.top +
+				row.index * ROW_HEIGHT +
+				rowVirtualizer.options.paddingStart +
+				tableBodyRef.current.getBoundingClientRect().top;
+
+			const rowBottom = rowTop + ROW_HEIGHT;
+
+			if (rowTop < tableTop) {
+				const scrollBy = rowTop - tableTop - (row.index === 0 ? padding.top : 0);
+
+				explorer.scrollRef.current.scrollBy({
+					top: scrollBy,
+					behavior:
+						options.behavior ??
+						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'instant' : 'smooth')
+				});
+			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
+				const scrollBy =
+					rowBottom -
+					scrollRect.height +
+					(explorerView.bottom ?? 0) +
+					(row.index === rows.length - 1 ? padding.bottom : 0);
+
+				explorer.scrollRef.current.scrollBy({
+					top: scrollBy,
+					behavior:
+						options.behavior ??
+						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'instant' : 'smooth')
+				});
+			}
+		},
+		[
+			explorer.scrollRef,
+			explorerView.bottom,
+			explorerView.top,
+			padding.bottom,
+			padding.top,
+			rowVirtualizer.options.paddingStart,
+			rows.length,
+			top
+		]
+	);
+
+	useEffect(() => setRanges([]), [settings.order]);
+
+	useEffect(() => {
+		if (initialized || !sized || !explorer.count || explorer.selectedItems.size === 0) {
+			if (explorer.selectedItems.size === 0 && !initialized) setInitialized(true);
+			return;
+		}
+
+		const rows = [...explorer.selectedItems]
+			.reduce((rows, item) => {
+				const row = rowsById[uniqueId(item)];
+				if (row) rows.push(row);
+				return rows;
+			}, [] as Row<ExplorerItem>[])
+			.sort((a, b) => a.index - b.index);
+
+		const lastRow = rows[rows.length - 1];
+		if (!lastRow) return;
+
+		scrollToRow(lastRow, { behavior: 'instant' });
+		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
+		setInitialized(true);
+	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
 
 	// Measure initial column widths
 	useEffect(() => {
@@ -680,43 +758,7 @@ export default () => {
 			}
 		} else explorer.resetSelectedItems([item]);
 
-		if (explorer.scrollRef.current && tableBodyRef.current) {
-			const scrollRect = explorer.scrollRef.current.getBoundingClientRect();
-
-			const tableTop =
-				scrollRect.top +
-				(explorerView.top ??
-					parseInt(getComputedStyle(explorer.scrollRef.current).paddingTop)) +
-				(explorer.scrollRef.current.scrollTop > top ? 36 : 0);
-
-			const rowTop =
-				scrollRect.top +
-				nextRow.index * ROW_HEIGHT +
-				rowVirtualizer.options.paddingStart +
-				tableBodyRef.current.getBoundingClientRect().top;
-
-			const rowBottom = rowTop + ROW_HEIGHT;
-
-			if (rowTop < tableTop) {
-				const scrollBy = rowTop - tableTop - (nextRow.index === 0 ? padding.top : 0);
-
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior: 'smooth'
-				});
-			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
-				const scrollBy =
-					rowBottom -
-					scrollRect.height +
-					(explorerView.bottom ?? 0) +
-					(nextRow.index === rows.length - 1 ? padding.bottom : 0);
-
-				explorer.scrollRef.current.scrollBy({
-					top: scrollBy,
-					behavior: 'smooth'
-				});
-			}
-		}
+		scrollToRow(nextRow);
 	});
 
 	// Reset resizing cursor
@@ -784,6 +826,7 @@ export default () => {
 				e.stopPropagation();
 				setIsLeftMouseDown(true);
 			}}
+			className={clsx(!initialized && 'invisible')}
 		>
 			{sized && (
 				<>
