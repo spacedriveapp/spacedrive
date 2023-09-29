@@ -77,6 +77,7 @@ export default memo(
 
 		useEffect(() => {
 			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			// Close context menu when no items are selected
 			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 		}, [explorer.selectedItems, isContextMenuOpen]);
 
