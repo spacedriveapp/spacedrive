@@ -8,7 +8,7 @@ export interface ExplorerViewContext {
 	bottom?: number;
 	contextMenu?: ReactNode;
 	isContextMenuOpen?: boolean;
-	setIsContextMenuOpen: (isOpen: boolean) => void;
+	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
 	setIsRenaming: (isRenaming: boolean) => void;
 	padding?: Omit<ExplorerViewPadding, 'x' | 'y'>;
