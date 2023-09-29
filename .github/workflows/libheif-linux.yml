@@ -41,7 +41,9 @@ jobs:
         run: |
           set -euxo pipefail
 
-          ./.github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
+          sudo ./.github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
+
+          sudo chown -R "$(id -u):$(id -g)" /src/prefix
 
           env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C /src/prefix .
 
