@@ -95,7 +95,7 @@ regex = "1.9.5"
 hex = "0.4.3"
 int-enum = "0.5.0"
 tokio-stream = "0.1.14"
-futures-concurrency = "7.4"
+futures-concurrency = "7.4.3"
 async-channel = "1.9"
 tokio-util = { version = "0.7.8", features = ["io"] }
 slotmap = "1.0.6"
@@ -107,6 +107,7 @@ axum = "0.6.20"
 http-body = "0.4.5"
 pin-project-lite = "0.2.13"
 bytes = "1.5.0"
+reqwest = { version = "0.11.20", features = ["json"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

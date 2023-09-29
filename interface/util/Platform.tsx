@@ -33,6 +33,10 @@ export type Platform = {
 		checkForUpdate(): Promise<Update | null>;
 		installUpdate(): Promise<any>;
 	};
+	auth: {
+		start(key: string): any;
+		finish?(ret: any): void;
+	};
 };
 
 export type Update = { version: string; body: string | null };

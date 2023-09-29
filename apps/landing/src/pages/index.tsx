@@ -56,18 +56,19 @@ export default function HomePage() {
 		if (!cuid) return;
 		(async () => {
 			console.log('Unsubscribing from waitlist', process.env.NODE_ENV);
+
 			const prod = process.env.NODE_ENV === 'production';
 
-			const req = await fetch(`/api/waitlist?i=${cuid}`, {
+			const req = await fetch(`https://app.spacedrive.com/api/v1/waitlist?cuid=${cuid}`, {
 				method: 'DELETE'
 			});
 
-			if (req.status === 200) {
+			if (req.ok) {
 				setUnsubscribedFromWaitlist(true);
 				window.history.replaceState(
 					{},
 					'',
-					prod ? 'https://spacedrive.com' : 'http://localhost:8003'
+					prod ? 'https://spacedrive.com' : 'http://localhost:3001'
 				);
 
 				setTimeout(() => {
@@ -114,7 +115,7 @@ export default function HomePage() {
 				{unsubscribedFromWaitlist && (
 					<div
 						className={
-							'my-2 -mt-8 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2'
+							'my-2 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2'
 						}
 					>
 						<Info className="mr-1 w-5 fill-green-500" />

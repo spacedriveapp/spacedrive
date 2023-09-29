@@ -42,7 +42,7 @@ export const Component = () => {
 
 	return (
 		<Form form={form}>
-			<div className="flex w-full max-w-4xl flex-col space-y-6 px-12 pb-5 pt-2">
+			<div className="flex w-full max-w-4xl flex-col space-y-6 pb-5">
 				<Heading
 					title="Library Settings"
 					description="General settings related to the currently active library."

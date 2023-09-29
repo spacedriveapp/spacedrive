@@ -1,5 +1,7 @@
+import { platform } from 'os';
 import clsx from 'clsx';
 import type { Ref } from 'react';
+import { useOperatingSystem } from '~/hooks';
 
 import { useExplorerStore } from '../Explorer/store';
 import { NavigationButtons } from './NavigationButtons';
@@ -15,10 +17,11 @@ interface Props {
 
 const TopBar = (props: Props) => {
 	const { isDragging } = useExplorerStore();
+	const os = useOperatingSystem();
 
 	return (
 		<div
-			data-tauri-drag-region
+			data-tauri-drag-region={os === 'macOS'}
 			style={{ height: TOP_BAR_HEIGHT }}
 			className={clsx(
 				'top-bar-blur absolute inset-x-0 z-50 flex items-center gap-3.5 overflow-hidden border-b !border-sidebar-divider bg-app/90 px-3.5',
@@ -27,7 +30,7 @@ const TopBar = (props: Props) => {
 			)}
 		>
 			<div
-				data-tauri-drag-region
+				data-tauri-drag-region={os === 'macOS'}
 				className="flex flex-1 items-center gap-3.5 overflow-hidden"
 			>
 				<NavigationButtons />

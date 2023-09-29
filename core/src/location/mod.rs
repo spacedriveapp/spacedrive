@@ -807,6 +807,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
 			is_archived: data.is_archived,
+			size_in_bytes: data.size_in_bytes,
 			generate_preview_media: data.generate_preview_media,
 			sync_preview_media: data.sync_preview_media,
 			hidden: data.hidden,
@@ -828,6 +829,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
+			size_in_bytes: data.size_in_bytes.clone(),
 			is_archived: data.is_archived,
 			generate_preview_media: data.generate_preview_media,
 			sync_preview_media: data.sync_preview_media,
@@ -948,4 +950,52 @@ pub(super) async fn generate_thumbnail(
 	node.emit(CoreEvent::NewThumbnail {
 		thumb_key: get_thumb_key(cas_id),
 	});
+}
+
+pub async fn update_location_size(
+	location_id: location::id::Type,
+	library: &Library,
+) -> Result<(), QueryError> {
+	let Library { db, .. } = library;
+
+	let total_size = db
+		.file_path()
+		.find_many(vec![
+			file_path::location_id::equals(Some(location_id)),
+			file_path::materialized_path::equals(Some("/".to_string())),
+		])
+		.select(file_path::select!({ size_in_bytes_bytes }))
+		.exec()
+		.await?
+		.into_iter()
+		.filter_map(|file_path| {
+			file_path.size_in_bytes_bytes.map(|size_in_bytes_bytes| {
+				u64::from_be_bytes([
+					size_in_bytes_bytes[0],
+					size_in_bytes_bytes[1],
+					size_in_bytes_bytes[2],
+					size_in_bytes_bytes[3],
+					size_in_bytes_bytes[4],
+					size_in_bytes_bytes[5],
+					size_in_bytes_bytes[6],
+					size_in_bytes_bytes[7],
+				])
+			})
+		})
+		.sum::<u64>();
+
+	db.location()
+		.update(
+			location::id::equals(location_id),
+			vec![location::size_in_bytes::set(Some(
+				total_size.to_be_bytes().to_vec(),
+			))],
+		)
+		.exec()
+		.await?;
+
+	invalidate_query!(library, "locations.list");
+	invalidate_query!(library, "locations.get");
+
+	Ok(())
 }

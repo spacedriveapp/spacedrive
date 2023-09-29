@@ -16,6 +16,7 @@ use chrono::{DateTime, Utc};
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::error;
 
 use super::{utils::library, Ctx, R};
 
@@ -307,8 +308,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?
 						.ok_or(LocationError::IdNotFound(args.location_id))?;
 
-					let handle =
-						tokio::spawn(light_scan_location(node, library, location, args.sub_path));
+					let handle = tokio::spawn(async move {
+						if let Err(e) =
+							light_scan_location(node, library, location, args.sub_path).await
+						{
+							error!("light scan error: {e:#?}");
+						}
+					});
 
 					Ok(AbortOnDrop(handle))
 				})

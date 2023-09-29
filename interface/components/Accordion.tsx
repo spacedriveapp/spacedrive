@@ -7,6 +7,8 @@ interface Props {
 	title: string;
 	variant?: keyof typeof styles;
 	className?: string;
+	isOpen?: boolean;
+	onToggle?: (isOpen: boolean) => void;
 }
 
 const styles = {
@@ -22,19 +24,25 @@ const styles = {
 	}
 };
 
-const Accordion = (props: PropsWithChildren<Props>) => {
-	const [toggle, setToggle] = useState(false);
+const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
+	const [toggle, setToggle] = useState(isOpen);
 	const variant = styles[props.variant ?? 'default'];
 	return (
 		<div className={clsx(variant.box, props.className)}>
-			<div onClick={() => setToggle((t) => !t)} className={variant.title}>
+			<div
+				onClick={() => {
+					setToggle((t) => !t);
+					props.onToggle?.(!toggle);
+				}}
+				className={variant.title}
+			>
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
 					size={props.caretSize || 12}
-					className={clsx(toggle && 'rotate-180', 'transition-all duration-200')}
+					className={clsx(isOpen && 'rotate-180', 'transition-all duration-200')}
 				/>
 			</div>
-			{toggle && <div className={variant.container}>{props.children}</div>}
+			{isOpen && <div className={variant.container}>{props.children}</div>}
 		</div>
 	);
 };

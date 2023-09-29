@@ -197,6 +197,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			onSubmit={onSubmit}
 			ctaLabel="Add"
+			errorMessageException="Location is already linked"
 			description={
 				platform.platform === 'web'
 					? 'As you are using the browser version of Spacedrive you will (for now) ' +

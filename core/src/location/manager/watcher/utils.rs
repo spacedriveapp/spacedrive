@@ -10,9 +10,11 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, generate_thumbnail, location_with_indexer_rules,
+		find_location, generate_thumbnail,
+		indexer::reverse_update_directories_sizes,
+		location_with_indexer_rules,
 		manager::LocationManagerError,
-		scan_location_sub_path,
+		scan_location_sub_path, update_location_size,
 	},
 	object::{
 		file_identifier::FileMetadata,
@@ -25,20 +27,20 @@ use crate::{
 	},
 	prisma::{file_path, location, object},
 	util::{
-		db::{device_from_db, device_to_db, inode_from_db, inode_to_db, maybe_missing},
+		db::{inode_from_db, inode_to_db, maybe_missing},
 		error::FileIOError,
 	},
 	Node,
 };
 
 #[cfg(target_family = "unix")]
-use crate::location::file_path_helper::get_inode_and_device;
+use crate::location::file_path_helper::get_inode;
 
 #[cfg(target_family = "windows")]
-use crate::location::file_path_helper::get_inode_and_device_from_path;
+use crate::location::file_path_helper::get_inode_from_path;
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	ffi::OsStr,
 	fs::Metadata,
 	path::{Path, PathBuf},
@@ -57,11 +59,12 @@ use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
+	time::Instant,
 };
 use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
-use super::INodeAndDevice;
+use super::{INode, HUNDRED_MILLIS};
 
 pub(super) fn check_event(event: &Event, ignore_paths: &HashSet<PathBuf>) -> bool {
 	// if path includes .DS_Store, .spacedrive file creation or is in the `ignore_paths` set, we ignore
@@ -173,26 +176,22 @@ async fn inner_create_file(
 
 	let metadata = FilePathMetadata::from_path(path, metadata).await?;
 
-	// First we check if already exist a file with these same inode and device numbers
+	// First we check if already exist a file with this same inode number
 	// if it does, we just update it
 	if let Some(file_path) = db
 		.file_path()
-		.find_unique(file_path::location_id_inode_device(
+		.find_unique(file_path::location_id_inode(
 			location_id,
-			metadata.inode.to_le_bytes().to_vec(),
-			metadata.device.to_le_bytes().to_vec(),
+			inode_to_db(metadata.inode),
 		))
 		.include(file_path_with_object::include())
 		.exec()
 		.await?
 	{
-		trace!(
-			"File already exists with that inode and device: {}",
-			iso_file_path
-		);
+		trace!("File already exists with that inode: {}", iso_file_path);
 		return inner_update_file(location_path, &file_path, path, node, library, None).await;
 
-	// If we can't find an existing file with the same inode and device, we check if there is a file with the same path
+	// If we can't find an existing file with the same inode, we check if there is a file with the same path
 	} else if let Some(file_path) = db
 		.file_path()
 		.find_unique(file_path::location_id_materialized_path_name_extension(
@@ -215,7 +214,7 @@ async fn inner_create_file(
 			path,
 			node,
 			library,
-			Some((metadata.inode, metadata.device)),
+			Some(metadata.inode),
 		)
 		.await;
 	}
@@ -316,25 +315,6 @@ async fn inner_create_file(
 	Ok(())
 }
 
-pub(super) async fn create_dir_or_file(
-	location_id: location::id::Type,
-	path: impl AsRef<Path>,
-	node: &Arc<Node>,
-	library: &Arc<Library>,
-) -> Result<Metadata, LocationManagerError> {
-	let path = path.as_ref();
-	let metadata = fs::metadata(path)
-		.await
-		.map_err(|e| FileIOError::from((path, e)))?;
-
-	if metadata.is_dir() {
-		create_dir(location_id, path, &metadata, node, library).await
-	} else {
-		create_file(location_id, path, &metadata, node, library).await
-	}
-	.map(|_| metadata)
-}
-
 pub(super) async fn update_file(
 	location_id: location::id::Type,
 	full_path: impl AsRef<Path>,
@@ -386,15 +366,13 @@ async fn inner_update_file(
 	full_path: impl AsRef<Path>,
 	node: &Arc<Node>,
 	library @ Library { db, sync, .. }: &Library,
-	maybe_new_inode_and_device: Option<INodeAndDevice>,
+	maybe_new_inode: Option<INode>,
 ) -> Result<(), LocationManagerError> {
 	let full_path = full_path.as_ref();
 	let location_path = location_path.as_ref();
 
-	let (current_inode, current_device) = (
-		inode_from_db(&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]),
-		device_from_db(&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8]),
-	);
+	let current_inode =
+		inode_from_db(&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8]);
 
 	trace!(
 		"Location: <root_path ='{}'> updating file: {}",
@@ -410,28 +388,20 @@ async fn inner_update_file(
 		kind,
 	} = FileMetadata::new(&location_path, &iso_file_path).await?;
 
-	let (inode, device) = if let Some((inode, device)) = maybe_new_inode_and_device {
-		(inode, device)
+	let inode = if let Some(inode) = maybe_new_inode {
+		inode
 	} else {
 		#[cfg(target_family = "unix")]
 		{
-			get_inode_and_device(&fs_metadata)?
+			get_inode(&fs_metadata)
 		}
 
 		#[cfg(target_family = "windows")]
 		{
-			// FIXME: This is a workaround for Windows, because we can't get the inode and device from the metadata
-			get_inode_and_device_from_path(full_path).await?
+			// FIXME: This is a workaround for Windows, because we can't get the inode from the metadata
+			get_inode_from_path(full_path).await?
 		}
 	};
-
-	let (maybe_new_inode, maybe_new_device) =
-		match (current_inode == inode, current_device == device) {
-			(true, true) => (None, None),
-			(true, false) => (None, Some(device)),
-			(false, true) => (Some(inode), None),
-			(false, false) => (Some(inode), Some(device)),
-		};
 
 	if file_path.cas_id != cas_id {
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = {
@@ -478,23 +448,13 @@ async fn inner_update_file(
 					)
 				},
 				{
-					if let Some(new_inode) = maybe_new_inode {
+					if current_inode != inode {
 						(
-							(inode::NAME, json!(new_inode)),
-							Some(inode::set(Some(inode_to_db(new_inode)))),
+							(inode::NAME, json!(inode)),
+							Some(inode::set(Some(inode_to_db(inode)))),
 						)
 					} else {
 						((inode::NAME, serde_json::Value::Null), None)
-					}
-				},
-				{
-					if let Some(new_device) = maybe_new_device {
-						(
-							(device::NAME, json!(new_device)),
-							Some(device::set(Some(device_to_db(new_device)))),
-						)
-					} else {
-						((device::NAME, serde_json::Value::Null), None)
 					}
 				},
 			]
@@ -771,11 +731,11 @@ pub(super) async fn remove_by_file_path(
 	Ok(())
 }
 
-pub(super) async fn extract_inode_and_device_from_path(
+pub(super) async fn extract_inode_from_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path>,
 	library: &Library,
-) -> Result<INodeAndDevice, LocationManagerError> {
+) -> Result<INode, LocationManagerError> {
 	let path = path.as_ref();
 	let location = find_location(library, location_id)
 		.select(location::select!({ path }))
@@ -793,19 +753,14 @@ pub(super) async fn extract_inode_and_device_from_path(
 			location_path,
 			path,
 		)?)
-		.select(file_path::select!({ inode device }))
+		.select(file_path::select!({ inode }))
 		.exec()
 		.await?
 		.map_or(
 			Err(FilePathError::NotFound(path.into()).into()),
 			|file_path| {
-				Ok((
-					inode_from_db(
-						&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8],
-					),
-					device_from_db(
-						&maybe_missing(file_path.device.as_ref(), "file_path.device")?[0..8],
-					),
+				Ok(inode_from_db(
+					&maybe_missing(file_path.inode.as_ref(), "file_path.inode")?[0..8],
 				))
 			},
 		)
@@ -824,4 +779,61 @@ pub(super) async fn extract_location_path(
 			// NOTE: The following usage of `PathBuf` doesn't incur a new allocation so it's fine
 			|location| Ok(maybe_missing(location.path, "location.path")?.into()),
 		)
+}
+
+pub(super) async fn recalculate_directories_size(
+	candidates: &mut HashMap<PathBuf, Instant>,
+	buffer: &mut Vec<(PathBuf, Instant)>,
+	location_id: location::id::Type,
+	library: &Library,
+) -> Result<(), LocationManagerError> {
+	let mut location_path_cache = None;
+	let mut should_invalidate = false;
+	let mut should_update_location_size = false;
+	buffer.clear();
+
+	for (path, instant) in candidates.drain() {
+		if instant.elapsed() > HUNDRED_MILLIS * 5 {
+			if location_path_cache.is_none() {
+				location_path_cache = Some(PathBuf::from(maybe_missing(
+					find_location(library, location_id)
+						.select(location::select!({ path }))
+						.exec()
+						.await?
+						.ok_or(LocationManagerError::MissingLocation(location_id))?
+						.path,
+					"location.path",
+				)?))
+			}
+
+			if let Some(location_path) = &location_path_cache {
+				if path != *location_path {
+					trace!(
+						"Reverse calculating directory sizes starting at {} until {}",
+						path.display(),
+						location_path.display(),
+					);
+					reverse_update_directories_sizes(path, location_id, location_path, library)
+						.await?;
+					should_invalidate = true;
+				} else {
+					should_update_location_size = true;
+				}
+			}
+		} else {
+			buffer.push((path, instant));
+		}
+	}
+
+	if should_update_location_size {
+		update_location_size(location_id, library).await?;
+	}
+
+	if should_invalidate {
+		invalidate_query!(library, "search.paths");
+	}
+
+	candidates.extend(buffer.drain(..));
+
+	Ok(())
 }

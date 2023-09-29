@@ -72,7 +72,9 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Show Inspector',
 			keybinds: [controlIcon, 'I'],
-			onClick: () => (getExplorerStore().showInspector = !explorerStore.showInspector),
+			onClick: () => {
+				getExplorerStore().showInspector = !explorerStore.showInspector;
+			},
 			icon: (
 				<SidebarSimple
 					weight={explorerStore.showInspector ? 'fill' : 'regular'}

@@ -2,19 +2,19 @@ import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeyMatcher, useSearchStore } from '~/hooks';
+import { useKeyMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
 
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
 	const navigate = useNavigate();
 	const { isFocused } = useSearchStore();
+	const os = useOperatingSystem();
 	const idx = history.state.idx as number;
 	const controlIcon = useKeyMatcher('Meta').icon;
 
 	useEffect(() => {
 		const onMouseDown = (e: MouseEvent) => {
-			e.preventDefault();
 			e.stopPropagation();
 			if (e.buttons === 8) {
 				if (idx === 0 || isFocused) return;
@@ -29,7 +29,7 @@ export const NavigationButtons = () => {
 	}, [navigate, idx, isFocused]);
 
 	return (
-		<div data-tauri-drag-region className="flex">
+		<div data-tauri-drag-region={os === 'macOS'} className="flex">
 			<Tooltip keybinds={[controlIcon, '←']} label="Navigate back">
 				<TopBarButton
 					rounding="left"

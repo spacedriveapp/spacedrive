@@ -3,6 +3,7 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
+import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
@@ -74,6 +75,11 @@ const platform = {
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
 	updater,
+	auth: {
+		start(url) {
+			open(url);
+		}
+	},
 	...commands
 } satisfies Platform;
 

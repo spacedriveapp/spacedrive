@@ -77,5 +77,8 @@ dev.db-journal
 /core/migration_test
 sd_init.json
 
+spacedrive
+scripts/.tmp
 .cargo/config
+.cargo/config.toml
 .github/scripts/deps
