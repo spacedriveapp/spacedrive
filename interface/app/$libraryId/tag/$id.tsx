@@ -42,7 +42,8 @@ export const Component = () => {
 		settings: explorerSettings,
 		...(tag.data && {
 			parent: { type: 'Tag', tag: tag.data }
-		})
+		}),
+		showPathBar: false
 	});
 
 	return (

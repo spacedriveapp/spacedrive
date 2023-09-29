@@ -1,6 +1,7 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
+import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
+import { useKeybind, useKeyMatcher } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -24,7 +25,10 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
-	const { showPathBar } = useExplorerLayoutStore();
+	const layoutStore = useExplorerLayoutStore();
+	const metaCtrlKey = useKeyMatcher('Meta').key;
+
+	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
@@ -37,6 +41,11 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		onData: (thumbKey) => {
 			explorerStore.addNewThumbnail(thumbKey);
 		}
+	});
+
+	useKeybind([metaCtrlKey, 'p'], (e) => {
+		e.stopPropagation();
+		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
 	return (
@@ -76,7 +85,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				</div>
 			</ExplorerContextMenu>
 
-			<ExplorerPath />
+			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (
 				<Inspector
