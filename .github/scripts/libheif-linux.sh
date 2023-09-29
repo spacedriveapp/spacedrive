@@ -4,10 +4,10 @@ set -euo pipefail
 
 case "${1:-}" in
   '' | x86_64-linux-gnu)
-    export TARGET_TRIPLE='x86_64-linux-gnu'
+    export TARGET_TRIPLE='x86_64-linux-gnu.2.23'
     ;;
   aarch64-linux-gnu)
-    export TARGET_TRIPLE='aarch64-linux-gnu'
+    export TARGET_TRIPLE='aarch64-linux-gnu.2.23'
     ;;
   *)
     echo "Unsupported target triple '${1}'"

@@ -24,9 +24,9 @@ jobs:
       fail-fast: true
       matrix:
         settings:
-          - host: ubuntu-20.04
+          - host: ubuntu-latest
             target: x86_64-linux-gnu
-          - host: ubuntu-20.04
+          - host: ubuntu-latest
             target: aarch64-linux-gnu
     name: Build LibHeif Linux ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
@@ -43,13 +43,13 @@ jobs:
 
           sudo ./.github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
 
-          sudo chown -R "$(id -u):$(id -g)" /src/prefix
+          sudo chown -R "$(id -u):$(id -g)" ./src/prefix
 
-          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C /src/prefix .
+          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C ./src/prefix .
 
       - name: Publish libheif
         uses: actions/upload-artifact@v3
         with:
-          name: libheif-${{ matrix.settings.target }}.tar.xz
-          path: /src/prefix
+          name: libheif-${{ matrix.settings.target }}
+          path: libheif-${{ matrix.settings.target }}.tar.xz
           if-no-files-found: error
