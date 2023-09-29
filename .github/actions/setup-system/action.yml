@@ -63,3 +63,15 @@ runs:
       run: ./scripts/setup.ps1
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+
+    - name: Setup shared libraries
+      shell: bash
+      if: steps.filter.outputs.changes == 'true'
+      env:
+        NODE_ENV: debug
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        pushd ..
+        npm i archive-wasm mustache
+        popd
+        node scripts/post-install.mjs

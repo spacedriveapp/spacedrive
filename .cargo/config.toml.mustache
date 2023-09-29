@@ -10,21 +10,41 @@ FFMPEG_DIR = "{{{ffmpeg}}}"
 [target.x86_64-apple-darwin]
 rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
 
+[target.x86_64-apple-darwin.heif]
+rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
+rustc-link-lib = ["heif"]
+
 [target.aarch64-apple-darwin]
 rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+
+[target.aarch64-apple-darwin.heif]
+rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
+rustc-link-lib = ["heif"]
 {{/isMacOS}}
 
 {{#isWin}}
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-L", "{{{projectRoot}}}\\target\\Frameworks\\lib"]
+
+[target.x86_64-pc-windows-msvc.heif]
+rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
+rustc-link-lib = ["heif"]
 {{/isWin}}
 
 {{#isLinux}}
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
 
+[target.x86_64-unknown-linux-gnu.heif]
+rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
+rustc-link-lib = ["heif"]
+
 [target.aarch64-unknown-linux-gnu]
 rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+
+[target.aarch64-unknown-linux-gnu.heif]
+rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
+rustc-link-lib = ["heif"]
 {{/isLinux}}
 
 [alias]
