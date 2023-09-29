@@ -1,62 +1,59 @@
+import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
 import clsx from 'clsx';
+import Prism from 'prismjs';
 import { memo, useEffect, useRef, useState } from 'react';
 
-import './prism.css';
+import * as prism from './prism';
 
 export interface TextViewerProps {
 	src: string;
+	className?: string;
 	onLoad?: (event: HTMLElementEventMap['load']) => void;
 	onError?: (event: HTMLElementEventMap['error']) => void;
-	className?: string;
 	codeExtension?: string;
+	isSidebarPreview?: boolean;
 }
 
-// prettier-ignore
-type Worker = typeof import('./worker')
-export const worker = new ComlinkWorker<Worker>(new URL('./worker', import.meta.url));
-
-const NEW_LINE_EXP = /\n(?!$)/g;
+// TODO: ANSI support
 
 export const TextViewer = memo(
-	({ src, onLoad, onError, className, codeExtension }: TextViewerProps) => {
-		const ref = useRef<HTMLPreElement>(null);
-		const [highlight, setHighlight] = useState<{
-			code: string;
-			length: number;
-			language: string;
-		}>();
-		const [textContent, setTextContent] = useState('');
+	({ src, className, onLoad, onError, codeExtension, isSidebarPreview }: TextViewerProps) => {
+		const [lines, setLines] = useState<string[]>([]);
+
+		const parentRef = useRef<HTMLPreElement>(null);
+		const rowVirtualizer = useVirtualizer({
+			count: lines.length,
+			getScrollElement: () => parentRef.current,
+			estimateSize: () => 25
+		});
 
 		useEffect(() => {
 			// Ignore empty urls
 			if (!src || src === '#') return;
 
 			const controller = new AbortController();
-
-			fetch(src, { mode: 'cors', signal: controller.signal })
+			fetch(src, {
+				mode: 'cors',
+				signal: controller.signal
+			})
 				.then(async (response) => {
 					if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
-					const text = await response.text();
-
-					if (controller.signal.aborted) return;
-
+					if (!response.body) return;
 					onLoad?.(new UIEvent('load', {}));
-					setTextContent(text);
 
-					if (codeExtension) {
-						try {
-							const env = await worker.highlight(text, codeExtension);
-							if (env && !controller.signal.aborted) {
-								const match = text.match(NEW_LINE_EXP);
-								setHighlight({
-									...env,
-									length: (match ? match.length + 1 : 1) + 1
-								});
-							}
-						} catch (error) {
-							console.error(error);
-						}
-					}
+					const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+					const ingestLines = async () => {
+						const { done, value } = await reader.read();
+						if (done) return;
+
+						const chunks = value.split('\n');
+						setLines((lines) => [...lines, ...chunks]);
+
+						if (isSidebarPreview) return;
+
+						await ingestLines();
+					};
+					ingestLines();
 				})
 				.catch((error) => {
 					if (!controller.signal.aborted)
@@ -64,40 +61,94 @@ export const TextViewer = memo(
 				});
 
 			return () => controller.abort();
-		}, [src, onError, onLoad, codeExtension]);
+		}, [src, onError, onLoad, codeExtension, isSidebarPreview]);
 
 		return (
-			<pre
-				ref={ref}
-				tabIndex={0}
-				className={clsx(
-					'text-ink',
-					className,
-					highlight && ['relative !pl-[3.8em]', `language-${highlight.language}`]
-				)}
-			>
-				{highlight ? (
-					<>
-						<span className="pointer-events-none absolute left-0 top-[1em] w-[3em] select-none text-[100%] tracking-[-1px] text-ink-dull">
-							{Array.from(highlight, (_, i) => (
-								<span
-									key={i}
-									className={clsx('token block text-end', i % 2 && 'bg-black/40')}
-								>
-									{i + 1}
-								</span>
-							))}
-						</span>
-						<code
-							style={{ whiteSpace: 'inherit' }}
-							className={clsx('relative', `language-${highlight.language}`)}
-							dangerouslySetInnerHTML={{ __html: highlight.code }}
+			<pre ref={parentRef} tabIndex={0} className={className}>
+				<div
+					tabIndex={0}
+					className={clsx(
+						'relative w-full whitespace-pre text-ink',
+						codeExtension &&
+							`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
+					)}
+					style={{
+						height: `${rowVirtualizer.getTotalSize()}px`
+					}}
+				>
+					{rowVirtualizer.getVirtualItems().map((row) => (
+						<TextRow
+							key={row.key}
+							codeExtension={codeExtension}
+							row={row}
+							content={lines[row.index]!}
 						/>
-					</>
-				) : (
-					textContent
-				)}
+					))}
+				</div>
 			</pre>
 		);
 	}
 );
+
+function TextRow({
+	codeExtension,
+	row,
+	content
+}: {
+	codeExtension?: string;
+	row: VirtualItem;
+	content: string;
+}) {
+	const contentRef = useRef<HTMLSpanElement>(null);
+
+	useEffect(() => {
+		if (contentRef.current) {
+			const cb: IntersectionObserverCallback = (events) => {
+				for (const event of events) {
+					if (
+						!event.isIntersecting ||
+						contentRef.current?.getAttribute('data-highlighted') === 'true'
+					)
+						continue;
+					contentRef.current?.setAttribute('data-highlighted', 'true');
+					Prism.highlightElement(event.target, false); // Prism's async seems to be broken
+
+					// With this class present TOML headers are broken Eg. `[dependencies]` will format over multiple lines
+					const children = contentRef.current?.children;
+					if (children) {
+						for (const elem of children) {
+							elem.classList.remove('table');
+						}
+					}
+				}
+			};
+
+			new IntersectionObserver(cb).observe(contentRef.current);
+		}
+	}, []);
+
+	return (
+		<div
+			className={clsx('absolute left-0 top-0 flex w-full whitespace-pre')}
+			style={{
+				height: `${row.size}px`,
+				transform: `translateY(${row.start}px)`
+			}}
+		>
+			{codeExtension && (
+				<div
+					key={row.key}
+					className={clsx(
+						'token block w-[3.8em] shrink-0 whitespace-pre pl-1 text-end',
+						row.index % 2 && 'bg-black/40'
+					)}
+				>
+					{row.index + 1}
+				</div>
+			)}
+			<span ref={contentRef} className="flex-1 pl-2">
+				{content}
+			</span>
+		</div>
+	);
+}
