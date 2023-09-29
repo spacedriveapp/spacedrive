@@ -280,7 +280,7 @@ export type MaybeUndefined<T> = null | null | T
  * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
  * where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
  */
-export type MediaDate = { Naive: string } | { Utc: string }
+export type MediaDate = string | string
 
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 

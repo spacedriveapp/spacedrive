@@ -3,7 +3,10 @@ use super::{
 	ExifReader,
 };
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
-use serde::de::{self, Deserialize, Deserializer, Visitor};
+use serde::{
+	de::{self, Visitor},
+	Deserialize, Deserializer,
+};
 
 pub const UTC_FORMAT_STR: &str = "%F %T %z";
 pub const NAIVE_FORMAT_STR: &str = "%F %T";
@@ -11,6 +14,7 @@ pub const NAIVE_FORMAT_STR: &str = "%F %T";
 /// This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
 /// where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
 #[derive(Clone, Debug, PartialEq, Eq, specta::Type)]
+#[serde(untagged)]
 pub enum MediaDate {
 	Naive(NaiveDateTime),
 	Utc(DateTime<FixedOffset>),
@@ -103,23 +107,3 @@ impl<'de> Deserialize<'de> for MediaDate {
 		deserializer.deserialize_str(MediaDateVisitor)
 	}
 }
-
-// #[cfg(test)]
-// mod tests {
-// 	use crate::ImageMetadata;
-
-// 	use super::*;
-// 	#[test]
-// 	fn x() {
-// 		let z = ImageMetadata::from_path(
-// 			"/Users/broken/exif/PXL_20230714_222933902.ACTION_PAN-02.ORIGINAL.jpg",
-// 		)
-// 		.unwrap();
-
-// 		// let st = z.date_taken.map(|x| x.tostri);
-
-// 		// println!("{st:?}");
-
-// 		// println!("{:?}", serde_json::from_slice::<MediaDate>(&st).unwrap());
-// 	}
-// }
