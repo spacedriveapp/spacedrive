@@ -15,6 +15,8 @@ import {
 	FFMPEG_WORKFLOW,
 	getConst,
 	getSuffix,
+	LIBHEIF_SUFFIX,
+	LIBHEIF_WORKFLOW,
 	PDFIUM_SUFFIX,
 	PROTOC_SUFFIX,
 	TAURI_CLI_SUFFIX
@@ -143,15 +145,11 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 		if (!ffmpegSuffix.test(artifact.name)) continue;
 		try {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
-			await extractTo(
-				data,
-				framework,
-				{
-					chmod: 0o600,
-					recursive: true,
-					overwrite: true
-				}
-			);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
 			found = true;
 			break;
 		} catch (error) {
@@ -164,6 +162,42 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 }
 
 /**
+ * Download and extract libheif libs for heif thumbnails
+ * @param {string[]} machineId
+ * @param {string} framework
+ * @param {string[]} branches
+ */
+export async function downloadLibHeif(machineId, framework, branches) {
+	const workflow = getConst(LIBHEIF_WORKFLOW, machineId);
+	if (workflow == null) return;
+
+	console.log('Downloading LibHeif...');
+
+	const ffmpegSuffix = getSuffix(LIBHEIF_SUFFIX, machineId);
+	if (ffmpegSuffix == null) throw new Error('NO_LIBHEIF');
+
+	let found = false;
+	for await (const artifact of getGhWorkflowRunArtifacts(SPACEDRIVE_REPO, workflow, branches)) {
+		if (!ffmpegSuffix.test(artifact.name)) continue;
+		try {
+			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
+			found = true;
+			break;
+		} catch (error) {
+			console.warn('Failed to download LibHeif, re-trying...');
+			if (__debug) console.error(error);
+		}
+	}
+
+	if (!found) throw new Error('NO_LIBHEIF');
+}
+
+/**
  * Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not available in a Tauri stable release
  * @param {string[]} machineId
  * @param {string} framework
@@ -173,7 +207,7 @@ export async function downloadPatchedTauriCLI(machineId, framework, branches) {
 	console.log('Dowloading patched tauri CLI...');
 
 	const tauriCliSuffix = getSuffix(TAURI_CLI_SUFFIX, machineId);
-	if (tauriCliSuffix == null) throw new Error('NO_TAURI_CLI');
+	if (tauriCliSuffix == null) return;
 
 	let found = false;
 	for await (const artifact of getGhWorkflowRunArtifacts(

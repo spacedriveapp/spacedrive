@@ -1,7 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-const REF_REGEX = /ref:\s+refs\/heads\/(?<branch>\s+)/;
+// https://stackoverflow.com/q/3651860#answer-67151923
+const REF_REGEX = /ref:\s+refs\/heads\/(?<branch>[^\s\x00-\x1F\:\?\[\\\^\~]+)/;
 
 /**
  * @param {string} repoPath

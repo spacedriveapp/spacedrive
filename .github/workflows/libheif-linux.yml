@@ -28,6 +28,10 @@ jobs:
             target: x86_64-linux-gnu
           - host: ubuntu-latest
             target: aarch64-linux-gnu
+          - host: ubuntu-latest
+            target: x86_64-linux-musl
+          - host: ubuntu-latest
+            target: aarch64-linux-musl
     name: Build LibHeif Linux ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     defaults:
@@ -44,6 +48,10 @@ jobs:
           sudo .github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
 
           sudo chown -R "$(id -u):$(id -g)" .github/scripts/src/prefix
+
+          # Remove uneeded files
+          rm -rf .github/scripts/src/prefix/{share,lib/{cmake,pkgconfig}}
+          find .github/scripts/src/prefix -empty -delete
 
           env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C .github/scripts/src/prefix .
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import mustache from 'mustache';
 
-import { downloadFFMpeg, downloadPatchedTauriCLI, downloadPDFium, downloadProtc } from './deps.mjs';
+import { downloadFFMpeg, downloadLibHeif, downloadPatchedTauriCLI, downloadPDFium, downloadProtc } from './deps.mjs';
 import { getGitBranches } from './git.mjs';
 import { isMusl } from './musl.mjs';
 import { which } from './which.mjs';
@@ -62,7 +62,7 @@ await Promise.all(
 );
 
 // Download all necessary external dependencies
-const deps = [
+await Promise.all([
 	downloadProtc(machineId, framework).catch((e) => {
 		console.error(
 			'Failed to download protoc, this is required for Spacedrive to compile. ' +
@@ -83,21 +83,22 @@ const deps = [
 				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
 		);
 		throw e;
+	}),
+	downloadLibHeif(machineId, framework, branches).catch((e) => {
+		console.error(
+			'Failed to download libheif. This is probably a bug, please open a issue with you system info at: ' +
+				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
+		);
+		throw e;
+	}),
+	downloadPatchedTauriCLI(machineId, framework, branches).catch((e) => {
+		console.error(
+			'Failed to download patched tauri CLI. This is probably a bug, please open a issue with you system info at: ' +
+				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
+		);
+		throw e;
 	})
-];
-
-if (machineId[0] === 'Darwin')
-	deps.push(
-		downloadPatchedTauriCLI(machineId, framework, branches).catch((e) => {
-			console.error(
-				'Failed to download patched tauri CLI. This is probably a bug, please open a issue with you system info at: ' +
-					'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-			);
-			throw e;
-		})
-	);
-
-await Promise.all(deps).catch((e) => {
+]).catch((e) => {
 	if (__debug) console.error(e);
 	process.exit(1);
 });

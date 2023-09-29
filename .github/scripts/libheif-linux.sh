@@ -9,6 +9,12 @@ case "${1:-}" in
   aarch64-linux-gnu)
     export TARGET_TRIPLE='aarch64-linux-gnu.2.23'
     ;;
+  x86_64-linux-musl)
+    export TARGET_TRIPLE='x86_64-linux-musl'
+    ;;
+  aarch64-linux-musl)
+    export TARGET_TRIPLE='aarch64-linux-musl'
+    ;;
   *)
     echo "Unsupported target triple '${1}'"
     exit 1
@@ -82,7 +88,7 @@ cpu = 'x86_64'
 endian = 'little'
 EOF
 
-if [ "$TARGET_TRIPLE" = 'aarch64-linux-gnu' ]; then
+case "$TARGET_TRIPLE" in aarch64-*)
   cat <<EOF >>./src/cross.meson
 
 [target_machine]
@@ -91,7 +97,8 @@ cpu_family = 'aarch64'
 cpu = 'arm64'
 endian = 'little'
 EOF
-fi
+  ;;
+esac
 
 cat <<EOF >./src/toolchain.cmake
 set(CMAKE_SYSTEM_NAME Linux)
