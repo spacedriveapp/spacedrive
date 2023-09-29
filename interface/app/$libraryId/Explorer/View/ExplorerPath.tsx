@@ -2,7 +2,7 @@ import { CaretRight } from '@phosphor-icons/react';
 import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useMatch } from 'react-router';
 import { ExplorerItem, getExplorerLayoutStore, useExplorerLayoutStore } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
 import { useIsDark, useKeybind, useKeyMatcher, useZodSearchParams } from '~/hooks';
@@ -14,10 +14,9 @@ import { useExplorerSearchParams } from '../util';
 export const PATH_BAR_HEIGHT = 32;
 
 export const ExplorerPath = memo(() => {
-	const location = useLocation();
 	const isDark = useIsDark();
-	const isEphemeralLocation = location.pathname.split('/').includes('ephemeral');
-	const isLocation = location.pathname.split('/').includes('location');
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
+	const isLocation = useMatch('/:libraryId/location/:locationId');
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);

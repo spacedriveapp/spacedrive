@@ -1,9 +1,14 @@
 import { Plus } from '@phosphor-icons/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { useRef } from 'react';
-import { Object, useLibraryMutation, useLibraryQuery, usePlausibleEvent } from '@sd/client';
+import {
+	Object,
+	useLibraryMutation,
+	useLibraryQuery,
+	usePlausibleEvent,
+	useRspcLibraryContext
+} from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { useOperatingSystem } from '~/hooks';
@@ -16,7 +21,7 @@ export default (props: { objects: Object[] }) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const submitPlausibleEvent = usePlausibleEvent();
-	const queryClient = useQueryClient();
+	const rspc = useRspcLibraryContext();
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery([
@@ -113,7 +118,7 @@ export default (props: { objects: Object[] }) => {
 														.map((o) => o.id)
 										});
 										if (unassign)
-											queryClient.invalidateQueries(['search.objects']);
+											rspc.queryClient.invalidateQueries(['search.objects']);
 									}}
 								>
 									<div
