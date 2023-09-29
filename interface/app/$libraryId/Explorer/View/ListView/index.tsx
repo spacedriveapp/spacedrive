@@ -456,7 +456,7 @@ export default () => {
 					top: scrollBy,
 					behavior:
 						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'instant' : 'smooth')
+						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
 				});
 			} else if (rowBottom > scrollRect.height - (explorerView.bottom ?? 0)) {
 				const scrollBy =
@@ -469,7 +469,7 @@ export default () => {
 					top: scrollBy,
 					behavior:
 						options.behavior ??
-						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'instant' : 'smooth')
+						(Math.abs(scrollBy) > ROW_HEIGHT * 10 ? 'auto' : 'smooth')
 				});
 			}
 		},
@@ -504,7 +504,7 @@ export default () => {
 		const lastRow = rows[rows.length - 1];
 		if (!lastRow) return;
 
-		scrollToRow(lastRow, { behavior: 'instant' });
+		scrollToRow(lastRow, { behavior: 'auto' });
 		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
