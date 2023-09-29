@@ -444,7 +444,7 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 	file: &mut File,
 	metadata: &Metadata,
 ) -> Result<String, Response<BoxBody>> {
-	let mime_type = match ext {
+	let mime_type = match ext.to_lowercase().as_str() {
 		// AAC audio
 		"aac" => "audio/aac",
 		// Musical Instrument Digital Interface (MIDI)
@@ -554,7 +554,7 @@ async fn plz_for_the_love_of_all_that_is_good_replace_this_with_the_db_instead_o
 			"txt" => "text/plain",
 			_ => {
 				if charset.is_empty() {
-					todo!();
+					todo!("file ext='{ext}' mime_type='{mime_type}' is not supported");
 					// "TODO: This filetype is not supported because of the missing mime type!",
 				};
 				mime_type
