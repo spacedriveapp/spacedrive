@@ -76,6 +76,10 @@ export default memo(
 		});
 
 		useEffect(() => {
+			if (explorer.selectedItems.size === 0) setIsContextMenuOpen(false);
+		}, [explorer.selectedItems]);
+
+		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
 				const timer = setTimeout(() => setShowLoading(true), 100);
 				return () => clearTimeout(timer);
@@ -108,10 +112,11 @@ export default memo(
 									!isContextMenuOpen &&
 									!isRenaming &&
 									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
 								ref,
+								isRenaming,
+								isContextMenuOpen,
+								setIsRenaming,
+								setIsContextMenuOpen,
 								padding: viewPadding
 							}}
 						>
