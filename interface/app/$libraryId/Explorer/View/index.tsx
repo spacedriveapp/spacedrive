@@ -43,7 +43,13 @@ export interface ExplorerViewPadding {
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
+		| 'selectable'
+		| 'isRenaming'
+		| 'isContextMenuOpen'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'ref'
+		| 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
@@ -74,6 +80,12 @@ export default memo(
 		useKeyDownHandlers({
 			disabled: isRenaming || quickPreviewStore.open
 		});
+
+		useEffect(() => {
+			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			// Close context menu when no items are selected
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		}, [explorer.selectedItems, isContextMenuOpen]);
 
 		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
@@ -108,10 +120,11 @@ export default memo(
 									!isContextMenuOpen &&
 									!isRenaming &&
 									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
 								ref,
+								isRenaming,
+								isContextMenuOpen,
+								setIsRenaming,
+								setIsContextMenuOpen,
 								padding: viewPadding
 							}}
 						>
