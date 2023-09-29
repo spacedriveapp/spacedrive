@@ -23,9 +23,9 @@ apt-get update -yqq
 apt-get install -yqq -o=Dpkg::Use-Pty=0 ninja-build cmake curl nasm pkg-config xz-utils patch python3
 
 echo "Configure sysroot and prefix..."
+mkdir -p "./src/prefix/bin" "./src/sysroot/bin"
 _prefix="$(CDPATH='' cd ./src/prefix && pwd)"
 _sysroot="$(CDPATH='' cd ./src/sysroot && pwd)"
-mkdir -p "${_prefix}/bin" "${_sysroot}/bin"
 
 # Configure PATH to use our sysroot bin
 PATH="${_sysroot}/bin:$PATH"
