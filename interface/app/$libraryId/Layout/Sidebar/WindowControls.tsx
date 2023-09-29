@@ -11,7 +11,7 @@ export default () => {
 
 	const showControls = window.location.search.includes('showControls');
 
-	if (platform === 'tauri' || showControls) {
+	if ((platform === 'tauri' && os == 'macOS') || showControls) {
 		return (
 			<div data-tauri-drag-region className={clsx('shrink-0', macOnly(os, 'h-7'))}>
 				{/* We do not provide the onClick handlers for 'MacTrafficLights' because this is only used in demo mode */}
