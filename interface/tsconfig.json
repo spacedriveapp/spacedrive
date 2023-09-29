@@ -4,9 +4,10 @@
 		"paths": {
 			"~/*": ["./*"]
 		},
-		"types": ["vite-plugin-svgr/client", "vite/client", "node"]
+		"types": ["vite-plugin-svgr/client", "vite/client", "node"],
+		"declarationDir": "dist"
 	},
 	"include": ["**/*"],
-	"exclude": ["build"],
+	"exclude": ["dist"],
 	"references": [{ "path": "../packages/ui" }, { "path": "../packages/client" }]
 }
