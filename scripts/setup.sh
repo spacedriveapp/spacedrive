@@ -46,7 +46,7 @@ if [ "${CI:-}" != "true" ]; then
       'https://pnpm.io/installation'
   fi
 
-  if ! has rustc cargo; then
+  if ! has rustup rustc cargo; then
     err 'Rust was not found.' \
       "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
       'https://rustup.rs'

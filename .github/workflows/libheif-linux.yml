@@ -1,0 +1,53 @@
+name: Build libheif for linux
+
+on:
+  push:
+    paths:
+      - '.github/workflows/libheif-linux.yml'
+      - '.github/scripts/libheif-linux.sh'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '.github/workflows/libheif-linux.yml'
+      - '.github/scripts/libheif-linux.sh'
+  workflow_dispatch:
+
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-libheif-linux:
+    strategy:
+      fail-fast: true
+      matrix:
+        settings:
+          - host: ubuntu-20.04
+            target: x86_64-linux-gnu
+          - host: ubuntu-20.04
+            target: aarch64-linux-gnu
+    name: Build LibHeif Linux ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build libheif
+        run: |
+          set -euxo pipefail
+
+          ./.github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
+
+          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C /src/prefix .
+
+      - name: Publish libheif
+        uses: actions/upload-artifact@v3
+        with:
+          name: libheif-${{ matrix.settings.target }}.tar.xz
+          path: /src/prefix
+          if-no-files-found: error
