@@ -27,11 +27,12 @@ export default defineConfig(({ mode }) => {
 		},
 		plugins: [
 			devtoolsPlugin,
-			sentryVitePlugin({
-				authToken: process.env.SENTRY_AUTH_TOKEN,
-				org: 'spacedriveapp',
-				project: 'desktop'
-			})
+			process.env.SENTRY_AUTH_TOKEN &&
+				sentryVitePlugin({
+					authToken: process.env.SENTRY_AUTH_TOKEN,
+					org: 'spacedriveapp',
+					project: 'desktop'
+				})
 		]
 	});
 });

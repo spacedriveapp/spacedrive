@@ -81,7 +81,7 @@ export const Component = () => {
 				</p>
 			</div>
 			<Divider />
-			<div className="mb-20">
+			<div>
 				<h1 className="my-5 text-lg font-bold text-ink">
 					We also would like to thank all our contributors
 				</h1>
