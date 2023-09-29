@@ -83,9 +83,20 @@ export function JobManager() {
 								No jobs.
 							</div>
 						) : (
-							jobGroups.data.map((group) => (
-								<JobGroup key={group.id} group={group} progress={progress} />
-							))
+							jobGroups.data
+								.sort((a, b) => {
+									if (a.status === 'Running' && b.status === 'Running') {
+										return 0;
+									} else if (a.status === 'Running') {
+										return -1;
+									} else if (b.status === 'Running') {
+										return 1;
+									}
+									return 0;
+								})
+								.map((group) => (
+									<JobGroup key={group.id} group={group} progress={progress} />
+								))
 						))}
 				</div>
 			</div>
