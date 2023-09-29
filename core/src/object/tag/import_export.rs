@@ -3,7 +3,9 @@ use crate::{library::Library, prisma::tag};
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use sd_prisma::prisma::{file_path, tag_on_object};
+use sd_prisma::prisma_sync;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -21,16 +23,22 @@ struct JsonTagObject {
 }
 
 #[derive(Deserialize, Clone, Type)]
-pub struct TagImportExport {
+pub struct TagExportArgs {
 	pub tag_id: i32,
 }
 
 #[async_trait]
-impl ImportExport<JsonTag> for TagImportExport {
-	async fn export(&self, Library { db, .. }: &Library) -> Result<JsonTag, ImportExportError> {
+impl ImportExport for JsonTag {
+	type ExportContext = TagExportArgs;
+	type ImportData = JsonTag;
+
+	async fn export(
+		context: Self::ExportContext,
+		Library { db, .. }: &Library,
+	) -> Result<Self::ImportData, ImportExportError> {
 		let tag = db
 			.tag()
-			.find_unique(tag::id::equals(self.tag_id))
+			.find_unique(tag::id::equals(context.tag_id))
 			.exec()
 			.await?
 			.ok_or(ImportExportError::NotFound)?;
@@ -92,7 +100,97 @@ impl ImportExport<JsonTag> for TagImportExport {
 			objects: json_tags,
 		})
 	}
-	async fn import(&self, lib: &Library) -> Result<JsonTag, ImportExportError> {
-		unimplemented!()
+
+	async fn import(data: Self::ImportData, library: &Library) -> Result<(), ImportExportError> {
+		let Library { db, sync, .. } = library;
+
+		// let existing_tag = db
+		// 	.tag()
+		// 	.find_unique(tag::pub_id::equals(
+		// 		hex::decode(&data.pub_id).unwrap_or_default(),
+		// 	))
+		// 	.exec()
+		// 	.await?;
+
+		// let tag_id = if let Some(existing_tag) = existing_tag {
+		// 	existing_tag.id
+		// } else {
+		// 	let new_tag = sync.shared_create(
+		// 		prisma_sync::tag::SyncId {
+		// 			pub_id: hex::decode(&data.pub_id).unwrap_or_default(),
+		// 		},
+		// 		vec![
+		// 			(tag::name::NAME, json!(data.name)),
+		// 			(tag::color::NAME, json!(data.color)),
+		// 			// Add other fields as necessary
+		// 		],
+		// 	);
+
+		// 	sync.write_ops(
+		// 		db,
+		// 		(
+		// 			vec![new_tag.clone()],
+		// 			db.tag().create(tag::Create {
+		// 				pub_id: hex::decode(&data.pub_id).unwrap_or_default(),
+		// 				name: data.name.clone(),
+		// 				color: data.color.clone(),
+		// 				// Add other fields as necessary
+		// 			}),
+		// 		),
+		// 	)
+		// 	.await?
+		// 	.id // Assuming a field to get the ID of the created tag, adjust as necessary
+		// };
+
+		// for obj in &data.objects {
+		// 	// Here, we match cas_id to ensure the correct linkage
+		// 	let file_path = db
+		// 		.file_path()
+		// 		.find_many(file_path::cas_id::in_vec(&obj.cas_ids))
+		// 		.exec()
+		// 		.await?;
+
+		// 	for path in file_path {
+		// 		if let Some(object_id) = path.object_id {
+		// 			let existing_relation = db
+		// 				.tag_on_object()
+		// 				.find_unique(
+		// 					tag_on_object::tag_id::equals(tag_id)
+		// 						.and(tag_on_object::object_id::equals(object_id)),
+		// 				)
+		// 				.exec()
+		// 				.await?;
+
+		// 			if existing_relation.is_none() {
+		// 				let new_relation = sync.relation_create(
+		// 					prisma_sync::tag_on_object::SyncId {
+		// 						tag: prisma_sync::tag::SyncId {
+		// 							pub_id: hex::decode(&data.pub_id).unwrap_or_default(),
+		// 						},
+		// 						object: prisma_sync::object::SyncId {
+		// 							pub_id: hex::decode(&obj.pub_id).unwrap_or_default(),
+		// 						},
+		// 					},
+		// 					vec![],
+		// 				);
+
+		// 				sync.write_ops(
+		// 					db,
+		// 					(
+		// 						vec![new_relation],
+		// 						db.tag_on_object().create(tag_on_object::Create {
+		// 							tag_id,
+		// 							object_id,
+		// 							// Populate other fields as necessary
+		// 						}),
+		// 					),
+		// 				)
+		// 				.await?;
+		// 			}
+		// 		}
+		// 	}
+		// }
+
+		Ok(())
 	}
 }

@@ -1,17 +1,15 @@
-use crate::library::Library;
-use crate::{DateTime, Utc};
-use async_compression::tokio::bufread::GzipDecoder;
-use async_compression::tokio::write::GzipEncoder;
+use crate::{library::Library, DateTime, Utc};
+use async_compression::tokio::{bufread::GzipDecoder, write::GzipEncoder};
 use async_trait::async_trait;
 use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
-use std::path::PathBuf;
+use std::{io::Read, path::PathBuf};
 use strum_macros::Display;
 use thiserror::Error;
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::{
+	fs::File,
+	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ImportExportOptions {
@@ -28,9 +26,16 @@ pub enum ExportFormat {
 }
 
 #[async_trait]
-pub trait ImportExport<T>: Sync + Send {
-	async fn export(&self, lib: &Library) -> Result<T, ImportExportError>;
-	async fn import(&self, lib: &Library) -> Result<T, ImportExportError>;
+pub trait ImportExport {
+	type ExportContext;
+	type ImportData;
+
+	async fn export(
+		context: Self::ExportContext,
+		library: &Library,
+	) -> Result<Self::ImportData, ImportExportError>;
+
+	async fn import(data: Self::ImportData, library: &Library) -> Result<(), ImportExportError>;
 }
 
 #[derive(Debug, Deserialize, Clone, Display)]
@@ -67,13 +72,13 @@ pub enum ImportExportError {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ExportData<T, U = T> {
+pub enum ExportFile<T, U = T> {
 	Single(T),
 	Multiple(Vec<U>),
 }
 pub struct ImportExportManager<T, U = T> {
 	options: ImportExportOptions,
-	data: ExportData<T, U>,
+	data: ExportFile<T, U>,
 }
 
 impl<T, U> ImportExportManager<T, U>
@@ -81,7 +86,7 @@ where
 	T: Serialize + for<'de> Deserialize<'de> + Send + Sync,
 	U: Serialize + for<'de> Deserialize<'de> + Send + Sync,
 {
-	pub fn new(options: ImportExportOptions, data: ExportData<T, U>) -> Self {
+	pub fn new(options: ImportExportOptions, data: ExportFile<T, U>) -> Self {
 		Self { options, data }
 	}
 
@@ -93,7 +98,7 @@ where
 		)
 	}
 
-	pub fn get_data(&self) -> &ExportData<T, U> {
+	pub fn get_data(&self) -> &ExportFile<T, U> {
 		&self.data
 	}
 
@@ -101,7 +106,7 @@ where
 		let mut output_path = self.options.output_path.join(self.name());
 
 		match &self.data {
-			ExportData::Single(data) => {
+			ExportFile::Single(data) => {
 				let raw_export_data = self.prepare_data(data).await?;
 
 				if self.options.compress {
@@ -122,7 +127,7 @@ where
 					file.write_all(raw_export_data.as_bytes()).await?;
 				}
 			}
-			ExportData::Multiple(items) => {
+			ExportFile::Multiple(items) => {
 				output_path.set_extension("tar.gz");
 				let tar_gz_file = std::fs::File::create(&output_path)?;
 
@@ -208,7 +213,7 @@ where
 			String::from_utf8(content).map_err(|_| ImportExportError::CompressionError)?
 		};
 
-		let data: ExportData<T, U> = ExportData::Single(
+		let data: ExportFile<T, U> = ExportFile::Single(
 			serde_json::from_str(&content_str).map_err(ImportExportError::JsonError)?,
 		);
 

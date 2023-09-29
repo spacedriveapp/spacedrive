@@ -5,6 +5,7 @@ augusto
 automount
 benja
 brendonovich
+bufread
 chacha
 codegen
 Condvar

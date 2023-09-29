@@ -1,12 +1,10 @@
-use std::{collections::BTreeMap, path::PathBuf};
-
-use axum::extract::Path;
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde::Deserialize;
 use specta::Type;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use serde_json::json;
 
@@ -14,12 +12,12 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	object::tag::{
-		import_export::{JsonTag, TagImportExport},
+		import_export::{JsonTag, TagExportArgs},
 		TagCreateArgs,
 	},
 	prisma::{object, tag, tag_on_object},
 	util::import_export_manager::{
-		ExportData, ExportFormat, ExportKind, ExportMetadata, ImportExport, ImportExportManager,
+		ExportFile, ExportFormat, ExportKind, ImportExport, ImportExportManager,
 		ImportExportOptions,
 	},
 };
@@ -190,8 +188,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("export", {
 			R.with2(library())
-				.mutation(|(_, library), args: TagImportExport| async move {
-					let exported_data = args.export(&library).await.unwrap();
+				.mutation(|(_, library), args: TagExportArgs| async move {
+					let exported_data = JsonTag::export(args, &library).await.unwrap();
 
 					let manager = ImportExportManager::<JsonTag>::new(
 						ImportExportOptions {
@@ -200,7 +198,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							format: ExportFormat::JSON,
 							compress: true,
 						},
-						ExportData::Single(exported_data),
+						ExportFile::Single(exported_data),
 					);
 
 					manager.save().await.unwrap();
@@ -219,11 +217,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.await
 							.unwrap();
 
-					// TagImportExport::import(&library, manager.get_data().clone())
-					// 	.await
-					// 	.unwrap();
+					// Extracting the JsonTag instance from ExportFile
+					let data = match manager.get_data() {
+						ExportFile::Single(data) => data.clone(),
+						ExportFile::Multiple(_) => {
+							return Err(rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Expected single tag export".into(),
+							))
+						}
+					};
 
-					println!("{:?}", manager.get_data());
+					JsonTag::import(data, &library).await.unwrap();
+
 					Ok(())
 				})
 		})
