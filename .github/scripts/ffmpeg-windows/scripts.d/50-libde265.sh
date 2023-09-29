@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/strukturag/libde265.git"
-SCRIPT_TAG="v1.0.11"
+SCRIPT_TAG="v1.0.12"
 
 ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" libde265
