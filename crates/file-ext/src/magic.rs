@@ -127,7 +127,7 @@ macro_rules! extension_category_enum {
 		impl std::str::FromStr for $enum_name {
 			type Err = serde_json::Error;
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
-				serde_json::from_value(serde_json::Value::String(s.to_string()))
+				serde_json::from_value(serde_json::Value::String(s.to_lowercase()))
 			}
 		}
 	};

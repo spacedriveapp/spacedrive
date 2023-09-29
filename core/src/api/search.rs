@@ -122,6 +122,8 @@ struct FilePathFilterArgs {
 	path: Option<String>,
 	#[specta(optional)]
 	object: Option<ObjectFilterArgs>,
+	#[specta(optional)]
+	hidden: Option<bool>,
 }
 
 impl FilePathFilterArgs {
@@ -172,6 +174,7 @@ impl FilePathFilterArgs {
 					self.extension.map(Some).map(extension::equals),
 					self.created_at.from.map(|v| date_created::gte(v.into())),
 					self.created_at.to.map(|v| date_created::lte(v.into())),
+					self.hidden.map(Some).map(hidden::equals),
 					directory_materialized_path_str
 						.map(Some)
 						.map(materialized_path::equals),
