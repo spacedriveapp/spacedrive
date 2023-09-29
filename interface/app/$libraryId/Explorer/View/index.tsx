@@ -85,6 +85,7 @@ export default memo(
 			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 			// Close context menu when no items are selected
 			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			setIsContextMenuOpen(false);
 		}, [explorer.selectedItems, isContextMenuOpen]);
 
 		useEffect(() => {
@@ -146,7 +147,11 @@ export default memo(
 	}
 );
 
-export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+export const EmptyNotice = (props: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+	loading?: boolean;
+}) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -161,6 +166,8 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 
 		return <Icon size={100} opacity={0.3} />;
 	};
+
+	if (props.loading) return null;
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">

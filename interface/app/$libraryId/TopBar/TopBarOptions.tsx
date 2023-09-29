@@ -36,7 +36,7 @@ export default ({ options }: TopBarChildrenProps) => {
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	useKeybind([metaCtrlKey, 'v'], (e) => {
+	useKeybind([metaCtrlKey, 'b'], (e) => {
 		e.stopPropagation();
 		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
 		const currentLayout = explorerLayouts.indexOf(

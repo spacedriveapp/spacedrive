@@ -59,7 +59,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Switch explorer layout',
-			key: [[[ModifierKeys.Control], ['v']]]
+			key: [[[ModifierKeys.Control], ['b']]]
 		},
 		{
 			action: 'Open selected item',
