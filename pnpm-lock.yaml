@@ -83,9 +83,6 @@ importers:
       '@tauri-apps/api':
         specifier: 1.3.0
         version: 1.3.0
-      comlink:
-        specifier: ^4.4.1
-        version: 4.4.1
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -677,11 +674,14 @@ importers:
         specifier: ^4.22.0
         version: 4.22.0(@tanstack/react-query@4.29.1)(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/react-table':
-        specifier: ^8.10.0
-        version: 8.10.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^8.8.5
+        version: 8.8.5(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/react-virtual':
-        specifier: 3.0.0-beta.54
-        version: 3.0.0-beta.54(react@18.2.0)
+        specifier: 3.0.0-beta.61
+        version: 3.0.0-beta.61(react@18.2.0)
+      '@types/react-scroll-sync':
+        specifier: ^0.8.4
+        version: 0.8.4
       '@types/uuid':
         specifier: ^9.0.2
         version: 9.0.2
@@ -914,9 +914,6 @@ importers:
       regexpp:
         specifier: ^3.2.0
         version: 3.2.0
-      vite-plugin-comlink:
-        specifier: ^3.0.5
-        version: 3.0.5(comlink@4.4.1)(vite@3.2.7)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@3.2.7)
@@ -10081,34 +10078,34 @@ packages:
       react-native: 0.72.4(@babel/core@7.22.11)(@babel/preset-env@7.22.10)(react@18.2.0)
       use-sync-external-store: 1.2.0(react@18.2.0)
 
-  /@tanstack/react-table@8.10.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-FNhKE3525hryvuWw90xRbP16qNiq7OLJkDZopOKcwyktErLi1ibJzAN9DFwA/gR1br9SK4StXZh9JPvp9izrrQ==}
+  /@tanstack/react-table@8.8.5(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-g/t21E/ICHvaCOJOhsDNr5QaB/6aDQEHFbx/YliwwU/CJThMqG+dS28vnToIBV/5MBgpeXoGRi2waDJVJlZrtg==}
     engines: {node: '>=12'}
     peerDependencies:
       react: '>=16'
       react-dom: '>=16'
     dependencies:
-      '@tanstack/table-core': 8.10.0
+      '@tanstack/table-core': 8.8.5
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     dev: false
 
-  /@tanstack/react-virtual@3.0.0-beta.54(react@18.2.0):
-    resolution: {integrity: sha512-D1mDMf4UPbrtHRZZriCly5bXTBMhylslm4dhcHqTtDJ6brQcgGmk8YD9JdWBGWfGSWPKoh2x1H3e7eh+hgPXtQ==}
+  /@tanstack/react-virtual@3.0.0-beta.61(react@18.2.0):
+    resolution: {integrity: sha512-ElaOqL3FvJE075/6mRbv8VBHhiF5kHjGA7eo1O+x7sPWO7+fzkTr7t7AhNaWzRLxhUpQfbb6XG3ltp8mpfFLQg==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
-      '@tanstack/virtual-core': 3.0.0-beta.54
+      '@tanstack/virtual-core': 3.0.0-beta.61
       react: 18.2.0
     dev: false
 
-  /@tanstack/table-core@8.10.0:
-    resolution: {integrity: sha512-e701yAJ18aGDP6mzVworlFAmQ+gi3Wtqx5mGZUe2BUv4W4D80dJxUfkHdtEGJ6GryAnlCCNTej7eaJiYmPhyYg==}
+  /@tanstack/table-core@8.8.5:
+    resolution: {integrity: sha512-Xnwa1qxpgvSW7ozLiexmKp2PIYcLBiY/IizbdGriYCL6OOHuZ9baRhrrH51zjyz+61ly6K59rmt6AI/3RR+97Q==}
     engines: {node: '>=12'}
     dev: false
 
-  /@tanstack/virtual-core@3.0.0-beta.54:
-    resolution: {integrity: sha512-jtkwqdP2rY2iCCDVAFuaNBH3fiEi29aTn2RhtIoky8DTTiCdc48plpHHreLwmv1PICJ4AJUUESaq3xa8fZH8+g==}
+  /@tanstack/virtual-core@3.0.0-beta.61:
+    resolution: {integrity: sha512-C3iu9rkWvjJ/KbYAjuwLTjqiR9fcf9lXjRBLHDzsL/M6cR7/HLSU94abSdVrzuiqRvP7u7e0FeqPK0O3VbvWyg==}
     dev: false
 
   /@tauri-apps/api@1.3.0:
@@ -10577,6 +10574,12 @@ packages:
       '@types/history': 4.7.11
       '@types/react': 18.0.38
     dev: true
+
+  /@types/react-scroll-sync@0.8.4:
+    resolution: {integrity: sha512-88N2vgZdVqlwr5ayH/5GNAAjfdlzhted/qPTyXgT/DzQwsuIWkwFpZtoOhyGCRmxUC3w5wA+ZhkpbzagIXWNaQ==}
+    dependencies:
+      '@types/react': 18.0.38
+    dev: false
 
   /@types/react@18.0.38:
     resolution: {integrity: sha512-ExsidLLSzYj4cvaQjGnQCk4HFfVT9+EZ9XZsQ8Hsrcn8QNgXtpZ3m9vSIC2MWtx7jHictK6wYhQgGh6ic58oOw==}
@@ -12239,9 +12242,6 @@ packages:
     engines: {node: '>= 0.8'}
     dependencies:
       delayed-stream: 1.0.0
-
-  /comlink@4.4.1:
-    resolution: {integrity: sha512-+1dlx0aY5Jo1vHy/tSsIGpSkN4tS9rZSW8FIhG0JH/crs9wwweswIo/POr451r7bZww3hFbPAKnTpimzL/mm4Q==}
 
   /comma-separated-tokens@2.0.3:
     resolution: {integrity: sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg==}
@@ -16519,12 +16519,6 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.8
-    dev: true
-
-  /json5@2.2.1:
-    resolution: {integrity: sha512-1hqLFMSrGHRHxav9q9gNjJ5EXznIxGVO09xQRrwplcS8qs28pZ8s8hupZAmqDwZUmVZ2Qb2jnyPOWcDH8m8dlA==}
-    engines: {node: '>=6'}
-    hasBin: true
     dev: true
 
   /json5@2.2.3:
@@ -23386,18 +23380,6 @@ packages:
       unist-util-stringify-position: 3.0.3
       vfile-message: 3.1.4
     dev: false
-
-  /vite-plugin-comlink@3.0.5(comlink@4.4.1)(vite@3.2.7):
-    resolution: {integrity: sha512-my8BE9GFJEaLc7l3e2SfRUL8JJsN9On8PiW7q4Eyq3g6DHUsNqo5WlS7Butuzc8ngrs24Tf1RC8Xfdda+E5T9w==}
-    peerDependencies:
-      comlink: ^4.3.1
-      vite: '>=2.9.6'
-    dependencies:
-      comlink: 4.4.1
-      json5: 2.2.1
-      magic-string: 0.26.7
-      vite: 3.2.7
-    dev: true
 
   /vite-plugin-html@3.2.0(vite@3.2.7):
     resolution: {integrity: sha512-2VLCeDiHmV/BqqNn5h2V+4280KRgQzCFN47cst3WiNK848klESPQnzuC3okH5XHtgwHH/6s1Ho/YV6yIO0pgoQ==}

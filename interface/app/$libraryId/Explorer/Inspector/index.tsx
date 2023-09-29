@@ -148,6 +148,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}
+					isSidebarPreview={true}
 				/>
 			))}
 		</>
