@@ -4,7 +4,7 @@
 	"scripts": {
 		"vite": "vite",
 		"tauri": "node ./src-tauri/scripts/tauri.js",
-		"dev": "vite dev",
+		"dev": "tauri dev",
 		"dev-vite": "vite --clearScreen=false --mode development",
 		"build": "tauri build",
 		"dmg": "open ../../target/release/bundle/dmg/",
