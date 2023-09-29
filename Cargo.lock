@@ -9772,13 +9772,3 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[patch.unused]]
-name = "tauri"
-version = "1.4.1"
-source = "git+https://github.com/tauri-apps/tauri?rev=ef962c43afcd86dfaf69dbcc349e4bbed60eda98#ef962c43afcd86dfaf69dbcc349e4bbed60eda98"
-
-[[patch.unused]]
-name = "tauri-build"
-version = "1.4.0"
-source = "git+https://github.com/tauri-apps/tauri?rev=ef962c43afcd86dfaf69dbcc349e4bbed60eda98#ef962c43afcd86dfaf69dbcc349e4bbed60eda98"
