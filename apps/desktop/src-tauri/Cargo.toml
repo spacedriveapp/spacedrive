@@ -9,7 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "=1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "updater", "window-all"] }
+tauri = { version = "1.5.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "updater", "window-all"] }
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
@@ -45,7 +45,7 @@ sd-desktop-macos = { path = "../crates/macos" }
 sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
-tauri-build = { version = "=1.3.0", features = [] }
+tauri-build = { version = "1.4.1", features = [] }
 
 [features]
 default = ["custom-protocol"]
