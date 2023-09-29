@@ -76,8 +76,9 @@ export default memo(
 		});
 
 		useEffect(() => {
-			if (explorer.selectedItems.size === 0) setIsContextMenuOpen(false);
-		}, [explorer.selectedItems]);
+			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		}, [explorer.selectedItems, isContextMenuOpen]);
 
 		useEffect(() => {
 			if (explorer.isFetchingNextPage) {

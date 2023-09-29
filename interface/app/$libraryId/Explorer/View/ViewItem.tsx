@@ -165,7 +165,6 @@ export const ViewItem = memo(({ data, children, ...props }: ViewItemProps) => {
 					{children}
 				</div>
 			}
-			open={explorerView.isContextMenuOpen}
 			onOpenChange={explorerView.setIsContextMenuOpen}
 			disabled={explorerView.contextMenu === undefined}
 			onMouseDown={(e) => e.stopPropagation()}
