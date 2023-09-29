@@ -41,11 +41,11 @@ jobs:
         run: |
           set -euxo pipefail
 
-          sudo ./.github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
+          sudo .github/scripts/libheif-linux.sh ${{ matrix.settings.target }}
 
-          sudo chown -R "$(id -u):$(id -g)" ./src/prefix
+          sudo chown -R "$(id -u):$(id -g)" .github/scripts/src/prefix
 
-          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C ./src/prefix .
+          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C .github/scripts/src/prefix .
 
       - name: Publish libheif
         uses: actions/upload-artifact@v3
