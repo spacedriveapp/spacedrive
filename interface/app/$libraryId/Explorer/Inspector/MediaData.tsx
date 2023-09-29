@@ -1,5 +1,8 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat'; // import plugin
+
+import utc from 'dayjs/plugin/utc'; // import plugin
+
 import {
 	CoordinatesFormat,
 	MediaDate,
@@ -17,61 +20,32 @@ interface Props {
 	data: MediaMetadata;
 }
 
-// type MediaDateIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-// 	k: infer I
-// ) => void
-// 	? I
-// 	: never;
+const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
+const DateFormatWithoutTz = 'YYYY-MM-DD HH:mm:ss';
 
-// type MediaDateValue<U> = MediaDateIntersection<U> extends infer O
-// 	? { [K in keyof O]: O[K] }
-// 	: never;
-
-const DateFormatWithTz = 'YYYY-MM-DD HH-MM-SS ZZ';
-const DateFormatWithoutTz = 'YYYY-MM-DD HH-MM-SS';
-
-const formatMediaDate = (
-	datetime: MediaDate
-): { formatted: string | undefined; raw: string } | undefined => {
-	if (datetime === undefined) return undefined;
+const formatMediaDate = (datetime: MediaDate): { formatted: string; raw: string } | undefined => {
 	dayjs.extend(customParseFormat);
+	dayjs.extend(utc);
 
-	if (datetime)
-		// const withTz = dayjs(datetime, );
-		// console.log(datetime);
+	// dayjs.tz.setDefault(dayjs.tz.guess());
 
-		// console.log(datetime);
+	const getTzData = (dt: string): [string, number] => {
+		if (dt.includes('+'))
+			return [DateFormatWithTz, Number.parseInt(dt.substring(dt.indexOf('+'), 3))];
+		return [DateFormatWithoutTz, 0];
+	};
 
-		// return (
-		// 	{
-		// 		formatted: dayjs(dtType, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
-		// 		raw: dtType
-		// 	} ?? {
-		// 		formatted: dayjs(dtType, FormatWithoutTz, true).format('YYYY-MM-DD HH:mm:ss'),
-		// 		raw: dtType
-		// 	}
-		// );
+	const [tzFormat, tzOffset] = getTzData(datetime);
 
-		return undefined;
+	console.log({
+		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+		raw: datetime
+	});
 
-	// return 'Utc' in datetime
-	// ? {
-	// 		formatted: dayjs(datetime.Utc, FormatWithTz, true).format('YYYY-MM-DD HH:mm:ss'),
-	// 		raw: datetime.Utc
-	//   }
-	// 	: 'Naive' in datetime
-	// 	? console.log(datetime.Naive)! && {
-	// 			// ? dayjs(datetime.Naive, FormatWithoutTz).format('YYYY-MM-DD HH:mm:ss')
-	// 		formatted: dayjs(datetime.Naive, FormatWithoutTz, true).format(
-	// 			'YYYY-MM-DD HH:mm:ss'
-	// 		),
-	// 		raw: datetime.Naive
-	//   }
-	// 	: undefined;
-	// if ('Utc' in datetime) return dayjs(datetime.Utc).format(FormatWithTz);
-	// if ('Naive' in datetime) return dayjs(datetime.Naive).format(FormatWithoutTz);
-	// if (datetime.t === 'Utc') return dayjs(datetime.c, FormatWithTz).format('MMM do YYYY');
-	// if (datetime.t === 'Naive') return dayjs(datetime.c, FormatWithoutTz).format('MMM do YYYY');
+	return {
+		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+		raw: datetime
+	};
 };
 
 const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
