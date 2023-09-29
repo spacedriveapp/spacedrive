@@ -43,7 +43,13 @@ export interface ExplorerViewPadding {
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
+		| 'selectable'
+		| 'isRenaming'
+		| 'isContextMenuOpen'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'ref'
+		| 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
