@@ -4,9 +4,9 @@
 	"scripts": {
 		"vite": "vite",
 		"tauri": "node ./src-tauri/scripts/tauri.js",
-		"dev": "tauri dev",
+		"dev": "pnpm tauri dev",
 		"dev-vite": "vite --clearScreen=false --mode development",
-		"build": "tauri build",
+		"build": "pnpm tauri build",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
