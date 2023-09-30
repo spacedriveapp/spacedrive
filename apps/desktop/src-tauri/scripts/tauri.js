@@ -27,7 +27,7 @@ const framework = path.join(workspace, 'target/Frameworks');
 
 switch (args[0]) {
 	case 'dev': {
-		if (process.platform === 'win32') setupSharedLibs(true);
+		if (process.platform === 'win32') setupSharedLibs('dll', path.join(framework, 'bin'), true);
 		break;
 	}
 	case 'build': {

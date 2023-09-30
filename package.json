@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"scripts": {
-		"preprep": "pnpm exec node scripts/setup.mjs",
+		"preprep": "pnpm exec node scripts/preprep.mjs",
 		"prep": "pnpm gen:prisma",
 		"postprep": "pnpm codegen",
 		"build": "turbo run build",
