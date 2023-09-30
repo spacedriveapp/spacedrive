@@ -10,6 +10,7 @@
 		"gen:prisma": "cd core && cargo prisma generate",
 		"format": "prettier --write .",
 		"desktop": "pnpm --filter @sd/desktop --",
+		"tauri": "pnpm desktop tauri",
 		"web": "pnpm --filter @sd/web -- ",
 		"mobile": "pnpm --filter @sd/mobile --",
 		"core": "pnpm --filter @sd/server -- ",
