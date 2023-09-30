@@ -18,6 +18,7 @@ cache
 .env*
 vendor/
 data
+native-deps/
 node_modules
 packages/turbo-server/data/
 packages/turbo-server/uploads/

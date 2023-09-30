@@ -143,15 +143,11 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 		if (!ffmpegSuffix.test(artifact.name)) continue;
 		try {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
-			await extractTo(
-				data,
-				framework,
-				{
-					chmod: 0o600,
-					recursive: true,
-					overwrite: true
-				}
-			);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
 			found = true;
 			break;
 		} catch (error) {
@@ -161,43 +157,4 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 	}
 
 	if (!found) throw new Error('NO_FFMPEG');
-}
-
-/**
- * Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not available in a Tauri stable release
- * @param {string[]} machineId
- * @param {string} framework
- * @param {string[]} branches
- */
-export async function downloadPatchedTauriCLI(machineId, framework, branches) {
-	console.log('Dowloading patched tauri CLI...');
-
-	const tauriCliSuffix = getSuffix(TAURI_CLI_SUFFIX, machineId);
-	if (tauriCliSuffix == null) throw new Error('NO_TAURI_CLI');
-
-	let found = false;
-	for await (const artifact of getGhWorkflowRunArtifacts(
-		SPACEDRIVE_REPO,
-		'tauri-patched-cli-js.yml',
-		branches
-	)) {
-		if (!tauriCliSuffix.test(artifact.name)) continue;
-		try {
-			await extractTo(
-				await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id),
-				path.join(framework, 'bin'),
-				{
-					chmod: 0o700,
-					overwrite: true
-				}
-			);
-			found = true;
-			break;
-		} catch (error) {
-			console.warn('Failed to download patched tauri cli.js, re-trying...');
-			if (__debug) console.error(error);
-		}
-	}
-
-	if (!found) throw new Error('NO_TAURI_CLI');
 }
