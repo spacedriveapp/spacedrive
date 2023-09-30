@@ -27,8 +27,8 @@ importers:
         specifier: ^7.0.20
         version: 7.0.20(react-dom@18.2.0)(react@18.2.0)(typescript@5.0.4)(vite@4.3.9)
       archive-wasm:
-        specifier: ^1.5.2
-        version: 1.5.2
+        specifier: ^1.5.3
+        version: 1.5.3
       cspell:
         specifier: ^6.31.1
         version: 6.31.1
@@ -11179,8 +11179,8 @@ packages:
   /aproba@2.0.0:
     resolution: {integrity: sha512-lYe4Gx7QT+MKGbDsA+Z+he/Wtef0BiwDOlK/XkBrdfsh9J/jPPXbX0tE9x9cl27Tmu5gg3QUbUrQYa/y+KOHPQ==}
 
-  /archive-wasm@1.5.2:
-    resolution: {integrity: sha512-3SQCrrc/hH3RyXCE19vYedDFdqMANFEye/YdF/PJkoetFNG/lbzKHciyLjNspjhnzNOtJ6nJ7btifCgTdlzLIw==}
+  /archive-wasm@1.5.3:
+    resolution: {integrity: sha512-dxAKM63Y+1dXYIH7t3rgIj1/w/q0CdujmW3WIoIJVFdgAMhAdTcmbkPdw/Gj9xZ2J0DcdW5fZOukYEIrN6DYQg==}
     engines: {node: '>=18'}
     dev: true
 

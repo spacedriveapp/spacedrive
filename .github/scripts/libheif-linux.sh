@@ -34,12 +34,10 @@ _prefix="$(CDPATH='' cd ./src/prefix && pwd)"
 _sysroot="$(CDPATH='' cd ./src/sysroot && pwd)"
 
 # Configure PATH to use our sysroot bin
-PATH="${_sysroot}/bin:$PATH"
-export PATH
+export PATH="${_sysroot}/bin:$PATH"
 
 # Configure pkgconfig to look for our built libs
-PKG_CONFIG_LIBDIR="${_prefix}/lib/pkgconfig:${_prefix}/share/pkgconfig"
-export PKG_CONFIG_LIBDIR
+export PKG_CONFIG_LIBDIR="${_prefix}/lib/pkgconfig:${_prefix}/share/pkgconfig"
 
 # Download zig to use as a C/C++ cross compiler
 echo "Download zig..."
@@ -286,7 +284,7 @@ cmake \
   -GNinja \
   -DCMAKE_TOOLCHAIN_FILE=../../toolchain.cmake \
   -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_SHARED_LIBS=Off \
+  -DBUILD_SHARED_LIBS=On \
   -DCMAKE_POSITION_INDEPENDENT_CODE=On \
   -DCMAKE_INSTALL_PREFIX="$_prefix" \
   -DBUILD_TESTING=OFF \

@@ -53,7 +53,8 @@ jobs:
           rm -rf .github/scripts/src/prefix/{share,lib/{cmake,pkgconfig}}
           find .github/scripts/src/prefix -empty -delete
 
-          env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C .github/scripts/src/prefix .
+          find .github/scripts/src/prefix -name 'libheif.so*' -exec realpath -s --relative-to=.github/scripts/src/prefix {} + \
+          | xargs env XZ_OPT='-T0 -9' tar -cJf "libheif-${{ matrix.settings.target }}.tar.xz" -C .github/scripts/src/prefix include/libheif
 
       - name: Publish libheif
         uses: actions/upload-artifact@v3
