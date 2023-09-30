@@ -216,15 +216,17 @@ function Options({
 					}
 				>
 					<Dropdown.Section>
-						<Dropdown.Item
-							active={showChildJobs}
-							onClick={setShowChildJobs}
-							icon={Eye}
-							iconClassName="!w-3"
-							className="!text-[11px] text-ink-dull"
-						>
-							Expand
-						</Dropdown.Item>
+						{group.jobs.length > 1 && (
+							<Dropdown.Item
+								active={showChildJobs}
+								onClick={setShowChildJobs}
+								icon={Eye}
+								iconClassName="!w-3"
+								className="!text-[11px] text-ink-dull"
+							>
+								Expand
+							</Dropdown.Item>
+						)}
 						<Dropdown.Item
 							onClick={() => clearJobHandler()}
 							icon={Trash}
