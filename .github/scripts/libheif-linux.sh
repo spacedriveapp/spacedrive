@@ -79,23 +79,37 @@ ranlib = ['zig', 'ranlib']
 lib = ['zig', 'lib']
 dlltool = ['zig', 'dlltool']
 
+[properties]
+sys_root = '${_sysroot}'
+pkg_config_libdir = ['${_prefix}/lib/pkgconfig', '${_prefix}/share/pkgconfig']
+
+EOF
+
+case "$TARGET_TRIPLE" in
+  x86_64-*)
+    cat <<EOF >>./src/cross.meson
 [host_machine]
 system = 'linux'
 cpu_family = 'x86_64'
 cpu = 'x86_64'
 endian = 'little'
+
 EOF
-
-case "$TARGET_TRIPLE" in aarch64-*)
-  cat <<EOF >>./src/cross.meson
-
-[target_machine]
+    ;;
+  aarch64-*)
+    cat <<EOF >>./src/cross.meson
+[host_machine]
 system = 'linux'
 cpu_family = 'aarch64'
 cpu = 'arm64'
 endian = 'little'
+
 EOF
-  ;;
+    ;;
+  *)
+    echo "Unsupported target triple '${1}'"
+    exit 1
+    ;;
 esac
 
 cat <<EOF >./src/toolchain.cmake

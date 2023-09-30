@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { env } from 'node:process';
 
 // https://stackoverflow.com/q/3651860#answer-67151923
 const REF_REGEX = /ref:\s+refs\/heads\/(?<branch>[^\s\x00-\x1F\:\?\[\\\^\~]+)/;
@@ -10,6 +11,11 @@ const REF_REGEX = /ref:\s+refs\/heads\/(?<branch>[^\s\x00-\x1F\:\?\[\\\^\~]+)/;
  */
 export async function getGitBranches(repoPath) {
 	const branches = ['main', 'master'];
+
+	if (env.GITHUB_HEAD_REF)
+		branches.unshift(env.GITHUB_HEAD_REF);
+	else if (env.GITHUB_REF)
+		branches.unshift(env.GITHUB_REF.replace(/^refs\/heads\//, ''));
 
 	let head;
 	try {
