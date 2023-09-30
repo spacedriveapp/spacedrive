@@ -73,4 +73,4 @@ runs:
         pushd ..
         npm i archive-wasm mustache
         popd
-        node scripts/post-install.mjs
+        node scripts/setup.mjs

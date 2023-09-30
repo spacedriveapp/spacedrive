@@ -33,14 +33,14 @@ rustc-link-lib = ["heif"]
 
 {{#isLinux}}
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive"]
 
 [target.x86_64-unknown-linux-gnu.heif]
 rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]
 rustc-link-lib = ["heif"]
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive"]
 
 [target.aarch64-unknown-linux-gnu.heif]
 rustc-link-search = ["{{{projectRoot}}}/target/Frameworks/lib"]

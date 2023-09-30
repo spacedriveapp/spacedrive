@@ -7,7 +7,13 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import mustache from 'mustache';
 
-import { downloadFFMpeg, downloadLibHeif, downloadPatchedTauriCLI, downloadPDFium, downloadProtc } from './deps.mjs';
+import {
+	downloadFFMpeg,
+	downloadLibHeif,
+	downloadPatchedTauriCLI,
+	downloadPDFium,
+	downloadProtc
+} from './deps.mjs';
 import { getGitBranches } from './git.mjs';
 import { isMusl } from './musl.mjs';
 import { which } from './which.mjs';
@@ -140,8 +146,14 @@ try {
 	process.exit(1);
 }
 
-// Setup macOS Frameworks
-if (machineId[0] === 'Darwin') {
+if (machineId[0] === 'Linux') {
+	// Setup Linux libraries
+	const libDir = path.join(__root, 'target', 'lib');
+	await fs.rm(libDir, { force: true, recursive: true });
+	await fs.mkdir(libDir, { recursive: true, mode: 0o751 });
+	await fs.symlink(path.join(framework, 'lib'), path.join(__root, 'target', 'lib', 'spacedrive'));
+} else if (machineId[0] === 'Darwin') {
+	// Setup macOS Frameworks
 	try {
 		console.log('Setup Frameworks & Sign libraries...');
 		const ffmpegFramework = path.join(framework, 'FFMpeg.framework');

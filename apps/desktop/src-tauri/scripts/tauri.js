@@ -23,9 +23,11 @@ const tauriConf = JSON.parse(
 	fs.readFileSync(path.resolve(__dirname, '..', 'tauri.conf.json'), 'utf-8')
 );
 
+const framework = path.join(workspace, 'target/Frameworks');
+
 switch (args[0]) {
 	case 'dev': {
-		if (process.platform === 'win32') setupFFMpegDlls(true);
+		if (process.platform === 'win32') setupSharedLibs(true);
 		break;
 	}
 	case 'build': {
@@ -51,7 +53,7 @@ switch (args[0]) {
 			.flatMap((target) => target.split(','));
 
 		const tauriPatch = {
-			tauri: { bundle: { macOS: {} } }
+			tauri: { bundle: { macOS: {}, resources: [] } }
 		};
 
 		switch (process.platform) {
@@ -125,16 +127,29 @@ switch (args[0]) {
 
 				break;
 			}
+			case 'linux':
+				fs.rmSync(path.join(workspace, 'target/release/bundle/appimage'), {
+					recursive: true,
+					force: true
+				});
+				// Point tauri to the ffmpeg DLLs
+				tauriPatch.tauri.bundle.resources.push(
+					...setupSharedLibs('so', path.join(framework, 'lib'))
+				);
+				break;
 			case 'win32':
 				// Point tauri to the ffmpeg DLLs
-				tauriPatch.tauri.bundle.resources = setupFFMpegDlls();
-				toRemove.push(
-					...tauriPatch.tauri.bundle.resources.map((file) =>
-						path.join(workspace, 'apps/desktop/src-tauri', file)
-					)
+				tauriPatch.tauri.bundle.resources.push(
+					...setupSharedLibs('dll', path.join(framework, 'bin'))
 				);
 				break;
 		}
+
+		toRemove.push(
+			...tauriPatch.tauri.bundle.resources.map((file) =>
+				path.join(workspace, 'apps/desktop/src-tauri', file)
+			)
+		);
 
 		const tauriPatchConf = path.resolve(__dirname, '..', 'tauri.conf.patch.json');
 		fs.writeFileSync(tauriPatchConf, JSON.stringify(tauriPatch, null, 2));
@@ -144,9 +159,34 @@ switch (args[0]) {
 	}
 }
 
+process.on('SIGINT', () => {
+	for (const file of toRemove)
+		try {
+			fs.unlinkSync(file);
+		} catch (e) {}
+});
+
 let code = 0;
 spawn('pnpm', ['exec', 'tauri', ...args])
 	.catch((exitCode) => {
+		if (args[0] === 'build' || process.platform === 'linux') {
+			// Work around appimage buindling not working sometimes
+			appimageDir = path.join(workspace, 'target/release/bundle/appimage');
+			appDir = path.join(appimageDir, 'spacedrive.AppDir');
+			if (
+				fs.existsSync(path.join(appimageDir, 'build_appimage.sh')) &&
+				fs.existsSync(appDir) &&
+				!fs.readdirSync(appimageDir).filter((file) => file.endsWith('.AppImage')).length
+			) {
+				process.chdir(appimageDir);
+				fs.rmSync(appDir, { recursive: true, force: true });
+				return spawn('bash', ['build_appimage.sh']).catch((exitCode) => {
+					code = exitCode;
+					console.error(`tauri ${args[0]} failed with exit code ${exitCode}`);
+				});
+			}
+		}
+
 		code = exitCode;
 		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`);
 		console.error(
@@ -162,10 +202,10 @@ spawn('pnpm', ['exec', 'tauri', ...args])
 		process.exit(code);
 	});
 
-function setupFFMpegDlls(dev = false) {
-	if (!process.env.FFMPEG_DIR) throw new Error('Missing envvar FFMPEG_DIR');
-	const ffmpegBinDir = path.join(process.env.FFMPEG_DIR, 'bin');
-	const ffmpegDlls = fs.readdirSync(ffmpegBinDir).filter((file) => file.endsWith('.dll'));
+function setupSharedLibs(sufix, binDir, dev = false) {
+	const sharedLibs = fs
+		.readdirSync(binDir)
+		.filter((file) => file.endsWith(`.${sufix}`) || file.includes(`.${sufix}.`));
 
 	let targetDir = path.join(workspace, 'apps/desktop/src-tauri');
 	if (dev) {
@@ -174,9 +214,9 @@ function setupFFMpegDlls(dev = false) {
 		fs.mkdirSync(targetDir, { recursive: true });
 	}
 
-	// Copy all DLLs from the $FFMPEG_DIR/bin to targetDir
-	for (const dll of ffmpegDlls)
-		fs.copyFileSync(path.join(ffmpegBinDir, dll), path.join(targetDir, dll));
+	// Copy all shared libs to targetDir
+	for (const dll of sharedLibs)
+		fs.copyFileSync(path.join(binDir, dll), path.join(targetDir, dll));
 
-	return ffmpegDlls;
+	return sharedLibs;
 }
