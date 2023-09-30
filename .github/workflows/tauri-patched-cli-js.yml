@@ -51,7 +51,7 @@ jobs:
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
           toolchain: stable
 
       - name: Install dependencies

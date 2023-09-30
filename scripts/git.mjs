@@ -2,6 +2,8 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { env } from 'node:process';
 
+const __debug = env.NODE_ENV === 'debug';
+
 // https://stackoverflow.com/q/3651860#answer-67151923
 const REF_REGEX = /ref:\s+refs\/heads\/(?<branch>[^\s\x00-\x1F\:\?\[\\\^\~]+)/;
 
@@ -20,7 +22,11 @@ export async function getGitBranches(repoPath) {
 	let head;
 	try {
 		head = await fs.readFile(path.join(repoPath, '.git', 'HEAD'), { encoding: 'utf8' });
-	} catch {
+	} catch (error) {
+		if (__debug) {
+			console.warn(`Failed to read git HEAD file`);
+			console.error(error);
+		}
 		return branches;
 	}
 

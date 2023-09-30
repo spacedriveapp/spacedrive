@@ -86,7 +86,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm

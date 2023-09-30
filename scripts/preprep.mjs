@@ -15,7 +15,7 @@ import {
 	downloadProtc
 } from './deps.mjs';
 import { getGitBranches } from './git.mjs';
-import { isMusl } from './musl.mjs';
+import { getMachineId } from './machineId.mjs';
 import { which } from './which.mjs';
 
 umask(0o026);
@@ -35,8 +35,7 @@ const __dirname = path.dirname(__filename);
 const __root = path.resolve(path.join(__dirname, '..'));
 
 // Current machine identifiers
-const machineId = [os.type(), os.machine()];
-if (machineId[0] === 'Linux') machineId.push((await isMusl()) ? 'musl' : 'glibc');
+const machineId = getMachineId();
 
 // Basic dependeny check
 if (

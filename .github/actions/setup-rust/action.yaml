@@ -1,8 +1,8 @@
 name: Setup Rust and Prisma
 description: Setup Rust and Prisma
 inputs:
-  targets:
-    description: Comma-separated list of target triples to install for this toolchain
+  target:
+    description: toolchain target triple
     required: false
   save-cache:
     description: Whether to save the Rust cache
@@ -15,7 +15,7 @@ runs:
       id: toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: ${{ inputs.targets }}
+        target: ${{ inputs.target }}
         toolchain: stable
         components: clippy, rustfmt
 
@@ -24,7 +24,7 @@ runs:
       with:
         save-if: ${{ inputs.save-cache }}
         prefix-key: 'v0-rust-deps'
-        shared-key: ${{ inputs.targets }}
+        shared-key: ${{ inputs.target }}
 
     - name: Cargo config.toml
       shell: bash
