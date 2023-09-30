@@ -33,7 +33,7 @@
 				"depends": []
 			},
 			"macOS": {
-				"frameworks": [],
+				"frameworks": ["../../../target/CustomFrameworks/FFMpeg.framework"],
 				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"entitlements": null

@@ -15,7 +15,7 @@ rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
 	"location-watcher",
-	"heif",
+	# "heif",
 ] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.1"
@@ -45,7 +45,7 @@ sd-desktop-macos = { path = "../crates/macos" }
 sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
-tauri-build = { version = "1.4.1", features = [] }
+tauri-build = { version = "1.5.0", features = [] }
 
 [features]
 default = ["custom-protocol"]

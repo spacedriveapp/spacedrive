@@ -8,10 +8,10 @@ FFMPEG_DIR = "{{{ffmpeg}}}"
 
 {{#isMacOS}}
 [target.x86_64-apple-darwin]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/CustomFrameworks/lib"]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/CustomFrameworks/lib"]
 {{/isMacOS}}
 
 {{#isWin}}
@@ -21,10 +21,10 @@ rustflags = ["-L", "{{{projectRoot}}}\\target\\Frameworks\\lib"]
 
 {{#isLinux}}
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/CustomFrameworks/lib"]
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-L", "{{{projectRoot}}}/target/Frameworks/lib"]
+rustflags = ["-L", "{{{projectRoot}}}/target/CustomFrameworks/lib"]
 {{/isLinux}}
 
 [alias]
