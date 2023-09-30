@@ -38,3 +38,7 @@ You may find them below:
 - AES-GCM and XChaCha20-Poly1305 audit by NCC group ([link](https://research.nccgroup.com/wp-content/uploads/2020/02/NCC_Group_MobileCoin_RustCrypto_AESGCM_ChaCha20Poly1305_Implementation_Review_2020-02-12_v1.0.pdf))
 
 Breaking changes are very likely! Use at your own risk - no stability or security is guaranteed.
+
+## Security Policy
+
+Please refer to the [security policy](../../SECURITY.md) for details and information on how to responsibly report a security vulnerability or issue.
