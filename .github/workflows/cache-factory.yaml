@@ -4,6 +4,7 @@
 name: Cache Factory
 
 on:
+  pull_request:
   push:
     paths:
       - 'Cargo.lock'
