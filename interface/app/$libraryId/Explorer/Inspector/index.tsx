@@ -25,6 +25,7 @@ import {
 	type ReactNode
 } from 'react';
 import { useLocation } from 'react-router';
+import { Link as NavLink } from 'react-router-dom';
 import {
 	byteSize,
 	getExplorerItemData,
@@ -37,8 +38,9 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
@@ -162,6 +164,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: !!objectData && readyToFetch
 	});
+	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const object = useLibraryQuery(['files.get', { id: objectData?.id ?? -1 }], {
 		enabled: !!objectData && readyToFetch
@@ -265,14 +268,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				{extension && <InfoPill>{extension}</InfoPill>}
 
 				{tags.data?.map((tag) => (
-					<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
-						<InfoPill
-							className="truncate !text-white"
-							style={{ backgroundColor: tag.color + 'CC' }}
-						>
-							{tag.name}
-						</InfoPill>
-					</Tooltip>
+					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
+						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
+							<InfoPill
+								className="cursor-pointer truncate !text-white"
+								style={{ backgroundColor: tag.color + 'CC' }}
+							>
+								{tag.name}
+							</InfoPill>
+						</Tooltip>
+					</NavLink>
 				))}
 
 				{objectData && (
@@ -320,6 +325,8 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const selectedObjects = useItemsAsObjects(items);
 
 	const readyToFetch = useIsFetchReady(items);
+
+	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tags = useLibraryQuery(['tags.list'], {
 		enabled: readyToFetch && !explorerStore.isDragging,
@@ -422,18 +429,22 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					if (objectsWithTag.length === 0) return null;
 
 					return (
-						<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
-							<InfoPill
-								className="truncate !text-white"
-								style={{
-									backgroundColor: tag.color + 'CC',
-									opacity:
-										objectsWithTag.length === selectedObjects.length ? 1 : 0.5
-								}}
-							>
-								{tag.name} ({objectsWithTag.length})
-							</InfoPill>
-						</Tooltip>
+						<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
+							<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+								<InfoPill
+									className="cursor-pointer truncate !text-white"
+									style={{
+										backgroundColor: tag.color + 'CC',
+										opacity:
+											objectsWithTag.length === selectedObjects.length
+												? 1
+												: 0.5
+									}}
+								>
+									{tag.name} ({objectsWithTag.length})
+								</InfoPill>
+							</Tooltip>
+						</NavLink>
 					);
 				})}
 
