@@ -57,11 +57,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						verification_uri_complete: String,
 					}
 
-					let Ok(auth_response) = (match node.http
+					let Ok(auth_response) =	(match node.http
 						.post(&format!("{}/login/device/code", &node.env.api_url))
+						.form(&[("client_id", &node.env.client_id)])
 						.send()
 						.await {
-							Ok(resp) => resp.json::<DeviceAuthorizationResponse>().await,
+							Ok(r) => r.json::<DeviceAuthorizationResponse>().await,
 							Err(e) => Err(e)
 						}) else {
 							yield Response::Error;
@@ -79,7 +80,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 						let Ok(token_resp) = node.http
 							.post(&format!("{}/login/oauth/access_token", &node.env.api_url))
-							.form(&[("grant_type", DEVICE_CODE_URN), ("device_code", &auth_response.device_code)])
+							.form(&[
+								("grant_type", DEVICE_CODE_URN),
+								("device_code", &auth_response.device_code),
+								("client_id", &node.env.client_id)
+							])
 							.send()
 							.await else {
 								break Response::Error;
