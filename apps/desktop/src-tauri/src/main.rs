@@ -96,7 +96,7 @@ async fn main() -> tauri::Result<()> {
 			Node::new(
 				data_dir,
 				sd_core::Env {
-					api_url: "http://localhost:3000".to_string(),
+					api_url: "https://app.spacedrive.com".to_string(),
 					client_id: CLIENT_ID.to_string(),
 					client_secret: CLIENT_SECRET.to_string(),
 				},
