@@ -43,7 +43,13 @@ export interface ExplorerViewPadding {
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
+		| 'selectable'
+		| 'isRenaming'
+		| 'isContextMenuOpen'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'ref'
+		| 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
@@ -74,6 +80,13 @@ export default memo(
 		useKeyDownHandlers({
 			disabled: isRenaming || quickPreviewStore.open
 		});
+
+		useEffect(() => {
+			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			// Close context menu when no items are selected
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			setIsContextMenuOpen(false);
+		}, [explorer.selectedItems, isContextMenuOpen]);
 
 		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
@@ -108,10 +121,11 @@ export default memo(
 									!isContextMenuOpen &&
 									!isRenaming &&
 									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
 								ref,
+								isRenaming,
+								isContextMenuOpen,
+								setIsRenaming,
+								setIsContextMenuOpen,
 								padding: viewPadding
 							}}
 						>
@@ -133,7 +147,11 @@ export default memo(
 	}
 );
 
-export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+export const EmptyNotice = (props: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+	loading?: boolean;
+}) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -148,6 +166,8 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 
 		return <Icon size={100} opacity={0.3} />;
 	};
+
+	if (props.loading) return null;
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
