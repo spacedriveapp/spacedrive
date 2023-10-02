@@ -29,6 +29,9 @@ pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, onesh
 
 pub static EVENT_SENDER: OnceCell<mpsc::Sender<Response>> = OnceCell::new();
 
+pub const CLIENT_ID: &str = "d068776a-05b6-4aaa-9001-4d01734e1944";
+pub const CLIENT_SECRET: &str = "961cdf5c-9eb1-43dc-b921-5b1dd8bbf6a5";
+
 pub struct MobileSender<'a> {
 	resp: &'a mut Option<Response>,
 }
@@ -70,7 +73,16 @@ pub fn handle_core_msg(
 					let _guard = Node::init_logger(&data_dir);
 
 					// TODO: probably don't unwrap
-					let new_node = Node::new(data_dir).await.unwrap();
+					let new_node = Node::new(
+						data_dir,
+						sd_core::Env {
+							api_url: "https://app.spacedrive.com".to_string(),
+							client_id: CLIENT_ID.to_string(),
+							client_secret: CLIENT_SECRET.to_string(),
+						},
+					)
+					.await
+					.unwrap();
 					node.replace(new_node.clone());
 					new_node
 				}

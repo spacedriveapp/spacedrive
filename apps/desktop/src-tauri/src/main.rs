@@ -71,6 +71,9 @@ macro_rules! tauri_handlers {
 	}};
 }
 
+const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
+const CLIENT_SECRET: &str = "eb4554cb-c08d-4e82-b4cc-0aa29c07e934";
+
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
@@ -88,7 +91,18 @@ async fn main() -> tauri::Result<()> {
 
 	// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
 	let (_guard, result) = match Node::init_logger(&data_dir) {
-		Ok(guard) => (Some(guard), Node::new(data_dir).await),
+		Ok(guard) => (
+			Some(guard),
+			Node::new(
+				data_dir,
+				sd_core::Env {
+					api_url: "https://app.spacedrive.com".to_string(),
+					client_id: CLIENT_ID.to_string(),
+					client_secret: CLIENT_SECRET.to_string(),
+				},
+			)
+			.await,
+		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
 
