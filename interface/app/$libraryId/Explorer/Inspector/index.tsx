@@ -24,7 +24,8 @@ import {
 	type HTMLAttributes,
 	type ReactNode
 } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation } from 'react-router';
+import { Link as NavLink } from 'react-router-dom';
 import {
 	byteSize,
 	getExplorerItemData,
@@ -163,7 +164,6 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
 		enabled: !!objectData && readyToFetch
 	});
-	const navigate = useNavigate();
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const object = useLibraryQuery(['files.get', { id: objectData?.id ?? -1 }], {
@@ -268,17 +268,16 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				{extension && <InfoPill>{extension}</InfoPill>}
 
 				{tags.data?.map((tag) => (
-					<Tooltip key={tag.id} label={tag.name || ''} className="flex overflow-hidden">
-						<InfoPill
-							onClick={() => {
-								navigate(`/${libraryId}/tag/${tag.id}`);
-							}}
-							className="cursor-pointer truncate !text-white"
-							style={{ backgroundColor: tag.color + 'CC' }}
-						>
-							{tag.name}
-						</InfoPill>
-					</Tooltip>
+					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
+						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
+							<InfoPill
+								className="cursor-pointer truncate !text-white"
+								style={{ backgroundColor: tag.color + 'CC' }}
+							>
+								{tag.name}
+							</InfoPill>
+						</Tooltip>
+					</NavLink>
 				))}
 
 				{objectData && (
@@ -327,7 +326,6 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const readyToFetch = useIsFetchReady(items);
 
-	const navigate = useNavigate();
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const tags = useLibraryQuery(['tags.list'], {
@@ -431,21 +429,22 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					if (objectsWithTag.length === 0) return null;
 
 					return (
-						<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
-							<InfoPill
-								onClick={() => {
-									navigate(`/${libraryId}/tag/${tag.id}`);
-								}}
-								className="truncate !text-white"
-								style={{
-									backgroundColor: tag.color + 'CC',
-									opacity:
-										objectsWithTag.length === selectedObjects.length ? 1 : 0.5
-								}}
-							>
-								{tag.name} ({objectsWithTag.length})
-							</InfoPill>
-						</Tooltip>
+						<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
+							<Tooltip key={tag.id} label={tag.name} className="flex overflow-hidden">
+								<InfoPill
+									className="cursor-pointer truncate !text-white"
+									style={{
+										backgroundColor: tag.color + 'CC',
+										opacity:
+											objectsWithTag.length === selectedObjects.length
+												? 1
+												: 0.5
+									}}
+								>
+									{tag.name} ({objectsWithTag.length})
+								</InfoPill>
+							</Tooltip>
+						</NavLink>
 					);
 				})}
 
