@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { MacTrafficLights } from '~/components';
 import { useOperatingSystem } from '~/hooks';
 
