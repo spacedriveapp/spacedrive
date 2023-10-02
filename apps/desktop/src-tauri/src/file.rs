@@ -42,11 +42,17 @@ pub async fn open_file_paths(
 					.into_iter()
 					.map(|(id, maybe_path)| {
 						if let Some(path) = maybe_path {
-							#[cfg(target_os = "linux")]
-							let open_result = sd_desktop_linux::open_file_path(&path);
+							let open_result = {
+								#[cfg(target_os = "linux")]
+								{
+									sd_desktop_linux::open_file_path(path)
+								}
 
-							#[cfg(not(target_os = "linux"))]
-							let open_result = opener::open(path);
+								#[cfg(not(target_os = "linux"))]
+								{
+									opener::open(&path)
+								}
+							};
 
 							open_result
 								.map(|_| OpenFilePathResult::AllGood(id))
@@ -83,10 +89,14 @@ pub async fn open_ephemeral_files(paths: Vec<PathBuf>) -> Result<Vec<EphemeralFi
 		.map(|path| {
 			if let Err(e) = {
 				#[cfg(target_os = "linux")]
-				sd_desktop_linux::open_file_path(&path);
+				{
+					sd_desktop_linux::open_file_path(&path)
+				}
 
 				#[cfg(not(target_os = "linux"))]
-				opener::open(&path)
+				{
+					opener::open(&path)
+				}
 			} {
 				error!("Failed to open file: {e:#?}");
 				EphemeralFileOpenResult::Err(e.to_string())
@@ -326,14 +336,14 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 			};
 
 			#[cfg(target_os = "linux")]
-			sd_desktop_linux::open_files_path_with(&[path], &url).map_err(|e| {
+			if let Err(e) = sd_desktop_linux::open_files_path_with(&[path], &url) {
 				error!("{e:#?}");
-			});
+			}
 
 			#[cfg(windows)]
-			sd_desktop_windows::open_file_path_with(path, &url).map_err(|e| {
+			if let Err(e) = sd_desktop_windows::open_file_path_with(path, &url) {
 				error!("{e:#?}");
-			});
+			}
 		});
 	Ok(())
 }
@@ -343,31 +353,21 @@ fn inner_reveal_paths(paths: impl Iterator<Item = PathBuf>) {
 		#[cfg(target_os = "linux")]
 		if sd_desktop_linux::is_appimage() {
 			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
-			sd_desktop_linux::open_file_path(
-				&(if path.is_file() {
-					path.parent().unwrap_or(&path)
-				} else {
-					&path
-				}),
-			)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok()
-		} else {
-			opener::reveal(path)
-				.map_err(|err| {
-					error!("Failed to open logs dir: {err}");
-				})
-				.ok()
-		};
+			if let Err(e) = sd_desktop_linux::open_file_path(if path.is_file() {
+				path.parent().unwrap_or(&path)
+			} else {
+				&path
+			}) {
+				error!("Failed to open logs dir: {e:#?}");
+			}
+		} else if let Err(e) = opener::reveal(path) {
+			error!("Failed to open logs dir: {e:#?}");
+		}
 
 		#[cfg(not(target_os = "linux"))]
-		opener::reveal(path)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok();
+		if let Err(e) = opener::reveal(path) {
+			error!("Failed to open logs dir: {e:#?}");
+		}
 	}
 }
 

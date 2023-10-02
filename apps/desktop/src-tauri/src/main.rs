@@ -51,13 +51,13 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	let logs_path = node.data_dir.join("logs");
 
 	#[cfg(target_os = "linux")]
-	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+	let open_result = sd_desktop_linux::open_file_path(logs_path);
 
 	#[cfg(not(target_os = "linux"))]
 	let open_result = opener::open(logs_path);
 
-	open_result.map_err(|err| {
-		error!("Failed to open logs dir: {err}");
+	open_result.map_err(|e| {
+		error!("Failed to open logs dir: {e:#?}");
 	})
 }
 
@@ -114,7 +114,7 @@ async fn main() -> tauri::Result<()> {
 			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
 			.manage(node),
 		Err(err) => {
-			error!("Error starting up the node: {err}");
+			error!("Error starting up the node: {err:#?}");
 			app.plugin(sd_error_plugin(err))
 		}
 	};
