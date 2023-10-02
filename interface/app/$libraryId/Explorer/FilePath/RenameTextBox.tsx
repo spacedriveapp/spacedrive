@@ -8,10 +8,10 @@ import {
 	useState,
 	type ComponentProps
 } from 'react';
-import { useKey } from 'rooks';
+import { useKey, useKeys } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { toast, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useKeybind, useOperatingSystem } from '~/hooks';
+import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -115,8 +115,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			}
 		};
 
-		useKey('F2', (e) => {
+		useKey(['F2', 'Enter'], (e) => {
 			e.preventDefault();
+			if (os === 'windows' && e.key === 'Enter') return;
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
 		});
