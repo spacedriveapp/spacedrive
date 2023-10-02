@@ -51,11 +51,11 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Navigate forward in folder history',
-			key: [[[ModifierKeys.Control], ['ArrowRight']]]
+			key: [[[ModifierKeys.Control], [']']]]
 		},
 		{
 			action: 'Navigate backward in folder history',
-			key: [[[ModifierKeys.Control], ['ArrowLeft']]]
+			key: [[[ModifierKeys.Control], ['[']]]
 		},
 		{
 			action: 'Switch explorer layout',
