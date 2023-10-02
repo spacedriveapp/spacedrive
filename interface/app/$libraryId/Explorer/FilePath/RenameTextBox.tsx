@@ -11,7 +11,7 @@ import {
 import { useKey } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { toast, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
+import { useIsTextTruncated, useKeybind, useOperatingSystem } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -115,9 +115,8 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			}
 		};
 
-		useKey('Enter', (e) => {
+		useKey('F2', (e) => {
 			e.preventDefault();
-
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
 		});
