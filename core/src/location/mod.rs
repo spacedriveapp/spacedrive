@@ -9,8 +9,8 @@ use crate::{
 		media::{
 			media_processor,
 			thumbnail::{
-				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
-				get_thumbnail_path,
+				can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
+				generate_image_thumbnail, get_thumb_key, get_thumbnail_path,
 			},
 			MediaProcessorJobInit,
 		},
@@ -27,7 +27,7 @@ use std::{
 	sync::Arc,
 };
 
-use sd_file_ext::extensions::ImageExtension;
+use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
@@ -926,6 +926,14 @@ pub(super) async fn generate_thumbnail(
 		if can_generate_thumbnail_for_image(&extension) {
 			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
 				error!("Failed to image thumbnail on location manager: {e:#?}");
+			}
+		}
+	}
+
+	if let Ok(extension) = DocumentExtension::from_str(extension) {
+		if can_generate_thumbnail_for_document(&extension) {
+			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
+				error!("Failed to document thumbnail on location manager: {e:#?}");
 			}
 		}
 	}

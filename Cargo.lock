@@ -6814,8 +6814,11 @@ dependencies = [
  "image",
  "libheif-rs",
  "libheif-sys",
+ "once_cell",
+ "pdfium-render",
  "resvg",
  "thiserror",
+ "tracing 0.2.0",
 ]
 
 [[package]]
@@ -6895,18 +6898,6 @@ dependencies = [
  "tracing 0.2.0",
  "tracing-subscriber 0.3.0",
  "uuid",
-]
-
-[[package]]
-name = "sd-pdf"
-version = "0.1.0"
-dependencies = [
- "image",
- "lazy_static",
- "pdfium-render",
- "thiserror",
- "tokio",
- "tracing 0.1.37",
 ]
 
 [[package]]

@@ -4,9 +4,12 @@ pub use crate::error::{Error, Result};
 use crate::ImageHandler;
 use image::DynamicImage;
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
+use once_cell::sync::Lazy;
 use std::io::{Cursor, SeekFrom};
 use std::io::{Read, Seek};
 use std::path::Path;
+
+static HEIF: Lazy<LibHeif> = Lazy::new(LibHeif::new);
 
 pub struct HeifHandler {}
 
@@ -29,7 +32,7 @@ impl ImageHandler for HeifHandler {
 		let img = {
 			let data = self.get_data(path)?;
 			let handle = HeifContext::read_from_bytes(&data)?.primary_image_handle()?;
-			LibHeif::new().decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)
+			HEIF.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)
 		}?;
 
 		let planes = img.planes();
