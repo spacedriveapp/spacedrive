@@ -6,8 +6,8 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
-		"beforeDevCommand": "pnpm dev-vite",
-		"beforeBuildCommand": "pnpm vite build"
+		"beforeDevCommand": "pnpm dev",
+		"beforeBuildCommand": "pnpm turbo run build --filter @sd/desktop"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,

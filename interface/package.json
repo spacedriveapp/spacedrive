@@ -13,8 +13,7 @@
 	},
 	"scripts": {
 		"lint": "eslint . --cache",
-		"typecheck": "tsc -b",
-		"build": "tsc"
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
