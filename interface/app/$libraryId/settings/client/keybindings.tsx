@@ -62,7 +62,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate forward in folder history',
 			key: {
 				all: {
-					value: [ModifierKeys.Control, '[']
+					value: [ModifierKeys.Control, ']']
 				}
 			}
 		},
@@ -70,7 +70,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate backward in folder history',
 			key: {
 				all: {
-					value: [ModifierKeys.Control, ']']
+					value: [ModifierKeys.Control, '[']
 				}
 			}
 		},
