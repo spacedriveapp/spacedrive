@@ -87,7 +87,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Open selected item',
 			keys: {
 				all: {
-					value: [ModifierKeys.Control, 'ArrowUp']
+					value: [ModifierKeys.Control, 'O']
 				}
 			}
 		},

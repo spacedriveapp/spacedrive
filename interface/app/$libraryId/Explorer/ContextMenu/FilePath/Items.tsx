@@ -10,6 +10,7 @@ import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
+import { useViewItemDoubleClick } from '../../View/ViewItem';
 import { Conditional, ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 import OpenWith from './OpenWith';
@@ -237,12 +238,11 @@ export const OpenOrDownload = new ConditionalItem({
 
 		return { openFilePaths, selectedFilePaths };
 	},
-	Component: ({ openFilePaths, selectedFilePaths }) => {
+	Component: ({ selectedFilePaths }) => {
 		const keybind = useKeybindFactory();
 		const { platform } = usePlatform();
 		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
-		const { library } = useLibraryContext();
+		const { doubleClick } = useViewItemDoubleClick();
 
 		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
@@ -253,24 +253,12 @@ export const OpenOrDownload = new ConditionalItem({
 						keybind={keybind([ModifierKeys.Control], ['O'])}
 						onClick={async () => {
 							if (selectedFilePaths.length < 1) return;
-
-							updateAccessTime
+							await updateAccessTime
 								.mutateAsync(
 									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
 								)
 								.catch(console.error);
-
-							try {
-								await openFilePaths(
-									library.uuid,
-									selectedFilePaths.map((p) => p.id)
-								);
-							} catch (error) {
-								toast.error({
-									title: `Failed to open file`,
-									body: `Error: ${error}.`
-								});
-							}
+							doubleClick();
 						}}
 					/>
 					<Conditional items={[OpenWith]} />
