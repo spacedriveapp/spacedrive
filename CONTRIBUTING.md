@@ -50,8 +50,14 @@ To quickly run only the desktop app after `prep`, you can use:
 
 - `pnpm tauri dev`
 
-  If necessary, react-devtools can be launched using `pnpm dlx react-devtools`.
-  However, it must be executed before starting the desktop app for it to connect.
+  If necessary, the webview devtools can be opened automatically by passing the following environment variable before starting the desktop app:
+
+	- \[Bash]: `export SD_DEVTOOLS=1`
+
+	- \[Powershell]: `$env:SD_DEVTOOLS=1`
+
+	Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
+  However, it must be executed before starting the desktop app for it qto connect.
 
 To run the web app:
 
