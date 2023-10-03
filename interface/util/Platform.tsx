@@ -8,6 +8,7 @@ export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
 	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
+	getFileUrlByPath: (path: string) => string;
 	openLink: (url: string) => void;
 	// Tauri patches `window.confirm` to return `Promise` not `bool`
 	confirm(msg: string, cb: (result: boolean) => void): void;

@@ -33,7 +33,7 @@ use mini_moka::sync::Cache;
 use sd_file_ext::text::is_text;
 use sd_p2p::{spaceblock::Range, spacetunnel::RemoteIdentity};
 use tokio::{
-	fs::File,
+	fs::{self, File},
 	io::{AsyncReadExt, AsyncSeekExt},
 };
 use tokio_util::sync::PollSender;
@@ -201,8 +201,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 
 					match serve_from {
 						ServeFrom::Local => {
-							let metadata = file_path_full_path
-								.metadata()
+							let metadata = fs::metadata(&file_path_full_path)
+								.await
 								.map_err(internal_server_error)?;
 							(!metadata.is_dir())
 								.then_some(())
@@ -282,6 +282,43 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 						}
 					}
+				},
+			),
+		)
+		.route(
+			"/local-file-by-path/:path",
+			get(
+				|extract::Path(path): extract::Path<String>, request: Request<Body>| async move {
+					let path = PathBuf::from(path);
+
+					let metadata = fs::metadata(&path).await.map_err(internal_server_error)?;
+					(!metadata.is_dir())
+						.then_some(())
+						.ok_or_else(|| not_found(()))?;
+
+					let mut file = File::open(&path).await.map_err(|err| {
+						InfallibleResponse::builder()
+							.status(if err.kind() == io::ErrorKind::NotFound {
+								StatusCode::NOT_FOUND
+							} else {
+								StatusCode::INTERNAL_SERVER_ERROR
+							})
+							.body(body::boxed(Full::from("")))
+					})?;
+
+					let resp = InfallibleResponse::builder().header(
+						"Content-Type",
+						HeaderValue::from_str(&match path.extension().and_then(OsStr::to_str) {
+							None => "text/plain".to_string(),
+							Some(ext) => infer_the_mime_type(ext, &mut file, &metadata).await?,
+						})
+						.map_err(|err| {
+							error!("Error converting mime-type into header value: {}", err);
+							internal_server_error(())
+						})?,
+					);
+
+					serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 				},
 			),
 		)
