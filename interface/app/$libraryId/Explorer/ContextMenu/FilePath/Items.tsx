@@ -1,6 +1,6 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
-import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
+import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
