@@ -5,8 +5,8 @@ inputs:
     description: Github token
     required: false
     default: ''
-  targets:
-    description: Comma-separated list of target triples to install for this toolchain
+  target:
+    description: toolchain target triple
     required: false
   setup-arg:
     description: Argument for the system setup script
@@ -45,21 +45,26 @@ runs:
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
-        targets: ${{ inputs.targets }}
+        target: ${{ inputs.target }}
         save-cache: ${{ inputs.save-cache }}
 
     - name: Run setup.sh script
       shell: bash
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
       run: ./scripts/setup.sh ${{ inputs.setup-arg }}
-      env:
-        TARGET: ${{ inputs.targets }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-        APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
 
     - name: Run setup.ps1 script
       shell: powershell
       if: ${{ runner.os == 'Windows' }}
       run: ./scripts/setup.ps1
+
+    - name: Setup shared libraries
+      shell: bash
       env:
+        TARGET_TRIPLE: ${{ inputs.target }}
         GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        pushd ..
+        npm i archive-wasm mustache
+        popd
+        node scripts/preprep.mjs

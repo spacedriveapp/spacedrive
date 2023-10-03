@@ -20,7 +20,7 @@ apps/desktop/src/index.tsx
 apps/desktop/src/commands.ts
 
 # Import only file, which order is relevant
-interface/components/TextViewer/prism.ts
+interface/components/TextViewer/prism.tsx
 
 .next/
 .contentlayer/

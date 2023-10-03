@@ -6,9 +6,9 @@
 	"private": true,
 	"scripts": {
 		"vite": "vite",
-		"dev": "node ./src-tauri/scripts/tauri.js dev",
-		"dev-vite": "vite --clearScreen=false --mode development",
-		"build": "node ./src-tauri/scripts/tauri.js build",
+		"dev": "vite dev",
+		"build": "vite build",
+		"tauri": "node ./src-tauri/scripts/tauri.js",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
