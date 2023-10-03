@@ -177,7 +177,7 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 		estimateSize: getHeight,
 		paddingStart: grid.padding.top,
 		paddingEnd: grid.padding.bottom,
-		overscan: grid.overscan,
+		overscan: grid.overscan ?? 5,
 		scrollMargin: listOffset
 	});
 
