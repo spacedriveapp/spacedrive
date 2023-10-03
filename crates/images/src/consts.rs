@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// The size of 1MiB in bytes
 const MIB: u64 = 1_048_576;
 
@@ -37,6 +39,7 @@ pub const SVG_TAGRET_PX: f32 = 262_144_f32;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Debug)]
 pub enum ConvertableExtensions {
 	Bmp,
 	Dib,
@@ -63,6 +66,12 @@ pub enum ConvertableExtensions {
 	Avcs,
 	Svg,
 	Svgz,
+}
+
+impl Display for ConvertableExtensions {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&format!("{self:?}").to_lowercase())
+	}
 }
 
 #[inline]

@@ -28,7 +28,7 @@ mod handler;
 mod heif;
 mod svg;
 
-pub use consts::all_compatible_extensions;
+pub use consts::{all_compatible_extensions, ConvertableExtensions};
 pub use error::{Error, Result};
 pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;
