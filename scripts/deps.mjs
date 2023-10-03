@@ -143,15 +143,11 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 		if (!ffmpegSuffix.test(artifact.name)) continue;
 		try {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
-			await extractTo(
-				data,
-				framework,
-				{
-					chmod: 0o600,
-					recursive: true,
-					overwrite: true
-				}
-			);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
 			found = true;
 			break;
 		} catch (error) {

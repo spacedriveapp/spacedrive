@@ -55,7 +55,7 @@ export const styles = cva(
 					'border-app-line hover:border-app-line focus:ring-1 focus:ring-accent'
 				],
 				accent: [
-					'bg-accent border-accent border text-white shadow-md shadow-app-shade/10 hover:bg-accent-faint focus:outline-none',
+					'border border-accent bg-accent text-white shadow-md shadow-app-shade/10 hover:bg-accent-faint focus:outline-none',
 					'focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
