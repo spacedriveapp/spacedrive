@@ -153,13 +153,6 @@ async fn main() -> tauri::Result<()> {
 					}
 				});
 
-				#[cfg(debug_assertions)]
-				{
-					if std::env::var("SD_DEVTOOLS").is_ok() {
-						window.open_devtools();
-					}
-				}
-
 				#[cfg(target_os = "windows")]
 				window.set_decorations(true).unwrap();
 
