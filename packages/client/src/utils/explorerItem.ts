@@ -53,9 +53,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 	const location = getItemLocation(data);
 	if (filePath) {
 		itemData.name = filePath.name;
-		itemData.fullName = `${filePath.name}${
-			filePath.extension ? `.${filePath.extension}` : ''
-		}}`;
+		itemData.fullName = `${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`;
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
 		itemData.extension = filePath.extension;

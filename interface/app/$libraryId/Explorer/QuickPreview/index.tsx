@@ -368,12 +368,14 @@ export const QuickPreview = () => {
 															]}
 														/>
 
-														<DropdownMenu.Item
-															label="Rename"
-															onClick={() =>
-																name && setIsRenaming(true)
-															}
-														/>
+														{item.type !== 'NonIndexedPath' && (
+															<DropdownMenu.Item
+																label="Rename"
+																onClick={() =>
+																	name && setIsRenaming(true)
+																}
+															/>
+														)}
 
 														<SeparatedConditional
 															items={[ObjectItems.AssignTag]}

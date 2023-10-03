@@ -1,7 +1,6 @@
+import type {} from '@sd/client'; // tsc requires this import due to global types defined on it
+
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
-
-import '@sd/client'; // tsc requires this import due to global types defined on it
-
 import { useMemo } from 'react';
 import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
