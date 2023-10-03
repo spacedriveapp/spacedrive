@@ -172,12 +172,12 @@ export async function downloadLibHeif(machineId, framework, branches) {
 
 	console.log('Downloading LibHeif...');
 
-	const ffmpegSuffix = getSuffix(LIBHEIF_SUFFIX, machineId);
-	if (ffmpegSuffix == null) throw new Error('NO_LIBHEIF');
+	const libHeifSuffix = getSuffix(LIBHEIF_SUFFIX, machineId);
+	if (libHeifSuffix == null) throw new Error('NO_LIBHEIF');
 
 	let found = false;
 	for await (const artifact of getGhWorkflowRunArtifacts(SPACEDRIVE_REPO, workflow, branches)) {
-		if (!ffmpegSuffix.test(artifact.name)) continue;
+		if (!libHeifSuffix.test(artifact.name)) continue;
 		try {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
 			await extractTo(data, framework, {
