@@ -190,8 +190,11 @@ async fn main() -> tauri::Result<()> {
 			reset_spacedrive,
 			open_logs_dir,
 			file::open_file_paths,
+			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
 			file::open_file_path_with,
+			file::open_ephemeral_file_with,
 			file::reveal_items,
 			theme::lock_app_theme
 		])

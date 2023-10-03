@@ -60,7 +60,7 @@ export const QuickPreview = () => {
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems } = usePlatform();
+	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
@@ -132,14 +132,18 @@ export const QuickPreview = () => {
 
 	// Open file
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
-		if (!item || !openFilePaths) return;
+		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
-			const path = getIndexedItemFilePath(item);
+			if (item.type === 'Path' || item.type === 'Object'){
+				const path = getIndexedItemFilePath(item);
 
-			if (!path) throw 'No path found';
+				if (!path) throw 'No path found';
 
-			openFilePaths(library.uuid, [path.id]);
+				openFilePaths(library.uuid, [path.id]);
+			} else if (item.type === 'NonIndexedPath') {
+				openEphemeralFiles([item.item.path]);
+			}
 		} catch (error) {
 			toast.error({
 				title: 'Failed to open file',

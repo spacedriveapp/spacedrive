@@ -298,7 +298,8 @@ async fn infer_the_mime_type(
 	file: &mut File,
 	metadata: &Metadata,
 ) -> Result<String, Response<BoxBody>> {
-	let mime_type = match ext.to_lowercase().as_str() {
+	let ext = ext.to_lowercase();
+	let mime_type = match ext.as_str() {
 		// AAC audio
 		"aac" => "audio/aac",
 		// Musical Instrument Digital Interface (MIDI)
@@ -387,7 +388,7 @@ async fn infer_the_mime_type(
 
 		// Only browser recognized types, everything else should be text/plain
 		// https://www.iana.org/assignments/media-types/media-types.xhtml#table-text
-		let mime_type = match ext {
+		let mime_type = match ext.as_str() {
 			// HyperText Markup Language
 			"html" | "htm" => "text/html",
 			// Cascading Style Sheets

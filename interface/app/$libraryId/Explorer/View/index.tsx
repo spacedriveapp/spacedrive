@@ -198,7 +198,7 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 
 	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
@@ -220,6 +220,41 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
 		},
 		[os, explorer.selectedItems]
+	);
+
+	const handleOpenShortcut = useCallback(
+		async (event: KeyboardEvent) => {
+			if (
+				event.key.toUpperCase() !== 'O' ||
+				!event.getModifierState(
+					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
+				) ||
+				!openFilePaths || !openEphemeralFiles
+			)
+				return;
+
+			const file_path_ids: number[] = [];
+			const ephemeral_files_paths: string[] = [];
+
+			for (const item of explorer.selectedItems) {
+				if (item.type === 'Path')
+					file_path_ids.push(item.item.id);
+				else if (item.type === 'Object')
+					file_path_ids.push(...item.item.file_paths.map((path) => path.id));
+				else if (item.type === 'NonIndexedPath')
+					ephemeral_files_paths.push(item.item.path);
+			}
+
+			try {
+				if (isNonEmpty(file_path_ids))
+					await openFilePaths(library.uuid, file_path_ids);
+				if (isNonEmpty(ephemeral_files_paths))
+					await openEphemeralFiles(ephemeral_files_paths);
+			} catch (error) {
+				toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
+			}
+		},
+		[os, library.uuid, openFilePaths, openEphemeralFiles, explorer.selectedItems]
 	);
 
 	const handleExplorerShortcut = useCallback(

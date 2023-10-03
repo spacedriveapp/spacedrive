@@ -21,12 +21,15 @@ export type Platform = {
 	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
+	openEphemeralFiles?(paths: string[]): any;
 	revealItems?(
 		library: string,
 		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
 	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
+	openEphemeralFileWith?(pathsAndUrls: ([string, string])[]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 	auth: {
 		start(key: string): any;

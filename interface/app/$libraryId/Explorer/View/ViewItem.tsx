@@ -22,7 +22,7 @@ export const useViewItemDoubleClick = () => {
 	const navigate = useNavigate();
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
@@ -127,12 +127,20 @@ export const useViewItemDoubleClick = () => {
 			}
 
 			if (items.non_indexed.length > 0) {
-				const [non_indexed] = items.non_indexed;
-				if (non_indexed) {
-					navigate({
-						search: createSearchParams({ path: non_indexed.path }).toString()
-					});
-					return;
+				if (explorer.settingsStore.openOnDoubleClick === 'openFile' && openEphemeralFiles) {
+					try {
+						await openEphemeralFiles(
+							items.non_indexed.map(({ path }) => path)
+						);
+					} catch (error) {
+						toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
+					}
+				} else if (item && explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
+					if (item.type !== 'Location' && !(isPath(item) && item.item.is_dir)) {
+						getQuickPreviewStore().itemIndex = itemIndex;
+						getQuickPreviewStore().open = true;
+						return;
+					}
 				}
 			}
 		},
@@ -142,6 +150,7 @@ export const useViewItemDoubleClick = () => {
 			library.uuid,
 			navigate,
 			openFilePaths,
+			openEphemeralFiles,
 			updateAccessTime
 		]
 	);
