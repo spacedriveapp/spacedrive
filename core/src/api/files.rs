@@ -12,7 +12,7 @@ use crate::{
 	object::{
 		fs::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit,
+			erase::FileEraserJobInit, get_location_path_from_location_id,
 		},
 		media::{
 			media_data_extractor::{
@@ -26,6 +26,7 @@ use crate::{
 };
 
 use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
+use sd_images::ConvertableExtensions;
 use sd_media_metadata::MediaMetadata;
 
 use std::{
@@ -324,25 +325,43 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("convertImage", {
 			#[derive(Type, Deserialize)]
 			struct ConvertImageArgs {
-				path: PathBuf,
+				location_id: location::id::Type,
+				file_path_id: file_path::id::Type,
 				delete_src: bool, // if set, we delete the src image after
-				desired_extension: String,
-				quality_percentage: Option<i32>,
+				desired_extension: ConvertableExtensions,
+				quality_percentage: Option<i32>, // 1% - 125%
 			}
 			R.with2(library())
 				.mutation(|(_, library), args: ConvertImageArgs| async move {
-					let extension = args.desired_extension.to_lowercase();
-					if sd_images::all_compatible_extensions()
-						.iter()
-						.all(|ext| ext != &extension)
-					{
-						return Err(sd_images::Error::Unsupported.into());
+					let location_path =
+						get_location_path_from_location_id(&library.db, args.location_id)
+							.await
+							.map_err(|_| LocationError::IdNotFound(args.location_id))?;
+
+					let isolated_path = IsolatedFilePathData::try_from(
+						library
+							.db
+							.file_path()
+							.find_unique(file_path::id::equals(args.file_path_id))
+							.select(file_path_to_isolate::select())
+							.exec()
+							.await?
+							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
+								args.file_path_id,
+							)))?,
+					)
+					.map_err(LocationError::MissingField)?;
+
+					let path = Path::new(&location_path).join(&isolated_path);
+
+					if fs::metadata(&path).await.is_err() {
+						return Err(LocationError::PathNotFound(path.to_path_buf()))?;
 					}
 
-					args.quality_percentage.map(|x| x.clamp(0, 100));
+					args.quality_percentage.map(|x| x.clamp(1, 125));
 
-					let output_extension = OsString::from(extension);
-					let mut image = sd_images::convert_image(&args.path, &output_extension)?;
+					let output_extension = OsString::from(args.desired_extension.to_string());
+					let mut image = sd_images::convert_image(&path, &output_extension)?;
 
 					if let Some(quality_percentage) = args.quality_percentage {
 						image = image.resize(
@@ -352,7 +371,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						);
 					}
 
-					let mut output_path = args.path.clone();
+					let mut output_path = path.clone();
 					if output_path.set_extension(output_extension) {
 						return Err(rspc::Error::new(
 							ErrorCode::InternalServerError,
@@ -378,7 +397,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					if args.delete_src {
-						fs::remove_file(&args.path).await.map_err(|e| {
+						fs::remove_file(&path).await.map_err(|e| {
 							rspc::Error::with_cause(
 								ErrorCode::InternalServerError,
 								"There was an error while deleting the source image".to_string(),
