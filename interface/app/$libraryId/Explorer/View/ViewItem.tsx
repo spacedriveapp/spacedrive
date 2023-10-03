@@ -127,11 +127,19 @@ export const useViewItemDoubleClick = () => {
 			}
 
 			if (items.non_indexed.length > 0) {
+				if (items.non_indexed.length === 1) {
+					const [non_indexed] = items.non_indexed;
+					if (non_indexed && non_indexed.is_dir) {
+						navigate({
+							search: createSearchParams({ path: non_indexed.path }).toString()
+						});
+						return;
+					}
+				}
+
 				if (explorer.settingsStore.openOnDoubleClick === 'openFile' && openEphemeralFiles) {
 					try {
-						await openEphemeralFiles(
-							items.non_indexed.map(({ path }) => path)
-						);
+						await openEphemeralFiles(items.non_indexed.map(({ path }) => path));
 					} catch (error) {
 						toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
 					}

@@ -24,12 +24,16 @@ export type Platform = {
 	openEphemeralFiles?(paths: string[]): any;
 	revealItems?(
 		library: string,
-		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+		items: (
+			| { Location: { id: number } }
+			| { FilePath: { id: number } }
+			| { Ephemeral: { path: string } }
+		)[]
 	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
 	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
-	openEphemeralFileWith?(pathsAndUrls: ([string, string])[]): Promise<unknown>;
+	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 	auth: {
 		start(key: string): any;

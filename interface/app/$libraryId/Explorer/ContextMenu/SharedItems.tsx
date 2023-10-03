@@ -111,6 +111,14 @@ export const RevealInNativeExplorer = new ConditionalItem({
 						});
 						break;
 					}
+					case 'NonIndexedPath': {
+						array.push({
+							Ephemeral: {
+								path: item.item.path
+							}
+						});
+						break;
+					}
 				}
 			}
 

@@ -229,7 +229,8 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 				!event.getModifierState(
 					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
 				) ||
-				!openFilePaths || !openEphemeralFiles
+				!openFilePaths ||
+				!openEphemeralFiles
 			)
 				return;
 
@@ -237,17 +238,14 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			const ephemeral_files_paths: string[] = [];
 
 			for (const item of explorer.selectedItems) {
-				if (item.type === 'Path')
-					file_path_ids.push(item.item.id);
+				if (item.type === 'Path') file_path_ids.push(item.item.id);
 				else if (item.type === 'Object')
 					file_path_ids.push(...item.item.file_paths.map((path) => path.id));
-				else if (item.type === 'NonIndexedPath')
-					ephemeral_files_paths.push(item.item.path);
+				else if (item.type === 'NonIndexedPath') ephemeral_files_paths.push(item.item.path);
 			}
 
 			try {
-				if (isNonEmpty(file_path_ids))
-					await openFilePaths(library.uuid, file_path_ids);
+				if (isNonEmpty(file_path_ids)) await openFilePaths(library.uuid, file_path_ids);
 				if (isNonEmpty(ephemeral_files_paths))
 					await openEphemeralFiles(ephemeral_files_paths);
 			} catch (error) {

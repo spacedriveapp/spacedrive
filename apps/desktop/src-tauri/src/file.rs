@@ -12,6 +12,7 @@ use sd_core::{
 };
 use serde::Serialize;
 use specta::Type;
+use tauri::async_runtime::spawn_blocking;
 use tracing::error;
 
 type NodeState<'a> = tauri::State<'a, Arc<Node>>;
@@ -337,10 +338,44 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 	Ok(())
 }
 
+fn inner_reveal_paths(paths: impl Iterator<Item = PathBuf>) {
+	for path in paths {
+		#[cfg(target_os = "linux")]
+		if sd_desktop_linux::is_appimage() {
+			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
+			sd_desktop_linux::open_file_path(
+				&(if path.is_file() {
+					path.parent().unwrap_or(&path)
+				} else {
+					&path
+				}),
+			)
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok()
+		} else {
+			opener::reveal(path)
+				.map_err(|err| {
+					error!("Failed to open logs dir: {err}");
+				})
+				.ok()
+		};
+
+		#[cfg(not(target_os = "linux"))]
+		opener::reveal(path)
+			.map_err(|err| {
+				error!("Failed to open logs dir: {err}");
+			})
+			.ok();
+	}
+}
+
 #[derive(specta::Type, serde::Deserialize)]
 pub enum RevealItem {
 	Location { id: location::id::Type },
 	FilePath { id: file_path::id::Type },
+	Ephemeral { path: PathBuf },
 }
 
 #[tauri::command(async)]
@@ -354,6 +389,8 @@ pub async fn reveal_items(
 		return Err(());
 	};
 
+	let mut paths_to_open = BTreeSet::new();
+
 	let (paths, locations): (Vec<_>, Vec<_>) =
 		items
 			.into_iter()
@@ -361,12 +398,13 @@ pub async fn reveal_items(
 				match item {
 					RevealItem::FilePath { id } => paths.push(id),
 					RevealItem::Location { id } => locations.push(id),
+					RevealItem::Ephemeral { path } => {
+						paths_to_open.insert(path);
+					}
 				}
 
 				(paths, locations)
 			});
-
-	let mut paths_to_open = BTreeSet::new();
 
 	if !paths.is_empty() {
 		paths_to_open.extend(
@@ -398,35 +436,8 @@ pub async fn reveal_items(
 		);
 	}
 
-	for path in paths_to_open {
-		#[cfg(target_os = "linux")]
-		if sd_desktop_linux::is_appimage() {
-			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
-			sd_desktop_linux::open_file_path(
-				&(if path.is_file() {
-					path.parent().unwrap_or(&path)
-				} else {
-					&path
-				}),
-			)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok()
-		} else {
-			opener::reveal(path)
-				.map_err(|err| {
-					error!("Failed to open logs dir: {err}");
-				})
-				.ok()
-		};
-
-		#[cfg(not(target_os = "linux"))]
-		opener::reveal(path)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok();
+	if let Err(e) = spawn_blocking(|| inner_reveal_paths(paths_to_open.into_iter())).await {
+		error!("Error joining reveal paths thread: {e:#?}");
 	}
 
 	Ok(())

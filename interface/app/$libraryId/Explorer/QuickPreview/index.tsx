@@ -135,7 +135,7 @@ export const QuickPreview = () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
-			if (item.type === 'Path' || item.type === 'Object'){
+			if (item.type === 'Path' || item.type === 'Object') {
 				const path = getIndexedItemFilePath(item);
 
 				if (!path) throw 'No path found';
@@ -157,13 +157,18 @@ export const QuickPreview = () => {
 		if (!item || !revealItems) return;
 
 		try {
-			const id = item.type === 'Location' ? item.item.id : getIndexedItemFilePath(item)?.id;
+			const toReveal = [];
+			if (item.type === 'Location') {
+				toReveal.push({ Location: { id: item.item.id } });
+			} else if (item.type === 'NonIndexedPath') {
+				toReveal.push({ Ephemeral: { path: item.item.path } });
+			} else {
+				const filePath = getIndexedItemFilePath(item);
+				if (!filePath) throw 'No file path found';
+				toReveal.push({ FilePath: { id: filePath.id } });
+			}
 
-			if (!id) throw 'No id found';
-
-			revealItems(library.uuid, [
-				{ ...(item.type === 'Location' ? { Location: { id } } : { FilePath: { id } }) }
-			]);
+			revealItems(library.uuid, toReveal);
 		} catch (error) {
 			toast.error({
 				title: 'Failed to reveal',
