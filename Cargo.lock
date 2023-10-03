@@ -6731,6 +6731,8 @@ dependencies = [
  "libheif-sys",
  "resvg",
  "rspc",
+ "serde",
+ "specta",
  "thiserror",
  "webp",
 ]

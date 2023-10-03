@@ -9,11 +9,9 @@ pub const GENERIC_MAXIMUM_FILE_SIZE: u64 = MIB * 64;
 /// These are roughly all extensions supported by the `image` crate, as of `v0.24.7`.
 ///
 /// We only support images that have both good encoding and decoding support.
-///
-// TODO(brxken128): test out ".cur" files, they're an extension of ICO
-pub const GENERIC_EXTENSIONS: [&str; 17] = [
-	"bmp", "dib", "ff", "gif", "ico", "cur", "jpg", "jpeg", "png", "pnm", "qoi", "tga", "icb",
-	"vda", "vst", "tiff", "tif",
+pub const GENERIC_EXTENSIONS: [&str; 16] = [
+	"bmp", "dib", "ff", "gif", "ico", "jpg", "jpeg", "png", "pnm", "qoi", "tga", "icb", "vda",
+	"vst", "tiff", "tif",
 ];
 
 #[cfg(feature = "heif")]
@@ -36,6 +34,36 @@ pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 ///
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
 pub const SVG_TAGRET_PX: f32 = 262_144_f32;
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub enum ConvertableExtensions {
+	Bmp,
+	Dib,
+	Ff,
+	Gif,
+	Ico,
+	Jpg,
+	Jpeg,
+	Png,
+	Pnm,
+	Qoi,
+	Tga,
+	Icb,
+	Vda,
+	Vst,
+	Tiff,
+	Tif,
+	Heif,
+	Heifs,
+	Heic,
+	Heics,
+	Avif,
+	Avci,
+	Avcs,
+	Svg,
+	Svgz,
+}
 
 #[inline]
 #[must_use]

@@ -11,8 +11,6 @@ edition = { workspace = true }
 
 [features]
 heif = ["dep:libheif-rs", "dep:libheif-sys"]
-webp = ["dep:webp"]
-rspc = ["dep:rspc"]                          # error conversion
 
 [dependencies]
 libheif-rs = { version = "0.19.2", optional = true }
@@ -21,4 +19,6 @@ image = "0.24.7"
 webp = { version = "0.2.5", optional = true }
 thiserror = "1.0.48"
 resvg = "0.35.0"
-rspc = { workspace = true, optional = true }
+rspc = { workspace = true, optional = true }                         # error conversion
+specta = { workspace = true, optional = true }
+serde = { workspace = true, optional = true, features = ["derive"] }
