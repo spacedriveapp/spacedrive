@@ -38,7 +38,6 @@ pub struct FileCopierJobInit {
 	pub target_location_id: location::id::Type,
 	pub sources_file_path_ids: Vec<file_path::id::Type>,
 	pub target_location_relative_directory_path: PathBuf,
-	// pub target_file_name_suffix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
