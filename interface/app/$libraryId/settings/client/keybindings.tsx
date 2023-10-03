@@ -205,9 +205,7 @@ function KeybindTable({ data }: { data: Shortcut[] }) {
 									<td
 										className={clsx(
 											'py-3 hover:brightness-125',
-											cell.id.includes('key' || 'windowsKey')
-												? 'w-fit text-right'
-												: 'w-fit'
+											cell.id.includes('key') ? 'w-fit text-right' : 'w-fit'
 										)}
 										key={cell.id}
 									>
