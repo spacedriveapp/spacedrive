@@ -220,6 +220,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			'integrity_checksum' in filePathData ? filePathData.integrity_checksum : null;
 	}
 
+	if (ephemeralPathData !== null) {
+		extension = ephemeralPathData.extension;
+	}
+
 	return (
 		<>
 			<h3 className="truncate px-3 pb-1 pt-2 text-base font-bold text-ink">
