@@ -6,7 +6,7 @@ const semver = require('semver');
 
 const { spawn } = require('./spawn.js');
 
-const workspace = path.resolve(__dirname, '../../../../')
+const workspace = path.resolve(__dirname, '../../../../');
 const cargoConfig = toml.parse(
 	fs.readFileSync(path.resolve(workspace, '.cargo/config.toml'), { encoding: 'binary' })
 );
@@ -29,8 +29,13 @@ switch (args[0]) {
 		break;
 	}
 	case 'build': {
-		if (!process.env.NODE_OPTIONS || !process.env.NODE_OPTIONS.includes('--max_old_space_size')) {
-			process.env.NODE_OPTIONS = `--max_old_space_size=4096 ${process.env.NODE_OPTIONS ?? ''}`;
+		if (
+			!process.env.NODE_OPTIONS ||
+			!process.env.NODE_OPTIONS.includes('--max_old_space_size')
+		) {
+			process.env.NODE_OPTIONS = `--max_old_space_size=4096 ${
+				process.env.NODE_OPTIONS ?? ''
+			}`;
 		}
 
 		if (args.findIndex((e) => e === '-c' || e === '--config') !== -1) {
@@ -140,7 +145,7 @@ switch (args[0]) {
 }
 
 let code = 0;
-spawn('pnpm', ['tauri', ...args])
+spawn('pnpm', ['exec', 'tauri', ...args])
 	.catch((exitCode) => {
 		code = exitCode;
 		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`);

@@ -12,7 +12,7 @@ const switchStyles = cva(
 	[
 		'relative inline-flex shrink-0 transition',
 		'items-center rounded-full p-1',
-		'bg-app-line radix-state-checked:bg-accent focus:outline-none focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected'
+		'bg-app-line focus:outline-none focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected radix-state-checked:bg-accent'
 	],
 	{
 		variants: {

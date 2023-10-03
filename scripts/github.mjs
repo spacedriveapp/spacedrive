@@ -43,7 +43,7 @@ async function getCache(resource, headers) {
 	let header;
 
 	// Don't cache in CI
-	if (env.CI === 'true') return null
+	if (env.CI === 'true') return null;
 
 	if (headers)
 		resource += Array.from(headers.entries())
@@ -87,7 +87,7 @@ async function setCache(response, resource, cachedData, headers) {
 	const data = Buffer.from(await response.arrayBuffer());
 
 	// Don't cache in CI
-	if (env.CI === 'true') return data
+	if (env.CI === 'true') return data;
 
 	const etag = response.headers.get('ETag') || undefined;
 	const modifiedSince = response.headers.get('Last-Modified') || undefined;

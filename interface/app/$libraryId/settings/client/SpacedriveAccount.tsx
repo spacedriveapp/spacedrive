@@ -41,7 +41,10 @@ export function LoginButton({ onLogin }: { onLogin: () => void }) {
 }
 
 export function SpacedriveAccount() {
-	const user = useBridgeQuery(['auth.me']);
+	const user = useBridgeQuery(['auth.me'], {
+		// If the backend returns un unauthorised error we don't want to retry
+		retry: false
+	});
 
 	const logout = useBridgeMutation(['auth.logout']);
 
