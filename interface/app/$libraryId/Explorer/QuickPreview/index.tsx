@@ -343,68 +343,66 @@ export const QuickPreview = () => {
 											</div>
 
 											<div className="flex flex-1 justify-end gap-1">
-												{item.type !== 'NonIndexedPath' && (
-													<DropdownMenu.Root
-														trigger={
-															<div className="flex">
-																<Tooltip label="More">
-																	<IconButton>
-																		<DotsThree
-																			size={20}
-																			weight="bold"
-																		/>
-																	</IconButton>
-																</Tooltip>
-															</div>
-														}
-														onOpenChange={setIsContextMenuOpen}
-														align="end"
-														sideOffset={-10}
-													>
-														<ExplorerContextMenu items={[item]} custom>
-															<Conditional
-																items={[
-																	FilePathItems.OpenOrDownload,
-																	SharedItems.RevealInNativeExplorer
-																]}
-															/>
+												<DropdownMenu.Root
+													trigger={
+														<div className="flex">
+															<Tooltip label="More">
+																<IconButton>
+																	<DotsThree
+																		size={20}
+																		weight="bold"
+																	/>
+																</IconButton>
+															</Tooltip>
+														</div>
+													}
+													onOpenChange={setIsContextMenuOpen}
+													align="end"
+													sideOffset={-10}
+												>
+													<ExplorerContextMenu items={[item]} custom>
+														<Conditional
+															items={[
+																SharedItems.OpenOrDownload,
+																SharedItems.RevealInNativeExplorer
+															]}
+														/>
 
-															<DropdownMenu.Item
-																label="Rename"
-																onClick={() =>
-																	name && setIsRenaming(true)
-																}
-															/>
+														<DropdownMenu.Item
+															label="Rename"
+															onClick={() =>
+																name && setIsRenaming(true)
+															}
+														/>
 
-															<SeparatedConditional
-																items={[ObjectItems.AssignTag]}
-															/>
+														<SeparatedConditional
+															items={[ObjectItems.AssignTag]}
+														/>
 
-															<Conditional
-																items={[
-																	FilePathItems.CopyAsPath,
-																	FilePathItems.Crypto,
-																	FilePathItems.Compress,
-																	ObjectItems.ConvertObject,
-																	FilePathItems.SecureDelete
-																]}
-															>
-																{(items) => (
-																	<DropdownMenu.SubMenu
-																		label="More actions..."
-																		icon={Plus}
-																	>
-																		{items}
-																	</DropdownMenu.SubMenu>
-																)}
-															</Conditional>
+														<Conditional
+															items={[
+																FilePathItems.CopyAsPath,
+																FilePathItems.Crypto,
+																FilePathItems.Compress,
+																ObjectItems.ConvertObject,
+																FilePathItems.SecureDelete
+															]}
+														>
+															{(items) => (
+																<DropdownMenu.SubMenu
+																	label="More actions..."
+																	icon={Plus}
+																>
+																	{items}
+																</DropdownMenu.SubMenu>
+															)}
+														</Conditional>
 
-															<SeparatedConditional
-																items={[FilePathItems.Delete]}
-															/>
-														</ExplorerContextMenu>
-													</DropdownMenu.Root>
-												)}
+														<SeparatedConditional
+															items={[FilePathItems.Delete]}
+														/>
+													</ExplorerContextMenu>
+												</DropdownMenu.Root>
 
 												<Tooltip label="Show details">
 													<IconButton

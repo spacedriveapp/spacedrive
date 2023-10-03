@@ -131,3 +131,11 @@ export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
 		return array;
 	}, [items]);
 };
+
+export const useItemsAsEphemeralPaths = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		return items
+			.filter((item) => item.type === 'NonIndexedPath')
+			.map((item) => item.item as NonIndexedPathItem);
+	}, [items]);
+};

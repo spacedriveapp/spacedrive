@@ -17,7 +17,7 @@ export * as SharedItems from './SharedItems';
 
 const Items = ({ children }: PropsWithChildren) => (
 	<>
-		<Conditional items={[FilePathItems.OpenOrDownload]} />
+		<Conditional items={[SharedItems.OpenOrDownload]} />
 		<SharedItems.OpenQuickView />
 
 		<SeparatedConditional items={[SharedItems.Details]} />

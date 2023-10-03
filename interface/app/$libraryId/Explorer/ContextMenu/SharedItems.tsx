@@ -1,18 +1,87 @@
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { useLibraryContext, useLibraryMutation } from '@sd/client';
+import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { type Platform } from '~/util/Platform';
+import { usePlatform, type Platform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from '../store';
 import { useExplorerViewContext } from '../ViewContext';
-import { ConditionalItem } from './ConditionalItem';
+import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
+import OpenWith from './OpenWith';
+
+export const OpenOrDownload = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
+		const { openFilePaths, openEphemeralFiles } = usePlatform();
+
+		if (
+			!openFilePaths ||
+			!openEphemeralFiles ||
+			(!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths))
+		)
+			return null;
+
+		return { openFilePaths, openEphemeralFiles, selectedFilePaths, selectedEphemeralPaths };
+	},
+	Component: ({
+		openFilePaths,
+		openEphemeralFiles,
+		selectedFilePaths,
+		selectedEphemeralPaths
+	}) => {
+		const keybind = useKeybindFactory();
+		const { platform } = usePlatform();
+		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+
+		const { library } = useLibraryContext();
+
+		if (platform === 'web') return <Menu.Item label="Download" />;
+		else
+			return (
+				<>
+					<Menu.Item
+						label="Open"
+						keybind={keybind([ModifierKeys.Control], ['O'])}
+						onClick={async () => {
+							try {
+								if (selectedFilePaths.length > 0) {
+									updateAccessTime
+										.mutateAsync(
+											selectedFilePaths
+												.map((p) => p.object_id!)
+												.filter(Boolean)
+										)
+										.catch(console.error);
+
+									await openFilePaths(
+										library.uuid,
+										selectedFilePaths.map((p) => p.id)
+									);
+								} else if (selectedEphemeralPaths.length > 0) {
+									await openEphemeralFiles(
+										selectedEphemeralPaths.map((p) => p.path)
+									);
+								}
+							} catch (error) {
+								toast.error({
+									title: `Failed to open file`,
+									body: `Error: ${error}.`
+								});
+							}
+						}}
+					/>
+					<Conditional items={[OpenWith]} />
+				</>
+			);
+	}
+});
 
 export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();

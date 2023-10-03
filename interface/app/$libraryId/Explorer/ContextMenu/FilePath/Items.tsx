@@ -1,19 +1,16 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
 import { libraryClient, useLibraryMutation } from '@sd/client';
-import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
+import { ContextMenu, ModifierKeys, dialogManager, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
-import { useViewItemDoubleClick } from '../../View/ViewItem';
-import { Conditional, ConditionalItem } from '../ConditionalItem';
+import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
-import OpenWith from './OpenWith';
 
 export * from './CutCopyItems';
 
@@ -226,34 +223,5 @@ export const ParentFolderActions = new ConditionalItem({
 				/>
 			</>
 		);
-	}
-});
-
-export const OpenOrDownload = new ConditionalItem({
-	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		const { openFilePaths } = usePlatform();
-
-		if (!openFilePaths || !isNonEmpty(selectedFilePaths)) return null;
-
-		return { openFilePaths, selectedFilePaths };
-	},
-	Component: () => {
-		const keybind = useKeybindFactory();
-		const { platform } = usePlatform();
-		const { doubleClick } = useViewItemDoubleClick();
-
-		if (platform === 'web') return <Menu.Item label="Download" />;
-		else
-			return (
-				<>
-					<Menu.Item
-						label="Open"
-						keybind={keybind([ModifierKeys.Control], ['O'])}
-						onClick={() => doubleClick()}
-					/>
-					<Conditional items={[OpenWith]} />
-				</>
-			);
 	}
 });
