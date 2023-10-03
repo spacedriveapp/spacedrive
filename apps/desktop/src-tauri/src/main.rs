@@ -72,7 +72,6 @@ macro_rules! tauri_handlers {
 }
 
 const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
-const CLIENT_SECRET: &str = "eb4554cb-c08d-4e82-b4cc-0aa29c07e934";
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
@@ -96,9 +95,8 @@ async fn main() -> tauri::Result<()> {
 			Node::new(
 				data_dir,
 				sd_core::Env {
-					api_url: "https://app.spacedrive.com".to_string(),
+					api_url: "http://localhost:3000".to_string(),
 					client_id: CLIENT_ID.to_string(),
-					client_secret: CLIENT_SECRET.to_string(),
 				},
 			)
 			.await,
