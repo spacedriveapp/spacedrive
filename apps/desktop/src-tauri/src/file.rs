@@ -50,7 +50,7 @@ pub async fn open_file_paths(
 
 								#[cfg(not(target_os = "linux"))]
 								{
-									opener::open(&path)
+									opener::open(path)
 								}
 							};
 
@@ -174,8 +174,8 @@ async fn get_file_path_open_apps_set(path: PathBuf) -> Option<HashSet<OpenWithAp
 		.map_err(|e| {
 			error!("{e:#?}");
 		})
-		.map(|handler| {
-			handler
+		.map(|handlers| {
+			handlers
 				.iter()
 				.filter_map(|handler| {
 					let (Ok(name), Ok(url)) = (
@@ -206,6 +206,7 @@ async fn get_file_path_open_apps_set(path: PathBuf) -> Option<HashSet<OpenWithAp
 				})
 				.collect::<HashSet<_>>()
 		})
+		.ok()
 }
 
 async fn aggregate_open_with_apps(
@@ -320,31 +321,48 @@ type PathAndUrl = (PathBuf, String);
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result<(), ()> {
-	paths_and_urls
-		.into_iter()
-		.collect::<HashMap<_, _>>() // Just to avoid duplicates
-		.into_iter()
-		.for_each(|(path, url)| {
-			#[cfg(target_os = "macos")]
-			if let Some(path) = path.to_str() {
-				sd_desktop_macos::open_file_paths_with(&[path], &url);
-			} else {
-				error!(
-					"File path contains non-UTF8 characters: '{}'",
-					path.display()
-				);
-			};
+	join_all(
+		paths_and_urls
+			.into_iter()
+			.collect::<HashMap<_, _>>() // Just to avoid duplicates
+			.into_iter()
+			.map(|(path, url)| async move {
+				#[cfg(target_os = "macos")]
+				if let Some(path) = path.to_str() {
+					if let Err(e) =
+						spawn_blocking(|| sd_desktop_macos::open_file_paths_with(&[path], &url))
+							.await
+					{
+						error!("Error joining spawned task for opening files with: {e:#?}");
+					}
+				} else {
+					error!(
+						"File path contains non-UTF8 characters: '{}'",
+						path.display()
+					);
+				};
 
-			#[cfg(target_os = "linux")]
-			if let Err(e) = sd_desktop_linux::open_files_path_with(&[path], &url) {
-				error!("{e:#?}");
-			}
+				#[cfg(target_os = "linux")]
+				match spawn_blocking(move || sd_desktop_linux::open_files_path_with(&[path], &url))
+					.await
+				{
+					Ok(Ok(())) => (),
+					Ok(Err(e)) => error!("Error opening file with: {e:#?}"),
+					Err(e) => error!("Error joining spawned task for opening files with: {e:#?}"),
+				}
 
-			#[cfg(windows)]
-			if let Err(e) = sd_desktop_windows::open_file_path_with(path, &url) {
-				error!("{e:#?}");
-			}
-		});
+				#[cfg(windows)]
+				match spawn_blocking(move || sd_desktop_windows::open_file_path_with(path, &url))
+					.await
+				{
+					Ok(Ok(())) => (),
+					Ok(Err(e)) => error!("Error opening file with: {e:#?}"),
+					Err(e) => error!("Error joining spawned task for opening files with: {e:#?}"),
+				}
+			}),
+	)
+	.await;
+
 	Ok(())
 }
 
