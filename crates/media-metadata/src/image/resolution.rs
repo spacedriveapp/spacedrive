@@ -36,12 +36,4 @@ impl Resolution {
 				.unwrap_or_else(|| reader.get_tag(Tag::YResolution).unwrap_or_default()),
 		}
 	}
-
-	/// Returns the total amount of pixels contained within the image
-	///
-	/// This is for search ordering/sorting
-	#[must_use]
-	pub fn total_pixel_count(&self) -> i64 {
-		i64::from(self.width * self.height)
-	}
 }

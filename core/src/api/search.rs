@@ -64,7 +64,6 @@ pub enum FilePathOrder {
 	DateIndexed(SortOrder),
 	Object(Box<ObjectOrder>),
 	DateImageTaken(Box<ObjectOrder>),
-	ImageResolution(Box<ObjectOrder>),
 }
 
 impl FilePathOrder {
@@ -77,7 +76,6 @@ impl FilePathOrder {
 			Self::DateIndexed(v) => v,
 			Self::Object(v) => return v.get_sort_order(),
 			Self::DateImageTaken(v) => return v.get_sort_order(),
-			Self::ImageResolution(v) => return v.get_sort_order(),
 		})
 		.into()
 	}
@@ -93,7 +91,6 @@ impl FilePathOrder {
 			Self::DateIndexed(_) => date_indexed::order(dir),
 			Self::Object(v) => object::order(vec![v.into_param()]),
 			Self::DateImageTaken(v) => object::order(vec![v.into_param()]),
-			Self::ImageResolution(v) => object::order(vec![v.into_param()]),
 		}
 	}
 }
@@ -243,12 +240,10 @@ pub enum ObjectOrder {
 	DateAccessed(SortOrder),
 	Kind(SortOrder),
 	DateImageTaken(SortOrder),
-	ImageResolution(SortOrder),
 }
 
 enum MediaDataSortParameter {
 	DateImageTaken,
-	ImageResolution,
 }
 
 impl ObjectOrder {
@@ -257,7 +252,6 @@ impl ObjectOrder {
 			Self::DateAccessed(v) => v,
 			Self::Kind(v) => v,
 			Self::DateImageTaken(v) => v,
-			Self::ImageResolution(v) => v,
 		})
 		.into()
 	}
@@ -269,7 +263,6 @@ impl ObjectOrder {
 	) -> object::OrderByWithRelationParam {
 		let order = match param {
 			MediaDataSortParameter::DateImageTaken => media_data::epoch_time::order(dir),
-			MediaDataSortParameter::ImageResolution => media_data::pixel_count::order(dir),
 		};
 
 		object::media_data::order(vec![order])
@@ -283,9 +276,6 @@ impl ObjectOrder {
 			Self::DateAccessed(_) => date_accessed::order(dir),
 			Self::Kind(_) => kind::order(dir),
 			Self::DateImageTaken(_) => self.media_data(MediaDataSortParameter::DateImageTaken, dir),
-			Self::ImageResolution(_) => {
-				self.media_data(MediaDataSortParameter::ImageResolution, dir)
-			}
 		}
 	}
 }

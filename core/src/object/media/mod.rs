@@ -24,7 +24,6 @@ pub fn media_data_image_to_query(
 			copyright::set(mdi.copyright),
 			exif_version::set(mdi.exif_version),
 			epoch_time::set(mdi.date_taken.map(|x| x.unix_timestamp())),
-			pixel_count::set(Some(mdi.resolution.total_pixel_count())),
 		],
 	})
 }
