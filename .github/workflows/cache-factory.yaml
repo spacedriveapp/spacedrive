@@ -74,7 +74,7 @@ jobs:
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
           save-cache: 'true'
 
       - name: Clippy
