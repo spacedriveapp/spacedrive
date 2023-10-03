@@ -1,6 +1,8 @@
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
+
+import '@sd/client'; // tsc requires this import due to global types defined on it
+
 import { useMemo } from 'react';
-import { useLibraryContext, useLibraryMutation } from '@sd/client';
 import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -11,6 +13,7 @@ import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from '../store';
+import { useViewItemDoubleClick } from '../View/ViewItem';
 import { useExplorerViewContext } from '../ViewContext';
 import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -30,17 +33,10 @@ export const OpenOrDownload = new ConditionalItem({
 
 		return { openFilePaths, openEphemeralFiles, selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({
-		openFilePaths,
-		openEphemeralFiles,
-		selectedFilePaths,
-		selectedEphemeralPaths
-	}) => {
+	Component: () => {
 		const keybind = useKeybindFactory();
 		const { platform } = usePlatform();
-		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
-		const { library } = useLibraryContext();
+		const { doubleClick } = useViewItemDoubleClick();
 
 		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
@@ -49,33 +45,7 @@ export const OpenOrDownload = new ConditionalItem({
 					<Menu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
-						onClick={async () => {
-							try {
-								if (selectedFilePaths.length > 0) {
-									updateAccessTime
-										.mutateAsync(
-											selectedFilePaths
-												.map((p) => p.object_id!)
-												.filter(Boolean)
-										)
-										.catch(console.error);
-
-									await openFilePaths(
-										library.uuid,
-										selectedFilePaths.map((p) => p.id)
-									);
-								} else if (selectedEphemeralPaths.length > 0) {
-									await openEphemeralFiles(
-										selectedEphemeralPaths.map((p) => p.path)
-									);
-								}
-							} catch (error) {
-								toast.error({
-									title: `Failed to open file`,
-									body: `Error: ${error}.`
-								});
-							}
-						}}
+						onClick={() => doubleClick()}
 					/>
 					<Conditional items={[OpenWith]} />
 				</>
