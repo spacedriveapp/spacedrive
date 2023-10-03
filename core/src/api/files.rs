@@ -11,8 +11,8 @@ use crate::{
 	},
 	object::{
 		fs::{
-			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit,
+			append_digit_to_filename, copy::FileCopierJobInit, cut::FileCutterJobInit,
+			delete::FileDeleterJobInit, erase::FileEraserJobInit,
 		},
 		media::{
 			media_data_extractor::{
@@ -417,7 +417,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						IsolatedFilePathData::separate_name_and_extension_from_str(&to)
 							.map_err(LocationError::FilePath)?;
 
-					let mut new_file_full_path = location_path.join(iso_file_path.parent());
+					let root_path = location_path.join(iso_file_path.parent());
+
+					let mut new_file_full_path = root_path.clone();
 					if !new_extension.is_empty() {
 						new_file_full_path.push(format!("{}.{}", new_file_name, new_extension));
 					} else {
@@ -426,10 +428,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					match fs::metadata(&new_file_full_path).await {
 						Ok(_) => {
-							return Err(rspc::Error::new(
-								ErrorCode::Conflict,
-								"File already exists".to_string(),
-							))
+							for i in 1..u32::MAX {
+								let mut new_file_full_path = root_path.clone();
+
+								append_digit_to_filename(
+									&mut new_file_full_path,
+									new_file_name,
+									(!new_extension.is_empty())
+										.then_some(new_extension)
+										.or(None),
+									i,
+								);
+
+								if fs::metadata(&new_file_full_path).await.is_err() {
+									fs::rename(
+										location_path.join(&iso_file_path),
+										new_file_full_path,
+									)
+									.await
+									.map_err(|e| {
+										rspc::Error::with_cause(
+											ErrorCode::Conflict,
+											"Failed to rename file".to_string(),
+											e,
+										)
+									})?;
+
+									break;
+								}
+							}
 						}
 						Err(e) => {
 							if e.kind() != std::io::ErrorKind::NotFound {
@@ -439,18 +466,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									e,
 								));
 							}
+
+							fs::rename(location_path.join(&iso_file_path), new_file_full_path)
+								.await
+								.map_err(|e| {
+									rspc::Error::with_cause(
+										ErrorCode::Conflict,
+										"Failed to rename file".to_string(),
+										e,
+									)
+								})?;
 						}
 					}
-
-					fs::rename(location_path.join(&iso_file_path), new_file_full_path)
-						.await
-						.map_err(|e| {
-							rspc::Error::with_cause(
-								ErrorCode::Conflict,
-								"Failed to rename file".to_string(),
-								e,
-							)
-						})?;
 
 					Ok(())
 				}

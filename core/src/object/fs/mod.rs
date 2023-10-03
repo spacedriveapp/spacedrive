@@ -175,3 +175,29 @@ fn construct_target_filename(
 		)
 	})
 }
+
+pub fn append_digit_to_filename(
+	final_path: &mut PathBuf,
+	file_name: &str,
+	ext: Option<&str>,
+	current_int: u32,
+) {
+	let is_already_copied = if file_name.len() > 3 {
+		let ending = file_name[file_name.len() - 3..].to_string();
+		ending.chars().enumerate().all(|(i, c)| {
+			(i == 1 && u32::try_from(c).is_ok()) || (i == 0 && c == '(') || (i == 2 && c == ')')
+		})
+	} else {
+		false
+	};
+
+	let new_file_name = is_already_copied
+		.then(|| &file_name[..file_name.len() - 3])
+		.map_or_else(|| file_name.to_string(), str::to_string);
+
+	if let Some(ext) = ext {
+		final_path.push(format!("{} ({current_int}).{}", new_file_name, ext));
+	} else {
+		final_path.push(format!("{new_file_name} ({current_int})"));
+	}
+}
