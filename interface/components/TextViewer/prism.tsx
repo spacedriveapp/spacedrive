@@ -6,7 +6,6 @@ window.Prism = window.Prism || {};
 Prism.manual = true;
 
 import "prismjs";
-import './prism.css';
 
 // Languages
 // Do not include default ones: markup, html, xml, svg, mathml, ssml, atom, rss, css, clike, javascript, js
@@ -85,3 +84,18 @@ export const languageMapping = Object.entries({
 	for (const ext of exts) mapping.set(ext, id);
 	return mapping;
 }, new Map());
+
+import { useThemeStore } from "@sd/client";
+import oneDarkCss from "./one-dark.scss?url";
+import oneLightCss from "./one-light.scss?url";
+
+export function WithPrismTheme() {
+	const theme = useThemeStore();
+	return (
+		theme.theme === "dark" ? (
+			<link rel="stylesheet" href={oneDarkCss} />
+		) : (
+			<link rel="stylesheet" href={oneLightCss} />
+		)
+	)
+}

@@ -18,6 +18,7 @@ import {
 } from '@sd/client';
 
 import { P2P } from './app/p2p';
+import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
@@ -62,6 +63,7 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 				<NotificationContextProvider>
 					<P2P />
 					<Devtools />
+					<WithPrismTheme />
 					<RouterProvider router={props.router} />
 				</NotificationContextProvider>
 			</P2PContextProvider>

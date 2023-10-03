@@ -139,8 +139,7 @@ function TextRow({
 				<div
 					key={row.key}
 					className={clsx(
-						'token block w-[3.8em] shrink-0 whitespace-pre pl-1 text-end',
-						row.index % 2 && 'bg-black/40'
+						'token block shrink-0 whitespace-pre pl-2 pr-4 text-sm  leading-6 text-gray-450'
 					)}
 				>
 					{row.index + 1}
