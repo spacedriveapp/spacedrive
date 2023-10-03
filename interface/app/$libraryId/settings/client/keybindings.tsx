@@ -15,12 +15,13 @@ import { Heading } from '../Layout';
 import Setting from '../Setting';
 
 type Shortcut = {
-	action: string;
-	description?: string;
-	key: {
+	action: string; //the name of the action the shortcut is performing
+	description?: string; //what does this shortcut do?
+	keys: {
+		//the operating system the shortcut is for
 		[K in OperatingSystem | 'all']?: {
-			value: string | ModifierKeys | (string | ModifierKeys)[];
-			split?: boolean;
+			value: string | ModifierKeys | (string | ModifierKeys)[]; //if the shortcut is a single key, use a string, if it's a combination of keys, make it an array
+			split?: boolean; //if the shortcut is 2 letters, should it be split into 2 keys?
 		};
 	};
 };
@@ -30,7 +31,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		{
 			description: 'Different pages in the app',
 			action: 'Navigate to Settings page',
-			key: {
+			keys: {
 				all: {
 					value: ['G', 'S']
 				}
@@ -41,7 +42,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		{
 			description: 'To perform actions and operations',
 			action: 'Toggle Job Manager',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, 'J']
 				}
@@ -52,7 +53,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		{
 			description: 'Where you explore your folders and files',
 			action: 'Navigate explorer items',
-			key: {
+			keys: {
 				all: {
 					value: ['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft']
 				}
@@ -60,7 +61,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Navigate forward in folder history',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, ']']
 				}
@@ -68,7 +69,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Navigate backward in folder history',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, '[']
 				}
@@ -76,7 +77,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Switch explorer layout',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, 'b']
 				}
@@ -84,7 +85,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Open selected item',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, 'ArrowUp']
 				}
@@ -92,7 +93,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Show inspector',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, 'i']
 				}
@@ -100,7 +101,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Show path bar',
-			key: {
+			keys: {
 				all: {
 					value: [ModifierKeys.Control, 'p']
 				}
@@ -108,7 +109,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Rename file or folder',
-			key: {
+			keys: {
 				windows: {
 					value: 'F2',
 					split: false
@@ -120,7 +121,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Select first item in explorer',
-			key: {
+			keys: {
 				all: {
 					value: 'ArrowDown'
 				}
@@ -128,7 +129,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		},
 		{
 			action: 'Open Quick Preview on selected item',
-			key: {
+			keys: {
 				all: {
 					value: ' '
 				}
@@ -229,7 +230,7 @@ function createKeybindColumns(os: OperatingSystem) {
 			header: 'Description',
 			cell: (info) => <p className="w-full text-sm text-ink-faint">{info.getValue()}</p>
 		}),
-		columnHelper.accessor('key', {
+		columnHelper.accessor('keys', {
 			header: () => <p className="text-right">Key</p>,
 			size: 200,
 			cell: (info) => {
