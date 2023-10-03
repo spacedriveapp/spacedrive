@@ -330,7 +330,7 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 				#[cfg(target_os = "macos")]
 				if let Some(path) = path.to_str() {
 					if let Err(e) =
-						spawn_blocking(|| sd_desktop_macos::open_file_paths_with(&[path], &url))
+						spawn_blocking(move || sd_desktop_macos::open_file_paths_with(&[path], &url))
 							.await
 					{
 						error!("Error joining spawned task for opening files with: {e:#?}");
