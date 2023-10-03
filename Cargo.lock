@@ -2103,9 +2103,9 @@ dependencies = [
 
 [[package]]
 name = "four-cc"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d73a076bdabd78c2f9045dba1b90664a655fa8372581c238596e1eb3a5e1b7"
+checksum = "431a4c31778fde52b4400de34975f219eeca55cc829a9de157cd743a5b230ecb"
 
 [[package]]
 name = "fsevent-sys"
@@ -2165,9 +2165,9 @@ dependencies = [
 
 [[package]]
 name = "futures-concurrency"
-version = "7.4.2"
+version = "7.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7cf7759a91582f72d30e68a2507feecac3dbcf6314ae91fa7046d6173d502e7"
+checksum = "ef6712e11cdeed5c8cf21ea0b90fec40fbe64afc9bbf2339356197eeca829fc3"
 dependencies = [
  "bitvec",
  "futures-core",
@@ -3456,9 +3456,9 @@ dependencies = [
 
 [[package]]
 name = "libheif-rs"
-version = "0.19.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "749fcebc2069f334599304546cfa891c30be08cdf4f358ed984a2c71c5e0031f"
+checksum = "7f644fa9c774f17b545fb3c09f8f1a29cc09385a5504c03c6a158878e9522acd"
 dependencies = [
  "enumn",
  "four-cc",
@@ -3468,11 +3468,14 @@ dependencies = [
 
 [[package]]
 name = "libheif-sys"
-version = "1.14.2"
+version = "2.0.0+1.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af8b7a4151ae10f6d2e8684f7172c43f09c0258c84190fd9704422588ceec63"
+checksum = "4d48ca341b8042e9522ff1ab892a0f049ec28d3a9a6924b48aa9f3e32ae73aab"
 dependencies = [
  "libc",
+ "pkg-config",
+ "vcpkg",
+ "walkdir",
 ]
 
 [[package]]
@@ -6560,6 +6563,7 @@ dependencies = [
  "plist",
  "prisma-client-rust",
  "regex",
+ "reqwest",
  "rmp",
  "rmp-serde",
  "rmpv",
@@ -6648,6 +6652,7 @@ name = "sd-desktop"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "dotenv",
  "futures",
  "http",
  "opener",

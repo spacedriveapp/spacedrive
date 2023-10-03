@@ -13,8 +13,7 @@
 	},
 	"scripts": {
 		"lint": "eslint . --cache",
-		"typecheck": "tsc -b",
-		"build": "tsc"
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
@@ -35,7 +34,7 @@
 		"@tanstack/react-query": "^4.12.0",
 		"@tanstack/react-query-devtools": "^4.22.0",
 		"@tanstack/react-table": "^8.8.5",
-		"@tanstack/react-virtual": "3.0.0-beta.54",
+		"@tanstack/react-virtual": "3.0.0-beta.61",
 		"@types/react-scroll-sync": "^0.8.4",
 		"@types/uuid": "^9.0.2",
 		"@vitejs/plugin-react": "^2.1.0",
@@ -61,7 +60,6 @@
 		"react-qr-code": "^2.0.11",
 		"react-router": "6.9.0",
 		"react-router-dom": "6.9.0",
-		"react-scroll-sync": "^0.11.0",
 		"react-selecto": "^1.26.0",
 		"react-sticky-el": "^2.1.0",
 		"react-use-draggable-scroll": "^0.4.7",

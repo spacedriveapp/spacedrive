@@ -24,7 +24,10 @@ mod consts;
 mod error;
 mod generic;
 mod handler;
-#[cfg(feature = "heif")]
+#[cfg(all(
+	feature = "heif",
+	any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+))]
 mod heif;
 mod svg;
 

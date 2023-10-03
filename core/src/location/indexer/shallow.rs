@@ -10,7 +10,7 @@ use crate::{
 		indexer::{
 			execute_indexer_update_step, reverse_update_directories_sizes, IndexerJobUpdateStep,
 		},
-		scan_location_sub_path,
+		scan_location_sub_path, update_location_size,
 	},
 	to_remove_db_fetcher_fn,
 	util::db::maybe_missing,
@@ -88,10 +88,9 @@ pub async fn shallow(
 		.await?
 	};
 
-	debug!(
-		"Walker at shallow indexer found {} file_paths to be removed",
-		to_remove.len()
-	);
+	let to_remove_count = to_remove.len();
+
+	debug!("Walker at shallow indexer found {to_remove_count} file_paths to be removed");
 
 	node.thumbnail_remover
 		.remove_cas_ids(
@@ -109,12 +108,15 @@ pub async fn shallow(
 
 	let mut new_directories_to_scan = HashSet::new();
 
+	let mut to_create_count = 0;
+
 	let save_steps = walked
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.enumerate()
 		.map(|(i, chunk)| {
 			let walked = chunk.collect::<Vec<_>>();
+			to_create_count += walked.len();
 
 			walked
 				.iter()
@@ -171,13 +173,19 @@ pub async fn shallow(
 		execute_indexer_update_step(&step, library).await?;
 	}
 
-	if to_walk_path != location_path {
-		reverse_update_directories_sizes(to_walk_path, location_id, location_path, library)
+	if to_create_count > 0 || to_update_count > 0 || to_remove_count > 0 {
+		if to_walk_path != location_path {
+			reverse_update_directories_sizes(to_walk_path, location_id, location_path, library)
+				.await
+				.map_err(IndexerError::from)?;
+		}
+
+		update_location_size(location.id, library)
 			.await
 			.map_err(IndexerError::from)?;
-	}
 
-	invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.paths");
+	}
 
 	library.orphan_remover.invoke().await;
 

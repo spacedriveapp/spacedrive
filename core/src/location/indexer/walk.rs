@@ -3,10 +3,7 @@ use crate::{
 		file_path_pub_and_cas_ids, file_path_walker, FilePathMetadata, IsolatedFilePathData,
 	},
 	prisma::file_path,
-	util::{
-		db::{device_from_db, inode_from_db},
-		error::FileIOError,
-	},
+	util::{db::inode_from_db, error::FileIOError},
 };
 
 use std::{
@@ -371,42 +368,40 @@ where
 			.into_iter()
 			.filter_map(|entry| {
 				if let Some(file_path) = isolated_paths_already_in_db.get(&entry.iso_file_path) {
-					if let (Some(metadata), Some(inode), Some(device), Some(date_modified)) = (
+					if let (Some(metadata), Some(inode), Some(date_modified)) = (
 						&entry.maybe_metadata,
 						&file_path.inode,
-						&file_path.device,
 						&file_path.date_modified,
 					) {
-						let (inode, device) =
-							(inode_from_db(&inode[0..8]), device_from_db(&device[0..8]));
-
-						// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
-						// instead of using != operator
-						if (inode != metadata.inode
-							|| device != metadata.device || DateTime::<FixedOffset>::from(
-							metadata.modified_at,
-						) - *date_modified
-							> Duration::milliseconds(1)) && !(entry.iso_file_path.is_dir
-							&& metadata.size_in_bytes
-								!= file_path
-									.size_in_bytes_bytes
-									.as_ref()
-									.map(|size_in_bytes_bytes| {
-										u64::from_be_bytes([
-											size_in_bytes_bytes[0],
-											size_in_bytes_bytes[1],
-											size_in_bytes_bytes[2],
-											size_in_bytes_bytes[3],
-											size_in_bytes_bytes[4],
-											size_in_bytes_bytes[5],
-											size_in_bytes_bytes[6],
-											size_in_bytes_bytes[7],
-										])
-									})
-									.unwrap_or_default())
-						// We ignore the size of directories because it is not reliable, we need to
-						// calculate it ourselves later
-						{
+						if (
+								inode_from_db(&inode[0..8]) != metadata.inode
+								// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
+								// instead of using != operator
+								|| DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
+									> Duration::milliseconds(1)
+							)
+							// We ignore the size of directories because it is not reliable, we need to
+							// calculate it ourselves later
+							&& !(
+								entry.iso_file_path.is_dir
+								&& metadata.size_in_bytes
+									!= file_path
+										.size_in_bytes_bytes
+										.as_ref()
+										.map(|size_in_bytes_bytes| {
+											u64::from_be_bytes([
+												size_in_bytes_bytes[0],
+												size_in_bytes_bytes[1],
+												size_in_bytes_bytes[2],
+												size_in_bytes_bytes[3],
+												size_in_bytes_bytes[4],
+												size_in_bytes_bytes[5],
+												size_in_bytes_bytes[6],
+												size_in_bytes_bytes[7],
+											])
+										})
+										.unwrap_or_default()
+								) {
 							to_update.push(
 								(sd_utils::from_bytes_to_uuid(&file_path.pub_id), entry).into(),
 							);
@@ -784,7 +779,6 @@ mod tests {
 
 		let metadata = FilePathMetadata {
 			inode: 0,
-			device: 0,
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
@@ -855,7 +849,6 @@ mod tests {
 
 		let metadata = FilePathMetadata {
 			inode: 0,
-			device: 0,
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
@@ -920,7 +913,6 @@ mod tests {
 
 		let metadata = FilePathMetadata {
 			inode: 0,
-			device: 0,
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),
@@ -994,7 +986,6 @@ mod tests {
 
 		let metadata = FilePathMetadata {
 			inode: 0,
-			device: 0,
 			size_in_bytes: 0,
 			created_at: Utc::now(),
 			modified_at: Utc::now(),

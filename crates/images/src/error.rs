@@ -4,7 +4,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	#[cfg(feature = "heif")]
+	#[cfg(all(
+		feature = "heif",
+		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+	))]
 	#[error("error with libheif: {0}")]
 	LibHeif(#[from] libheif_rs::HeifError),
 

@@ -1,13 +1,16 @@
 {
 	"private": true,
 	"scripts": {
-		"prep": "pnpm gen:prisma && pnpm codegen",
+		"postinstall": "pnpm exec node scripts/post-install.mjs",
+		"prep": "pnpm gen:prisma",
+		"postprep": "pnpm codegen",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"gen:migrations": "cd core && cargo prisma migrate dev",
 		"gen:prisma": "cd core && cargo prisma generate",
 		"format": "prettier --write .",
 		"desktop": "pnpm --filter @sd/desktop --",
+		"tauri": "pnpm desktop tauri",
 		"web": "pnpm --filter @sd/web -- ",
 		"mobile": "pnpm --filter @sd/mobile --",
 		"core": "pnpm --filter @sd/server -- ",
@@ -19,7 +22,7 @@
 		"storybook": "pnpm --filter @sd/storybook -- ",
 		"prisma": "cd core && cargo prisma",
 		"dev:web": "turbo run dev --filter @sd/web --filter @sd/server",
-		"bootstrap:desktop": "cargo clean && ./.github/scripts/setup-system.sh && pnpm i && pnpm prep && pnpm desktop dev",
+		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm prep && pnpm tauri dev",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
@@ -35,9 +38,11 @@
 		"@babel/plugin-syntax-import-assertions": "^7.22.5",
 		"@cspell/dict-rust": "^2.0.1",
 		"@cspell/dict-typescript": "^2.0.2",
-		"@storybook/react-vite": "^7.0.20",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
+		"@storybook/react-vite": "^7.0.20",
+		"archive-wasm": "^1.5.1",
 		"cspell": "^6.31.1",
+		"mustache": "^4.2.0",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.3",
 		"rimraf": "^4.4.1",
@@ -54,9 +59,26 @@
 		"pnpm": ">=8.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=18.0.0"
+		"node": ">=18.17 <19 || >=20.1"
 	},
 	"eslintConfig": {
-		"root": true
+		"root": true,
+		"overrides": [
+			{
+				"files": [
+					"*.mjs"
+				],
+				"env": {
+					"node": true,
+					"es2022": true,
+					"browser": false,
+					"commonjs": false,
+					"shared-node-browser": false
+				},
+				"parserOptions": {
+					"sourceType": "module"
+				}
+			}
+		]
 	}
 }

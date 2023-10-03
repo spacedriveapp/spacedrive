@@ -45,6 +45,10 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 */
 	selectable?: boolean;
 	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
+	/**
+	 * @defaultValue `true`
+	 */
+	showPathBar?: boolean;
 }
 
 /**
@@ -63,6 +67,7 @@ export function useExplorer<TOrder extends Ordering>({
 		selectable: true,
 		scrollRef,
 		count: props.items?.length,
+		showPathBar: true,
 		...settings,
 		// Provided values
 		...props,
@@ -170,6 +175,10 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 				updateHashes();
 			},
 			[selectedItemHashes.value, updateHashes]
+		),
+		isItemSelected: useCallback(
+			(item: ExplorerItem) => selectedItems.has(item),
+			[selectedItems]
 		)
 	};
 }

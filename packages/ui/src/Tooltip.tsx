@@ -9,6 +9,7 @@ export interface TooltipProps extends PropsWithChildren {
 	position?: 'top' | 'right' | 'bottom' | 'left';
 	className?: string;
 	tooltipClassName?: string;
+	labelClassName?: string;
 	asChild?: boolean;
 	hoverable?: boolean;
 	keybinds?: Array<String | keyof typeof ModifierKeys>;
@@ -45,7 +46,7 @@ export const Tooltip = ({ position = 'bottom', hoverable = true, ...props }: Too
 								props.tooltipClassName
 							)}
 						>
-							{props.label}
+							<p className={props.labelClassName}>{props.label}</p>
 							{props.keybinds && (
 								<div className="flex items-center justify-center gap-1">
 									{separateKeybinds(props.keybinds)?.map((k, _) => (

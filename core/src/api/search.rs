@@ -122,6 +122,8 @@ struct FilePathFilterArgs {
 	path: Option<String>,
 	#[specta(optional)]
 	object: Option<ObjectFilterArgs>,
+	#[specta(optional)]
+	hidden: Option<bool>,
 }
 
 impl FilePathFilterArgs {
@@ -172,6 +174,7 @@ impl FilePathFilterArgs {
 					self.extension.map(Some).map(extension::equals),
 					self.created_at.from.map(|v| date_created::gte(v.into())),
 					self.created_at.to.map(|v| date_created::lte(v.into())),
+					self.hidden.map(Some).map(hidden::equals),
 					directory_materialized_path_str
 						.map(Some)
 						.map(materialized_path::equals),
@@ -205,7 +208,7 @@ pub enum FilePathObjectCursor {
 pub enum FilePathCursorVariant {
 	None,
 	Name(CursorOrderItem<String>),
-	// SizeInBytes(CursorOrderItem<Vec<u8>>),
+	SizeInBytes(SortOrder),
 	DateCreated(CursorOrderItem<DateTime<FixedOffset>>),
 	DateModified(CursorOrderItem<DateTime<FixedOffset>>),
 	DateIndexed(CursorOrderItem<DateTime<FixedOffset>>),
@@ -394,7 +397,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type, Debug)]
 			#[serde(rename_all = "camelCase")]
 			struct FilePathSearchArgs {
-				take: u8,
+				#[specta(optional)]
+				take: Option<u8>,
 				#[specta(optional)]
 				order_and_pagination:
 					Option<OrderAndPagination<file_path::id::Type, FilePathOrder, FilePathCursor>>,
@@ -418,12 +422,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let take = take.min(MAX_TAKE);
+					let mut query = db.file_path().find_many(filter.into_params(db).await?);
 
-					let mut query = db
-						.file_path()
-						.find_many(filter.into_params(db).await?)
-						.take(take as i64);
+					if let Some(take) = take {
+						query = query.take(take as i64);
+					}
 
 					// WARN: this order_by for grouping directories MUST always come before the other order_by
 					if group_directories {
@@ -482,6 +485,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								match cursor.variant {
 									FilePathCursorVariant::None => {
 										query.add_where(file_path::id::gt(id));
+									}
+									FilePathCursorVariant::SizeInBytes(order) => {
+										query = query.order_by(
+											file_path::size_in_bytes_bytes::order(order.into()),
+										);
 									}
 									FilePathCursorVariant::Name(item) => arm!(name, item),
 									FilePathCursorVariant::DateCreated(item) => {

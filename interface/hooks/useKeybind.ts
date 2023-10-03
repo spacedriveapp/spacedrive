@@ -7,7 +7,7 @@ interface UseKeyBindOptions extends Options {
 
 type UseKeyBindOptionsOrDependencyArray = UseKeyBindOptions | DependencyList;
 
-export const useKeyBind = (
+export const useKeybind = (
 	keys: string | string[] | string[][],
 	callback: HotkeyCallback,
 	options?: UseKeyBindOptionsOrDependencyArray,

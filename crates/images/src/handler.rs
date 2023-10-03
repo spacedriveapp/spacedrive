@@ -11,7 +11,10 @@ use std::{
 	path::Path,
 };
 
-#[cfg(feature = "heif")]
+#[cfg(all(
+	feature = "heif",
+	any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+))]
 use crate::heif::HeifHandler;
 
 pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
@@ -41,7 +44,10 @@ fn match_to_handler(ext: &OsStr) -> Result<Box<dyn ImageHandler>> {
 		handler = Some(Box::new(GenericHandler {}));
 	}
 
-	#[cfg(feature = "heif")]
+	#[cfg(all(
+		feature = "heif",
+		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+	))]
 	if consts::HEIF_EXTENSIONS
 		.iter()
 		.map(OsString::from)

@@ -1,10 +1,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
+
+const toml = require('@iarna/toml');
 const semver = require('semver');
 
 const { spawn } = require('./spawn.js');
-const { platform, workspace, setupScript } = require('./const.js');
-const { setupFFMpegDlls, setupPlatformEnv } = require('./env.js');
+
+const workspace = path.resolve(__dirname, '../../../../');
+const cargoConfig = toml.parse(
+	fs.readFileSync(path.resolve(workspace, '.cargo/config.toml'), { encoding: 'binary' })
+);
+if (cargoConfig.env && typeof cargoConfig.env === 'object')
+	for (const [name, value] of Object.entries(cargoConfig.env))
+		if (!process.env[name]) process.env[name] = value;
 
 const toRemove = [];
 const [_, __, ...args] = process.argv;
@@ -17,11 +25,19 @@ const tauriConf = JSON.parse(
 
 switch (args[0]) {
 	case 'dev': {
-		const env = setupPlatformEnv();
-		if (platform === 'win32') setupFFMpegDlls(env.FFMPEG_DIR, true);
+		if (process.platform === 'win32') setupFFMpegDlls(true);
 		break;
 	}
 	case 'build': {
+		if (
+			!process.env.NODE_OPTIONS ||
+			!process.env.NODE_OPTIONS.includes('--max_old_space_size')
+		) {
+			process.env.NODE_OPTIONS = `--max_old_space_size=4096 ${
+				process.env.NODE_OPTIONS ?? ''
+			}`;
+		}
+
 		if (args.findIndex((e) => e === '-c' || e === '--config') !== -1) {
 			throw new Error('Custom tauri build config is not supported.');
 		}
@@ -34,13 +50,11 @@ switch (args[0]) {
 			})
 			.flatMap((target) => target.split(','));
 
-		const env = setupPlatformEnv();
-
 		const tauriPatch = {
 			tauri: { bundle: { macOS: {} } }
 		};
 
-		switch (platform) {
+		switch (process.platform) {
 			case 'darwin': {
 				// Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
 				const cliNode =
@@ -51,7 +65,7 @@ switch (args[0]) {
 						`Tauri cli patch not found at ${path.relative(
 							workspace,
 							tauriCliPatch
-						)}. Did you run the setup script: ${setupScript}?`
+						)}. Did you run \`pnpm i\`?`
 					);
 				}
 				const tauriBin = path.join(
@@ -113,7 +127,7 @@ switch (args[0]) {
 			}
 			case 'win32':
 				// Point tauri to the ffmpeg DLLs
-				tauriPatch.tauri.bundle.resources = setupFFMpegDlls(env.FFMPEG_DIR);
+				tauriPatch.tauri.bundle.resources = setupFFMpegDlls();
 				toRemove.push(
 					...tauriPatch.tauri.bundle.resources.map((file) =>
 						path.join(workspace, 'apps/desktop/src-tauri', file)
@@ -131,12 +145,12 @@ switch (args[0]) {
 }
 
 let code = 0;
-spawn('pnpm', ['tauri', ...args])
+spawn('pnpm', ['exec', 'tauri', ...args])
 	.catch((exitCode) => {
 		code = exitCode;
 		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`);
 		console.error(
-			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to run ${setupScript}`
+			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm i\``
 		);
 	})
 	.finally(() => {
@@ -147,3 +161,22 @@ spawn('pnpm', ['tauri', ...args])
 
 		process.exit(code);
 	});
+
+function setupFFMpegDlls(dev = false) {
+	if (!process.env.FFMPEG_DIR) throw new Error('Missing envvar FFMPEG_DIR');
+	const ffmpegBinDir = path.join(process.env.FFMPEG_DIR, 'bin');
+	const ffmpegDlls = fs.readdirSync(ffmpegBinDir).filter((file) => file.endsWith('.dll'));
+
+	let targetDir = path.join(workspace, 'apps/desktop/src-tauri');
+	if (dev) {
+		targetDir = path.join(workspace, 'target/debug');
+		// Ensure the target/debug directory exists
+		fs.mkdirSync(targetDir, { recursive: true });
+	}
+
+	// Copy all DLLs from the $FFMPEG_DIR/bin to targetDir
+	for (const dll of ffmpegDlls)
+		fs.copyFileSync(path.join(ffmpegBinDir, dll), path.join(targetDir, dll));
+
+	return ffmpegDlls;
+}
