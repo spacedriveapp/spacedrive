@@ -49,6 +49,8 @@ pub(crate) mod preferences;
 pub mod util;
 pub(crate) mod volume;
 
+pub use env::Env;
+
 pub(crate) use sd_core_sync as sync;
 
 /// Represents a single running instance of the Spacedrive core.
@@ -78,7 +80,10 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+	pub async fn new(
+		data_dir: impl AsRef<Path>,
+		env: env::Env,
+	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
 		info!("Starting core with data directory '{}'", data_dir.display());
@@ -114,8 +119,8 @@ impl Node {
 			),
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
-			env: Default::default(),
 			http: reqwest::Client::new(),
+			env,
 		});
 
 		// Restore backend feature flags

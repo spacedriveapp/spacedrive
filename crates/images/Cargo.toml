@@ -16,9 +16,7 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 image = "0.24.7"
 thiserror = "1.0.48"
 resvg = "0.35.0"
-
-[target.'cfg(any(not(any(target_os = "linux", target_os = "windows")), heif_images))'.dependencies]
-# both of these added *default* bindgen features in 0.22.0 and 2.0.0 (1.16.2) respectively
+# both of these added *default* bindgen features in 0.22.0 and 2.0.0 respectively
 # this broke builds as we build our own liibheif, so i disabled their default features
 libheif-rs = { version = "0.22.0", default-features = false, optional = true }
 libheif-sys = { version = "2.0.0", default-features = false, optional = true }

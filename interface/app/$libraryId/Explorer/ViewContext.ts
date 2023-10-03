@@ -7,6 +7,7 @@ export interface ExplorerViewContext {
 	top?: number;
 	bottom?: number;
 	contextMenu?: ReactNode;
+	isContextMenuOpen?: boolean;
 	setIsContextMenuOpen?: (isOpen: boolean) => void;
 	isRenaming: boolean;
 	setIsRenaming: (isRenaming: boolean) => void;

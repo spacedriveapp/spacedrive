@@ -1,11 +1,46 @@
 import { Check, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 import { useState } from 'react';
-import { useJobProgress, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	JobGroup as IJobGroup,
+	useJobProgress,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
 
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
+
+function sortJobData(jobs: IJobGroup[]) {
+	const runningJobs: IJobGroup[] = [];
+	const otherJobs: IJobGroup[] = [];
+
+	jobs.forEach((job) => {
+		if (job.status === 'Running' || job.jobs.find((job) => job.status === 'Running')) {
+			runningJobs.push(job);
+		} else {
+			otherJobs.push(job);
+		}
+	});
+
+	const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
+		const aDate = dayjs(a.created_at);
+		const bDate = dayjs(b.created_at);
+		if (aDate.isBefore(bDate)) {
+			return 1;
+		} else if (bDate.isBefore(aDate)) {
+			return -1;
+		}
+		return 0;
+	};
+
+	runningJobs.sort(sortByCreatedAt);
+	otherJobs.sort(sortByCreatedAt);
+
+	return [...runningJobs, ...otherJobs];
+}
 
 export function JobManager() {
 	const queryClient = useQueryClient();
@@ -83,7 +118,7 @@ export function JobManager() {
 								No jobs.
 							</div>
 						) : (
-							jobGroups.data.map((group) => (
+							sortJobData(jobGroups.data).map((group) => (
 								<JobGroup key={group.id} group={group} progress={progress} />
 							))
 						))}

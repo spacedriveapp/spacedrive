@@ -10,7 +10,7 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKeys } from 'rooks';
+import { useKey, useKeys } from 'rooks';
 import { getItemObject, useLibraryContext, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
@@ -43,7 +43,13 @@ export interface ExplorerViewPadding {
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
+		| 'selectable'
+		| 'isRenaming'
+		| 'isContextMenuOpen'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'ref'
+		| 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
@@ -56,6 +62,7 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
+		const os = useOperatingSystem();
 
 		const { doubleClick } = useViewItemDoubleClick();
 
@@ -76,14 +83,29 @@ export default memo(
 		});
 
 		useEffect(() => {
+			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			// Close context menu when no items are selected
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			setIsContextMenuOpen(false);
+		}, [explorer.selectedItems, isContextMenuOpen]);
+
+		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
 				const timer = setTimeout(() => setShowLoading(true), 100);
 				return () => clearTimeout(timer);
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
-		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
+		useKey(['Enter'], (e) => {
 			e.stopPropagation();
+			if (os === 'windows') {
+				doubleClick();
+			}
+		});
+
+		useKeys([metaCtrlKey, 'KeyO'], (e) => {
+			e.stopPropagation();
+			if (os === 'windows') return;
 			doubleClick();
 		});
 
@@ -108,10 +130,11 @@ export default memo(
 									!isContextMenuOpen &&
 									!isRenaming &&
 									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
 								ref,
+								isRenaming,
+								isContextMenuOpen,
+								setIsRenaming,
+								setIsContextMenuOpen,
 								padding: viewPadding
 							}}
 						>
@@ -133,7 +156,11 @@ export default memo(
 	}
 );
 
-export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+export const EmptyNotice = (props: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+	loading?: boolean;
+}) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -149,8 +176,10 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 		return <Icon size={100} opacity={0.3} />;
 	};
 
+	if (props.loading) return null;
+
 	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
@@ -193,38 +222,6 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		[os, explorer.selectedItems]
 	);
 
-	const handleOpenShortcut = useCallback(
-		async (event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'O' ||
-				!event.getModifierState(
-					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-				) ||
-				!openFilePaths
-			)
-				return;
-
-			const paths: number[] = [];
-
-			for (const item of explorer.selectedItems)
-				for (const path of item.type === 'Path'
-					? [item.item]
-					: item.type === 'Object'
-					? item.item.file_paths
-					: [])
-					paths.push(path.id);
-
-			if (!isNonEmpty(paths)) return;
-
-			try {
-				await openFilePaths(library.uuid, paths);
-			} catch (error) {
-				toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
-			}
-		},
-		[os, library.uuid, openFilePaths, explorer.selectedItems]
-	);
-
 	const handleExplorerShortcut = useCallback(
 		(event: KeyboardEvent) => {
 			if (
@@ -239,12 +236,12 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	);
 
 	useEffect(() => {
-		const handlers = [handleNewTag, handleOpenShortcut, handleExplorerShortcut];
+		const handlers = [handleNewTag, handleExplorerShortcut];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleOpenShortcut, handleExplorerShortcut]);
+	}, [disabled, handleNewTag, handleExplorerShortcut]);
 };
