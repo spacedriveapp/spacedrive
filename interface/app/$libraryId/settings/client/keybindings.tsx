@@ -21,7 +21,7 @@ type Shortcut = {
 		//the operating system the shortcut is for
 		[K in OperatingSystem | 'all']?: {
 			value: string | ModifierKeys | (string | ModifierKeys)[]; //if the shortcut is a single key, use a string, if it's a combination of keys, make it an array
-			split?: boolean; //if the shortcut is 2 letters, should it be split into 2 keys?
+			split?: boolean; //if the 'length' of the shortcut is 2, should it be split into 2 keys?
 		};
 	};
 };
