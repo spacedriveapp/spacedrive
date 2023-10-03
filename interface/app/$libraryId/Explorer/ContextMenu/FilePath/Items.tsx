@@ -1,5 +1,5 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
-import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -238,10 +238,9 @@ export const OpenOrDownload = new ConditionalItem({
 
 		return { openFilePaths, selectedFilePaths };
 	},
-	Component: ({ selectedFilePaths }) => {
+	Component: () => {
 		const keybind = useKeybindFactory();
 		const { platform } = usePlatform();
-		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 		const { doubleClick } = useViewItemDoubleClick();
 
 		if (platform === 'web') return <Menu.Item label="Download" />;
@@ -251,15 +250,7 @@ export const OpenOrDownload = new ConditionalItem({
 					<Menu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
-						onClick={async () => {
-							if (selectedFilePaths.length < 1) return;
-							await updateAccessTime
-								.mutateAsync(
-									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
-								)
-								.catch(console.error);
-							doubleClick();
-						}}
+						onClick={() => doubleClick()}
 					/>
 					<Conditional items={[OpenWith]} />
 				</>
