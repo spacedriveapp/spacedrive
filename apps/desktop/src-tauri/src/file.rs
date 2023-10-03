@@ -282,10 +282,11 @@ pub async fn open_file_path_with(
 				.iter()
 				.map(|(id, path)| {
 					let (Some(path), Some(url)) = (
-						#[cfg(windows)]
+						#[cfg(any(target_os = "windows", target_os = "linux"))]
 						path.as_ref(),
-						#[cfg(not(windows))]
-						path.as_ref().and_then(|path| path.to_str()),
+						#[cfg(target_os = "macos")]
+						path.as_ref()
+							.and_then(|path| path.to_str().map(str::to_string)),
 						url_by_id.get(id),
 					) else {
 						error!("File not found in database");
@@ -303,7 +304,7 @@ pub async fn open_file_path_with(
 						error!("{e:#?}");
 					});
 
-					#[cfg(windows)]
+					#[cfg(target_os = "windows")]
 					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {
 						error!("{e:#?}");
 					});
@@ -328,7 +329,7 @@ pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result
 			.into_iter()
 			.map(|(path, url)| async move {
 				#[cfg(target_os = "macos")]
-				if let Some(path) = path.to_str() {
+				if let Some(path) = path.to_str().map(str::to_string) {
 					if let Err(e) = spawn_blocking(move || {
 						sd_desktop_macos::open_file_paths_with(&[path], &url)
 					})
