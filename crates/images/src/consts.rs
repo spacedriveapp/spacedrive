@@ -83,7 +83,10 @@ impl Display for ConvertableExtensions {
 #[inline]
 #[must_use]
 pub fn all_compatible_extensions() -> Vec<String> {
-	#[cfg(feature = "heif")]
+	#[cfg(all(
+		feature = "heif",
+		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+	))]
 	let res = GENERIC_EXTENSIONS
 		.into_iter()
 		.chain(HEIF_EXTENSIONS)
@@ -91,7 +94,10 @@ pub fn all_compatible_extensions() -> Vec<String> {
 		.map(String::from)
 		.collect();
 
-	#[cfg(not(feature = "heif"))]
+	#[cfg(not(all(
+		feature = "heif",
+		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
+	)))]
 	let res = GENERIC_EXTENSIONS
 		.into_iter()
 		.chain(SVG_EXTENSIONS)
