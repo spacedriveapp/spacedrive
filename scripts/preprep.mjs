@@ -7,13 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import mustache from 'mustache';
 
-import {
-	downloadFFMpeg,
-	downloadLibHeif,
-	downloadPatchedTauriCLI,
-	downloadPDFium,
-	downloadProtc
-} from './deps.mjs';
+import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './deps.mjs';
 import { getGitBranches } from './git.mjs';
 import { getMachineId } from './machineId.mjs';
 import { which } from './which.mjs';
@@ -92,13 +86,6 @@ await Promise.all([
 	downloadLibHeif(machineId, framework, branches).catch((e) => {
 		console.error(
 			'Failed to download libheif. This is probably a bug, please open a issue with you system info at: ' +
-				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-		);
-		throw e;
-	}),
-	downloadPatchedTauriCLI(machineId, framework, branches).catch((e) => {
-		console.error(
-			'Failed to download patched tauri CLI. This is probably a bug, please open a issue with you system info at: ' +
 				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
 		);
 		throw e;

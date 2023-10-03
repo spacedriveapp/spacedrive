@@ -58,35 +58,6 @@ switch (args[0]) {
 
 		switch (process.platform) {
 			case 'darwin': {
-				// Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not merged
-				const cliNode =
-					process.arch === 'arm64' ? 'cli.darwin-arm64.node' : 'cli.darwin-x64.node';
-				const tauriCliPatch = path.join(workspace, 'target/Frameworks/bin/', cliNode);
-				if (!fs.existsSync(tauriCliPatch)) {
-					throw new Error(
-						`Tauri cli patch not found at ${path.relative(
-							workspace,
-							tauriCliPatch
-						)}. Did you run \`pnpm i\`?`
-					);
-				}
-				const tauriBin = path.join(
-					workspace,
-					'node_modules/@tauri-apps',
-					cliNode.replace(/\.[^.]+$/, '').replace(/\./g, '-'),
-					cliNode
-				);
-				if (!fs.existsSync(tauriBin)) {
-					throw new Error('tauri bin not found at ${tauriBin}. Did you run `pnpm i`?');
-				}
-				console.log(
-					`WORKAROUND tauri-apps/tauri#3933: Replace ${path.relative(
-						workspace,
-						tauriBin
-					)} -> ${path.relative(workspace, tauriCliPatch)}`
-				);
-				fs.copyFileSync(tauriCliPatch, tauriBin);
-
 				// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
 				let macOSMinimumVersion = tauriConf?.tauri?.bundle?.macOS?.minimumSystemVersion;
 				let macOSArm64MinimumVersion = '11.2';

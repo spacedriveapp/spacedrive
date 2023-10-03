@@ -70,19 +70,11 @@ export const LIBHEIF_SUFFIX = {
 			musl: 'aarch64-linux-musl',
 			glibc: 'aarch64-linux-gnu'
 		}
-	},
+	}
 };
 
 export const LIBHEIF_WORKFLOW = {
-	Linux: 'libheif-linux.yml',
-};
-
-export const TAURI_CLI_SUFFIX = {
-	Darwin: {
-		x86_64: 'x86_64-apple-darwin',
-		arm64: 'aarch64-apple-darwin',
-		aarch64: 'aarch64-apple-darwin'
-	}
+	Linux: 'libheif-linux.yml'
 };
 
 /**
