@@ -182,14 +182,14 @@ export const QuickPreview = () => {
 					<Dialog.Overlay
 						className={clsx(
 							'absolute inset-0 z-50',
-							'data-[state=open]:animate-in data-[state=open]:fade-in-0',
+							'radix-state-open:animate-in radix-state-open:fade-in-0',
 							isDark ? 'bg-black/80' : 'bg-black/60'
 						)}
 						onContextMenu={(e) => e.preventDefault()}
 					/>
 
 					<Dialog.Content
-						className="fixed inset-[5%] z-50 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+						className="fixed inset-[5%] z-50 outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
 						onOpenAutoFocus={(e) => e.preventDefault()}
 						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
 						onContextMenu={(e) => e.preventDefault()}
