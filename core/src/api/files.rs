@@ -428,12 +428,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					match fs::metadata(&new_file_full_path).await {
 						Ok(_) => {
-							return Err(rspc::Error::with_cause(
-									ErrorCode::InternalServerError,
-									"Renaming would overwrite a file".to_string(),
-									e,
-								));
+							return Err(rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Renaming would overwrite a file".to_string(),
+							));
 						}
+
 						Err(e) => {
 							if e.kind() != std::io::ErrorKind::NotFound {
 								return Err(rspc::Error::with_cause(
@@ -442,8 +442,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									e,
 								));
 							}
-							
-fs::rename(location_path.join(&iso_file_path), new_file_full_path)
+
+							fs::rename(location_path.join(&iso_file_path), new_file_full_path)
 								.await
 								.map_err(|e| {
 									rspc::Error::with_cause(
@@ -452,11 +452,8 @@ fs::rename(location_path.join(&iso_file_path), new_file_full_path)
 										e,
 									)
 								})?;
-						
 						}
 					}
-
-						
 
 					Ok(())
 				}
