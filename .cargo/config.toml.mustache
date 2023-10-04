@@ -8,17 +8,17 @@ FFMPEG_DIR = "{{{nativeDeps}}}"
 
 {{#isMacOS}}
 [target.x86_64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}\\lib"]
+rustflags = ["-L", "{{{nativeDeps}}}/lib"]
 
 [target.x86_64-apple-darwin.heif]
-rustc-link-search = ["{{{nativeDeps}}}\\lib"]
+rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}\\lib"]
+rustflags = ["-L", "{{{nativeDeps}}}/lib"]
 
 [target.aarch64-apple-darwin.heif]
-rustc-link-search = ["{{{nativeDeps}}}\\lib"]
+rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 {{/isMacOS}}
 
