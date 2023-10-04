@@ -4,6 +4,7 @@ import { getOnboardingStore } from '@sd/client';
 import Alpha from './alpha';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
+import Login from './login';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
 
@@ -23,6 +24,10 @@ export default [
 		element: <Index />
 	},
 	{ path: 'alpha', element: <Alpha /> },
+	{
+		element: <Login />,
+		path: 'login'
+	},
 	{
 		element: <NewLibrary />,
 		path: 'new-library'
