@@ -64,10 +64,10 @@ export async function patchTauri(root, nativeDeps, args) {
 
 	const osType = os.type()
 	const resources =
-		osType === 'Windows_NT'
-			? await copyWindowsDLLs(root, nativeDeps)
-			: osType === 'Linux'
+		osType === 'Linux'
 			? await copyLinuxLibs(root, nativeDeps)
+			: osType === 'Windows_NT'
+			? await copyWindowsDLLs(root, nativeDeps)
 			: { files: [], toClean: [] }
 	const tauriPatch = {
 		tauri: {

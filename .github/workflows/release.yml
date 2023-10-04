@@ -24,7 +24,7 @@ jobs:
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage
+            bundles: appimage,deb
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
@@ -95,7 +95,7 @@ jobs:
 
       - name: Build
         run: |
-          pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
+          pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }},updater
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -107,7 +107,6 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts

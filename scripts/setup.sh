@@ -112,7 +112,7 @@ case "$(uname)" in
       echo
     fi
     ;;
-  "Linux") # https://github.com/tauri-apps/tauri-docs/blob/dev/docs/guides/getting-started/prerequisites.md
+  "Linux") # https://github.com/tauri-apps/tauri-docs/blob/dev/docs/guides/getting-started/prerequisites.md#setting-up-linux
     if has apt-get; then
       echo "Detected apt!"
       echo "Installing dependencies with apt..."
