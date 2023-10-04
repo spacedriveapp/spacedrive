@@ -202,12 +202,13 @@ export const QuickPreview = () => {
 						>
 							<div className="relative flex flex-1 flex-col overflow-hidden bg-app/80 backdrop-blur">
 								{background && (
-									<div className="absolute inset-0 overflow-hidden bg-black/90">
+									<div className="absolute inset-0 overflow-hidden">
 										<FileThumb
 											data={item}
 											cover={true}
-											childClassName="opacity-75 blur-3xl scale-125"
+											childClassName="scale-125"
 										/>
+										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
 									</div>
 								)}
 
