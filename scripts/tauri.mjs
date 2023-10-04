@@ -54,51 +54,50 @@ if (cargoConfig.env && typeof cargoConfig.env === 'object')
 // Default command
 if (args.length === 0) args.push('build')
 
-switch (args[0]) {
-	case 'dev': {
-		__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
-		break
-	}
-	case 'build': {
-		if (!env.NODE_OPTIONS || !env.NODE_OPTIONS.includes('--max_old_space_size')) {
-			env.NODE_OPTIONS = `--max_old_space_size=4096 ${env.NODE_OPTIONS ?? ''}`
-		}
-
-		__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
-
-		switch (process.platform) {
-			case 'darwin': {
-				// Configure DMG background
-				env.BACKGROUND_FILE = path.resolve(desktopApp, 'src-tauri', 'dmg-background.png')
-				env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
-				env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
-
-				if (!(await exists(env.BACKGROUND_FILE)))
-					console.warn(
-						`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
-					)
-
-				break
-			}
-			case 'linux':
-				// Cleanup appimage bundle to avoid build_appimage.sh failing
-				await fs.rm(path.join(__root, 'target', 'release', 'bundle', 'appimage'), {
-					recursive: true,
-					force: true,
-				})
-				break
-		}
-	}
-}
-
 let code = 0
-await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
-	.catch(async exitCode => {
-		if (exitCode instanceof Error) {
-			if (__debug) console.error(exitCode)
-			exitCode = 1
+try {
+	switch (args[0]) {
+		case 'dev': {
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+			break
 		}
+		case 'build': {
+			if (!env.NODE_OPTIONS || !env.NODE_OPTIONS.includes('--max_old_space_size')) {
+				env.NODE_OPTIONS = `--max_old_space_size=4096 ${env.NODE_OPTIONS ?? ''}`
+			}
 
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, args)))
+
+			switch (process.platform) {
+				case 'darwin': {
+					// Configure DMG background
+					env.BACKGROUND_FILE = path.resolve(
+						desktopApp,
+						'src-tauri',
+						'dmg-background.png'
+					)
+					env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
+					env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
+
+					if (!(await exists(env.BACKGROUND_FILE)))
+						console.warn(
+							`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
+						)
+
+					break
+				}
+				case 'linux':
+					// Cleanup appimage bundle to avoid build_appimage.sh failing
+					await fs.rm(path.join(__root, 'target', 'release', 'bundle', 'appimage'), {
+						recursive: true,
+						force: true,
+					})
+					break
+			}
+		}
+	}
+
+	await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp).catch(async error => {
 		if (args[0] === 'build' || platform === 'linux') {
 			// Work around appimage buindling not working sometimes
 			const appimageDir = path.join(__root, 'target', 'release', 'bundle', 'appimage')
@@ -118,13 +117,24 @@ await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
 			}
 		}
 
-		code = exitCode
-		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`)
 		console.error(
+			`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
+		)
+
+		console.warn(
 			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``
 		)
+
+		throw error
 	})
-	.finally(() => {
-		cleanUp()
-		exit(code)
-	})
+} catch (error) {
+	if (typeof error === 'number') {
+		code = error
+	} else {
+		if (error instanceof Error) console.error(error)
+		code = 1
+	}
+} finally {
+	cleanUp()
+	exit(code)
+}

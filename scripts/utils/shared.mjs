@@ -74,20 +74,38 @@ export async function setupMacOsFramework(nativeDeps) {
  * Symlink shared libs paths for Linux
  * @param {string} root
  * @param {string} nativeDeps
- * @returns {Promise<string[]>}
+ * @returns {Promise<{files: string[], toClean: string[]}>}
  */
 export async function symlinkSharedLibsLinux(root, nativeDeps) {
 	// rpath=${ORIGIN}/../lib/spacedrive
-	const libDir = path.join(root, 'apps', 'desktop', 'lib')
-	const rpath = path.join(libDir, 'spacedrive')
-	await link(path.relative(libDir, path.join(nativeDeps, 'lib')), rpath)
-	return await fs
-		.readdir(rpath, { withFileTypes: true })
-		.then(entries =>
-			entries
-				.filter(entry => entry.name.endsWith('.so') || entry.name.includes('.so.'))
-				.map(entry => path.join('..', 'lib', 'spacedrive', entry.name))
-		)
+	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
+	const targetRPath = path.join(root, 'target', 'lib', 'spacedrive')
+
+	const [files] = await Promise.all([
+		fs.readdir(path.join(nativeDeps, 'lib'), { withFileTypes: true }).then(files =>
+			Promise.all(
+				files
+					.filter(
+						entry =>
+							(entry.isFile() || entry.isSymbolicLink()) &&
+							(entry.name.endsWith('.so') || entry.name.includes('.so.'))
+					)
+					.map(async entry => {
+						await fs.copyFile(
+							path.join(entry.path, entry.name),
+							path.join(tauriSrc, entry.name)
+						)
+						return entry.name
+					})
+			)
+		),
+		link(path.join(nativeDeps, 'lib'), targetRPath),
+	])
+
+	return {
+		files,
+		toClean: [...files, targetRPath],
+	}
 }
 
 /**
@@ -148,19 +166,23 @@ export async function symlinkSharedLibsMacOS(nativeDeps) {
  * Copy Windows DLLs for tauri build
  * @param {string} root
  * @param {string} nativeDeps
- * @returns {Promise<string[]>}
+ * @returns {Promise<{files: string[], toClean: string[]}>}
  */
 export async function copyWindowsDLLs(root, nativeDeps) {
-	const targetDir = path.join(root, 'apps', 'desktop', 'src-tauri')
-	return Promise.all(
+	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
+	const files = await Promise.all(
 		await fs.readdir(path.join(nativeDeps, 'bin'), { withFileTypes: true }).then(files =>
 			files
 				.filter(entry => entry.isFile() && entry.name.endsWith(`.dll`))
 				.map(async entry => {
-					const targetFile = path.join(targetDir, entry.name)
-					await fs.copyFile(path.join(entry.path, entry.name), targetFile)
-					return targetFile
+					await fs.copyFile(
+						path.join(entry.path, entry.name),
+						path.join(tauriSrc, entry.name)
+					)
+					return entry.name
 				})
 		)
 	)
+
+	return { files, toClean: files.map(file => path.join(tauriSrc, file)) }
 }

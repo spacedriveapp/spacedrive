@@ -62,18 +62,19 @@ export async function patchTauri(root, nativeDeps, args) {
 	const tauriRoot = path.join(root, 'apps', 'desktop', 'src-tauri')
 
 	const osType = os.type()
+	const resources =
+		osType === 'Windows_NT'
+			? await copyWindowsDLLs(root, nativeDeps)
+			: osType === 'Linux'
+			? await symlinkSharedLibsLinux(root, nativeDeps)
+			: { files: [], toClean: [] }
 	const tauriPatch = {
 		tauri: {
 			bundle: {
 				macOS: {
 					minimumSystemVersion: '',
 				},
-				resources:
-					osType === 'Windows_NT'
-						? await copyWindowsDLLs(root, nativeDeps)
-						: osType === 'Linux'
-						? await symlinkSharedLibsLinux(root, nativeDeps)
-						: [],
+				resources: resources.files,
 			},
 			updater: /** @type {{ pubkey?: string }} */ ({}),
 		},
@@ -136,8 +137,5 @@ export async function patchTauri(root, nativeDeps, args) {
 	args.splice(1, 0, '-c', tauriPatchConf)
 
 	// Files to be removed
-	return [
-		...tauriPatch.tauri.bundle.resources.map(file => path.resolve(tauriRoot, file)),
-		tauriPatchConf,
-	]
+	return [tauriPatchConf, ...resources.toClean]
 }
