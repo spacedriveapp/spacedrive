@@ -89,11 +89,12 @@ ENV TZ=UTC \
 
 # Note: This needs to happen before the apt call to avoid locking issues with the previous step
 COPY --from=server /srv/spacedrive/target/release/sd-server /usr/bin/
+COPY --from=server /srv/spacedrive/apps/.deps/lib /usr/lib/spacedrive
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get install \
 		libavdevice59 libpostproc56 libswscale6 libswresample4 libavformat59 libavutil57 libavfilter8 \
-		libavcodec59 libheif1
+		libavcodec59
 
 COPY --chmod=755 entrypoint.sh /usr/bin/
 
