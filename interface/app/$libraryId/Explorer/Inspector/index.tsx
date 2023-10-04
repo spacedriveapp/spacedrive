@@ -184,12 +184,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const readyToFetch = useIsFetchReady(item);
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
-		enabled: objectData !== null && readyToFetch
+		enabled: objectData != null && readyToFetch
 	});
 	const { libraryId } = useZodRouteParams(LibraryIdParamsSchema);
 
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePathData?.id ?? -1], {
-		enabled: filePathData !== null && readyToFetch
+		enabled: filePathData != null && readyToFetch
 	});
 
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
@@ -197,7 +197,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
-		['files.getEphemeralMediaData', ephemeralPathData !== null ? ephemeralPathData.path : ''],
+		['files.getEphemeralMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
 			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
 		}
@@ -210,17 +210,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	const { name, isDir, kind, size, casId, dateCreated, dateAccessed, dateModified, dateIndexed } =
 		useExplorerItemData(item);
 
-	const pubId = objectData !== null ? uniqueId({ pub_id: objectData.pub_id }) : null;
+	const pubId = objectData != null ? uniqueId(objectData) : null;
 
 	let extension, integrityChecksum;
 
-	if (filePathData !== null) {
+	if (filePathData != null) {
 		extension = filePathData.extension;
 		integrityChecksum =
 			'integrity_checksum' in filePathData ? filePathData.integrity_checksum : null;
 	}
 
-	if (ephemeralPathData !== null) {
+	if (ephemeralPathData != null) {
 		extension = ephemeralPathData.extension;
 	}
 
@@ -259,11 +259,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 				<MetaData icon={Eraser} label="Modified" value={formatDate(dateModified)} />
 
-				{ephemeralPathData !== null || (
+				{ephemeralPathData != null || (
 					<MetaData icon={Barcode} label="Indexed" value={formatDate(dateIndexed)} />
 				)}
 
-				{ephemeralPathData !== null || (
+				{ephemeralPathData != null || (
 					<MetaData icon={FolderOpen} label="Accessed" value={formatDate(dateAccessed)} />
 				)}
 
