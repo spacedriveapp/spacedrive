@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 
 import * as semver from 'semver'
 
-import { symlinkSharedLibsLinux, copyWindowsDLLs } from './shared.mjs'
+import { copyLinuxLibs, copyWindowsDLLs } from './shared.mjs'
 
 const exec = promisify(_exec)
 const __debug = env.NODE_ENV === 'debug'
@@ -66,7 +66,7 @@ export async function patchTauri(root, nativeDeps, args) {
 		osType === 'Windows_NT'
 			? await copyWindowsDLLs(root, nativeDeps)
 			: osType === 'Linux'
-			? await symlinkSharedLibsLinux(root, nativeDeps)
+			? await copyLinuxLibs(root, nativeDeps)
 			: { files: [], toClean: [] }
 	const tauriPatch = {
 		tauri: {

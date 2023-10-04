@@ -18,7 +18,6 @@ if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
 // Limit file permissions
 umask(0o026)
 
-const __debug = env.NODE_ENV === 'debug'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const [_, __, ...args] = process.argv

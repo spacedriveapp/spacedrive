@@ -74,38 +74,15 @@ export async function setupMacOsFramework(nativeDeps) {
  * Symlink shared libs paths for Linux
  * @param {string} root
  * @param {string} nativeDeps
- * @returns {Promise<{files: string[], toClean: string[]}>}
+ * @returns {Promise<void>}
  */
 export async function symlinkSharedLibsLinux(root, nativeDeps) {
 	// rpath=${ORIGIN}/../lib/spacedrive
-	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
-	const targetRPath = path.join(root, 'target', 'lib', 'spacedrive')
-
-	const [files] = await Promise.all([
-		fs.readdir(path.join(nativeDeps, 'lib'), { withFileTypes: true }).then(files =>
-			Promise.all(
-				files
-					.filter(
-						entry =>
-							(entry.isFile() || entry.isSymbolicLink()) &&
-							(entry.name.endsWith('.so') || entry.name.includes('.so.'))
-					)
-					.map(async entry => {
-						await fs.copyFile(
-							path.join(entry.path, entry.name),
-							path.join(tauriSrc, entry.name)
-						)
-						return entry.name
-					})
-			)
-		),
-		link(path.join(nativeDeps, 'lib'), targetRPath),
-	])
-
-	return {
-		files,
-		toClean: [...files, targetRPath],
-	}
+	const targetLib = path.join(root, 'target', 'lib')
+	const targetRPath = path.join(targetLib, 'spacedrive')
+	await fs.unlink(targetRPath).catch(() => {})
+	await fs.mkdir(targetLib, { recursive: true })
+	await link(path.join(nativeDeps, 'lib'), targetRPath)
 }
 
 /**
@@ -185,4 +162,39 @@ export async function copyWindowsDLLs(root, nativeDeps) {
 	)
 
 	return { files, toClean: files.map(file => path.join(tauriSrc, file)) }
+}
+
+/**
+ * Symlink shared libs paths for Linux
+ * @param {string} root
+ * @param {string} nativeDeps
+ * @returns {Promise<{files: string[], toClean: string[]}>}
+ */
+export async function copyLinuxLibs(root, nativeDeps) {
+	// rpath=${ORIGIN}/../lib/spacedrive
+	const tauriSrc = path.join(root, 'apps', 'desktop', 'src-tauri')
+	const files = await fs
+		.readdir(path.join(nativeDeps, 'lib'), { withFileTypes: true })
+		.then(files =>
+			Promise.all(
+				files
+					.filter(
+						entry =>
+							(entry.isFile() || entry.isSymbolicLink()) &&
+							(entry.name.endsWith('.so') || entry.name.includes('.so.'))
+					)
+					.map(async entry => {
+						await fs.copyFile(
+							path.join(entry.path, entry.name),
+							path.join(tauriSrc, entry.name)
+						)
+						return entry.name
+					})
+			)
+		)
+
+	return {
+		files,
+		toClean: files.map(file => path.join(tauriSrc, file)),
+	}
 }

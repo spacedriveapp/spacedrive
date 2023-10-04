@@ -8,7 +8,11 @@ import * as _mustache from 'mustache'
 import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './utils/deps.mjs'
 import { getGitBranches } from './utils/git.mjs'
 import { getMachineId } from './utils/machineId.mjs'
-import { setupMacOsFramework, symlinkSharedLibsMacOS } from './utils/shared.mjs'
+import {
+	setupMacOsFramework,
+	symlinkSharedLibsMacOS,
+	symlinkSharedLibsLinux,
+} from './utils/shared.mjs'
 import { which } from './utils/which.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
@@ -93,7 +97,13 @@ await Promise.all([
 
 // Extra OS specific setup
 try {
-	if (machineId[0] === 'Darwin') {
+	if (machineId[0] === 'Linux') {
+		console.log(`Symlink shared libs...`)
+		symlinkSharedLibsLinux(__root, nativeDeps).catch(e => {
+			console.error(`Failed to symlink shared libs. ${bugWarn}`)
+			throw e
+		})
+	} else if (machineId[0] === 'Darwin') {
 		console.log(`Setup Framework...`)
 		await setupMacOsFramework(nativeDeps).catch(e => {
 			console.error(`Failed to setup Framework. ${bugWarn}`)
@@ -107,7 +117,6 @@ try {
 		})
 	}
 } catch (error) {
-	console.error(`Failed to generate .cargo/config.toml. ${bugWarn}`)
 	if (__debug) console.error(error)
 	exit(1)
 }
