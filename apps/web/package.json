@@ -14,7 +14,7 @@
 		"@rspc/client": "=0.0.0-main-799eec5d",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
+		"@tanstack/react-query": "^4.35",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-router-dom": "6.9.0"

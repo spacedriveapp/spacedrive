@@ -28,7 +28,7 @@
 		"@sd/assets": "workspace:*",
 		"@sd/client": "workspace:*",
 		"@shopify/flash-list": "1.5.0",
-		"@tanstack/react-query": "^4.29.1",
+		"@tanstack/react-query": "^4.35",
 		"class-variance-authority": "^0.5.3",
 		"dayjs": "^1.11.8",
 		"event-target-polyfill": "^0.0.3",

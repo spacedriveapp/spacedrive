@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"lib": ["esnext"],
+		"noEmit": true,
 		"outDir": "src",
 		"strict": true,
 		"checkJs": true,
@@ -19,7 +20,6 @@
 		"noImplicitReturns": true,
 		"resolveJsonModule": true,
 		"noUnusedParameters": true,
-		"emitDeclarationOnly": true,
 		"experimentalDecorators": true,
 		"useDefineForClassFields": true,
 		"noUncheckedIndexedAccess": true,

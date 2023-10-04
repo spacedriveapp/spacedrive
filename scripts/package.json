@@ -6,7 +6,8 @@
 	"scripts": {
 		"prep": "node preprep.mjs",
 		"tauri": "node tauri.mjs",
-		"lint": "eslint --cache"
+		"lint": "eslint --cache",
+		"typecheck": "tsc"
 	},
 	"prettier": {
 		"semi": false,
@@ -20,7 +21,8 @@
 		"@iarna/toml": "^2.2.5",
 		"archive-wasm": "^1.5.3",
 		"mustache": "^4.2.0",
-		"semver": "^7.5.0"
+		"semver": "^7.5.0",
+		"undici": "^5.25.4"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.23.0",

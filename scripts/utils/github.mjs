@@ -4,6 +4,8 @@ import { env } from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
+import { fetch, Headers } from 'undici'
+
 const __debug = env.NODE_ENV === 'debug'
 const __offline = env.OFFLINE === 'true'
 const __filename = fileURLToPath(import.meta.url)
@@ -76,7 +78,7 @@ async function getCache(resource, headers) {
 }
 
 /**
- * @param {Response} response
+ * @param {import('undici').Response} response
  * @param {string} resource
  * @param {Buffer} [cachedData]
  * @param {Headers} [headers]
