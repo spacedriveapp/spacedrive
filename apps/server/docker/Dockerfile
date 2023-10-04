@@ -67,7 +67,7 @@ ENV PATH="/root/.cargo/bin:$PATH"
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true ./scripts/setup.sh
 
-RUN cd ./scritps; npm i --production
+RUN cd ./scripts; npm i --production
 
 RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 	pnpm prep

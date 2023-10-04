@@ -27,9 +27,9 @@ jobs:
             bundles: appimage,deb
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
-          - host: ubuntu-20.04
-            target: aarch64-unknown-linux-gnu
-            bundles: deb # no appimage for now unfortunetly
+          # - host: ubuntu-20.04
+          #   target: aarch64-unknown-linux-gnu
+          #   bundles: deb # no appimage for now unfortunetly
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-musl
           # - host: ubuntu-20.04
