@@ -20,33 +20,33 @@ interface Props {
 	data: MediaMetadata;
 }
 
-const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
-const DateFormatWithoutTz = 'YYYY-MM-DD HH:mm:ss';
+// const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
+// const DateFormatWithoutTz = 'YYYY-MM-DD HH:mm:ss';
 
-const formatMediaDate = (datetime: MediaDate): { formatted: string; raw: string } | undefined => {
-	dayjs.extend(customParseFormat);
-	dayjs.extend(utc);
+// const formatMediaDate = (datetime: MediaDate): { formatted: string; raw: string } | undefined => {
+// 	dayjs.extend(customParseFormat);
+// 	dayjs.extend(utc);
 
-	// dayjs.tz.setDefault(dayjs.tz.guess());
+// 	// dayjs.tz.setDefault(dayjs.tz.guess());
 
-	const getTzData = (dt: string): [string, number] => {
-		if (dt.includes('+'))
-			return [DateFormatWithTz, Number.parseInt(dt.substring(dt.indexOf('+'), 3))];
-		return [DateFormatWithoutTz, 0];
-	};
+// 	const getTzData = (dt: string): [string, number] => {
+// 		if (dt.includes('+'))
+// 			return [DateFormatWithTz, Number.parseInt(dt.substring(dt.indexOf('+'), 3))];
+// 		return [DateFormatWithoutTz, 0];
+// 	};
 
-	const [tzFormat, tzOffset] = getTzData(datetime);
+// 	const [tzFormat, tzOffset] = getTzData(datetime);
 
-	console.log({
-		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
-		raw: datetime
-	});
+// 	console.log({
+// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+// 		raw: datetime
+// 	});
 
-	return {
-		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
-		raw: datetime
-	};
-};
+// 	return {
+// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+// 		raw: datetime
+// 	};
+// };
 
 const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
 	// the lack of a + here will mean that coordinates may have padding at the end
@@ -124,8 +124,8 @@ const MediaData = ({ data }: Props) => {
 			>
 				<MetaData
 					label="Date"
-					tooltipValue={data.date_taken && formatMediaDate(data.date_taken)?.raw}
-					value={data.date_taken && formatMediaDate(data.date_taken)?.formatted}
+					tooltipValue={data.date_taken ?? null}
+					value={data.date_taken ?? null}
 				/>
 				<MetaData label="Type" value={data.type} />
 				<MetaData
