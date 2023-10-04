@@ -12,8 +12,6 @@ if [[ $CONFIGURATION != "Debug" ]]; then
   export CARGO_FLAGS
 fi
 
-export PROTOC="${TARGET_DIRECTORY}/CustomFrameworks/bin/protoc"
-
 # TODO: Also do this for non-Apple Silicon Macs
 if [[ $SPACEDRIVE_CI == "1" ]]; then
   # Required for CI
