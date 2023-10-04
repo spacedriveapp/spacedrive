@@ -6,6 +6,11 @@ if [ "${CI:-}" = "true" ]; then
   set -x
 fi
 
+if [ -z "${HOME:-}" ]; then
+  HOME="$(CDPATH='' cd -- "$(osascript -e 'set output to (POSIX path of (path to home folder))')" && pwd)"
+  export HOME
+fi
+
 echo "Building 'sd-mobile-ios' library..."
 
 __dirname="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
@@ -23,7 +28,7 @@ fi
 # TODO: Also do this for non-Apple Silicon Macs
 if [ "${SPACEDRIVE_CI:-}" = "1" ]; then
   # Required for CI
-  export PATH="$HOME/.cargo/bin:$PATH"
+  export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 
   cargo build -p sd-mobile-ios --target x86_64-apple-ios
 
