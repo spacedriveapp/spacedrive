@@ -74,7 +74,8 @@ export const Component = () => {
 	const explorerSettings = useExplorerSettings({
 		settings,
 		onSettingsChanged,
-		orderingKeys: filePathOrderingKeysSchema
+		orderingKeys: filePathOrderingKeysSchema,
+		location: location.data
 	});
 
 	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
