@@ -11,8 +11,8 @@ use crate::{
 	},
 	object::{
 		fs::{
-			append_digit_to_filename, copy::FileCopierJobInit, cut::FileCutterJobInit,
-			delete::FileDeleterJobInit, erase::FileEraserJobInit,
+			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+			erase::FileEraserJobInit,
 		},
 		media::{
 			media_data_extractor::{
