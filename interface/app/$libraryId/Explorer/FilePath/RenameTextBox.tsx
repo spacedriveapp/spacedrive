@@ -72,9 +72,8 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		const reset = () => ref.current && (ref.current.innerText = text ?? '');
 
 		const handleRename = async () => {
-			const newName = ref.current?.innerText.trim();
-
-			if (!newName || newName === text) {
+			const newName = ref.current?.innerText;
+			if (!newName) {
 				reset();
 				return;
 			}
