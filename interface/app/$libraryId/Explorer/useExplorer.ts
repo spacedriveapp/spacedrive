@@ -102,7 +102,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 
 	useEffect(() => {
 		store.layoutMode = settings.layoutMode;
-	}, [location, settings.layoutMode, store])
+	}, [location])
 
 	useEffect(
 		() =>
