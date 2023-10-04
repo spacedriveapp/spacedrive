@@ -32,6 +32,12 @@ script_failure() {
 
 trap 'script_failure ${LINENO:-}' ERR
 
+case "${OSTYPE:-}" in
+  'msys' | 'mingw' | 'cygwin')
+    err 'Bash for windows is not supported, please interact with this repo from Powershell or CMD'
+    ;;
+esac
+
 if [ "${CI:-}" != "true" ]; then
   echo 'Spacedrive Development Environment Setup'
   echo 'To set up your machine for Spacedrive development, this script will install some required dependencies with your system package manager'

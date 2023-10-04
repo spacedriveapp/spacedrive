@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"scripts": {
-		"preprep": "pnpm exec node scripts/preprep.mjs",
+		"preprep": "pnpm --filter @sd/scripts -- prep",
 		"prep": "pnpm gen:prisma",
 		"postprep": "pnpm codegen",
 		"build": "turbo run build",
@@ -40,9 +40,7 @@
 		"@cspell/dict-typescript": "^2.0.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
 		"@storybook/react-vite": "^7.0.20",
-		"archive-wasm": "^1.5.3",
 		"cspell": "^6.31.1",
-		"mustache": "^4.2.0",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.3",
 		"rimraf": "^4.4.1",
@@ -62,23 +60,6 @@
 		"node": ">=18.17 <19 || >=20.1"
 	},
 	"eslintConfig": {
-		"root": true,
-		"overrides": [
-			{
-				"files": [
-					"*.mjs"
-				],
-				"env": {
-					"node": true,
-					"es2022": true,
-					"browser": false,
-					"commonjs": false,
-					"shared-node-browser": false
-				},
-				"parserOptions": {
-					"sourceType": "module"
-				}
-			}
-		]
+		"root": true
 	}
 }

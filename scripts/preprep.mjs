@@ -1,229 +1,144 @@
-import { exec as _exec } from 'node:child_process';
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import { env, umask } from 'node:process';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-import mustache from 'mustache';
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
+import { env, exit, umask } from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './deps.mjs';
-import { getGitBranches } from './git.mjs';
-import { getMachineId } from './machineId.mjs';
-import { which } from './which.mjs';
+import * as mustache from 'mustache'
 
-umask(0o026);
+import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './utils/deps.mjs'
+import { getGitBranches } from './utils/git.mjs'
+import { getMachineId } from './utils/machineId.mjs'
+import { setupMacOsFramework, symlinkSharedLibsMacOS } from './utils/shared.mjs'
+import { which } from './utils/which.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
-	console.error('Bash for windows is not supported, please execute this from Powershell or CMD');
-	process.exit(255);
+	console.error(
+		'Bash for windows is not supported, please interact with this repo from Powershell or CMD'
+	)
+	exit(255)
 }
 
-const exec = promisify(_exec);
+// Limit file permissions
+umask(0o026)
 
-const __debug = env.NODE_ENV === 'debug';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __debug = env.NODE_ENV === 'debug'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // NOTE: Must point to package root path
-const __root = path.resolve(path.join(__dirname, '..'));
+const __root = path.resolve(path.join(__dirname, '..'))
+
+const bugWarn =
+	'This is probably a bug, please open a issue with you system info at: ' +
+	'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
 
 // Current machine identifiers
-const machineId = getMachineId();
+const machineId = getMachineId()
 
 // Basic dependeny check
-if (
-	(await Promise.all([which('cargo'), which('rustc'), which('pnpm'), which('node')])).some(
-		(found) => !found
-	)
-) {
+if ((await Promise.all([which('cargo'), which('rustc'), which('pnpm')])).some(found => !found)) {
 	console.error(`Basic dependencies missing.
-Make sure you have rust, node.js and pnpm installed:
+Make sure you have rust and pnpm installed:
 https://rustup.rs
-https://nodejs.org/en/download
 https://pnpm.io/installation
 
 Also that you have run the setup script:
 packages/scripts/${machineId[0] === 'Windows_NT' ? 'setup.ps1' : 'setup.sh'}
-`);
+`)
 }
 
-// Accepted git branches for querying for artifacts (current, main, master)
-const branches = await getGitBranches(__root);
-
-// Create the basic target directory hierarchy
-const framework = path.join(__root, 'target', 'Frameworks');
-await fs.rm(framework, { force: true, recursive: true });
+// Directory where the native deps will be downloaded
+const nativeDeps = path.join(__root, 'apps', '.deps')
+await fs.rm(nativeDeps, { force: true, recursive: true })
 await Promise.all(
-	['bin', 'lib', 'include'].map((dir) =>
-		fs.mkdir(path.join(framework, dir), { mode: 0o750, recursive: true })
+	['bin', 'lib', 'include'].map(dir =>
+		fs.mkdir(path.join(nativeDeps, dir), { mode: 0o750, recursive: true })
 	)
-);
+)
+
+// Accepted git branches for querying for artifacts (current, main, master)
+const branches = await getGitBranches(__root)
 
 // Download all necessary external dependencies
 await Promise.all([
-	downloadProtc(machineId, framework).catch((e) => {
+	downloadProtc(machineId, nativeDeps).catch(e => {
 		console.error(
-			'Failed to download protoc, this is required for Spacedrive to compile. ' +
+			'Failed to download protobuf compiler, this is required to build Spacedrive. ' +
 				'Please install it with your system package manager'
-		);
-		throw e;
+		)
+		throw e
 	}),
-	downloadPDFium(machineId, framework).catch((e) => {
+	downloadPDFium(machineId, nativeDeps).catch(e => {
 		console.warn(
 			'Failed to download pdfium lib. ' +
-				"This is optional, but if one isn't configured Spacedrive won't be able to generate thumbnails for PDF files"
-		);
-		if (__debug) console.error(e);
+				"This is optional, but if one isn't present Spacedrive won't be able to generate thumbnails for PDF files"
+		)
+		if (__debug) console.error(e)
 	}),
-	downloadFFMpeg(machineId, framework, branches).catch((e) => {
-		console.error(
-			'Failed to download ffmpeg. This is probably a bug, please open a issue with you system info at: ' +
-				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-		);
-		throw e;
+	downloadFFMpeg(machineId, nativeDeps, branches).catch(e => {
+		console.error(`Failed to download ffmpeg. ${bugWarn}`)
+		throw e
 	}),
-	downloadLibHeif(machineId, framework, branches).catch((e) => {
-		console.error(
-			'Failed to download libheif. This is probably a bug, please open a issue with you system info at: ' +
-				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-		);
-		throw e;
-	})
-]).catch((e) => {
-	if (__debug) console.error(e);
-	process.exit(1);
-});
+	downloadLibHeif(machineId, nativeDeps, branches).catch(e => {
+		console.error(`Failed to download libheif. ${bugWarn}`)
+		throw e
+	}),
+]).catch(e => {
+	if (__debug) console.error(e)
+	exit(1)
+})
+
+// Extra OS specific setup
+try {
+	if (machineId[0] === 'Darwin') {
+		console.log(`Setup Framework...`)
+		await setupMacOsFramework(nativeDeps).catch(e => {
+			console.error(`Failed to setup Framework. ${bugWarn}`)
+			throw e
+		})
+		// This is still required due to how ffmpeg-sys-next builds script works
+		console.log(`Symlink shared libs...`)
+		await symlinkSharedLibsMacOS(nativeDeps).catch(e => {
+			console.error(`Failed to symlink shared libs. ${bugWarn}`)
+			throw e
+		})
+	}
+} catch (error) {
+	console.error(`Failed to generate .cargo/config.toml. ${bugWarn}`)
+	if (__debug) console.error(error)
+	exit(1)
+}
 
 // Generate .cargo/config.toml
-console.log('Generating cargo config...');
+console.log('Generating cargo config...')
 try {
 	await fs.writeFile(
 		path.join(__root, '.cargo', 'config.toml'),
 		mustache
 			.render(
 				await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
-					encoding: 'utf8'
+					encoding: 'utf8',
 				}),
 				{
-					ffmpeg: machineId[0] === 'Linux' ? false : framework.replaceAll('\\', '\\\\'),
+					isWin: machineId[0] === 'Windows_NT',
+					isMacOS: machineId[0] === 'Darwin',
+					isLinux: machineId[0] === 'Linux',
+					// Escape windows path separator to be compatible with TOML parsing
 					protoc: path
 						.join(
-							framework,
+							nativeDeps,
 							'bin',
 							machineId[0] === 'Windows_NT' ? 'protoc.exe' : 'protoc'
 						)
 						.replaceAll('\\', '\\\\'),
-					projectRoot: __root.replaceAll('\\', '\\\\'),
-					isWin: machineId[0] === 'Windows_NT',
-					isMacOS: machineId[0] === 'Darwin',
-					isLinux: machineId[0] === 'Linux'
+					nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
 				}
 			)
 			.replace(/\n\n+/g, '\n'),
 		{ mode: 0o751, flag: 'w+' }
-	);
+	)
 } catch (error) {
-	console.error(
-		'Failed to generate .cargo/config.toml, please open an issue on: ' +
-			'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-	);
-	if (__debug) console.error(error);
-	process.exit(1);
-}
-
-if (machineId[0] === 'Linux') {
-	// Setup Linux libraries
-	const libDir = path.join(__root, 'target', 'lib');
-	await fs.rm(libDir, { force: true, recursive: true });
-	await fs.mkdir(libDir, { recursive: true, mode: 0o751 });
-	await fs.symlink(path.join(framework, 'lib'), path.join(__root, 'target', 'lib', 'spacedrive'));
-} else if (machineId[0] === 'Darwin') {
-	// Setup macOS Frameworks
-	try {
-		console.log('Setup Frameworks & Sign libraries...');
-		const ffmpegFramework = path.join(framework, 'FFMpeg.framework');
-		// Move pdfium License to FFMpeg.framework
-		await fs.rename(
-			path.join(framework, 'LICENSE.pdfium'),
-			path.join(
-				ffmpegFramework,
-				'Resources',
-				'English.lproj',
-				'Documentation',
-				'LICENSE.pdfium'
-			)
-		);
-		// Move include files to FFMpeg.framework
-		const include = path.join(framework, 'include');
-		const headers = path.join(ffmpegFramework, 'Headers');
-		const includeFiles = await fs.readdir(include, { recursive: true, withFileTypes: true });
-		const moveIncludes = includeFiles
-			.filter(
-				(entry) =>
-					(entry.isFile() || entry.isSymbolicLink()) && !entry.name.endsWith('.proto')
-			)
-			.map(async (entry) => {
-				const file = path.join(entry.path, entry.name);
-				const newFile = path.resolve(headers, path.relative(include, file));
-				await fs.mkdir(path.dirname(newFile), { mode: 0o751, recursive: true });
-				await fs.rename(file, newFile);
-			});
-		// Move libs to FFMpeg.framework
-		const lib = path.join(framework, 'lib');
-		const libraries = path.join(ffmpegFramework, 'Libraries');
-		const libFiles = await fs.readdir(lib, { recursive: true, withFileTypes: true });
-		const moveLibs = libFiles
-			.filter(
-				(entry) =>
-					(entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.dylib')
-			)
-			.map(async (entry) => {
-				const file = path.join(entry.path, entry.name);
-				const newFile = path.resolve(libraries, path.relative(lib, file));
-				await fs.mkdir(path.dirname(newFile), { mode: 0o751, recursive: true });
-				await fs.rename(file, newFile);
-			});
-
-		await Promise.all([...moveIncludes, ...moveLibs]);
-
-		// Symlink headers
-		const headerFiles = await fs.readdir(headers, { recursive: true, withFileTypes: true });
-		const linkHeaders = headerFiles
-			.filter((entry) => entry.isFile() || entry.isSymbolicLink())
-			.map(async (entry) => {
-				const file = path.join(entry.path, entry.name);
-				const link = path.resolve(include, path.relative(headers, file));
-				const linkDir = path.dirname(link);
-				await fs.mkdir(linkDir, { mode: 0o751, recursive: true });
-				await fs.symlink(path.relative(linkDir, file), link);
-			});
-		// Symlink libraries
-		const libraryFiles = await fs.readdir(libraries, { recursive: true, withFileTypes: true });
-		const linkLibs = libraryFiles
-			.filter(
-				(entry) =>
-					(entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.dylib')
-			)
-			.map(async (entry) => {
-				const file = path.join(entry.path, entry.name);
-				const link = path.resolve(lib, path.relative(libraries, file));
-				const linkDir = path.dirname(link);
-				await fs.mkdir(linkDir, { mode: 0o751, recursive: true });
-				await fs.symlink(path.relative(linkDir, file), link);
-				if (entry.isFile()) {
-					// Sign the lib with the local machine certificate (Required for it to work on macOS 13+)
-					await exec(`codesign -s "${env.APPLE_SIGNING_IDENTITY || '-'}" -f "${file}"`);
-				}
-			});
-
-		await Promise.all([...linkHeaders, ...linkLibs]);
-	} catch (error) {
-		console.error(
-			'Failed to configure required Frameworks.This is probably a bug, please open a issue with you system info at: ' +
-				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
-		);
-		if (__debug) console.error(error);
-		process.exit(1);
-	}
+	console.error(`Failed to generate .cargo/config.toml. ${bugWarn}`)
+	if (__debug) console.error(error)
+	exit(1)
 }

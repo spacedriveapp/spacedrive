@@ -6,4 +6,3 @@ WixTools
 *.dll.*
 *.so
 *.so.*
-.native-deps

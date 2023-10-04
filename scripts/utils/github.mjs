@@ -1,35 +1,34 @@
-import * as fs from 'node:fs/promises';
-import { dirname, join as joinPath, posix as path } from 'node:path';
-import { env } from 'node:process';
-import { setTimeout } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
-import { extract } from 'archive-wasm';
+import * as fs from 'node:fs/promises'
+import { dirname, join as joinPath, posix as path } from 'node:path'
+import { env } from 'node:process'
+import { setTimeout } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
 
-const __debug = env.NODE_ENV === 'debug';
-const __offline = env.OFFLINE === 'true';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const cacheDir = joinPath(__dirname, '.tmp');
-await fs.mkdir(cacheDir, { recursive: true, mode: 0o751 });
+const __debug = env.NODE_ENV === 'debug'
+const __offline = env.OFFLINE === 'true'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const cacheDir = joinPath(__dirname, '.tmp')
+await fs.mkdir(cacheDir, { recursive: true, mode: 0o751 })
 
 // Note: Trailing slashs are important to correctly append paths
-const GH = 'https://api.github.com/repos/';
-const NIGTHLY = 'https://nightly.link/';
+const GH = 'https://api.github.com/repos/'
+const NIGTHLY = 'https://nightly.link/'
 
 // Github routes
-const RELEASES = 'releases';
-const WORKFLOWS = 'actions/workflows';
-const ARTIFACTS = 'actions/artifacts';
+const RELEASES = 'releases'
+const WORKFLOWS = 'actions/workflows'
+const ARTIFACTS = 'actions/artifacts'
 
 // Default GH headers
 const GH_HEADERS = new Headers({
-	'Accept': 'application/vnd.github+json',
-	'X-GitHub-Api-Version': '2022-11-28'
-});
+	Accept: 'application/vnd.github+json',
+	'X-GitHub-Api-Version': '2022-11-28',
+})
 
 // Load github auth token if available
 if ('GITHUB_TOKEN' in env && env.GITHUB_TOKEN)
-	GH_HEADERS.append('Authorization', `Bearer ${env.GITHUB_TOKEN}`);
+	GH_HEADERS.append('Authorization', `Bearer ${env.GITHUB_TOKEN}`)
 
 /**
  * @param {string} resource
@@ -38,42 +37,42 @@ if ('GITHUB_TOKEN' in env && env.GITHUB_TOKEN)
  */
 async function getCache(resource, headers) {
 	/** @type {Buffer | undefined} */
-	let data;
+	let data
 	/** @type {[string, string] | undefined} */
-	let header;
+	let header
 
 	// Don't cache in CI
-	if (env.CI === 'true') return null;
+	if (env.CI === 'true') return null
 
 	if (headers)
 		resource += Array.from(headers.entries())
 			.filter(([name]) => name !== 'If-None-Match' && name !== 'If-Modified-Since')
 			.flat()
-			.join(':');
+			.join(':')
 	try {
 		const cache = JSON.parse(
 			await fs.readFile(joinPath(cacheDir, Buffer.from(resource).toString('base64url')), {
-				encoding: 'utf8'
+				encoding: 'utf8',
 			})
-		);
+		)
 		if (cache && typeof cache === 'object') {
 			if (cache.etag && typeof cache.etag === 'string') {
-				header = ['If-None-Match', cache.etag];
+				header = ['If-None-Match', cache.etag]
 			} else if (cache.modifiedSince && typeof cache.modifiedSince === 'string') {
-				header = ['If-Modified-Since', cache.modifiedSince];
+				header = ['If-Modified-Since', cache.modifiedSince]
 			}
 
 			if (cache.data && typeof cache.data === 'string')
-				data = Buffer.from(cache.data, 'base64');
+				data = Buffer.from(cache.data, 'base64')
 		}
 	} catch (error) {
 		if (__debug) {
-			console.warn(`CACHE MISS: ${resource}`);
-			console.error(error);
+			console.warn(`CACHE MISS: ${resource}`)
+			console.error(error)
 		}
 	}
 
-	return data ? { data, header } : null;
+	return data ? { data, header } : null
 }
 
 /**
@@ -84,23 +83,23 @@ async function getCache(resource, headers) {
  * @returns {Promise<Buffer>}
  */
 async function setCache(response, resource, cachedData, headers) {
-	const data = Buffer.from(await response.arrayBuffer());
+	const data = Buffer.from(await response.arrayBuffer())
 
 	// Don't cache in CI
-	if (env.CI === 'true') return data;
+	if (env.CI === 'true') return data
 
-	const etag = response.headers.get('ETag') || undefined;
-	const modifiedSince = response.headers.get('Last-Modified') || undefined;
+	const etag = response.headers.get('ETag') || undefined
+	const modifiedSince = response.headers.get('Last-Modified') || undefined
 	if (headers)
 		resource += Array.from(headers.entries())
 			.filter(([name]) => name !== 'If-None-Match' && name !== 'If-Modified-Since')
 			.flat()
-			.join(':');
+			.join(':')
 
 	if (response.status === 304 || (response.ok && data.length === 0)) {
 		// Cache hit
-		if (!cachedData) throw new Error('Empty cache hit ????');
-		return cachedData;
+		if (!cachedData) throw new Error('Empty cache hit ????')
+		return cachedData
 	}
 
 	try {
@@ -109,18 +108,18 @@ async function setCache(response, resource, cachedData, headers) {
 			JSON.stringify({
 				etag,
 				modifiedSince,
-				data: data.toString('base64')
+				data: data.toString('base64'),
 			}),
 			{ mode: 0o640, flag: 'w+' }
-		);
+		)
 	} catch (error) {
 		if (__debug) {
-			console.warn(`CACHE WRITE FAIL: ${resource}`);
-			console.error(error);
+			console.warn(`CACHE WRITE FAIL: ${resource}`)
+			console.error(error)
 		}
 	}
 
-	return data;
+	return data
 }
 
 /**
@@ -130,30 +129,30 @@ async function setCache(response, resource, cachedData, headers) {
  * @returns {Promise<Buffer>}
  */
 export async function get(resource, headers, preferCache) {
-	if (headers == null) headers = new Headers();
-	if (resource instanceof URL) resource = resource.toString();
+	if (headers == null) headers = new Headers()
+	if (resource instanceof URL) resource = resource.toString()
 
-	const cache = await getCache(resource, headers);
+	const cache = await getCache(resource, headers)
 	if (__offline) {
 		if (cache?.data == null)
-			throw new Error(`OFFLINE MODE: Cache for request ${resource} doesn't exist`);
-		return cache.data;
+			throw new Error(`OFFLINE MODE: Cache for request ${resource} doesn't exist`)
+		return cache.data
 	}
-	if (preferCache && cache?.data != null) return cache.data;
+	if (preferCache && cache?.data != null) return cache.data
 
-	if (cache?.header) headers.append(...cache.header);
+	if (cache?.header) headers.append(...cache.header)
 
-	const response = await fetch(resource, { headers });
+	const response = await fetch(resource, { headers })
 
 	if (!response.ok) {
 		if (cache?.data) {
-			if (__debug) console.warn(`CACHE HIT due to fail: ${resource} ${response.statusText}`);
-			return cache.data;
+			if (__debug) console.warn(`CACHE HIT due to fail: ${resource} ${response.statusText}`)
+			return cache.data
 		}
-		throw new Error(response.statusText);
+		throw new Error(response.statusText)
 	}
 
-	return await setCache(response, resource, cache?.data, headers);
+	return await setCache(response, resource, cache?.data, headers)
 }
 
 // Header name	Description
@@ -163,8 +162,8 @@ export async function get(resource, headers, preferCache) {
 // x-ratelimit-reset	The time at which the current rate limit window resets in UTC epoch seconds.
 const RATE_LIMIT = {
 	reset: 0,
-	remaining: Infinity
-};
+	remaining: Infinity,
+}
 
 /**
  * Get resource from a Github route with some pre-defined parameters
@@ -172,52 +171,52 @@ const RATE_LIMIT = {
  * @returns {Promise<Buffer>}
  */
 export async function getGh(route) {
-	route = new URL(route, GH).toString();
+	route = new URL(route, GH).toString()
 
-	const cache = await getCache(route);
+	const cache = await getCache(route)
 	if (__offline) {
 		if (cache?.data == null)
-			throw new Error(`OFFLINE MODE: Cache for request ${route} doesn't exist`);
-		return cache?.data;
+			throw new Error(`OFFLINE MODE: Cache for request ${route} doesn't exist`)
+		return cache?.data
 	}
 
 	if (RATE_LIMIT.remaining === 0) {
-		if (cache?.data) return cache.data;
+		if (cache?.data) return cache.data
 		console.warn(
 			`RATE LIMIT: Waiting ${RATE_LIMIT.reset} seconds before contacting Github again... [CTRL+C to cancel]`
-		);
-		await setTimeout(RATE_LIMIT.reset * 1000);
+		)
+		await setTimeout(RATE_LIMIT.reset * 1000)
 	}
 
-	const headers = new Headers(GH_HEADERS);
-	if (cache?.header) headers.append(...cache.header);
+	const headers = new Headers(GH_HEADERS)
+	if (cache?.header) headers.append(...cache.header)
 
-	const response = await fetch(route, { method: 'GET', headers });
+	const response = await fetch(route, { method: 'GET', headers })
 
-	const rateReset = Number.parseInt(response.headers.get('x-ratelimit-reset') ?? '');
-	const rateRemaining = Number.parseInt(response.headers.get('x-ratelimit-remaining') ?? '');
+	const rateReset = Number.parseInt(response.headers.get('x-ratelimit-reset') ?? '')
+	const rateRemaining = Number.parseInt(response.headers.get('x-ratelimit-remaining') ?? '')
 	if (!(Number.isNaN(rateReset) || Number.isNaN(rateRemaining))) {
-		const reset = rateReset - Date.now() / 1000;
-		if (reset > RATE_LIMIT.reset) RATE_LIMIT.reset = reset;
+		const reset = rateReset - Date.now() / 1000
+		if (reset > RATE_LIMIT.reset) RATE_LIMIT.reset = reset
 		if (rateRemaining < RATE_LIMIT.remaining) {
-			RATE_LIMIT.remaining = rateRemaining;
+			RATE_LIMIT.remaining = rateRemaining
 			if (__debug) {
-				console.warn(`Github remaining requests: ${RATE_LIMIT.remaining}`);
-				await setTimeout(5000);
+				console.warn(`Github remaining requests: ${RATE_LIMIT.remaining}`)
+				await setTimeout(5000)
 			}
 		}
 	}
 
 	if (!response.ok) {
 		if (cache?.data) {
-			if (__debug) console.warn(`CACHE HIT due to fail: ${route} ${response.statusText}`);
-			return cache.data;
+			if (__debug) console.warn(`CACHE HIT due to fail: ${route} ${response.statusText}`)
+			return cache.data
 		}
-		if (response.status === 403 && RATE_LIMIT.remaining === 0) return await getGh(route);
-		throw new Error(response.statusText);
+		if (response.status === 403 && RATE_LIMIT.remaining === 0) return await getGh(route)
+		throw new Error(response.statusText)
 	}
 
-	return await setCache(response, route, cache?.data);
+	return await setCache(response, route, cache?.data)
 }
 
 /**
@@ -225,17 +224,17 @@ export async function getGh(route) {
  * @yields {{name: string, downloadUrl: string}}
  */
 export async function* getGhReleasesAssets(repo) {
-	let page = 0;
+	let page = 0
 	while (true) {
 		// "${_gh_url}/protocolbuffers/protobuf/releases?page=${_page}&per_page=100"
 		const releases = JSON.parse(
 			(await getGh(path.join(repo, `${RELEASES}?page=${page++}&per_page=100`))).toString(
 				'utf8'
 			)
-		);
+		)
 
-		if (!Array.isArray(releases)) throw new Error(`Error: ${JSON.stringify(releases)}`);
-		if (releases.length === 0) return;
+		if (!Array.isArray(releases)) throw new Error(`Error: ${JSON.stringify(releases)}`)
+		if (releases.length === 0) return
 
 		for (const release of /** @type {unknown[]} */ (releases)) {
 			if (
@@ -246,9 +245,9 @@ export async function* getGhReleasesAssets(repo) {
 					Array.isArray(release.assets)
 				)
 			)
-				throw new Error(`Invalid release: ${release}`);
+				throw new Error(`Invalid release: ${release}`)
 
-			if ('prerelease' in release && release.prerelease) continue;
+			if ('prerelease' in release && release.prerelease) continue
 
 			for (const asset of /** @type {unknown[]} */ (release.assets)) {
 				if (
@@ -261,9 +260,9 @@ export async function* getGhReleasesAssets(repo) {
 						typeof asset.browser_download_url === 'string'
 					)
 				)
-					throw new Error(`Invalid release.asset: ${asset}`);
+					throw new Error(`Invalid release.asset: ${asset}`)
 
-				yield { name: asset.name, downloadUrl: asset.browser_download_url };
+				yield { name: asset.name, downloadUrl: asset.browser_download_url }
 			}
 		}
 	}
@@ -276,11 +275,11 @@ export async function* getGhReleasesAssets(repo) {
  * @yields {{ id: number, name: string }}
  */
 export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
-	if (!branch) branch = 'main';
-	if (typeof branch === 'string') branch = [branch];
-	if (!(branch instanceof Set)) branch = new Set(branch);
+	if (!branch) branch = 'main'
+	if (typeof branch === 'string') branch = [branch]
+	if (!(branch instanceof Set)) branch = new Set(branch)
 
-	let page = 0;
+	let page = 0
 	while (true) {
 		const workflow = /** @type {unknown} */ (
 			JSON.parse(
@@ -295,7 +294,7 @@ export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
 					)
 				).toString('utf8')
 			)
-		);
+		)
 		if (
 			!(
 				workflow &&
@@ -304,9 +303,9 @@ export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
 				Array.isArray(workflow.workflow_runs)
 			)
 		)
-			throw new Error(`Error: ${JSON.stringify(workflow)}`);
+			throw new Error(`Error: ${JSON.stringify(workflow)}`)
 
-		if (workflow.workflow_runs.length === 0) return;
+		if (workflow.workflow_runs.length === 0) return
 
 		for (const run of /** @type {unknown[]} */ (workflow.workflow_runs)) {
 			if (
@@ -319,13 +318,13 @@ export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
 					typeof run.artifacts_url === 'string'
 				)
 			)
-				throw new Error(`Invalid Workflow run: ${run}`);
+				throw new Error(`Invalid Workflow run: ${run}`)
 
-			if (!branch.has(run.head_branch)) continue;
+			if (!branch.has(run.head_branch)) continue
 
 			const response = /** @type {unknown} */ (
 				JSON.parse((await getGh(run.artifacts_url)).toString('utf8'))
-			);
+			)
 
 			if (
 				!(
@@ -335,7 +334,7 @@ export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
 					Array.isArray(response.artifacts)
 				)
 			)
-				throw new Error(`Error: ${JSON.stringify(response)}`);
+				throw new Error(`Error: ${JSON.stringify(response)}`)
 
 			for (const artifact of /** @type {unknown[]} */ (response.artifacts)) {
 				if (
@@ -348,9 +347,9 @@ export async function* getGhWorkflowRunArtifacts(repo, yaml, branch) {
 						typeof artifact.name === 'string'
 					)
 				)
-					throw new Error(`Invalid artifact: ${artifact}`);
+					throw new Error(`Invalid artifact: ${artifact}`)
 
-				yield { id: artifact.id, name: artifact.name };
+				yield { id: artifact.id, name: artifact.name }
 			}
 		}
 	}
@@ -366,11 +365,11 @@ export async function getGhArtifactContent(repo, id) {
 	if (GH_HEADERS.has('Authorization')) {
 		try {
 			// "${_gh_url}/${_sd_gh_path}/actions/artifacts/${_artifact_id}/zip"
-			return await getGh(path.join(repo, ARTIFACTS, id.toString(), 'zip'));
+			return await getGh(path.join(repo, ARTIFACTS, id.toString(), 'zip'))
 		} catch (error) {
 			if (__debug) {
-				console.warn('Failed to download artifact from github, fallback to nightly.link');
-				console.error(error);
+				console.warn('Failed to download artifact from github, fallback to nightly.link')
+				console.error(error)
 			}
 		}
 	}
@@ -381,5 +380,5 @@ export async function getGhArtifactContent(repo, id) {
 	 * Use it when running in evironments that are not authenticated with github
 	 * "https://nightly.link/${_sd_gh_path}/actions/artifacts/${_artifact_id}.zip"
 	 */
-	return await get(new URL(path.join(repo, ARTIFACTS, `${id}.zip`), NIGTHLY), null, true);
+	return await get(new URL(path.join(repo, ARTIFACTS, `${id}.zip`), NIGTHLY), null, true)
 }

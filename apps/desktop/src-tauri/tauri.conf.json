@@ -33,7 +33,7 @@
 				"depends": []
 			},
 			"macOS": {
-				"frameworks": [".native-deps/FFMpeg.framework"],
+				"frameworks": ["../../.deps/FFMpeg.framework"],
 				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"entitlements": null

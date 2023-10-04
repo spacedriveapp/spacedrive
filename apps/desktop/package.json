@@ -5,7 +5,7 @@
 		"vite": "vite",
 		"dev": "vite dev",
 		"build": "vite build",
-		"tauri": "node ./src-tauri/scripts/tauri.js",
+		"tauri": "pnpm --filter @sd/scripts -- tauri",
 		"dmg": "open ../../target/release/bundle/dmg/",
 		"typecheck": "tsc -b",
 		"lint": "eslint src --cache"
@@ -25,7 +25,6 @@
 		"sonner": "^0.6.2"
 	},
 	"devDependencies": {
-		"@iarna/toml": "^2.2.5",
 		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.3.1",
 		"@types/babel__core": "^7.20.1",
@@ -33,7 +32,6 @@
 		"@types/react-dom": "^18.0.6",
 		"@vitejs/plugin-react": "^2.1.0",
 		"sass": "^1.55.0",
-		"semver": "^7.5.0",
 		"typescript": "^5.0.4",
 		"vite": "^4.0.4",
 		"vite-plugin-html": "^3.2.0",
