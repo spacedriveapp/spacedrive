@@ -295,8 +295,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				let mut tx = node.event_bus.0.subscribe();
 				async move {
 					while let Ok(event) = tx.recv().await {
-						match event {
-							CoreEvent::InvalidateOperation(e) => match e {
+						if let CoreEvent::InvalidateOperation(e) = event {
+							match e {
 								InvalidateOperationEvent::Single(event) => {
 									// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
 									// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
@@ -308,8 +308,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 								InvalidateOperationEvent::All => {
 									file_metadata_cache.invalidate_all();
 								}
-							},
-							_ => {}
+							}
 						}
 					}
 				}
