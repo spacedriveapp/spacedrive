@@ -1,4 +1,5 @@
 use crate::{
+	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
@@ -74,7 +75,7 @@ struct LocalState {
 	// This LRU cache allows us to avoid doing a DB lookup on every request.
 	// The main advantage of this LRU Cache is for video files. Video files are fetch in multiple chunks and the cache prevents a DB lookup on every chunk reducing the request time from 15-25ms to 1-10ms.
 	// TODO: We should listen to events when deleting or moving a location and evict the cache accordingly.
-	file_metadata_cache: Cache<CacheKey, CacheValue>,
+	file_metadata_cache: Arc<Cache<CacheKey, CacheValue>>,
 }
 
 type ExtractedPath = extract::Path<(String, String, String)>;
@@ -286,9 +287,38 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 			),
 		)
 		.route_layer(middleware::from_fn(cors_middleware))
-		.with_state(LocalState {
-			node,
-			file_metadata_cache: Cache::new(150),
+		.with_state({
+			let file_metadata_cache = Arc::new(Cache::new(150));
+
+			tokio::spawn({
+				let file_metadata_cache = file_metadata_cache.clone();
+				let mut tx = node.event_bus.0.subscribe();
+				async move {
+					while let Ok(event) = tx.recv().await {
+						match event {
+							CoreEvent::InvalidateOperation(e) => match e {
+								InvalidateOperationEvent::Single(event) => {
+									// TODO: This is inefficent as any change will invalidate who cache. We need the new invalidation system!!!
+									// TODO: It's also error prone and a fine-grained resource based invalidation system would avoid that.
+									if event.key == "search.objects" || event.key == "search.paths"
+									{
+										file_metadata_cache.invalidate_all();
+									}
+								}
+								InvalidateOperationEvent::All => {
+									file_metadata_cache.invalidate_all();
+								}
+							},
+							_ => {}
+						}
+					}
+				}
+			});
+
+			LocalState {
+				node,
+				file_metadata_cache,
+			}
 		})
 }
 
