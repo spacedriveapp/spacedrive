@@ -69,7 +69,7 @@ switch (args[0]) {
 		switch (process.platform) {
 			case 'darwin': {
 				// Configure DMG background
-				env.BACKGROUND_FILE = path.resolve(__dirname, '..', 'dmg-background.png')
+				env.BACKGROUND_FILE = path.resolve(desktopApp, 'src-tauri', 'dmg-background.png')
 				env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
 				env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
 

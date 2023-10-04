@@ -1,11 +1,51 @@
+import { exec as _exec } from 'node:child_process'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { env } from 'node:process'
+import { promisify } from 'node:util'
 
 import * as semver from 'semver'
 
 import { symlinkSharedLibsLinux, copyWindowsDLLs } from './shared.mjs'
+
+const exec = promisify(_exec)
+const __debug = env.NODE_ENV === 'debug'
+
+/**
+ * @param {string} nativeDeps
+ * @returns {Promise<string?>}
+ */
+export async function tauriUpdaterKey(nativeDeps) {
+	if (env.TAURI_PRIVATE_KEY) return null
+
+	// pnpm exec tauri signer generate -w
+	const privateKeyPath = path.join(nativeDeps, 'tauri.key')
+	const publicKeyPath = path.join(nativeDeps, 'tauri.key.pub')
+	const readKeys = () =>
+		Promise.all([
+			fs.readFile(publicKeyPath, { encoding: 'utf-8' }),
+			fs.readFile(privateKeyPath, { encoding: 'utf-8' }),
+		])
+
+	let privateKey, publicKey
+	try {
+		;[publicKey, privateKey] = await readKeys()
+		if (!(publicKey && privateKey)) throw new Error('Empty keys')
+	} catch (err) {
+		if (__debug) {
+			console.warn('Failed to read tauri updater keys')
+			console.error(err)
+		}
+
+		await exec(`pnpm exec tauri signer generate --ci -w '${privateKeyPath}'`)
+		;[publicKey, privateKey] = await readKeys()
+		if (!(publicKey && privateKey)) throw new Error('Empty keys')
+	}
+
+	env.TAURI_PRIVATE_KEY = privateKey
+	return publicKey
+}
 
 /**
  * @param {string} root
@@ -35,16 +75,26 @@ export async function patchTauri(root, nativeDeps, args) {
 						? await symlinkSharedLibsLinux(root, nativeDeps)
 						: [],
 			},
+			updater: /** @type {{ pubkey?: string }} */ ({}),
 		},
+	}
+
+	const tauriConfig = await fs
+		.readFile(path.join(tauriRoot, 'tauri.conf.json'), 'utf-8')
+		.then(JSON.parse)
+
+	if (args[0] === 'build') {
+		if (tauriConfig?.tauri?.updater?.active) {
+			const pubKey = await tauriUpdaterKey(nativeDeps)
+			if (pubKey != null) tauriPatch.tauri.updater.pubkey = pubKey
+		}
 	}
 
 	if (osType === 'Darwin') {
 		// ARM64 support was added in macOS 11, but we need at least 11.2 due to our ffmpeg build
 		const macOSArm64MinimumVersion = '11.2'
 
-		let macOSMinimumVersion = (
-			await fs.readFile(path.join(tauriRoot, 'tauri.conf.json'), 'utf-8').then(JSON.parse)
-		)?.tauri?.bundle?.macOS?.minimumSystemVersion
+		let macOSMinimumVersion = tauriConfig?.tauri?.bundle?.macOS?.minimumSystemVersion
 
 		const targets = args
 			.filter((_, index, args) => {
