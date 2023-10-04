@@ -8,7 +8,7 @@ import {
 	useState,
 	type ComponentProps
 } from 'react';
-import { useKey } from 'rooks';
+import { useKey, useKeys } from 'rooks';
 import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { toast, Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
@@ -115,9 +115,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			}
 		};
 
-		useKey('Enter', (e) => {
+		useKey(['F2', 'Enter'], (e) => {
 			e.preventDefault();
-
+			if (os === 'windows' && e.key === 'Enter') return;
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
 		});

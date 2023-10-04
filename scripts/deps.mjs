@@ -15,9 +15,10 @@ import {
 	FFMPEG_WORKFLOW,
 	getConst,
 	getSuffix,
+	LIBHEIF_SUFFIX,
+	LIBHEIF_WORKFLOW,
 	PDFIUM_SUFFIX,
-	PROTOC_SUFFIX,
-	TAURI_CLI_SUFFIX
+	PROTOC_SUFFIX
 } from './suffix.mjs';
 import { which } from './which.mjs';
 
@@ -160,40 +161,37 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 }
 
 /**
- * Workaround while https://github.com/tauri-apps/tauri/pull/3934 is not available in a Tauri stable release
+ * Download and extract libheif libs for heif thumbnails
  * @param {string[]} machineId
  * @param {string} framework
  * @param {string[]} branches
  */
-export async function downloadPatchedTauriCLI(machineId, framework, branches) {
-	console.log('Dowloading patched tauri CLI...');
+export async function downloadLibHeif(machineId, framework, branches) {
+	const workflow = getConst(LIBHEIF_WORKFLOW, machineId);
+	if (workflow == null) return;
 
-	const tauriCliSuffix = getSuffix(TAURI_CLI_SUFFIX, machineId);
-	if (tauriCliSuffix == null) throw new Error('NO_TAURI_CLI');
+	console.log('Downloading LibHeif...');
+
+	const libHeifSuffix = getSuffix(LIBHEIF_SUFFIX, machineId);
+	if (libHeifSuffix == null) throw new Error('NO_LIBHEIF');
 
 	let found = false;
-	for await (const artifact of getGhWorkflowRunArtifacts(
-		SPACEDRIVE_REPO,
-		'tauri-patched-cli-js.yml',
-		branches
-	)) {
-		if (!tauriCliSuffix.test(artifact.name)) continue;
+	for await (const artifact of getGhWorkflowRunArtifacts(SPACEDRIVE_REPO, workflow, branches)) {
+		if (!libHeifSuffix.test(artifact.name)) continue;
 		try {
-			await extractTo(
-				await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id),
-				path.join(framework, 'bin'),
-				{
-					chmod: 0o700,
-					overwrite: true
-				}
-			);
+			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
 			found = true;
 			break;
 		} catch (error) {
-			console.warn('Failed to download patched tauri cli.js, re-trying...');
+			console.warn('Failed to download LibHeif, re-trying...');
 			if (__debug) console.error(error);
 		}
 	}
 
-	if (!found) throw new Error('NO_TAURI_CLI');
+	if (!found) throw new Error('NO_LIBHEIF');
 }

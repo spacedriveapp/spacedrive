@@ -46,8 +46,6 @@ async fn main() {
 				.unwrap_or_else(|_| "https://app.spacedrive.com".to_string()),
 			client_id: std::env::var("SD_CLIENT_ID")
 				.unwrap_or_else(|_| "04701823-a498-406e-aef9-22081c1dae34".to_string()),
-			client_secret: std::env::var("SD_CLIENT_ID")
-				.unwrap_or_else(|_| "8c0e4f85-d1d3-4a0c-9445-65003ffc581d".to_string()),
 		},
 	)
 	.await

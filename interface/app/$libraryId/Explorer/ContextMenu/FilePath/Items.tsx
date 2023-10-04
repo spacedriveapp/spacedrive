@@ -1,5 +1,5 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
-import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
@@ -10,6 +10,7 @@ import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
+import { useViewItemDoubleClick } from '../../View/ViewItem';
 import { Conditional, ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 import OpenWith from './OpenWith';
@@ -237,12 +238,10 @@ export const OpenOrDownload = new ConditionalItem({
 
 		return { openFilePaths, selectedFilePaths };
 	},
-	Component: ({ openFilePaths, selectedFilePaths }) => {
+	Component: () => {
 		const keybind = useKeybindFactory();
 		const { platform } = usePlatform();
-		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
-		const { library } = useLibraryContext();
+		const { doubleClick } = useViewItemDoubleClick();
 
 		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
@@ -251,27 +250,7 @@ export const OpenOrDownload = new ConditionalItem({
 					<Menu.Item
 						label="Open"
 						keybind={keybind([ModifierKeys.Control], ['O'])}
-						onClick={async () => {
-							if (selectedFilePaths.length < 1) return;
-
-							updateAccessTime
-								.mutateAsync(
-									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
-								)
-								.catch(console.error);
-
-							try {
-								await openFilePaths(
-									library.uuid,
-									selectedFilePaths.map((p) => p.id)
-								);
-							} catch (error) {
-								toast.error({
-									title: `Failed to open file`,
-									body: `Error: ${error}.`
-								});
-							}
-						}}
+						onClick={() => doubleClick()}
 					/>
 					<Conditional items={[OpenWith]} />
 				</>
