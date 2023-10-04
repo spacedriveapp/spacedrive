@@ -428,35 +428,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					match fs::metadata(&new_file_full_path).await {
 						Ok(_) => {
-							for i in 1..u32::MAX {
-								let mut new_file_full_path = root_path.clone();
-
-								append_digit_to_filename(
-									&mut new_file_full_path,
-									new_file_name,
-									(!new_extension.is_empty())
-										.then_some(new_extension)
-										.or(None),
-									i,
-								);
-
-								if fs::metadata(&new_file_full_path).await.is_err() {
-									fs::rename(
-										location_path.join(&iso_file_path),
-										new_file_full_path,
-									)
-									.await
-									.map_err(|e| {
-										rspc::Error::with_cause(
-											ErrorCode::Conflict,
-											"Failed to rename file".to_string(),
-											e,
-										)
-									})?;
-
-									break;
-								}
-							}
+							return Err(rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									"Renaming would overwrite a file".to_string(),
+									e,
+								));
 						}
 						Err(e) => {
 							if e.kind() != std::io::ErrorKind::NotFound {
@@ -466,8 +442,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									e,
 								));
 							}
-
-							fs::rename(location_path.join(&iso_file_path), new_file_full_path)
+							
+fs::rename(location_path.join(&iso_file_path), new_file_full_path)
 								.await
 								.map_err(|e| {
 									rspc::Error::with_cause(
@@ -476,8 +452,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										e,
 									)
 								})?;
+						
 						}
 					}
+
+						
 
 					Ok(())
 				}
