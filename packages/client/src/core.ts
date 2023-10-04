@@ -177,7 +177,7 @@ export type FilePathFilterArgs = { locationId?: number | null; search?: string |
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder } | { field: "dateImageTaken"; value: ObjectOrder } | { field: "imageResolution"; value: ObjectOrder }
+export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder } | { field: "dateImageTaken"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
@@ -313,7 +313,7 @@ export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHidde
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
-export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "dateImageTaken"; value: SortOrder } | { field: "imageResolution"; value: SortOrder }
+export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "dateImageTaken"; value: SortOrder }
 
 export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 

@@ -124,7 +124,8 @@ const MediaData = ({ data }: Props) => {
 			>
 				<MetaData
 					label="Date"
-					tooltipValue={data.date_taken ?? null}
+					tooltipValue={data.date_taken ?? null} // should show full raw value
+					// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
 					value={data.date_taken ?? null}
 				/>
 				<MetaData label="Type" value={data.type} />
