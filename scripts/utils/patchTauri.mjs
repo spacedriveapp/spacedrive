@@ -59,8 +59,10 @@ export async function patchTauri(root, nativeDeps, args) {
 				(targets.length === 0 && process.arch === 'arm64')) &&
 			(macOSMinimumVersion == null ||
 				semver.lt(
-					semver.coerce(macOSMinimumVersion) ?? macOSArm64MinimumVersion,
-					macOSArm64MinimumVersion
+					/** @type {import('semver').SemVer} */ (semver.coerce(macOSMinimumVersion)),
+					/** @type {import('semver').SemVer} */ (
+						semver.coerce(macOSArm64MinimumVersion)
+					)
 				))
 		) {
 			macOSMinimumVersion = macOSArm64MinimumVersion

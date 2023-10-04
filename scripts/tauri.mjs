@@ -121,7 +121,7 @@ await spawn('pnpm', ['exec', 'tauri', ...args], desktopApp)
 		code = exitCode
 		console.error(`tauri ${args[0]} failed with exit code ${exitCode}`)
 		console.error(
-			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm i\``
+			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``
 		)
 	})
 	.finally(() => {

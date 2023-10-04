@@ -6,12 +6,6 @@ import { env } from 'node:process'
 import { extractTo } from 'archive-wasm/src/fs.mjs'
 
 import {
-	getGh,
-	getGhArtifactContent,
-	getGhReleasesAssets,
-	getGhWorkflowRunArtifacts,
-} from './github.mjs'
-import {
 	FFMPEG_SUFFFIX,
 	FFMPEG_WORKFLOW,
 	getConst,
@@ -20,7 +14,13 @@ import {
 	LIBHEIF_WORKFLOW,
 	PDFIUM_SUFFIX,
 	PROTOC_SUFFIX,
-} from './suffix.mjs'
+} from './consts.mjs'
+import {
+	getGh,
+	getGhArtifactContent,
+	getGhReleasesAssets,
+	getGhWorkflowRunArtifacts,
+} from './github.mjs'
 import { which } from './which.mjs'
 
 const noop = () => {}

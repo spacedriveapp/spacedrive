@@ -53,6 +53,7 @@ export function getMachineId() {
 		// Current machine identifiers
 		_os = os.type()
 		_arch = os.machine()
+		if (_arch === 'arm64') _arch = 'aarch64'
 	}
 
 	if (_arch !== 'x86_64' && _arch !== 'aarch64') throw new Error(`Unsuported architecture`)

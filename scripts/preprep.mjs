@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import * as mustache from 'mustache'
+import * as _mustache from 'mustache'
 
 import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './utils/deps.mjs'
 import { getGitBranches } from './utils/git.mjs'
@@ -17,6 +17,9 @@ if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
 	)
 	exit(255)
 }
+
+// @ts-expect-error
+const mustache = /** @type {import("mustache")}  */ (_mustache.default)
 
 // Limit file permissions
 umask(0o026)
