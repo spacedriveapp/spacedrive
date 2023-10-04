@@ -20,7 +20,7 @@ export default function OnboardingLogin() {
 
 	return (
 		<OnboardingContainer>
-			{user.isLoading ? (
+			{user.isLoading && !user.isFetchedAfterMount ? (
 				<Loader />
 			) : user.data ? (
 				<>

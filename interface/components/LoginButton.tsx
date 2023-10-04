@@ -7,7 +7,7 @@ import { usePlatform } from '..';
 type State = { status: 'Idle' } | { status: 'LoggingIn' };
 
 interface Props extends ButtonProps {
-	onLogin: () => void;
+	onLogin?(): void;
 }
 
 export function LoginButton({ children, onLogin, ...props }: Props) {
@@ -21,7 +21,7 @@ export function LoginButton({ children, onLogin, ...props }: Props) {
 		enabled: state.status === 'LoggingIn',
 		onData(data) {
 			if (data === 'Complete') {
-				onLogin();
+				onLogin?.();
 				platform.auth.finish?.(ret.current);
 			} else if (data === 'Error') setState({ status: 'Idle' });
 			else {
