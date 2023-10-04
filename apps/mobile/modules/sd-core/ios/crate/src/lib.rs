@@ -1,3 +1,5 @@
+#![cfg(target_os = "ios")]
+
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},

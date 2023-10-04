@@ -72,6 +72,8 @@ macro_rules! tauri_handlers {
 	}};
 }
 
+const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
+
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
@@ -89,7 +91,17 @@ async fn main() -> tauri::Result<()> {
 
 	// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
 	let (_guard, result) = match Node::init_logger(&data_dir) {
-		Ok(guard) => (Some(guard), Node::new(data_dir).await),
+		Ok(guard) => (
+			Some(guard),
+			Node::new(
+				data_dir,
+				sd_core::Env {
+					api_url: "https://app.spacedrive.com".to_string(),
+					client_id: CLIENT_ID.to_string(),
+				},
+			)
+			.await,
+		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
 
@@ -138,6 +150,13 @@ async fn main() -> tauri::Result<()> {
 						}
 					}
 				});
+
+				#[cfg(debug_assertions)]
+				{
+					if std::env::var("SD_DEVTOOLS").is_ok() {
+						window.open_devtools();
+					}
+				}
 
 				#[cfg(target_os = "windows")]
 				window.set_decorations(true).unwrap();

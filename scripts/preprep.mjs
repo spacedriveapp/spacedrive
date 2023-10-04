@@ -7,14 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import mustache from 'mustache';
 
-import { downloadFFMpeg, downloadPDFium, downloadProtc } from './deps.mjs';
+import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './deps.mjs';
 import { getGitBranches } from './git.mjs';
-import { isMusl } from './musl.mjs';
+import { getMachineId } from './machineId.mjs';
 import { which } from './which.mjs';
 
 umask(0o026);
-
-if (env.IGNORE_POSTINSTALL === 'true') process.exit(0);
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
 	console.error('Bash for windows is not supported, please execute this from Powershell or CMD');
@@ -31,8 +29,7 @@ const __dirname = path.dirname(__filename);
 const __root = path.resolve(path.join(__dirname, '..'));
 
 // Current machine identifiers
-const machineId = [os.type(), os.machine()];
-if (machineId[0] === 'Linux') machineId.push((await isMusl()) ? 'musl' : 'glibc');
+const machineId = getMachineId();
 
 // Basic dependeny check
 if (
@@ -55,40 +52,45 @@ packages/scripts/${machineId[0] === 'Windows_NT' ? 'setup.ps1' : 'setup.sh'}
 const branches = await getGitBranches(__root);
 
 // Create the basic target directory hierarchy
-const nativeDeps = path.join(__root, 'native-deps');
-await fs.rm(nativeDeps, { force: true, recursive: true });
+const framework = path.join(__root, 'target', 'Frameworks');
+await fs.rm(framework, { force: true, recursive: true });
 await Promise.all(
 	['bin', 'lib', 'include'].map((dir) =>
-		fs.mkdir(path.join(nativeDeps, dir), { mode: 0o750, recursive: true })
+		fs.mkdir(path.join(framework, dir), { mode: 0o750, recursive: true })
 	)
 );
 
 // Download all necessary external dependencies
-const deps = [
-	downloadProtc(machineId, nativeDeps).catch((e) => {
+await Promise.all([
+	downloadProtc(machineId, framework).catch((e) => {
 		console.error(
 			'Failed to download protoc, this is required for Spacedrive to compile. ' +
 				'Please install it with your system package manager'
 		);
 		throw e;
 	}),
-	downloadPDFium(machineId, nativeDeps).catch((e) => {
+	downloadPDFium(machineId, framework).catch((e) => {
 		console.warn(
 			'Failed to download pdfium lib. ' +
 				"This is optional, but if one isn't configured Spacedrive won't be able to generate thumbnails for PDF files"
 		);
 		if (__debug) console.error(e);
 	}),
-	downloadFFMpeg(machineId, nativeDeps, branches).catch((e) => {
+	downloadFFMpeg(machineId, framework, branches).catch((e) => {
 		console.error(
 			'Failed to download ffmpeg. This is probably a bug, please open a issue with you system info at: ' +
 				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
 		);
 		throw e;
+	}),
+	downloadLibHeif(machineId, framework, branches).catch((e) => {
+		console.error(
+			'Failed to download libheif. This is probably a bug, please open a issue with you system info at: ' +
+				'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
+		);
+		throw e;
 	})
-];
-
-await Promise.all(deps).catch((e) => {
+]).catch((e) => {
 	if (__debug) console.error(e);
 	process.exit(1);
 });
@@ -104,10 +106,10 @@ try {
 					encoding: 'utf8'
 				}),
 				{
-					ffmpeg: machineId[0] === 'Linux' ? false : nativeDeps.replaceAll('\\', '\\\\'),
+					ffmpeg: machineId[0] === 'Linux' ? false : framework.replaceAll('\\', '\\\\'),
 					protoc: path
 						.join(
-							nativeDeps,
+							framework,
 							'bin',
 							machineId[0] === 'Windows_NT' ? 'protoc.exe' : 'protoc'
 						)
@@ -130,14 +132,20 @@ try {
 	process.exit(1);
 }
 
-// Setup macOS Frameworks
-if (machineId[0] === 'Darwin') {
+if (machineId[0] === 'Linux') {
+	// Setup Linux libraries
+	const libDir = path.join(__root, 'target', 'lib');
+	await fs.rm(libDir, { force: true, recursive: true });
+	await fs.mkdir(libDir, { recursive: true, mode: 0o751 });
+	await fs.symlink(path.join(framework, 'lib'), path.join(__root, 'target', 'lib', 'spacedrive'));
+} else if (machineId[0] === 'Darwin') {
+	// Setup macOS Frameworks
 	try {
 		console.log('Setup Frameworks & Sign libraries...');
-		const ffmpegFramework = path.join(nativeDeps, 'FFMpeg.framework');
+		const ffmpegFramework = path.join(framework, 'FFMpeg.framework');
 		// Move pdfium License to FFMpeg.framework
 		await fs.rename(
-			path.join(nativeDeps, 'LICENSE.pdfium'),
+			path.join(framework, 'LICENSE.pdfium'),
 			path.join(
 				ffmpegFramework,
 				'Resources',
@@ -147,7 +155,7 @@ if (machineId[0] === 'Darwin') {
 			)
 		);
 		// Move include files to FFMpeg.framework
-		const include = path.join(nativeDeps, 'include');
+		const include = path.join(framework, 'include');
 		const headers = path.join(ffmpegFramework, 'Headers');
 		const includeFiles = await fs.readdir(include, { recursive: true, withFileTypes: true });
 		const moveIncludes = includeFiles
@@ -162,7 +170,7 @@ if (machineId[0] === 'Darwin') {
 				await fs.rename(file, newFile);
 			});
 		// Move libs to FFMpeg.framework
-		const lib = path.join(nativeDeps, 'lib');
+		const lib = path.join(framework, 'lib');
 		const libraries = path.join(ffmpegFramework, 'Libraries');
 		const libFiles = await fs.readdir(lib, { recursive: true, withFileTypes: true });
 		const moveLibs = libFiles

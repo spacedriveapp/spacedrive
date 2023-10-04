@@ -4,10 +4,10 @@ import Skeleton from 'react-loading-skeleton';
 
 import 'react-loading-skeleton/dist/skeleton.css';
 
+import { useEffect, useState } from 'react';
 import { byteSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useCounter } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;
@@ -49,11 +49,17 @@ let mounted = false;
 const StatItem = (props: StatItemProps) => {
 	const { title, bytes, isLoading } = props;
 
+	// This is important to the counter working.
+	// On first render of the counter this will potentially be `false` which means the counter should the count up.
+	// but in a `useEffect` `mounted` will be set to `true` so that subsequent renders of the counter will not run the count up.
+	// The acts as a cache of the value of `mounted` on the first render of this `StateItem`.
+	const [isMounted] = useState(mounted);
+
 	const size = byteSize(bytes);
 	const count = useCounter({
 		name: title,
 		end: size.value,
-		duration: mounted ? 0 : 1,
+		duration: isMounted ? 0 : 1,
 		saveState: false
 	});
 
@@ -100,13 +106,16 @@ const StatItem = (props: StatItemProps) => {
 };
 
 export default () => {
-	const platform = usePlatform();
 	const { library } = useLibraryContext();
 
 	const stats = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
-	mounted = true;
+
+	useEffect(() => {
+		if (!stats.isLoading) mounted = true;
+	});
+
 	return (
 		<div className="flex w-full px-5 pb-2 pt-4">
 			{/* STAT CONTAINER */}

@@ -77,6 +77,10 @@ View a list of our planned features here: [spacedrive.com/roadmap](https://space
 
 Please refer to the [contributing guide](CONTRIBUTING.md) for how to install Spacedrive from sources.
 
+# Security Policy
+
+Please refer to the [security policy](SECURITY.md) for details and information on how to responsibly report a security vulnerability or issue.
+
 # Architecture
 
 This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, React, TypeScript, Tauri).

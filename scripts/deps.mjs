@@ -15,9 +15,10 @@ import {
 	FFMPEG_WORKFLOW,
 	getConst,
 	getSuffix,
+	LIBHEIF_SUFFIX,
+	LIBHEIF_WORKFLOW,
 	PDFIUM_SUFFIX,
-	PROTOC_SUFFIX,
-	TAURI_CLI_SUFFIX
+	PROTOC_SUFFIX
 } from './suffix.mjs';
 import { which } from './which.mjs';
 
@@ -157,4 +158,40 @@ export async function downloadFFMpeg(machineId, framework, branches) {
 	}
 
 	if (!found) throw new Error('NO_FFMPEG');
+}
+
+/**
+ * Download and extract libheif libs for heif thumbnails
+ * @param {string[]} machineId
+ * @param {string} framework
+ * @param {string[]} branches
+ */
+export async function downloadLibHeif(machineId, framework, branches) {
+	const workflow = getConst(LIBHEIF_WORKFLOW, machineId);
+	if (workflow == null) return;
+
+	console.log('Downloading LibHeif...');
+
+	const libHeifSuffix = getSuffix(LIBHEIF_SUFFIX, machineId);
+	if (libHeifSuffix == null) throw new Error('NO_LIBHEIF');
+
+	let found = false;
+	for await (const artifact of getGhWorkflowRunArtifacts(SPACEDRIVE_REPO, workflow, branches)) {
+		if (!libHeifSuffix.test(artifact.name)) continue;
+		try {
+			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id);
+			await extractTo(data, framework, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true
+			});
+			found = true;
+			break;
+		} catch (error) {
+			console.warn('Failed to download LibHeif, re-trying...');
+			if (__debug) console.error(error);
+		}
+	}
+
+	if (!found) throw new Error('NO_LIBHEIF');
 }

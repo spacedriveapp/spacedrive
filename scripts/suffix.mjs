@@ -56,12 +56,25 @@ export const FFMPEG_WORKFLOW = {
 	Windows_NT: 'ffmpeg-windows.yml'
 };
 
-export const TAURI_CLI_SUFFIX = {
-	Darwin: {
-		x86_64: 'x86_64-apple-darwin',
-		arm64: 'aarch64-apple-darwin',
-		aarch64: 'aarch64-apple-darwin'
+export const LIBHEIF_SUFFIX = {
+	Linux: {
+		x86_64: {
+			musl: 'x86_64-linux-musl',
+			glibc: 'x86_64-linux-gnu'
+		},
+		arm64: {
+			musl: 'aarch64-linux-musl',
+			glibc: 'aarch64-linux-gnu'
+		},
+		aarch64: {
+			musl: 'aarch64-linux-musl',
+			glibc: 'aarch64-linux-gnu'
+		}
 	}
+};
+
+export const LIBHEIF_WORKFLOW = {
+	Linux: 'libheif-linux.yml'
 };
 
 /**

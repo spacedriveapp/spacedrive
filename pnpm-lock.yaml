@@ -27,8 +27,8 @@ importers:
         specifier: ^7.0.20
         version: 7.0.20(react-dom@18.2.0)(react@18.2.0)(typescript@5.0.4)(vite@4.3.9)
       archive-wasm:
-        specifier: ^1.5.1
-        version: 1.5.1
+        specifier: ^1.5.3
+        version: 1.5.3
       cspell:
         specifier: ^6.31.1
         version: 6.31.1
@@ -6016,7 +6016,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.0.4)
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.2.0)
 
   /@jridgewell/gen-mapping@0.3.3:
     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
@@ -9066,7 +9066,7 @@ packages:
       remark-slug: 6.1.0
       rollup: 3.28.1
       typescript: 5.0.4
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -9666,7 +9666,7 @@ packages:
       react: 18.2.0
       react-docgen: 6.0.0-alpha.3
       react-dom: 18.2.0(react@18.2.0)
-      vite: 4.3.9(@types/node@18.15.1)
+      vite: 4.3.9(less@4.2.0)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - supports-color
@@ -11383,8 +11383,8 @@ packages:
   /aproba@2.0.0:
     resolution: {integrity: sha512-lYe4Gx7QT+MKGbDsA+Z+he/Wtef0BiwDOlK/XkBrdfsh9J/jPPXbX0tE9x9cl27Tmu5gg3QUbUrQYa/y+KOHPQ==}
 
-  /archive-wasm@1.5.1:
-    resolution: {integrity: sha512-jETuTnp7lcJ4OQhqvyE5PHw8izUWDArj/TPzPL2hu4ylGwc9coIOT214uRTETF3uoQwPPJcV8GTa14yfTqrEhg==}
+  /archive-wasm@1.5.3:
+    resolution: {integrity: sha512-dxAKM63Y+1dXYIH7t3rgIj1/w/q0CdujmW3WIoIJVFdgAMhAdTcmbkPdw/Gj9xZ2J0DcdW5fZOukYEIrN6DYQg==}
     engines: {node: '>=18'}
     dev: true
 
@@ -23841,6 +23841,7 @@ packages:
       rollup: 3.28.1
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@4.3.9(less@4.2.0):
     resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}

@@ -5,8 +5,8 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
-		"beforeDevCommand": "pnpm dev-vite",
-		"beforeBuildCommand": "pnpm vite build"
+		"beforeDevCommand": "pnpm dev",
+		"beforeBuildCommand": "pnpm turbo run build --filter @sd/desktop"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -33,7 +33,7 @@
 				"depends": []
 			},
 			"macOS": {
-				"frameworks": ["../../../native-deps/FFMpeg.framework"],
+				"frameworks": [".native-deps/FFMpeg.framework"],
 				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"entitlements": null
