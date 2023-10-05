@@ -63,6 +63,21 @@ body {
 	animation-name: slideDown;
 }
 
+.TooltipContent[data-side='right'] {
+	animation-name: slideRight;
+}
+
+@keyframes slideRight {
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
 @keyframes slideDown {
 	from {
 		opacity: 0;
