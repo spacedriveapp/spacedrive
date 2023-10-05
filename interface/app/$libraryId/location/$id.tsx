@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
-	ExplorerItem,
 	ExplorerSettings,
 	FilePathFilterArgs,
 	FilePathOrder,
@@ -75,7 +74,8 @@ export const Component = () => {
 	const explorerSettings = useExplorerSettings({
 		settings,
 		onSettingsChanged,
-		orderingKeys: filePathOrderingKeysSchema
+		orderingKeys: filePathOrderingKeysSchema,
+		location: location.data
 	});
 
 	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
@@ -147,13 +147,11 @@ const useItems = ({
 		locationId,
 		...(explorerSettings.layoutMode === 'media'
 			? { object: { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] } }
-			: { path: path ?? '' })
+			: { path: path ?? '' }),
+		...(explorerSettings.showHiddenFiles ? {} : { hidden: false })
 	};
 
-	const count = useLibraryQuery([
-		'search.pathsCount',
-		{ filter: { ...filter, hidden: explorerSettings.showHiddenFiles ? undefined : false } }
-	]);
+	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
 	const query = usePathsInfiniteQuery({
 		arg: { filter, take },
@@ -161,22 +159,7 @@ const useItems = ({
 		settings
 	});
 
-	const items = useMemo(() => {
-		if (!query.data) return null;
-
-		const ret: ExplorerItem[] = [];
-
-		for (const page of query.data.pages) {
-			for (const item of page.items) {
-				if (item.type === 'Path' && !explorerSettings.showHiddenFiles && item.item.hidden)
-					continue;
-
-				ret.push(item);
-			}
-		}
-
-		return ret;
-	}, [query.data, explorerSettings.showHiddenFiles]);
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
 
 	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {
