@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { useMemo } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
@@ -19,6 +20,7 @@ import {
 
 import { P2P } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
+import { AuthProvider } from './contexts/auth';
 import ErrorFallback from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
@@ -61,10 +63,12 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<P2PContextProvider>
 				<NotificationContextProvider>
-					<P2P />
-					<Devtools />
-					<WithPrismTheme />
-					<RouterProvider router={props.router} />
+					<AuthProvider>
+						<P2P />
+						<Devtools />
+						<WithPrismTheme />
+						<RouterProvider router={props.router} />
+					</AuthProvider>
 				</NotificationContextProvider>
 			</P2PContextProvider>
 		</ErrorBoundary>

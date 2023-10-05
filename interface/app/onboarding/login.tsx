@@ -1,28 +1,23 @@
 import { AppLogo } from '@sd/assets/images';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import { useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
+import { useAuthContext } from '~/contexts/auth';
 
 import { OnboardingContainer } from './Layout';
 
 export default function OnboardingLogin() {
+	const auth = useAuthContext();
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 
-	const user = useBridgeQuery(['auth.me'], {
-		// If the backend returns un unauthorized error we don't want to retry
-		retry: false
-	});
-
-	const logout = useBridgeMutation(['auth.logout']);
+	const me = useBridgeQuery(['auth.me'], { retry: false });
 
 	return (
 		<OnboardingContainer>
-			{user.isLoading && !user.isFetchedAfterMount ? (
+			{auth.state === 'loading' ? (
 				<Loader />
-			) : user.data ? (
+			) : auth.state === 'loggedIn' ? (
 				<>
 					<div className="flex flex-col items-center justify-center">
 						<img
@@ -34,7 +29,7 @@ export default function OnboardingLogin() {
 							className="mb-3"
 						/>
 						<h1 className="text-lg text-ink">
-							Logged in as <b>{user.data.email}</b>
+							Logged in as <b>{me.data?.email}</b>
 						</h1>
 					</div>
 
@@ -52,11 +47,8 @@ export default function OnboardingLogin() {
 						<div className="space-x-2 text-center text-sm">
 							<span>Not you?</span>
 							<Button
-								onClick={async () => {
-									await logout.mutateAsync(undefined);
-									queryClient.setQueryData(['auth.me'], null);
-								}}
-								disabled={logout.isLoading}
+								onClick={auth.logout}
+								disabled={auth.logoutLoading}
 								variant="bare"
 								size="md"
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"
@@ -84,8 +76,8 @@ export default function OnboardingLogin() {
 
 					<div className="mt-10 flex w-[250px] flex-col gap-3">
 						<LoginButton
-							size="md"
 							onLogin={() => navigate('../new-library', { replace: true })}
+							size="md"
 						>
 							Log in with browser
 						</LoginButton>
