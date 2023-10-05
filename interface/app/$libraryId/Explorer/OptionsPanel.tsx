@@ -158,8 +158,20 @@ export default () => {
 
 					{settings.layoutMode === 'media' && (
 						<RadixCheckbox
+							checked={settings.mediaViewEntireLocation}
+							label="Entire Location"
+							name="mediaViewEntireLocation"
+							onCheckedChange={(value) => {
+								if (typeof value !== 'boolean') return;
+
+								explorer.settingsStore.mediaViewEntireLocation = value;
+							}}
+						/>
+					)}
+					{settings.layoutMode === 'media' && (
+						<RadixCheckbox
 							checked={settings.mediaAspectSquare}
-							label="Show square thumbnails"
+							label="Square Thumbnails"
 							name="mediaAspectSquare"
 							onCheckedChange={(value) => {
 								if (typeof value !== 'boolean') return;

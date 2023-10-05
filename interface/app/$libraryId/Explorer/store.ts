@@ -76,6 +76,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		showHiddenFiles: false as boolean,
 		mediaColumns: 8 as number,
 		mediaAspectSquare: false as boolean,
+		mediaViewEntireLocation: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
 		colVisibility: {
 			name: true,

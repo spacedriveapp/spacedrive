@@ -143,13 +143,17 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filter: FilePathFilterArgs = {
-		locationId,
-		...(explorerSettings.layoutMode === 'media'
-			? { object: { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] } }
-			: { path: path ?? '' }),
-		...(explorerSettings.showHiddenFiles ? {} : { hidden: false })
-	};
+	const filter: FilePathFilterArgs = { locationId, path: path ?? '' };
+
+	if (explorerSettings.layoutMode === 'media') {
+		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
+
+		if (explorerSettings.mediaViewEntireLocation)
+			filter.path = undefined;
+	}
+
+	if (!explorerSettings.showHiddenFiles)
+		filter.hidden = false;
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
