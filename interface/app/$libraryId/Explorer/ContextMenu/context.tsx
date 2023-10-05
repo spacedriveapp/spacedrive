@@ -1,11 +1,20 @@
 import { createContext, PropsWithChildren, useContext } from 'react';
-import { ExplorerItem, FilePath, Object, useItemsAsFilePaths, useItemsAsObjects } from '@sd/client';
+import {
+	ExplorerItem,
+	FilePath,
+	NonIndexedPathItem,
+	Object,
+	useItemsAsEphemeralPaths,
+	useItemsAsFilePaths,
+	useItemsAsObjects
+} from '@sd/client';
 import { NonEmptyArray } from '~/util';
 
 const ContextMenuContext = createContext<{
 	selectedItems: NonEmptyArray<ExplorerItem>;
 	selectedFilePaths: FilePath[];
 	selectedObjects: Object[];
+	selectedEphemeralPaths: NonIndexedPathItem[];
 } | null>(null);
 
 export const ContextMenuContextProvider = ({
@@ -16,9 +25,12 @@ export const ContextMenuContextProvider = ({
 }>) => {
 	const selectedFilePaths = useItemsAsFilePaths(selectedItems);
 	const selectedObjects = useItemsAsObjects(selectedItems);
+	const selectedEphemeralPaths = useItemsAsEphemeralPaths(selectedItems);
 
 	return (
-		<ContextMenuContext.Provider value={{ selectedItems, selectedFilePaths, selectedObjects }}>
+		<ContextMenuContext.Provider
+			value={{ selectedItems, selectedFilePaths, selectedObjects, selectedEphemeralPaths }}
+		>
 			{children}
 		</ContextMenuContext.Provider>
 	);

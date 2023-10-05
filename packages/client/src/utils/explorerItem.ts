@@ -53,9 +53,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 	const location = getItemLocation(data);
 	if (filePath) {
 		itemData.name = filePath.name;
-		itemData.fullName = `${filePath.name}${
-			filePath.extension ? `.${filePath.extension}` : ''
-		}}`;
+		itemData.fullName = `${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`;
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
 		itemData.extension = filePath.extension;
@@ -129,5 +127,13 @@ export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
 		}
 
 		return array;
+	}, [items]);
+};
+
+export const useItemsAsEphemeralPaths = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		return items
+			.filter((item) => item.type === 'NonIndexedPath')
+			.map((item) => item.item as NonIndexedPathItem);
 	}, [items]);
 };

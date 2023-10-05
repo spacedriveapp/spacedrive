@@ -1,18 +1,57 @@
+// tsc requires this import due to global types defined on it
+import type {} from '@sd/client';
+
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ContextMenu, ModifierKeys } from '@sd/ui';
+import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { type Platform } from '~/util/Platform';
+import { usePlatform, type Platform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { RevealInNativeExplorerBase } from '../RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from '../store';
+import { useViewItemDoubleClick } from '../View/ViewItem';
 import { useExplorerViewContext } from '../ViewContext';
-import { ConditionalItem } from './ConditionalItem';
+import { Conditional, ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
+import OpenWith from './OpenWith';
+
+export const OpenOrDownload = new ConditionalItem({
+	useCondition: () => {
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
+		const { openFilePaths, openEphemeralFiles } = usePlatform();
+
+		if (
+			!openFilePaths ||
+			!openEphemeralFiles ||
+			(!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths))
+		)
+			return null;
+
+		return { openFilePaths, openEphemeralFiles, selectedFilePaths, selectedEphemeralPaths };
+	},
+	Component: () => {
+		const keybind = useKeybindFactory();
+		const { platform } = usePlatform();
+		const { doubleClick } = useViewItemDoubleClick();
+
+		if (platform === 'web') return <Menu.Item label="Download" />;
+		else
+			return (
+				<>
+					<Menu.Item
+						label="Open"
+						keybind={keybind([ModifierKeys.Control], ['O'])}
+						onClick={() => doubleClick()}
+					/>
+					<Conditional items={[OpenWith]} />
+				</>
+			);
+	}
+});
 
 export const OpenQuickView = () => {
 	const keybind = useKeybindFactory();
@@ -107,6 +146,14 @@ export const RevealInNativeExplorer = new ConditionalItem({
 						array.push({
 							Location: {
 								id: item.item.id
+							}
+						});
+						break;
+					}
+					case 'NonIndexedPath': {
+						array.push({
+							Ephemeral: {
+								path: item.item.path
 							}
 						});
 						break;
