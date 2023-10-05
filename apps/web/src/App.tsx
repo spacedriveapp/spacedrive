@@ -41,6 +41,7 @@ const platform: Platform = {
 		`${spacedriveURL}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
+	getFileUrlByPath: (path) => `${spacedriveURL}/local-file-by-path/${encodeURIComponent(path)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	confirm: (message, cb) => cb(window.confirm(message)),
 	auth: {

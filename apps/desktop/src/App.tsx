@@ -66,6 +66,8 @@ const platform = {
 			.join('/')}.webp${queryParams}`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
+	getFileUrlByPath: (path) =>
+		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),

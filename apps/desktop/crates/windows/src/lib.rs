@@ -93,8 +93,9 @@ pub fn list_apps_associated_with_ext(ext: &OsStr) -> Result<Vec<IAssocHandler>> 
 	Ok(vec)
 }
 
-pub fn open_file_path_with(path: &Path, url: &str) -> Result<()> {
+pub fn open_file_path_with(path: impl AsRef<Path>, url: &str) -> Result<()> {
 	ensure_com_initialized();
+	let path = path.as_ref();
 
 	let ext = path.extension().ok_or(Error::OK)?;
 	for handler in list_apps_associated_with_ext(ext)?.iter() {

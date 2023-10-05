@@ -160,6 +160,8 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 
 		const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
 
+		let _ = path; // just to avoid warnings on Windows
+
 		if (metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN {
 			return true;
 		}

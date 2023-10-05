@@ -102,13 +102,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 		switch (thumbType) {
 			case ThumbType.Original:
-				if (
-					locationId &&
-					filePath &&
-					'id' in filePath &&
-					(itemData.extension !== 'pdf' || pdfViewerEnabled())
-				) {
-					setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
+					if ('id' in filePath && locationId)
+						setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+					else if ('path' in filePath) setSrc(platform.getFileUrlByPath(filePath.path));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}

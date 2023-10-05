@@ -19,6 +19,10 @@ const separateKeybinds = (keybinds: TooltipProps['keybinds']): TooltipProps['key
 	if (!keybinds) return;
 	const arr = [];
 	for (const i of keybinds) {
+		if (i.length >= 2) {
+			arr.push(i);
+			continue;
+		}
 		for (const j of i) {
 			arr.push(j);
 		}
