@@ -31,6 +31,7 @@ import {
 	FilePath,
 	FilePathWithObject,
 	getExplorerItemData,
+	getItemFilePath,
 	NonIndexedPathItem,
 	Object,
 	ObjectKindEnum,
