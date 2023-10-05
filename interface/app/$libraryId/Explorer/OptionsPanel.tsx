@@ -121,7 +121,7 @@ export default () => {
 
 			<div>
 				<Subheading>Explorer</Subheading>
-				<div className="flex flex-row flex-wrap justify-between gap-1">
+				<div className="grid grid-cols-2 gap-y-1">
 					<RadixCheckbox
 						checked={layoutStore.showPathBar}
 						label="Show Path Bar"
