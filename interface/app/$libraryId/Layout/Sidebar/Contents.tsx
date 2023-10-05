@@ -6,8 +6,12 @@ import {
 	FilmStrip,
 	Planet
 } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
+import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
+import { modifierSymbols, Tooltip } from '@sd/ui';
 import { SubtleButton } from '~/components/SubtleButton';
+import { useKeyMatcher } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
@@ -17,14 +21,27 @@ import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();
+	const navigate = useNavigate();
+	const { key, icon } = useKeyMatcher('Meta');
+
+	useKeys([key, 'Shift', 'KeyO'], (e) => {
+		e.stopPropagation();
+		navigate('overview');
+	});
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
 			<div className="space-y-0.5">
-				<SidebarLink to="overview">
-					<Icon component={Planet} />
-					Overview
-				</SidebarLink>
+				<Tooltip
+					position="right"
+					label="Overview"
+					keybinds={[modifierSymbols.Shift.Other, icon, 'O']}
+				>
+					<SidebarLink to="overview">
+						<Icon component={Planet} />
+						Overview
+					</SidebarLink>
+				</Tooltip>
 				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop

@@ -16,12 +16,10 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 image = "0.24.7"
 webp = { version = "0.2.5", optional = true }
 thiserror = "1.0.48"
-resvg = "0.35.0"
+resvg = "0.36.0"
 rspc = { workspace = true, optional = true }                         # error conversion
 specta = { workspace = true, optional = true }
 serde = { workspace = true, optional = true, features = ["derive"] }
-
-[target.'cfg(any(not(any(target_os = "linux", target_os = "windows")), heif_images))'.dependencies]
 # both of these added *default* bindgen features in 0.22.0 and 2.0.0 respectively
 # this broke builds as we build our own liibheif, so i disabled their default features
 libheif-rs = { version = "0.22.0", default-features = false, optional = true }

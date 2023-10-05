@@ -46,7 +46,7 @@ if [ "${CI:-}" != "true" ]; then
       'https://pnpm.io/installation'
   fi
 
-  if ! has rustc cargo; then
+  if ! has rustup rustc cargo; then
     err 'Rust was not found.' \
       "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
       'https://rustup.rs'
@@ -127,7 +127,7 @@ case "$(uname)" in
         libgstreamer-plugins-bad1.0-dev
 
       # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" pkg-config clang
+      set -- "$@" llvm-dev libclang-dev clang
 
       sudo apt-get -y update
       sudo apt-get -y install "$@"
@@ -139,14 +139,14 @@ case "$(uname)" in
       set -- base-devel curl wget file patchelf openssl gtk3 librsvg webkit2gtk libayatana-appindicator
 
       # FFmpeg dependencies
-      set -- "$@" libheif ffmpeg
+      set -- "$@" ffmpeg
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-libav gst-plugins-bad gst-plugins-base gst-plugins-good gst-plugins-ugly \
         gst-plugin-pipewire gstreamer-vaapi
 
       # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" pkgconf clang
+      set -- "$@" clang
 
       sudo pacman -Sy --needed "$@"
     elif has dnf; then
@@ -180,12 +180,12 @@ case "$(uname)" in
         streamer1-plugins-bad-free-extras
 
       # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" clang pkgconf clang-devel
+      set -- "$@" clang clang-devel
 
       sudo dnf install "$@"
 
       # FFmpeg dependencies
-      if ! sudo dnf install libheif-devel ffmpeg ffmpeg-devel; then
+      if ! sudo dnf install ffmpeg ffmpeg-devel; then
         err 'We were unable to install the FFmpeg and FFmpeg-devel packages.' \
           'This is likely because the RPM Fusion free repository is not enabled.' \
           'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'

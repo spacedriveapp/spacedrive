@@ -16,19 +16,13 @@ pub const GENERIC_EXTENSIONS: [&str; 16] = [
 	"vst", "tiff", "tif",
 ];
 
-#[cfg(all(
-	feature = "heif",
-	any(not(any(target_os = "linux", target_os = "windows")), heif_images)
-))]
+#[cfg(feature = "heif")]
 pub const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
 
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
-#[cfg(all(
-	feature = "heif",
-	any(not(any(target_os = "linux", target_os = "windows")), heif_images)
-))]
+#[cfg(feature = "heif")]
 pub const HEIF_MAXIMUM_FILE_SIZE: u64 = MIB * 32;
 
 pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
@@ -43,7 +37,6 @@ pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
 pub const SVG_TAGRET_PX: f32 = 262_144_f32;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug)]
 pub enum ConvertableExtensions {
@@ -83,10 +76,7 @@ impl Display for ConvertableExtensions {
 #[inline]
 #[must_use]
 pub fn all_compatible_extensions() -> Vec<String> {
-	#[cfg(all(
-		feature = "heif",
-		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
-	))]
+	#[cfg(feature = "heif")]
 	let res = GENERIC_EXTENSIONS
 		.into_iter()
 		.chain(HEIF_EXTENSIONS)
@@ -94,10 +84,7 @@ pub fn all_compatible_extensions() -> Vec<String> {
 		.map(String::from)
 		.collect();
 
-	#[cfg(not(all(
-		feature = "heif",
-		any(not(any(target_os = "linux", target_os = "windows")), heif_images)
-	)))]
+	#[cfg(not(feature = "heif"))]
 	let res = GENERIC_EXTENSIONS
 		.into_iter()
 		.chain(SVG_EXTENSIONS)

@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import { useState } from 'react';
-import { Divider, ModifierKeys, Switch } from '@sd/ui';
+import { Divider, ModifierKeys, modifierSymbols, Switch } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 import { OperatingSystem } from '~/util/Platform';
@@ -20,8 +20,8 @@ type Shortcut = {
 	keys: {
 		//the operating system the shortcut is for
 		[K in OperatingSystem | 'all']?: {
-			value: string | ModifierKeys | (string | ModifierKeys)[]; //if the shortcut is a single key, use a string, if it's a combination of keys, make it an array
-			split?: boolean; //if the 'length' of the shortcut is 2, should it be split into 2 keys?
+			value: string | undefined | ModifierKeys | (string | undefined | ModifierKeys)[]; //if the shortcut is a single key, use a string, if it's a combination of keys, make it an array
+			split?: boolean; //if the 'length' of the shortcut is >= 2, should it be split into 2 keys?
 		};
 	};
 };
@@ -32,8 +32,22 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			description: 'Different pages in the app',
 			action: 'Navigate to Settings page',
 			keys: {
+				macOS: {
+					value: ['Shift', modifierSymbols.Meta.macOS, 'S']
+				},
 				all: {
-					value: ['G', 'S']
+					value: ['Shift', modifierSymbols.Control.Other, 'S']
+				}
+			}
+		},
+		{
+			action: 'Navigate to Overview page',
+			keys: {
+				macOS: {
+					value: ['Shift', modifierSymbols.Meta.macOS, 'O']
+				},
+				all: {
+					value: ['Shift', modifierSymbols.Control.Other, 'O']
 				}
 			}
 		}
@@ -43,8 +57,11 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			description: 'To perform actions and operations',
 			action: 'Toggle Job Manager',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'J']
+				},
 				all: {
-					value: [ModifierKeys.Control, 'J']
+					value: [modifierSymbols.Control.Other, 'J']
 				}
 			}
 		}
@@ -62,48 +79,66 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 		{
 			action: 'Navigate forward in folder history',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, ']']
+				},
 				all: {
-					value: [ModifierKeys.Control, ']']
+					value: [modifierSymbols.Control.Other, ']']
 				}
 			}
 		},
 		{
 			action: 'Navigate backward in folder history',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '[']
+				},
 				all: {
-					value: [ModifierKeys.Control, '[']
+					value: [modifierSymbols.Control.Other, '[']
 				}
 			}
 		},
 		{
 			action: 'Switch explorer layout',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'b']
+				},
 				all: {
-					value: [ModifierKeys.Control, 'b']
+					value: [modifierSymbols.Control.Other, 'b']
 				}
 			}
 		},
 		{
 			action: 'Open selected item',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'O']
+				},
 				all: {
-					value: [ModifierKeys.Control, 'ArrowUp']
+					value: [modifierSymbols.Control.Other, 'O']
 				}
 			}
 		},
 		{
 			action: 'Show inspector',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'i']
+				},
 				all: {
-					value: [ModifierKeys.Control, 'i']
+					value: [modifierSymbols.Control.Other, 'i']
 				}
 			}
 		},
 		{
 			action: 'Show path bar',
 			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'p']
+				},
 				all: {
-					value: [ModifierKeys.Control, 'p']
+					value: [modifierSymbols.Control.Other, 'p']
 				}
 			}
 		},
@@ -244,7 +279,7 @@ function createKeybindColumns(os: OperatingSystem) {
 				});
 				return shortcuts.map((shortcut, idx) => {
 					if (shortcut) {
-						if (shortcut.length === 2) {
+						if (shortcut.length <= 5) {
 							return (
 								<div key={idx.toString()} className="inline-flex items-center">
 									<kbd
@@ -256,7 +291,7 @@ function createKeybindColumns(os: OperatingSystem) {
 								</div>
 							);
 						} else {
-							return shortcut?.split(' ').map(([key]) => {
+							return shortcut?.split(' ').map(([key], idx) => {
 								const controlSymbolCheck =
 									key === '⌘' ? (os === 'macOS' ? '⌘' : 'Ctrl') : key;
 								return (

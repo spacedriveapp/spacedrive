@@ -10,7 +10,7 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKeys } from 'rooks';
+import { useKey, useKeys } from 'rooks';
 import { getItemObject, useLibraryContext, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
@@ -62,6 +62,7 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
+		const os = useOperatingSystem();
 
 		const { doubleClick } = useViewItemDoubleClick();
 
@@ -95,8 +96,16 @@ export default memo(
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
-		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
+		useKey(['Enter'], (e) => {
 			e.stopPropagation();
+			if (os === 'windows') {
+				doubleClick();
+			}
+		});
+
+		useKeys([metaCtrlKey, 'KeyO'], (e) => {
+			e.stopPropagation();
+			if (os === 'windows') return;
 			doubleClick();
 		});
 
@@ -189,7 +198,7 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 
 	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
@@ -213,38 +222,6 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		[os, explorer.selectedItems]
 	);
 
-	const handleOpenShortcut = useCallback(
-		async (event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'O' ||
-				!event.getModifierState(
-					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-				) ||
-				!openFilePaths
-			)
-				return;
-
-			const paths: number[] = [];
-
-			for (const item of explorer.selectedItems)
-				for (const path of item.type === 'Path'
-					? [item.item]
-					: item.type === 'Object'
-					? item.item.file_paths
-					: [])
-					paths.push(path.id);
-
-			if (!isNonEmpty(paths)) return;
-
-			try {
-				await openFilePaths(library.uuid, paths);
-			} catch (error) {
-				toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
-			}
-		},
-		[os, library.uuid, openFilePaths, explorer.selectedItems]
-	);
-
 	const handleExplorerShortcut = useCallback(
 		(event: KeyboardEvent) => {
 			if (
@@ -259,12 +236,12 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	);
 
 	useEffect(() => {
-		const handlers = [handleNewTag, handleOpenShortcut, handleExplorerShortcut];
+		const handlers = [handleNewTag, handleExplorerShortcut];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleOpenShortcut, handleExplorerShortcut]);
+	}, [disabled, handleNewTag, handleExplorerShortcut]);
 };

@@ -14,7 +14,7 @@ ffmpeg-sys-next = "6.0.1"
 tracing = { workspace = true }
 
 thiserror = "1.0.48"
-webp = "0.2.5"
+webp = "0.2.6"
 tokio = { workspace = true, features = ["fs", "rt"] }
 
 [dev-dependencies]

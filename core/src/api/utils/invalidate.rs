@@ -29,7 +29,7 @@ pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct SingleInvalidateOperationEvent {
 	/// This fields are intentionally private.
-	key: &'static str,
+	pub key: &'static str,
 	arg: Value,
 	result: Option<Value>,
 }
