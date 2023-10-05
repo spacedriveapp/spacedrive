@@ -56,7 +56,7 @@ export const QuickPreview = () => {
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems } = usePlatform();
+	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
@@ -117,14 +117,18 @@ export const QuickPreview = () => {
 
 	// Open file
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
-		if (!item || !openFilePaths) return;
+		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
-			const path = getIndexedItemFilePath(item);
+			if (item.type === 'Path' || item.type === 'Object') {
+				const path = getIndexedItemFilePath(item);
 
-			if (!path) throw 'No path found';
+				if (!path) throw 'No path found';
 
-			openFilePaths(library.uuid, [path.id]);
+				openFilePaths(library.uuid, [path.id]);
+			} else if (item.type === 'NonIndexedPath') {
+				openEphemeralFiles([item.item.path]);
+			}
 		} catch (error) {
 			toast.error({
 				title: 'Failed to open file',
@@ -138,13 +142,18 @@ export const QuickPreview = () => {
 		if (!item || !revealItems) return;
 
 		try {
-			const id = item.type === 'Location' ? item.item.id : getIndexedItemFilePath(item)?.id;
+			const toReveal = [];
+			if (item.type === 'Location') {
+				toReveal.push({ Location: { id: item.item.id } });
+			} else if (item.type === 'NonIndexedPath') {
+				toReveal.push({ Ephemeral: { path: item.item.path } });
+			} else {
+				const filePath = getIndexedItemFilePath(item);
+				if (!filePath) throw 'No file path found';
+				toReveal.push({ FilePath: { id: filePath.id } });
+			}
 
-			if (!id) throw 'No id found';
-
-			revealItems(library.uuid, [
-				{ ...(item.type === 'Location' ? { Location: { id } } : { FilePath: { id } }) }
-			]);
+			revealItems(library.uuid, toReveal);
 		} catch (error) {
 			toast.error({
 				title: 'Failed to reveal',
@@ -313,66 +322,63 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex flex-1 justify-end gap-1">
-										{item.type !== 'NonIndexedPath' && (
-											<DropdownMenu.Root
-												trigger={
-													<div className="flex">
-														<Tooltip label="More">
-															<IconButton>
-																<DotsThree
-																	size={20}
-																	weight="bold"
-																/>
-															</IconButton>
-														</Tooltip>
-													</div>
-												}
-												onOpenChange={setIsContextMenuOpen}
-												align="end"
-												sideOffset={-10}
-											>
-												<ExplorerContextMenu items={[item]} custom>
-													<Conditional
-														items={[
-															FilePathItems.OpenOrDownload,
-															SharedItems.RevealInNativeExplorer
-														]}
-													/>
+										<DropdownMenu.Root
+											trigger={
+												<div className="flex">
+													<Tooltip label="More">
+														<IconButton>
+															<DotsThree size={20} weight="bold" />
+														</IconButton>
+													</Tooltip>
+												</div>
+											}
+											onOpenChange={setIsContextMenuOpen}
+											align="end"
+											sideOffset={-10}
+										>
+											<ExplorerContextMenu items={[item]} custom>
+												<Conditional
+													items={[
+														SharedItems.OpenOrDownload,
+														SharedItems.RevealInNativeExplorer
+													]}
+												/>
 
+												{item.type !== 'NonIndexedPath' && (
 													<DropdownMenu.Item
 														label="Rename"
 														onClick={() => name && setIsRenaming(true)}
 													/>
+												)}
 
-													<SeparatedConditional
-														items={[ObjectItems.AssignTag]}
-													/>
+												<SeparatedConditional
+													items={[ObjectItems.AssignTag]}
+												/>
 
-													<Conditional
-														items={[
-															FilePathItems.CopyAsPath,
-															FilePathItems.Crypto,
-															FilePathItems.Compress,
-															ObjectItems.ConvertObject,
-															FilePathItems.SecureDelete
-														]}
-													>
-														{(items) => (
-															<DropdownMenu.SubMenu
-																label="More actions..."
-																icon={Plus}
-															>
-																{items}
-															</DropdownMenu.SubMenu>
-														)}
-													</Conditional>
+												<Conditional
+													items={[
+														FilePathItems.CopyAsPath,
+														FilePathItems.Crypto,
+														FilePathItems.Compress,
+														ObjectItems.ConvertObject,
+														FilePathItems.SecureDelete
+													]}
+												>
+													{(items) => (
+														<DropdownMenu.SubMenu
+															label="More actions..."
+															icon={Plus}
+														>
+															{items}
+														</DropdownMenu.SubMenu>
+													)}
+												</Conditional>
 
-													<SeparatedConditional
-														items={[FilePathItems.Delete]}
-													/>
-												</ExplorerContextMenu>
-											</DropdownMenu.Root>
-										)}
+												<SeparatedConditional
+													items={[FilePathItems.Delete]}
+												/>
+											</ExplorerContextMenu>
+										</DropdownMenu.Root>
 
 										<Tooltip label="Show details">
 											<IconButton
