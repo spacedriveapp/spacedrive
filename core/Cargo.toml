@@ -21,14 +21,14 @@ heif = ["sd-images/heif"]
 sd-media-metadata = { path = "../crates/media-metadata" }
 sd-prisma = { path = "../crates/prisma" }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
-sd-crypto = { path = "../crates/crypto", features = [
-	"rspc",
-	"specta",
-	"serde",
-	"keymanager",
-] }
+# sd-crypto = { path = "../crates/crypto", features = [
+# 	"rspc",
+# 	"specta",
+# 	"serde",
+# 	"keymanager",
+# ] }
 
-sd-images = { path = "../crates/images", features = ["rspc"] }
+sd-images = { path = "../crates/images", features = ["serde", "rspc", "specta"] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
