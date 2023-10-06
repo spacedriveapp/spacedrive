@@ -121,6 +121,8 @@ struct FilePathFilterArgs {
 	#[specta(optional)]
 	path: Option<String>,
 	#[specta(optional)]
+	with_descendants: Option<bool>,
+	#[specta(optional)]
 	object: Option<ObjectFilterArgs>,
 	#[specta(optional)]
 	hidden: Option<bool>,
@@ -177,7 +179,15 @@ impl FilePathFilterArgs {
 					self.hidden.map(Some).map(hidden::equals),
 					directory_materialized_path_str
 						.map(Some)
-						.map(materialized_path::equals),
+						.map(|materialized_path| {
+							if let Some(true) = self.with_descendants {
+								materialized_path::starts_with(
+									materialized_path.unwrap_or_else(|| "/".into()),
+								)
+							} else {
+								materialized_path::equals(materialized_path)
+							}
+						}),
 					self.object.and_then(|obj| {
 						let params = obj.into_params();
 

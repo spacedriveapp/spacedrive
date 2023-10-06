@@ -158,18 +158,6 @@ export default () => {
 
 					{settings.layoutMode === 'media' && (
 						<RadixCheckbox
-							checked={settings.mediaViewEntireLocation}
-							label="Entire Location"
-							name="mediaViewEntireLocation"
-							onCheckedChange={(value) => {
-								if (typeof value !== 'boolean') return;
-
-								explorer.settingsStore.mediaViewEntireLocation = value;
-							}}
-						/>
-					)}
-					{settings.layoutMode === 'media' && (
-						<RadixCheckbox
 							checked={settings.mediaAspectSquare}
 							label="Square Thumbnails"
 							name="mediaAspectSquare"
@@ -182,6 +170,30 @@ export default () => {
 					)}
 				</div>
 			</div>
+
+			{settings.layoutMode === 'media' && (
+				<div>
+					<Subheading>Media View Context</Subheading>
+					<Select
+						className="w-full"
+						value={
+							explorer.settingsStore.mediaViewWithDescendants ?
+							'withDescendants'
+							: 'withoutDescendants'
+						}
+						onChange={(value) => {
+
+							explorer.settingsStore.mediaViewWithDescendants = value === 'withDescendants';
+						}}
+					>
+						{mediaViewContextActions.options.map((option) => (
+							<SelectOption key={option.value} value={option.value}>
+								{option.description}
+							</SelectOption>
+						))}
+					</Select>
+				</div>
+			)}
 
 			<div>
 				<Subheading>Double click action</Subheading>
@@ -206,4 +218,9 @@ export default () => {
 const doubleClickActions = z.union([
 	z.literal('openFile').describe('Open File'),
 	z.literal('quickPreview').describe('Quick Preview')
+]);
+
+const mediaViewContextActions = z.union([
+	z.literal('withDescendants').describe('Current Directory With Descendants'),
+	z.literal('withoutDescendants').describe('Current Directory')
 ]);

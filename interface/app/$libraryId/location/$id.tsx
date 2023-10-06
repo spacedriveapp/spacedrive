@@ -148,8 +148,8 @@ const useItems = ({
 	if (explorerSettings.layoutMode === 'media') {
 		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
 
-		if (explorerSettings.mediaViewEntireLocation)
-			filter.path = undefined;
+		if (explorerSettings.mediaViewWithDescendants)
+			filter.withDescendants = true;
 	}
 
 	if (!explorerSettings.showHiddenFiles)
