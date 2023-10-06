@@ -37,7 +37,7 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 		let mut buffer = String::new();
 		while reader.read_line(&mut buffer).expect("Failed to read line") > 0 {
 			if buffer.contains("DiskAppeared") || buffer.contains("DiskDisappeared") {
-				println!("Disk change detected: {:?}", &buffer);
+				// println!("Disk change detected: {:?}", &buffer);
 				handle_disk_change(library.clone());
 			}
 			buffer.clear();
