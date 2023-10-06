@@ -13,7 +13,7 @@ interface Props {
 
 const styles = {
 	default: {
-		container: 'flex flex-col gap-1 rounded-b-none px-4',
+		container: 'flex flex-col gap-1 rounded-b-none px-3 py-2',
 		title: 'flex flex-row items-center justify-between px-3 py-2',
 		box: 'rounded-md border border-app-line bg-app-darkBox'
 	},
@@ -39,10 +39,13 @@ const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
 					size={props.caretSize || 12}
-					className={clsx(isOpen && 'rotate-180', 'transition-all duration-200')}
+					className={clsx(
+						(isOpen || toggle) && 'rotate-180',
+						'transition-all duration-200'
+					)}
 				/>
 			</div>
-			{isOpen && <div className={variant.container}>{props.children}</div>}
+			{(isOpen || toggle) && <div className={variant.container}>{props.children}</div>}
 		</div>
 	);
 };
