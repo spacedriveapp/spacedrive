@@ -39,19 +39,21 @@ To make changes locally, follow these steps:
 
 1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
 2. Navigate to the project directory: `cd spacedrive`
-3. For Linux or MacOS users, run: `./.github/scripts/setup-system.sh`
+3. For Linux or MacOS users, run: `./scripts/setup.sh`
    - This will install FFmpeg and any other required dependencies for Spacedrive to build.
-4. For Windows users, run the following command in PowerShell: `.\.github\scripts\setup-system.ps1`
+4. For Windows users, run the following command in PowerShell: `.\scripts\setup.ps1`
    - This will install pnpm, LLVM, FFmpeg, and any other required dependencies for Spacedrive to build.
 5. Install dependencies: `pnpm i`
 6. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
 
 To quickly run only the desktop app after `prep`, you can use:
 
-- `pnpm desktop dev`
+- `pnpm tauri dev`
 
-  If necessary, react-devtools can be launched using `pnpm dlx react-devtools`.
-  However, it must be executed before starting the desktop app for it to connect.
+  If necessary, the webview devtools can be opened by pressing Ctrl + Shift + I in the desktop app.
+
+  Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
+  However, it must be executed before starting the desktop app for it qto connect.
 
 To run the web app:
 
@@ -70,7 +72,7 @@ To run the landing page:
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
 - Rust version: **1.70.0**
-- Node version: **18**
+- Node version: **18.17**
 - Pnpm version: **8.0.0**
 
 After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
@@ -82,7 +84,7 @@ Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prereq
 To run the mobile app:
 
 - Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
-- Run `./.github/scripts/setup-system.sh mobile`
+- Run `./scripts/setup.sh mobile`
   - This will set up most of the dependencies required to build the mobile app.
 - Make sure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
 - Run the following commands:

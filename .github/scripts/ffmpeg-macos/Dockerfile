@@ -1,7 +1,7 @@
 ARG FAKE_DEPS="gettext-runtime libiconv ncurses" \
 	FFMPEG_DEPS="brotli bzip2 dav1d libde265 libjxl libopus libpng libvorbis libvpx-devel openjpeg \
 	soxr xz zimg" \
-	LIBWEBP_VERSION=1.3.1 \
+	LIBWEBP_VERSION=1.3.2 \
 	FFMPEG_VERSION=6.0 \
 	LIBHEIF_VERSION=1.16.2
 

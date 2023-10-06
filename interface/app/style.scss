@@ -63,6 +63,21 @@ body {
 	animation-name: slideDown;
 }
 
+.TooltipContent[data-side='right'] {
+	animation-name: slideRight;
+}
+
+@keyframes slideRight {
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
 @keyframes slideDown {
 	from {
 		opacity: 0;
@@ -101,7 +116,9 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[46px] rounded-[6px] bg-transparent;
+		@apply rounded-[6px] bg-transparent;
+		margin-top: var(--scrollbar-margin-top);
+		margin-bottom: var(--scrollbar-margin-bottom);
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-app-explorerScrollbar;

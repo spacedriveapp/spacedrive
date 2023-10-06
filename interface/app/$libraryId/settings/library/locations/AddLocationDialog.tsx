@@ -219,7 +219,7 @@ export const AddLocationDialog = ({
 							field={field}
 							label="File indexing rules:"
 							className="relative flex flex-col"
-							rulesContainerClass="grid grid-cols-2 gap-1"
+							rulesContainerClass="grid grid-cols-2 gap-2"
 							ruleButtonClass="w-full"
 						/>
 					)}

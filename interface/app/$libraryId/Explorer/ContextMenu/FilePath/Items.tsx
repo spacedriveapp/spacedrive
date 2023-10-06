@@ -1,18 +1,16 @@
 import { Image, Package, Trash, TrashSimple } from '@phosphor-icons/react';
-import { libraryClient, useLibraryContext, useLibraryMutation } from '@sd/client';
+import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 import EraseDialog from '../../FilePath/EraseDialog';
-import { Conditional, ConditionalItem } from '../ConditionalItem';
+import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
-import OpenWith from './OpenWith';
 
 export * from './CutCopyItems';
 
@@ -225,56 +223,5 @@ export const ParentFolderActions = new ConditionalItem({
 				/>
 			</>
 		);
-	}
-});
-
-export const OpenOrDownload = new ConditionalItem({
-	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		const { openFilePaths } = usePlatform();
-
-		if (!openFilePaths || !isNonEmpty(selectedFilePaths)) return null;
-
-		return { openFilePaths, selectedFilePaths };
-	},
-	Component: ({ openFilePaths, selectedFilePaths }) => {
-		const keybind = useKeybindFactory();
-		const { platform } = usePlatform();
-		const updateAccessTime = useLibraryMutation('files.updateAccessTime');
-
-		const { library } = useLibraryContext();
-
-		if (platform === 'web') return <Menu.Item label="Download" />;
-		else
-			return (
-				<>
-					<Menu.Item
-						label="Open"
-						keybind={keybind([ModifierKeys.Control], ['O'])}
-						onClick={async () => {
-							if (selectedFilePaths.length < 1) return;
-
-							updateAccessTime
-								.mutateAsync(
-									selectedFilePaths.map((p) => p.object_id!).filter(Boolean)
-								)
-								.catch(console.error);
-
-							try {
-								await openFilePaths(
-									library.uuid,
-									selectedFilePaths.map((p) => p.id)
-								);
-							} catch (error) {
-								toast.error({
-									title: `Failed to open file`,
-									body: `Error: ${error}.`
-								});
-							}
-						}}
-					/>
-					<Conditional items={[OpenWith]} />
-				</>
-			);
 	}
 });

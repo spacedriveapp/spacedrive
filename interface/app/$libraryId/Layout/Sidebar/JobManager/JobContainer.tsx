@@ -44,7 +44,13 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 				)
 			)}
 			<MetaContainer>
-				<Tooltip asChild tooltipClassName="max-w-[400px]" position="top" label={name}>
+				<Tooltip
+					labelClassName="break-all"
+					asChild
+					tooltipClassName="max-w-[400px]"
+					position="top"
+					label={name}
+				>
 					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {

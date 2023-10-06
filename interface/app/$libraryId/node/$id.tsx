@@ -60,7 +60,8 @@ export const Component = () => {
 					node: nodeState.data
 			  }
 			: undefined,
-		settings: explorerSettings
+		settings: explorerSettings,
+		showPathBar: false
 	});
 
 	return (

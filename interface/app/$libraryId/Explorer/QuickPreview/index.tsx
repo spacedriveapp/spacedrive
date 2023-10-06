@@ -1,6 +1,5 @@
 import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';
 import {
 	ButtonHTMLAttributes,
@@ -22,8 +21,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { dialogManager, DropdownMenu, Form, ModifierKeys, toast, Tooltip, z } from '@sd/ui';
-import { useIsDark, useOperatingSystem } from '~/hooks';
-import { useKeyBind } from '~/hooks/useKeyBind';
+import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -38,9 +36,6 @@ import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
-
-const AnimatedDialogOverlay = animated(Dialog.Overlay);
-const AnimatedDialogContent = animated(Dialog.Content);
 
 const iconKinds: ObjectKindKey[] = ['Audio', 'Folder', 'Executable', 'Unknown'];
 const textKinds: ObjectKindKey[] = ['Text', 'Config', 'Code'];
@@ -61,7 +56,7 @@ export const QuickPreview = () => {
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems } = usePlatform();
+	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
@@ -77,17 +72,6 @@ export const QuickPreview = () => {
 	);
 
 	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
-
-	const transitions = useTransition(open, {
-		from: {
-			opacity: 0,
-			transform: `translateY(20px) scale(0.9)`,
-			transformOrigin: 'center top'
-		},
-		enter: { opacity: 1, transform: `translateY(0px) scale(1)` },
-		leave: { opacity: 0, immediate: true },
-		config: { mass: 0.2, tension: 300, friction: 20, bounce: 0 }
-	});
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
@@ -110,7 +94,7 @@ export const QuickPreview = () => {
 	}, [item, open]);
 
 	// Toggle quick preview
-	useKeyBind(['space'], (e) => {
+	useKeybind(['space'], (e) => {
 		if (isRenaming) return;
 
 		e.preventDefault();
@@ -118,29 +102,33 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	useKeyBind('Escape', (e) => open && e.stopPropagation());
+	useKeybind('Escape', (e) => open && e.stopPropagation());
 
 	// Move between items
-	useKeyBind([['left'], ['right']], (e) => {
+	useKeybind([['left'], ['right']], (e) => {
 		if (isContextMenuOpen || isRenaming) return;
 		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
 
 	// Toggle metadata
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
 		setShowMetadata(!showMetadata)
 	);
 
 	// Open file
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
-		if (!item || !openFilePaths) return;
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
-			const path = getIndexedItemFilePath(item);
+			if (item.type === 'Path' || item.type === 'Object') {
+				const path = getIndexedItemFilePath(item);
 
-			if (!path) throw 'No path found';
+				if (!path) throw 'No path found';
 
-			openFilePaths(library.uuid, [path.id]);
+				openFilePaths(library.uuid, [path.id]);
+			} else if (item.type === 'NonIndexedPath') {
+				openEphemeralFiles([item.item.path]);
+			}
 		} catch (error) {
 			toast.error({
 				title: 'Failed to open file',
@@ -150,17 +138,22 @@ export const QuickPreview = () => {
 	});
 
 	// Reveal in native explorer
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
 		if (!item || !revealItems) return;
 
 		try {
-			const id = item.type === 'Location' ? item.item.id : getIndexedItemFilePath(item)?.id;
+			const toReveal = [];
+			if (item.type === 'Location') {
+				toReveal.push({ Location: { id: item.item.id } });
+			} else if (item.type === 'NonIndexedPath') {
+				toReveal.push({ Ephemeral: { path: item.item.path } });
+			} else {
+				const filePath = getIndexedItemFilePath(item);
+				if (!filePath) throw 'No file path found';
+				toReveal.push({ FilePath: { id: filePath.id } });
+			}
 
-			if (!id) throw 'No id found';
-
-			revealItems(library.uuid, [
-				{ ...(item.type === 'Location' ? { Location: { id } } : { FilePath: { id } }) }
-			]);
+			revealItems(library.uuid, toReveal);
 		} catch (error) {
 			toast.error({
 				title: 'Failed to reveal',
@@ -170,7 +163,7 @@ export const QuickPreview = () => {
 	});
 
 	// Open delete dialog
-	useKeyBind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
+	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
 		if (!item) return;
 
 		const path = getIndexedItemFilePath(item);
@@ -182,268 +175,251 @@ export const QuickPreview = () => {
 		));
 	});
 
+	if (!item) return null;
+
+	const { kind, ...itemData } = getExplorerItemData(item);
+
+	const name = newName || `${itemData.name}${itemData.extension ? `.${itemData.extension}` : ''}`;
+
+	const background = !withoutBackgroundKinds.includes(kind);
+	const icon = iconKinds.includes(kind);
+
 	return (
 		<Dialog.Root open={open} onOpenChange={(open) => (getQuickPreviewStore().open = open)}>
-			{transitions((styles, show) => {
-				if (!show || !item) return null;
+			<QuickPreviewContext.Provider value={{ background }}>
+				<Dialog.Portal forceMount>
+					<Dialog.Overlay
+						className={clsx(
+							'absolute inset-0 z-50',
+							'radix-state-open:animate-in radix-state-open:fade-in-0',
+							isDark ? 'bg-black/80' : 'bg-black/60'
+						)}
+						onContextMenu={(e) => e.preventDefault()}
+					/>
 
-				const { kind, ...itemData } = getExplorerItemData(item);
-
-				const name =
-					newName ||
-					`${itemData.name}${itemData.extension ? `.${itemData.extension}` : ''}`;
-
-				const background = !withoutBackgroundKinds.includes(kind);
-				const icon = iconKinds.includes(kind);
-
-				return (
-					<QuickPreviewContext.Provider value={{ background }}>
-						<Dialog.Portal forceMount>
-							<AnimatedDialogOverlay
-								className={clsx(
-									'absolute inset-0 z-50',
-									isDark ? 'bg-black/80' : 'bg-black/60'
+					<Dialog.Content
+						className="fixed inset-[5%] z-50 outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
+						onOpenAutoFocus={(e) => e.preventDefault()}
+						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
+						onContextMenu={(e) => e.preventDefault()}
+					>
+						<div
+							className={clsx(
+								'flex h-full overflow-hidden rounded-md border',
+								isDark ? 'border-app-line/80' : 'border-app-line/10'
+							)}
+						>
+							<div className="relative flex flex-1 flex-col overflow-hidden bg-app/80 backdrop-blur">
+								{background && (
+									<div className="absolute inset-0 overflow-hidden">
+										<FileThumb
+											data={item}
+											cover={true}
+											childClassName="scale-125"
+										/>
+										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
+									</div>
 								)}
-								style={{ opacity: styles.opacity }}
-								onContextMenu={(e) => e.preventDefault()}
-							/>
 
-							<AnimatedDialogContent
-								className="fixed inset-[5%] z-50 outline-none"
-								style={styles}
-								onOpenAutoFocus={(e) => e.preventDefault()}
-								onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
-								onContextMenu={(e) => e.preventDefault()}
-							>
 								<div
 									className={clsx(
-										'flex h-full overflow-hidden rounded-md border',
-										isDark ? 'border-app-line/80' : 'border-app-line/10'
+										'z-50 flex items-center p-2',
+										background ? 'text-white' : 'text-ink'
 									)}
 								>
-									<div className="relative flex flex-1 flex-col overflow-hidden bg-app/80 backdrop-blur">
-										{background && (
-											<div className="absolute inset-0 overflow-hidden bg-black/90">
-												<FileThumb
-													data={item}
-													cover={true}
-													childClassName="opacity-75 blur-3xl scale-125"
-												/>
-											</div>
-										)}
+									<div className="flex flex-1">
+										<Tooltip label="Close">
+											<Dialog.Close asChild>
+												<IconButton>
+													<X weight="bold" />
+												</IconButton>
+											</Dialog.Close>
+										</Tooltip>
 
-										<div
-											className={clsx(
-												'z-50 flex items-center p-2',
-												background ? 'text-white' : 'text-ink'
-											)}
-										>
-											<div className="flex flex-1">
-												<Tooltip label="Close">
-													<Dialog.Close asChild>
-														<IconButton>
-															<X weight="bold" />
-														</IconButton>
-													</Dialog.Close>
+										{items.length > 1 && (
+											<div className="ml-2 flex">
+												<Tooltip label="Back">
+													<IconButton
+														disabled={!items[itemIndex - 1]}
+														onClick={() =>
+															changeCurrentItem(itemIndex - 1)
+														}
+														className="rounded-r-none"
+													>
+														<ArrowLeft weight="bold" />
+													</IconButton>
 												</Tooltip>
 
-												{items.length > 1 && (
-													<div className="ml-2 flex">
-														<Tooltip label="Back">
-															<IconButton
-																disabled={!items[itemIndex - 1]}
-																onClick={() =>
-																	changeCurrentItem(itemIndex - 1)
-																}
-																className="rounded-r-none"
-															>
-																<ArrowLeft weight="bold" />
-															</IconButton>
-														</Tooltip>
-
-														<Tooltip label="Forward">
-															<IconButton
-																disabled={!items[itemIndex + 1]}
-																onClick={() =>
-																	changeCurrentItem(itemIndex + 1)
-																}
-																className="rounded-l-none"
-															>
-																<ArrowRight weight="bold" />
-															</IconButton>
-														</Tooltip>
-													</div>
-												)}
-											</div>
-
-											<div className="flex w-1/2 items-center justify-center truncate text-sm">
-												{isRenaming && name ? (
-													<RenameInput
-														name={name}
-														onRename={(newName) => {
-															setIsRenaming(false);
-
-															if (
-																!('id' in item.item) ||
-																!newName ||
-																newName === name
-															)
-																return;
-
-															const filePathData =
-																getIndexedItemFilePath(item);
-
-															if (!filePathData) return;
-
-															const locationId =
-																filePathData.location_id;
-
-															if (locationId === null) return;
-
-															renameFile.mutate({
-																location_id: locationId,
-																kind: {
-																	One: {
-																		from_file_path_id:
-																			item.item.id,
-																		to: newName
-																	}
-																}
-															});
-
-															setNewName(newName);
-														}}
-													/>
-												) : (
-													<Tooltip label={name} className="truncate">
-														<span
-															onClick={() =>
-																name &&
-																item.type !== 'NonIndexedPath' &&
-																setIsRenaming(true)
-															}
-															className={clsx(
-																item.type === 'NonIndexedPath'
-																	? 'cursor-default'
-																	: 'cursor-text'
-															)}
-														>
-															{name}
-														</span>
-													</Tooltip>
-												)}
-											</div>
-
-											<div className="flex flex-1 justify-end gap-1">
-												{item.type !== 'NonIndexedPath' && (
-													<DropdownMenu.Root
-														trigger={
-															<div className="flex">
-																<Tooltip label="More">
-																	<IconButton>
-																		<DotsThree
-																			size={20}
-																			weight="bold"
-																		/>
-																	</IconButton>
-																</Tooltip>
-															</div>
-														}
-														onOpenChange={setIsContextMenuOpen}
-														align="end"
-														sideOffset={-10}
-													>
-														<ExplorerContextMenu items={[item]} custom>
-															<Conditional
-																items={[
-																	FilePathItems.OpenOrDownload,
-																	SharedItems.RevealInNativeExplorer
-																]}
-															/>
-
-															<DropdownMenu.Item
-																label="Rename"
-																onClick={() =>
-																	name && setIsRenaming(true)
-																}
-															/>
-
-															<SeparatedConditional
-																items={[ObjectItems.AssignTag]}
-															/>
-
-															<Conditional
-																items={[
-																	FilePathItems.CopyAsPath,
-																	FilePathItems.Crypto,
-																	FilePathItems.Compress,
-																	ObjectItems.ConvertObject,
-																	FilePathItems.SecureDelete
-																]}
-															>
-																{(items) => (
-																	<DropdownMenu.SubMenu
-																		label="More actions..."
-																		icon={Plus}
-																	>
-																		{items}
-																	</DropdownMenu.SubMenu>
-																)}
-															</Conditional>
-
-															<SeparatedConditional
-																items={[FilePathItems.Delete]}
-															/>
-														</ExplorerContextMenu>
-													</DropdownMenu.Root>
-												)}
-
-												<Tooltip label="Show details">
+												<Tooltip label="Forward">
 													<IconButton
+														disabled={!items[itemIndex + 1]}
 														onClick={() =>
-															setShowMetadata(!showMetadata)
+															changeCurrentItem(itemIndex + 1)
 														}
-														active={showMetadata}
+														className="rounded-l-none"
 													>
-														<SidebarSimple
-															className="rotate-180"
-															weight={
-																showMetadata ? 'fill' : 'regular'
-															}
-														/>
+														<ArrowRight weight="bold" />
 													</IconButton>
 												</Tooltip>
 											</div>
-										</div>
-
-										<FileThumb
-											data={item}
-											loadOriginal
-											mediaControls
-											className={clsx(
-												'm-3 !w-auto flex-1 !overflow-hidden rounded',
-												!background && !icon && 'bg-app-box shadow'
-											)}
-											childClassName={clsx(
-												'rounded',
-												kind === 'Text' && 'p-3',
-												!icon && 'h-full',
-												textKinds.includes(kind) && 'select-text'
-											)}
-										/>
+										)}
 									</div>
 
-									{showMetadata && (
-										<div className="no-scrollbar w-64 shrink-0 border-l border-app-line bg-app-darkBox py-1">
-											<SingleItemMetadata item={item} />
-										</div>
-									)}
+									<div className="flex w-1/2 items-center justify-center truncate text-sm">
+										{isRenaming && name ? (
+											<RenameInput
+												name={name}
+												onRename={(newName) => {
+													setIsRenaming(false);
+
+													if (
+														!('id' in item.item) ||
+														!newName ||
+														newName === name
+													)
+														return;
+
+													const filePathData =
+														getIndexedItemFilePath(item);
+
+													if (!filePathData) return;
+
+													const locationId = filePathData.location_id;
+
+													if (locationId === null) return;
+
+													renameFile.mutate({
+														location_id: locationId,
+														kind: {
+															One: {
+																from_file_path_id: item.item.id,
+																to: newName
+															}
+														}
+													});
+
+													setNewName(newName);
+												}}
+											/>
+										) : (
+											<Tooltip label={name} className="truncate">
+												<span
+													onClick={() =>
+														name &&
+														item.type !== 'NonIndexedPath' &&
+														setIsRenaming(true)
+													}
+													className={clsx(
+														item.type === 'NonIndexedPath'
+															? 'cursor-default'
+															: 'cursor-text'
+													)}
+												>
+													{name}
+												</span>
+											</Tooltip>
+										)}
+									</div>
+
+									<div className="flex flex-1 justify-end gap-1">
+										<DropdownMenu.Root
+											trigger={
+												<div className="flex">
+													<Tooltip label="More">
+														<IconButton>
+															<DotsThree size={20} weight="bold" />
+														</IconButton>
+													</Tooltip>
+												</div>
+											}
+											onOpenChange={setIsContextMenuOpen}
+											align="end"
+											sideOffset={-10}
+										>
+											<ExplorerContextMenu items={[item]} custom>
+												<Conditional
+													items={[
+														SharedItems.OpenOrDownload,
+														SharedItems.RevealInNativeExplorer
+													]}
+												/>
+
+												{item.type !== 'NonIndexedPath' && (
+													<DropdownMenu.Item
+														label="Rename"
+														onClick={() => name && setIsRenaming(true)}
+													/>
+												)}
+
+												<SeparatedConditional
+													items={[ObjectItems.AssignTag]}
+												/>
+
+												<Conditional
+													items={[
+														FilePathItems.CopyAsPath,
+														FilePathItems.Crypto,
+														FilePathItems.Compress,
+														ObjectItems.ConvertObject,
+														FilePathItems.SecureDelete
+													]}
+												>
+													{(items) => (
+														<DropdownMenu.SubMenu
+															label="More actions..."
+															icon={Plus}
+														>
+															{items}
+														</DropdownMenu.SubMenu>
+													)}
+												</Conditional>
+
+												<SeparatedConditional
+													items={[FilePathItems.Delete]}
+												/>
+											</ExplorerContextMenu>
+										</DropdownMenu.Root>
+
+										<Tooltip label="Show details">
+											<IconButton
+												onClick={() => setShowMetadata(!showMetadata)}
+												active={showMetadata}
+											>
+												<SidebarSimple
+													className="rotate-180"
+													weight={showMetadata ? 'fill' : 'regular'}
+												/>
+											</IconButton>
+										</Tooltip>
+									</div>
 								</div>
-							</AnimatedDialogContent>
-						</Dialog.Portal>
-					</QuickPreviewContext.Provider>
-				);
-			})}
+
+								<FileThumb
+									data={item}
+									loadOriginal
+									mediaControls
+									className={clsx(
+										'm-3 !w-auto flex-1 !overflow-hidden rounded',
+										!background && !icon && 'bg-app-box shadow'
+									)}
+									childClassName={clsx(
+										'rounded',
+										kind === 'Text' && 'p-3',
+										!icon && 'h-full',
+										textKinds.includes(kind) && 'select-text'
+									)}
+								/>
+							</div>
+
+							{showMetadata && (
+								<div className="no-scrollbar w-64 shrink-0 border-l border-app-line bg-app-darkBox py-1">
+									<SingleItemMetadata item={item} />
+								</div>
+							)}
+						</div>
+					</Dialog.Content>
+				</Dialog.Portal>
+			</QuickPreviewContext.Provider>
 		</Dialog.Root>
 	);
 };

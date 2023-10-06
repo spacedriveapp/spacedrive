@@ -41,8 +41,17 @@ const platform: Platform = {
 		`${spacedriveURL}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
+	getFileUrlByPath: (path) => `${spacedriveURL}/local-file-by-path/${encodeURIComponent(path)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
-	confirm: (message, cb) => cb(window.confirm(message))
+	confirm: (message, cb) => cb(window.confirm(message)),
+	auth: {
+		start(url) {
+			return window.open(url);
+		},
+		finish(win: Window | null) {
+			win?.close();
+		}
+	}
 };
 
 const queryClient = new QueryClient({

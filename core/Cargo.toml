@@ -69,7 +69,7 @@ thiserror = "1.0.48"
 include_dir = { version = "0.7.3", features = ["glob"] }
 async-trait = "^0.1.73"
 image = "0.24.7"
-webp = "0.2.5"
+webp = "0.2.6"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-stream = "0.3.5"
@@ -107,6 +107,7 @@ axum = "0.6.20"
 http-body = "0.4.5"
 pin-project-lite = "0.2.13"
 bytes = "1.5.0"
+reqwest = { version = "0.11.20", features = ["json"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

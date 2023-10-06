@@ -2,6 +2,7 @@ import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	memo,
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -42,7 +43,9 @@ export interface ThumbProps {
 	mediaControls?: boolean;
 	pauseVideo?: boolean;
 	className?: string;
+	frameClassName?: string;
 	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
+	isSidebarPreview?: boolean;
 }
 
 export const FileThumb = memo((props: ThumbProps) => {
@@ -62,19 +65,20 @@ export const FileThumb = memo((props: ThumbProps) => {
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(
 		'rounded-sm border-2 border-app-line bg-app-darkBox',
+		props.frameClassName,
 		isDark ? classes.checkers : classes.checkersLight
 	);
 
-	const onLoad = () => setLoaded(true);
+	const onLoad = useCallback(() => setLoaded(true), []);
 
-	const onError = () => {
+	const onError = useCallback(() => {
 		setLoaded(false);
 		setThumbType((prevThumbType) =>
 			prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
 				? ThumbType.Thumbnail
 				: ThumbType.Icon
 		);
-	};
+	}, [itemData.hasLocalThumbnail]);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -98,13 +102,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 		switch (thumbType) {
 			case ThumbType.Original:
-				if (
-					locationId &&
-					filePath &&
-					'id' in filePath &&
-					(itemData.extension !== 'pdf' || pdfViewerEnabled())
-				) {
-					setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
+					if ('id' in filePath && locationId)
+						setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+					else if ('path' in filePath) setSrc(platform.getFileUrlByPath(filePath.path));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}
@@ -200,6 +201,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 												itemData.extension) ||
 											''
 										}
+										isSidebarPreview={props.isSidebarPreview}
 									/>
 								);
 

@@ -13,8 +13,7 @@
 	},
 	"scripts": {
 		"lint": "eslint . --cache",
-		"typecheck": "tsc -b",
-		"build": "tsc"
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
@@ -34,8 +33,9 @@
 		"@tailwindcss/forms": "^0.5.3",
 		"@tanstack/react-query": "^4.12.0",
 		"@tanstack/react-query-devtools": "^4.22.0",
-		"@tanstack/react-table": "^8.10.0",
-		"@tanstack/react-virtual": "3.0.0-beta.54",
+		"@tanstack/react-table": "^8.8.5",
+		"@tanstack/react-virtual": "3.0.0-beta.61",
+		"@types/react-scroll-sync": "^0.8.4",
 		"@types/uuid": "^9.0.2",
 		"@vitejs/plugin-react": "^2.1.0",
 		"autoprefixer": "^10.4.12",

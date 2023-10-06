@@ -45,6 +45,10 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 */
 	selectable?: boolean;
 	settings: ReturnType<typeof useExplorerSettings<TOrder>>;
+	/**
+	 * @defaultValue `true`
+	 */
+	showPathBar?: boolean;
 }
 
 /**
@@ -63,6 +67,7 @@ export function useExplorer<TOrder extends Ordering>({
 		selectable: true,
 		scrollRef,
 		count: props.items?.length,
+		showPathBar: true,
 		...settings,
 		// Provided values
 		...props,
@@ -76,19 +81,28 @@ export type UseExplorer<TOrder extends Ordering> = ReturnType<typeof useExplorer
 export function useExplorerSettings<TOrder extends Ordering>({
 	settings,
 	onSettingsChanged,
-	orderingKeys
+	orderingKeys,
+	location
 }: {
 	settings: ReturnType<typeof createDefaultExplorerSettings<TOrder>>;
 	onSettingsChanged?: (settings: ExplorerSettings<TOrder>) => any;
 	orderingKeys?: z.ZodUnion<
 		[z.ZodLiteral<OrderingKeys<TOrder>>, ...z.ZodLiteral<OrderingKeys<TOrder>>[]]
 	>;
+	location?: Location | null;
 }) {
 	const [store] = useState(() => proxy(settings));
 
 	useEffect(() => {
-		Object.assign(store, settings);
+		Object.assign(store, {
+			...settings,
+			layoutMode: store.layoutMode
+		});
 	}, [store, settings]);
+
+	useEffect(() => {
+		store.layoutMode = settings.layoutMode;
+	}, [location])
 
 	useEffect(
 		() =>

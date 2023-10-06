@@ -10,7 +10,7 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKeys } from 'rooks';
+import { useKey, useKeys } from 'rooks';
 import { getItemObject, useLibraryContext, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Loader } from '~/components';
@@ -25,21 +25,36 @@ import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore } from '../store';
 import { ViewContext, type ExplorerViewContext } from '../ViewContext';
-import { ExplorerPath } from './ExplorerPath';
 import GridView from './GridView';
 import ListView from './ListView';
 import MediaView from './MediaView';
+import { useExplorerViewPadding } from './util';
 import { useViewItemDoubleClick } from './ViewItem';
+
+export interface ExplorerViewPadding {
+	x?: number;
+	y?: number;
+	top?: number;
+	bottom?: number;
+	left?: number;
+	right?: number;
+}
 
 export interface ExplorerViewProps
 	extends Omit<
 		ExplorerViewContext,
-		'selectable' | 'isRenaming' | 'setIsRenaming' | 'setIsContextMenuOpen' | 'ref' | 'padding'
+		| 'selectable'
+		| 'isRenaming'
+		| 'isContextMenuOpen'
+		| 'setIsRenaming'
+		| 'setIsContextMenuOpen'
+		| 'ref'
+		| 'padding'
 	> {
 	className?: string;
 	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
-	padding?: number | { x?: number; y?: number };
+	padding?: number | ExplorerViewPadding;
 }
 
 export default memo(
@@ -47,6 +62,7 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
+		const os = useOperatingSystem();
 
 		const { doubleClick } = useViewItemDoubleClick();
 
@@ -60,9 +76,18 @@ export default memo(
 		const [isRenaming, setIsRenaming] = useState(false);
 		const [showLoading, setShowLoading] = useState(false);
 
+		const viewPadding = useExplorerViewPadding(padding);
+
 		useKeyDownHandlers({
 			disabled: isRenaming || quickPreviewStore.open
 		});
+
+		useEffect(() => {
+			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			// Close context menu when no items are selected
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			setIsContextMenuOpen(false);
+		}, [explorer.selectedItems, isContextMenuOpen]);
 
 		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
@@ -71,8 +96,16 @@ export default memo(
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
-		useKeys([metaCtrlKey, 'ArrowUp'], (e) => {
+		useKey(['Enter'], (e) => {
 			e.stopPropagation();
+			if (os === 'windows') {
+				doubleClick();
+			}
+		});
+
+		useKeys([metaCtrlKey, 'KeyO'], (e) => {
+			e.stopPropagation();
+			if (os === 'windows') return;
 			doubleClick();
 		});
 
@@ -97,14 +130,12 @@ export default memo(
 									!isContextMenuOpen &&
 									!isRenaming &&
 									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								setIsContextMenuOpen,
-								isRenaming,
-								setIsRenaming,
 								ref,
-								padding: {
-									x: typeof padding === 'object' ? padding.x : padding,
-									y: typeof padding === 'object' ? padding.y : padding
-								}
+								isRenaming,
+								isContextMenuOpen,
+								setIsRenaming,
+								setIsContextMenuOpen,
+								padding: viewPadding
 							}}
 						>
 							{layoutMode === 'grid' && <GridView />}
@@ -117,7 +148,6 @@ export default memo(
 					) : (
 						emptyNotice
 					)}
-					<ExplorerPath />
 				</div>
 
 				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
@@ -126,7 +156,11 @@ export default memo(
 	}
 );
 
-export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNode }) => {
+export const EmptyNotice = (props: {
+	icon?: Icon | ReactNode;
+	message?: ReactNode;
+	loading?: boolean;
+}) => {
 	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
 
 	const emptyNoticeIcon = (icon?: Icon) => {
@@ -141,6 +175,8 @@ export const EmptyNotice = (props: { icon?: Icon | ReactNode; message?: ReactNod
 
 		return <Icon size={100} opacity={0.3} />;
 	};
+
+	if (props.loading) return null;
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
@@ -162,7 +198,7 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 
 	const os = useOperatingSystem();
 	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
@@ -186,38 +222,6 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		[os, explorer.selectedItems]
 	);
 
-	const handleOpenShortcut = useCallback(
-		async (event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'O' ||
-				!event.getModifierState(
-					os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control
-				) ||
-				!openFilePaths
-			)
-				return;
-
-			const paths: number[] = [];
-
-			for (const item of explorer.selectedItems)
-				for (const path of item.type === 'Path'
-					? [item.item]
-					: item.type === 'Object'
-					? item.item.file_paths
-					: [])
-					paths.push(path.id);
-
-			if (!isNonEmpty(paths)) return;
-
-			try {
-				await openFilePaths(library.uuid, paths);
-			} catch (error) {
-				toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
-			}
-		},
-		[os, library.uuid, openFilePaths, explorer.selectedItems]
-	);
-
 	const handleExplorerShortcut = useCallback(
 		(event: KeyboardEvent) => {
 			if (
@@ -232,12 +236,12 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	);
 
 	useEffect(() => {
-		const handlers = [handleNewTag, handleOpenShortcut, handleExplorerShortcut];
+		const handlers = [handleNewTag, handleExplorerShortcut];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleOpenShortcut, handleExplorerShortcut]);
+	}, [disabled, handleNewTag, handleExplorerShortcut]);
 };

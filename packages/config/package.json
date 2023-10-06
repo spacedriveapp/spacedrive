@@ -23,7 +23,6 @@
 		"eslint-plugin-tailwindcss": "^3.12.0",
 		"eslint-utils": "^3.0.0",
 		"regexpp": "^3.2.0",
-		"vite-plugin-comlink": "^3.0.5",
 		"vite-plugin-html": "^3.2.0",
 		"vite-plugin-svgr": "^2.2.1"
 	}

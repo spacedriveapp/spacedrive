@@ -3777,9 +3777,9 @@ dependencies = [
 
 [[package]]
 name = "libwebp-sys"
-version = "0.9.2"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5df1e76f0acef0058aa2164ccf74e610e716e7f9eeb3ee2283de7d43659d823"
+checksum = "3e0df0a0f9444d52aee6335cd724d21a2ee3285f646291799a72be518ec8ee3c"
 dependencies = [
  "cc",
  "glob",
@@ -6563,6 +6563,7 @@ dependencies = [
  "plist",
  "prisma-client-rust",
  "regex",
+ "reqwest",
  "rmp",
  "rmp-serde",
  "rmpv",
@@ -6651,6 +6652,7 @@ name = "sd-desktop"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "dotenv",
  "futures",
  "http",
  "opener",
@@ -9085,9 +9087,9 @@ dependencies = [
 
 [[package]]
 name = "webp"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12ff0ebb440d1db63b778cb609db8a8abfda825a7841664a76a70b628502c7e1"
+checksum = "4bb5d8e7814e92297b0e1c773ce43d290bef6c17452dafd9fc49e5edb5beba71"
 dependencies = [
  "image",
  "libwebp-sys",

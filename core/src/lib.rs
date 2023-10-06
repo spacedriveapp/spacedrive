@@ -14,7 +14,7 @@ use notifications::Notifications;
 pub use sd_prisma::*;
 
 use std::{
-	env, fmt,
+	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
 };
@@ -34,7 +34,9 @@ use tracing_subscriber::{
 };
 
 pub mod api;
+mod auth;
 pub mod custom_uri;
+mod env;
 pub(crate) mod job;
 pub mod library;
 pub(crate) mod location;
@@ -46,6 +48,8 @@ pub(crate) mod preferences;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
 pub(crate) mod volume;
+
+pub use env::Env;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -63,6 +67,8 @@ pub struct Node {
 	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnail_remover: thumbnail_remover::Actor,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
+	pub env: env::Env,
+	pub http: reqwest::Client,
 }
 
 impl fmt::Debug for Node {
@@ -74,7 +80,10 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+	pub async fn new(
+		data_dir: impl AsRef<Path>,
+		env: env::Env,
+	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
 		info!("Starting core with data directory '{}'", data_dir.display());
@@ -110,6 +119,8 @@ impl Node {
 			),
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
+			http: reqwest::Client::new(),
+			env,
 		});
 
 		// Restore backend feature flags
@@ -146,14 +157,14 @@ impl Node {
 		);
 
 		// Set a default if the user hasn't set an override
-		if env::var("RUST_LOG") == Err(env::VarError::NotPresent) {
+		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
 			let directive: Directive = if cfg!(debug_assertions) {
 				LevelFilter::DEBUG
 			} else {
 				LevelFilter::INFO
 			}
 			.into();
-			env::set_var("RUST_LOG", directive.to_string());
+			std::env::set_var("RUST_LOG", directive.to_string());
 		}
 
 		let collector = tracing_subscriber::registry()

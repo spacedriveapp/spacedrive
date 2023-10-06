@@ -7,11 +7,13 @@ interface Props {
 	title: string;
 	variant?: keyof typeof styles;
 	className?: string;
+	isOpen?: boolean;
+	onToggle?: (isOpen: boolean) => void;
 }
 
 const styles = {
 	default: {
-		container: 'flex flex-col gap-1 rounded-b-none px-4',
+		container: 'flex flex-col gap-1 rounded-b-none px-3 py-2',
 		title: 'flex flex-row items-center justify-between px-3 py-2',
 		box: 'rounded-md border border-app-line bg-app-darkBox'
 	},
@@ -22,19 +24,28 @@ const styles = {
 	}
 };
 
-const Accordion = (props: PropsWithChildren<Props>) => {
-	const [toggle, setToggle] = useState(false);
+const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
+	const [toggle, setToggle] = useState(isOpen);
 	const variant = styles[props.variant ?? 'default'];
 	return (
 		<div className={clsx(variant.box, props.className)}>
-			<div onClick={() => setToggle((t) => !t)} className={variant.title}>
+			<div
+				onClick={() => {
+					setToggle((t) => !t);
+					props.onToggle?.(!toggle);
+				}}
+				className={variant.title}
+			>
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
 					size={props.caretSize || 12}
-					className={clsx(toggle && 'rotate-180', 'transition-all duration-200')}
+					className={clsx(
+						(isOpen || toggle) && 'rotate-180',
+						'transition-all duration-200'
+					)}
 				/>
 			</div>
-			{toggle && <div className={variant.container}>{props.children}</div>}
+			{(isOpen || toggle) && <div className={variant.container}>{props.children}</div>}
 		</div>
 	);
 };

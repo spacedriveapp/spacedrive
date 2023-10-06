@@ -51,13 +51,13 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	let logs_path = node.data_dir.join("logs");
 
 	#[cfg(target_os = "linux")]
-	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+	let open_result = sd_desktop_linux::open_file_path(logs_path);
 
 	#[cfg(not(target_os = "linux"))]
 	let open_result = opener::open(logs_path);
 
-	open_result.map_err(|err| {
-		error!("Failed to open logs dir: {err}");
+	open_result.map_err(|e| {
+		error!("Failed to open logs dir: {e:#?}");
 	})
 }
 
@@ -71,8 +71,13 @@ macro_rules! tauri_handlers {
 	}};
 }
 
+const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
+
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	#[cfg(debug_assertions)]
+	dotenv::dotenv().ok();
+
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
@@ -85,7 +90,17 @@ async fn main() -> tauri::Result<()> {
 
 	// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
 	let (_guard, result) = match Node::init_logger(&data_dir) {
-		Ok(guard) => (Some(guard), Node::new(data_dir).await),
+		Ok(guard) => (
+			Some(guard),
+			Node::new(
+				data_dir,
+				sd_core::Env {
+					api_url: "https://app.spacedrive.com".to_string(),
+					client_id: CLIENT_ID.to_string(),
+				},
+			)
+			.await,
+		),
 		Err(err) => (None, Err(NodeError::Logger(err))),
 	};
 
@@ -99,7 +114,7 @@ async fn main() -> tauri::Result<()> {
 			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
 			.manage(node),
 		Err(err) => {
-			error!("Error starting up the node: {err}");
+			error!("Error starting up the node: {err:#?}");
 			app.plugin(sd_error_plugin(err))
 		}
 	};
@@ -168,8 +183,11 @@ async fn main() -> tauri::Result<()> {
 			reset_spacedrive,
 			open_logs_dir,
 			file::open_file_paths,
+			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
 			file::open_file_path_with,
+			file::open_ephemeral_file_with,
 			file::reveal_items,
 			theme::lock_app_theme
 		])

@@ -3,7 +3,7 @@ import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
-import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
@@ -65,6 +65,8 @@ const platform: Platform = {
 			.join('/')}.webp${queryParams}`,
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		`${customUriServerUrl}file/${libraryId}/${locationLocalId}/${filePathId}${queryParams}`,
+	getFileUrlByPath: (path) =>
+		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
 	openLink: shell.open,
 	getOs,
 	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
@@ -73,6 +75,11 @@ const platform: Platform = {
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
+	auth: {
+		start(url) {
+			open(url);
+		}
+	},
 	...commands
 };
 

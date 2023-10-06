@@ -3,13 +3,13 @@ name: Build ffmpeg macos
 on:
   push:
     paths:
-      - '.github/workflows/ffmpeg.yml'
+      - '.github/workflows/ffmpeg-macos.yml'
       - '.github/scripts/ffmpeg-macos/**'
     branches:
       - main
   pull_request:
     paths:
-      - '.github/workflows/ffmpeg.yml'
+      - '.github/workflows/ffmpeg-macos.yml'
       - '.github/scripts/ffmpeg-macos/**'
   workflow_dispatch:
 

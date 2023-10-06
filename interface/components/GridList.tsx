@@ -11,6 +11,8 @@ import React, {
 } from 'react';
 import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
+import { ExplorerViewPadding } from '~/app/$libraryId/Explorer/View';
+import { useExplorerViewPadding } from '~/app/$libraryId/Explorer/View/util';
 
 type ItemData = any | undefined;
 type ItemId = number | string;
@@ -28,7 +30,7 @@ export interface UseGridListProps<IdT extends ItemId = number, DataT extends Ite
 	count: number;
 	totalCount?: number;
 	ref: RefObject<HTMLElement>;
-	padding?: number | { x?: number; y?: number };
+	padding?: number | ExplorerViewPadding;
 	gap?: number | { x?: number; y?: number };
 	overscan?: number;
 	top?: number;
@@ -53,8 +55,12 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 
 	const count = props.totalCount ?? props.count;
 
-	const paddingX = (typeof padding === 'object' ? padding.x : padding) || 0;
-	const paddingY = (typeof padding === 'object' ? padding.y : padding) || 0;
+	const gridPadding = useExplorerViewPadding(padding);
+
+	const paddingTop = gridPadding.top ?? 0;
+	const paddingBottom = gridPadding.bottom ?? 0;
+	const paddingLeft = gridPadding.left ?? 0;
+	const paddingRight = gridPadding.right ?? 0;
 
 	const gapX = (typeof gap === 'object' ? gap.x : gap) || 0;
 	const gapY = (typeof gap === 'object' ? gap.y : gap) || 0;
@@ -62,7 +68,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 	const itemWidth = size ? (typeof size === 'object' ? size.width : size) : undefined;
 	const itemHeight = size ? (typeof size === 'object' ? size.height : size) : undefined;
 
-	const gridWidth = width ? width - (paddingX || 0) * 2 : 0;
+	const gridWidth = width ? width - (paddingLeft + paddingRight) : 0;
 
 	let columnCount = columns || 0;
 
@@ -91,8 +97,8 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 			const column = index % columnCount;
 			const row = Math.floor(index / columnCount);
 
-			const x = paddingX + (column !== 0 ? gapX : 0) * column + virtualItemWidth * column;
-			const y = paddingY + (row !== 0 ? gapY : 0) * row + virtualItemHeight * row;
+			const x = paddingLeft + (column !== 0 ? gapX : 0) * column + virtualItemWidth * column;
+			const y = paddingTop + (row !== 0 ? gapY : 0) * row + virtualItemHeight * row;
 
 			const item: GridListItem<typeof id, DataT> = {
 				index,
@@ -121,8 +127,8 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 			gapY,
 			getItemId,
 			getItemData,
-			paddingX,
-			paddingY,
+			paddingLeft,
+			paddingTop,
 			virtualItemHeight,
 			virtualItemWidth
 		]
@@ -133,7 +139,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 		rowCount,
 		totalRowCount,
 		width: gridWidth,
-		padding: { x: paddingX, y: paddingY },
+		padding: { top: paddingTop, bottom: paddingBottom, left: paddingLeft, right: paddingRight },
 		gap: { x: gapX, y: gapY },
 		itemHeight,
 		itemWidth,
@@ -169,9 +175,9 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 		count: grid.totalRowCount,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: getHeight,
-		paddingStart: grid.padding.y,
-		paddingEnd: grid.padding.y,
-		overscan: grid.overscan,
+		paddingStart: grid.padding.top,
+		paddingEnd: grid.padding.bottom,
+		overscan: grid.overscan ?? 5,
 		scrollMargin: listOffset
 	});
 
@@ -180,8 +186,8 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 		count: grid.columnCount,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: getWidth,
-		paddingStart: grid.padding.x,
-		paddingEnd: grid.padding.x
+		paddingStart: grid.padding.left,
+		paddingEnd: grid.padding.right
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();

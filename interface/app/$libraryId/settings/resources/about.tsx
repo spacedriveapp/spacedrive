@@ -81,7 +81,7 @@ export const Component = () => {
 				</p>
 			</div>
 			<Divider />
-			<div className="mb-20">
+			<div>
 				<h1 className="my-5 text-lg font-bold text-ink">
 					Meet the contributors behind Spacedrive
 				</h1>

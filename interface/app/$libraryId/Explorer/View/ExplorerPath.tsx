@@ -2,7 +2,7 @@ import { CaretRight } from '@phosphor-icons/react';
 import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useMatch } from 'react-router';
 import { ExplorerItem } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
 import { useIsDark, useZodSearchParams } from '~/hooks';
@@ -11,10 +11,11 @@ import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useExplorerSearchParams } from '../util';
 
+export const PATH_BAR_HEIGHT = 32;
+
 export const ExplorerPath = memo(() => {
-	const location = useLocation();
 	const isDark = useIsDark();
-	const isEphemeralLocation = location.pathname.split('/').includes('ephemeral');
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);
@@ -81,8 +82,8 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="fixed bottom-0 flex h-8 w-full items-center gap-1  border-t
-		border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-faint backdrop-blur-lg"
+			className="absolute inset-x-0 bottom-0 flex items-center gap-1 border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-faint backdrop-blur-lg"
+			style={{ height: PATH_BAR_HEIGHT }}
 		>
 			{data?.map((p, index) => {
 				return (
@@ -94,8 +95,8 @@ export const ExplorerPath = memo(() => {
 							index !== data.length - 1 && ' cursor-pointer hover:brightness-125'
 						)}
 					>
-						<img src={getIcon('Folder', isDark)} alt="folder" className="h-3 w-3" />
-						<p className="truncate">{p.name}</p>
+						<img src={getIcon('Folder', isDark)} alt="folder" className="h-4 w-4" />
+						<span className="max-w-xs truncate">{p.name}</span>
 						{index !== (data?.length as number) - 1 && (
 							<CaretRight weight="bold" size={10} />
 						)}
@@ -105,8 +106,10 @@ export const ExplorerPath = memo(() => {
 			{selectedItem && (
 				<div className="pointer-events-none flex items-center gap-1">
 					{data && data.length > 0 && <CaretRight weight="bold" size={10} />}
-					<FileThumb size={12} data={selectedItem} />
-					{'name' in selectedItem.item && <p>{selectedItem.item.name}</p>}
+					<FileThumb size={16} frame frameClassName="!border" data={selectedItem} />
+					{'name' in selectedItem.item && (
+						<span className="max-w-xs truncate">{selectedItem.item.name}</span>
+					)}
 				</div>
 			)}
 		</div>

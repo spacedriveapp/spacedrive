@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/madler/zlib.git"
-SCRIPT_TAG="v1.2.13"
+SCRIPT_TAG="v1.3"
 
 ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" zlib

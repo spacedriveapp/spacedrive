@@ -8,6 +8,7 @@ export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
 	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
+	getFileUrlByPath: (path: string) => string;
 	openLink: (url: string) => void;
 	// Tauri patches `window.confirm` to return `Promise` not `bool`
 	confirm(msg: string, cb: (result: boolean) => void): void;
@@ -21,13 +22,24 @@ export type Platform = {
 	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
+	openEphemeralFiles?(paths: string[]): any;
 	revealItems?(
 		library: string,
-		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+		items: (
+			| { Location: { id: number } }
+			| { FilePath: { id: number } }
+			| { Ephemeral: { path: string } }
+		)[]
 	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
+	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	auth: {
+		start(key: string): any;
+		finish?(ret: any): void;
+	};
 };
 
 // Keep this private and use through helpers below
