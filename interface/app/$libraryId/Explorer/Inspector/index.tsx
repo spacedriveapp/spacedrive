@@ -31,6 +31,7 @@ import {
 	FilePath,
 	FilePathWithObject,
 	getExplorerItemData,
+	getItemFilePath,
 	NonIndexedPathItem,
 	Object,
 	ObjectKindEnum,
@@ -136,7 +137,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 				<FileThumb
 					key={uniqueId(item)}
 					data={item}
-					loadOriginal
+					loadOriginal={getItemFilePath(item)?.extension !== 'pdf'}
 					frame
 					blackBars={thumbs.length === 1}
 					blackBarsSize={16}
