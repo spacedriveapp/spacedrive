@@ -20,6 +20,11 @@ resvg = "0.36.0"
 rspc = { workspace = true, optional = true }                         # error conversion
 specta = { workspace = true, optional = true }
 serde = { workspace = true, optional = true, features = ["derive"] }
+bincode = { version = "2.0.0-rc.3", features = [
+  "derive",
+  "alloc",
+], optional = true }
+
 # both of these added *default* bindgen features in 0.22.0 and 2.0.0 respectively
 # this broke builds as we build our own liibheif, so i disabled their default features
 libheif-rs = { version = "0.22.0", default-features = false, optional = true }
