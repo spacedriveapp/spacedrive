@@ -29,24 +29,35 @@ mod heif;
 mod pdf;
 mod svg;
 
-pub use consts::{all_compatible_extensions, ConvertableExtensions};
+pub use consts::{all_compatible_extensions, ConvertableExtension};
 pub use error::{Error, Result};
 pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;
 use std::{fs, io::Read, path::Path};
 
-pub trait ImageHandler {
-	fn maximum_size(&self) -> u64
-	where
-		Self: Sized; // thanks vtables
+/// This takes in a width and a height, and returns a scaled width and height
+/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
+/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
+#[allow(
+	clippy::as_conversions,
+	clippy::cast_precision_loss,
+	clippy::cast_possible_truncation,
+	clippy::cast_sign_loss
+)]
+#[must_use]
+pub(crate) fn scale_dimensions(w: f32, h: f32, target_px: usize) -> (u32, u32) {
+	let sf = (target_px as f32 / (w * h)).sqrt();
+	((w * sf).round() as u32, (h * sf).round() as u32)
+}
 
+pub trait ImageHandler {
 	#[inline]
 	fn get_data(&self, path: &Path) -> Result<Vec<u8>>
 	where
 		Self: Sized,
 	{
 		let mut file = fs::File::open(path)?;
-		if file.metadata()?.len() > self.maximum_size() {
+		if file.metadata()?.len() > MAXIMUM_FILE_SIZE {
 			Err(Error::TooLarge)
 		} else {
 			let mut data = vec![];
@@ -55,9 +66,18 @@ pub trait ImageHandler {
 		}
 	}
 
-	fn validate_image(&self, bits_per_pixel: u8, length: usize) -> Result<()>
+	fn validate_image(&self, path: &Path) -> Result<()>
 	where
-		Self: Sized;
+		Self: Sized,
+	{
+		if fs::metadata(&path).is_ok()
+			&& self.get_data(&path)?.len() <= MAXIMUM_FILE_SIZE.try_into()?
+		{
+			Ok(())
+		} else {
+			Err(Error::TooLarge)
+		}
+	}
 
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage>;
 

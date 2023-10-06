@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::{
-	consts::{SVG_MAXIMUM_FILE_SIZE, SVG_TAGRET_PX},
+	consts::{MAXIMUM_FILE_SIZE, SVG_TAGRET_PX},
 	Error, ImageHandler, Result,
 };
 use image::DynamicImage;
@@ -18,17 +18,10 @@ fn scale_dimensions(w: f32, h: f32) -> (f32, f32) {
 	((w * sf).round(), (h * sf).round())
 }
 
+#[derive(PartialEq, Eq)]
 pub struct SvgHandler {}
 
 impl ImageHandler for SvgHandler {
-	fn maximum_size(&self) -> u64 {
-		SVG_MAXIMUM_FILE_SIZE
-	}
-
-	fn validate_image(&self, _bits_per_pixel: u8, _length: usize) -> Result<()> {
-		Ok(())
-	}
-
 	#[allow(
 		clippy::cast_possible_truncation,
 		clippy::cast_sign_loss,
