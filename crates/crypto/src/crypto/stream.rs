@@ -133,7 +133,7 @@ macro_rules! impl_stream {
 				s
 					.$streams_fn(bytes, &mut writer, aad)
 					.await
-					.map_or_else(Err, |_| Ok(writer.into_inner().into()))
+					.map_or_else(Err, |()| Ok(writer.into_inner().into()))
 			}
 
 		}

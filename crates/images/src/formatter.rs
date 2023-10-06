@@ -2,6 +2,7 @@ use crate::{
 	consts,
 	error::{Error, Result},
 	generic::GenericHandler,
+	pdf::PdfHandler,
 	svg::SvgHandler,
 	ImageHandler,
 };
@@ -41,6 +42,10 @@ fn match_to_handler(ext: &OsStr) -> Box<dyn ImageHandler> {
 		.any(|x| x == ext)
 	{
 		handler = Box::new(SvgHandler {});
+	}
+
+	if ext == consts::PDF_EXTENSION {
+		handler = Box::new(PdfHandler {});
 	}
 
 	handler

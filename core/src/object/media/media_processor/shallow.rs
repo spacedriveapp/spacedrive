@@ -156,7 +156,7 @@ async fn get_files_for_thumbnailer(
 	let image_thumb_files = get_files_by_extensions(
 		db,
 		parent_iso_file_path,
-		&thumbnail::FILTERED_IMAGE_EXTENSIONS,
+		&thumbnail::THUMBNAILABLE_EXTENSIONS,
 	)
 	.await?
 	.into_iter()
@@ -168,7 +168,7 @@ async fn get_files_for_thumbnailer(
 		let video_files = get_files_by_extensions(
 			db,
 			parent_iso_file_path,
-			&thumbnail::FILTERED_VIDEO_EXTENSIONS,
+			&thumbnail::THUMBNAILABLE_VIDEO_EXTENSIONS,
 		)
 		.await?;
 
