@@ -20,7 +20,6 @@ import {
 
 import { P2P } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
-import { AuthProvider } from './contexts/auth';
 import ErrorFallback from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
@@ -63,12 +62,10 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<P2PContextProvider>
 				<NotificationContextProvider>
-					<AuthProvider>
-						<P2P />
-						<Devtools />
-						<WithPrismTheme />
-						<RouterProvider router={props.router} />
-					</AuthProvider>
+					<P2P />
+					<Devtools />
+					<WithPrismTheme />
+					<RouterProvider router={props.router} />
 				</NotificationContextProvider>
 			</P2PContextProvider>
 		</ErrorBoundary>

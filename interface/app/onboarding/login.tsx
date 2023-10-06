@@ -1,23 +1,22 @@
 import { AppLogo } from '@sd/assets/images';
 import { useNavigate } from 'react-router';
-import { useBridgeQuery } from '@sd/client';
+import { auth, useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
-import { useAuthContext } from '~/contexts/auth';
 
 import { OnboardingContainer } from './Layout';
 
 export default function OnboardingLogin() {
-	const auth = useAuthContext();
+	const authState = auth.useStateSnapshot();
 	const navigate = useNavigate();
 
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 
 	return (
 		<OnboardingContainer>
-			{auth.state === 'loading' ? (
+			{authState.status === 'loading' ? (
 				<Loader />
-			) : auth.state === 'loggedIn' ? (
+			) : authState.status === 'loggedIn' ? (
 				<>
 					<div className="flex flex-col items-center justify-center">
 						<img
@@ -48,7 +47,6 @@ export default function OnboardingLogin() {
 							<span>Not you?</span>
 							<Button
 								onClick={auth.logout}
-								disabled={auth.logoutLoading}
 								variant="bare"
 								size="md"
 								className="border-none !p-0 font-normal text-accent-deep hover:underline"

@@ -1,4 +1,5 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
+import { auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -36,10 +37,7 @@ export type Platform = {
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
-	auth: {
-		start(key: string): any;
-		finish?(ret: any): void;
-	};
+	auth: auth.ProviderConfig;
 };
 
 // Keep this private and use through helpers below

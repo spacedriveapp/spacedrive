@@ -1,16 +1,15 @@
-import { useBridgeQuery } from '@sd/client';
+import { auth, useBridgeQuery } from '@sd/client';
 import { Button, Card, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
-import { useAuthContext } from '~/contexts/auth';
 
 export function SpacedriveAccount() {
-	const auth = useAuthContext();
+	const authState = auth.useStateSnapshot();
 
 	return (
 		<Card className="relative overflow-hidden px-5">
-			{auth.state !== 'loggedIn' && (
+			{authState.status !== 'loggedIn' && (
 				<div className="absolute inset-0 z-50 flex items-center justify-center bg-app/75 backdrop-blur-lg">
-					{auth.state === 'loading' ? <Loader /> : <LoginButton />}
+					{authState.status === 'loading' ? <Loader /> : <LoginButton />}
 				</div>
 			)}
 
@@ -20,18 +19,13 @@ export function SpacedriveAccount() {
 }
 
 function Account() {
-	const auth = useAuthContext();
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 
 	return (
 		<div className="my-2 flex w-full flex-col">
 			<div className="flex items-center justify-between">
 				<span className="font-semibold">Spacedrive Account</span>
-				<Button
-					variant="gray"
-					onClick={() => auth.logout?.()}
-					disabled={auth.logoutLoading}
-				>
+				<Button variant="gray" onClick={auth.logout}>
 					Logout
 				</Button>
 			</div>

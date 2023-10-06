@@ -21,6 +21,7 @@ declare global {
 }
 
 export * from './hooks';
+export * from './stores';
 export * from './rspc';
 export * from './core';
 export * from './utils';
