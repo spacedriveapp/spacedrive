@@ -417,9 +417,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						IsolatedFilePathData::separate_name_and_extension_from_str(&to)
 							.map_err(LocationError::FilePath)?;
 
-					let root_path = location_path.join(iso_file_path.parent());
-
-					let mut new_file_full_path = root_path.clone();
+					let mut new_file_full_path = location_path.join(iso_file_path.parent());
 					if !new_extension.is_empty() {
 						new_file_full_path.push(format!("{}.{}", new_file_name, new_extension));
 					} else {
@@ -429,7 +427,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					match fs::metadata(&new_file_full_path).await {
 						Ok(_) => {
 							return Err(rspc::Error::new(
-								ErrorCode::InternalServerError,
+								ErrorCode::Conflict,
 								"Renaming would overwrite a file".to_string(),
 							));
 						}
@@ -447,7 +445,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								.await
 								.map_err(|e| {
 									rspc::Error::with_cause(
-										ErrorCode::Conflict,
+										ErrorCode::InternalServerError,
 										"Failed to rename file".to_string(),
 										e,
 									)

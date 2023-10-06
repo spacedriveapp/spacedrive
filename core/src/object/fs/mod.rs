@@ -139,30 +139,13 @@ pub async fn fetch_source_and_target_location_paths(
 
 fn construct_target_filename(
 	source_file_data: &FileData,
-	target_file_name_suffix: &Option<String>,
 ) -> Result<String, MissingFieldError> {
 	// extension wizardry for cloning and such
 	// if no suffix has been selected, just use the file name
 	// if a suffix is provided and it's a directory, use the directory name + suffix
 	// if a suffix is provided and it's a file, use the (file name + suffix).extension
 
-	Ok(if let Some(ref suffix) = target_file_name_suffix {
-		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")?
-			|| source_file_data.file_path.extension.is_none()
-			|| source_file_data.file_path.extension == Some(String::new())
-		{
-			format!(
-				"{}{suffix}",
-				maybe_missing(&source_file_data.file_path.name, "file_path.name")?
-			)
-		} else {
-			format!(
-				"{}{suffix}.{}",
-				maybe_missing(&source_file_data.file_path.name, "file_path.name")?,
-				maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?,
-			)
-		}
-	} else if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")?
+	Ok(if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")?
 		|| source_file_data.file_path.extension.is_none()
 		|| source_file_data.file_path.extension == Some(String::new())
 	{
