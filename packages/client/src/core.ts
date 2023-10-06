@@ -132,7 +132,9 @@ export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOrigi
 
 export type Composite = "Unknown" | "False" | "General" | "Live"
 
-export type ConvertImageArgs = { path: string; delete_src: boolean; desired_extension: string; quality_percentage: number | null }
+export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtensions; quality_percentage: number | null }
+
+export type ConvertableExtensions = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz"
 
 export type CreateLibraryArgs = { name: LibraryName }
 

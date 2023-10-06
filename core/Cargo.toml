@@ -28,7 +28,7 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"keymanager",
 ] }
 
-sd-images = { path = "../crates/images", features = ["rspc"] }
+sd-images = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }

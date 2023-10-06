@@ -135,7 +135,7 @@ impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
 	where
 		E: serde::de::Error,
 	{
-		Self::Value::try_from(v.to_string()).map_err(|e| E::custom(e.to_string()))
+		Self::Value::try_from(v.to_string()).map_err(|e| E::custom(format!("unknown variant: {e}")))
 	}
 }
 
