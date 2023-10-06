@@ -1,8 +1,8 @@
 import { EjectSimple } from '@phosphor-icons/react';
 import { Drive, Globe, HDD, Home, SD } from '@sd/assets/icons';
 import clsx from 'clsx';
-import { useState } from 'react';
-import { useBridgeQuery } from '@sd/client';
+import { useMemo, useState } from 'react';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
@@ -21,16 +21,44 @@ const EjectButton = ({ className }: { className?: string }) => (
 
 export const EphemeralSection = () => {
 	const [home, setHome] = useState<string | null>(null);
-
 	const platform = usePlatform();
 	platform.userHomeDir?.().then(setHome);
 
-	const volumes = useBridgeQuery(['volumes.list']).data ?? [];
+	const locations = useLibraryQuery(['locations.list']);
+
+	const volumes = useBridgeQuery(['volumes.list']);
+
+	// this will return an array of location ids that are also volumes
+	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
+	type LocationIdsMap = {
+		[key: string]: number;
+	};
+
+	const locationIdsForVolumes = useMemo<LocationIdsMap>(() => {
+		if (!locations.data || !volumes.data) return {};
+
+		const volumePaths = volumes.data.map((volume) => volume.mount_points[0] ?? null);
+
+		const matchedLocations = locations.data.filter((location) =>
+			volumePaths.includes(location.path)
+		);
+
+		const locationIdsMap = matchedLocations.reduce((acc, location) => {
+			if (location.path) {
+				acc[location.path] = location.id;
+			}
+			return acc;
+		}, {} as LocationIdsMap);
+
+		return locationIdsMap;
+	}, [locations.data, volumes.data]);
+
+	console.log('locationIdsForVolumes', locationIdsForVolumes);
 
 	const items = [
 		{ type: 'network' },
 		home ? { type: 'home', path: home } : null,
-		...volumes.flatMap((volume, volumeIndex) =>
+		...(volumes.data || []).flatMap((volume, volumeIndex) =>
 			volume.mount_points.map((mountPoint, index) =>
 				mountPoint !== home
 					? { type: 'volume', volume, mountPoint, volumeIndex, index }
@@ -46,12 +74,14 @@ export const EphemeralSection = () => {
 		index?: number;
 	}>;
 
-	return home == null && volumes.length < 1 ? null : (
+	return (
 		<>
 			<Section name="Local">
 				<SeeMore
 					items={items}
 					renderItem={(item, index) => {
+						const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
+
 						if (item?.type === 'network') {
 							return (
 								<SidebarLink
@@ -87,9 +117,14 @@ export const EphemeralSection = () => {
 									? item.volume.name
 									: item.mountPoint;
 
+							const toPath =
+								locationId !== undefined
+									? `location/${locationId}`
+									: `ephemeral/${key}?path=${item.mountPoint}`;
+
 							return (
 								<SidebarLink
-									to={`ephemeral/${key}?path=${item.mountPoint}`}
+									to={toPath}
 									key={key}
 									className="group relative w-full border border-transparent"
 								>
