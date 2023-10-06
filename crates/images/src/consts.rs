@@ -17,10 +17,13 @@ pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 /// This value is in MiB.
 pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 
-/// The size that SVG images are rendered at, assuming they are square.
-// TODO(brxken128): check for non-1:1 SVG images and create a function to resize
-// them while maintaining the aspect ratio.
+/// The size that SVG images are rendered at.
 pub const SVG_RENDER_SIZE: u32 = 512;
+
+pub const PDF_EXTENSION: &str = "pdf";
+
+/// The size that PDF pages are rendered at.
+pub const PDF_RENDER_SIZE: i32 = 1024;
 
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///

@@ -156,7 +156,7 @@ extension_category_enum! {
 
 // document extensions
 extension_category_enum! {
-	DocumentExtension _ALL_DOCUMENT_EXTENSIONS {
+	DocumentExtension ALL_DOCUMENT_EXTENSIONS {
 		Pdf = [0x25, 0x50, 0x44, 0x46, 0x2D],
 		Key = [0x50, 0x4B, 0x03, 0x04],
 		Pages = [0x50, 0x4B, 0x03, 0x04],
