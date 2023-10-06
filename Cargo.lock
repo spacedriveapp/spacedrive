@@ -6588,6 +6588,7 @@ dependencies = [
  "rmpv",
  "rspc",
  "sd-core-sync",
+ "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
  "sd-images",
