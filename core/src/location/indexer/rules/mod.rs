@@ -479,9 +479,9 @@ impl IndexerRule {
 			.await
 			.map(|results| {
 				results.into_iter().flatten().fold(
-					HashMap::with_capacity(RuleKind::variant_count()),
+					HashMap::<_, Vec<_>>::with_capacity(RuleKind::variant_count()),
 					|mut map, (kind, result)| {
-						map.entry(kind).or_insert_with(Vec::new).push(result);
+						map.entry(kind).or_default().push(result);
 						map
 					},
 				)

@@ -928,9 +928,7 @@ pub(super) async fn generate_thumbnail(
 				error!("Failed to image thumbnail on location manager: {e:#?}");
 			}
 		}
-	}
-
-	if let Ok(extension) = DocumentExtension::from_str(extension) {
+	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
 		if can_generate_thumbnail_for_document(&extension) {
 			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
 				error!("Failed to document thumbnail on location manager: {e:#?}");
