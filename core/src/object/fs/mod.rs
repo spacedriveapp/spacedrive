@@ -170,7 +170,7 @@ pub fn append_digit_to_filename(
 	ext: Option<&str>,
 	current_int: u32,
 ) {
-	let new_file_name = if let Some(found) = DUPLICATE_PATTERN.find(file_name) {
+	let new_file_name = if let Some(found) = DUPLICATE_PATTERN.find_iter(file_name).last() {
 		&file_name[..found.start()]
 	} else {
 		file_name
