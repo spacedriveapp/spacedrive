@@ -16,6 +16,7 @@ import {
 	useDebugState,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
+import { TooltipProvider } from '@sd/ui';
 
 import { P2P } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
@@ -59,14 +60,16 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<P2PContextProvider>
-				<NotificationContextProvider>
-					<P2P />
-					<Devtools />
-					<WithPrismTheme />
-					<RouterProvider router={props.router} />
-				</NotificationContextProvider>
-			</P2PContextProvider>
+			<TooltipProvider>
+				<P2PContextProvider>
+					<NotificationContextProvider>
+						<P2P />
+						<Devtools />
+						<WithPrismTheme />
+						<RouterProvider router={props.router} />
+					</NotificationContextProvider>
+				</P2PContextProvider>
+			</TooltipProvider>
 		</ErrorBoundary>
 	);
 };
