@@ -10,7 +10,7 @@ import { useInView } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { AndroidLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
+import { AndroidLogo, AppleLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
 import { IconProps } from 'phosphor-react';
 import { FunctionComponent, forwardRef, memo, useEffect, useRef, useState } from 'react';
 import { Tooltip, tw } from '@sd/ui';
@@ -127,13 +127,13 @@ export default function HomePage() {
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
-						headline="Alpha has been released"
+						headline="Alpha release is finally here!"
 						href="/blog/spacedrive-funding-announcement"
 						link="Read post"
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-r from-white to-indigo-400 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent md:text-5xl lg:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent text-white md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
 					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
@@ -153,9 +153,9 @@ export default function HomePage() {
 						}
 					>
 						<HomeCTA
-							icon={<Download />}
+							icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
 							className="z-5 relative"
-							text={deviceOs?.isWindows ? 'Download on Windows' : 'Download on Mac'}
+							text={deviceOs?.isWindows ? 'Download for Windows' : 'Download for Mac'}
 						/>
 					</Link>
 					<p
@@ -209,10 +209,11 @@ export default function HomePage() {
 						</div>
 					</div>
 
-					<WormHole />
-					<BentoBoxes />
-					<CloudStorage />
-					<DownloadToday isWindows={deviceOs?.isWindows} />
+					{/* <WormHole /> */}
+					{/* <BentoBoxes /> */}
+					{/* <CloudStorage /> */}
+					{/* <DownloadToday isWindows={deviceOs?.isWindows} /> */}
+					<div className="h-[200px] w-full" />
 				</div>
 			</PageWrapper>
 		</>

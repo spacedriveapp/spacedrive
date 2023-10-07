@@ -24,7 +24,7 @@ html {
 }
 
 .download-today-border-gradient::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	border-radius: 15px;
@@ -37,7 +37,7 @@ html {
 }
 
 .worm-hole-border-gradient::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	border-radius: 8px;
@@ -55,44 +55,43 @@ html {
 }
 
 @keyframes fade-in {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
 }
-
 
 .cloud-card-hover {
 	&:hover::after {
-			opacity: 1;
+		opacity: 1;
 	}
 }
 
 .cloud-card-gradient-bg::after {
-	background: linear-gradient(to top,rgba(255,255,255,0) 0%, #161423 100%);
-	content: "";
+	background: linear-gradient(to top, rgba(255, 255, 255, 0) 0%, #161423 100%);
+	content: '';
 	height: 100%;
 	left: 0;
 	opacity: 0;
 	pointer-events: none;
 	position: absolute;
 	top: 0;
-	transition: .45s cubic-bezier(.6,.6,0,1) opacity;
+	transition: 0.45s cubic-bezier(0.6, 0.6, 0, 1) opacity;
 	width: 100%;
 }
 
 .news-banner-border-gradient::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		border-radius: 100px;
-		padding: 1px;
-		background: linear-gradient(45deg, #904DFF, #EB72FF);
-		-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-		-webkit-mask-composite: xor;
-		mask-composite: exclude;
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 100px;
+	padding: 1px;
+	background: linear-gradient(45deg, #904dff, #eb72ff);
+	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
 }
 
 .absolute-horizontal-center {
@@ -111,7 +110,6 @@ html {
 .news-banner-glow {
 	filter: drop-shadow(0px 0px 5px #914dff79);
 }
-
 
 @keyframes left-line-animation-fade {
 	0% {
@@ -142,24 +140,24 @@ html {
 }
 
 .home-button-border-gradient::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	padding: 1px;
 	border-radius: 7px;
-	background: linear-gradient(20deg,  #3c4c860e 30%, #9daadba2);
+	background: linear-gradient(20deg, #3c4c860e 30%, #9daadba2);
 	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
 	-webkit-mask-composite: xor;
 	mask-composite: exclude;
 }
 
 .bento-radial-gradient-fade {
-background: rgb(0, 0, 0);
-border-radius: 10px;
-background: -moz-radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
-background: -webkit-radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
-background: radial-gradient(circle, rgba(18,19,30,0) 0%, #03030376 200%);
-filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endColorstr="#15161f",GradientType=1);
+	background: rgb(0, 0, 0);
+	border-radius: 10px;
+	background: -moz-radial-gradient(circle, rgba(18, 19, 30, 0) 0%, #03030376 200%);
+	background: -webkit-radial-gradient(circle, rgba(18, 19, 30, 0) 0%, #03030376 200%);
+	background: radial-gradient(circle, rgba(18, 19, 30, 0) 0%, #03030376 200%);
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endColorstr="#15161f",GradientType=1);
 }
 
 .oss-credit-gradient {
@@ -359,29 +357,25 @@ filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#12131e",endCo
 //Pricing page
 
 .pro-card-border-gradient::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	border-radius: 6px;
 	z-index: 0;
 	padding: 1px;
-	background: linear-gradient(120deg, #B266FF, #6AA6FF);
+	background: linear-gradient(120deg, #b266ff, #6aa6ff);
 	-webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
 	-webkit-mask-composite: xor;
 	mask-composite: exclude;
 }
 
 .popular-shadow {
-	box-shadow: 0px 0px 10px 0px rgba(147, 96, 255, 0.80) inset;
+	box-shadow: 0px 0px 10px 0px rgba(147, 96, 255, 0.8) inset;
 }
 
 .pro-card-shadow {
-	box-shadow: 0px 0px 50px 0px rgba(147, 96, 255, 0.20) inset;
+	box-shadow: 0px 0px 50px 0px rgba(147, 96, 255, 0.2) inset;
 }
-
-
-
-
 
 // Gradient colors
 // #3916BA
@@ -504,10 +498,12 @@ pre {
 	animation: floating 2.8s ease-in-out infinite;
 }
 
-#right-top-line, #right-bottom-line, #top-center-line {
+#right-top-line,
+#right-bottom-line,
+#top-center-line {
 	animation: linemove 55s linear infinite;
-			stroke-dasharray: 3;
-			animation-direction: reverse;
+	stroke-dasharray: 3;
+	animation-direction: reverse;
 }
 
 @keyframes linemove {
@@ -516,11 +512,11 @@ pre {
 		stroke-dasharray: 3;
 	}
 	50% {
-			stroke-dasharray: 4;
+		stroke-dasharray: 4;
 	}
 	100% {
 		stroke-dashoffset: 1000;
-			stroke-dasharray: 3;
+		stroke-dasharray: 3;
 	}
 }
 
@@ -542,24 +538,21 @@ pre {
 	}
 }
 
-
 //platform art animation stuff
 
 #middleline {
 	stroke-width: 2;
 	stroke-dasharray: 100;
-  // animation: line 1.5s linear infinite;
+	// animation: line 1.5s linear infinite;
 }
 
-
 @keyframes line {
-  to {
+	to {
 		stroke-dashoffset: 1000;
-  }
+	}
 }
 
 //platforms bento box animation
-
 
 .logo {
 	filter: drop-shadow(0px 0px 30px rgba(186, 89, 255));
@@ -591,37 +584,36 @@ pre {
 //white circles within lines
 
 #middlecircle {
-	motion-path: path("M249.648 93.6768C246.331 121.04 260.841 124.149 257.732 213.08");
-	offset-path: path("M249.648 93.6768C246.331 121.04 260.841 124.149 257.732 213.08");
+	motion-path: path('M249.648 93.6768C246.331 121.04 260.841 124.149 257.732 213.08');
+	offset-path: path('M249.648 93.6768C246.331 121.04 260.841 124.149 257.732 213.08');
 	animation: circle 2.5s linear infinite;
 	transform: rotate(90deg) translate(-1px, 0);
 }
 
 #left-top-circle {
-	motion-path: path("M216.687 65.0698C191.811 55.9487 132.731 44.5474 95.418 71.9106");
-	offset-path: path("M216.687 65.0698C191.811 55.9487 132.731 44.5474 95.418 71.9106");
+	motion-path: path('M216.687 65.0698C191.811 55.9487 132.731 44.5474 95.418 71.9106');
+	offset-path: path('M216.687 65.0698C191.811 55.9487 132.731 44.5474 95.418 71.9106');
 	animation: circle 2.5s linear infinite;
 	transform: rotate(90deg) translate(-1px, 0);
 }
 
 #left-bottom-circle {
-	motion-path: path("M218.553 91.811C206.115 126.844 163.826 213.204 89.1992 213.702");
-	offset-path: path("M218.553 91.811C206.115 126.844 163.826 213.204 89.1992 213.702");
+	motion-path: path('M218.553 91.811C206.115 126.844 163.826 213.204 89.1992 213.702');
+	offset-path: path('M218.553 91.811C206.115 126.844 163.826 213.204 89.1992 213.702');
 	animation: circle 2.5s linear infinite;
 	transform: rotate(90deg) translate(-1px, 0);
-
 }
 
 #right-bottom-circle {
-	motion-path: path("M274.523 96.1643C290.9 129.954 341.439 195.294 402.633 201.264");
-	offset-path: path("M274.523 96.1643C290.9 129.954 341.439 195.294 402.633 201.264");
+	motion-path: path('M274.523 96.1643C290.9 129.954 341.439 195.294 402.633 201.264');
+	offset-path: path('M274.523 96.1643C290.9 129.954 341.439 195.294 402.633 201.264');
 	animation: circle 2.5s linear infinite;
 	transform: rotate(90deg) translate(-1px, 0);
 }
 
 #right-top-circle {
-	motion-path: path("M289.448 59.4728C309.763 50.3517 365.692 40.4429 426.886 73.7763");
-	offset-path: path("M289.448 59.4728C309.763 50.3517 365.692 40.4429 426.886 73.7763");
+	motion-path: path('M289.448 59.4728C309.763 50.3517 365.692 40.4429 426.886 73.7763');
+	offset-path: path('M289.448 59.4728C309.763 50.3517 365.692 40.4429 426.886 73.7763');
 	animation: circle 2.5s linear infinite;
 	transform: rotate(90deg) translate(-1px, 0) scale(0);
 }
@@ -645,14 +637,13 @@ pre {
 		opacity: 1;
 		transform: rotate(90deg) translate(-1px, 0) scale(1);
 	}
-100% {
-	motion-offset: 100%;
-	offset-distance: 100%;
-	transform: rotate(90deg) translate(-1px, 0) scale(0);
-	opacity: 0;
+	100% {
+		motion-offset: 100%;
+		offset-distance: 100%;
+		transform: rotate(90deg) translate(-1px, 0) scale(0);
+		opacity: 0;
+	}
 }
-}
-
 
 .particle {
 	animation: particles calc(var(--particleduration)) ease-out infinite;
@@ -706,10 +697,10 @@ pre {
 //cloud storage art animation stuff
 
 .gradient-path {
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 1000;
+	stroke-dasharray: 1000;
+	stroke-dashoffset: 1000;
 	stroke-width: 2;
-  animation: dash 2.5s ease-in-out infinite;
+	animation: dash 2.5s ease-in-out infinite;
 }
 
 .circle-two {
@@ -734,21 +725,19 @@ pre {
 	}
 }
 
-
 @keyframes dash {
-  0% {
-    stroke-dashoffset: 1000;
-  }
-  90% {
-    stroke-dashoffset: 0;
-  }
+	0% {
+		stroke-dashoffset: 1000;
+	}
+	90% {
+		stroke-dashoffset: 0;
+	}
 	100% {
-		opacity: 0
+		opacity: 0;
 	}
 }
 
 //wormhole animation
-
 
 //heart icon
 
@@ -904,7 +893,7 @@ pre {
 }
 
 @keyframes collection {
-		0% {
+	0% {
 		opacity: 0;
 	}
 	90% {
@@ -928,17 +917,17 @@ pre {
 }
 @keyframes node {
 	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 100%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 100%;
-}
+		opacity: 0;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		motion-offset: 100%;
+		transform: scale(1.1) rotate(720deg);
+		opacity: 0;
+		offset-distance: 100%;
+	}
 }
 
 //textured mesh icon
@@ -952,17 +941,17 @@ pre {
 
 @keyframes texturedmesh {
 	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 85%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 85%;
-}
+		opacity: 0;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		motion-offset: 85%;
+		transform: scale(1.1) rotate(720deg);
+		opacity: 0;
+		offset-distance: 85%;
+	}
 }
 
 //database icon
@@ -1014,7 +1003,6 @@ pre {
 }
 
 @media all and (max-width: 1024px) {
-
 	@keyframes heart {
 		0% {
 			opacity: 0;
@@ -1104,135 +1092,132 @@ pre {
 		transform: scale(0) rotate(0deg);
 	}
 
-@keyframes package {
-	0% {
-		opacity: 0;
+	@keyframes package {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 100%;
+			transform: scale(1.1) rotate(690deg);
+			opacity: 0;
+			offset-distance: 100%;
+		}
 	}
-	90% {
-		opacity: 1;
-	}
-	100% {
-		motion-offset: 100%;
-		transform: scale(1.1) rotate(690deg);
-		opacity: 0;
-		offset-distance: 100%;
-	}
-}
 
-@keyframes collection {
-	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 50%;
-	transform: scale(1.1) rotate(0);
-	opacity: 0;
-	offset-distance: 50%;
-}
-}
-
-@keyframes appicon {
-	0% {
-		opacity: 0;
+	@keyframes collection {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 50%;
+			transform: scale(1.1) rotate(0);
+			opacity: 0;
+			offset-distance: 50%;
+		}
 	}
-	90% {
-		opacity: 1;
+
+	@keyframes appicon {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 40%;
+			transform: scale(1.1) rotate(0);
+			opacity: 0;
+			offset-distance: 40%;
+		}
 	}
-	100% {
-		motion-offset: 40%;
-		transform: scale(1.1) rotate(0);
-		opacity: 0;
-		offset-distance: 40%;
+
+	@keyframes database {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 40%;
+			transform: scale(1) rotate(690deg);
+			opacity: 0;
+			offset-distance: 40%;
+		}
 	}
-}
 
-@keyframes database {
-	0% {
-		opacity: 0;
+	.node {
+		motion-path: path('M0.5 0.5C42.3333 127.1667 56.5 45.1 106.5 233.5');
+		offset-path: path('M0.5 0.5C42.3333 127.1667 56.5 45.1 106.5 233.5');
+		animation: node 10.2s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
 	}
-	90% {
-		opacity: 1;
+	@keyframes node {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 70%;
+			transform: scale(1.1) rotate(720deg);
+			opacity: 0;
+			offset-distance: 70%;
+		}
 	}
-	100% {
-		motion-offset: 40%;
-		transform: scale(1) rotate(690deg);
-		opacity: 0;
-		offset-distance: 40%;
+
+	.texturedmesh {
+		motion-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
+		offset-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
+		animation: texturedmesh 9.4s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
 	}
-}
 
-.node {
-	motion-path: path('M0.5 0.5C42.3333 127.1667 56.5 45.1 106.5 233.5');
-	offset-path: path('M0.5 0.5C42.3333 127.1667 56.5 45.1 106.5 233.5');
-	animation: node 10.2s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
-@keyframes node {
-	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 70%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 70%;
-}
-}
-
-
-.texturedmesh {
-	motion-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
-	offset-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
-	animation: texturedmesh 9.4s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
-
-@keyframes texturedmesh {
-	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 95%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 95%;
-}
-}
-
+	@keyframes texturedmesh {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 95%;
+			transform: scale(1.1) rotate(720deg);
+			opacity: 0;
+			offset-distance: 95%;
+		}
+	}
 }
 
 @media all and (max-width: 639px) {
-
 	.package {
-	motion-path: path('M1 354.5C50.5 245.5 101.4 102.2 59 1');
-	offset-path: path('M1 354.5C50.5 245.5 101.4 102.2 59 1');
-	animation: package 13.4s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
+		motion-path: path('M1 354.5C50.5 245.5 101.4 102.2 59 1');
+		offset-path: path('M1 354.5C50.5 245.5 101.4 102.2 59 1');
+		animation: package 13.4s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
+	}
 
-@keyframes package {
-	0% {
-		opacity: 0;
+	@keyframes package {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 50%;
+			transform: scale(1.1) rotate(690deg);
+			opacity: 0;
+			offset-distance: 50%;
+		}
 	}
-	90% {
-		opacity: 1;
-	}
-	100% {
-		motion-offset: 50%;
-		transform: scale(1.1) rotate(690deg);
-		opacity: 0;
-		offset-distance: 50%;
-	}
-}
 
 	.node {
 		motion-path: path('M1 234.5C300.5 45.5 61.4 1282.2 639 1');
@@ -1242,17 +1227,17 @@ pre {
 	}
 	@keyframes node {
 		0% {
-		opacity: 0;
-	}
-	90% {
-		opacity: 1;
-	}
-	100% {
-		motion-offset: 13%;
-		transform: scale(1.1) rotate(720deg);
-		opacity: 0;
-		offset-distance: 13%;
-	}
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 13%;
+			transform: scale(1.1) rotate(720deg);
+			opacity: 0;
+			offset-distance: 13%;
+		}
 	}
 
 	.game {
@@ -1276,7 +1261,6 @@ pre {
 			offset-distance: 25%;
 		}
 	}
-
 
 	.heart {
 		motion-path: path('M1 254.5C140.5 45.5 261.4 182.2 149 1');
@@ -1347,89 +1331,88 @@ pre {
 	.texturedmesh {
 		motion-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
 		offset-path: path('M1 354.5C50.5 345.5 101.4 352.2 59 1');
-	animation: texturedmesh 11.4s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
+		animation: texturedmesh 11.4s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
+	}
 
-@keyframes texturedmesh {
-	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 71%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 71%;
-}
-}
-
-.collection {
-	motion-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
-	offset-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
-	animation: collection 11.5s ease-in-out infinite;
-	transform: scale(0) rotate(-390deg);
-}
-
-@keyframes collection {
+	@keyframes texturedmesh {
 		0% {
-		opacity: 0;
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 71%;
+			transform: scale(1.1) rotate(720deg);
+			opacity: 0;
+			offset-distance: 71%;
+		}
 	}
-	90% {
-		opacity: 1;
-	}
-	100% {
-		motion-offset: 36%;
-		transform: scale(1.1) rotate(0);
-		opacity: 0;
-		offset-distance: 36%;
-	}
-}
 
-.texturedmesh {
-  motion-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
-  offset-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
-	animation: texturedmesh 10.4s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
-
-@keyframes texturedmesh {
-	0% {
-	opacity: 0;
-}
-90% {
-	opacity: 1;
-}
-100% {
-	motion-offset: 45%;
-	transform: scale(1.1) rotate(720deg);
-	opacity: 0;
-	offset-distance: 45%;
-}
-}
-
-.database {
-	motion-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
-	offset-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
-	animation: database 13.8s ease-in-out infinite;
-	transform: scale(0) rotate(0deg);
-}
-
-@keyframes database {
-	0% {
-		opacity: 0;
+	.collection {
+		motion-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
+		offset-path: path('M1 234.5C300.5 45.5 61.4 332.2 639 1');
+		animation: collection 11.5s ease-in-out infinite;
+		transform: scale(0) rotate(-390deg);
 	}
-	90% {
-		opacity: 1;
-	}
-	100% {
-		motion-offset: 12%;
-		transform: scale(1) rotate(690deg);
-		opacity: 0;
-		offset-distance: 12%;
-	}
-}
 
+	@keyframes collection {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 36%;
+			transform: scale(1.1) rotate(0);
+			opacity: 0;
+			offset-distance: 36%;
+		}
+	}
+
+	.texturedmesh {
+		motion-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
+		offset-path: path('M1 354.5C80.5 445.5 80.4 190.8 -150 10');
+		animation: texturedmesh 10.4s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
+	}
+
+	@keyframes texturedmesh {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 45%;
+			transform: scale(1.1) rotate(720deg);
+			opacity: 0;
+			offset-distance: 45%;
+		}
+	}
+
+	.database {
+		motion-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
+		offset-path: path('M1 234.5C230.5 45.5 61.4 1382.2 239 1');
+		animation: database 13.8s ease-in-out infinite;
+		transform: scale(0) rotate(0deg);
+	}
+
+	@keyframes database {
+		0% {
+			opacity: 0;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			motion-offset: 12%;
+			transform: scale(1) rotate(690deg);
+			opacity: 0;
+			offset-distance: 12%;
+		}
+	}
 }

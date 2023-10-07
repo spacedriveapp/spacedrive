@@ -18,15 +18,14 @@ const DownloadToday = ({ isWindows }: Props) => {
 		<div
 			ref={ref}
 			className={clsx(
-				'download-today-border-gradient download-today-shadow-inset relative mb-[150px] mt-[250px] flex h-[250px] w-full max-w-[1000px] flex-col justify-center opacity-0',
-				'overflow-hidden rounded-md bg-gradient-to-b from-transparent to-black p-2 text-center md:mb-[250px] md:h-[350px]',
+				'relative mb-[150px] mt-10 flex h-[250px] w-full max-w-7xl flex-col justify-center bg-app-box/30 opacity-0',
+				'overflow-hidden rounded-md p-2 text-center md:mb-[250px] md:h-[350px]',
 				isInView && 'fade-in-heading'
 			)}
 		>
-			<div className="absolute left-0 top-0 h-full w-full bg-gradient-to-t from-black to-transparent" />
 			<div className="relative z-10">
-				<h1 className="mx-auto w-full max-w-[500px] text-[20px] font-semibold md:text-[30px]">
-					Download Spacedrive today and enjoy the experience of the future
+				<h1 className="mx-auto w-full max-w-[500px] text-[20px] font-semibold leading-tight md:text-[30px]">
+					Ready to get organized?
 				</h1>
 				<Button className="mx-auto mt-5 flex gap-2" variant="accent" size="md">
 					<Download size={20} />

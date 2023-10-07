@@ -67,7 +67,7 @@ export default function NavBar() {
 				<div className="m-auto hidden space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
-					<NavLink link="/pricing">Pricing</NavLink>
+					{/* <NavLink link="/pricing">Pricing</NavLink> */}
 					<NavLink link="/blog">Blog</NavLink>
 					<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
 					<div className="relative inline">
@@ -120,9 +120,9 @@ export default function NavBar() {
 						<Dropdown.Item icon={User} {...link('/team', router)}>
 							Team
 						</Dropdown.Item>
-						<Dropdown.Item icon={Money} {...link('/pricing', router)}>
+						{/* <Dropdown.Item icon={Money} {...link('/pricing', router)}>
 							Pricing
-						</Dropdown.Item>
+						</Dropdown.Item> */}
 						<Dropdown.Item icon={Chat} {...link('/blog', router)}>
 							Blog
 						</Dropdown.Item>
