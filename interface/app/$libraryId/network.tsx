@@ -1,22 +1,26 @@
 import { Globe } from '@sd/assets/icons';
-import { Suspense, memo, useDeferredValue, useMemo } from 'react';
-import { type NonIndexedPathOrdering } from '@sd/client';
-import { type PathParams, PathParamsSchema } from '~/app/route-schemas';
+import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { useDiscoveredPeers } from '@sd/client';
+import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { useOperatingSystem, useZodSearchParams } from '~/hooks';
+
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { createDefaultExplorerSettings, nonIndexedPathOrderingSchema } from './Explorer/store';
+import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { TopBarPortal } from './TopBar/Portal';
 
 const Network = memo((props: { args: PathParams }) => {
 	const os = useOperatingSystem();
 
+	const discoveredPeers = useDiscoveredPeers();
+	const peers = useMemo(() => Array.from(discoveredPeers.values()), [discoveredPeers]);
+
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
 			() =>
-				createDefaultExplorerSettings<NonIndexedPathOrdering>({
+				createDefaultExplorerSettings({
 					order: {
 						field: 'name',
 						value: 'Asc'
@@ -28,7 +32,15 @@ const Network = memo((props: { args: PathParams }) => {
 	});
 
 	const explorer = useExplorer({
-		items: [],
+		items: peers.map((peer) => ({
+			type: 'SpacedropPeer',
+			has_local_thumbnail: false,
+			thumbnail_key: null,
+			item: {
+				...peer,
+				pub_id: []
+			}
+		})),
 		settings: explorerSettings
 	});
 
@@ -49,8 +61,9 @@ const Network = memo((props: { args: PathParams }) => {
 					<div className="flex h-full flex-col items-center justify-center text-white">
 						<img src={Globe} className="h-32 w-32" />
 						<h1 className="mt-4 text-lg font-bold">Your Local Network</h1>
-						<p className="mt-1 text-sm text-ink-dull">
-							You don't have anything in your network yet.
+						<p className="mt-1 max-w-sm text-center text-sm text-ink-dull">
+							Other Spacedrive nodes on your LAN will appear here, along with your
+							default OS network mounts.
 						</p>
 					</div>
 				}

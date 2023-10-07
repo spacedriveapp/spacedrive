@@ -29,31 +29,8 @@ export const Component = () => {
 		onSettingsChanged: () => {}
 	});
 
-	const jeff = query.data
-		? [
-				...query.data,
-				...([
-					{
-						type: 'Object',
-						item: {
-							pub_id: [],
-
-							file_paths: [
-								{
-									name: 'Fake Test',
-									kind: 5,
-									is_dir: false,
-									size_in_bytes_bytes: [0, 0, 0, 0, 0, 3, 244, 30]
-								}
-							]
-						}
-					}
-				] as unknown as ExplorerItem[])
-		  ]
-		: [];
-
 	const explorer = useExplorer({
-		items: jeff || null,
+		items: query.data || null,
 		parent: nodeState.data
 			? {
 					type: 'Node',

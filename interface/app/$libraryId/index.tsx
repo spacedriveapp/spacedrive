@@ -14,7 +14,6 @@ const pageRoutes: RouteObject = {
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', lazy: () => import('./debug') },
-		{ path: 'spacedrop', lazy: () => import('./spacedrop') },
 		{ path: 'sync', lazy: () => import('./sync') }
 	]
 };

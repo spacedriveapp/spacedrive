@@ -33,10 +33,10 @@ export default () => {
 						Overview
 					</SidebarLink>
 				</Tooltip>
-				<SidebarLink to="spacedrop">
+				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
-				</SidebarLink>
+				</SidebarLink> */}
 				{/*
 				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
