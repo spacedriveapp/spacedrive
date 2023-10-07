@@ -128,7 +128,7 @@ export default function HomePage() {
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
 						headline="Alpha release is finally here!"
-						href="/blog/spacedrive-funding-announcement"
+						href="/blog/october-alpha-release"
 						link="Read post"
 						className="mt-[50px] lg:mt-0"
 					/>
