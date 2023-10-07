@@ -320,7 +320,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 								key={location.id}
 							>
 								<Folder size={18} />
-								<span className="ml-1 text-xs">{location.name}</span>
+								<span className="ml-1 text-xs text-ink">{location.name}</span>
 							</div>
 						))}
 					</div>
