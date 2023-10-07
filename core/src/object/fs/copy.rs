@@ -13,7 +13,7 @@ use crate::{
 	},
 };
 
-use std::{hash::Hash, path::PathBuf};
+use std::{ffi::OsStr, hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -22,8 +22,9 @@ use tokio::{fs, io};
 use tracing::{trace, warn};
 
 use super::{
-	construct_target_filename, error::FileSystemJobsError, fetch_source_and_target_location_paths,
-	get_file_data_from_isolated_file_path, get_many_files_datas, FileData,
+	append_digit_to_filename, construct_target_filename, error::FileSystemJobsError,
+	fetch_source_and_target_location_paths, get_file_data_from_isolated_file_path,
+	get_many_files_datas, FileData,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -37,7 +38,6 @@ pub struct FileCopierJobInit {
 	pub target_location_id: location::id::Type,
 	pub sources_file_path_ids: Vec<file_path::id::Type>,
 	pub target_location_relative_directory_path: PathBuf,
-	pub target_file_name_suffix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -80,10 +80,7 @@ impl StatefulJob for FileCopierJobInit {
 					&init.target_location_relative_directory_path,
 				);
 
-				full_target_path.push(construct_target_filename(
-					&file_data,
-					&init.target_file_name_suffix,
-				)?);
+				full_target_path.push(construct_target_filename(&file_data)?);
 
 				Ok::<_, MissingFieldError>(FileCopierJobStep {
 					source_file_data: file_data,
@@ -173,17 +170,65 @@ impl StatefulJob for FileCopierJobInit {
 			}
 
 			Ok(more_steps.into())
-		} else if &source_file_data.full_path == target_full_path {
-			// File is already here, do nothing
-			Ok(().into())
 		} else {
 			match fs::metadata(target_full_path).await {
 				Ok(_) => {
-					// only skip as it could be half way through a huge directory copy and run into an issue
-					warn!(
-						"Skipping {} as it would be overwritten",
-						target_full_path.display()
-					);
+					let new_file_name =
+						target_full_path
+							.file_stem()
+							.ok_or(JobError::JobDataNotFound(
+								"No stem on file path, but it's supposed to be a file".to_string(),
+							))?;
+
+					let new_file_full_path_without_suffix = target_full_path.parent().map_or_else(
+						|| {
+							Err(JobError::JobDataNotFound(
+								"No parent for file path, which is supposed to be directory"
+									.to_string(),
+							))
+						},
+						|x| Ok(x.to_path_buf()),
+					)?;
+
+					for i in 1..u32::MAX {
+						let mut new_file_full_path_candidate =
+							new_file_full_path_without_suffix.clone();
+
+						append_digit_to_filename(
+							&mut new_file_full_path_candidate,
+							new_file_name.to_str().ok_or(JobError::JobDataNotFound(
+								"Unable to convert file name to &str".to_string(),
+							))?,
+							target_full_path.extension().and_then(OsStr::to_str),
+							i,
+						);
+
+						match fs::metadata(&new_file_full_path_candidate).await {
+							Ok(_) => {
+								// This candidate already exists, so we try the next one
+								continue;
+							}
+							Err(e) if e.kind() == io::ErrorKind::NotFound => {
+								fs::copy(
+									&source_file_data.full_path,
+									&new_file_full_path_candidate,
+								)
+								.await
+								// Using the ? here because we don't want to increase the completed task
+								// count in case of file system errors
+								.map_err(|e| {
+									FileIOError::from((new_file_full_path_candidate, e))
+								})?;
+
+								break;
+							}
+							Err(e) => {
+								return Err(
+									FileIOError::from((new_file_full_path_candidate, e)).into()
+								)
+							}
+						}
+					}
 
 					Ok(JobRunErrors(vec![FileSystemJobsError::WouldOverwrite(
 						target_full_path.clone().into_boxed_path(),
