@@ -152,7 +152,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					role="textbox"
 					autoCorrect="off"
 					contentEditable={allowRename}
-					dangerouslySetInnerHTML={{ __html: name }}
+					suppressContentEditableWarning
 					className={clsx(
 						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink outline-none',
 						allowRename && 'whitespace-normal bg-app ring-2 ring-accent-deep',
@@ -178,7 +178,9 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}
-				/>
+				>
+					{name}
+				</div>
 			</Tooltip>
 		);
 	}
