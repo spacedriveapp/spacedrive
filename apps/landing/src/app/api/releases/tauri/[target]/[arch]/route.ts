@@ -90,10 +90,10 @@ async function githubFetch(path: string) {
 	return fetch(`https://api.github.com${path}`, FETCH_META).then((r) => r.json());
 }
 
-function binaryName({ version, target, arch }: z.infer<typeof paramsSchema>) {
+function binaryName({ target, arch }: z.infer<typeof paramsSchema>) {
 	const ext = extensionForTarget(target);
 
-	return `Spacedrive-Updater-${version}-${target}-${arch}.${ext}`;
+	return `Spacedrive-Updater-${target}-${arch}.${ext}`;
 }
 
 function extensionForTarget(target: z.infer<typeof tauriTarget>) {
