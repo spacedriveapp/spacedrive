@@ -26,11 +26,17 @@ pub const HEIF_MAXIMUM_FILE_SIZE: u64 = MIB * 32;
 
 pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 
-/// The maximum file size that an image can be in order to have a thumbnail generated.
+/// The maximum file size that an SVG image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
 pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
 
+pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
+
+/// The size that PDF pages are rendered at.
+pub const PDF_RENDER_SIZE: i32 = 1024;
+
+/// The maximum file size that an image can be in order to have a thumbnail generated.
 /// This is the target pixel count for all SVG images to be rendered at.
 ///
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
@@ -66,6 +72,7 @@ pub enum ConvertableExtensions {
 	Avcs,
 	Svg,
 	Svgz,
+	Pdf,
 }
 
 impl Display for ConvertableExtensions {
@@ -105,6 +112,7 @@ impl TryFrom<String> for ConvertableExtensions {
 			"avcs" => Ok(Self::Avcs),
 			"svg" => Ok(Self::Svg),
 			"svgz" => Ok(Self::Svgz),
+			"pdf" => Ok(Self::Pdf),
 			_ => Err(crate::Error::Unsupported),
 		}
 	}
@@ -157,6 +165,7 @@ pub fn all_compatible_extensions() -> Vec<String> {
 		.into_iter()
 		.chain(HEIF_EXTENSIONS)
 		.chain(SVG_EXTENSIONS)
+		.chain(PDF_EXTENSIONS)
 		.map(String::from)
 		.collect();
 
@@ -164,6 +173,7 @@ pub fn all_compatible_extensions() -> Vec<String> {
 	let res = GENERIC_EXTENSIONS
 		.into_iter()
 		.chain(SVG_EXTENSIONS)
+		.chain(PDF_EXTENSIONS)
 		.map(String::from)
 		.collect();
 

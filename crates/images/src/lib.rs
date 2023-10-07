@@ -26,6 +26,7 @@ mod generic;
 mod handler;
 #[cfg(feature = "heif")]
 mod heif;
+mod pdf;
 mod svg;
 
 pub use consts::{all_compatible_extensions, ConvertableExtensions};

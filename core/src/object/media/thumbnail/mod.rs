@@ -8,7 +8,9 @@ use crate::{
 	Node,
 };
 
-use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
+use sd_file_ext::extensions::{
+	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
+};
 use sd_images::format_image;
 use sd_media_metadata::image::Orientation;
 
@@ -26,7 +28,7 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::{fs, io, task};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -57,7 +59,7 @@ pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub(super) static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub(super) static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_VIDEO_EXTENSIONS
 		.iter()
 		.cloned()
@@ -66,12 +68,19 @@ pub(super) static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(||
 		.collect()
 });
 
-pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub(super) static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.cloned()
 		.filter(can_generate_thumbnail_for_image)
 		.map(Extension::Image)
+		.chain(
+			ALL_DOCUMENT_EXTENSIONS
+				.iter()
+				.cloned()
+				.filter(can_generate_thumbnail_for_document)
+				.map(Extension::Document),
+		)
 		.collect()
 });
 
@@ -88,6 +97,8 @@ pub enum ThumbnailerError {
 	Encoding,
 	#[error("error while converting the image: {0}")]
 	SdImages(#[from] sd_images::Error),
+	#[error("failed to execute converting task: {0}")]
+	Task(#[from] task::JoinError),
 }
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
@@ -125,7 +136,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 ) -> Result<(), ThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
-	let webp = tokio::task::block_in_place(move || -> Result<_, ThumbnailerError> {
+	let webp = task::spawn_blocking(move || -> Result<_, ThumbnailerError> {
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
@@ -154,7 +165,8 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
 		Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
-	})?;
+	})
+	.await??;
 
 	let output_path = output_path.as_ref();
 
@@ -198,6 +210,12 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 		image_extension,
 		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif | Bmp | Ico
 	)
+}
+
+pub const fn can_generate_thumbnail_for_document(document_extension: &DocumentExtension) -> bool {
+	use DocumentExtension::*;
+
+	matches!(document_extension, Pdf)
 }
 
 pub(super) async fn process(
