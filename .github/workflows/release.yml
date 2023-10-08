@@ -1,8 +1,10 @@
 name: Release
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
 
+permissions: read-all
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
 jobs:
@@ -42,10 +44,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Checkout repository
         uses: actions/checkout@v3

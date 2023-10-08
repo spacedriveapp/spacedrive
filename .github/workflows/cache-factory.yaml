@@ -6,16 +6,18 @@ name: Cache Factory
 on:
   push:
     paths:
-      - 'Cargo.lock'
-      - './scripts/setup.sh'
-      - './scripts/setup.ps1'
-      - '.github/workflows/cache-factory.yaml'
-      - '.github/actions/**/*.yml'
-      - '.github/actions/**/*.yaml'
-      - '**/build.rs'
-      - 'core/prisma/**'
+      - Cargo.lock
+      - ./scripts/setup.sh
+      - ./scripts/setup.ps1
+      - .github/workflows/cache-factory.yaml
+      - .github/actions/**/*.yml
+      - .github/actions/**/*.yaml
+      - "**/build.rs"
+      - core/prisma/**
     branches:
       - main
+
+permissions: read-all
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -46,7 +48,7 @@ jobs:
           #   target: aarch64-unknown-linux-musl
           # - host: ubuntu-20.04
           #   target: armv7-unknown-linux-gnueabihf
-    name: 'Make Cache'
+    name: Make Cache
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Maximize build space
@@ -55,10 +57,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -75,7 +77,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
-          save-cache: 'true'
+          save-cache: "true"
 
       - name: Clippy
         run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}

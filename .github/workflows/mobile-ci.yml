@@ -6,18 +6,21 @@ on:
       - main
   pull_request:
     paths:
-      - 'apps/mobile/**'
-      - '.github/workflows/mobile-ci.yml'
-      - 'core/**'
-      - 'crates/**'
-      - 'packages/assets/**'
-      - 'packages/client/**'
-      - 'packages/config/**'
+      - apps/mobile/**
+      - .github/workflows/mobile-ci.yml
+      - core/**
+      - crates/**
+      - packages/assets/**
+      - packages/client/**
+      - packages/config/**
+  # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
+
+permissions: read-all
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
-  SPACEDRIVE_CI: '1'
+  SPACEDRIVE_CI: "1"
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:
@@ -171,7 +174,7 @@ jobs:
       - name: Run Simulator
         uses: futureware-tech/simulator-action@v2
         with:
-          model: 'iPhone 11'
+          model: iPhone 11
 
       - name: Run Tests
         run: |

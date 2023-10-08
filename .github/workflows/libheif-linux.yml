@@ -3,15 +3,18 @@ name: Build libheif for linux
 on:
   push:
     paths:
-      - '.github/workflows/libheif-linux.yml'
-      - '.github/scripts/libheif-linux.sh'
+      - .github/workflows/libheif-linux.yml
+      - .github/scripts/libheif-linux.sh
     branches:
       - main
   pull_request:
     paths:
-      - '.github/workflows/libheif-linux.yml'
-      - '.github/scripts/libheif-linux.sh'
+      - .github/workflows/libheif-linux.yml
+      - .github/scripts/libheif-linux.sh
+  # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
+
+permissions: read-all
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:

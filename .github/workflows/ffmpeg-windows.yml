@@ -1,16 +1,19 @@
 name: Build ffmpeg windows
 
+permissions: read-all
+
 on:
   push:
     paths:
-      - '.github/workflows/ffmpeg-windows.yml'
-      - '.github/scripts/ffmpeg-windows/**'
+      - .github/workflows/ffmpeg-windows.yml
+      - .github/scripts/ffmpeg-windows/**
     branches:
       - main
   pull_request:
     paths:
-      - '.github/workflows/ffmpeg-windows.yml'
-      - '.github/scripts/ffmpeg-windows/**'
+      - .github/workflows/ffmpeg-windows.yml
+      - .github/scripts/ffmpeg-windows/**
+  # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
@@ -19,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FFMPEG_VERSION: '6.0'
+  FFMPEG_VERSION: "6.0"
 
 jobs:
   build-ffmpeg-windows:

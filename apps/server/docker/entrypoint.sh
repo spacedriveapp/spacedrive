@@ -5,9 +5,9 @@ set -eu
 # Shortcircuit for non-default commands.
 # The last part inside the "{}" is a workaround for the following bug in ash/dash:
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=874264
-if [ -n "${1:-}" ] && [ "${1#-}" = "${1}" ] \
-  && [ -n "$(command -v -- "${1}")" ] \
-  && { ! [ -f "${1}" ] || [ -x "${1}" ]; }; then
+if [ -n "${1-}" ] && [ "${1#-}" = "${1}" ] &&
+  [ -n "$(command -v -- "${1}")" ] &&
+  { ! [ -f "${1}" ] || [ -x "${1}" ]; }; then
   exec "$@"
 fi
 
@@ -26,11 +26,11 @@ adduser --system --disabled-password \
   spacedrive
 passwd -l spacedrive
 
-if [ -n "${TZ:-}" ]; then
-  echo "Set Timezone to $TZ"
+if [ -n "${TZ-}" ]; then
+  echo "Set Timezone to ${TZ}"
   rm -f /etc/localtime
   ln -s "/usr/share/zoneinfo/${TZ}" /etc/localtime
-  echo "$TZ" >/etc/timezone
+  echo "${TZ}" >/etc/timezone
 fi
 
 echo "Fix spacedrive's directories permissions"

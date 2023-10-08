@@ -29,6 +29,7 @@ async fn main() {
 	};
 
 	let port = env::var("PORT")
+		.or_else(|_| env::var("WEBUI_PORT"))
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
