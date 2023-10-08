@@ -47,7 +47,7 @@ export const Component = () => {
 				title="General Settings"
 				description="General settings related to this client."
 			/>
-			{useFeatureFlag('accounts') && <SpacedriveAccount />}
+			<SpacedriveAccount />
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
