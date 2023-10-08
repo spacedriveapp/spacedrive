@@ -6819,6 +6819,7 @@ dependencies = [
  "resvg",
  "thiserror",
  "tracing 0.2.0",
+]
 
 [[package]]
 name = "sd-media-metadata"
