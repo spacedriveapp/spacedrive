@@ -84,7 +84,7 @@ impl StatefulJob for FileCutterJobInit {
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		let full_output = data
 			.full_target_directory_path
-			.join(construct_target_filename(file_data, &None)?);
+			.join(construct_target_filename(file_data)?);
 
 		if file_data.full_path == full_output {
 			// File is already here, do nothing

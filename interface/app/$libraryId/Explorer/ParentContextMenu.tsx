@@ -47,8 +47,7 @@ export default (props: PropsWithChildren) => {
 										source_location_id: sourceLocationId,
 										sources_file_path_ids: [...sourcePathIds],
 										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path,
-										target_file_name_suffix: sameLocation ? ' copy' : null
+										target_location_relative_directory_path: path
 									});
 								} else if (sameLocation) {
 									toast.error('File already exists in this location');
