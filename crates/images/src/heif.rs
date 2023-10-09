@@ -1,5 +1,4 @@
 pub use crate::consts::HEIF_EXTENSIONS;
-use crate::consts::HEIF_MAXIMUM_FILE_SIZE;
 pub use crate::error::{Error, Result};
 use crate::ImageHandler;
 use image::DynamicImage;
@@ -14,19 +13,15 @@ static HEIF: Lazy<LibHeif> = Lazy::new(LibHeif::new);
 pub struct HeifHandler {}
 
 impl ImageHandler for HeifHandler {
-	fn maximum_size(&self) -> u64 {
-		HEIF_MAXIMUM_FILE_SIZE
-	}
+	// fn validate_image(&self, bits_per_pixel: u8, length: usize) -> Result<()> {
+	// 	if bits_per_pixel != 8 {
+	// 		return Err(Error::InvalidBitDepth);
+	// 	} else if length % 3 != 0 || length % 4 != 0 {
+	// 		return Err(Error::InvalidLength);
+	// 	}
 
-	fn validate_image(&self, bits_per_pixel: u8, length: usize) -> Result<()> {
-		if bits_per_pixel != 8 {
-			return Err(Error::InvalidBitDepth);
-		} else if length % 3 != 0 || length % 4 != 0 {
-			return Err(Error::InvalidLength);
-		}
-
-		Ok(())
-	}
+	// 	Ok(())
+	// }
 
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
 		let img = {
@@ -38,7 +33,7 @@ impl ImageHandler for HeifHandler {
 		let planes = img.planes();
 
 		if let Some(i) = planes.interleaved {
-			self.validate_image(i.bits_per_pixel, i.data.len())?;
+			// self.validate_image(i.bits_per_pixel, i.data.len())?;
 
 			let mut reader = Cursor::new(i.data);
 			let mut sequence = vec![];
@@ -68,16 +63,16 @@ impl ImageHandler for HeifHandler {
 			// This was hand-crafted using my best judgement, and I think it should work.
 			// I'm sure we'll get a GH issue opened regarding it if not - brxken128
 
-			self.validate_image(r.bits_per_pixel, r.data.len())?;
-			self.validate_image(g.bits_per_pixel, g.data.len())?;
-			self.validate_image(b.bits_per_pixel, b.data.len())?;
+			// self.validate_image(r.bits_per_pixel, r.data.len())?;
+			// self.validate_image(g.bits_per_pixel, g.data.len())?;
+			// self.validate_image(b.bits_per_pixel, b.data.len())?;
 
 			let mut red = Cursor::new(r.data);
 			let mut green = Cursor::new(g.data);
 			let mut blue = Cursor::new(b.data);
 
 			let (mut alpha, has_alpha) = if let Some(a) = planes.a {
-				self.validate_image(a.bits_per_pixel, a.data.len())?;
+				// self.validate_image(a.bits_per_pixel, a.data.len())?;
 				(Cursor::new(a.data), true)
 			} else {
 				(Cursor::new([].as_ref()), false)
