@@ -120,11 +120,19 @@ export function SpacedropUI() {
 	});
 
 	// TODO: Only allow a single dialog at a time
-	useEffect(() =>
-		subscribeSpacedropState(() => {
-			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
-		})
-	);
+	useEffect(() => {
+		let open = false;
+
+		return subscribeSpacedropState(() => {
+			if (open) return;
+			open = true;
+			dialogManager.create((dp) => <SpacedropDialog {...dp} />, {
+				onSubmit() {
+					open = false;
+				}
+			});
+		});
+	});
 
 	return null;
 }
@@ -158,7 +166,6 @@ function SpacedropDialog(props: UseDialogProps) {
 	// If no peer is selected, select the first one
 	if (isInvalid) {
 		const defaultValue = discoveredPeersArray[0]?.[0];
-		console.log('D', defaultValue);
 		if (defaultValue) form.setValue('targetPeer', defaultValue);
 	}
 
