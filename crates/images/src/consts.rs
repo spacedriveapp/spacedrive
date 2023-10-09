@@ -1,40 +1,28 @@
 use std::fmt::Display;
+
 /// The size of 1MiB in bytes
 const MIB: u64 = 1_048_576;
 
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
-pub const GENERIC_MAXIMUM_FILE_SIZE: u64 = MIB * 64;
+pub const MAXIMUM_FILE_SIZE: u64 = MIB * 256;
 
 /// These are roughly all extensions supported by the `image` crate, as of `v0.24.7`.
 ///
-/// We only support images that have both good encoding and decoding support.
+/// We only support images that have both good encoding and decoding support, without external C-based dependencies (e.g. `avif`)
 pub const GENERIC_EXTENSIONS: [&str; 16] = [
 	"bmp", "dib", "ff", "gif", "ico", "jpg", "jpeg", "png", "pnm", "qoi", "tga", "icb", "vda",
 	"vst", "tiff", "tif",
 ];
-
+pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
+pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
 #[cfg(feature = "heif")]
 pub const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif", "avci", "avcs"];
 
-/// The maximum file size that an image can be in order to have a thumbnail generated.
-///
-/// This value is in MiB.
-#[cfg(feature = "heif")]
-pub const HEIF_MAXIMUM_FILE_SIZE: u64 = MIB * 32;
-
-pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
-
-/// The maximum file size that an SVG image can be in order to have a thumbnail generated.
-///
-/// This value is in MiB.
-pub const SVG_MAXIMUM_FILE_SIZE: u64 = MIB * 24;
-
-pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
-
-/// The size that PDF pages are rendered at.
-pub const PDF_RENDER_SIZE: i32 = 1024;
+// Will be needed for validating HEIF images
+// #[cfg(feature = "heif")]
+// pub const HEIF_BPS: u8 = 8;
 
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 /// This is the target pixel count for all SVG images to be rendered at.
@@ -42,11 +30,14 @@ pub const PDF_RENDER_SIZE: i32 = 1024;
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
 pub const SVG_TAGRET_PX: f32 = 262_144_f32;
 
+/// The size that PDF pages are rendered at.
+pub const PDF_RENDER_SIZE: u32 = 1024;
+
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
-#[derive(Debug)]
-pub enum ConvertableExtensions {
+#[derive(Debug, Clone, Copy)]
+pub enum ConvertableExtension {
 	Bmp,
 	Dib,
 	Ff,
@@ -75,13 +66,13 @@ pub enum ConvertableExtensions {
 	Pdf,
 }
 
-impl Display for ConvertableExtensions {
+impl Display for ConvertableExtension {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str(&format!("{self:?}"))
 	}
 }
 
-impl TryFrom<String> for ConvertableExtensions {
+impl TryFrom<String> for ConvertableExtension {
 	type Error = crate::Error;
 
 	fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -119,7 +110,7 @@ impl TryFrom<String> for ConvertableExtensions {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for ConvertableExtensions {
+impl serde::Serialize for ConvertableExtension {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -133,7 +124,7 @@ struct ExtensionVisitor;
 
 #[cfg(feature = "serde")]
 impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
-	type Value = ConvertableExtensions;
+	type Value = ConvertableExtension;
 
 	fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		formatter.write_str("A valid extension string`")
@@ -148,7 +139,7 @@ impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ConvertableExtensions {
+impl<'de> serde::Deserialize<'de> for ConvertableExtension {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,

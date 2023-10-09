@@ -26,7 +26,7 @@ use crate::{
 };
 
 use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
-use sd_images::ConvertableExtensions;
+use sd_images::ConvertableExtension;
 use sd_media_metadata::MediaMetadata;
 
 use std::{
@@ -328,7 +328,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				location_id: location::id::Type,
 				file_path_id: file_path::id::Type,
 				delete_src: bool, // if set, we delete the src image after
-				desired_extension: ConvertableExtensions,
+				desired_extension: ConvertableExtension,
 				quality_percentage: Option<i32>, // 1% - 125%
 			}
 			R.with2(library())
