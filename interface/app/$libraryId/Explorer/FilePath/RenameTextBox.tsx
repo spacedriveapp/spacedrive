@@ -1,34 +1,19 @@
 import clsx from 'clsx';
-import {
-	forwardRef,
-	useCallback,
-	useEffect,
-	useImperativeHandle,
-	useRef,
-	useState,
-	type ComponentProps
-} from 'react';
-import { useKey, useKeys } from 'rooks';
-import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
-import { toast, Tooltip } from '@sd/ui';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useKey } from 'rooks';
+import { Tooltip } from '@sd/ui';
 import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
-type Props = ComponentProps<'div'> & {
-	itemId?: null | number;
-	locationId: number | null;
-	text: string | null;
-	activeClassName?: string;
+interface Props extends React.HTMLAttributes<HTMLDivElement> {
+	name: string;
+	onRename: (newName: string) => void;
 	disabled?: boolean;
-	renameHandler: (name: string) => Promise<void>;
-};
+}
 
-export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
-	(
-		{ className, activeClassName, disabled, itemId, locationId, text, renameHandler, ...props },
-		_ref
-	) => {
+export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
+	({ name, onRename, disabled, className, ...props }, _ref) => {
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
 
@@ -41,45 +26,47 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		//this is to determine if file name is truncated
-		const isTruncated = useIsTextTruncated(ref, text);
+		const isTruncated = useIsTextTruncated(ref, name);
 
 		// Highlight file name up to extension or
-		// fully if it's a directory or has no extension
+		// fully if it's a directory, hidden file or has no extension
 		const highlightText = useCallback(() => {
-			if (!ref.current || !text) return;
+			if (!ref.current || !name) return;
 
 			const node = ref.current.firstChild;
 			if (!node) return;
 
-			const endRange = text.lastIndexOf('.');
+			const endRange = name.lastIndexOf('.');
 
 			const range = document.createRange();
 
 			range.setStart(node, 0);
-			range.setEnd(node, endRange !== -1 ? endRange : text.length);
+			range.setEnd(node, endRange > 1 ? endRange : name.length);
 
 			const sel = window.getSelection();
 			if (!sel) return;
 
 			sel.removeAllRanges();
 			sel.addRange(range);
-		}, [text]);
+		}, [name]);
 
 		// Blur field
 		const blur = useCallback(() => ref.current?.blur(), []);
 
 		// Reset to original file name
-		const reset = () => ref.current && (ref.current.innerText = text ?? '');
+		const reset = () => ref.current && (ref.current.innerText = name ?? '');
 
 		const handleRename = async () => {
-			const newName = ref.current?.innerText.trim();
+			let newName = ref.current?.innerText;
 
-			if (!newName || newName === text) {
+			if (newName?.endsWith('\n')) newName = newName.slice(0, -1);
+
+			if (!newName || newName === name) {
 				reset();
 				return;
 			}
 
-			await renameHandler(newName);
+			onRename(newName);
 		};
 
 		const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -157,20 +144,18 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 			<Tooltip
 				labelClassName="break-all"
 				tooltipClassName="!max-w-[250px]"
-				label={!isTruncated || allowRename ? null : text}
+				label={!isTruncated || allowRename ? null : name}
 				asChild
 			>
 				<div
 					ref={ref}
 					role="textbox"
+					autoCorrect="off"
 					contentEditable={allowRename}
 					suppressContentEditableWarning
 					className={clsx(
 						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink outline-none',
-						allowRename && [
-							'whitespace-normal bg-app ring-2 ring-accent-deep',
-							activeClassName
-						],
+						allowRename && 'whitespace-normal bg-app ring-2 ring-accent-deep',
 						className
 					)}
 					onDoubleClick={(e) => {
@@ -194,99 +179,9 @@ export const RenameTextBoxBase = forwardRef<HTMLDivElement | null, Props>(
 					onKeyDown={handleKeyDown}
 					{...props}
 				>
-					{text}
+					{name}
 				</div>
 			</Tooltip>
 		);
 	}
 );
-
-export const RenamePathTextBox = ({
-	isDir,
-	...props
-}: Omit<Props, 'renameHandler'> & { isDir: boolean; extension?: string | null }) => {
-	const rspc = useRspcLibraryContext();
-	const ref = useRef<HTMLDivElement>(null);
-
-	const renameFile = useLibraryMutation(['files.renameFile'], {
-		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
-	});
-
-	// Reset to original file name
-	function reset() {
-		if (ref?.current) {
-			ref.current.innerText = fileName ?? '';
-		}
-	}
-
-	const fileName = isDir || !props.extension ? props.text : props.text + '.' + props.extension;
-
-	// Handle renaming
-	async function rename(newName: string) {
-		if (!props.locationId || !props.itemId || newName === fileName) {
-			reset();
-			return;
-		}
-		try {
-			await renameFile.mutateAsync({
-				location_id: props.locationId,
-				kind: {
-					One: {
-						from_file_path_id: props.itemId,
-						to: newName
-					}
-				}
-			});
-		} catch (e) {
-			reset();
-			toast.error({
-				title: `Could not rename ${fileName} to ${newName}`,
-				body: `Error: ${e}.`
-			});
-		}
-	}
-
-	return <RenameTextBoxBase {...props} text={fileName} renameHandler={rename} ref={ref} />;
-};
-
-export const RenameLocationTextBox = (props: Omit<Props, 'renameHandler'>) => {
-	const rspc = useRspcLibraryContext();
-	const ref = useRef<HTMLDivElement>(null);
-
-	const renameLocation = useLibraryMutation(['locations.update'], {
-		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
-	});
-
-	// Reset to original file name
-	function reset() {
-		if (ref?.current) {
-			ref.current.innerText = props.text || '';
-		}
-	}
-
-	// Handle renaming
-	async function rename(newName: string) {
-		if (!props.locationId) {
-			reset();
-			return;
-		}
-		try {
-			await renameLocation.mutateAsync({
-				id: props.locationId,
-				path: null,
-				name: newName,
-				generate_preview_media: null,
-				sync_preview_media: null,
-				hidden: null,
-				indexer_rules_ids: []
-			});
-		} catch (e) {
-			reset();
-			toast.error({ title: 'Failed to rename', body: `Error: ${e}.` });
-		}
-	}
-
-	return <RenameTextBoxBase {...props} renameHandler={rename} ref={ref} />;
-};
