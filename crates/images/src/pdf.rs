@@ -65,7 +65,7 @@ impl ImageHandler for PdfHandler {
 		let pdfium = PDFIUM.as_ref().ok_or(PdfiumBinding)?;
 
 		let render_config = PdfRenderConfig::new()
-			.set_target_width(PDF_RENDER_WIDTH.try_into()?)
+			.set_target_width(PDF_RENDER_WIDTH)
 			.rotate_if_landscape(PdfPageRenderRotation::Degrees90, true);
 
 		Ok(pdfium

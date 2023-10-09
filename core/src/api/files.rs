@@ -7,12 +7,12 @@ use crate::{
 		file_path_helper::{
 			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
 		},
-		find_location, LocationError,
+		get_location_path_from_location_id, LocationError,
 	},
 	object::{
 		fs::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit, get_location_path_from_location_id,
+			erase::FileEraserJobInit,
 		},
 		media::{
 			media_data_extractor::{
@@ -33,6 +33,7 @@ use std::{
 	ffi::OsString,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
 use chrono::Utc;
@@ -41,10 +42,7 @@ use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::{
-	fs::{self, File},
-	io::{self, AsyncWriteExt},
-};
+use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
 
 use super::{Ctx, R};
@@ -137,13 +135,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.map_err(LocationError::MissingField)?;
 
 					let location_id = isolated_path.location_id();
-					let location_path = find_location(&library, location_id)
-						.select(location::select!({ path }))
-						.exec()
-						.await?
-						.ok_or(LocationError::IdNotFound(location_id))?
-						.path
-						.ok_or(LocationError::MissingPath(location_id))?;
+					let location_path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
 
 					Ok(Path::new(&location_path)
 						.join(&isolated_path)
@@ -269,13 +262,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								))
 								.await?;
 
-							let location_path = maybe_missing(
-								maybe_location
-									.ok_or(LocationError::IdNotFound(args.location_id))?
-									.path,
-								"location.path",
-							)
-							.map_err(LocationError::from)?;
+							let location_path = maybe_location
+								.ok_or(LocationError::IdNotFound(args.location_id))?
+								.path
+								.ok_or(LocationError::MissingPath(args.location_id))?;
 
 							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
 								FilePathError::IdNotFound(args.file_path_ids[0]),
@@ -333,10 +323,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 			R.with2(library())
 				.mutation(|(_, library), args: ConvertImageArgs| async move {
+					// TODO:(fogodev) I think this will have to be a Job due to possibly being too much CPU Bound for rspc
+
 					let location_path =
-						get_location_path_from_location_id(&library.db, args.location_id)
-							.await
-							.map_err(|_| LocationError::IdNotFound(args.location_id))?;
+						get_location_path_from_location_id(&library.db, args.location_id).await?;
 
 					let isolated_path = IsolatedFilePathData::try_from(
 						library
@@ -349,60 +339,102 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
 								args.file_path_id,
 							)))?,
-					)
-					.map_err(LocationError::MissingField)?;
+					)?;
 
 					let path = Path::new(&location_path).join(&isolated_path);
 
-					if fs::metadata(&path).await.is_err() {
-						return Err(LocationError::PathNotFound(path.to_path_buf()))?;
+					if let Err(e) = fs::metadata(&path).await {
+						if e.kind() == io::ErrorKind::NotFound {
+							return Err(LocationError::FilePath(FilePathError::NotFound(
+								path.into_boxed_path(),
+							))
+							.into());
+						} else {
+							return Err(FileIOError::from((
+								path,
+								e,
+								"Got an error trying to read metadata from image to convert",
+							))
+							.into());
+						}
 					}
 
 					args.quality_percentage.map(|x| x.clamp(1, 125));
 
-					let output_extension = OsString::from(args.desired_extension.to_string());
-					let mut image = sd_images::convert_image(&path, &output_extension)?;
+					let path = Arc::new(path);
 
-					if let Some(quality_percentage) = args.quality_percentage {
-						image = image.resize(
-							image.width() * (quality_percentage as f32 / 100_f32) as u32,
-							image.height() * (quality_percentage as f32 / 100_f32) as u32,
-							image::imageops::FilterType::Triangle,
-						);
-					}
+					let output_extension =
+						Arc::new(OsString::from(args.desired_extension.to_string()));
 
-					let mut output_path = path.clone();
-					if output_path.set_extension(output_extension) {
-						return Err(rspc::Error::new(
+					// TODO(fogodev): Refactor this if Rust get async scoped spawns someday
+					let inner_path = Arc::clone(&path);
+					let inner_output_extension = Arc::clone(&output_extension);
+					let image = spawn_blocking(move || {
+						sd_images::convert_image(inner_path.as_ref(), &inner_output_extension).map(
+							|mut image| {
+								if let Some(quality_percentage) = args.quality_percentage {
+									image = image.resize(
+										image.width()
+											* (quality_percentage as f32 / 100_f32) as u32,
+										image.height()
+											* (quality_percentage as f32 / 100_f32) as u32,
+										image::imageops::FilterType::Triangle,
+									);
+								}
+								image
+							},
+						)
+					})
+					.await
+					.map_err(|e| {
+						error!("{e:#?}");
+						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							"There was an error while updating the extension".to_string(),
-						));
-					}
+							"Had an internal problem converting image".to_string(),
+						)
+					})??;
 
-					if fs::metadata(&output_path).await.is_ok() {
+					let output_path = path.with_extension(output_extension.as_ref());
+
+					if fs::metadata(&output_path)
+						.await
+						.map(|_| true)
+						.map_err(|e| {
+							FileIOError::from(
+							(
+								&output_path,
+								e,
+								"Got an error trying to check if the desired converted file already exists"
+							)
+						)
+						})? {
 						return Err(rspc::Error::new(
-							ErrorCode::InternalServerError,
-							"The output path already exists and this would overwrite it"
+							ErrorCode::Conflict,
+							"There is already a file with same name and extension in this directory"
 								.to_string(),
 						));
-					} else if let Ok(mut file) = File::create(&output_path).await {
-						file.write_all(image.as_bytes()).await.map_err(|e| {
-							rspc::Error::with_cause(
-								ErrorCode::InternalServerError,
-								"There was an error while writing the image to the output path"
-									.to_string(),
-								e,
-							)
-						})?;
+					} else {
+						fs::write(&output_path, image.as_bytes())
+							.await
+							.map_err(|e| {
+								FileIOError::from((
+									output_path,
+									e,
+									"There was an error while writing the image to the output path",
+								))
+							})?;
 					}
 
 					if args.delete_src {
-						fs::remove_file(&path).await.map_err(|e| {
-							rspc::Error::with_cause(
-								ErrorCode::InternalServerError,
-								"There was an error while deleting the source image".to_string(),
+						fs::remove_file(path.as_ref()).await.map_err(|e| {
+							// Let's also invalidate the query here, because we succeeded in converting the file
+							invalidate_query!(library, "search.paths");
+
+							FileIOError::from((
+								path.as_ref(),
 								e,
-							)
+								"There was an error while deleting the source image",
+							))
 						})?;
 					}
 
@@ -412,9 +444,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getConvertableImageExtensions", {
-			R.with2(library()).query(|(_, _library), _: ()| async move {
-				Ok(sd_images::all_compatible_extensions())
-			})
+			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
 			R.with2(library())
@@ -639,17 +669,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}
 
-			R.with2(library())
-				.mutation(|(_, library), args: RenameFileArgs| async move {
-					let location_path = find_location(&library, args.location_id)
-						.select(location::select!({ path }))
-						.exec()
-						.await?
-						.ok_or(LocationError::IdNotFound(args.location_id))?
-						.path
-						.ok_or(LocationError::MissingPath(args.location_id))?;
+			R.with2(library()).mutation(
+				|(_, library), RenameFileArgs { location_id, kind }: RenameFileArgs| async move {
+					let location_path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
 
-					let res = match args.kind {
+					let res = match kind {
 						RenameKind::One(one) => {
 							RenameFileArgs::rename_one(one, location_path, &library).await
 						}
@@ -661,6 +686,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					invalidate_query!(library, "search.objects");
 
 					res
-				})
+				},
+			)
 		})
 }

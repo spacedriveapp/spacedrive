@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{consts::SVG_TAGRET_PX, scale_dimensions, Error, ImageHandler, Result};
+use crate::{consts::SVG_TARGET_PX, scale_dimensions, Error, ImageHandler, Result};
 use image::DynamicImage;
 use resvg::{
 	tiny_skia::{self},
@@ -28,7 +28,7 @@ impl ImageHandler for SvgHandler {
 		})?;
 
 		let (scaled_w, scaled_h) =
-			scale_dimensions(rtree.size.width(), rtree.size.height(), SVG_TAGRET_PX);
+			scale_dimensions(rtree.size.width(), rtree.size.height(), SVG_TARGET_PX);
 
 		let size = if rtree.size.width() > rtree.size.height() {
 			rtree.size.to_int_size().scale_to_width(scaled_w as u32)

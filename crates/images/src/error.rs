@@ -1,11 +1,11 @@
-use std::num::TryFromIntError;
+use std::{num::TryFromIntError, path::Path};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	#[error("there was an i/o error: {0}")]
-	Io(#[from] std::io::Error),
+	#[error("there was an i/o at path '{}' error: {0}", .1.display())]
+	Io(std::io::Error, Box<Path>),
 
 	#[error("the image provided is unsupported")]
 	Unsupported,

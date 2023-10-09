@@ -16,12 +16,13 @@ use std::{
 use crate::heif::HeifHandler;
 
 pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
-	match_to_handler(path.as_ref().extension())?.handle_image(path.as_ref())
+	let path = path.as_ref();
+	match_to_handler(path.extension())?.handle_image(path)
 }
 
 pub fn convert_image(path: impl AsRef<Path>, desired_ext: &OsStr) -> Result<DynamicImage> {
-	match_to_handler(path.as_ref().extension())?
-		.convert_image(match_to_handler(Some(desired_ext))?, path.as_ref())
+	let path = path.as_ref();
+	match_to_handler(path.extension())?.convert_image(match_to_handler(Some(desired_ext))?, path)
 }
 
 #[allow(clippy::useless_let_if_seq)]

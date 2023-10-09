@@ -5,7 +5,7 @@ use crate::{
 		StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::IsolatedFilePathData,
+	location::{file_path_helper::IsolatedFilePathData, get_location_path_from_location_id},
 	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
 };
@@ -23,8 +23,8 @@ use tokio::{
 use tracing::trace;
 
 use super::{
-	error::FileSystemJobsError, get_file_data_from_isolated_file_path,
-	get_location_path_from_location_id, get_many_files_datas, FileData,
+	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_datas,
+	FileData,
 };
 
 #[serde_as]
@@ -70,7 +70,9 @@ impl StatefulJob for FileEraserJobInit {
 		let init = self;
 		let Library { db, .. } = &*ctx.library;
 
-		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
+		let location_path = get_location_path_from_location_id(db, init.location_id)
+			.await
+			.map_err(FileSystemJobsError::from)?;
 
 		let steps = get_many_files_datas(db, &location_path, &init.file_path_ids).await?;
 

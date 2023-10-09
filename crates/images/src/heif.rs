@@ -44,9 +44,15 @@ impl ImageHandler for HeifHandler {
 			(0..img.height()).try_for_each(|x| {
 				let x: usize = x.try_into()?;
 				let start: u64 = (i.stride * x).try_into()?;
-				reader.seek(SeekFrom::Start(start))?;
+				reader
+					.seek(SeekFrom::Start(start))
+					.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
 				(0..img.width()).try_for_each(|_| {
-					reader.read_exact(&mut buffer)?;
+					reader
+						.read_exact(&mut buffer)
+						.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
 					sequence.extend_from_slice(&buffer);
 					Ok::<(), Error>(())
 				})?;
@@ -84,15 +90,28 @@ impl ImageHandler for HeifHandler {
 			(0..img.height()).try_for_each(|x| {
 				let x: usize = x.try_into()?;
 				let start: u64 = (r.stride * x).try_into()?;
-				red.seek(SeekFrom::Start(start))?;
+
+				red.seek(SeekFrom::Start(start))
+					.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
 				(0..img.width()).try_for_each(|_| {
-					red.read_exact(&mut buffer[0..1])?;
-					green.read_exact(&mut buffer[1..2])?;
-					blue.read_exact(&mut buffer[2..3])?;
+					red.read_exact(&mut buffer[0..1])
+						.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
+					green
+						.read_exact(&mut buffer[1..2])
+						.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
+					blue.read_exact(&mut buffer[2..3])
+						.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
 					sequence.extend_from_slice(&buffer[..3]);
 
 					if has_alpha {
-						alpha.read_exact(&mut buffer[3..4])?;
+						alpha
+							.read_exact(&mut buffer[3..4])
+							.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?;
+
 						sequence.extend_from_slice(&buffer[3..4]);
 					}
 					Ok::<(), Error>(())

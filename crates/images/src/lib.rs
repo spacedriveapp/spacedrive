@@ -20,6 +20,8 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use std::{fs, path::Path};
+
 mod consts;
 mod error;
 mod generic;
@@ -30,11 +32,12 @@ mod pdf;
 mod svg;
 
 use consts::MAXIMUM_FILE_SIZE;
+
+// Re-exports
 pub use consts::{all_compatible_extensions, ConvertableExtension};
 pub use error::{Error, Result};
 pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;
-use std::{fs, io::Read, path::Path};
 
 pub trait ImageHandler {
 	#[inline]
@@ -42,22 +45,18 @@ pub trait ImageHandler {
 	where
 		Self: Sized,
 	{
-		let mut file = fs::File::open(path)?;
-		if file.metadata()?.len() > MAXIMUM_FILE_SIZE {
-			Err(Error::TooLarge)
-		} else {
-			let mut data = vec![];
-			file.read_to_end(&mut data)?;
-			Ok(data)
-		}
+		self.validate_image(path)?;
+
+		fs::read(path).map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))
 	}
 
 	fn validate_image(&self, path: &Path) -> Result<()>
 	where
 		Self: Sized,
 	{
-		if fs::metadata(path).is_ok()
-			&& self.get_data(path)?.len() <= MAXIMUM_FILE_SIZE.try_into()?
+		if fs::metadata(path)
+			.map_err(|e| Error::Io(e, path.to_path_buf().into_boxed_path()))?
+			.len() <= MAXIMUM_FILE_SIZE
 		{
 			Ok(())
 		} else {

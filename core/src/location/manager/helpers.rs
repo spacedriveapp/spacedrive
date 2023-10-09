@@ -223,7 +223,6 @@ pub(super) async fn handle_reinit_watcher_request(
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
-	#[allow(clippy::needless_pass_by_ref_mut)]
 	async fn inner(
 		location_id: location::id::Type,
 		library: Arc<Library>,

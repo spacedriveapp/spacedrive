@@ -69,6 +69,16 @@ pub fn inode_to_db(inode: u64) -> Vec<u8> {
 #[error("Missing field {0}")]
 pub struct MissingFieldError(&'static str);
 
+impl From<MissingFieldError> for rspc::Error {
+	fn from(value: MissingFieldError) -> Self {
+		rspc::Error::with_cause(
+			rspc::ErrorCode::InternalServerError,
+			"Missing crucial data in the database".to_string(),
+			value,
+		)
+	}
+}
+
 pub trait OptionalField: Sized {
 	type Out;
 
