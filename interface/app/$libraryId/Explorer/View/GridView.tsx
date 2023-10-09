@@ -5,7 +5,6 @@ import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
-import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerViewContext } from '../ViewContext';
 import GridList from './GridList';
 import { RenamableItemText } from './RenamableItemText';
@@ -16,10 +15,9 @@ interface GridViewItemProps {
 	selected: boolean;
 	isRenaming: boolean;
 	cut: boolean;
-	renamable: boolean;
 }
 
-const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridViewItemProps) => {
+const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProps) => {
 	const explorer = useExplorerContext();
 	const { showBytesInGridView, gridItemSize } = explorer.useSettingsSnapshot();
 
@@ -72,9 +70,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 });
 
 export default () => {
-	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
-	const quickPreviewStore = useQuickPreviewStore();
 
 	return (
 		<GridList>
@@ -84,9 +80,6 @@ export default () => {
 					selected={selected}
 					cut={cut}
 					isRenaming={explorerView.isRenaming}
-					renamable={
-						selected && explorer.selectedItems.size === 1 && !quickPreviewStore.open
-					}
 				/>
 			)}
 		</GridList>
