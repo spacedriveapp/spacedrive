@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { memo } from 'react';
+import { useMatch } from 'react-router';
 import { byteSize, getItemFilePath, getItemLocation, type ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../Context';
@@ -24,15 +25,17 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const showSize =
+		!isEphemeralLocation &&
 		!filePathData?.is_dir &&
 		!location &&
 		showBytesInGridView &&
 		(!isRenaming || (isRenaming && !selected));
 
 	return (
-		<ViewItem data={data} className="h-full w-full">
+		<ViewItem data={data} className="w-full h-full">
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>
