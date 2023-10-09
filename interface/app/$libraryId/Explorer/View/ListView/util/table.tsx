@@ -8,6 +8,7 @@ import {
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import { useMatch } from 'react-router';
 import { stringify } from 'uuid';
 import {
 	byteSize,
@@ -33,6 +34,7 @@ export const useTable = () => {
 
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -79,10 +81,14 @@ export const useTable = () => {
 				id: 'sizeInBytes',
 				header: 'Size',
 				accessorFn: (file) => {
+					const isFolder =
+						isEphemeralLocation && 'is_dir' in file.item
+							? file.item.is_dir || file.type === 'Location'
+							: false;
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
 
-					return byteSize(file_path.size_in_bytes_bytes);
+					return isFolder ? '-' : byteSize(file_path.size_in_bytes_bytes);
 				}
 			},
 			{
