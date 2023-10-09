@@ -25,7 +25,7 @@ import { InfoPill } from '../../../Inspector';
 import { useQuickPreviewStore } from '../../../QuickPreview/store';
 import { isCut, useExplorerStore } from '../../../store';
 import { uniqueId } from '../../../util';
-import RenamableItemText from '../../RenamableItemText';
+import { RenamableItemText } from '../../RenamableItemText';
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
@@ -46,8 +46,6 @@ export const useTable = () => {
 				accessorFn: (file) => getExplorerItemData(file).fullName,
 				cell: (cell) => {
 					const item = cell.row.original;
-
-					const selected = explorer.selectedItems.has(item);
 					const cut = isCut(item, explorerStore.cutCopyState);
 
 					return (
@@ -60,14 +58,8 @@ export const useTable = () => {
 							/>
 
 							<RenamableItemText
-								allowHighlight={false}
 								item={item}
-								selected={selected}
-								disabled={
-									!selected ||
-									explorer.selectedItems.size > 1 ||
-									quickPreviewStore.open
-								}
+								allowHighlight={false}
 								style={{ maxHeight: 36 }}
 							/>
 						</div>
@@ -148,7 +140,7 @@ export const useTable = () => {
 				}
 			}
 		],
-		[explorer.selectedItems, explorerStore.cutCopyState, quickPreviewStore.open]
+		[explorerStore.cutCopyState]
 	);
 
 	const table = useReactTable({
