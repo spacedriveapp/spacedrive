@@ -52,7 +52,6 @@ tokio = { workspace = true, features = [
 	"time",
 	"process",
 ] }
-kamadak-exif = "0.5.5"
 base64 = "0.21.4"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.30", features = ["serde"] }
