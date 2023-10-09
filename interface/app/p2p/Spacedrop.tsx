@@ -119,7 +119,6 @@ export function SpacedropUI() {
 		}
 	});
 
-	// TODO: Only allow a single dialog at a time
 	useEffect(() => {
 		let open = false;
 
