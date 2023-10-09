@@ -1,4 +1,5 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
+import { auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -41,10 +42,7 @@ export type Platform = {
 		checkForUpdate(): Promise<Update | null>;
 		installUpdate(): Promise<any>;
 	};
-	auth: {
-		start(key: string): any;
-		finish?(ret: any): void;
-	};
+	auth: auth.ProviderConfig;
 };
 
 export type Update = { version: string; body: string | null };

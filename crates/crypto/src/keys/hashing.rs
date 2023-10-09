@@ -88,7 +88,7 @@ impl PasswordHasher {
 
 		argon2
 			.hash_password_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
+			.map_or(Err(Error::PasswordHash), |()| Ok(Key::new(key)))
 	}
 
 	#[allow(clippy::needless_pass_by_value)]
@@ -110,7 +110,7 @@ impl PasswordHasher {
 
 		balloon
 			.hash_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Key::new(key)))
+			.map_or(Err(Error::PasswordHash), |()| Ok(Key::new(key)))
 	}
 }
 

@@ -9,6 +9,8 @@ use crate::{
 
 use std::path::{Path, PathBuf};
 
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 pub mod create;
@@ -24,6 +26,9 @@ pub mod cut;
 pub mod error;
 
 use error::FileSystemJobsError;
+
+static DUPLICATE_PATTERN: Lazy<Regex> =
+	Lazy::new(|| Regex::new(r" \(\d+\)").expect("Failed to compile hardcoded regex"));
 
 // pub const BYTES_EXT: &str = ".bytes";
 
@@ -137,41 +142,44 @@ pub async fn fetch_source_and_target_location_paths(
 	}
 }
 
-fn construct_target_filename(
-	source_file_data: &FileData,
-	target_file_name_suffix: &Option<String>,
-) -> Result<String, MissingFieldError> {
+fn construct_target_filename(source_file_data: &FileData) -> Result<String, MissingFieldError> {
 	// extension wizardry for cloning and such
 	// if no suffix has been selected, just use the file name
 	// if a suffix is provided and it's a directory, use the directory name + suffix
 	// if a suffix is provided and it's a file, use the (file name + suffix).extension
 
-	Ok(if let Some(ref suffix) = target_file_name_suffix {
-		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")?
+	Ok(
+		if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")?
 			|| source_file_data.file_path.extension.is_none()
 			|| source_file_data.file_path.extension == Some(String::new())
 		{
-			format!(
-				"{}{suffix}",
-				maybe_missing(&source_file_data.file_path.name, "file_path.name")?
-			)
+			maybe_missing(&source_file_data.file_path.name, "file_path.name")?.clone()
 		} else {
 			format!(
-				"{}{suffix}.{}",
+				"{}.{}",
 				maybe_missing(&source_file_data.file_path.name, "file_path.name")?,
-				maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?,
+				maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?
 			)
-		}
-	} else if *maybe_missing(&source_file_data.file_path.is_dir, "file_path.is_dir")?
-		|| source_file_data.file_path.extension.is_none()
-		|| source_file_data.file_path.extension == Some(String::new())
-	{
-		maybe_missing(&source_file_data.file_path.name, "file_path.name")?.clone()
+		},
+	)
+}
+
+pub fn append_digit_to_filename(
+	final_path: &mut PathBuf,
+	file_name: &str,
+	ext: Option<&str>,
+	current_int: u32,
+) {
+	let new_file_name = if let Some(found) = DUPLICATE_PATTERN.find_iter(file_name).last() {
+		&file_name[..found.start()]
 	} else {
-		format!(
-			"{}.{}",
-			maybe_missing(&source_file_data.file_path.name, "file_path.name")?,
-			maybe_missing(&source_file_data.file_path.extension, "file_path.extension")?
-		)
-	})
+		file_name
+	}
+	.to_string();
+
+	if let Some(ext) = ext {
+		final_path.push(format!("{} ({current_int}).{}", new_file_name, ext));
+	} else {
+		final_path.push(format!("{new_file_name} ({current_int})"));
+	}
 }
