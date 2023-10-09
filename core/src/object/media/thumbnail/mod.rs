@@ -11,7 +11,7 @@ use crate::{
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
-use sd_images::format_image;
+use sd_images::{format_image, scale_dimensions};
 use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
@@ -132,13 +132,13 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
-		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32);
+		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TAGRET_PX);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			w_scaled,
-			h_scaled,
+			w_scaled as u32,
+			h_scaled as u32,
 			imageops::FilterType::Triangle,
 		));
 

@@ -87,7 +87,7 @@ pub trait ImageHandler {
 	clippy::cast_sign_loss
 )]
 #[must_use]
-pub(crate) fn scale_dimensions(w: f32, h: f32, target_px: f32) -> (f32, f32) {
+pub fn scale_dimensions(w: f32, h: f32, target_px: f32) -> (f32, f32) {
 	let sf = (target_px / (w * h)).sqrt();
 	((w * sf).round(), (h * sf).round())
 }
