@@ -31,7 +31,10 @@ pub const HEIF_EXTENSIONS: [&str; 7] = ["heif", "heifs", "heic", "heics", "avif"
 pub const SVG_TAGRET_PX: f32 = 262_144_f32;
 
 /// The size that PDF pages are rendered at.
-pub const PDF_RENDER_SIZE: u32 = 1024;
+///
+/// This is 120 DPI at standard A4 printer paper size - the target aspect
+/// ratio and height are maintained.
+pub const PDF_RENDER_WIDTH: u32 = 992;
 
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]

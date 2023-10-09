@@ -4,7 +4,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::{consts::PDF_RENDER_SIZE, Error::PdfiumBinding, ImageHandler, Result};
+use crate::{consts::PDF_RENDER_WIDTH, Error::PdfiumBinding, ImageHandler, Result};
 use image::DynamicImage;
 use once_cell::sync::Lazy;
 use pdfium_render::prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium};
@@ -65,8 +65,7 @@ impl ImageHandler for PdfHandler {
 		let pdfium = PDFIUM.as_ref().ok_or(PdfiumBinding)?;
 
 		let render_config = PdfRenderConfig::new()
-			.set_target_width(PDF_RENDER_SIZE.try_into()?)
-			.set_maximum_height(PDF_RENDER_SIZE.try_into()?)
+			.set_target_width(PDF_RENDER_WIDTH.try_into()?)
 			.rotate_if_landscape(PdfPageRenderRotation::Degrees90, true);
 
 		Ok(pdfium
