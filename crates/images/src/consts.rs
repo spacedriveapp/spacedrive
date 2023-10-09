@@ -6,7 +6,7 @@ const MIB: u64 = 1_048_576;
 /// The maximum file size that an image can be in order to have a thumbnail generated.
 ///
 /// This value is in MiB.
-pub const MAXIMUM_FILE_SIZE: u64 = MIB * 256;
+pub const MAXIMUM_FILE_SIZE: u64 = MIB * 192;
 
 /// These are roughly all extensions supported by the `image` crate, as of `v0.24.7`.
 ///
