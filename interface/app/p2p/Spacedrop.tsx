@@ -119,6 +119,7 @@ export function SpacedropUI() {
 		}
 	});
 
+	// TODO: Only allow a single dialog at a time
 	useEffect(() =>
 		subscribeSpacedropState(() => {
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
@@ -130,26 +131,43 @@ export function SpacedropUI() {
 
 function SpacedropDialog(props: UseDialogProps) {
 	const discoveredPeers = useDiscoveredPeers();
+	const discoveredPeersArray = [...discoveredPeers.entries()];
 	const form = useZodForm({
+		mode: 'onChange',
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
-			targetPeer: z.string()
+			// This field is actually required but the Zod validator is not working with select's so this is good enough for now.
+			targetPeer: z.string().optional()
 		})
 	});
+	// This is used because `getValues` is not "reactive" and we need to to update the form when the discovered peers change
+	// Start with no peers, start another peer, the select should autofill to that peer and the submit button should become active
+	// const [isValid, setIsValid] = useState(() => form.getValues('targetPeer') === undefined);
+
+	const value = form.watch('targetPeer');
+
+	// If peer goes offline deselect it
+	if (
+		value !== undefined &&
+		discoveredPeersArray.find(([peerId]) => peerId === value) === undefined
+	) {
+		form.setValue('targetPeer', undefined);
+	}
+
+	const isInvalid = value === undefined;
+	// If no peer is selected, select the first one
+	if (isInvalid) {
+		const defaultValue = discoveredPeersArray[0]?.[0];
+		console.log('D', defaultValue);
+		if (defaultValue) form.setValue('targetPeer', defaultValue);
+	}
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
-	useEffect(() => {
-		if (!form.getValues('targetPeer')) {
-			const [peerId] = [...discoveredPeers.entries()][0] ?? [];
-			if (peerId) {
-				form.setValue('targetPeer', peerId);
-			}
-		}
-	}, [form, discoveredPeers]);
-
 	return (
 		<Dialog
+			// This `key` is a hack to workaround https://linear.app/spacedriveapp/issue/ENG-1208/improve-dialogs
+			key={props.id}
 			form={form}
 			dialog={useDialog(props)}
 			title="Spacedrop a File"
@@ -159,14 +177,15 @@ function SpacedropDialog(props: UseDialogProps) {
 			onSubmit={form.handleSubmit((data) =>
 				doSpacedrop.mutateAsync({
 					file_path: getSpacedropState().droppedFiles,
-					peer_id: data.targetPeer
+					peer_id: data.targetPeer! // `submitDisabled` ensures this
 				})
 			)}
+			submitDisabled={isInvalid}
 		>
 			<div className="space-y-2 py-2">
 				<SelectField name="targetPeer">
-					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
-						<SelectOption key={peerId} value={peerId}>
+					{discoveredPeersArray.map(([peerId, metadata], index) => (
+						<SelectOption key={peerId} value={peerId} default={index === 0}>
 							{metadata.name}
 						</SelectOption>
 					))}
