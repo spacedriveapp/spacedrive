@@ -109,14 +109,6 @@ const TAGRET_PX: f32 = 262144_f32;
 /// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
 const TARGET_QUALITY: f32 = 30_f32;
 
-/// This takes in a width and a height, and returns a scaled width and height
-/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
-/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
-fn scale_dimensions(w: f32, h: f32) -> (u32, u32) {
-	let sf = (TAGRET_PX / (w * h)).sqrt();
-	((w * sf).round() as u32, (h * sf).round() as u32)
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ThumbnailerEntryKind {
 	Image,
