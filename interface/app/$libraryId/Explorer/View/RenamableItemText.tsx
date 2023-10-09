@@ -23,7 +23,14 @@ export default function RenamableItemText(props: {
 		disabled: !selected || disabled
 	};
 
-	if (item.type === 'Location') {
+	if (item.type === 'SpacedropPeer') {
+		// TODO: do this better, I just copied the styles to a new span, bad
+		return (
+			<span className="cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink">
+				{item.item.name}
+			</span>
+		);
+	} else if (item.type === 'Location') {
 		const locationData = item.item;
 		return (
 			<RenameLocationTextBox

@@ -39,6 +39,8 @@ export const uniqueId = (item: ExplorerItem | { pub_id: number[] }) => {
 	switch (type) {
 		case 'NonIndexedPath':
 			return item.item.path;
+		case 'SpacedropPeer':
+			return item.item.name;
 		default:
 			return pubIdToString(item.item.pub_id);
 	}

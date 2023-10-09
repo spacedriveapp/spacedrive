@@ -78,7 +78,7 @@ export default () => {
 		<Input
 			ref={searchRef}
 			placeholder="Search"
-			className="w-52 transition-all duration-200 focus-within:w-60"
+			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {

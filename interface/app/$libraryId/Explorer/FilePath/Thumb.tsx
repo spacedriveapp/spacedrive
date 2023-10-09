@@ -1,4 +1,4 @@
-import { getIcon, iconNames } from '@sd/assets/util';
+import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	memo,
@@ -120,9 +120,14 @@ export const FileThumb = memo((props: ThumbProps) => {
 				break;
 
 			default:
+				if (itemData.customIcon) {
+					setSrc(getIconByName(itemData.customIcon as any));
+					break;
+				}
 				setSrc(
 					getIcon(
-						itemData.isDir || parent?.type === 'Node' ? 'Folder' : itemData.kind,
+						// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
+						itemData.kind,
 						isDark,
 						itemData.extension,
 						itemData.isDir

@@ -138,19 +138,18 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-			{(isDev || debugState.enabled) && (
-				<Setting
-					mini
-					title="Debug mode"
-					description="Enable extra debugging features within the app."
-				>
-					<Switch
-						size="md"
-						checked={debugState.enabled}
-						onClick={() => (getDebugState().enabled = !debugState.enabled)}
-					/>
-				</Setting>
-			)}
+
+			<Setting
+				mini
+				title="Debug mode"
+				description="Enable extra debugging features within the app."
+			>
+				<Switch
+					size="md"
+					checked={debugState.enabled}
+					onClick={() => (getDebugState().enabled = !debugState.enabled)}
+				/>
+			</Setting>
 		</>
 	);
 };

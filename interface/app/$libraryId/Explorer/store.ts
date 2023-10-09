@@ -151,7 +151,7 @@ export function getExplorerStore() {
 }
 
 export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
-	return item.type === 'NonIndexedPath'
+	return item.type === 'NonIndexedPath' || item.type === 'SpacedropPeer'
 		? false
 		: cutCopyState.type === 'Cut' && cutCopyState.sourcePathIds.includes(item.item.id);
 }
