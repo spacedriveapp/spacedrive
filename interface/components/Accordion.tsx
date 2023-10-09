@@ -13,7 +13,7 @@ interface Props {
 
 const styles = {
 	default: {
-		container: 'flex flex-col gap-1 rounded-b-none px-3 py-2',
+		container: 'flex flex-col gap-1 rounded-b-none px-3 py-2 bg-app-box',
 		title: 'flex flex-row items-center justify-between px-3 py-2',
 		box: 'rounded-md border border-app-line bg-app-darkBox'
 	},
