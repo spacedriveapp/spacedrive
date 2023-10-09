@@ -126,11 +126,7 @@ export function SpacedropUI() {
 		return subscribeSpacedropState(() => {
 			if (open) return;
 			open = true;
-			dialogManager.create((dp) => <SpacedropDialog {...dp} />, {
-				onSubmit() {
-					open = false;
-				}
-			});
+			dialogManager.create((dp) => <SpacedropDialog {...dp} />).then(() => (open = false));
 		});
 	});
 
@@ -148,26 +144,20 @@ function SpacedropDialog(props: UseDialogProps) {
 			targetPeer: z.string().optional()
 		})
 	});
-	// This is used because `getValues` is not "reactive" and we need to to update the form when the discovered peers change
-	// Start with no peers, start another peer, the select should autofill to that peer and the submit button should become active
-	// const [isValid, setIsValid] = useState(() => form.getValues('targetPeer') === undefined);
-
 	const value = form.watch('targetPeer');
 
-	// If peer goes offline deselect it
-	if (
-		value !== undefined &&
-		discoveredPeersArray.find(([peerId]) => peerId === value) === undefined
-	) {
-		form.setValue('targetPeer', undefined);
-	}
+	useEffect(() => {
+		// If peer goes offline deselect it
+		if (
+			value !== undefined &&
+			discoveredPeersArray.find(([peerId]) => peerId === value) === undefined
+		)
+			form.setValue('targetPeer', undefined);
 
-	const isInvalid = value === undefined;
-	// If no peer is selected, select the first one
-	if (isInvalid) {
 		const defaultValue = discoveredPeersArray[0]?.[0];
-		if (defaultValue) form.setValue('targetPeer', defaultValue);
-	}
+		// If no peer is selected, select the first one
+		if (value === undefined && defaultValue) form.setValue('targetPeer', defaultValue);
+	}, [form, value, discoveredPeersArray]);
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
@@ -187,7 +177,7 @@ function SpacedropDialog(props: UseDialogProps) {
 					peer_id: data.targetPeer! // `submitDisabled` ensures this
 				})
 			)}
-			submitDisabled={isInvalid}
+			submitDisabled={value === undefined}
 		>
 			<div className="space-y-2 py-2">
 				<SelectField name="targetPeer">
