@@ -96,7 +96,11 @@ export const useTable = () => {
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
-				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
+				accessorFn: (file) => {
+					if (file.type === 'SpacedropPeer') return null;
+
+					dayjs(file.item.date_created).format('MMM Do YYYY');
+				}
 			},
 			{
 				id: 'dateModified',

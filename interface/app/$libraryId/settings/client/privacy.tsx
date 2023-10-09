@@ -13,9 +13,7 @@ export const Component = () => {
 			<Setting
 				mini
 				title="Share Additional Telemetry and Usage Data"
-				description="Enable to share extra usage information and telemetry with developers in order to further improve the app.
-				If disabled, the only data sent is that you are an active user, which version of the app and core you're using, and which platform you're on
-				(e.g. mobile, web or desktop)."
+				description="Toggle ON to provide developers with detailed usage and telemetry data to enhance the app. Toggle OFF to send only basic data: your activity status, app version, core version, and platform (e.g., mobile, web, or desktop)."
 			>
 				<Switch
 					checked={fullTelemetry}

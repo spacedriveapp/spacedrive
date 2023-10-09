@@ -41,7 +41,7 @@ export const Component = () => {
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 
 			<Statistics />
-
+			{/* <div className="mt-2 w-full" /> */}
 			<Categories selected={selectedCategory} onSelectedChanged={setSelectedCategory} />
 
 			<div className="flex flex-1">

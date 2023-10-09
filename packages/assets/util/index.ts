@@ -12,6 +12,12 @@ export const iconNames = Object.fromEntries(
 		.map((key) => [key, key]) // Map key to [key, key] format
 ) as Record<IconTypes, string>;
 
+export const getIconByName = (name: IconTypes, isDark?: boolean) => {
+	let _name = name;
+	if (!isDark) _name = (name + '_Light') as IconTypes;
+	return icons[name];
+};
+
 /**
  * Gets the appropriate icon based on the given criteria.
  *
