@@ -16,22 +16,24 @@ use std::{
 use crate::heif::HeifHandler;
 
 pub fn format_image(path: impl AsRef<Path>) -> Result<DynamicImage> {
-	match_to_handler(&get_ext(&path)?)?.handle_image(path.as_ref())
+	match_to_handler(path.as_ref().extension())?.handle_image(path.as_ref())
 }
 
 pub fn convert_image(path: impl AsRef<Path>, desired_ext: &OsStr) -> Result<DynamicImage> {
-	match_to_handler(&get_ext(&path)?)?.convert_image(match_to_handler(desired_ext)?, path.as_ref())
+	match_to_handler(path.as_ref().extension())?
+		.convert_image(match_to_handler(Some(desired_ext))?, path.as_ref())
 }
 
 #[inline]
-fn get_ext(path: impl AsRef<Path>) -> Result<OsString> {
+fn get_ext(path: impl AsRef<Path>) -> Option<OsString> {
 	path.as_ref()
 		.extension()
-		.map_or_else(|| Err(Error::NoExtension), |e| Ok(e.to_ascii_lowercase()))
+		.map_or_else(|| None, |e| Some(e.to_ascii_lowercase()))
 }
 
 #[allow(clippy::useless_let_if_seq)]
-fn match_to_handler(ext: &OsStr) -> Result<Box<dyn ImageHandler>> {
+fn match_to_handler(ext: Option<&OsStr>) -> Result<Box<dyn ImageHandler>> {
+	let mut ext = ext.unwrap_or_default();
 	let mut handler: Option<Box<dyn ImageHandler>> = None;
 
 	if consts::GENERIC_EXTENSIONS
@@ -59,7 +61,7 @@ fn match_to_handler(ext: &OsStr) -> Result<Box<dyn ImageHandler>> {
 		handler = Some(Box::new(SvgHandler {}));
 	}
 
-	if consts::SVG_EXTENSIONS
+	if consts::PDF_EXTENSIONS
 		.iter()
 		.map(OsString::from)
 		.any(|x| x == ext)
