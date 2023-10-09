@@ -560,6 +560,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						}
 					};
 
+					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
 
 					res
