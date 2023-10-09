@@ -26,13 +26,14 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
+	const isFolder = 'is_dir' in data.item ? data.item.is_dir || data.type === 'Location' : false;
 
 	const showSize =
-		!isEphemeralLocation &&
-		!filePathData?.is_dir &&
-		!location &&
-		showBytesInGridView &&
-		(!isRenaming || (isRenaming && !selected));
+		(!isEphemeralLocation && !isFolder) ||
+		(!filePathData?.is_dir &&
+			!location &&
+			showBytesInGridView &&
+			(!isRenaming || (isRenaming && !selected)));
 
 	return (
 		<ViewItem data={data} className="w-full h-full">
