@@ -83,10 +83,10 @@ export const Component = () => {
 			<Divider />
 			<div>
 				<h1 className="my-5 text-lg font-bold text-ink">
-					We also would like to thank all our contributors
+					Meet the contributors behind Spacedrive
 				</h1>
 				<img
-					src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12"
+					src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=12&anon=1"
 					draggable="false"
 				/>
 			</div>

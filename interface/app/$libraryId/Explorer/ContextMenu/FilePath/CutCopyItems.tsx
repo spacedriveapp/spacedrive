@@ -64,8 +64,7 @@ export const CutCopyItems = new ConditionalItem({
 								source_location_id: locationId,
 								sources_file_path_ids: selectedFilePaths.map((p) => p.id),
 								target_location_id: locationId,
-								target_location_relative_directory_path: path ?? '/',
-								target_file_name_suffix: ' copy'
+								target_location_relative_directory_path: path ?? '/'
 							});
 						} catch (error) {
 							toast.error({

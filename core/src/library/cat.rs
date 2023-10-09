@@ -41,6 +41,7 @@ pub enum Category {
 	Books,
 	Contacts,
 	Trash,
+	Screenshots,
 }
 
 impl Category {
@@ -55,6 +56,7 @@ impl Category {
 			Category::Databases => ObjectKind::Database,
 			Category::Archives => ObjectKind::Archive,
 			Category::Applications => ObjectKind::Executable,
+			Category::Screenshots => ObjectKind::Screenshot,
 			_ => unimplemented!("Category::to_object_kind() for {:?}", self),
 		}
 	}

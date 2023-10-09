@@ -337,11 +337,10 @@ impl Jobs {
 			.read()
 			.await
 			.values()
-			.filter_map(|worker| {
-				(!worker.is_paused()).then(|| {
-					let report = worker.report();
-					(report.get_meta().0, report)
-				})
+			.filter(|&worker| !worker.is_paused())
+			.map(|worker| {
+				let report = worker.report();
+				(report.get_meta().0, report)
 			})
 			.collect()
 	}

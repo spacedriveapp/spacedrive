@@ -1,48 +1,36 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import { auth, useBridgeQuery } from '@sd/client';
 import { Button, Card, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
 
 export function SpacedriveAccount() {
-	const user = useBridgeQuery(['auth.me'], {
-		// If the backend returns un unauthorised error we don't want to retry
-		retry: false
-	});
-
-	const logout = useBridgeMutation(['auth.logout']);
-
-	const queryClient = useQueryClient();
+	const authState = auth.useStateSnapshot();
 
 	return (
 		<Card className="relative overflow-hidden px-5">
-			{!user.data && (
+			{authState.status !== 'loggedIn' && (
 				<div className="absolute inset-0 z-50 flex items-center justify-center bg-app/75 backdrop-blur-lg">
-					{!user.isFetchedAfterMount ? (
-						<Loader />
-					) : (
-						<LoginButton onLogin={user.refetch} />
-					)}
+					{authState.status === 'loading' ? <Loader /> : <LoginButton />}
 				</div>
 			)}
 
-			<div className="my-2 flex w-full flex-col">
-				<div className="flex items-center justify-between">
-					<span className="font-semibold">Spacedrive Account</span>
-					<Button
-						variant="gray"
-						onClick={async () => {
-							await logout.mutateAsync(undefined);
-							// this sucks but oh well :)
-							queryClient.setQueryData(['auth.me'], null);
-						}}
-						disabled={logout.isLoading || !user.data}
-					>
-						Logout
-					</Button>
-				</div>
-				<hr className="mb-4 mt-2 w-full border-app-line" />
-				<span>Logged in as {user.data?.email}</span>
-			</div>
+			<Account />
 		</Card>
+	);
+}
+
+function Account() {
+	const me = useBridgeQuery(['auth.me'], { retry: false });
+
+	return (
+		<div className="my-2 flex w-full flex-col">
+			<div className="flex items-center justify-between">
+				<span className="font-semibold">Spacedrive Account</span>
+				<Button variant="gray" onClick={auth.logout}>
+					Logout
+				</Button>
+			</div>
+			<hr className="mb-4 mt-2 w-full border-app-line" />
+			<span>Logged in as {me.data?.email}</span>
+		</div>
 	);
 }

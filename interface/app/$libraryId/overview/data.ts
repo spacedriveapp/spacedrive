@@ -37,7 +37,8 @@ export const IconForCategory: Partial<Record<Category, string>> = {
 	Encrypted: iconNames.Lock,
 	Databases: iconNames.Database,
 	Projects: iconNames.Folder,
-	Trash: iconNames.Trash
+	Trash: iconNames.Trash,
+	Screenshots: iconNames.Screenshot
 };
 
 export const IconToDescription = {
@@ -58,7 +59,8 @@ export const IconToDescription = {
 	Games: 'View all games in your library',
 	Books: 'View all books in your library',
 	Contacts: 'View all contacts in your library',
-	Trash: 'View all files in your trash'
+	Trash: 'View all files in your trash',
+	Screenshots: 'View all screenshots in your library'
 };
 
 export const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];

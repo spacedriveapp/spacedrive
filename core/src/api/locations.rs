@@ -6,6 +6,7 @@ use crate::{
 		scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs,
 	},
+	p2p::PeerMetadata,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
 };
@@ -45,6 +46,11 @@ pub enum ExplorerItem {
 		has_local_thumbnail: bool,
 		thumbnail_key: Option<Vec<String>>,
 		item: NonIndexedPathItem,
+	},
+	SpacedropPeer {
+		has_local_thumbnail: bool,
+		thumbnail_key: Option<Vec<String>>,
+		item: PeerMetadata,
 	},
 }
 
@@ -117,6 +123,7 @@ impl ExplorerItem {
 			} => date_created.map(Into::into).unwrap_or_default(),
 
 			ExplorerItem::NonIndexedPath { item, .. } => item.date_created,
+			_ => Default::default(),
 		}
 	}
 

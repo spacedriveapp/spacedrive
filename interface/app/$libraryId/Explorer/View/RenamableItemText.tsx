@@ -102,11 +102,12 @@ export const RenamableItemText = ({ item, allowHighlight, style }: Props) => {
 		!selected ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		item.type === 'NonIndexedPath';
+		item.type === 'NonIndexedPath' ||
+		item.type === 'SpacedropPeer';
 
 	return (
 		<RenameTextBox
-			name={itemData.fullName ?? ''}
+			name={itemData.fullName ?? itemData.name ?? ''}
 			disabled={disabled}
 			onRename={handleRename}
 			className={clsx(

@@ -76,6 +76,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		showHiddenFiles: false as boolean,
 		mediaColumns: 8 as number,
 		mediaAspectSquare: false as boolean,
+		mediaViewWithDescendants: true as boolean,
 		openOnDoubleClick: 'openFile' as DoubleClickAction,
 		colVisibility: {
 			name: true,
@@ -150,7 +151,7 @@ export function getExplorerStore() {
 }
 
 export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
-	return item.type === 'NonIndexedPath'
+	return item.type === 'NonIndexedPath' || item.type === 'SpacedropPeer'
 		? false
 		: cutCopyState.type === 'Cut' && cutCopyState.sourcePathIds.includes(item.item.id);
 }

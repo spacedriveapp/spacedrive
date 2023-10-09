@@ -428,9 +428,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						Ok(_) => {
 							return Err(rspc::Error::new(
 								ErrorCode::Conflict,
-								"File already exists".to_string(),
-							))
+								"Renaming would overwrite a file".to_string(),
+							));
 						}
+
 						Err(e) => {
 							if e.kind() != std::io::ErrorKind::NotFound {
 								return Err(rspc::Error::with_cause(
@@ -439,18 +440,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									e,
 								));
 							}
+
+							fs::rename(location_path.join(&iso_file_path), new_file_full_path)
+								.await
+								.map_err(|e| {
+									rspc::Error::with_cause(
+										ErrorCode::InternalServerError,
+										"Failed to rename file".to_string(),
+										e,
+									)
+								})?;
 						}
 					}
-
-					fs::rename(location_path.join(&iso_file_path), new_file_full_path)
-						.await
-						.map_err(|e| {
-							rspc::Error::with_cause(
-								ErrorCode::Conflict,
-								"Failed to rename file".to_string(),
-								e,
-							)
-						})?;
 
 					Ok(())
 				}

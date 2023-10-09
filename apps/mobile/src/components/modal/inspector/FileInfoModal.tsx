@@ -107,11 +107,13 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 							/>
 						)} */}
 						{/* Created */}
-						<MetaItem
-							icon={Clock}
-							title="Created"
-							value={dayjs(item?.date_created).format('MMM Do YYYY')}
-						/>
+						{data.type !== 'SpacedropPeer' && (
+							<MetaItem
+								icon={Clock}
+								title="Created"
+								value={dayjs(data.item.date_created).format('MMM Do YYYY')}
+							/>
+						)}
 
 						{filePathData && 'cas_id' in filePathData && (
 							<>

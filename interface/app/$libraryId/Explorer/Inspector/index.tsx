@@ -1,5 +1,6 @@
 import {
 	Barcode,
+	BookOpenText,
 	CircleWavyCheck,
 	Clock,
 	Cube,
@@ -26,11 +27,13 @@ import {
 } from 'react';
 import { useLocation } from 'react-router';
 import { Link as NavLink } from 'react-router-dom';
+import Sticky from 'react-sticky-el';
 import {
 	byteSize,
 	FilePath,
 	FilePathWithObject,
 	getExplorerItemData,
+	getItemFilePath,
 	NonIndexedPathItem,
 	Object,
 	ObjectKindEnum,
@@ -46,6 +49,7 @@ import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark, useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
+import { Folder } from '../../../../components';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
@@ -99,27 +103,33 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 
 		return (
 			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
-				{showThumbnail && (
-					<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
-						{isNonEmpty(selectedItems) ? (
-							<Thumbnails items={selectedItems} />
+				<Sticky
+					scrollElement={explorer.scrollRef.current || undefined}
+					stickyClassName="!top-[40px]"
+					topOffset={-40}
+				>
+					{showThumbnail && (
+						<div className="relative mb-2 flex aspect-square items-center justify-center px-2">
+							{isNonEmpty(selectedItems) ? (
+								<Thumbnails items={selectedItems} />
+							) : (
+								<img src={isDark ? Image : Image_Light} />
+							)}
+						</div>
+					)}
+
+					<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
+						{!isNonEmpty(selectedItems) ? (
+							<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
+								Nothing selected
+							</div>
+						) : selectedItems.length === 1 ? (
+							<SingleItemMetadata item={selectedItems[0]} />
 						) : (
-							<img src={isDark ? Image : Image_Light} />
+							<MultiItemMetadata items={selectedItems} />
 						)}
 					</div>
-				)}
-
-				<div className="flex select-text flex-col overflow-hidden rounded-lg border border-app-line bg-app-box py-0.5 shadow-app-shade/10">
-					{!isNonEmpty(selectedItems) ? (
-						<div className="flex h-[390px] items-center justify-center text-sm text-ink-dull">
-							Nothing selected
-						</div>
-					) : selectedItems.length === 1 ? (
-						<SingleItemMetadata item={selectedItems[0]} />
-					) : (
-						<MultiItemMetadata items={selectedItems} />
-					)}
-				</div>
+				</Sticky>
 			</div>
 		);
 	}
@@ -136,7 +146,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 				<FileThumb
 					key={uniqueId(item)}
 					data={item}
-					loadOriginal
+					loadOriginal={getItemFilePath(item)?.extension !== 'pdf'}
 					frame
 					blackBars={thumbs.length === 1}
 					blackBarsSize={16}
@@ -165,6 +175,8 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let filePathData: FilePath | FilePathWithObject | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
+	const locations = useLibraryQuery(['locations.list']);
+
 	switch (item.type) {
 		case 'NonIndexedPath': {
 			ephemeralPathData = item.item;
@@ -180,7 +192,27 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			filePathData = item.item.file_paths[0] ?? null;
 			break;
 		}
+		case 'SpacedropPeer': {
+			objectData = item.item as unknown as Object;
+			// filePathData = item.item.file_paths[0] ?? null;
+			break;
+		}
 	}
+
+	const uniqueLocationIds = useMemo(() => {
+		return item.type === 'Object'
+			? [
+					...new Set(
+						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
+					)
+			  ]
+			: item.type === 'Path'
+			? [item.item.location_id]
+			: [];
+	}, [item]);
+
+	const fileLocations =
+		locations.data?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
 	const tags = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1], {
@@ -277,6 +309,23 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					}}
 				/>
 			</MetaContainer>
+
+			{fileLocations.length > 0 && (
+				<MetaContainer>
+					<MetaTitle>Locations</MetaTitle>
+					<div className="flex flex-wrap gap-2">
+						{fileLocations.map((location) => (
+							<div
+								className="flex flex-row rounded bg-app-hover/60 px-1 py-0.5 hover:bg-app-selected"
+								key={location.id}
+							>
+								<Folder size={18} />
+								<span className="ml-1 text-xs text-ink">{location.name}</span>
+							</div>
+						))}
+					</div>
+				</MetaContainer>
+			)}
 
 			{mediaData.data && <MediaData data={mediaData.data} />}
 

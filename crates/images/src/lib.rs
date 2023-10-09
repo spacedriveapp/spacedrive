@@ -26,6 +26,7 @@ mod formatter;
 mod generic;
 #[cfg(feature = "heif")]
 mod heif;
+mod pdf;
 mod svg;
 
 pub use error::{Error, Result};

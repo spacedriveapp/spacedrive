@@ -1,35 +1,44 @@
-import {
-	ArrowsClockwise,
-	CopySimple,
-	Crosshair,
-	Eraser,
-	FilmStrip,
-	Planet
-} from '@phosphor-icons/react';
+import { ArrowsClockwise, Broadcast, Planet } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
+import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
-import { SubtleButton } from '~/components/SubtleButton';
+import { modifierSymbols, Tooltip } from '@sd/ui';
+import { useKeyMatcher } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
 import SidebarLink from './Link';
-import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();
+	const navigate = useNavigate();
+	const { key, icon } = useKeyMatcher('Meta');
+
+	useKeys([key, 'Shift', 'KeyO'], (e) => {
+		e.stopPropagation();
+		navigate('overview');
+	});
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex grow flex-col overflow-x-hidden overflow-y-scroll pb-10">
 			<div className="space-y-0.5">
-				<SidebarLink to="overview">
-					<Icon component={Planet} />
-					Overview
-				</SidebarLink>
+				<Tooltip
+					position="right"
+					label="Overview"
+					keybinds={[modifierSymbols.Shift.Other, icon, 'O']}
+				>
+					<SidebarLink to="overview">
+						<Icon component={Planet} />
+						Overview
+					</SidebarLink>
+				</Tooltip>
 				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
-				</SidebarLink>
-				<SidebarLink to="imports">
+				</SidebarLink> */}
+				{/*
+				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
@@ -46,10 +55,10 @@ export default () => {
 					<LibrarySection />
 				</LibraryContextProvider>
 			)}
-			<Section name="Tools" actionArea={<SubtleButton />}>
+			{/* <Section name="Tools" actionArea={<SubtleButton />}>
 				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
-					Duplicate Finder
+					Duplicates
 				</SidebarLink>
 				<SidebarLink disabled to="lost-and-found">
 					<Icon component={Crosshair} />
@@ -63,7 +72,7 @@ export default () => {
 					<Icon component={FilmStrip} />
 					Media Encoder
 				</SidebarLink>
-			</Section>
+			</Section> */}
 			<div className="grow" />
 		</div>
 	);
