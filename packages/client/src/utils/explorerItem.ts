@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { ExplorerItem, FilePath, Object } from '../core';
+import type { ExplorerItem, FilePath, NonIndexedPathItem, Object } from '../core';
 import { byteSize } from '../lib';
 import { ObjectKind } from './objectKind';
 
@@ -43,7 +43,10 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		extension: null as string | null,
 		locationId: null as number | null,
 		dateIndexed: null as string | null,
-		dateCreated: data?.item.date_created ?? itemObj?.date_created ?? null,
+		dateCreated:
+			(data?.item && 'date_created' in data.item && data.item.date_created) ??
+			itemObj?.date_created ??
+			null,
 		dateModified: null as string | null,
 		dateAccessed: itemObj?.date_accessed ?? null,
 		thumbnailKey: data?.thumbnail_key ?? [],
