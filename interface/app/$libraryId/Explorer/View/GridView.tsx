@@ -8,7 +8,7 @@ import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { useExplorerViewContext } from '../ViewContext';
 import GridList from './GridList';
-import RenamableItemText from './RenamableItemText';
+import { RenamableItemText } from './RenamableItemText';
 import { ViewItem } from './ViewItem';
 
 interface GridViewItemProps {
@@ -56,12 +56,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming, renamable }: GridV
 			</div>
 
 			<div className="flex flex-col justify-center">
-				<RenamableItemText
-					item={data}
-					selected={selected}
-					style={{ maxHeight: gridItemSize / 3 }}
-					disabled={!renamable}
-				/>
+				<RenamableItemText item={data} style={{ maxHeight: gridItemSize / 3 }} />
 				{shouldShowSize() && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
