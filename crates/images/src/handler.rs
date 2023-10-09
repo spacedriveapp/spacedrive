@@ -24,16 +24,9 @@ pub fn convert_image(path: impl AsRef<Path>, desired_ext: &OsStr) -> Result<Dyna
 		.convert_image(match_to_handler(Some(desired_ext))?, path.as_ref())
 }
 
-#[inline]
-fn get_ext(path: impl AsRef<Path>) -> Option<OsString> {
-	path.as_ref()
-		.extension()
-		.map_or_else(|| None, |e| Some(e.to_ascii_lowercase()))
-}
-
 #[allow(clippy::useless_let_if_seq)]
 fn match_to_handler(ext: Option<&OsStr>) -> Result<Box<dyn ImageHandler>> {
-	let mut ext = ext.unwrap_or_default();
+	let ext = ext.map(OsStr::to_ascii_lowercase).unwrap_or_default();
 	let mut handler: Option<Box<dyn ImageHandler>> = None;
 
 	if consts::GENERIC_EXTENSIONS

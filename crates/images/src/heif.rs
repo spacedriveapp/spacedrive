@@ -71,12 +71,10 @@ impl ImageHandler for HeifHandler {
 			let mut green = Cursor::new(g.data);
 			let mut blue = Cursor::new(b.data);
 
-			let (mut alpha, has_alpha) = if let Some(a) = planes.a {
-				// self.validate_image(a.bits_per_pixel, a.data.len())?;
-				(Cursor::new(a.data), true)
-			} else {
-				(Cursor::new([].as_ref()), false)
-			};
+			let (mut alpha, has_alpha) = planes.a.map_or_else(
+				|| (Cursor::new([].as_ref()), false),
+				|a| (Cursor::new(a.data), true),
+			);
 
 			let mut sequence = vec![];
 			let mut buffer: [u8; 4] = [0u8; 4];

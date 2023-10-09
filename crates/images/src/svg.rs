@@ -1,22 +1,12 @@
 use std::path::Path;
 
-use crate::{
-	consts::{MAXIMUM_FILE_SIZE, SVG_TAGRET_PX},
-	Error, ImageHandler, Result,
-};
+use crate::{consts::SVG_TAGRET_PX, scale_dimensions, Error, ImageHandler, Result};
 use image::DynamicImage;
 use resvg::{
 	tiny_skia::{self},
 	usvg,
 };
 use usvg::{fontdb, TreeParsing, TreeTextToPath};
-
-#[inline]
-#[must_use]
-fn scale_dimensions(w: f32, h: f32) -> (f32, f32) {
-	let sf = (SVG_TAGRET_PX / (w * h)).sqrt();
-	((w * sf).round(), (h * sf).round())
-}
 
 #[derive(PartialEq, Eq)]
 pub struct SvgHandler {}
@@ -37,7 +27,8 @@ impl ImageHandler for SvgHandler {
 			resvg::Tree::from_usvg(&tree)
 		})?;
 
-		let (scaled_w, scaled_h) = scale_dimensions(rtree.size.width(), rtree.size.height());
+		let (scaled_w, scaled_h) =
+			scale_dimensions(rtree.size.width(), rtree.size.height(), SVG_TAGRET_PX);
 
 		let size = if rtree.size.width() > rtree.size.height() {
 			rtree.size.to_int_size().scale_to_width(scaled_w as u32)
