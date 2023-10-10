@@ -6,7 +6,7 @@
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm run build --filter @sd/desktop"
+		"beforeBuildCommand": "pnpm turbo run build --filter=@sd/desktop..."
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
