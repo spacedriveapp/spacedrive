@@ -11,7 +11,7 @@ use crate::{
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
-use sd_images::format_image;
+use sd_images::{format_image, scale_dimensions};
 use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
@@ -109,14 +109,6 @@ const TAGRET_PX: f32 = 262144_f32;
 /// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
 const TARGET_QUALITY: f32 = 30_f32;
 
-/// This takes in a width and a height, and returns a scaled width and height
-/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
-/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
-fn calculate_factor(w: f32, h: f32) -> (u32, u32) {
-	let sf = (TAGRET_PX / (w * h)).sqrt();
-	((w * sf).round() as u32, (h * sf).round() as u32)
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ThumbnailerEntryKind {
 	Image,
@@ -140,13 +132,13 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
-		let (w_scale, h_scale) = calculate_factor(w as f32, h as f32);
+		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TAGRET_PX);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			w_scale,
-			h_scale,
+			w_scaled as u32,
+			h_scaled as u32,
 			imageops::FilterType::Triangle,
 		));
 

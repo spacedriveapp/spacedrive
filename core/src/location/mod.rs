@@ -1005,3 +1005,24 @@ pub async fn update_location_size(
 
 	Ok(())
 }
+
+pub async fn get_location_path_from_location_id(
+	db: &PrismaClient,
+	location_id: file_path::id::Type,
+) -> Result<PathBuf, LocationError> {
+	db.location()
+		.find_unique(location::id::equals(location_id))
+		.exec()
+		.await
+		.map_err(Into::into)
+		.and_then(|maybe_location| {
+			maybe_location
+				.ok_or(LocationError::IdNotFound(location_id))
+				.and_then(|location| {
+					location
+						.path
+						.map(PathBuf::from)
+						.ok_or(LocationError::MissingPath(location_id))
+				})
+		})
+}

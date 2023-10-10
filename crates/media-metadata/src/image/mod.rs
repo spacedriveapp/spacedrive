@@ -122,3 +122,14 @@ impl ImageMetadata {
 		Ok(data)
 	}
 }
+
+// TODO(brxken128): more exif spec reading so we can source colour spaces correctly too
+// pub enum ImageColorSpace {
+// 	Rgb,
+// 	RgbP,
+// 	SRgb,
+// 	Cmyk,
+// 	DciP3,
+// 	Wiz,
+// 	Biz,
+// }
