@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{plugin::TauriPlugin, Manager, Runtime};
 use tokio::sync::Mutex;
 use tracing::{error, warn};
 
@@ -92,4 +92,26 @@ pub async fn install_update(
 	drop(lock);
 
 	Ok(())
+}
+
+pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
+	tauri::plugin::Builder::new("sd-updater")
+		.on_page_load(|window, _| {
+			#[cfg(target_os = "linux")]
+			let updater_available = {
+				let env = window.env();
+
+				env.appimage.is_some()
+			};
+			#[cfg(not(target_os = "linux"))]
+			let updater_available = true;
+
+			if updater_available {
+				window
+					.eval(&format!("window.__SD_UPDATER__ = true"))
+					.expect("Failed to inject updater JS");
+			}
+		})
+		.js_init_script(format!(""))
+		.build()
 }
