@@ -124,7 +124,7 @@ export default function HomePage() {
 					alt="l"
 					src="/images/headergradient.webp"
 				/>
-				<div className="flex w-full flex-col items-center px-4">
+				<div className="flex flex-col items-center w-full px-4">
 					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 					<div className="mt-24 lg:mt-8" />
 					<NewBanner
@@ -134,10 +134,10 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent text-white md:text-5xl lg:text-7xl">
+					<h1 className="z-30 px-2 mb-3 text-4xl font-bold leading-tight text-center text-transparent text-white fade-in-heading bg-clip-text md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
-					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+					<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
 						Unify files from all your devices and clouds into a single, easy-to-use
 						explorer.
 						<br />
@@ -156,7 +156,7 @@ export default function HomePage() {
 						>
 							<HomeCTA
 								icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
-								className="z-5 relative"
+								className="relative z-5"
 								text={
 									deviceOs?.isWindows
 										? 'Download for Windows'
@@ -174,7 +174,7 @@ export default function HomePage() {
 						>
 							<HomeCTA
 								icon={<Github />}
-								className="z-5 relative"
+								className="relative z-5"
 								text="Star on GitHub"
 							/>
 						</Link>
@@ -186,7 +186,7 @@ export default function HomePage() {
 					>
 						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
-					<div className="relative z-10 mt-5 flex gap-3">
+					<div className="relative z-10 flex gap-3 mt-5">
 						{platforms.map((platform, i) => (
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
@@ -209,25 +209,26 @@ export default function HomePage() {
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center animation-delay-2 fade-in xs:top-[360px] md:top-[130px]"
+								className="absolute-horizontal-center animation-delay-2 fade-in xs:top-[280px] md:top-[130px]"
 								width={1200}
 								height={626}
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className=" relative overflow-hidden transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02]">
+							<AppFrameOuter className=" relative overflow-hidden transition-transform
+							duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] mt-10 md:mt-0">
 								<AppFrameInner>
 									<CyclingImage
 										loading="eager"
 										width={1278}
 										height={626}
 										alt="spacedrive app"
-										className=" rounded-lg "
+										className="rounded-lg "
 										images={['/images/app.webp']}
 									/>
 									<Image
 										loading="eager"
-										className="absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
+										className="absolute transition-opacity duration-1000 ease-in-out opacity-100 hover:opacity-0 md:w-auto"
 										width={2278}
 										height={626}
 										alt="l"
@@ -259,7 +260,7 @@ const Platform = ({ icon: Icon, url, label }: Props) => {
 	return (
 		<Tooltip label={label}>
 			<Link aria-label={label} href={url} target="_blank">
-				<Icon size={25} className="h-[25px] w-full opacity-80" weight="fill" />
+				<Icon size={25} className="h-[25px] opacity-80" weight="fill" />
 			</Link>
 		</Tooltip>
 	);

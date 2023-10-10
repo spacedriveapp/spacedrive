@@ -1,5 +1,5 @@
 import Image, { ImageProps } from 'next/image';
-import React, { ImgHTMLAttributes, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface CyclingImageProps extends Omit<ImageProps, 'src'> {
 	images: string[];
@@ -33,7 +33,8 @@ const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...i
 					style={{
 						display: index === currentIndex ? 'block' : 'none',
 						position: 'relative',
-						width,
+						width: '100%',
+						maxWidth: width,
 						height
 					}}
 				>
