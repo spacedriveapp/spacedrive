@@ -215,7 +215,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut path =
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
-					if let Some(sub_path) = sub_path.strip_prefix(MAIN_SEPARATOR).ok() {
+					if let Some(sub_path) =
+						sub_path.and_then(|sub_path| sub_path.strip_prefix(MAIN_SEPARATOR).ok())
+					{
 						path.push(sub_path)
 					}
 
