@@ -1,3 +1,4 @@
+import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -23,6 +24,7 @@ import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Ex
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
+import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
@@ -125,7 +127,15 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer />
+			<Explorer
+				emptyNotice={
+					<EmptyNotice
+						loading={location.isFetching}
+						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
+						message="No files found here"
+					/>
+				}
+			/>
 		</ExplorerContextProvider>
 	);
 };
@@ -148,12 +158,10 @@ const useItems = ({
 	if (explorerSettings.layoutMode === 'media') {
 		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
 
-		if (explorerSettings.mediaViewWithDescendants)
-			filter.withDescendants = true;
+		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
 	}
 
-	if (!explorerSettings.showHiddenFiles)
-		filter.hidden = false;
+	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
