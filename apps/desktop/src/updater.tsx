@@ -30,7 +30,12 @@ export const updater = {
 		toast.promise(promise, {
 			loading: 'Downloading Update',
 			success: 'Update Downloaded. Restart Spacedrive to install',
-			error: 'Failed to download update'
+			error: (e: any) => (
+				<>
+					<p>Failed to download update</p>
+					<p className="text-gray-300">Error: {e.toString()}</p>
+				</>
+			)
 		});
 
 		return promise;

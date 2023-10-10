@@ -6,7 +6,7 @@
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm turbo run build --filter @sd/desktop"
+		"beforeBuildCommand": "pnpm run build --filter @sd/desktop"
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -30,7 +30,13 @@
 			"shortDescription": "The universal file manager.",
 			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
-				"depends": ["ffmpeg", "gstreamer1.0-plugins-bad", "gstreamer1.0-plugins-ugly", "gstreamer1.0-gtk3", "gstreamer1.0-libav"]
+				"depends": [
+					"ffmpeg",
+					"gstreamer1.0-plugins-bad",
+					"gstreamer1.0-plugins-ugly",
+					"gstreamer1.0-gtk3",
+					"gstreamer1.0-libav"
+				]
 			},
 			"macOS": {
 				"frameworks": ["../../.deps/FFMpeg.framework"],
@@ -52,7 +58,9 @@
 			"active": true,
 			"dialog": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-			"endpoints": ["https://spacedrive.com/api/releases/tauri/{{target}}/{{arch}}"]
+			"endpoints": [
+				"https://spacedrive-landing-git-eng-927-fix-updater-spacedrive.vercel.app/api/releases/tauri/{{target}}/{{arch}}"
+			]
 		},
 		"allowlist": {
 			"all": false,

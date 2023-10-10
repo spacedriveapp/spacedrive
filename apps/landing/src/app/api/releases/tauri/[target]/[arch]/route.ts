@@ -36,8 +36,6 @@ export async function GET(req: Request, extra: { params: Record<string, unknown>
 
 	params.version = release.tag_name;
 
-	console.log(release);
-
 	const asset = release.assets.find(({ name }: any) => name === binaryName(params));
 
 	if (!asset) return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
