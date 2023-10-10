@@ -200,60 +200,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("createFolder", {
 			#[derive(Type, Deserialize)]
-			pub enum LocationOrParent {
-				Location(location::id::Type),
-				Parent(file_path::id::Type),
-			}
-
-			#[derive(Type, Deserialize)]
 			pub struct CreateFolderArgs {
-				pub location_or_parent: LocationOrParent,
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
 				|(_, library),
 				 CreateFolderArgs {
-				     location_or_parent,
+				     location_id,
+				     sub_path,
 				     name,
 				 }: CreateFolderArgs| async move {
-					let mut path = match location_or_parent {
-						LocationOrParent::Location(location_id) => {
-							get_location_path_from_location_id(&library.db, location_id).await?
-						}
-						LocationOrParent::Parent(parent_id) => {
-							let file_path_with_location = library
-								.db
-								.file_path()
-								.find_unique(file_path::id::equals(parent_id))
-								.select(file_path_to_full_path::select())
-								.exec()
-								.await?
-								.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
-									parent_id,
-								)))?;
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
 
-							let location = maybe_missing(
-								&file_path_with_location.location,
-								"file_path.location",
-							)?;
+					if let Some(sub_path) = sub_path {
+						path = path.join(sub_path)
+					}
 
-							let mut path = PathBuf::from(
-								location
-									.path
-									.as_ref()
-									.ok_or(LocationError::MissingPath(location.id))?,
-							);
-
-							path.push(IsolatedFilePathData::try_from((
-								location.id,
-								file_path_with_location,
-							))?);
-
-							path
-						}
-					};
-
-					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
+					dbg!(path);
 
 					create_directory(path, &library).await
 				},
