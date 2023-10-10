@@ -1,7 +1,7 @@
-import { VariantProps, cva, cx } from 'class-variance-authority';
+import { cva, cx, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { forwardRef } from 'react';
-import { Link, LinkProps } from 'react-router-dom';
+import { ComponentProps, forwardRef } from 'react';
+import { Link } from 'react-router-dom';
 
 export interface ButtonBaseProps extends VariantProps<typeof styles> {}
 
@@ -22,7 +22,7 @@ type Button = {
 
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
-const styles = cva(
+export const styles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
@@ -51,11 +51,12 @@ const styles = cva(
 					`rounded border border-dashed border-sidebar-line/70 text-center text-xs font-medium text-ink-faint transition hover:border-sidebar-line hover:bg-sidebar-selected/5`
 				],
 				gray: [
-					'bg-app-button hover:bg-app-hover active:bg-app-selected',
-					'border-app-line hover:border-app-line active:border-app-active'
+					'bg-app-button hover:bg-app-hover focus:bg-app-selected',
+					'border-app-line hover:border-app-line focus:ring-1 focus:ring-accent'
 				],
 				accent: [
-					'border-accent-deep bg-accent text-white shadow-md shadow-app-shade/10 hover:border-accent hover:bg-accent-faint focus:outline-none focus:ring focus:ring-accent active:border-accent-deep active:bg-accent'
+					'border border-accent bg-accent text-white shadow-md shadow-app-shade/10 hover:bg-accent-faint focus:outline-none',
+					'focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
@@ -82,7 +83,7 @@ export const Button = forwardRef<
 
 export const ButtonLink = forwardRef<
 	HTMLAnchorElement,
-	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
+	ButtonBaseProps & ComponentProps<typeof Link>
 >(({ className, size, variant, ...props }, ref) => {
 	return (
 		<Link

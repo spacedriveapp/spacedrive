@@ -1,9 +1,11 @@
-use crate::prisma::{location, node};
+use crate::prisma::location;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 
+use sd_prisma::prisma::instance;
 use serde::Deserialize;
 use specta::Type;
 use tracing::error;
+use uuid::Uuid;
 
 use super::{locations::ExplorerItem, utils::library, Ctx, R};
 
@@ -14,9 +16,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
 			}
-			// TODO: validate name isn't empty or too long
-
-			R.mutation(|ctx, args: ChangeNodeNameArgs| async move {
+			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = args.name {
 					if name.is_empty() || name.len() > 32 {
 						return Err(rspc::Error::new(
@@ -25,7 +25,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					}
 
-					ctx.config
+					node.config
 						.write(|mut config| {
 							config.name = name;
 						})
@@ -45,38 +45,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// TODO: add pagination!! and maybe ordering etc
 		.procedure("listLocations", {
 			R.with2(library())
-				.query(|(ctx, library), _node_id: Option<String>| async move {
-					// 1. grab currently active node
-					let node_config = ctx.config.get().await;
-					let node_pub_id = node_config.id.as_bytes().to_vec();
-					// 2. get node from database
-					let node = library
+				// TODO: I don't like this. `node_id` should probs be a machine hash or something cause `node_id` is dynamic in the context of P2P and what does it mean for removable media to be owned by a node?
+				.query(|(_, library), node_id: Option<Uuid>| async move {
+					// Be aware multiple instances can exist on a single node. This is generally an edge case but it's possible.
+					let instances = library
 						.db
-						.node()
-						.find_unique(node::pub_id::equals(node_pub_id))
+						.instance()
+						.find_many(vec![node_id
+							.map(|id| instance::node_id::equals(id.as_bytes().to_vec()))
+							.unwrap_or(instance::id::equals(library.config().instance_id))])
 						.exec()
 						.await?;
 
-					if let Some(node) = node {
-						// query for locations with that node id
-						let locations: Vec<ExplorerItem> = library
-							.db
-							.location()
-							.find_many(vec![location::node_id::equals(Some(node.id))])
-							.exec()
-							.await?
-							.into_iter()
-							.map(|location| ExplorerItem::Location {
-								has_local_thumbnail: false,
-								thumbnail_key: None,
-								item: location,
-							})
-							.collect();
-
-						return Ok(locations);
-					}
-
-					Ok(vec![])
+					Ok(library
+						.db
+						.location()
+						.find_many(
+							instances
+								.into_iter()
+								.map(|i| location::instance_id::equals(Some(i.id)))
+								.collect(),
+						)
+						.exec()
+						.await?
+						.into_iter()
+						.map(|location| ExplorerItem::Location {
+							has_local_thumbnail: false,
+							thumbnail_key: None,
+							item: location,
+						})
+						.collect::<Vec<_>>())
 				})
 		})
 }

@@ -2,7 +2,9 @@ import { ProcedureDef } from '@rspc/client';
 import { AlphaRSPCError, initRspc } from '@rspc/client/v2';
 import { Context, createReactQueryHooks } from '@rspc/react/v2';
 import { QueryClient } from '@tanstack/react-query';
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { createContext, PropsWithChildren, useContext } from 'react';
+import { match, P } from 'ts-pattern';
+
 import { LibraryArgs, Procedures } from './core';
 import { currentLibraryCache } from './hooks';
 
@@ -51,13 +53,13 @@ export const rspc2 = initRspc<Procedures>({
 	links: globalThis.rspcLinks
 }); // TODO: Removing this?
 
-const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
+export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 // @ts-expect-error // TODO: Fix
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
 	// context // TODO: Shared context
 });
 
-const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
+export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 	mapQueryKey: (keyAndInput) => {
 		const libraryId = currentLibraryCache.id;
 		if (libraryId === null)
@@ -96,16 +98,23 @@ export function useInvalidateQuery() {
 	useBridgeSubscription(['invalidation.listen'], {
 		onData: (ops) => {
 			for (const op of ops) {
-				let key = [op.key];
-				if (op.arg !== null) {
-					key = key.concat(op.arg);
-				}
+				match(op)
+					.with({ type: 'single', data: P.select() }, (op) => {
+						let key = [op.key];
+						if (op.arg !== null) {
+							key = key.concat(op.arg);
+						}
 
-				if (op.result !== null) {
-					context.queryClient.setQueryData(key, op.result);
-				} else {
-					context.queryClient.invalidateQueries(key);
-				}
+						if (op.result !== null) {
+							context.queryClient.setQueryData(key, op.result);
+						} else {
+							context.queryClient.invalidateQueries(key);
+						}
+					})
+					.with({ type: 'all' }, (op) => {
+						context.queryClient.invalidateQueries();
+					})
+					.exhaustive();
 			}
 		}
 	});

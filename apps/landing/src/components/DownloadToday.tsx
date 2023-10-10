@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useInView } from 'framer-motion';
-import { Download } from 'phosphor-react';
+import { Download } from '@phosphor-icons/react';
 import React, { useRef } from 'react';
 import { Button } from '@sd/ui';
 

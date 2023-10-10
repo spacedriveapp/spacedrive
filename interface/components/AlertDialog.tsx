@@ -1,7 +1,7 @@
-import { Clipboard } from 'phosphor-react';
+import { Clipboard } from '@phosphor-icons/react';
 import { ReactNode } from 'react';
-import { Button, Dialog, Input, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
-import { useZodForm } from '@sd/ui/src/forms';
+import { useZodForm } from '@sd/client';
+import { Button, Dialog, dialogManager, Input, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	title: string; // dialog title
@@ -10,6 +10,7 @@ interface Props extends UseDialogProps {
 	value?: string; // value to be displayed as text or in an input box
 	label?: string; // button label
 	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
+	cancelBtn?: boolean; // whether the dialog should have a cancel button
 }
 
 const AlertDialog = (props: Props) => {
@@ -20,6 +21,7 @@ const AlertDialog = (props: Props) => {
 			form={useZodForm()}
 			dialog={useDialog(props)}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
+			cancelBtn={props.cancelBtn}
 			onCancelled={false}
 		>
 			{props.description && <div className="mb-3 text-sm">{props.description}</div>}

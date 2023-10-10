@@ -3,6 +3,7 @@ import { ExplorerItem, getItemFilePath } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
+
 import FileThumb from './FileThumb';
 
 type FileItemProps = {

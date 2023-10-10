@@ -107,7 +107,7 @@ macro_rules! extension_category_enum {
 			$($(#[$variant_attr:meta])* $variant:ident $(= $( [$($magic_bytes:tt),*] $(+ $offset:literal)? )|+ )? ,)*
 		}
 	) => {
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, ::strum::Display, Clone, Copy, PartialEq, Eq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, ::strum::Display, ::specta::Type, Clone, Copy, PartialEq, Eq)]
 		#[serde(rename_all = "snake_case")]
 		#[strum(serialize_all = "snake_case")]
 		$(#[$enum_attr])*
@@ -127,7 +127,7 @@ macro_rules! extension_category_enum {
 		impl std::str::FromStr for $enum_name {
 			type Err = serde_json::Error;
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
-				serde_json::from_value(serde_json::Value::String(s.to_string()))
+				serde_json::from_value(serde_json::Value::String(s.to_lowercase()))
 			}
 		}
 	};
@@ -178,16 +178,16 @@ impl Extension {
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
 		let Some(ext_str) = path.as_ref().extension().and_then(OsStr::to_str) else {
-            return None
-        };
+			return None;
+		};
 
 		let Some(ext) = Extension::from_str(ext_str) else {
-			return None
+			return None;
 		};
 
 		let Ok(ref mut file) = File::open(&path).await else {
-            return None
-        };
+			return None;
+		};
 
 		match ext {
 			// we don't need to check the magic bytes unless there is conflict

@@ -1,6 +1,5 @@
-import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
-import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm } from '@sd/ui/src/forms';
+import { useLibraryMutation, usePlausibleEvent, useZodForm } from '@sd/client';
+import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	tagId: number;

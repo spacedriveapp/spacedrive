@@ -3,21 +3,21 @@
 use std::{
 	io,
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 
 use crate::{
 	job::JobManagerError,
-	library::{LibraryConfig, LibraryManagerError, LibraryName},
+	library::{LibraryManagerError, LibraryName},
 	location::{
 		delete_location, scan_location, LocationCreateArgs, LocationError, LocationManagerError,
 	},
-	node::NodeConfig,
 	prisma::location,
 	util::AbortOnDrop,
+	Node,
 };
 use prisma_client_rust::QueryError;
-use sd_p2p::spacetunnel::Identity;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
@@ -27,7 +27,7 @@ use tokio::{
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::library::LibraryManager;
+use crate::library::Libraries;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,8 +97,8 @@ impl InitConfig {
 
 	pub async fn apply(
 		self,
-		library_manager: &LibraryManager,
-		node_cfg: NodeConfig,
+		library_manager: &Arc<Libraries>,
+		node: &Arc<Node>,
 	) -> Result<(), InitConfigError> {
 		info!("Initializing app from file: {:?}", self.path);
 
@@ -111,29 +111,19 @@ impl InitConfig {
 				}
 			}));
 
-			let library = match library_manager.get_library(lib.id).await {
+			let library = match library_manager.get_library(&lib.id).await {
 				Some(lib) => lib,
 				None => {
-					let node_pub_id = Uuid::new_v4();
 					let library = library_manager
-						.create_with_uuid(
-							lib.id,
-							LibraryConfig {
-								name: lib.name,
-								description: lib.description,
-								identity: Identity::new().to_bytes(),
-								node_id: node_pub_id,
-							},
-							node_cfg.clone(),
-						)
+						.create_with_uuid(lib.id, lib.name, lib.description, true, None, node)
 						.await?;
 
-					match library_manager.get_library(library.uuid).await {
+					match library_manager.get_library(&library.id).await {
 						Some(lib) => lib,
 						None => {
 							warn!(
 								"Debug init error: library '{}' was not found after being created!",
-								library.config.name.as_ref()
+								library.config().name.as_ref()
 							);
 							return Ok(());
 						}
@@ -146,7 +136,7 @@ impl InitConfig {
 
 				for location in locations {
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 			}
 
@@ -159,7 +149,7 @@ impl InitConfig {
 					.await?
 				{
 					warn!("deleting location: {:?}", location.path);
-					delete_location(&library, location.id).await?;
+					delete_location(node, &library, location.id).await?;
 				}
 
 				let sd_file = PathBuf::from(&loc.path).join(".spacedrive");
@@ -172,11 +162,11 @@ impl InitConfig {
 					dry_run: false,
 					indexer_rules_ids: Vec::new(),
 				}
-				.create(&library)
+				.create(node, &library)
 				.await?;
 				match location {
 					Some(location) => {
-						scan_location(&library, location).await?;
+						scan_location(node, &library, location).await?;
 					}
 					None => {
 						warn!(

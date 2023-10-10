@@ -1,11 +1,19 @@
-import { Laptop, Node } from '@sd/assets/icons';
-import { getDebugState, useBridgeMutation, useBridgeQuery, useDebugState } from '@sd/client';
-import { Button, Card, Input, Switch, tw } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
+import { Laptop } from '@sd/assets/icons';
+import {
+	getDebugState,
+	useBridgeMutation,
+	useBridgeQuery,
+	useDebugState,
+	useFeatureFlag,
+	useZodForm
+} from '@sd/client';
+import { Button, Card, Input, Switch, tw, z } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
+
 import { Heading } from '../Layout';
 import Setting from '../Setting';
+import { SpacedriveAccount } from './SpacedriveAccount';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -39,6 +47,7 @@ export const Component = () => {
 				title="General Settings"
 				description="General settings related to this client."
 			/>
+			<SpacedriveAccount />
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
@@ -90,20 +99,20 @@ export const Component = () => {
 						<div>
 							<NodeSettingLabel>Data Folder</NodeSettingLabel>
 							<div className="mt-2 flex w-full flex-row gap-2">
-								<Input
-									className="grow"
-									value={node.data?.data_path}
-									onChange={() => {
-										/* TODO */
-									}}
-									disabled
-								/>
+								<Input className="grow" value={node.data?.data_path} disabled />
 								<Button
 									size="sm"
 									variant="outline"
 									onClick={() => {
-										if (node.data && platform?.openLink) {
-											platform.openLink(node.data.data_path);
+										if (node.data && !!platform?.openLink) {
+											platform.confirm(
+												'Modifying or backing up data within this folder may cause irreparable damage! Proceed at your own risk!',
+												(result) => {
+													if (result) {
+														platform.openLink(node.data.data_path);
+													}
+												}
+											);
 										}
 									}}
 								>
@@ -129,19 +138,18 @@ export const Component = () => {
 					</div> */}
 				</div>
 			</Card>
-			{(isDev || debugState.enabled) && (
-				<Setting
-					mini
-					title="Debug mode"
-					description="Enable extra debugging features within the app."
-				>
-					<Switch
-						size="md"
-						checked={debugState.enabled}
-						onClick={() => (getDebugState().enabled = !debugState.enabled)}
-					/>
-				</Setting>
-			)}
+
+			<Setting
+				mini
+				title="Debug mode"
+				description="Enable extra debugging features within the app."
+			>
+				<Switch
+					size="md"
+					checked={debugState.enabled}
+					onClick={() => (getDebugState().enabled = !debugState.enabled)}
+				/>
+			</Setting>
 		</>
 	);
 };

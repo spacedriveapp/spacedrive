@@ -1,4 +1,3 @@
-import byteSize from 'byte-size';
 import dayjs from 'dayjs';
 import {
 	Barcode,
@@ -12,15 +11,15 @@ import {
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
-	ExplorerItem,
-	bytesToNumber,
+	byteSize,
 	getItemFilePath,
 	getItemObject,
-	useLibraryQuery
+	useLibraryQuery,
+	type ExplorerItem
 } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
-import { Modal, ModalRef, ModalScrollView } from '~/components/layout/Modal';
+import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
@@ -97,37 +96,33 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 						<MetaItem
 							title="Size"
 							icon={Cube}
-							value={
-								filePathData?.size_in_bytes_bytes
-									? byteSize(
-											bytesToNumber(filePathData.size_in_bytes_bytes)
-									  ).toString()
-									: 0
-							}
+							value={`${byteSize(filePathData?.size_in_bytes_bytes)}`}
 						/>
 						{/* Duration */}
-						{fullObjectData.data?.media_data?.duration_seconds && (
+						{/* {fullObjectData.data?.media_data?.duration && (
 							<MetaItem
 								title="Duration"
-								value={fullObjectData.data.media_data.duration_seconds}
+								value={fullObjectData.data.media_data.duration}
 								icon={Clock}
 							/>
-						)}
+						)} */}
 						{/* Created */}
-						<MetaItem
-							icon={Clock}
-							title="Created"
-							value={dayjs(item?.date_created).format('MMM Do YYYY')}
-						/>
-						{/* Indexed */}
-						<MetaItem
-							icon={Barcode}
-							title="Indexed"
-							value={dayjs(filePathData?.date_indexed).format('MMM Do YYYY')}
-						/>
+						{data.type !== 'SpacedropPeer' && (
+							<MetaItem
+								icon={Clock}
+								title="Created"
+								value={dayjs(data.item.date_created).format('MMM Do YYYY')}
+							/>
+						)}
 
-						{filePathData && (
+						{filePathData && 'cas_id' in filePathData && (
 							<>
+								{/* Indexed */}
+								<MetaItem
+									icon={Barcode}
+									title="Indexed"
+									value={dayjs(filePathData.date_indexed).format('MMM Do YYYY')}
+								/>
 								{/* TODO: Note */}
 								{filePathData.cas_id && (
 									<MetaItem

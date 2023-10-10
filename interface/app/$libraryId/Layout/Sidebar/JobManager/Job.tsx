@@ -1,51 +1,39 @@
-import { useQueryClient } from '@tanstack/react-query';
-import dayjs from 'dayjs';
-import { Info, Question } from 'phosphor-react';
-import { memo, useCallback, useEffect, useState } from 'react';
 import {
-	JobProgressEvent,
-	JobReport,
-	useLibraryMutation,
-	useLibrarySubscription
-} from '@sd/client';
+	Copy,
+	Fingerprint,
+	Folder,
+	Icon,
+	Image,
+	Info,
+	Scissors,
+	Trash
+} from '@phosphor-icons/react';
+import { memo } from 'react';
+import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
+
 import JobContainer from './JobContainer';
-import useJobInfo from './useJobInfo';
 
 interface JobProps {
 	job: JobReport;
 	className?: string;
 	isChild?: boolean;
+	progress: JobProgressEvent | null;
 }
 
-function Job({ job, className, isChild }: JobProps) {
-	const queryClient = useQueryClient();
+const JobIcon: Record<string, Icon> = {
+	indexer: Folder,
+	media_processor: Image,
+	file_identifier: Fingerprint,
+	file_copier: Copy,
+	file_deleter: Trash,
+	file_cutter: Scissors,
+	object_validator: Fingerprint
+};
 
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
-
-	useLibrarySubscription(['jobs.progress', job.id], {
-		onData: setRealtimeUpdate
-	});
-
-	const niceData = useJobInfo(job, realtimeUpdate)[job.name] || {
-		name: job.name,
-		icon: Question,
-		textItems: [[{ text: job.status.replace(/([A-Z])/g, ' $1').trim() }]]
-	};
-	const isRunning = job.status === 'Running';
-	const isPaused = job.status === 'Paused';
-
-	const task_count = realtimeUpdate?.task_count || job.task_count;
-	const completed_task_count = realtimeUpdate?.completed_task_count || job.completed_task_count;
-
-	// clear stale realtime state when job is done
-	useEffect(() => {
-		if (isRunning) setRealtimeUpdate(null);
-	}, [isRunning]);
-
-	// dayjs from seconds to time
-	// const timeText = isRunning ? formatEstimatedRemainingTime(job.estimated_completion) : undefined;
+function Job({ job, className, isChild, progress }: JobProps) {
+	const jobData = useJobInfo(job, progress);
 
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
@@ -61,7 +49,7 @@ function Job({ job, className, isChild }: JobProps) {
 				))}
 			</pre>
 		);
-		niceData.textItems?.push([
+		jobData.textItems?.push([
 			{
 				text: 'Completed with errors',
 				icon: Info,
@@ -80,20 +68,19 @@ function Job({ job, className, isChild }: JobProps) {
 	return (
 		<JobContainer
 			className={className}
-			name={niceData.name}
-			circleIcon={niceData.icon}
+			name={jobData.name}
+			icon={JobIcon[job.name]}
 			textItems={
-				['Queued'].includes(job.status) ? [[{ text: job.status }]] : niceData.textItems
+				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}
-			// textItems={[[{ text: job.status }, { text: job.id, }]]}
 			isChild={isChild}
 		>
-			{(isRunning || isPaused) && (
+			{(jobData.isRunning || jobData.isPaused) && (
 				<div className="my-1 ml-1.5 w-[335px]">
 					<ProgressBar
-						pending={task_count == 0}
-						value={completed_task_count}
-						total={task_count}
+						pending={jobData.taskCount == 0}
+						value={jobData.completedTaskCount}
+						total={jobData.taskCount}
 					/>
 				</div>
 			)}
@@ -102,15 +89,3 @@ function Job({ job, className, isChild }: JobProps) {
 }
 
 export default memo(Job);
-
-function formatEstimatedRemainingTime(end_date: string) {
-	const duration = dayjs.duration(new Date(end_date).getTime() - Date.now());
-
-	if (duration.hours() > 0) {
-		return `${duration.hours()} hour${duration.hours() > 1 ? 's' : ''} remaining`;
-	} else if (duration.minutes() > 0) {
-		return `${duration.minutes()} minute${duration.minutes() > 1 ? 's' : ''} remaining`;
-	} else {
-		return `${duration.seconds()} second${duration.seconds() > 1 ? 's' : ''} remaining`;
-	}
-}

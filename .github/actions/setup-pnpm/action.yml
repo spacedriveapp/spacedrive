@@ -22,4 +22,7 @@ runs:
 
     - name: Install pnpm deps
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
+      env:
+        NODE_ENV: debug
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: pnpm i --frozen-lockfile

@@ -19,7 +19,7 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
    **For Linux or MacOS users run:**
 
    ```shell
-   ./.github/scripts/setup-system.sh
+   ./scripts/setup.sh
    ```
 
    This will install FFmpeg and any other required dependencies for Spacedrive to build.
@@ -27,7 +27,7 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
    **...or for Windows users run using PowerShell:**
 
    ```shell
-   .\.github\scripts\setup-system.ps1
+   .\scripts\setup.ps1
    ```
 
    _This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build. Ensure you run it like documented above as it expects it is executed from the root of the repository._
@@ -43,7 +43,7 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 
 ## Running apps
 
-- **Desktop:** `pnpm desktop dev`
+- **Desktop:** `pnpm tauri dev`
 - **Landing:** `pnpm landing dev`
 - **Server:** `DATA_DIR=/path/to/library cargo run -p sdcore`
 - **Webapp:** `pnpm web dev`
@@ -58,7 +58,7 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 To run mobile app
 
 1. Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
-2. `./.github/scripts/setup-system.sh mobile`
+2. `./scripts/setup.sh mobile`
    _The should setup most of the dependencies for the mobile app to build._
 3. You must also ensure you have [NDK 23.1.7779620 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 4. `pnpm mobile android` - runs on Android Emulator

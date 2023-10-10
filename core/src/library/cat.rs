@@ -1,9 +1,9 @@
-use crate::prisma::{object, PrismaClient};
+use crate::prisma::object;
 use prisma_client_rust::not;
 use sd_file_ext::kind::ObjectKind;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{sync::Arc, vec};
+use std::vec;
 
 use strum_macros::{EnumString, EnumVariantNames};
 
@@ -25,6 +25,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 pub enum Category {
 	Recents,
 	Favorites,
+	Albums,
 	Photos,
 	Videos,
 	Movies,
@@ -40,6 +41,7 @@ pub enum Category {
 	Books,
 	Contacts,
 	Trash,
+	Screenshots,
 }
 
 impl Category {
@@ -51,6 +53,10 @@ impl Category {
 			Category::Music => ObjectKind::Audio,
 			Category::Books => ObjectKind::Book,
 			Category::Encrypted => ObjectKind::Encrypted,
+			Category::Databases => ObjectKind::Database,
+			Category::Archives => ObjectKind::Archive,
+			Category::Applications => ObjectKind::Executable,
+			Category::Screenshots => ObjectKind::Screenshot,
 			_ => unimplemented!("Category::to_object_kind() for {:?}", self),
 		}
 	}
@@ -63,16 +69,11 @@ impl Category {
 			| Category::Videos
 			| Category::Music
 			| Category::Encrypted
+			| Category::Databases
+			| Category::Archives
+			| Category::Applications
 			| Category::Books => object::kind::equals(Some(self.to_object_kind() as i32)),
 			_ => object::id::equals(-1),
 		}
 	}
-}
-
-pub async fn get_category_count(db: &Arc<PrismaClient>, category: Category) -> i32 {
-	db.object()
-		.count(vec![category.to_where_param()])
-		.exec()
-		.await
-		.unwrap_or(0) as i32
 }

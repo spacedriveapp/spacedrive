@@ -1,9 +1,9 @@
-import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import { Check } from '@phosphor-icons/react';
 import * as RS from '@radix-ui/react-select';
-import { VariantProps, cva } from 'class-variance-authority';
+import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Check } from 'phosphor-react';
-import { PropsWithChildren, forwardRef } from 'react';
+import { forwardRef, PropsWithChildren } from 'react';
 
 export const selectStyles = cva(
 	[
@@ -42,34 +42,34 @@ export const Select = forwardRef(
 	<TValue extends string = string>(
 		props: PropsWithChildren<SelectProps<TValue>>,
 		ref: React.ForwardedRef<HTMLDivElement>
-	) => {
-		return (
-			<div ref={ref}>
-				<RS.Root
-					defaultValue={props.value}
-					value={props.value}
-					onValueChange={props.onChange}
-					disabled={props.disabled}
+	) => (
+		<div ref={ref}>
+			<RS.Root
+				defaultValue={props.value}
+				value={props.value}
+				onValueChange={props.onChange}
+				disabled={props.disabled}
+			>
+				<RS.Trigger
+					className={selectStyles({ size: props.size, className: props.className })}
 				>
-					<RS.Trigger
-						className={selectStyles({ size: props.size, className: props.className })}
-					>
-						<RS.Value placeholder={props.placeholder} />
-						<RS.Icon className="ml-2">
-							<ChevronDouble className="text-ink-dull" />
-						</RS.Icon>
-					</RS.Trigger>
+					<RS.Value placeholder={props.placeholder} />
+					<RS.Icon className="ml-2">
+						<ChevronDouble className="text-ink-dull" />
+					</RS.Icon>
+				</RS.Trigger>
 
-					<RS.Portal>
-						<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
-							<RS.Viewport className="p-1">{props.children}</RS.Viewport>
-						</RS.Content>
-					</RS.Portal>
-				</RS.Root>
-			</div>
-		);
-	}
-);
+				<RS.Portal>
+					<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
+						<RS.Viewport className="p-1">{props.children}</RS.Viewport>
+					</RS.Content>
+				</RS.Portal>
+			</RS.Root>
+		</div>
+	)
+) as <TValue extends string = string>(
+	props: PropsWithChildren<SelectProps<TValue>> & { ref?: React.ForwardedRef<HTMLDivElement> }
+) => JSX.Element;
 
 export function SelectOption(props: PropsWithChildren<{ value: string; default?: boolean }>) {
 	return (

@@ -1,4 +1,5 @@
-import { RouteObject } from 'react-router-dom';
+import type { RouteObject } from 'react-router-dom';
+
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
@@ -13,7 +14,6 @@ const pageRoutes: RouteObject = {
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', lazy: () => import('./debug') },
-		{ path: 'spacedrop', lazy: () => import('./spacedrop') },
 		{ path: 'sync', lazy: () => import('./sync') }
 	]
 };
@@ -24,6 +24,8 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
+	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
+	{ path: 'network/:id', lazy: () => import('./network') },
 	{ path: 'search', lazy: () => import('./search') }
 ];
 

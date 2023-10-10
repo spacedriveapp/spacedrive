@@ -697,7 +697,8 @@ impl KeyManager {
 		self.ensure_not_queued(uuid)?;
 
 		if let Some(stored_key) = self.keystore.get(&uuid) {
-			match stored_key.version {
+			let version = &stored_key.version;
+			match version {
 				StoredKeyVersion::V1 => {
 					self.mounting_queue.insert(uuid);
 

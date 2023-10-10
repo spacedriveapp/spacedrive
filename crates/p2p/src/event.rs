@@ -1,6 +1,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{spacetime::SpaceTimeStream, ConnectedPeer, DiscoveredPeer, Manager, Metadata};
+use crate::{
+	spacetime::{BroadcastStream, UnicastStream},
+	ConnectedPeer, DiscoveredPeer, Manager, Metadata,
+};
 
 use super::PeerId;
 
@@ -8,9 +11,6 @@ use super::PeerId;
 /// This is useful for updating your UI when stuff changes on the backend.
 /// You can also interact with some events to cause an event.
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Event<TMetadata: Metadata> {
 	/// add a network interface on this node to listen for
 	AddListenAddr(SocketAddr),
@@ -29,25 +29,32 @@ pub enum Event<TMetadata: Metadata> {
 	PeerConnected(ConnectedPeer),
 	/// communication was lost with a peer.
 	PeerDisconnected(PeerId),
-	/// the peer has opened a new substream
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	PeerMessage(PeerMessageEvent<TMetadata>),
+	/// the peer has opened a new unicast substream
+	PeerMessage(PeerMessageEvent<TMetadata, UnicastStream>),
+	/// the peer has opened a new brodcast substream
+	PeerBroadcast(PeerMessageEvent<TMetadata, BroadcastStream>),
 	/// the node is shutting down
 	Shutdown,
 }
 
 #[derive(Debug)]
-pub struct PeerMessageEvent<TMetadata: Metadata> {
+pub struct PeerMessageEvent<TMetadata: Metadata, S> {
 	pub stream_id: u64,
 	pub peer_id: PeerId,
 	pub manager: Arc<Manager<TMetadata>>,
-	pub stream: SpaceTimeStream,
+	pub stream: S,
 	// Prevent manual creation by end-user
 	pub(crate) _priv: (),
 }
 
-impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata>> for Event<TMetadata> {
-	fn from(event: PeerMessageEvent<TMetadata>) -> Self {
+impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata, UnicastStream>> for Event<TMetadata> {
+	fn from(event: PeerMessageEvent<TMetadata, UnicastStream>) -> Self {
 		Self::PeerMessage(event)
+	}
+}
+
+impl<TMetadata: Metadata> From<PeerMessageEvent<TMetadata, BroadcastStream>> for Event<TMetadata> {
+	fn from(event: PeerMessageEvent<TMetadata, BroadcastStream>) -> Self {
+		Self::PeerBroadcast(event)
 	}
 }

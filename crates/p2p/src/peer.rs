@@ -1,10 +1,14 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+	fmt::{self, Formatter},
+	net::SocketAddr,
+	sync::Arc,
+};
 
 use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 
 /// Represents a discovered peer.
 /// This is held by [Manager] to keep track of discovered peers
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiscoveredPeer<TMetadata: Metadata> {
@@ -16,6 +20,17 @@ pub struct DiscoveredPeer<TMetadata: Metadata> {
 	pub metadata: TMetadata,
 	/// get the addresses of the discovered peer
 	pub addresses: Vec<SocketAddr>,
+}
+
+// `Manager` impls `Debug` but it causes infinite loop and stack overflow, lmao.
+impl<TMetadata: Metadata> fmt::Debug for DiscoveredPeer<TMetadata> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("DiscoveredPeer")
+			.field("peer_id", &self.peer_id)
+			.field("metadata", &self.metadata)
+			.field("addresses", &self.addresses)
+			.finish()
+	}
 }
 
 impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
@@ -38,4 +53,6 @@ impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
 pub struct ConnectedPeer {
 	/// get the peer id of the discovered peer
 	pub peer_id: PeerId,
+	/// Did I open the connection?
+	pub establisher: bool,
 }

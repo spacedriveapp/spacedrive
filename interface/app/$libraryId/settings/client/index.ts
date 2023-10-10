@@ -5,5 +5,6 @@ export default [
 	{ path: 'appearance', lazy: () => import('./appearance') },
 	{ path: 'keybindings', lazy: () => import('./keybindings') },
 	{ path: 'extensions', lazy: () => import('./extensions') },
-	{ path: 'privacy', lazy: () => import('./privacy') }
+	{ path: 'privacy', lazy: () => import('./privacy') },
+	{ path: 'backups', lazy: () => import('./backups') }
 ] satisfies RouteObject[];

@@ -8,13 +8,12 @@ authors = [
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = "1.0.96"
-strum = { version = "0.24", features = ["derive"] }
-strum_macros = "0.24"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = { workspace = true }
+strum = { version = "0.25", features = ["derive"] }
+strum_macros = "0.25"
 tokio = { workspace = true, features = ["fs", "rt", "io-util"] }
 specta = { workspace = true }
 

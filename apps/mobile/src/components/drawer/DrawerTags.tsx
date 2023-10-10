@@ -5,6 +5,7 @@ import { ColorValue, Pressable, Text, View } from 'react-native';
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
+
 import CollapsibleView from '../layout/CollapsibleView';
 import CreateTagModal from '../modal/tag/CreateTagModal';
 
@@ -35,7 +36,7 @@ type DrawerTagsProp = {
 const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const tags = useLibraryQuery(['tags.list']);
 
 	const modalRef = useRef<ModalRef>(null);
 
@@ -46,7 +47,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			containerStyle={tw`mb-3 ml-1 mt-6`}
 		>
 			<View style={tw`mt-2`}>
-				{tags?.map((tag) => (
+				{tags.data?.map((tag) => (
 					<DrawerTagItem
 						key={tag.id}
 						tagName={tag.name!}

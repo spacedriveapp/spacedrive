@@ -1,120 +1,54 @@
-/* eslint-disable no-case-declarations */
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from '@phosphor-icons/react';
 import { Folder } from '@sd/assets/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react';
-import { Fragment, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-	JobGroup as IJobGroup,
+	getJobNiceActionName,
+	getTotalTasks,
+	JobGroup,
 	JobProgressEvent,
 	JobReport,
 	useLibraryMutation,
-	useLibrarySubscription
+	useTotalElapsedTimeText
 } from '@sd/client';
-import { Button, ProgressBar, Tooltip } from '@sd/ui';
+import { Button, Dropdown, ProgressBar, toast, Tooltip } from '@sd/ui';
+
 import Job from './Job';
 import JobContainer from './JobContainer';
-import { useTotalElapsedTimeText } from './useGroupJobTimeText';
 
 interface JobGroupProps {
-	data: IJobGroup;
-	clearJob: (arg: string) => void;
+	group: JobGroup;
+	progress: Record<string, JobProgressEvent>;
 }
 
-function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
+export default function ({ group, progress }: JobGroupProps) {
+	const { jobs } = group;
+
 	const [showChildJobs, setShowChildJobs] = useState(false);
-	const [realtimeUpdate, setRealtimeUpdate] = useState<JobProgressEvent | null>(null);
 
-	const pauseJob = useLibraryMutation(['jobs.pause'], {
-		onError: alert
-	});
-	const resumeJob = useLibraryMutation(['jobs.resume'], {
-		onError: alert
-	});
-	const cancelJob = useLibraryMutation(['jobs.cancel'], {
-		onError: alert
-	});
+	const runningJob = jobs.find((job) => job.status === 'Running');
 
-	const isJobsRunning = jobs.some((job) => job.status === 'Running');
-	const isJobPaused = jobs.some((job) => job.status === 'Paused');
-	const activeJobId = jobs.find((job) => job.status === 'Running')?.id;
-
-	useLibrarySubscription(['jobs.progress', activeJobId as string], {
-		onData: setRealtimeUpdate,
-		enabled: !!activeJobId || !showChildJobs
-	});
-
-	useEffect(() => {
-		if (data.status !== 'Running') {
-			setRealtimeUpdate(null);
-		}
-	}, [data.status]);
-
-	const tasks = totalTasks(jobs);
+	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
 
-	if (!jobs.length) return <></>;
+	const dateStarted = useMemo(() => {
+		const createdAt = dayjs(jobs[0]?.created_at).fromNow();
+		return createdAt.charAt(0).toUpperCase() + createdAt.slice(1);
+	}, [jobs]);
 
-	let date_started = dayjs(jobs[0]?.created_at).fromNow();
-	date_started = date_started.charAt(0).toUpperCase() + date_started.slice(1);
+	if (jobs.length === 0) return <></>;
 
 	return (
-		<ul className="relative overflow-hidden">
+		<ul className="relative overflow-visible">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
-				{(data.status === 'Queued' || data.status === 'Paused' || isJobPaused) && (
-					<Button
-						className="cursor-pointer"
-						onClick={() => resumeJob.mutate(data.id)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Resume">
-							<Play className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-				)}
-
-				{isJobsRunning && (
-					<Fragment>
-						<Tooltip label="Pause">
-							<Button
-								className="cursor-pointer"
-								onClick={() => {
-									pauseJob.mutate(data.id);
-								}}
-								size="icon"
-								variant="outline"
-							>
-								<Pause className="h-4 w-4 cursor-pointer" />
-							</Button>
-						</Tooltip>
-						<Tooltip label="Stop">
-							<Button
-								className="cursor-pointer"
-								onClick={() => {
-									cancelJob.mutate(data.id);
-								}}
-								size="icon"
-								variant="outline"
-							>
-								<Stop className="h-4 w-4 cursor-pointer" />
-							</Button>
-						</Tooltip>
-					</Fragment>
-				)}
-
-				{!isJobsRunning && (
-					<Button
-						className="cursor-pointer"
-						// onClick={() => clearJob?.(data.id as string)}
-						size="icon"
-						variant="outline"
-					>
-						<Tooltip label="Remove">
-							<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
-						</Tooltip>
-					</Button>
-				)}
+				<Options
+					showChildJobs={showChildJobs}
+					setShowChildJobs={() => setShowChildJobs((v) => !v)}
+					activeJob={runningJob}
+					group={group}
+				/>
 			</div>
 			{jobs?.length > 1 ? (
 				<>
@@ -124,38 +58,37 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 							'pb-2 hover:bg-app-selected/10',
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
 						)}
-						iconImg={Folder}
-						name={niceActionName(
-							data.action ?? '',
-							data.status === 'Completed',
+						icon={Folder}
+						name={getJobNiceActionName(
+							group.action ?? '',
+							group.status === 'Completed',
 							jobs[0]
 						)}
 						textItems={[
 							[
 								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
-								{ text: date_started },
+								{ text: dateStarted },
 								{ text: totalGroupTime || undefined },
 
 								{
 									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
-										data.status
+										group.status
 									)
-										? data.status
+										? group.status
 										: undefined
 								}
 							],
 							[
 								{
 									text:
-										(!showChildJobs &&
-											isJobsRunning &&
-											realtimeUpdate?.message) ||
-										undefined
+										!showChildJobs && runningJob !== undefined
+											? progress[runningJob.id]?.message
+											: undefined
 								}
 							]
 						]}
 					>
-						{!showChildJobs && isJobsRunning && (
+						{!showChildJobs && runningJob && (
 							<div className="my-1 ml-1.5 w-full">
 								<ProgressBar
 									pending={tasks.completed === 0}
@@ -166,43 +99,173 @@ function JobGroup({ data: { jobs, ...data }, clearJob }: JobGroupProps) {
 						)}
 					</JobContainer>
 					{showChildJobs && (
-						<div className="">
+						<div>
 							{jobs.map((job) => (
-								<Job isChild={jobs.length > 1} key={job.id} job={job} />
+								<Job
+									isChild={jobs.length > 1}
+									key={job.id}
+									job={job}
+									progress={progress[job.id] ?? null}
+								/>
 							))}
 						</div>
 					)}
 				</>
 			) : (
-				<>{jobs[0] && <Job job={jobs[0]} />}</>
+				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
 			)}
 		</ul>
 	);
 }
 
-function totalTasks(jobs: JobReport[]) {
-	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
+function Options({
+	activeJob,
+	group,
+	setShowChildJobs,
+	showChildJobs
+}: {
+	activeJob?: JobReport;
+	group: JobGroup;
+	setShowChildJobs: () => void;
+	showChildJobs: boolean;
+}) {
+	const queryClient = useQueryClient();
 
-	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
-		tasks.total += task_count;
-		tasks.completed += status === 'Completed' ? task_count : completed_task_count;
-		if (status === 'Completed') {
-			tasks.timeOfLastFinishedJob = completed_at || '';
-		}
-	});
+	const toastErrorSuccess = (
+		errorMessage?: string,
+		successMessage?: string,
+		successCallBack?: () => void
+	) => {
+		return {
+			onError: () => {
+				errorMessage &&
+					toast.error({
+						title: 'Error',
+						body: errorMessage
+					});
+			},
+			onSuccess: () => {
+				successMessage &&
+					toast.success({
+						title: 'Success',
+						body: successMessage
+					}),
+					successCallBack?.();
+			}
+		};
+	};
 
-	return tasks;
+	const resumeJob = useLibraryMutation(
+		['jobs.resume'],
+		toastErrorSuccess('Failed to resume job.', 'Job has been resumed.')
+	);
+	const pauseJob = useLibraryMutation(
+		['jobs.pause'],
+		toastErrorSuccess('Failed to pause job.', 'Job has been paused.')
+	);
+	const cancelJob = useLibraryMutation(
+		['jobs.cancel'],
+		toastErrorSuccess('Failed to cancel job.', 'Job has been canceled.')
+	);
+	const clearJob = useLibraryMutation(
+		['jobs.clear'],
+		toastErrorSuccess('Failed to remove job.', undefined, () => {
+			queryClient.invalidateQueries(['jobs.reports']);
+		})
+	);
+
+	const clearJobHandler = () => {
+		group.jobs.forEach((job) => {
+			clearJob.mutate(job.id);
+			//only one toast for all jobs
+			if (job.id === group.id)
+				toast.success({ title: 'Success', body: 'Job has been removed.' });
+		});
+	};
+
+	const isJobPaused = useMemo(
+		() => group.jobs.some((job) => job.status === 'Paused'),
+		[group.jobs]
+	);
+
+	return (
+		<>
+			{/* Resume */}
+			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
+				<Button
+					className="cursor-pointer"
+					onClick={() => resumeJob.mutate(group.id)}
+					size="icon"
+					variant="outline"
+				>
+					<Tooltip label="Resume">
+						<Play className="h-4 w-4 cursor-pointer" />
+					</Tooltip>
+				</Button>
+			)}
+			{activeJob === undefined ? (
+				<Dropdown.Root
+					align="right"
+					itemsClassName="!bg-app-darkBox !border-app-box !top-[-8px]"
+					button={
+						<Tooltip label="Actions">
+							<Button className="!px-1" variant="outline">
+								<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+							</Button>
+						</Tooltip>
+					}
+				>
+					<Dropdown.Section>
+						{group.jobs.length > 1 && (
+							<Dropdown.Item
+								active={showChildJobs}
+								onClick={setShowChildJobs}
+								icon={Eye}
+								iconClassName="!w-3"
+								className="!text-[11px] text-ink-dull"
+							>
+								Expand
+							</Dropdown.Item>
+						)}
+						<Dropdown.Item
+							onClick={() => clearJobHandler()}
+							icon={Trash}
+							iconClassName="!w-3"
+							className="!text-[11px] text-ink-dull"
+						>
+							Remove
+						</Dropdown.Item>
+					</Dropdown.Section>
+				</Dropdown.Root>
+			) : (
+				<>
+					{/* Pause / Stop */}
+					<Tooltip label="Pause">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								pauseJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Pause className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Stop">
+						<Button
+							className="cursor-pointer"
+							onClick={() => {
+								cancelJob.mutate(group.id);
+							}}
+							size="icon"
+							variant="outline"
+						>
+							<Stop className="h-4 w-4 cursor-pointer" />
+						</Button>
+					</Tooltip>
+				</>
+			)}
+		</>
+	);
 }
-
-function niceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = job?.metadata?.location?.name || 'Unknown';
-	switch (action) {
-		case 'scan_location':
-			return completed ? `Added location "${name}"` : `Adding location "${name}"`;
-		case 'scan_location_sub_path':
-			return completed ? `Indexed new files "${name}"` : `Adding location "${name}"`;
-	}
-	return action;
-}
-
-export default JobGroup;

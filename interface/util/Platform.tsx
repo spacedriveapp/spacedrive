@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { createContext, useContext, type PropsWithChildren } from 'react';
+import { auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -7,31 +8,51 @@ export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unkno
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
 	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
-	getFileUrl: (
-		libraryId: string,
-		locationLocalId: number,
-		filePathId: number,
-		_linux_workaround?: boolean
-	) => string;
+	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
+	getFileUrlByPath: (path: string) => string;
 	openLink: (url: string) => void;
-	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
+	// Tauri patches `window.confirm` to return `Promise` not `bool`
+	confirm(msg: string, cb: (result: boolean) => void): void;
 	getOs?(): Promise<OperatingSystem>;
 	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
-	saveFilePickerDialog?(): Promise<string | null>;
+	saveFilePickerDialog?(opts?: { title?: string; defaultPath?: string }): Promise<string | null>;
 	showDevtools?(): void;
 	openPath?(path: string): void;
 	openLogsDir?(): void;
+	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
+	openEphemeralFiles?(paths: string[]): any;
 	revealItems?(
 		library: string,
-		items: ({ Location: { id: number } } | { FilePath: { id: number } })[]
+		items: (
+			| { Location: { id: number } }
+			| { FilePath: { id: number } }
+			| { Ephemeral: { path: string } }
+		)[]
 	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
+	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	updater?: {
+		useSnapshot: () => UpdateStore;
+		checkForUpdate(): Promise<Update | null>;
+		installUpdate(): Promise<any>;
+	};
+	auth: auth.ProviderConfig;
 };
+
+export type Update = { version: string; body: string | null };
+export type UpdateStore =
+	| { status: 'idle' }
+	| { status: 'loading' }
+	| { status: 'error' }
+	| { status: 'updateAvailable'; update: Update }
+	| { status: 'noUpdateAvailable' }
+	| { status: 'installing' };
 
 // Keep this private and use through helpers below
 const context = createContext<Platform>(undefined!);

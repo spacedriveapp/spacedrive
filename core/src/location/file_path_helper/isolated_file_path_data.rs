@@ -14,14 +14,15 @@ use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-	file_path_for_file_identifier, file_path_for_object_validator, file_path_for_thumbnailer,
-	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_isolate,
-	file_path_to_isolate_with_id, file_path_with_object, FilePathError,
+	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
+	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_handle_p2p_serve_file,
+	file_path_to_isolate, file_path_to_isolate_with_id, file_path_walker, file_path_with_object,
+	FilePathError,
 };
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct IsolatedFilePathData<'a> {
 	// WARN! These fields MUST NOT be changed outside the location module, that's why they have this visibility
@@ -50,11 +51,8 @@ impl IsolatedFilePathData<'static> {
 			.then(|| {
 				full_path
 					.extension()
+					.and_then(|ext| ext.to_str().map(str::to_string))
 					.unwrap_or_default()
-					.to_str()
-					.unwrap_or_default()
-					// Coerce extension to lowercase to make it case-insensitive
-					.to_lowercase()
 			})
 			.unwrap_or_default();
 
@@ -446,6 +444,7 @@ mod macros {
 impl_from_db!(
 	file_path,
 	file_path_to_isolate,
+	file_path_walker,
 	file_path_to_isolate_with_id,
 	file_path_with_object
 );
@@ -453,9 +452,10 @@ impl_from_db!(
 impl_from_db_without_location_id!(
 	file_path_for_file_identifier,
 	file_path_to_full_path,
-	file_path_for_thumbnailer,
+	file_path_for_media_processor,
 	file_path_for_object_validator,
-	file_path_to_handle_custom_uri
+	file_path_to_handle_custom_uri,
+	file_path_to_handle_p2p_serve_file
 );
 
 fn extract_relative_path(

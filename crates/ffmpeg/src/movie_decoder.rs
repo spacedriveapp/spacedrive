@@ -24,12 +24,12 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum ThumbnailSize {
+pub enum ThumbnailSize {
 	Dimensions { width: u32, height: u32 },
 	Size(u32),
 }
 
-pub(crate) struct MovieDecoder {
+pub struct MovieDecoder {
 	video_stream_index: i32,
 	format_context: *mut AVFormatContext,
 	video_codec_context: *mut AVCodecContext,
@@ -130,7 +130,7 @@ impl MovieDecoder {
 		Ok(())
 	}
 
-	pub(crate) fn embedded_metadata_is_available(&self) -> bool {
+	pub(crate) const fn embedded_metadata_is_available(&self) -> bool {
 		self.use_embedded_data
 	}
 
@@ -139,7 +139,7 @@ impl MovieDecoder {
 			return Ok(());
 		}
 
-		let timestamp = (AV_TIME_BASE as i64).checked_mul(seconds).unwrap_or(0);
+		let timestamp = i64::from(AV_TIME_BASE).checked_mul(seconds).unwrap_or(0);
 
 		check_error(
 			unsafe { av_seek_frame(self.format_context, -1, timestamp, 0) },
@@ -217,9 +217,13 @@ impl MovieDecoder {
 			));
 		}
 
-		video_frame.width = unsafe { (*new_frame.as_mut_ptr()).width as u32 };
-		video_frame.height = unsafe { (*new_frame.as_mut_ptr()).height as u32 };
-		video_frame.line_size = unsafe { (*new_frame.as_mut_ptr()).linesize[0] as u32 };
+		// SAFETY: these should always be positive, so clippy doesn't need to alert on them
+		#[allow(clippy::cast_sign_loss)]
+		{
+			video_frame.width = unsafe { (*new_frame.as_mut_ptr()).width as u32 };
+			video_frame.height = unsafe { (*new_frame.as_mut_ptr()).height as u32 };
+			video_frame.line_size = unsafe { (*new_frame.as_mut_ptr()).linesize[0] as u32 };
+		}
 		video_frame.source = if self.use_embedded_data {
 			Some(FrameSource::Metadata)
 		} else {
@@ -256,7 +260,9 @@ impl MovieDecoder {
 		Ok(())
 	}
 
-	pub(crate) fn get_video_duration(&self) -> Duration {
+	// SAFETY: this should always be positive, so clippy doesn't need to alert on them
+	#[allow(clippy::cast_sign_loss)]
+	pub fn get_video_duration(&self) -> Duration {
 		Duration::from_secs(unsafe { (*self.format_context).duration as u64 / AV_TIME_BASE as u64 })
 	}
 
@@ -311,7 +317,7 @@ impl MovieDecoder {
 		let mut embedded_data_streams = vec![];
 		let empty_cstring = CString::new("").unwrap();
 
-		for stream_idx in 0..(unsafe { (*self.format_context).nb_streams as i32 }) {
+		for stream_idx in 0..(unsafe { (*self.format_context).nb_streams.try_into()? }) {
 			let stream = unsafe { *(*self.format_context).streams.offset(stream_idx as isize) };
 			let codec_params = unsafe { (*stream).codecpar };
 
@@ -331,7 +337,7 @@ impl MovieDecoder {
 						tag = unsafe {
 							av_dict_get(
 								(*stream).metadata,
-								empty_cstring.as_ptr() as *const i8,
+								empty_cstring.as_ptr(),
 								tag,
 								AV_DICT_IGNORE_SUFFIX,
 							)
@@ -425,6 +431,7 @@ impl MovieDecoder {
 		}
 	}
 
+	#[allow(clippy::too_many_lines)]
 	fn initialize_filter_graph(
 		&mut self,
 		timebase: &AVRational,
@@ -483,7 +490,7 @@ impl MovieDecoder {
 			&mut scale_filter,
 			"scale",
 			"thumb_scale",
-			&self.create_scale_string(scaled_size, maintain_aspect_ratio)?,
+			&Self::create_scale_string(scaled_size, maintain_aspect_ratio),
 			self.filter_graph,
 			"Failed to create scale filter",
 		)?;
@@ -523,10 +530,10 @@ impl MovieDecoder {
 		check_error(
 			unsafe {
 				avfilter_link(
-					if !rotate_filter.is_null() {
-						rotate_filter
-					} else {
+					if rotate_filter.is_null() {
 						format_filter
+					} else {
+						rotate_filter
 					},
 					0,
 					self.filter_sink,
@@ -560,10 +567,10 @@ impl MovieDecoder {
 				avfilter_link(
 					self.filter_source,
 					0,
-					if !yadif_filter.is_null() {
-						yadif_filter
-					} else {
+					if yadif_filter.is_null() {
 						scale_filter
+					} else {
+						yadif_filter
 					},
 					0,
 				)
@@ -579,18 +586,15 @@ impl MovieDecoder {
 		Ok(())
 	}
 
-	fn create_scale_string(
-		&self,
-		size: Option<ThumbnailSize>,
-		maintain_aspect_ratio: bool,
-	) -> Result<String, ThumbnailerError> {
+	fn create_scale_string(size: Option<ThumbnailSize>, maintain_aspect_ratio: bool) -> String {
 		let mut scaled_width;
 		let mut scaled_height = -1;
 		if size.is_none() {
-			return Ok("w=0:h=0".to_string());
+			return "w=0:h=0".to_string();
 		}
 		let size = size.expect("Size should have been checked for None");
 
+		#[allow(clippy::cast_possible_wrap)]
 		match size {
 			ThumbnailSize::Dimensions { width, height } => {
 				scaled_width = width as i32;
@@ -602,11 +606,11 @@ impl MovieDecoder {
 		}
 
 		if scaled_width <= 0 {
-			scaled_width = -1
+			scaled_width = -1;
 		}
 
 		if scaled_height <= 0 {
-			scaled_height = -1
+			scaled_height = -1;
 		}
 
 		let mut scale = String::new();
@@ -621,9 +625,10 @@ impl MovieDecoder {
 
 		// TODO: Handle anamorphic videos
 
-		Ok(scale)
+		scale
 	}
 
+	#[allow(clippy::cast_ptr_alignment)]
 	fn get_stream_rotation(&self) -> i32 {
 		let matrix = unsafe {
 			av_stream_get_side_data(
@@ -711,9 +716,9 @@ fn setup_filter(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
-				args_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
+				args_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				graph_ctx,
 			)
@@ -736,8 +741,8 @@ fn setup_filter_without_args(
 		unsafe {
 			avfilter_graph_create_filter(
 				filter_ctx,
-				avfilter_get_by_name(filter_name_cstr.as_ptr() as *const i8),
-				filter_setup_name_cstr.as_ptr() as *const i8,
+				avfilter_get_by_name(filter_name_cstr.as_ptr()),
+				filter_setup_name_cstr.as_ptr(),
 				std::ptr::null_mut(),
 				std::ptr::null_mut(),
 				graph_ctx,

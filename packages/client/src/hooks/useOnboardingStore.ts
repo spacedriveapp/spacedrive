@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+
 import { valtioPersist } from '../lib';
 
 export enum UseCase {
@@ -9,16 +10,15 @@ export enum UseCase {
 	Other = 'other'
 }
 
-const onboardingStoreDefaults = {
-	newLibraryName: '',
+const onboardingStoreDefaults = () => ({
 	unlockedScreens: ['alpha'],
 	lastActiveScreen: null as string | null,
-	shareTelemetry: true,
 	useCases: [] as UseCase[],
-	grantedFullDiskAccess: false
-};
+	grantedFullDiskAccess: false,
+	data: {} as Record<string, any> | undefined
+});
 
-const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults);
+const appOnboardingStore = valtioPersist('onboarding', onboardingStoreDefaults());
 
 export function useOnboardingStore() {
 	return useSnapshot(appOnboardingStore);
@@ -29,10 +29,7 @@ export function getOnboardingStore() {
 }
 
 export function resetOnboardingStore() {
-	for (const key in onboardingStoreDefaults) {
-		// @ts-expect-error - TODO: type needs to be fixed
-		appOnboardingStore[key] = onboardingStoreDefaults[key];
-	}
+	Object.assign(appOnboardingStore, onboardingStoreDefaults());
 }
 
 export function unlockOnboardingScreen(key: string, unlockedScreens: string[] = []) {

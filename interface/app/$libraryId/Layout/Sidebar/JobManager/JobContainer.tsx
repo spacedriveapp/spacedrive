@@ -1,22 +1,13 @@
-/* eslint-disable tailwindcss/classnames-order */
 import clsx from 'clsx';
-import { ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode, forwardRef } from 'react';
+import { forwardRef, ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode } from 'react';
+import { TextItems } from '@sd/client';
 import { Tooltip, tw } from '@sd/ui';
+
 import classes from './Job.module.scss';
 
-export interface TextItem {
-	text?: string;
-	tooltip?: string;
-	icon?: ForwardRefExoticComponent<any>;
-	onClick?: () => void;
-}
-
-// first array for lines, second array for items separated by " • ".
-export type TextItems = (TextItem | undefined)[][];
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 	name: string;
-	iconImg?: string;
-	circleIcon?: ForwardRefExoticComponent<any>;
+	icon?: string | ForwardRefExoticComponent<any>;
 	// Array of arrays of TextItems, where each array of TextItems is a truncated line of text.
 	textItems?: TextItems;
 	isChild?: boolean;
@@ -32,16 +23,7 @@ const TextItem = tw.span`truncate`;
 
 // Job container consolidates the common layout of a job item, used for regular jobs (Job.tsx) and grouped jobs (JobGroup.tsx).
 const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) => {
-	const {
-		name,
-		iconImg,
-		circleIcon: CircleIcon,
-		textItems,
-		isChild,
-		children,
-		className,
-		...restProps
-	} = props;
+	const { name, icon: Icon, textItems, isChild, children, className, ...restProps } = props;
 
 	return (
 		<li
@@ -54,26 +36,31 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 			)}
 			{...restProps}
 		>
-			{CircleIcon && (
-				<CircleIcon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
+			{typeof Icon === 'string' ? (
+				<img src={Icon} className={IMG_ICON_CLASS} />
+			) : (
+				Icon && (
+					<Icon weight="fill" className={clsx(CIRCLE_ICON_CLASS, isChild && 'mx-1')} />
+				)
 			)}
-			{iconImg && <img src={iconImg} className={IMG_ICON_CLASS} />}
 			<MetaContainer>
-				<Tooltip tooltipClassName="bg-black max-w-[400px]" position="top" label={name}>
-					<span className="truncate pl-1.5 font-semibold">{name}</span>
+				<Tooltip
+					labelClassName="break-all"
+					asChild
+					tooltipClassName="max-w-[400px]"
+					position="top"
+					label={name}
+				>
+					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
 				</Tooltip>
-				{textItems?.map((textItems, lineIndex) => {
+				{textItems?.map((item, index) => {
 					// filter out undefined text so we don't render empty TextItems
-					const filteredItems = textItems.filter((i) => i?.text);
+					const filteredItems = item.filter((i) => i?.text);
 
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
 
 					return (
-						<Tooltip
-							label={popoverText}
-							key={lineIndex}
-							tooltipClassName="bg-black max-w-[400px]"
-						>
+						<Tooltip label={popoverText} key={index} tooltipClassName="max-w-[400px]">
 							<TextLine>
 								{filteredItems.map((textItem, index) => {
 									const Icon = textItem?.icon;
@@ -82,7 +69,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 											<TextItem
 												onClick={textItem?.onClick}
 												className={clsx(
-													// lineIndex > 0 && 'px-1.5 py-0.5 italic',
+													// index > 0 && 'px-1.5 py-0.5 italic',
 													textItem?.onClick &&
 														'-ml-1.5 rounded-md hover:bg-app-button/50'
 												)}

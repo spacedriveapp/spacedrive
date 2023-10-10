@@ -3,24 +3,27 @@
 /* eslint-disable tailwindcss/classnames-order */
 
 /* eslint-disable jsx-a11y/alt-text */
+import {
+	AndroidLogo,
+	AppleLogo,
+	Download,
+	Globe,
+	IconProps,
+	LinuxLogo,
+	WindowsLogo
+} from '@phosphor-icons/react';
 import { Apple } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
-import { motion } from 'framer-motion';
-import { useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { AndroidLogo, AppleLogo, Download, Globe, LinuxLogo, WindowsLogo } from 'phosphor-react';
-import { IconProps } from 'phosphor-react';
-import { FunctionComponent, forwardRef, memo, useEffect, useRef, useState } from 'react';
-import { Tooltip, tw } from '@sd/ui';
-import BentoBoxes from '~/components/BentoBoxes';
-import CloudStorage from '~/components/CloudStorage';
-import DownloadToday from '~/components/DownloadToday';
+import { forwardRef, FunctionComponent, memo, useEffect, useRef, useState } from 'react';
+import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import Space from '~/components/Space';
-import WormHole from '~/components/WormHole';
+import { Space } from '~/components/Space';
+import { detectWebGLContext, getWindow } from '~/utils/util';
 
 const Link = dynamic(() => import('next/link'), {
 	ssr: false
@@ -89,7 +92,7 @@ export default function HomePage() {
 	}, []);
 
 	return (
-		<>
+		<TooltipProvider>
 			<Head>
 				<title>Spacedrive — A file manager from the future.</title>
 				<meta
@@ -133,7 +136,7 @@ export default function HomePage() {
 						className="mt-[50px] lg:mt-0"
 					/>
 
-					<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent text-white md:text-5xl lg:text-7xl">
+					<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-white md:text-5xl lg:text-7xl">
 						One Explorer. All Your Files.
 					</h1>
 					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
@@ -216,12 +219,12 @@ export default function HomePage() {
 					<div className="h-[200px] w-full" />
 				</div>
 			</PageWrapper>
-		</>
+		</TooltipProvider>
 	);
 }
 
 interface Props {
-	icon: FunctionComponent<IconProps>;
+	icon: any;
 	url: string;
 	label: string;
 }

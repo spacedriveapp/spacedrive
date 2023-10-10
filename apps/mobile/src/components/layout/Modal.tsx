@@ -1,6 +1,7 @@
 import {
 	BottomSheetBackdrop,
 	BottomSheetBackdropProps,
+	BottomSheetFlatList,
 	BottomSheetHandle,
 	BottomSheetHandleProps,
 	BottomSheetModal,
@@ -8,10 +9,11 @@ import {
 	BottomSheetScrollView
 } from '@gorhom/bottom-sheet';
 import { X } from 'phosphor-react-native';
-import { ReactNode, forwardRef } from 'react';
+import { forwardRef, ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
+
 import { Button } from '../primitive/Button';
 
 const ModalBackdrop = (props: BottomSheetBackdropProps) => (
@@ -72,6 +74,7 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 });
 
 export const ModalScrollView = BottomSheetScrollView;
+export const ModalFlatlist = BottomSheetFlatList;
 
 type ConfirmModalProps = {
 	title: string;

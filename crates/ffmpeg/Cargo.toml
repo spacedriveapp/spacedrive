@@ -9,16 +9,14 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 ffmpeg-sys-next = "6.0.1"
-tracing = "0.1.37"
+tracing = { workspace = true }
 
-thiserror = "1.0.40"
-webp = "0.2.2"
+thiserror = "1.0.48"
+webp = "0.2.6"
 tokio = { workspace = true, features = ["fs", "rt"] }
 
 [dev-dependencies]
-tempfile = "3.3.0"
+tempfile = "3.8.0"
 tokio = { workspace = true, features = ["fs", "rt", "macros"] }

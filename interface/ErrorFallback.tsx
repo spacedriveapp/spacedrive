@@ -2,7 +2,9 @@ import { captureException } from '@sentry/browser';
 import { FallbackProps } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Dialogs } from '@sd/ui';
+
+import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 
 export function RouterErrorBoundary() {
@@ -55,6 +57,21 @@ export function ErrorPage({
 	const debug = useDebugState();
 	const os = useOperatingSystem();
 	const isMacOS = os === 'macOS';
+
+	const resetHandler = () => {
+		showAlertDialog({
+			title: 'Reset',
+			value: 'Are you sure you want to reset Spacedrive? Your database will be deleted.',
+			label: 'Confirm',
+			cancelBtn: true,
+			onSubmit: () => {
+				localStorage.clear();
+				// @ts-expect-error
+				window.__TAURI_INVOKE__('reset_spacedrive');
+			}
+		});
+	};
+
 	if (!submessage && debug.enabled)
 		submessage = 'Check the console (CMD/CTRL + OPTION + i) for stack trace.';
 
@@ -67,6 +84,7 @@ export function ErrorPage({
 				(isMacOS ? ' rounded-lg' : '')
 			}
 		>
+			<Dialogs />
 			<p className="m-3 text-sm font-bold text-ink-faint">APP CRASHED</p>
 			<h1 className="text-2xl font-bold text-ink">We're past the event horizon...</h1>
 			<pre className="m-2 max-w-[650px] whitespace-normal text-center text-ink">
@@ -98,15 +116,10 @@ export function ErrorPage({
 						</p>
 						<Button
 							variant="colored"
+							onClick={resetHandler}
 							className="mt-4 max-w-xs border-transparent bg-red-500"
-							onClick={() => {
-								localStorage.clear();
-
-								// @ts-expect-error
-								window.__TAURI_INVOKE__('reset_spacedrive');
-							}}
 						>
-							Reset Spacedrive & Quit App
+							Reset & Quit App
 						</Button>
 					</div>
 				)}

@@ -3,10 +3,11 @@ import { Archive, ArrowsClockwise, Trash } from 'phosphor-react-native';
 import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, ScrollView, Text, View } from 'react-native';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { z } from 'zod';
+import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import { Input } from '~/components/form/Input';
 import { Switch } from '~/components/form/Switch';
-import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
+import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
 import { AnimatedButton, FakeButton } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import {
@@ -15,12 +16,12 @@ import {
 	SettingsTitle
 } from '~/components/settings/SettingsContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
-import { useZodForm, z } from '~/hooks/useZodForm';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { type SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const schema = z.object({
 	displayName: z.string().nullable(),
+	path: z.string().min(1).nullable(),
 	localPath: z.string().nullable(),
 	indexer_rules_ids: z.array(z.string()),
 	generatePreviewMedia: z.boolean().nullable(),
@@ -51,6 +52,7 @@ const EditLocationSettingsScreen = ({
 		updateLocation.mutateAsync({
 			id: Number(id),
 			name: data.displayName,
+			path: data.path,
 			sync_preview_media: data.syncPreviewMedia,
 			generate_preview_media: data.generatePreviewMedia,
 			hidden: data.hidden,
@@ -185,7 +187,12 @@ const EditLocationSettingsScreen = ({
 					<SettingsItem
 						title="Full Reindex"
 						rightArea={
-							<AnimatedButton size="sm" onPress={() => fullRescan.mutate({ location_id: id, reidentify_objects: true })}>
+							<AnimatedButton
+								size="sm"
+								onPress={() =>
+									fullRescan.mutate({ location_id: id, reidentify_objects: true })
+								}
+							>
 								<ArrowsClockwise color="white" size={20} />
 							</AnimatedButton>
 						}

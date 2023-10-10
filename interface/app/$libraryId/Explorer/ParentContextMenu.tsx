@@ -1,12 +1,13 @@
-import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from 'phosphor-react';
+import { Clipboard, FileX, Image, Plus, Repeat, Share, ShieldCheck } from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
-import { ContextMenu as CM, ModifierKeys } from '@sd/ui';
-import { showAlertDialog } from '~/components';
+import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
+
 import { useExplorerContext } from './Context';
-import { SharedItems } from './ContextMenu';
+import { CopyAsPathBase } from './CopyAsPath';
+import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
 
@@ -20,50 +21,48 @@ export default (props: PropsWithChildren) => {
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
-	const rescanLocation = useLibraryMutation('locations.fullRescan');
+	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 
 	return (
 		<CM.Root trigger={props.children}>
-			{parent?.type === 'Location' && cutCopyState.active && (
+			{parent?.type === 'Location' && cutCopyState.type !== 'Idle' && (
 				<>
 					<CM.Item
 						label="Paste"
 						keybind={keybind([ModifierKeys.Control], ['V'])}
 						onClick={async () => {
 							const path = currentPath ?? '/';
-							const { actionType, sourcePathId, sourceParentPath, sourceLocationId } =
+							const { type, sourcePathIds, sourceParentPath, sourceLocationId } =
 								cutCopyState;
+
 							const sameLocation =
 								sourceLocationId === parent.location.id &&
 								sourceParentPath === path;
+
 							try {
-								if (actionType == 'Copy') {
+								if (type == 'Copy') {
 									await copyFiles.mutateAsync({
 										source_location_id: sourceLocationId,
-										sources_file_path_ids: [sourcePathId],
+										sources_file_path_ids: [...sourcePathIds],
 										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path,
-										target_file_name_suffix: sameLocation ? ' copy' : null
+										target_location_relative_directory_path: path
 									});
 								} else if (sameLocation) {
-									showAlertDialog({
-										title: 'Error',
-										value: `File already exists in this location`
-									});
+									toast.error('File already exists in this location');
 								} else {
 									await cutFiles.mutateAsync({
 										source_location_id: sourceLocationId,
-										sources_file_path_ids: [sourcePathId],
+										sources_file_path_ids: [...sourcePathIds],
 										target_location_id: parent.location.id,
 										target_location_relative_directory_path: path
 									});
 								}
 							} catch (error) {
-								showAlertDialog({
-									title: 'Error',
-									value: `Failed to ${actionType.toLowerCase()} file, due to an error: ${error}`
+								toast.error({
+									title: `Failed to ${type.toLowerCase()} file`,
+									body: `Error: ${error}.`
 								});
 							}
 						}}
@@ -74,8 +73,7 @@ export default (props: PropsWithChildren) => {
 						label="Deselect"
 						onClick={() => {
 							getExplorerStore().cutCopyState = {
-								...cutCopyState,
-								active: false
+								type: 'Idle'
 							};
 						}}
 						icon={FileX}
@@ -102,20 +100,23 @@ export default (props: PropsWithChildren) => {
 
 			{parent?.type === 'Location' && (
 				<>
-					<SharedItems.RevealInNativeExplorer locationId={parent.location.id} />
-
+					<RevealInNativeExplorerBase
+						items={[{ Location: { id: parent.location.id } }]}
+					/>
 					<CM.SubMenu label="More actions..." icon={Plus}>
+						<CopyAsPathBase path={`${parent.location.path}${currentPath ?? ''}`} />
+
 						<CM.Item
 							onClick={async () => {
 								try {
 									await rescanLocation.mutateAsync({
 										location_id: parent.location.id,
-										reidentify_objects: false
+										sub_path: currentPath ?? ''
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to re-index location, due to an error: ${error}`
+									toast.error({
+										title: `Failed to re-index location`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}
@@ -128,12 +129,13 @@ export default (props: PropsWithChildren) => {
 								try {
 									await generateThumbsForLocation.mutateAsync({
 										id: parent.location.id,
-										path: currentPath ?? '/'
+										path: currentPath ?? '/',
+										regenerate: true
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to generate thumbanails, due to an error: ${error}`
+									toast.error({
+										title: `Failed to generate thumbnails`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}
@@ -149,9 +151,9 @@ export default (props: PropsWithChildren) => {
 										path: currentPath ?? '/'
 									});
 								} catch (error) {
-									showAlertDialog({
-										title: 'Error',
-										value: `Failed to generate checksum, due to an error: ${error}`
+									toast.error({
+										title: `Failed to generate checksum`,
+										body: `Error: ${error}.`
 									});
 								}
 							}}

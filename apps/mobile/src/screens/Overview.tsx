@@ -8,7 +8,6 @@ export default function OverviewScreen({ navigation }: OverviewStackScreenProps<
 	return (
 		<VirtualizedListWrapper>
 			<View style={tw`mt-4 px-4`}>
-				{/* Stats */}
 				<OverviewStats />
 			</View>
 		</VirtualizedListWrapper>

@@ -1,16 +1,44 @@
-import { Gear } from 'phosphor-react';
-import { useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, Popover, Tooltip, dialogManager } from '@sd/ui';
+import { Gear } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router';
+import { useKeys } from 'rooks';
+import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
+import { Button, ButtonLink, dialogManager, modifierSymbols, Popover, Tooltip } from '@sd/ui';
+import { useKeyMatcher } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
+
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
-import { IsRunningJob, JobsManager } from './JobManager';
+import { IsRunningJob, JobManager } from './JobManager';
 
 export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
+	const navigate = useNavigate();
+	const { key, icon } = useKeyMatcher('Meta');
+
+	useKeys([key, 'Shift', 'KeyS'], (e) => {
+		e.stopPropagation();
+		navigate('settings/client/general');
+	});
+
+	const updater = usePlatform().updater;
+	const updaterState = updater?.useSnapshot();
 
 	return (
 		<div className="space-y-2">
+			{updater && updaterState && (
+				<>
+					{updaterState.status === 'updateAvailable' && (
+						<Button
+							variant="outline"
+							className="w-full"
+							onClick={updater.installUpdate}
+						>
+							Install Update
+						</Button>
+					)}
+				</>
+			)}
 			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink
@@ -19,30 +47,41 @@ export default () => {
 						variant="subtle"
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
-						<Tooltip label="Settings">
+						<Tooltip
+							position="top"
+							label="Settings"
+							keybinds={[modifierSymbols.Shift.Other, icon, 'S']}
+						>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
-					<Popover
-						trigger={
-							<Button
-								size="icon"
-								variant="subtle"
-								className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
-								disabled={!library}
-							>
-								{library && (
-									<Tooltip label="Recent Jobs">
-										<IsRunningJob />
-									</Tooltip>
-								)}
-							</Button>
-						}
-					>
-						<div className="block h-96 w-[430px]">
-							<JobsManager />
-						</div>
-					</Popover>
+					<JobManagerContextProvider>
+						<Popover
+							keybind={[key, 'j']}
+							trigger={
+								<Button
+									size="icon"
+									variant="subtle"
+									className="text-sidebar-inkFaint ring-offset-sidebar radix-state-open:bg-sidebar-selected/50"
+									disabled={!library}
+								>
+									{library && (
+										<Tooltip
+											label="Recent Jobs"
+											position="top"
+											keybinds={[icon, 'J']}
+										>
+											<IsRunningJob />
+										</Tooltip>
+									)}
+								</Button>
+							}
+						>
+							<div className="block h-96 w-[430px]">
+								<JobManager />
+							</div>
+						</Popover>
+					</JobManagerContextProvider>
 				</div>
 				<Button
 					variant="outline"

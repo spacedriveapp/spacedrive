@@ -68,7 +68,7 @@
 // 	}
 
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-// 		let Library { db, .. } = &ctx.library;
+// 		let Library { db, .. } = &*ctx.library;
 
 // 		state.steps = get_many_files_datas(
 // 			db,
@@ -90,7 +90,7 @@
 // 	) -> Result<(), JobError> {
 // 		let step = &state.steps[0];
 
-// 		let Library { key_manager, .. } = &ctx.library;
+// 		let Library { key_manager, .. } = &*ctx.library;
 
 // 		if !step.file_path.is_dir {
 // 			// handle overwriting checks, and making sure there's enough available space

@@ -1,4 +1,4 @@
-// import { Info } from 'phosphor-react';
+// import { Info } from '@phosphor-icons/react';
 // import { useEffect, useRef, useState } from 'react';
 // import { Algorithm, HASHING_ALGOS, HashingAlgoSlug, useLibraryMutation } from '@sd/client';
 // import {

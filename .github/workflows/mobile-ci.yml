@@ -128,16 +128,20 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           setup-arg: mobile
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate iOS Project
+        working-directory: ./apps/mobile
+        run: pnpm expo prebuild --platform ios --no-install
 
       - name: Cache Pods
         uses: actions/cache@v3

@@ -1,7 +1,7 @@
 use crate::{
 	job::{
-		CurrentStep, JobError, JobInitOutput, JobResult, JobRunMetadata, JobStepOutput,
-		StatefulJob, WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
 	location::file_path_helper::{
@@ -9,7 +9,7 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::{chain_optional_iter, maybe_missing},
+	util::db::maybe_missing,
 };
 
 use std::{
@@ -75,6 +75,7 @@ impl StatefulJob for FileIdentifierJobInit {
 	type RunMetadata = FileIdentifierJobRunMetadata;
 
 	const NAME: &'static str = "file_identifier";
+	const IS_BATCHED: bool = true;
 
 	async fn init(
 		&self,
@@ -82,7 +83,7 @@ impl StatefulJob for FileIdentifierJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		debug!("Identifying orphan File Paths...");
 
@@ -152,7 +153,12 @@ impl StatefulJob for FileIdentifierJobInit {
 			.select(file_path::select!({ id }))
 			.exec()
 			.await?
-			.expect("We already validated before that there are orphans `file_path`s"); // SAFETY: We already validated before that there are orphans `file_path`s
+			.expect("We already validated before that there are orphans `file_path`s");
+
+		ctx.progress(vec![
+			JobReportUpdate::TaskCount(orphan_count),
+			JobReportUpdate::Message(format!("Found {orphan_count} files to be identified")),
+		]);
 
 		Ok((
 			FileIdentifierJobRunMetadata {
@@ -211,11 +217,14 @@ impl StatefulJob for FileIdentifierJobInit {
 		new_metadata.total_objects_linked = total_objects_linked;
 		new_metadata.cursor = new_cursor;
 
-		ctx.progress_msg(format!(
-			"Processed {} of {} orphan Paths",
-			step_number * CHUNK_SIZE,
-			run_metadata.total_orphan_paths
-		));
+		ctx.progress(vec![
+			JobReportUpdate::CompletedTaskCount(step_number * CHUNK_SIZE + file_paths.len()),
+			JobReportUpdate::Message(format!(
+				"Processed {} of {} orphan Paths",
+				step_number * CHUNK_SIZE,
+				run_metadata.total_orphan_paths
+			)),
+		]);
 
 		Ok(new_metadata.into())
 	}
@@ -238,7 +247,7 @@ fn orphan_path_filters(
 	file_path_id: Option<file_path::id::Type>,
 	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
-	chain_optional_iter(
+	sd_utils::chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
 			file_path::is_dir::equals(Some(false)),

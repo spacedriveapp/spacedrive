@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import {
 	ArrowClockwise,
 	Key,
@@ -8,31 +7,41 @@ import {
 	SlidersHorizontal,
 	SquaresFour,
 	Tag
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
+import { useKeyMatcher } from '~/hooks';
+
 import { KeyManager } from '../KeyManager';
-import TopBarOptions, { TOP_BAR_ICON_STYLE, ToolOption } from '../TopBar/TopBarOptions';
+import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';
+import { useExplorerSearchParams } from './util';
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
+	const explorer = useExplorerContext();
+	const controlIcon = useKeyMatcher('Meta').icon;
+
+	const settings = explorer.useSettingsSnapshot();
 
 	const viewOptions: ToolOption[] = [
 		{
 			toolTipLabel: 'Grid view',
 			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'grid',
-			onClick: () => (getExplorerStore().layoutMode = 'grid'),
+			keybinds: [controlIcon, 'B'],
+			topBarActive: settings.layoutMode === 'grid',
+			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
 			showAtResolution: 'sm:flex'
 		},
 		{
 			toolTipLabel: 'List view',
 			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'rows',
-			onClick: () => (getExplorerStore().layoutMode = 'rows'),
+			keybinds: [controlIcon, 'B'],
+			topBarActive: settings.layoutMode === 'list',
+			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
 			showAtResolution: 'sm:flex'
 		},
 		// {
@@ -45,8 +54,9 @@ export const useExplorerTopBarOptions = () => {
 		{
 			toolTipLabel: 'Media view',
 			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			topBarActive: explorerStore.layoutMode === 'media',
-			onClick: () => (getExplorerStore().layoutMode = 'media'),
+			keybinds: [controlIcon, 'B'],
+			topBarActive: settings.layoutMode === 'media',
+			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
 			showAtResolution: 'sm:flex'
 		}
 	];
@@ -61,7 +71,10 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Show Inspector',
-			onClick: () => (getExplorerStore().showInspector = !explorerStore.showInspector),
+			keybinds: [controlIcon, 'I'],
+			onClick: () => {
+				getExplorerStore().showInspector = !explorerStore.showInspector;
+			},
 			icon: (
 				<SidebarSimple
 					weight={explorerStore.showInspector ? 'fill' : 'regular'}
@@ -83,6 +96,8 @@ export const useExplorerTopBarOptions = () => {
 	const { client } = useRspcLibraryContext();
 
 	const { parent } = useExplorerContext();
+
+	const [{ path }] = useExplorerSearchParams();
 
 	const toolOptions = [
 		{
@@ -114,7 +129,7 @@ export const useExplorerTopBarOptions = () => {
 						'locations.quickRescan',
 						{
 							location_id: parent.location.id,
-							sub_path: ''
+							sub_path: path ?? ''
 						}
 					],
 					{ onData() {} }

@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
-import { FieldValues, UseControllerProps, useController } from 'react-hook-form';
-import { Popover, inputStyles } from '@sd/ui';
+import { FieldValues, useController, UseControllerProps } from 'react-hook-form';
+import { inputStyles, Popover } from '@sd/ui';
 
 interface Props<T extends FieldValues> extends UseControllerProps<T> {
 	className?: string;

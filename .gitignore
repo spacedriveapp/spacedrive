@@ -15,7 +15,7 @@ cli/turbo.exe
 storybook-static/
 .DS_Store
 cache
-.env
+.env*
 vendor/
 data
 node_modules
@@ -25,8 +25,10 @@ packages/*/node_modules
 packages/*/data
 apps/*/data
 apps/*/stats.html
+apps/.deps
 apps/releases/.vscode
 apps/desktop/src-tauri/tauri.conf.patch.json
+apps/desktop/src-tauri/*.dll
 docs/public/*.st
 docs/public/*.toml
 dev.db
@@ -64,7 +66,6 @@ yalc.lock
 todos.md
 examples/*/*.lock
 /target
-prisma*.rs
 
 playwright-report
 
@@ -79,4 +80,5 @@ sd_init.json
 
 spacedrive
 .cargo/config
+.cargo/config.toml
 .github/scripts/deps

@@ -1,22 +1,23 @@
+import { ArrowsOutSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { ArrowsOutSimple } from 'phosphor-react';
 import { memo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
-import GridList from '~/components/GridList';
-import { ViewItem } from '.';
-import FileThumb from '../FilePath/Thumb';
-import { useExplorerViewContext } from '../ViewContext';
-import { getExplorerStore, useExplorerStore } from '../store';
+
+import { useExplorerContext } from '../Context';
+import { FileThumb } from '../FilePath/Thumb';
+import { getQuickPreviewStore } from '../QuickPreview/store';
+import GridList from './GridList';
+import { ViewItem } from './ViewItem';
 
 interface MediaViewItemProps {
 	data: ExplorerItem;
-	index: number;
 	selected: boolean;
+	cut: boolean;
 }
 
-const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
-	const explorerStore = useExplorerStore();
+const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
+	const settings = useExplorerContext().useSettingsSnapshot();
 
 	return (
 		<ViewItem
@@ -33,17 +34,18 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 				)}
 			>
 				<FileThumb
-					size={0}
 					data={data}
-					cover={explorerStore.mediaAspectSquare}
-					className="!rounded-none"
+					cover={settings.mediaAspectSquare}
+					blackBars
+					extension
+					className={clsx(!settings.mediaAspectSquare && 'px-1', cut && 'opacity-60')}
 				/>
 
 				<Button
 					variant="gray"
 					size="icon"
 					className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-					onClick={() => (getExplorerStore().quickViewObject = data)}
+					onClick={() => (getQuickPreviewStore().open = true)}
 				>
 					<ArrowsOutSimple />
 				</Button>
@@ -53,45 +55,11 @@ const MediaViewItem = memo(({ data, index, selected }: MediaViewItemProps) => {
 });
 
 export default () => {
-	const explorerStore = useExplorerStore();
-	const explorerView = useExplorerViewContext();
-
 	return (
-		<GridList
-			scrollRef={explorerView.scrollRef}
-			count={explorerView.items?.length || 100}
-			columns={explorerStore.mediaColumns}
-			selected={explorerView.selected}
-			onSelectedChange={explorerView.onSelectedChange}
-			overscan={explorerView.overscan}
-			onLoadMore={explorerView.onLoadMore}
-			rowsBeforeLoadMore={explorerView.rowsBeforeLoadMore}
-			top={explorerView.top}
-			preventSelection={!explorerView.selectable}
-			preventContextMenuSelection={explorerView.contextMenu === undefined}
-		>
-			{({ index, item: Item }) => {
-				if (!explorerView.items) {
-					return (
-						<Item className="!p-px">
-							<div className="h-full animate-pulse bg-app-box" />
-						</Item>
-					);
-				}
-
-				const item = explorerView.items[index];
-				if (!item) return null;
-
-				const isSelected = Array.isArray(explorerView.selected)
-					? explorerView.selected.includes(item.item.id)
-					: explorerView.selected === item.item.id;
-
-				return (
-					<Item selectable selected={isSelected} index={index} id={item.item.id}>
-						<MediaViewItem data={item} index={index} selected={isSelected} />
-					</Item>
-				);
-			}}
+		<GridList>
+			{({ item, selected, cut }) => (
+				<MediaViewItem data={item} selected={selected} cut={cut} />
+			)}
 		</GridList>
 	);
 };

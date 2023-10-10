@@ -6,25 +6,23 @@ use crate::{
 	},
 	object::{cas::generate_cas_id, object_for_file_identifier},
 	prisma::{file_path, location, object, PrismaClient},
-	sync,
-	sync::SyncManager,
-	util::{
-		db::{maybe_missing, uuid_to_bytes},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_sync::CRDTOperation;
+
+use sd_prisma::prisma_sync;
+use sd_sync::{CRDTOperation, OperationFactory};
+use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{HashMap, HashSet},
+	fmt::Debug,
 	path::Path,
 };
 
 use futures::future::join_all;
 use serde_json::json;
-use thiserror::Error;
 use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
@@ -37,7 +35,7 @@ pub use shallow::*;
 // we break these jobs into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum FileIdentifierJobError {
 	#[error("received sub path not in database: <path='{}'>", .0.display())]
 	SubPathNotFound(Box<Path>),
@@ -51,7 +49,7 @@ pub enum FileIdentifierJobError {
 
 #[derive(Debug, Clone)]
 pub struct FileMetadata {
-	pub cas_id: String,
+	pub cas_id: Option<String>,
 	pub kind: ObjectKind,
 	pub fs_metadata: std::fs::Metadata,
 }
@@ -79,9 +77,15 @@ impl FileMetadata {
 			.map(Into::into)
 			.unwrap_or(ObjectKind::Unknown);
 
-		let cas_id = generate_cas_id(&path, fs_metadata.len())
-			.await
-			.map_err(|e| FileIOError::from((&path, e)))?;
+		let cas_id = if fs_metadata.len() != 0 {
+			generate_cas_id(&path, fs_metadata.len())
+				.await
+				.map(Some)
+				.map_err(|e| FileIOError::from((&path, e)))?
+		} else {
+			// We can't do shit with empty files
+			None
+		};
 
 		trace!("Analyzed file: {path:?} {cas_id:?} {kind:?}");
 
@@ -100,34 +104,38 @@ async fn identifier_job_step(
 ) -> Result<(usize, usize), JobError> {
 	let location_path = maybe_missing(&location.path, "location.path").map(Path::new)?;
 
-	let file_path_metas = join_all(file_paths.iter().map(|file_path| async move {
-		// NOTE: `file_path`'s `materialized_path` begins with a `/` character so we remove it to join it with `location.path`
-		let meta = FileMetadata::new(
-			&location_path,
-			&IsolatedFilePathData::try_from((location.id, file_path))?,
-		)
-		.await?;
-
-		Ok((
-			// SAFETY: This should never happen
-			Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
-			(meta, file_path),
-		)) as Result<_, JobError>
-	}))
+	let file_paths_metadatas = join_all(
+		file_paths
+			.iter()
+			.filter_map(|file_path| {
+				IsolatedFilePathData::try_from((location.id, file_path))
+					.map(|iso_file_path| (iso_file_path, file_path))
+					.map_err(|e| error!("Failed to extract isolated file path data: {e:#?}"))
+					.ok()
+			})
+			.map(|(iso_file_path, file_path)| async move {
+				FileMetadata::new(&location_path, &iso_file_path)
+					.await
+					.map(|metadata| {
+						(
+							// SAFETY: This should never happen
+							Uuid::from_slice(&file_path.pub_id)
+								.expect("file_path.pub_id is invalid!"),
+							(metadata, file_path),
+						)
+					})
+					.map_err(|e| error!("Failed to extract file metadata: {e:#?}"))
+					.ok()
+			}),
+	)
 	.await
 	.into_iter()
-	.flat_map(|data| {
-		if let Err(e) = &data {
-			error!("Error assembling Object metadata: {e}");
-		}
+	.flatten()
+	.collect::<HashMap<_, _>>();
 
-		data
-	})
-	.collect::<HashMap<Uuid, (FileMetadata, &file_path_for_file_identifier::Data)>>();
-
-	let unique_cas_ids = file_path_metas
+	let unique_cas_ids = file_paths_metadatas
 		.values()
-		.map(|(meta, _)| meta.cas_id.clone())
+		.filter_map(|(metadata, _)| metadata.cas_id.clone())
 		.collect::<HashSet<_>>()
 		.into_iter()
 		.collect();
@@ -135,20 +143,20 @@ async fn identifier_job_step(
 	// Assign cas_id to each file path
 	sync.write_ops(
 		db,
-		file_path_metas
+		file_paths_metadatas
 			.iter()
-			.map(|(pub_id, (meta, _))| {
+			.map(|(pub_id, (metadata, _))| {
 				(
 					sync.shared_update(
-						sync::file_path::SyncId {
-							pub_id: uuid_to_bytes(*pub_id),
+						prisma_sync::file_path::SyncId {
+							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
-						json!(&meta.cas_id),
+						json!(&metadata.cas_id),
 					),
 					db.file_path().update(
-						file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
-						vec![file_path::cas_id::set(Some(meta.cas_id.clone()))],
+						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
+						vec![file_path::cas_id::set(metadata.cas_id.clone())],
 					),
 				)
 			})
@@ -168,7 +176,12 @@ async fn identifier_job_step(
 
 	let existing_object_cas_ids = existing_objects
 		.iter()
-		.flat_map(|o| o.file_paths.iter().filter_map(|fp| fp.cas_id.as_ref()))
+		.flat_map(|object| {
+			object
+				.file_paths
+				.iter()
+				.filter_map(|file_path| file_path.cas_id.as_ref())
+		})
 		.collect::<HashSet<_>>();
 
 	// Attempt to associate each file path with an object that has been
@@ -176,17 +189,25 @@ async fn identifier_job_step(
 	let updated_file_paths = sync
 		.write_ops(
 			db,
-			file_path_metas
+			file_paths_metadatas
 				.iter()
-				.flat_map(|(pub_id, (meta, _))| {
+				.filter_map(|(pub_id, (metadata, file_path))| {
+					// Filtering out files without cas_id due to being empty
+					metadata
+						.cas_id
+						.is_some()
+						.then_some((pub_id, (metadata, file_path)))
+				})
+				.flat_map(|(pub_id, (metadata, _))| {
 					existing_objects
 						.iter()
-						.find(|o| {
-							o.file_paths
+						.find(|object| {
+							object
+								.file_paths
 								.iter()
-								.any(|fp| fp.cas_id.as_ref() == Some(&meta.cas_id))
+								.any(|file_path| file_path.cas_id == metadata.cas_id)
 						})
-						.map(|o| (*pub_id, o))
+						.map(|object| (*pub_id, object))
 				})
 				.map(|(pub_id, object)| {
 					let (crdt_op, db_op) = file_path_object_connect_ops(
@@ -209,64 +230,70 @@ async fn identifier_job_step(
 	);
 
 	// extract objects that don't already exist in the database
-	let file_paths_requiring_new_object = file_path_metas
+	let file_paths_requiring_new_object = file_paths_metadatas
 		.into_iter()
-		.filter(|(_, (meta, _))| !existing_object_cas_ids.contains(&meta.cas_id))
+		.filter(|(_, (FileMetadata { cas_id, .. }, _))| {
+			cas_id
+				.as_ref()
+				.map(|cas_id| !existing_object_cas_ids.contains(cas_id))
+				.unwrap_or(true)
+		})
 		.collect::<Vec<_>>();
 
 	let total_created = if !file_paths_requiring_new_object.is_empty() {
-		let new_objects_cas_ids = file_paths_requiring_new_object
-			.iter()
-			.map(|(_, (meta, _))| &meta.cas_id)
-			.collect::<HashSet<_>>();
-
 		trace!(
-			"Creating {} new Objects in Library... {:#?}",
+			"Creating {} new Objects in Library",
 			file_paths_requiring_new_object.len(),
-			new_objects_cas_ids
 		);
 
 		let (object_create_args, file_path_update_args): (Vec<_>, Vec<_>) =
 			file_paths_requiring_new_object
 				.iter()
-				.map(|(file_path_pub_id, (meta, fp))| {
-					let object_pub_id = Uuid::new_v4();
-
-					let sync_id = || sync::object::SyncId {
-						pub_id: uuid_to_bytes(object_pub_id),
-					};
-
-					let kind = meta.kind as i32;
-
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+				.map(
+					|(
+						file_path_pub_id,
 						(
-							(object::date_created::NAME, json!(fp.date_created)),
-							object::date_created::set(fp.date_created),
+							FileMetadata { kind, .. },
+							file_path_for_file_identifier::Data { date_created, .. },
 						),
-						(
-							(object::kind::NAME, json!(kind)),
-							object::kind::set(Some(kind)),
-						),
-					]
-					.into_iter()
-					.unzip();
+					)| {
+						let object_pub_id = Uuid::new_v4();
+						let sync_id = || prisma_sync::object::SyncId {
+							pub_id: sd_utils::uuid_to_bytes(object_pub_id),
+						};
 
-					let object_creation_args = (
-						sync.unique_shared_create(sync_id(), sync_params),
-						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
-					);
+						let kind = *kind as i32;
 
-					(object_creation_args, {
-						let (crdt_op, db_op) = file_path_object_connect_ops(
-							*file_path_pub_id,
-							object_pub_id,
-							sync,
-							db,
+						let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+							(
+								(object::date_created::NAME, json!(date_created)),
+								object::date_created::set(*date_created),
+							),
+							(
+								(object::kind::NAME, json!(kind)),
+								object::kind::set(Some(kind)),
+							),
+						]
+						.into_iter()
+						.unzip();
+
+						let object_creation_args = (
+							sync.shared_create(sync_id(), sync_params),
+							object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
 						);
 
-						(crdt_op, db_op.select(file_path::select!({ pub_id })))
-					})
-				})
+						(object_creation_args, {
+							let (crdt_op, db_op) = file_path_object_connect_ops(
+								*file_path_pub_id,
+								object_pub_id,
+								sync,
+								db,
+							);
+
+							(crdt_op, db_op.select(file_path::select!({ pub_id })))
+						})
+					},
+				)
 				.unzip();
 
 		// create new object records with assembled values
@@ -274,7 +301,10 @@ async fn identifier_job_step(
 			.write_ops(db, {
 				let (sync, db_params): (Vec<_>, Vec<_>) = object_create_args.into_iter().unzip();
 
-				(sync, db.object().create_many(db_params))
+				(
+					sync.into_iter().flatten().collect(),
+					db.object().create_many(db_params),
+				)
 			})
 			.await
 			.unwrap_or_else(|e| {
@@ -308,7 +338,7 @@ async fn identifier_job_step(
 fn file_path_object_connect_ops<'db>(
 	file_path_id: Uuid,
 	object_id: Uuid,
-	sync: &SyncManager,
+	sync: &crate::sync::Manager,
 	db: &'db PrismaClient,
 ) -> (CRDTOperation, file_path::UpdateQuery<'db>) {
 	#[cfg(debug_assertions)]
@@ -318,16 +348,16 @@ fn file_path_object_connect_ops<'db>(
 
 	(
 		sync.shared_update(
-			sync::file_path::SyncId {
-				pub_id: uuid_to_bytes(file_path_id),
+			prisma_sync::file_path::SyncId {
+				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(sync::object::SyncId {
+			json!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),
 		db.file_path().update(
-			file_path::pub_id::equals(uuid_to_bytes(file_path_id)),
+			file_path::pub_id::equals(sd_utils::uuid_to_bytes(file_path_id)),
 			vec![file_path::object::connect(object::pub_id::equals(vec_id))],
 		),
 	)

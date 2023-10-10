@@ -1,13 +1,16 @@
 use crate::{
+	node::{config::NodeConfig, Platform},
+	p2p::IdentityOrRemoteIdentity,
 	prisma::{file_path, indexer_rule, PrismaClient},
 	util::{
-		db::{maybe_missing, uuid_to_bytes},
+		db::maybe_missing,
 		migrator::{Migrate, MigratorError},
 	},
 };
 
-use sd_p2p::{spacetunnel::Identity, PeerId};
-use sd_prisma::prisma::node;
+use chrono::Utc;
+use sd_p2p::spacetunnel::Identity;
+use sd_prisma::prisma::{instance, location, node};
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -21,54 +24,21 @@ use uuid::Uuid;
 use super::name::LibraryName;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryConfig {
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: LibraryName,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
 	pub description: Option<String>,
-	/// P2P identity of this library.
-	pub identity: Vec<u8>,
-	/// Id of the current node
-	pub node_id: Uuid,
-	// /// is_encrypted is a flag that is set to true if the library is encrypted.
-	// #[serde(default)]
-	// pub is_encrypted: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-pub struct SanitisedLibraryConfig {
-	pub name: LibraryName,
-	pub description: Option<String>,
-	pub node_id: Uuid,
-}
-
-impl From<LibraryConfig> for SanitisedLibraryConfig {
-	fn from(config: LibraryConfig) -> Self {
-		Self {
-			name: config.name,
-			description: config.description,
-			node_id: config.node_id,
-		}
-	}
-}
-
-impl LibraryConfig {
-	pub fn new(name: LibraryName, node_id: Uuid) -> Self {
-		Self {
-			name,
-			description: None,
-			identity: Identity::new().to_bytes().to_vec(),
-			node_id,
-		}
-	}
+	/// id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
+	pub instance_id: i32,
 }
 
 #[async_trait::async_trait]
 impl Migrate for LibraryConfig {
-	const CURRENT_VERSION: u32 = 5;
+	const CURRENT_VERSION: u32 = 9;
 
-	type Ctx = (Uuid, PeerId, Arc<PrismaClient>);
+	type Ctx = (NodeConfig, Arc<PrismaClient>);
 
 	fn default(path: PathBuf) -> Result<Self, MigratorError> {
 		Err(MigratorError::ConfigFileMissing(path))
@@ -77,7 +47,7 @@ impl Migrate for LibraryConfig {
 	async fn migrate(
 		to_version: u32,
 		config: &mut serde_json::Map<String, serde_json::Value>,
-		(node_id, peer_id, db): &Self::Ctx,
+		(node_config, db): &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match to_version {
 			0 => {}
@@ -85,7 +55,7 @@ impl Migrate for LibraryConfig {
 				let rules = vec![
 					format!("No OS protected"),
 					format!("No Hidden"),
-					format!("Only Git Repositories"),
+					format!("No Git"),
 					format!("Only Images"),
 				];
 
@@ -96,9 +66,9 @@ impl Migrate for LibraryConfig {
 						.map(|(i, name)| {
 							db.indexer_rule().update_many(
 								vec![indexer_rule::name::equals(Some(name))],
-								vec![indexer_rule::pub_id::set(uuid_to_bytes(Uuid::from_u128(
-									i as u128,
-								)))],
+								vec![indexer_rule::pub_id::set(sd_utils::uuid_to_bytes(
+									Uuid::from_u128(i as u128),
+								))],
 							)
 						})
 						.collect::<Vec<_>>(),
@@ -130,14 +100,16 @@ impl Migrate for LibraryConfig {
 					.update_many(
 						vec![],
 						vec![
-							node::pub_id::set(node_id.as_bytes().to_vec()),
-							node::node_peer_id::set(Some(peer_id.to_string())),
+							node::pub_id::set(node_config.id.as_bytes().to_vec()),
+							node::node_peer_id::set(Some(
+								node_config.keypair.peer_id().to_string(),
+							)),
 						],
 					)
 					.exec()
 					.await?;
 
-				config.insert("node_id".into(), Value::String(node_id.to_string()));
+				config.insert("node_id".into(), Value::String(node_config.id.to_string()));
 			}
 			4 => {} // -_-
 			5 => loop {
@@ -189,16 +161,107 @@ impl Migrate for LibraryConfig {
 				)
 				.await?;
 			},
+			6 => {
+				let nodes = db.node().find_many(vec![]).exec().await?;
+
+				if nodes.is_empty() {
+					println!("6 - No nodes found... How did you even get this far? but this is fine we can fix it.");
+				} else if nodes.len() > 1 {
+					return Err(MigratorError::Custom(
+						"6 - More than one node found in the DB... This can't be automatically reconciled!"
+							.into(),
+					));
+				}
+
+				let node = nodes.first();
+				let now = Utc::now().fixed_offset();
+				let instance_id = Uuid::new_v4();
+				instance::Create {
+					pub_id: instance_id.as_bytes().to_vec(),
+					identity: node
+						.and_then(|n| n.identity.clone())
+						.unwrap_or_else(|| Identity::new().to_bytes()),
+					node_id: node_config.id.as_bytes().to_vec(),
+					node_name: node_config.name.clone(),
+					node_platform: Platform::current() as i32,
+					last_seen: now,
+					date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
+					_params: vec![],
+				}
+				.to_query(db)
+				.exec()
+				.await?;
+
+				config.remove("node_id");
+				config.remove("identity");
+				config.insert("instance_id".into(), Value::String(instance_id.to_string()));
+			}
+			7 => {
+				let instances = db.instance().find_many(vec![]).exec().await?;
+
+				if instances.len() > 1 {
+					return Err(MigratorError::Custom(
+						"7 - More than one instance found in the DB... This can't be automatically reconciled!"
+							.into(),
+					));
+				}
+				let Some(instance) = instances.first() else {
+					return Err(MigratorError::Custom(
+						"7 - No nodes found... How did you even get this far?!".into(),
+					));
+				};
+
+				config.remove("instance_id");
+				config.insert("instance_id".into(), Value::Number(instance.id.into()));
+
+				// We are relinking all locations to the current instance.
+				// If you have more than one node in your database and your not @Oscar, something went horribly wrong so this is fine.
+				db.location()
+					.update_many(vec![], vec![location::instance_id::set(Some(instance.id))])
+					.exec()
+					.await?;
+			}
+			8 => {
+				let instances = db.instance().find_many(vec![]).exec().await?;
+				let Some(instance) = instances.first() else {
+					return Err(MigratorError::Custom(
+						"8 - No nodes found... How did you even get this far?!".into(),
+					));
+				};
+
+				// This should be in 7 but it's added to ensure to hell it runs.
+				config.remove("instance_id");
+				config.insert("instance_id".into(), Value::Number(instance.id.into()));
+			}
+			9 => {
+				db._batch(
+					db.instance()
+						.find_many(vec![])
+						.exec()
+						.await?
+						.into_iter()
+						.map(|i| {
+							db.instance().update(
+								instance::id::equals(i.id),
+								vec![instance::identity::set(
+									// This code is assuming you only have the current node.
+									// If you've paired your node with another node, reset your db.
+									IdentityOrRemoteIdentity::Identity(
+										Identity::from_bytes(&i.identity).expect(
+											"Invalid identity detected in DB during migrations",
+										),
+									)
+									.to_bytes(),
+								)],
+							)
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await?;
+			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}
 
 		Ok(())
 	}
-}
-
-// used to return to the frontend with uuid context
-#[derive(Serialize, Deserialize, Debug, Type)]
-pub struct LibraryConfigWrapped {
-	pub uuid: Uuid,
-	pub config: SanitisedLibraryConfig,
 }

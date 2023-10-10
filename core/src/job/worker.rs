@@ -1,4 +1,4 @@
-use crate::{api::CoreEvent, invalidate_query, library::Library};
+use crate::{api::CoreEvent, invalidate_query, library::Library, Node};
 
 use std::{
 	fmt,
@@ -22,12 +22,13 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	DynJob, JobError, JobManager, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus,
+	DynJob, JobError, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus, Jobs,
 };
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct JobProgressEvent {
 	pub id: Uuid,
+	pub library_id: Uuid,
 	pub task_count: i32,
 	pub completed_task_count: i32,
 	pub message: String,
@@ -51,7 +52,8 @@ pub enum WorkerCommand {
 }
 
 pub struct WorkerContext {
-	pub library: Library,
+	pub library: Arc<Library>,
+	pub node: Arc<Node>,
 	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
 
@@ -89,6 +91,7 @@ impl WorkerContext {
 // a worker is a dedicated thread that runs a single job
 // once the job is complete the worker will exit
 pub struct Worker {
+	pub(super) library_id: Uuid,
 	commands_tx: mpsc::Sender<WorkerCommand>,
 	report_watch_tx: Arc<watch::Sender<JobReport>>,
 	report_watch_rx: watch::Receiver<JobReport>,
@@ -100,8 +103,9 @@ impl Worker {
 		id: Uuid,
 		mut job: Box<dyn DynJob>,
 		mut report: JobReport,
-		library: Library,
-		job_manager: Arc<JobManager>,
+		library: Arc<Library>,
+		node: Arc<Node>,
+		job_manager: Arc<Jobs>,
 	) -> Result<Self, JobError> {
 		let (commands_tx, commands_rx) = mpsc::channel(8);
 
@@ -128,6 +132,7 @@ impl Worker {
 
 		let (report_watch_tx, report_watch_rx) = watch::channel(report.clone());
 		let report_watch_tx = Arc::new(report_watch_tx);
+		let library_id = library.id;
 
 		// spawn task to handle running the job
 		tokio::spawn(Self::do_work(
@@ -142,9 +147,11 @@ impl Worker {
 			start_time,
 			commands_rx,
 			library,
+			node,
 		));
 
 		Ok(Self {
+			library_id,
 			commands_tx,
 			report_watch_tx,
 			report_watch_rx,
@@ -276,6 +283,7 @@ impl Worker {
 		// emit a CoreEvent
 		library.emit(CoreEvent::JobProgress(JobProgressEvent {
 			id: report.id,
+			library_id: library.id,
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,
@@ -294,13 +302,15 @@ impl Worker {
 		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
 		commands_rx: mpsc::Receiver<WorkerCommand>,
-		library: Library,
+		library: Arc<Library>,
+		node: Arc<Node>,
 	) {
 		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
 
 		let mut job_future = job.run(
 			WorkerContext {
 				library: library.clone(),
+				node: node.clone(),
 				events_tx,
 			},
 			commands_rx,
@@ -516,7 +526,7 @@ impl Worker {
 
 struct JobWorkTable {
 	job: Box<dyn DynJob>,
-	manager: Arc<JobManager>,
+	manager: Arc<Jobs>,
 	hash: u64,
 	report: JobReport,
 }

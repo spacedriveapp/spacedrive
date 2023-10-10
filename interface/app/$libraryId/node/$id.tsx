@@ -1,10 +1,14 @@
 import { Laptop } from '@sd/assets/icons';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useMemo } from 'react';
+import { ExplorerItem, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
+
 import Explorer from '../Explorer';
-import { ExplorerContext } from '../Explorer/Context';
+import { ExplorerContextProvider } from '../Explorer/Context';
+import { createDefaultExplorerSettings } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
+import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
@@ -14,35 +18,44 @@ export const Component = () => {
 
 	const nodeState = useBridgeQuery(['nodeState']);
 
+	const explorerSettings = useExplorerSettings({
+		settings: useMemo(
+			() =>
+				createDefaultExplorerSettings<never>({
+					order: null
+				}),
+			[]
+		),
+		onSettingsChanged: () => {}
+	});
+
+	const explorer = useExplorer({
+		items: query.data || null,
+		parent: nodeState.data
+			? {
+					type: 'Node',
+					node: nodeState.data
+			  }
+			: undefined,
+		settings: explorerSettings,
+		showPathBar: false
+	});
+
 	return (
-		<ExplorerContext.Provider
-			value={{
-				parent: nodeState.data
-					? {
-							type: 'Node',
-							node: nodeState.data
-					  }
-					: undefined
-			}}
-		>
+		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal
 				left={
-					<div className="group flex flex-row items-center space-x-2">
-						<span className="flex flex-row items-center">
-							<img
-								src={Laptop}
-								className="ml-3 mr-2 mt-[-1px] inline-block h-6 w-6"
-							/>
-							<span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
-								{nodeState.data?.name || 'Node'}
-							</span>
+					<div className="flex items-center gap-2">
+						<img src={Laptop} className="mt-[-1px] h-6 w-6" />
+						<span className="truncate text-sm font-medium">
+							{nodeState.data?.name || 'Node'}
 						</span>
 					</div>
 				}
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer items={query.data || []} />
-		</ExplorerContext.Provider>
+			<Explorer />
+		</ExplorerContextProvider>
 	);
 };

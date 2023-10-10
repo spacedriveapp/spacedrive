@@ -4,7 +4,36 @@ button {
 }
 
 body {
+	-webkit-user-select: none;
 	// font-family: 'InterVariable', sans-serif;
+}
+
+.app-background {
+	@apply bg-app;
+}
+
+.frame::before {
+	@apply bg-app-frame;
+	content: '';
+	pointer-events: none;
+	user-select: none;
+	position: absolute;
+	inset: 0px;
+	border-radius: inherit;
+	padding: 1px;
+	mask:
+		linear-gradient(black, black) content-box content-box,
+		linear-gradient(black, black);
+	mask-composite: xor;
+	z-index: 9999;
+}
+
+.has-blur-effects {
+	.app-background {
+		// adjust macOS blur intensity here
+		// @apply bg-app/[0.88];
+		@apply bg-app;
+	}
 }
 
 .no-scrollbar {
@@ -21,10 +50,64 @@ body {
 	display: none;
 }
 
+/*Tooltip*/
+
+.TooltipContent {
+	animation-duration: 0.6s;
+	animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.TooltipContent[data-side='top'] {
+	animation-name: slideUp;
+}
+.TooltipContent[data-side='bottom'] {
+	animation-name: slideDown;
+}
+
+.TooltipContent[data-side='right'] {
+	animation-name: slideRight;
+}
+
+@keyframes slideRight {
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes slideUp {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */
 	scrollbar-width: none; /* for Firefox */
 	overflow-y: scroll;
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent;
 }
 
 .explorer-scroll {
@@ -33,20 +116,15 @@ body {
 		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply mt-[46px] rounded-[6px] bg-[#00000000];
+		@apply rounded-[6px] bg-transparent;
+		margin-top: var(--scrollbar-margin-top);
+		margin-bottom: var(--scrollbar-margin-bottom);
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-transparent;
-	}
-	&::-webkit-scrollbar-corner {
-		background-color: transparent;
-	}
-	&:hover {
-		&::-webkit-scrollbar-thumb {
-			@apply bg-app-divider/20;
-		}
+		@apply rounded-[6px] bg-app-explorerScrollbar;
 	}
 }
+
 .default-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
@@ -132,6 +210,18 @@ body {
 		}
 	}
 }
+.textviewer-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-md bg-app-box;
+	}
+}
 
 @keyframes fadeIn {
 	from {
@@ -195,7 +285,9 @@ body {
 	height: 28px;
 	border-radius: 8px;
 	border: 3px solid #fff;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.1),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 	cursor: pointer;
 }
 

@@ -1,7 +1,7 @@
 use crate::{
 	library::Library,
-	prisma::{job, node},
-	util::db::{chain_optional_iter, maybe_missing, MissingFieldError},
+	prisma::job,
+	util::db::{maybe_missing, MissingFieldError},
 };
 
 use std::fmt::{Display, Formatter};
@@ -176,15 +176,14 @@ impl JobReport {
 
 	pub fn get_meta(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
-		let Some(action_name) = self.action
-			.as_ref()
-			.map(
-				|action| action.split('-')
-					.next()
-					.map(str::to_string)
-					.unwrap_or_default()
-			) else {
-			 return (self.id.to_string(), None);
+		let Some(action_name) = self.action.as_ref().map(|action| {
+			action
+				.split('-')
+				.next()
+				.map(str::to_string)
+				.unwrap_or_default()
+		}) else {
+			return (self.id.to_string(), None);
 		};
 		// create a unique group_key, EG: "added_location-<location_id>"
 		let group_key = self.parent_id.map_or_else(
@@ -203,9 +202,8 @@ impl JobReport {
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
-				chain_optional_iter(
+				sd_utils::chain_optional_iter(
 					[
-						job::node::connect(node::id::equals(library.node_local_id)),
 						job::name::set(Some(self.name.clone())),
 						job::action::set(self.action.clone()),
 						job::data::set(self.data.clone()),

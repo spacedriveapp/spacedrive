@@ -1,7 +1,7 @@
 // import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 // import { animated, useTransition } from '@react-spring/web';
 // import clsx from 'clsx';
-// import { DotsThree, Eye, Key as KeyIcon } from 'phosphor-react';
+// import { DotsThree, Eye, Key as KeyIcon } from '@phosphor-icons/react';
 // import { PropsWithChildren, useState } from 'react';
 // import { useLibraryMutation } from '@sd/client';
 // import { Button, Tooltip } from '@sd/ui';

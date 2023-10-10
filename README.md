@@ -3,7 +3,7 @@
 
   </a>
   <p align="center">
-   <img width="150" height="150" src="https://github.com/spacedriveapp/spacedrive/blob/main/packages/assets/images/AppLogo.png" alt="Logo">
+   <img width="150" height="150" src="packages/assets/images/AppLogo.png" alt="Logo">
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
@@ -32,20 +32,20 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 <br/>
 <br/>
 
-> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+> UPDATE: Spacedrive is under active development, we are in the pre-alpha stage, with builds occasionally released via GitHub actions, official alpha coming soon.
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
 For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/spacedriveapp/spacedrive/main/apps/landing/public/app.png" alt="App screenshot">
+  <img src="apps/landing/public/github.webp" alt="App screenshot">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
     <img src="https://img.shields.io/discord/949090953497567312?label=Discord&color=5865F2" />
   </a>
-  <a href="https://twitter.com/spacedriveapp">
+  <a href="https://x.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Twitter-00acee?logo=twitter&logoColor=white" />
   </a>
   <a href="https://instagram.com/spacedriveapp">
@@ -76,6 +76,10 @@ View a list of our planned features here: [spacedrive.com/roadmap](https://space
 # Developer Guide
 
 Please refer to the [contributing guide](CONTRIBUTING.md) for how to install Spacedrive from sources.
+
+# Security Policy
+
+Please refer to the [security policy](SECURITY.md) for details and information on how to responsibly report a security vulnerability or issue.
 
 # Architecture
 

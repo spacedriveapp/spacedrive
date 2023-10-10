@@ -1,8 +1,7 @@
-import byteSize from 'byte-size';
 import { FC, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
-import { Statistics, useLibraryQuery } from '@sd/client';
+import { byteSize, Statistics, useLibraryQuery } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -28,9 +27,9 @@ const EMPTY_STATISTICS = {
 };
 
 const StatItem: FC<{ title: string; bytes: bigint }> = ({ title, bytes }) => {
-	const { value, unit } = byteSize(Number(bytes)); // TODO: This BigInt to Number conversion will truncate the number if the number is too large. `byteSize` doesn't support BigInt so we are gonna need to come up with a longer term solution at some point.
+	const { value, unit } = byteSize(bytes);
 
-	const count = useCounter({ name: title, end: Number(value) });
+	const count = useCounter({ name: title, end: value });
 
 	return (
 		<View style={tw`flex flex-col p-4`}>

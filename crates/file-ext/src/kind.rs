@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+// Note: The order of this enum should never change, and always be kept in sync with `packages/client/src/utils/objectKind.ts`
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ObjectKind {
@@ -27,7 +28,7 @@ pub enum ObjectKind {
 	Alias = 10,
 	/// Raw bytes encrypted by Spacedrive with self contained metadata
 	Encrypted = 11,
-	/// A link can open web pages, apps or Spaces
+	/// A key or certificate file
 	Key = 12,
 	/// A link can open web pages, apps or Spaces
 	Link = 13,
@@ -49,4 +50,10 @@ pub enum ObjectKind {
 	Database = 21,
 	/// E-book file
 	Book = 22,
+	/// Config file
+	Config = 23,
+	/// Dotfile
+	Dotfile = 24,
+	/// Screenshot
+	Screenshot = 25,
 }

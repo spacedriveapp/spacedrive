@@ -11,52 +11,64 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          remove-codeql: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-android: 'true'
+          overprovision-lvm: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          install: true
-          platforms: linux/amd64
-          driver-opts: |
-            image=moby/buildkit:master
-            network=host
+      - name: Update buildah
+        shell: bash
+        run: |
+          wget -O- 'https://github.com/nicholasdille/buildah-static/releases/download/v1.30.0/buildah-amd64.tar.gz' \
+          | sudo tar -xzf- -C /usr/
 
       - name: Determine image name & tag
+        id: image_info
         shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" == "release" ]; then
-            export IMAGE_TAG=${GITHUB_REF##*/}
+            IMAGE_TAG=${GITHUB_REF##*/}
           else
-            export IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
+            IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
           fi
-          export GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
-          export IMAGE_NAME="ghcr.io/$GITHUB_REPOSITORY_LOWER/server"
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
+          IMAGE_NAME="$GITHUB_REPOSITORY_LOWER/server"
+
           echo "Building $IMAGE_NAME:$IMAGE_TAG"
+          echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "repo=${GITHUB_REPOSITORY}" >> $GITHUB_OUTPUT
+          echo "repo_ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image
-        shell: bash
-        run: |
-          docker build ./apps/server/docker --tag $IMAGE_NAME:$IMAGE_TAG --build-arg="REPO=${GITHUB_REPOSITORY}" --build-arg="REPO_REF=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+      - name: Build image
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'production' || 'staging' }}
+          archs: amd64
+          image: ${{ steps.image_info.outputs.name }}
+          layers: 'false'
+          context: ./apps/server/docker
+          build-args: |
+            REPO=${{ steps.image_info.outputs.repo }}
+            REPO_REF=${{ steps.image_info.outputs.repo_ref }}
+          containerfiles: |
+            ./apps/server/docker/Dockerfile
 
-      - name: Push Docker image
-        shell: bash
-        run: |
-          docker push $IMAGE_NAME:$IMAGE_TAG
-
-      - name: Tag & push image as latest staging image
-        if: ${{ github.event_name != 'release' }}
-        shell: bash
-        run: |
-          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
-          docker push $IMAGE_NAME:staging
-
-      - name: Tag & push image as latest production image
-        if: ${{ github.event_name == 'release' }}
-        shell: bash
-        run: |
-          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:production
-          docker push $IMAGE_NAME:production
+      - name: Push image to ghcr.io
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          tags: ${{ steps.build-image.outputs.tags }}
+          image: ${{ steps.build-image.outputs.image }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

@@ -8,10 +8,11 @@ use crate::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
 			erase::FileEraserJobInit,
 		},
-		preview::thumbnailer_job::ThumbnailerJobInit,
+		media::media_processor::MediaProcessorJobInit,
 		validation::validator_job::ObjectValidatorJobInit,
 	},
 	prisma::job,
+	Node,
 };
 
 use std::{
@@ -31,45 +32,30 @@ use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 const MAX_WORKERS: usize = 1;
 
 pub enum JobManagerEvent {
-	IngestJob(Library, Box<dyn DynJob>),
-	Shutdown(oneshot::Sender<()>),
-}
-/// JobManager handles queueing and executing jobs using the `DynJob`
-/// Handling persisting JobReports to the database, pause/resuming, and
-///
-pub struct JobManager {
-	current_jobs_hashes: RwLock<HashSet<u64>>,
-	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
-	running_workers: RwLock<HashMap<Uuid, Worker>>,
-	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
+	IngestJob(Arc<Library>, Box<dyn DynJob>),
+	Shutdown(oneshot::Sender<()>, Arc<Jobs>),
 }
 
-impl JobManager {
-	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
-	pub fn new() -> Arc<Self> {
-		// allow the job manager to control its workers
-		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
+#[must_use = "'job::manager::Actor::start' must be called to start the actor"]
+pub struct Actor {
+	jobs: Arc<Jobs>,
+	internal_receiver: mpsc::UnboundedReceiver<JobManagerEvent>,
+}
 
-		let this = Arc::new(Self {
-			current_jobs_hashes: RwLock::new(HashSet::new()),
-			job_queue: RwLock::new(VecDeque::new()),
-			running_workers: RwLock::new(HashMap::new()),
-			internal_sender,
-		});
-
-		let this2 = this.clone();
+impl Actor {
+	pub fn start(mut self, node: Arc<Node>) {
 		tokio::spawn(async move {
 			// FIXME: if this task crashes, the entire application is unusable
-			while let Some(event) = internal_receiver.recv().await {
+			while let Some(event) = self.internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(library, job) => {
-						this2.clone().dispatch(&library, job).await
+						self.jobs.clone().dispatch(&node, &library, job).await
 					}
 					// When the app shuts down, we need to gracefully shutdown all
 					// active workers and preserve their state
-					JobManagerEvent::Shutdown(signal_tx) => {
+					JobManagerEvent::Shutdown(signal_tx, this) => {
 						info!("Shutting down job manager");
-						let running_workers = this2.running_workers.read().await;
+						let running_workers = this.running_workers.read().await;
 						join_all(running_workers.values().map(|worker| worker.shutdown())).await;
 
 						signal_tx.send(()).ok();
@@ -77,15 +63,45 @@ impl JobManager {
 				}
 			}
 		});
+	}
+}
 
-		debug!("JobManager initialized");
-		this
+/// JobManager handles queueing and executing jobs using the `DynJob`
+/// Handling persisting JobReports to the database, pause/resuming, and
+///
+pub struct Jobs {
+	current_jobs_hashes: RwLock<HashSet<u64>>,
+	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
+	running_workers: RwLock<HashMap<Uuid, Worker>>,
+	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
+}
+
+impl Jobs {
+	/// Initializes the JobManager and spawns the internal event loop to listen for ingest.
+	pub fn new() -> (Arc<Self>, Actor) {
+		// allow the job manager to control its workers
+		let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
+		let this = Arc::new(Self {
+			current_jobs_hashes: RwLock::new(HashSet::new()),
+			job_queue: RwLock::new(VecDeque::new()),
+			running_workers: RwLock::new(HashMap::new()),
+			internal_sender,
+		});
+
+		(
+			this.clone(),
+			Actor {
+				jobs: this,
+				internal_receiver,
+			},
+		)
 	}
 
 	/// Ingests a new job and dispatches it if possible, queues it otherwise.
 	pub async fn ingest(
 		self: Arc<Self>,
-		library: &Library,
+		node: &Arc<Node>,
+		library: &Arc<Library>,
 		job: Box<Job<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
@@ -104,12 +120,17 @@ impl JobManager {
 		);
 
 		self.current_jobs_hashes.write().await.insert(job_hash);
-		self.dispatch(library, job).await;
+		self.dispatch(node, library, job).await;
 		Ok(())
 	}
 
 	/// Dispatches a job to a worker if under MAX_WORKERS limit, queues it otherwise.
-	async fn dispatch(self: Arc<Self>, library: &Library, mut job: Box<dyn DynJob>) {
+	async fn dispatch(
+		self: Arc<Self>,
+		node: &Arc<Node>,
+		library: &Arc<Library>,
+		mut job: Box<dyn DynJob>,
+	) {
 		let mut running_workers = self.running_workers.write().await;
 		let mut job_report = job
 			.report_mut()
@@ -121,16 +142,23 @@ impl JobManager {
 
 			let worker_id = job_report.parent_id.unwrap_or(job_report.id);
 
-			Worker::new(worker_id, job, job_report, library.clone(), self.clone())
-				.await
-				.map_or_else(
-					|e| {
-						error!("Error spawning worker: {:#?}", e);
-					},
-					|worker| {
-						running_workers.insert(worker_id, worker);
-					},
-				);
+			Worker::new(
+				worker_id,
+				job,
+				job_report,
+				library.clone(),
+				node.clone(),
+				self.clone(),
+			)
+			.await
+			.map_or_else(
+				|e| {
+					error!("Error spawning worker: {:#?}", e);
+				},
+				|worker| {
+					running_workers.insert(worker_id, worker);
+				},
+			);
 		} else {
 			debug!(
 				"Queueing job: <name='{}', hash='{}'>",
@@ -151,7 +179,7 @@ impl JobManager {
 
 	pub async fn complete(
 		self: Arc<Self>,
-		library: &Library,
+		library: &Arc<Library>,
 		worker_id: Uuid,
 		job_hash: u64,
 		next_job: Option<Box<dyn DynJob>>,
@@ -177,10 +205,10 @@ impl JobManager {
 	}
 
 	/// Shutdown the job manager, signaled by core on shutdown.
-	pub async fn shutdown(&self) {
+	pub async fn shutdown(self: &Arc<Self>) {
 		let (tx, rx) = oneshot::channel();
 		self.internal_sender
-			.send(JobManagerEvent::Shutdown(tx))
+			.send(JobManagerEvent::Shutdown(tx, self.clone()))
 			.unwrap_or_else(|_| {
 				error!("Failed to send shutdown event to job manager!");
 			});
@@ -238,7 +266,11 @@ impl JobManager {
 	/// when the core was shut down.
 	/// - It will resume jobs that contain data and cancel jobs that do not.
 	/// - Prevents jobs from being stuck in a paused/running state
-	pub async fn cold_resume(self: Arc<Self>, library: &Library) -> Result<(), JobManagerError> {
+	pub async fn cold_resume(
+		self: Arc<Self>,
+		node: &Arc<Node>,
+		library: &Arc<Library>,
+	) -> Result<(), JobManagerError> {
 		// Include the Queued status in the initial find condition
 		let find_condition = vec![or(vec![
 			job::status::equals(Some(JobStatus::Paused as i32)),
@@ -261,7 +293,9 @@ impl JobManager {
 			match initialize_resumable_job(job.clone(), None) {
 				Ok(resumable_job) => {
 					info!("Resuming job: {} with uuid {}", job.name, job.id);
-					Arc::clone(&self).dispatch(library, resumable_job).await;
+					Arc::clone(&self)
+						.dispatch(node, library, resumable_job)
+						.await;
 				}
 				Err(err) => {
 					warn!(
@@ -303,19 +337,18 @@ impl JobManager {
 			.read()
 			.await
 			.values()
-			.filter_map(|worker| {
-				(!worker.is_paused()).then(|| {
-					let report = worker.report();
-					(report.get_meta().0, report)
-				})
+			.filter(|&worker| !worker.is_paused())
+			.map(|worker| {
+				let report = worker.report();
+				(report.get_meta().0, report)
 			})
 			.collect()
 	}
 
 	/// Check if the manager currently has some active workers.
-	pub async fn has_active_workers(&self) -> bool {
+	pub async fn has_active_workers(&self, library_id: Uuid) -> bool {
 		for worker in self.running_workers.read().await.values() {
-			if !worker.is_paused() {
+			if worker.library_id == library_id && !worker.is_paused() {
 				return true;
 			}
 		}
@@ -354,7 +387,7 @@ fn initialize_resumable_job(
 			Err(JobError::UnknownJobName(job_report.id, job_report.name))
 		},
 		jobs = [
-			ThumbnailerJobInit,
+			MediaProcessorJobInit,
 			IndexerJobInit,
 			FileIdentifierJobInit,
 			ObjectValidatorJobInit,

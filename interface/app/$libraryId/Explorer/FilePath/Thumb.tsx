@@ -1,223 +1,170 @@
-import { getIcon, iconNames } from '@sd/assets/util';
+import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import { ImgHTMLAttributes, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ExplorerItem, getItemLocation, useLibraryContext } from '@sd/client';
-import { PDFViewer } from '~/components';
+import {
+	memo,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+	type ImgHTMLAttributes,
+	type RefObject,
+	type VideoHTMLAttributes
+} from 'react';
+import { getItemFilePath, useLibraryContext, type ExplorerItem } from '@sd/client';
+import { PDFViewer, TextViewer } from '~/components';
 import { useCallbackToWatchResize, useIsDark } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
+import { usePlatform } from '~/util/Platform';
+
 import { useExplorerContext } from '../Context';
 import { getExplorerStore } from '../store';
 import { useExplorerItemData } from '../util';
+import LayeredFileIcon from './LayeredFileIcon';
 import classes from './Thumb.module.scss';
 
-interface ThumbnailProps {
-	src: string;
-	cover?: boolean;
-	onLoad?: () => void;
-	onError?: () => void;
-	decoding?: ImgHTMLAttributes<HTMLImageElement>['decoding'];
-	className?: string;
-	crossOrigin?: ImgHTMLAttributes<HTMLImageElement>['crossOrigin'];
-	videoBarsSize?: number;
-	videoExtension?: string;
-}
-
-const Thumbnail = memo(
-	({ crossOrigin, videoBarsSize, videoExtension, ...props }: ThumbnailProps) => {
-		const ref = useRef<HTMLImageElement>(null);
-		const [size, setSize] = useState<null | { width: number; height: number }>(null);
-
-		useCallbackToWatchResize(
-			(rect) => {
-				const { width, height } = rect;
-				setSize((width && height && { width, height }) || null);
-			},
-			[],
-			ref
-		);
-
-		return (
-			<>
-				<img
-					// Order matter for crossOrigin attr
-					// https://github.com/facebook/react/issues/14035#issuecomment-642227899
-					{...(crossOrigin ? { crossOrigin } : {})}
-					src={props.src}
-					ref={ref}
-					style={
-						videoBarsSize
-							? size && size.height >= size.width
-								? {
-										borderLeftWidth: videoBarsSize,
-										borderRightWidth: videoBarsSize
-								  }
-								: {
-										borderTopWidth: videoBarsSize,
-										borderBottomWidth: videoBarsSize
-								  }
-							: {}
-					}
-					onLoad={props.onLoad}
-					onError={() => {
-						props.onError?.();
-						setSize(null);
-					}}
-					decoding={props.decoding}
-					className={props.className}
-					draggable={false}
-				/>
-				{videoExtension && (
-					<div
-						style={
-							props.cover
-								? {}
-								: size
-								? {
-										marginTop: Math.floor(size.height / 2) - 2,
-										marginLeft: Math.floor(size.width / 2) - 2
-								  }
-								: { display: 'none' }
-						}
-						className={clsx(
-							props.cover
-								? 'bottom-1 right-1'
-								: 'left-1/2 top-1/2 -translate-x-full -translate-y-full',
-							'absolute rounded !text-white',
-							'bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase opacity-70'
-						)}
-					>
-						{videoExtension}
-					</div>
-				)}
-			</>
-		);
-	}
-);
-
-enum ThumbType {
-	Icon,
-	Original,
-	Thumbnail,
-	Location
+export const enum ThumbType {
+	Icon = 'ICON',
+	Original = 'ORIGINAL',
+	Thumbnail = 'THUMBNAIL'
 }
 
 export interface ThumbProps {
 	data: ExplorerItem;
-	size: null | number;
-	cover?: boolean;
-	className?: string;
 	loadOriginal?: boolean;
+	size?: number;
+	cover?: boolean;
+	frame?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
+	extension?: boolean;
 	mediaControls?: boolean;
+	pauseVideo?: boolean;
+	className?: string;
+	frameClassName?: string;
+	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
+	isSidebarPreview?: boolean;
 }
 
-function FileThumb({ size, cover, ...props }: ThumbProps) {
+export const FileThumb = memo((props: ThumbProps) => {
 	const isDark = useIsDark();
 	const platform = usePlatform();
+
 	const itemData = useExplorerItemData(props.data);
-	const locationData = getItemLocation(props.data);
+	const filePath = getItemFilePath(props.data);
+
+	const { parent } = useExplorerContext();
 	const { library } = useLibraryContext();
-	const [src, setSrc] = useState<null | string>(null);
+
+	const [src, setSrc] = useState<string>();
 	const [loaded, setLoaded] = useState<boolean>(false);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	const { parent } = useExplorerContext();
+
+	const childClassName = 'max-h-full max-w-full object-contain';
+	const frameClassName = clsx(
+		'rounded-sm border-2 border-app-line bg-app-darkBox',
+		props.frameClassName,
+		isDark ? classes.checkers : classes.checkersLight
+	);
+
+	const onLoad = useCallback(() => setLoaded(true), []);
+
+	const onError = useCallback(() => {
+		setLoaded(false);
+		setThumbType((prevThumbType) =>
+			prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
+				? ThumbType.Thumbnail
+				: ThumbType.Icon
+		);
+	}, [itemData.hasLocalThumbnail]);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
 	useLayoutEffect(() => {
 		// Reset src when item changes, to allow detection of yet not updated src
-		setSrc(null);
+		setSrc(undefined);
 		setLoaded(false);
 
 		if (props.loadOriginal) {
 			setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
-		} else if (locationData) {
-			setThumbType(ThumbType.Location);
 		} else {
 			setThumbType(ThumbType.Icon);
 		}
-	}, [props.loadOriginal, locationData, itemData]);
+	}, [props.loadOriginal, itemData]);
 
 	useEffect(() => {
-		const {
-			casId,
-			kind,
-			isDir,
-			extension,
-			locationId: itemLocationId,
-			thumbnailKey
-		} = itemData;
 		const locationId =
-			itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
+			itemData.locationId ?? (parent?.type === 'Location' ? parent.location.id : null);
 
 		switch (thumbType) {
 			case ThumbType.Original:
-				if (locationId) {
-					setSrc(
-						platform.getFileUrl(
-							library.uuid,
-							locationId,
-							props.data.item.id,
-							// Workaround Linux webview not supporting playing video and audio through custom protocol urls
-							kind == 'Video' || kind == 'Audio'
-						)
-					);
+				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
+					if ('id' in filePath && locationId)
+						setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+					else if ('path' in filePath) setSrc(platform.getFileUrlByPath(filePath.path));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}
 				break;
+
 			case ThumbType.Thumbnail:
-				if (casId && thumbnailKey) {
-					setSrc(platform.getThumbnailUrlByThumbKey(thumbnailKey));
+				if (itemData.thumbnailKey.length > 0) {
+					setSrc(platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey));
 				} else {
 					setThumbType(ThumbType.Icon);
 				}
 				break;
-			case ThumbType.Location:
-				setSrc(getIcon('Folder', isDark, extension, true));
-				break;
+
 			default:
-				if (isDir !== null) setSrc(getIcon(kind, isDark, extension, isDir));
+				if (itemData.customIcon) {
+					setSrc(getIconByName(itemData.customIcon as any));
+					break;
+				}
+				setSrc(
+					getIcon(
+						// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
+						itemData.kind,
+						isDark,
+						itemData.extension,
+						itemData.isDir
+					)
+				);
 				break;
 		}
-	}, [props.data.item.id, isDark, library.uuid, itemData, platform, thumbType, parent]);
+	}, [props.data.item, filePath, isDark, library.uuid, itemData, platform, thumbType, parent]);
 
-	const onLoad = () => setLoaded(true);
-
-	const onError = () => {
-		setLoaded(false);
-		setThumbType((prevThumbType) => {
-			return prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
-				? ThumbType.Thumbnail
-				: ThumbType.Icon;
-		});
-	};
-
-	const { kind, extension } = itemData;
-	const childClassName = 'max-h-full max-w-full object-contain';
 	return (
 		<div
 			style={{
-				visibility: loaded ? 'visible' : 'hidden',
-				...(size ? { maxWidth: size, width: size - 10, height: size } : {})
+				...(props.size
+					? { maxWidth: props.size, width: props.size, height: props.size }
+					: {})
 			}}
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
-				size &&
-					kind !== 'Video' &&
-					thumbType !== ThumbType.Icon &&
-					'border-2 border-transparent',
-				size || ['h-full', cover ? 'w-full overflow-hidden' : 'w-[90%]'],
+				!loaded && 'invisible',
+				!props.size && 'h-full w-full',
+				props.cover && 'overflow-hidden',
 				props.className
 			)}
 		>
 			{(() => {
-				if (src == null) return null;
+				if (!src) return;
+
+				const _childClassName =
+					typeof props.childClassName === 'function'
+						? props.childClassName(thumbType)
+						: props.childClassName;
+
+				const className = clsx(childClassName, _childClassName);
+
 				switch (thumbType) {
-					case ThumbType.Original:
-						switch (extension === 'pdf' && pdfViewerEnabled() ? 'PDF' : kind) {
+					case ThumbType.Original: {
+						switch (itemData.extension === 'pdf' ? 'PDF' : itemData.kind) {
 							case 'PDF':
 								return (
 									<PDFViewer
@@ -225,54 +172,68 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 										onLoad={onLoad}
 										onError={onError}
 										className={clsx(
-											'h-full w-full border-0',
-											childClassName,
-											props.className
+											'h-full w-full',
+											className,
+											props.frame && frameClassName
 										)}
 										crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 									/>
 								);
+							case 'Text':
+							case 'Code':
+							case 'Config':
+								return (
+									<TextViewer
+										src={src}
+										onLoad={onLoad}
+										onError={onError}
+										className={clsx(
+											'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
+											!props.mediaControls
+												? 'overflow-hidden'
+												: 'overflow-auto',
+											className,
+											props.frame && [frameClassName, '!bg-none p-2']
+										)}
+										codeExtension={
+											((itemData.kind === 'Code' ||
+												itemData.kind === 'Config') &&
+												itemData.extension) ||
+											''
+										}
+										isSidebarPreview={props.isSidebarPreview}
+									/>
+								);
+
 							case 'Video':
 								return (
-									<video
-										// Order matter for crossOrigin attr
-										crossOrigin="anonymous"
+									<Video
 										src={src}
-										onError={onError}
-										autoPlay
-										onVolumeChange={(e) => {
-											const video = e.target as HTMLVideoElement;
-											getExplorerStore().mediaPlayerVolume = video.volume;
-										}}
-										controls={props.mediaControls}
-										onCanPlay={(e) => {
-											const video = e.target as HTMLVideoElement;
-											// Why not use the element's attribute? Because React...
-											// https://github.com/facebook/react/issues/10389
-											video.loop = !props.mediaControls;
-											video.muted = !props.mediaControls;
-											video.volume = getExplorerStore().mediaPlayerVolume;
-										}}
-										className={clsx(
-											childClassName,
-											size && 'rounded border-x-0 border-black',
-											props.className
-										)}
-										playsInline
 										onLoadedData={onLoad}
-										draggable={false}
-									>
-										<p>Video preview is not supported.</p>
-									</video>
+										onError={onError}
+										paused={props.pauseVideo}
+										controls={props.mediaControls}
+										blackBars={props.blackBars}
+										blackBarsSize={props.blackBarsSize}
+										className={clsx(
+											className,
+											props.frame && !props.blackBars && frameClassName
+										)}
+									/>
 								);
+
 							case 'Audio':
 								return (
 									<>
 										<img
-											src={getIcon(iconNames.Audio, isDark, extension)}
+											src={getIcon(
+												iconNames.Audio,
+												isDark,
+												itemData.extension
+											)}
 											onLoad={onLoad}
-											decoding={size ? 'async' : 'sync'}
-											className={clsx(childClassName, props.className)}
+											decoding={props.size ? 'async' : 'sync'}
+											className={childClassName}
 											draggable={false}
 										/>
 										{props.mediaControls && (
@@ -291,50 +252,55 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 									</>
 								);
 						}
+					}
+
 					// eslint-disable-next-line no-fallthrough
 					case ThumbType.Thumbnail:
 						return (
 							<Thumbnail
 								src={src}
-								cover={cover}
+								cover={props.cover}
 								onLoad={onLoad}
 								onError={onError}
-								decoding={size ? 'async' : 'sync'}
+								decoding={props.size ? 'async' : 'sync'}
 								className={clsx(
-									cover
-										? 'min-h-full min-w-full object-cover object-center'
-										: childClassName,
-									kind === 'Video' ? 'rounded' : 'rounded-sm',
-									ThumbType.Original || [
-										classes.checkers,
-										'shadow shadow-black/30'
-									],
-									size &&
-										(kind === 'Video'
-											? 'border-x-0 border-black'
-											: size > 60 && 'border-2 border-app-line'),
-									props.className
+									props.cover
+										? [
+												'min-h-full min-w-full object-cover object-center',
+												_childClassName
+										  ]
+										: className,
+									props.frame && !(itemData.kind === 'Video' && props.blackBars)
+										? frameClassName
+										: null
 								)}
-								crossOrigin={ThumbType.Original && 'anonymous'} // Here it is ok, because it is not a react attr
-								videoBarsSize={
-									(kind === 'Video' && size && Math.floor(size / 10)) || 0
+								crossOrigin={
+									thumbType !== ThumbType.Original ? 'anonymous' : undefined
+								} // Here it is ok, because it is not a react attr
+								blackBars={
+									props.blackBars && itemData.kind === 'Video' && !props.cover
 								}
-								videoExtension={
-									(kind === 'Video' &&
-										(cover || size == null || size > 80) &&
-										extension) ||
-									''
+								blackBarsSize={props.blackBarsSize}
+								extension={
+									props.extension &&
+									itemData.extension &&
+									itemData.kind === 'Video'
+										? itemData.extension
+										: undefined
 								}
 							/>
 						);
+
 					default:
 						return (
-							<img
+							<LayeredFileIcon
 								src={src}
+								kind={itemData.kind}
+								extension={itemData.extension}
 								onLoad={onLoad}
 								onError={() => setLoaded(false)}
-								decoding={size ? 'async' : 'sync'}
-								className={clsx(childClassName, props.className)}
+								decoding={props.size ? 'async' : 'sync'}
+								className={className}
 								draggable={false}
 							/>
 						);
@@ -342,6 +308,148 @@ function FileThumb({ size, cover, ...props }: ThumbProps) {
 			})()}
 		</div>
 	);
+});
+
+interface ThumbnailProps extends ImgHTMLAttributes<HTMLImageElement> {
+	cover?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
+	extension?: string;
 }
 
-export default memo(FileThumb);
+const Thumbnail = memo(
+	({
+		crossOrigin,
+		blackBars,
+		blackBarsSize,
+		extension,
+		cover,
+		className,
+		...props
+	}: ThumbnailProps) => {
+		const ref = useRef<HTMLImageElement>(null);
+
+		const size = useSize(ref);
+
+		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
+
+		return (
+			<>
+				<img
+					// Order matter for crossOrigin attr
+					// https://github.com/facebook/react/issues/14035#issuecomment-642227899
+					{...(crossOrigin ? { crossOrigin } : {})}
+					ref={ref}
+					draggable={false}
+					style={{ ...(blackBars ? blackBarsStyle : {}) }}
+					className={clsx(blackBars && size.width === 0 && 'invisible', className)}
+					{...props}
+				/>
+
+				{(cover || (size && size.width > 80)) && extension && (
+					<div
+						style={{
+							...(!cover &&
+								size && {
+									marginTop: Math.floor(size.height / 2) - 2,
+									marginLeft: Math.floor(size.width / 2) - 2
+								})
+						}}
+						className={clsx(
+							'absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',
+							cover
+								? 'bottom-1 right-1'
+								: 'left-1/2 top-1/2 -translate-x-full -translate-y-full'
+						)}
+					>
+						{extension}
+					</div>
+				)}
+			</>
+		);
+	}
+);
+
+interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
+	paused?: boolean;
+	blackBars?: boolean;
+	blackBarsSize?: number;
+}
+
+const Video = memo(({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
+	const ref = useRef<HTMLVideoElement>(null);
+
+	const size = useSize(ref);
+	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
+
+	useEffect(() => {
+		if (!ref.current) return;
+		paused ? ref.current.pause() : ref.current.play();
+	}, [paused]);
+
+	return (
+		<video
+			// Order matter for crossOrigin attr
+			crossOrigin="anonymous"
+			ref={ref}
+			autoPlay={!paused}
+			onVolumeChange={(e) => {
+				const video = e.target as HTMLVideoElement;
+				getExplorerStore().mediaPlayerVolume = video.volume;
+			}}
+			onCanPlay={(e) => {
+				const video = e.target as HTMLVideoElement;
+				// Why not use the element's attribute? Because React...
+				// https://github.com/facebook/react/issues/10389
+				video.loop = !props.controls;
+				video.muted = !props.controls;
+				video.volume = getExplorerStore().mediaPlayerVolume;
+			}}
+			playsInline
+			draggable={false}
+			style={{ ...(blackBars ? blackBarsStyle : {}) }}
+			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
+			{...props}
+		>
+			<p>Video preview is not supported.</p>
+		</video>
+	);
+});
+
+const useSize = (ref: RefObject<Element>) => {
+	const [size, setSize] = useState({ width: 0, height: 0 });
+
+	useCallbackToWatchResize(({ width, height }) => setSize({ width, height }), [], ref);
+
+	return size;
+};
+
+const useBlackBars = (videoSize: { width: number; height: number }, blackBarsSize?: number) => {
+	return useMemo(() => {
+		const { width, height } = videoSize;
+
+		const orientation = height > width ? 'vertical' : 'horizontal';
+
+		const barSize =
+			blackBarsSize ||
+			Math.floor(Math.ceil(orientation === 'vertical' ? height : width) / 10);
+
+		const xBarSize = orientation === 'vertical' ? barSize : 0;
+		const yBarSize = orientation === 'horizontal' ? barSize : 0;
+
+		return {
+			size: {
+				x: xBarSize,
+				y: yBarSize
+			},
+			style: {
+				borderLeftWidth: xBarSize,
+				borderRightWidth: xBarSize,
+				borderTopWidth: yBarSize,
+				borderBottomWidth: yBarSize,
+				borderColor: 'black',
+				borderRadius: 4
+			} satisfies CSSProperties
+		};
+	}, [videoSize, blackBarsSize]);
+};

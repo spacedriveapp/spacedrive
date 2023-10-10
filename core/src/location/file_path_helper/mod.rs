@@ -5,7 +5,6 @@ use crate::{
 
 use std::{
 	fs::Metadata,
-	hash::{Hash, Hasher},
 	path::{Path, PathBuf, MAIN_SEPARATOR_STR},
 	time::SystemTime,
 };
@@ -24,7 +23,7 @@ pub use isolated_file_path_data::{
 };
 
 // File Path selectables!
-file_path::select!(file_path_just_pub_id { pub_id });
+file_path::select!(file_path_pub_and_cas_ids { pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
 	pub_id
 	materialized_path
@@ -46,12 +45,14 @@ file_path::select!(file_path_for_object_validator {
 	extension
 	integrity_checksum
 });
-file_path::select!(file_path_for_thumbnailer {
+file_path::select!(file_path_for_media_processor {
+	id
 	materialized_path
 	is_dir
 	name
 	extension
 	cas_id
+	object_id
 });
 file_path::select!(file_path_to_isolate {
 	location_id
@@ -68,11 +69,36 @@ file_path::select!(file_path_to_isolate_with_id {
 	name
 	extension
 });
-file_path::select!(file_path_to_handle_custom_uri {
+file_path::select!(file_path_walker {
+	pub_id
+	location_id
 	materialized_path
 	is_dir
 	name
 	extension
+	date_modified
+	inode
+	size_in_bytes_bytes
+});
+file_path::select!(file_path_to_handle_custom_uri {
+	pub_id
+	materialized_path
+	is_dir
+	name
+	extension
+	location: select {
+		id
+		path
+		instance: select {
+			identity
+		}
+	}
+});
+file_path::select!(file_path_to_handle_p2p_serve_file {
+	materialized_path
+	name
+	extension
+	is_dir // For isolated file path
 	location: select {
 		id
 		path
@@ -93,27 +119,79 @@ file_path::select!(file_path_to_full_path {
 // File Path includes!
 file_path::include!(file_path_with_object { object });
 
-impl Hash for file_path_just_pub_id::Data {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.pub_id.hash(state);
-	}
-}
-
-impl PartialEq for file_path_just_pub_id::Data {
-	fn eq(&self, other: &Self) -> bool {
-		self.pub_id == other.pub_id
-	}
-}
-
-impl Eq for file_path_just_pub_id::Data {}
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct FilePathMetadata {
 	pub inode: u64,
-	pub device: u64,
 	pub size_in_bytes: u64,
 	pub created_at: DateTime<Utc>,
 	pub modified_at: DateTime<Utc>,
+	pub hidden: bool,
+}
+
+pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
+	#[cfg(target_family = "unix")]
+	{
+		use std::ffi::OsStr;
+		let _ = metadata; // just to avoid warnings on Linux
+		if path
+			.file_name()
+			.and_then(OsStr::to_str)
+			.map(|s| s.starts_with('.'))
+			.unwrap_or_default()
+		{
+			return true;
+		}
+	}
+
+	#[cfg(target_os = "macos")]
+	{
+		use std::os::macos::fs::MetadataExt;
+
+		const UF_HIDDEN: u32 = 0x8000;
+
+		if (metadata.st_flags() & UF_HIDDEN) == UF_HIDDEN {
+			return true;
+		}
+	}
+
+	#[cfg(target_family = "windows")]
+	{
+		use std::os::windows::fs::MetadataExt;
+
+		const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+
+		let _ = path; // just to avoid warnings on Windows
+
+		if (metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN {
+			return true;
+		}
+	}
+
+	false
+}
+
+impl FilePathMetadata {
+	pub async fn from_path(path: &Path, metadata: &Metadata) -> Result<Self, FilePathError> {
+		let inode = {
+			#[cfg(target_family = "unix")]
+			{
+				get_inode(metadata)
+			}
+
+			#[cfg(target_family = "windows")]
+			{
+				get_inode_from_path(&path).await?
+			}
+		};
+
+		Ok(Self {
+			inode,
+			hidden: path_is_hidden(path, metadata),
+			size_in_bytes: metadata.len(),
+			created_at: metadata.created_or_now().into(),
+			modified_at: metadata.modified_or_now().into(),
+		})
+	}
 }
 
 #[derive(Error, Debug)]
@@ -170,11 +248,14 @@ pub async fn create_file_path(
 	cas_id: Option<String>,
 	metadata: FilePathMetadata,
 ) -> Result<file_path::Data, FilePathError> {
-	use crate::{sync, util::db::uuid_to_bytes};
+	use crate::util::db::inode_to_db;
 
-	use sd_prisma::prisma;
+	use sd_prisma::{prisma, prisma_sync};
+	use sd_sync::OperationFactory;
 	use serde_json::json;
 	use uuid::Uuid;
+
+	let indexed_at = Utc::now();
 
 	let location = db
 		.location()
@@ -190,7 +271,7 @@ pub async fn create_file_path(
 		vec![
 			(
 				location::NAME,
-				json!(sync::location::SyncId {
+				json!(prisma_sync::location::SyncId {
 					pub_id: location.pub_id
 				}),
 			),
@@ -203,40 +284,45 @@ pub async fn create_file_path(
 				json!(metadata.size_in_bytes.to_be_bytes().to_vec()),
 			),
 			(inode::NAME, json!(metadata.inode.to_le_bytes())),
-			(device::NAME, json!(metadata.device.to_le_bytes())),
 			(is_dir::NAME, json!(is_dir)),
 			(date_created::NAME, json!(metadata.created_at)),
 			(date_modified::NAME, json!(metadata.modified_at)),
+			(date_indexed::NAME, json!(indexed_at)),
 		]
 	};
 
-	let pub_id = uuid_to_bytes(Uuid::new_v4());
+	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
 
 	let created_path = sync
-		.write_op(
+		.write_ops(
 			db,
-			sync.unique_shared_create(
-				sync::file_path::SyncId {
-					pub_id: pub_id.clone(),
-				},
-				params,
+			(
+				sync.shared_create(
+					prisma_sync::file_path::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					params,
+				),
+				db.file_path().create(pub_id, {
+					use file_path::*;
+					vec![
+						location::connect(prisma::location::id::equals(location.id)),
+						materialized_path::set(Some(materialized_path.into_owned())),
+						name::set(Some(name.into_owned())),
+						extension::set(Some(extension.into_owned())),
+						inode::set(Some(inode_to_db(metadata.inode))),
+						cas_id::set(cas_id),
+						is_dir::set(Some(is_dir)),
+						size_in_bytes_bytes::set(Some(
+							metadata.size_in_bytes.to_be_bytes().to_vec(),
+						)),
+						date_created::set(Some(metadata.created_at.into())),
+						date_modified::set(Some(metadata.modified_at.into())),
+						date_indexed::set(Some(indexed_at.into())),
+						hidden::set(Some(metadata.hidden)),
+					]
+				}),
 			),
-			db.file_path().create(pub_id, {
-				use file_path::*;
-				vec![
-					location::connect(prisma::location::id::equals(location.id)),
-					materialized_path::set(Some(materialized_path.into_owned())),
-					name::set(Some(name.into_owned())),
-					extension::set(Some(extension.into_owned())),
-					inode::set(Some(metadata.inode.to_le_bytes().into())),
-					device::set(Some(metadata.device.to_le_bytes().into())),
-					cas_id::set(cas_id),
-					is_dir::set(Some(is_dir)),
-					size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
-					date_created::set(Some(metadata.created_at.into())),
-					date_modified::set(Some(metadata.modified_at.into())),
-				]
-			}),
 		)
 		.await?;
 
@@ -267,20 +353,32 @@ pub fn filter_existing_file_path_params(
 /// the materialized path
 #[allow(unused)]
 pub fn loose_find_existing_file_path_params(
-	IsolatedFilePathData {
-		materialized_path,
-		location_id,
-		name,
-		extension,
-		..
-	}: &IsolatedFilePathData,
-) -> Vec<file_path::WhereParam> {
-	vec![
-		file_path::location_id::equals(Some(*location_id)),
-		file_path::materialized_path::equals(Some(materialized_path.to_string())),
-		file_path::name::equals(Some(name.to_string())),
-		file_path::extension::equals(Some(extension.to_string())),
-	]
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	full_path: impl AsRef<Path>,
+) -> Result<Vec<file_path::WhereParam>, FilePathError> {
+	let location_path = location_path.as_ref();
+	let full_path = full_path.as_ref();
+
+	let file_iso_file_path =
+		IsolatedFilePathData::new(location_id, location_path, full_path, false)?;
+
+	let dir_iso_file_path = IsolatedFilePathData::new(location_id, location_path, full_path, true)?;
+
+	Ok(vec![
+		file_path::location_id::equals(Some(location_id)),
+		file_path::materialized_path::equals(Some(
+			file_iso_file_path.materialized_path.to_string(),
+		)),
+		file_path::name::in_vec(vec![
+			file_iso_file_path.name.to_string(),
+			dir_iso_file_path.name.to_string(),
+		]),
+		file_path::extension::in_vec(vec![
+			file_iso_file_path.extension.to_string(),
+			dir_iso_file_path.extension.to_string(),
+		]),
+	])
 }
 
 pub async fn ensure_sub_path_is_in_location(
@@ -400,12 +498,12 @@ pub async fn ensure_sub_path_is_directory(
 }
 
 #[allow(unused)] // TODO remove this annotation when we can use it on windows
-pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathError> {
+pub fn get_inode(metadata: &Metadata) -> u64 {
 	#[cfg(target_family = "unix")]
 	{
 		use std::os::unix::fs::MetadataExt;
 
-		Ok((metadata.ino(), metadata.dev()))
+		metadata.ino()
 	}
 
 	#[cfg(target_family = "windows")]
@@ -414,23 +512,18 @@ pub fn get_inode_and_device(metadata: &Metadata) -> Result<(u64, u64), FilePathE
 
 		// use std::os::windows::fs::MetadataExt;
 
-		// Ok((
+		//
 		// 	metadata
 		// 		.file_index()
-		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata"),
-		// 	metadata
-		// 		.volume_serial_number()
-		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata") as u64,
-		// ))
+		// 		.expect("This function must not be called from a `DirEntry`'s `Metadata")
+		//
 
 		todo!("Use metadata: {:#?}", metadata)
 	}
 }
 
 #[allow(unused)]
-pub async fn get_inode_and_device_from_path(
-	path: impl AsRef<Path>,
-) -> Result<(u64, u64), FilePathError> {
+pub async fn get_inode_from_path(path: impl AsRef<Path>) -> Result<u64, FilePathError> {
 	#[cfg(target_family = "unix")]
 	{
 		// TODO use this when it's stable and remove winapi-utils dependency
@@ -438,7 +531,7 @@ pub async fn get_inode_and_device_from_path(
 			.await
 			.map_err(|e| FileIOError::from((path, e)))?;
 
-		get_inode_and_device(&metadata)
+		Ok(get_inode(&metadata))
 	}
 
 	#[cfg(target_family = "windows")]
@@ -449,7 +542,7 @@ pub async fn get_inode_and_device_from_path(
 			.and_then(|ref handle| information(handle))
 			.map_err(|e| FileIOError::from((path, e)))?;
 
-		Ok((info.file_index(), info.volume_serial_number()))
+		Ok(info.file_index())
 	}
 }
 

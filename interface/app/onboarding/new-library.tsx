@@ -1,47 +1,33 @@
 import { Database } from '@sd/assets/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { getOnboardingStore, useOnboardingStore } from '@sd/client';
-import { Button, Form, InputField, useZodForm, z } from '@sd/ui';
+import { Button, Form, InputField } from '@sd/ui';
+
+import { useOnboardingContext } from './context';
 import {
 	OnboardingContainer,
 	OnboardingDescription,
 	OnboardingImg,
 	OnboardingTitle
 } from './Layout';
-import { useUnlockOnboardingScreen } from './Progress';
-
-const schema = z.object({
-	// the regex here validates that the entire string isn't purely whitespace
-	name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
-});
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
+	const form = useOnboardingContext().forms.useForm('new-library');
+
 	const [importMode, setImportMode] = useState(false);
-
-	const obStore = useOnboardingStore();
-
-	const form = useZodForm({
-		schema,
-		defaultValues: {
-			name: obStore.newLibraryName
-		}
-	});
-
-	useUnlockOnboardingScreen();
-
-	const onSubmit = form.handleSubmit(async (data) => {
-		getOnboardingStore().newLibraryName = data.name;
-		navigate('/onboarding/privacy', { replace: true });
-	});
 
 	const handleImport = () => {
 		// TODO
 	};
 
 	return (
-		<Form form={form} onSubmit={onSubmit}>
+		<Form
+			form={form}
+			onSubmit={form.handleSubmit(() => {
+				navigate('../privacy', { replace: true });
+			})}
+		>
 			<OnboardingContainer>
 				<OnboardingImg src={Database} />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
@@ -74,8 +60,8 @@ export default function OnboardingNewLibrary() {
 							<Button
 								type="submit"
 								variant="accent"
-								disabled={!form.formState.isValid}
 								size="sm"
+								disabled={!form.formState.isValid}
 							>
 								New library
 							</Button>

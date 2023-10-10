@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/webmproject/libwebp.git"
-SCRIPT_TAG="1.3.1"
+SCRIPT_TAG="1.3.2"
 
 ffbuild_dockerbuild() {
   git-mini-clone "$SCRIPT_REPO" "$SCRIPT_TAG" libwebp

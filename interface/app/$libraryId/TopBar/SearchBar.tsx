@@ -15,7 +15,6 @@ export default () => {
 	const navigate = useNavigate();
 	const location = useLocation();
 
-	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
 
@@ -58,7 +57,6 @@ export default () => {
 	);
 
 	const blurHandler = useCallback((event: KeyboardEvent) => {
-		console.log(event.key, document.activeElement === searchRef.current);
 		if (event.key === 'Escape' && document.activeElement === searchRef.current) {
 			// Check if element is in focus, then remove it
 			event.preventDefault();
@@ -80,7 +78,7 @@ export default () => {
 		<Input
 			ref={searchRef}
 			placeholder="Search"
-			className="w-52 transition-all duration-200 focus-within:w-60"
+			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
 			size="sm"
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
@@ -118,7 +116,7 @@ export default () => {
 						}
 					</div>
 					{/* This indicates whether the search is loading, a spinner could be put here */}
-					{/* {_isPending && <div className="h-8 w-8 bg-red-500" />} */}
+					{/* {_isPending && <div className="w-8 h-8 bg-red-500" />} */}
 				</>
 			}
 		/>

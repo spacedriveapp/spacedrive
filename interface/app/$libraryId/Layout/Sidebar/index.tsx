@@ -1,15 +1,28 @@
 import clsx from 'clsx';
+import { useEffect } from 'react';
 import { MacTrafficLights } from '~/components';
 import { useOperatingSystem, useShowControls } from '~/hooks';
+
 import Contents from './Contents';
 import Footer from './Footer';
 import LibrariesDropdown from './LibrariesDropdown';
-import { macOnly } from './helpers';
 
 export default () => {
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
 	const transparentBg = window.location.search.includes('transparentBg');
+
+	//prevent sidebar scrolling with keyboard
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const arrows = ['ArrowUp', 'ArrowDown'];
+			if (arrows.includes(e.key)) {
+				e.preventDefault();
+			}
+		};
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, []);
 
 	return (
 		<div

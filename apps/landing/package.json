@@ -1,5 +1,6 @@
 {
 	"name": "@sd/landing",
+	"private": true,
 	"scripts": {
 		"dev": "next dev",
 		"build": "contentlayer build && next build",
@@ -10,11 +11,11 @@
 		"push": "drizzle-kit push:mysql"
 	},
 	"dependencies": {
-		"@auth/core": "^0.7.1",
 		"@aws-sdk/client-ses": "^3.337.0",
+		"@phosphor-icons/react": "^2.0.10",
 		"@planetscale/database": "^1.7.0",
-		"@react-three/drei": "^9.76.0",
-		"@react-three/fiber": "^8.13.3",
+		"@react-three/drei": "^9.78.1",
+		"@react-three/fiber": "^8.13.4",
 		"@sd/assets": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@t3-oss/env-nextjs": "^0.3.1",
@@ -28,8 +29,7 @@
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
 		"next": "13.4.3",
-		"next-contentlayer": "^0.3.2",
-		"phosphor-react": "^1.4.1",
+		"next-contentlayer": "^0.3.4",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
@@ -50,20 +50,19 @@
 		"three": "^0.153.0",
 		"tsparticles": "^2.9.3",
 		"uuid": "^9.0.0",
-		"zod": "^3.21.4"
+		"zod": "~3.22.2"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.0.1",
-		"@types/node": "20.2.1",
-		"@types/react": "18.2.6",
+		"@types/node": "^18.17",
+		"@types/react": "^18.2.0",
 		"@types/react-burger-menu": "^2.8.3",
-		"@types/react-dom": "18.2.4",
-		"@types/react-helmet": "^6.1.6",
-		"@types/three": "^0.152.1",
+		"@types/react-dom": "^18.2.0",
+		"@types/three": "^0.152",
 		"drizzle-kit": "db-push",
-		"postcss": "^8.4.23",
+		"postcss": "^8.4",
 		"tailwindcss": "^3.3.2",
-		"typescript": "5.0.4"
+		"typescript": "^5.2"
 	}
 }

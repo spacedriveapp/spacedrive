@@ -1,13 +1,13 @@
 import { PointMaterial, Points, Trail } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import * as random from 'maath/random/dist/maath-random.cjs';
-import React, { useRef, useState } from 'react';
-import * as THREE from 'three';
+import { inSphere as randomInSphere } from 'maath/random';
+import { useRef, useState, type FunctionComponent } from 'react';
+import { Color, type Mesh } from 'three';
 
 const Stars = (props: any) => {
-	const ref = useRef<THREE.Mesh>();
-	const [sphere] = useState(() => random.inSphere(new Float32Array(35000), { radius: 1 }));
-	useFrame((state, delta) => {
+	const ref = useRef<Mesh>();
+	const [sphere] = useState(() => randomInSphere(new Float32Array(35000), { radius: 1 }));
+	useFrame((_, delta) => {
 		if (ref.current) {
 			ref.current.rotation.x -= delta / 300;
 			ref.current.rotation.y -= delta / 300;
@@ -41,7 +41,7 @@ function ShootingStar() {
 		}
 	});
 	return (
-		<Trail width={0.05} length={8} color={new THREE.Color(2, 1, 10)} attenuation={(t) => t * t}>
+		<Trail width={0.05} length={8} color={new Color(2, 1, 10)} attenuation={(t) => t * t}>
 			<mesh ref={ref}>
 				<sphereGeometry args={[0.005]} />
 				<meshBasicMaterial color={[10, 1, 10]} toneMapped={false} />
@@ -50,7 +50,7 @@ function ShootingStar() {
 	);
 }
 
-const Space: React.FunctionComponent = () => {
+export const Space: FunctionComponent = () => {
 	return (
 		<div className="fixed z-0 w-screen h-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
@@ -61,4 +61,3 @@ const Space: React.FunctionComponent = () => {
 		</div>
 	);
 };
-export default Space;

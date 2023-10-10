@@ -1,4 +1,4 @@
-import { CheckCircle } from 'phosphor-react';
+import { CheckCircle } from '@phosphor-icons/react';
 import { Loader } from '@sd/ui';
 import { useLibraryQuery } from '~/../packages/client/src';
 

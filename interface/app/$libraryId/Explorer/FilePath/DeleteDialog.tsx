@@ -1,10 +1,9 @@
-import { useLibraryMutation } from '@sd/client';
-import { CheckBox, Dialog, Tooltip, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm } from '@sd/ui/src/forms';
+import { useLibraryMutation, useZodForm } from '@sd/client';
+import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
-	location_id: number;
-	path_id: number;
+	locationId: number;
+	pathIds: number[];
 }
 
 export default (props: Props) => {
@@ -17,8 +16,8 @@ export default (props: Props) => {
 			form={form}
 			onSubmit={form.handleSubmit(() =>
 				deleteFile.mutateAsync({
-					location_id: props.location_id,
-					file_path_ids: [props.path_id]
+					location_id: props.locationId,
+					file_path_ids: props.pathIds
 				})
 			)}
 			dialog={useDialog(props)}

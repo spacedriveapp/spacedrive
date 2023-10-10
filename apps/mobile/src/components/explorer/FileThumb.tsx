@@ -1,10 +1,54 @@
-import * as icons from '@sd/assets/icons';
-import { PropsWithChildren } from 'react';
+import { getIcon } from '@sd/assets/util';
+import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
-import { ExplorerItem, ObjectKind, getItemFilePath, getItemObject, isPath } from '@sd/client';
+import {
+	getExplorerItemData,
+	getItemFilePath,
+	getItemLocation,
+	isDarkTheme,
+	type ExplorerItem
+} from '@sd/client';
+import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
+
 import { tw } from '../../lib/tailwind';
-import FolderIcon from '../icons/FolderIcon';
+
+export const getThumbnailUrlByThumbKey = (thumbKey: string[]) =>
+	`${DocumentDirectoryPath}/thumbnails/${thumbKey
+		.map((i) => encodeURIComponent(i))
+		.join('/')}.webp`;
+
+const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
+	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
+		{children}
+	</View>
+);
+
+function useExplorerItemData(explorerItem: ExplorerItem) {
+	const explorerStore = useExplorerStore();
+
+	const newThumbnail = !!(
+		explorerItem.thumbnail_key &&
+		explorerStore.newThumbnails.has(flattenThumbnailKey(explorerItem.thumbnail_key))
+	);
+
+	return useMemo(() => {
+		const itemData = getExplorerItemData(explorerItem);
+
+		if (!itemData.hasLocalThumbnail) {
+			itemData.hasLocalThumbnail = newThumbnail;
+		}
+
+		return itemData;
+	}, [explorerItem, newThumbnail]);
+}
+
+enum ThumbType {
+	Icon,
+	// Original,
+	Thumbnail,
+	Location
+}
 
 type FileThumbProps = {
 	data: ExplorerItem;
@@ -13,87 +57,87 @@ type FileThumbProps = {
 	 * default: `1`
 	 */
 	size?: number;
+	// loadOriginal?: boolean;
 };
 
-export const getThumbnailUrlById = (keyParts: string[]) =>
-	`${DocumentDirectoryPath}/thumbnails/${keyParts
-		.map((i) => encodeURIComponent(i))
-		.join('/')}.webp`;
+export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
+	const itemData = useExplorerItemData(props.data);
+	const locationData = getItemLocation(props.data);
+	const filePath = getItemFilePath(props.data);
 
-type KindType = keyof typeof icons | 'Unknown';
+	const [src, setSrc] = useState<null | string>(null);
+	const [thumbType, setThumbType] = useState(ThumbType.Icon);
+	// const [loaded, setLoaded] = useState<boolean>(false);
 
-function getExplorerItemData(data: ExplorerItem) {
-	const objectData = getItemObject(data);
-	const filePath = getItemFilePath(data);
+	useLayoutEffect(() => {
+		// Reset src when item changes, to allow detection of yet not updated src
+		setSrc(null);
+		// setLoaded(false);
 
-	return {
-		casId: filePath?.cas_id || null,
-		isDir: isPath(data) && data.item.is_dir,
-		kind: ObjectKind[objectData?.kind || 0] as KindType,
-		hasLocalThumbnail: data.has_local_thumbnail, // this will be overwritten if new thumbnail is generated
-		thumbnailKey: data.thumbnail_key,
-		extension: filePath?.extension
-	};
-}
+		if (locationData) {
+			setThumbType(ThumbType.Location);
+			// } else if (props.loadOriginal) {
+			// 	setThumbType(ThumbType.Original);
+		} else if (itemData.hasLocalThumbnail) {
+			setThumbType(ThumbType.Thumbnail);
+		} else {
+			setThumbType(ThumbType.Icon);
+		}
+	}, [locationData, itemData]);
 
-const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
-	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
-		{children}
-	</View>
-);
+	// This sets the src to the thumbnail url
+	useEffect(() => {
+		const { casId, kind, isDir, extension, locationId, thumbnailKey } = itemData;
 
-export default function FileThumb({ data, size = 1 }: FileThumbProps) {
-	const { casId, isDir, kind, hasLocalThumbnail, extension, thumbnailKey } =
-		getExplorerItemData(data);
+		// ???
+		// const locationId =
+		// 	itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
 
-	if (isPath(data) && data.item.is_dir) {
-		return (
-			<FileThumbWrapper size={size}>
-				<FolderIcon size={70 * size} />
-			</FileThumbWrapper>
-		);
-	}
-
-	if (hasLocalThumbnail && thumbnailKey) {
-		// TODO: Handle Image checkers bg?
-		return (
-			<FileThumbWrapper size={size}>
-				<Image
-					source={{ uri: getThumbnailUrlById(thumbnailKey) }}
-					resizeMode="contain"
-					style={tw`h-full w-full`}
-				/>
-			</FileThumbWrapper>
-		);
-	}
-
-	// Default icon
-	let icon = icons['Document'];
-
-	if (isDir) {
-		icon = icons['Folder'];
-	} else if (
-		kind &&
-		extension &&
-		icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons]
-	) {
-		// e.g. Document_pdf
-		icon = icons[`${kind}_${extension.toLowerCase()}` as keyof typeof icons];
-	} else if (kind !== 'Unknown' && kind && icons[kind]) {
-		icon = icons[kind];
-	}
-
-	// TODO: Handle video thumbnails (do we have ffmpeg on mobile?)
-
-	// // 10 percent of the size
-	// const videoBarsHeight = Math.floor(size / 10);
-
-	// // calculate 16:9 ratio for height from size
-	// const videoHeight = Math.floor((size * 9) / 16) + videoBarsHeight * 2;
+		switch (thumbType) {
+			// case ThumbType.Original:
+			// 	if (locationId) {
+			// 		setSrc(
+			// 			platform.getFileUrl(
+			// 				library.uuid,
+			// 				locationId,
+			// 				filePath?.id || props.data.item.id,
+			// 				// Workaround Linux webview not supporting playing video and audio through custom protocol urls
+			// 				kind == 'Video' || kind == 'Audio'
+			// 			)
+			// 		);
+			// 	} else {
+			// 		setThumbType(ThumbType.Thumbnail);
+			// 	}
+			// 	break;
+			case ThumbType.Thumbnail:
+				if (casId && thumbnailKey) {
+					setSrc(getThumbnailUrlByThumbKey(thumbnailKey));
+				} else {
+					setThumbType(ThumbType.Icon);
+				}
+				break;
+			case ThumbType.Location:
+				setSrc(getIcon('Folder', isDarkTheme(), extension, true));
+				break;
+			default:
+				if (isDir !== null) setSrc(getIcon(kind, isDarkTheme(), extension, isDir));
+				break;
+		}
+	}, [itemData, thumbType]);
 
 	return (
 		<FileThumbWrapper size={size}>
-			<Image source={icon} style={{ width: 70 * size, height: 70 * size }} />
+			{(() => {
+				if (src == null) return null;
+				let source = null;
+				// getIcon returns number for some magic reason
+				if (typeof src === 'number') {
+					source = src;
+				} else {
+					source = { uri: src };
+				}
+				return <Image source={source} style={{ width: 70 * size, height: 70 * size }} />;
+			})()}
 		</FileThumbWrapper>
 	);
 }

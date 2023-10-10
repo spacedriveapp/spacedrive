@@ -1,11 +1,30 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import 'event-target-polyfill';
+
 import * as SplashScreen from 'expo-splash-screen';
-import { Suspense, lazy } from 'react';
-import { Platform } from 'react-native';
-import { reactNativeLink } from './lib/rspcReactNativeTransport';
+import { lazy, Suspense } from 'react';
+import { Dimensions, Platform } from 'react-native';
+
+import { reactNativeLink } from '../modules/sd-core/src';
 
 // Enable the splash screen
 SplashScreen.preventAutoHideAsync();
+
+// The worlds worse pollyfill for "CustomEvent". I tried "custom-event-pollyfill" from npm but it uses `document` :(
+if (typeof globalThis.CustomEvent !== 'function') {
+	// @ts-expect-error
+	globalThis.CustomEvent = (event, params) => {
+		const evt = new Event(event, params);
+		// @ts-expect-error
+		evt.detail = params.detail;
+		return evt;
+	};
+}
+
+globalThis.confirm = () => {
+	throw new Error("TODO: Implement 'confirm' for mobile");
+};
 
 const _localStorage = new Map<string, string>();
 
@@ -48,6 +67,32 @@ globalThis.rspcLinks = [
 	// }),
 	reactNativeLink()
 ];
+
+// Polyfill for Plausible to work properly (@sd/client/hooks/usePlausible)
+
+window.location = {
+	// @ts-ignore
+	ancestorOrigins: {},
+	href: 'https://spacedrive.com',
+	origin: 'https://spacedrive.com',
+	protocol: 'https:',
+	host: 'spacedrive.com',
+	hostname: 'spacedrive.com',
+	port: '',
+	pathname: '/',
+	search: '',
+	hash: ''
+};
+// @ts-ignore
+window.document = {};
+
+const { width, height } = Dimensions.get('window');
+
+//@ts-ignore
+window.screen = {
+	width,
+	height
+};
 
 /*
 	https://github.com/facebook/hermes/issues/23

@@ -4,6 +4,7 @@ use crate::{
 		CurrentStep, JobError, JobInitOutput, JobResult, JobStepOutput, StatefulJob, WorkerContext,
 	},
 	library::Library,
+	location::get_location_path_from_location_id,
 	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
 };
@@ -16,7 +17,7 @@ use specta::Type;
 use tokio::{fs, io};
 use tracing::warn;
 
-use super::{get_location_path_from_location_id, get_many_files_datas, FileData};
+use super::{error::FileSystemJobsError, get_many_files_datas, FileData};
 
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct FileDeleterJobInit {
@@ -38,14 +39,15 @@ impl StatefulJob for FileDeleterJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let steps = get_many_files_datas(
 			db,
 			get_location_path_from_location_id(db, init.location_id).await?,
 			&init.file_path_ids,
 		)
-		.await?;
+		.await
+		.map_err(FileSystemJobsError::from)?;
 
 		// Must fill in the data, otherwise the job will not run
 		*data = Some(());
@@ -97,6 +99,8 @@ impl StatefulJob for FileDeleterJobInit {
 	) -> JobResult {
 		let init = self;
 		invalidate_query!(ctx.library, "search.paths");
+
+		ctx.library.orphan_remover.invoke().await;
 
 		Ok(Some(json!({ "init": init })))
 	}
