@@ -35,7 +35,7 @@
 		"react-device-detect": "^2.2.3",
 		"react-dom": "^18.2.0",
 		"react-github-btn": "^1.4.0",
-		"react-hook-form": "^7.43.9",
+		"react-hook-form": "^7.47.0",
 		"react-tsparticles": "^2.9.3",
 		"reading-time": "^1.5.0",
 		"rehype-autolink-headings": "^6.1.1",
@@ -50,19 +50,19 @@
 		"three": "^0.153.0",
 		"tsparticles": "^2.9.3",
 		"uuid": "^9.0.0",
-		"zod": "~3.22.2"
+		"zod": "~3.22.4"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@svgr/webpack": "^8.0.1",
-		"@types/node": "^18.17",
-		"@types/react": "^18.2.0",
-		"@types/react-burger-menu": "^2.8.3",
-		"@types/react-dom": "^18.2.0",
-		"@types/three": "^0.152",
+		"@svgr/webpack": "^8.1.0",
+		"@types/node": "~18.17.19",
+		"@types/react": "^18.2.28",
+		"@types/react-burger-menu": "^2.8.4",
+		"@types/react-dom": "^18.2.13",
+		"@types/three": "^0.152.1",
 		"drizzle-kit": "db-push",
-		"postcss": "^8.4",
-		"tailwindcss": "^3.3.2",
-		"typescript": "^5.2"
+		"postcss": "^8.4.31",
+		"tailwindcss": "^3.3.3",
+		"typescript": "^5.2.2"
 	}
 }

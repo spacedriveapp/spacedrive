@@ -25,18 +25,18 @@
 		"undici": "^5.25.4"
 	},
 	"devDependencies": {
-		"@babel/core": "~7",
-		"@babel/eslint-parser": "~7",
-		"@babel/eslint-plugin": "~7",
+		"@babel/core": "^7.23.2",
+		"@babel/eslint-parser": "^7.22.15",
+		"@babel/eslint-plugin": "^7.22.10",
 		"@types/mustache": "^4.2.3",
-		"@types/node": "^18.17",
-		"@typescript-eslint/eslint-plugin": "^6.7",
-		"@typescript-eslint/parser": "^6.7",
-		"eslint": "^8.50",
-		"eslint-config-prettier": "^9.0",
-		"eslint-config-standard": "^17.1",
-		"eslint-plugin-jsdoc": "^46.8",
-		"eslint-plugin-prettier": "^5.0",
-		"typescript": "^5.2"
+		"@types/node": "~18.17.19",
+		"@typescript-eslint/eslint-plugin": "^6.7.5",
+		"@typescript-eslint/parser": "^6.7.5",
+		"eslint": "^8.51.0",
+		"eslint-config-prettier": "^9.0.0",
+		"eslint-config-standard": "^17.1.0",
+		"eslint-plugin-jsdoc": "^46.8.2",
+		"eslint-plugin-prettier": "^5.0.1",
+		"typescript": "^5.2.2"
 	}
 }
