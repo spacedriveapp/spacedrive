@@ -16,7 +16,10 @@ use crate::{
 		},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
-	util::{db::maybe_missing, error::FileIOError},
+	util::{
+		db::{maybe_missing, MissingFieldError},
+		error::FileIOError,
+	},
 	Node,
 };
 
@@ -522,7 +525,7 @@ pub async fn light_scan_location(
 pub async fn relink_location(
 	library: &Arc<Library>,
 	location_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<i32, LocationError> {
 	let Library { db, id, sync, .. } = &**library;
 
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
@@ -548,13 +551,23 @@ pub async fn relink_location(
 			json!(path),
 		),
 		db.location().update(
-			location::pub_id::equals(pub_id),
+			location::pub_id::equals(pub_id.clone()),
 			vec![location::path::set(Some(path))],
 		),
 	)
 	.await?;
 
-	Ok(())
+	let location_id = db
+		.location()
+		.find_unique(location::pub_id::equals(pub_id))
+		.select(location::select!({ id }))
+		.exec()
+		.await?
+		.ok_or_else(|| {
+			LocationError::MissingField(MissingFieldError::new("missing id of location"))
+		})?;
+
+	Ok(location_id.id)
 }
 
 #[derive(Debug)]
