@@ -202,14 +202,14 @@ export default function HomePage() {
 							</motion.div>
 						))}
 					</div>
-					<div>
+					<div className='pb-6 xs:pb-24'>
 						<div
 							className="xl2:relative z-30 flex h-[255px] w-full px-6
 						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto"
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center animation-delay-2 fade-in xs:top-[280px] md:top-[130px]"
+								className="absolute-horizontal-center animation-delay-2 fade-in top-[380px] xs:top-[180px] md:top-[130px]"
 								width={1200}
 								height={626}
 								alt="l"
@@ -243,7 +243,7 @@ export default function HomePage() {
 					{/* <BentoBoxes /> */}
 					{/* <CloudStorage /> */}
 					{/* <DownloadToday isWindows={deviceOs?.isWindows} /> */}
-					<div className="h-[200px] w-full" />
+					{/* <div className="h-[100px] sm:h-[200px] w-full" /> */}
 				</div>
 			</PageWrapper>
 		</>
