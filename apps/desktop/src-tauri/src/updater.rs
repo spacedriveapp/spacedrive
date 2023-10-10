@@ -1,5 +1,6 @@
 use tauri::Manager;
 use tokio::sync::Mutex;
+use tracing::{error, warn};
 
 #[derive(Debug, Clone, specta::Type, serde::Serialize)]
 pub struct Update {
@@ -26,10 +27,10 @@ async fn get_update(
 ) -> Result<tauri::updater::UpdateResponse<impl tauri::Runtime>, ()> {
 	tauri::updater::builder(app)
 		.header("X-Spacedrive-Version", "stable")
-		.map_err(|_| ())?
+		.map_err(|e| error!("{e:#?}"))?
 		.check()
 		.await
-		.map_err(|_| ())
+		.map_err(|e| error!("{e:#?}"))
 }
 
 #[derive(Clone, serde::Serialize, specta::Type)]
@@ -77,7 +78,10 @@ pub async fn install_update(
 ) -> Result<(), ()> {
 	let lock = match state.install_lock.try_lock() {
 		Ok(lock) => lock,
-		Err(_) => return Err(()),
+		Err(_) => {
+			warn!("Update already installing");
+			return Err(());
+		}
 	};
 
 	app.emit_all("updater", UpdateEvent::Installing).ok();
@@ -86,7 +90,7 @@ pub async fn install_update(
 		.await?
 		.download_and_install()
 		.await
-		.map_err(|_| ())?;
+		.map_err(|e| error!("{e:#?}"))?;
 
 	drop(lock);
 
