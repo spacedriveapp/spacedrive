@@ -181,11 +181,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.create(&node, &library).await? {
+						let id = Some(location.id);
 						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
+						Ok(id)
+					} else {
+						Ok(None)
 					}
-
-					Ok(())
 				})
 		})
 		.procedure("update", {
@@ -217,10 +219,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.add_library(&node, &library).await? {
+						let id = location.id;
 						scan_location(&node, &library, location).await?;
 						invalidate_query!(library, "locations.list");
+						Ok(Some(id))
+					} else {
+						Ok(None)
 					}
-					Ok(())
 				})
 		})
 		.procedure("fullRescan", {
