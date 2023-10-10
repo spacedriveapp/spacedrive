@@ -781,6 +781,9 @@ async fn create_directory(mut target_path: PathBuf, library: &Library) -> Result
 		Ok(_) => {
 			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
 		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
 		Err(e) => {
 			return Err(FileIOError::from((
 				target_path,
