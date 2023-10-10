@@ -2,6 +2,8 @@ import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useLibraryContext } from '@sd/client';
 import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { useCallbackToWatchResize } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -15,6 +17,9 @@ interface AddLocationButton extends ButtonProps {
 
 export const AddLocationButton = ({ path, className, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
+	const libraryId = useLibraryContext().library.uuid;
+	const navigate = useNavigate();
+
 	const transition = {
 		type: 'keyframes',
 		ease: 'easeInOut',
@@ -25,6 +30,9 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 	const textRef = useRef<HTMLSpanElement>(null);
 	const overflowRef = useRef<HTMLSpanElement>(null);
 	const [isOverflowing, setIsOverflowing] = useState(false);
+
+	// if this is set, it'll be the new location id and we should redirect
+	const locationIdRedirect = useRef<number | null>(null);
 
 	useCallbackToWatchResize(() => {
 		const text = textRef.current;
@@ -46,10 +54,18 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 					}
 
 					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
-					if (path !== '')
-						dialogManager.create((dp) => (
-							<AddLocationDialog path={path ?? ''} {...dp} />
+					if (path !== '') {
+						await dialogManager.create((dp) => (
+							<AddLocationDialog
+								path={path ?? ''}
+								redirect={locationIdRedirect}
+								{...dp}
+							/>
 						));
+
+						locationIdRedirect.current &&
+							navigate(`/${libraryId}/location/${locationIdRedirect.current}`);
+					}
 				}}
 				{...props}
 			>
