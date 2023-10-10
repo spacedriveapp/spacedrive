@@ -44,22 +44,6 @@ pub struct FileData {
 	pub full_path: PathBuf,
 }
 
-pub async fn get_location_path_from_location_id(
-	db: &PrismaClient,
-	location_id: file_path::id::Type,
-) -> Result<PathBuf, FileSystemJobsError> {
-	let location = db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await?
-		.ok_or(FileSystemJobsError::Location(LocationError::IdNotFound(
-			location_id,
-		)))?;
-
-	Ok(maybe_missing(location.path, "location.path")?.into())
-}
-
 pub async fn get_many_files_datas(
 	db: &PrismaClient,
 	location_path: impl AsRef<Path>,

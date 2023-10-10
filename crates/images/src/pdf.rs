@@ -4,7 +4,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::{consts::PDF_RENDER_SIZE, Error::PdfiumBinding, ImageHandler, Result};
+use crate::{consts::PDF_RENDER_WIDTH, Error::PdfiumBinding, ImageHandler, Result};
 use image::DynamicImage;
 use once_cell::sync::Lazy;
 use pdfium_render::prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium};
@@ -61,21 +61,11 @@ static PDFIUM: Lazy<Option<Pdfium>> = Lazy::new(|| {
 pub struct PdfHandler {}
 
 impl ImageHandler for PdfHandler {
-	fn maximum_size(&self) -> u64 {
-		// Pdfium will only load the portions of the document it actually needs into memory.
-		u64::MAX
-	}
-
-	fn validate_image(&self, _bits_per_pixel: u8, _length: usize) -> Result<()> {
-		Ok(())
-	}
-
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
 		let pdfium = PDFIUM.as_ref().ok_or(PdfiumBinding)?;
 
 		let render_config = PdfRenderConfig::new()
-			.set_target_width(PDF_RENDER_SIZE)
-			.set_maximum_height(PDF_RENDER_SIZE)
+			.set_target_width(PDF_RENDER_WIDTH)
 			.rotate_if_landscape(PdfPageRenderRotation::Degrees90, true);
 
 		Ok(pdfium

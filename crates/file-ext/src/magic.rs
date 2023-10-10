@@ -107,7 +107,7 @@ macro_rules! extension_category_enum {
 			$($(#[$variant_attr:meta])* $variant:ident $(= $( [$($magic_bytes:tt),*] $(+ $offset:literal)? )|+ )? ,)*
 		}
 	) => {
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, ::strum::Display, Clone, Copy, PartialEq, Eq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, ::strum::Display, ::specta::Type, Clone, Copy, PartialEq, Eq)]
 		#[serde(rename_all = "snake_case")]
 		#[strum(serialize_all = "snake_case")]
 		$(#[$enum_attr])*
