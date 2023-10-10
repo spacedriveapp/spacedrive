@@ -1,10 +1,11 @@
 import clsx from 'clsx';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
 	LibraryContextProvider,
+	useBridgeQuery,
 	useClientContext,
 	usePlausibleEvent,
 	usePlausiblePageViewMonitor,
@@ -23,11 +24,13 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const plausibleEvent = usePlausibleEvent();
+	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
-		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web'
+		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web',
+		buildInfo: buildInfo?.data
 	});
 
 	const { rawPath } = useRootContext();
