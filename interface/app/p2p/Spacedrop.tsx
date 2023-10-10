@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	useBridgeMutation,
 	useDiscoveredPeers,
@@ -39,6 +39,7 @@ function SpacedropProgress({ toastId, dropId }: { toastId: ToastId; dropId: stri
 	);
 }
 
+const placeholder = '/Users/oscar/Desktop/demo.txt';
 export function SpacedropUI() {
 	const platform = usePlatform();
 	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
@@ -54,7 +55,7 @@ export function SpacedropUI() {
 					body: (
 						<>
 							<p>
-								File '{data.file_name}' from '{data.peer_name}'
+								File '{data.files[0]}' from '{data.peer_name}'
 							</p>
 							{/* TODO: This will be removed in the future for now it's just a hack */}
 							{platform.saveFilePickerDialog ? null : (
@@ -62,7 +63,7 @@ export function SpacedropUI() {
 									ref={filePathInput}
 									name="file_path"
 									size="sm"
-									placeholder="/Users/oscar/Desktop/demo.txt"
+									placeholder={placeholder}
 									className="w-full"
 								/>
 							)}
@@ -78,7 +79,9 @@ export function SpacedropUI() {
 					action: {
 						label: 'Accept',
 						async onClick() {
-							let destinationFilePath = filePathInput.current?.value ?? '';
+							let destinationFilePath = filePathInput.current?.value ?? placeholder;
+
+							if (destinationFilePath === '') return;
 							if (platform.saveFilePickerDialog) {
 								const result = await platform.saveFilePickerDialog({
 									title: 'Save Spacedrop',
@@ -134,7 +137,7 @@ export function SpacedropUI() {
 
 function SpacedropDialog(props: UseDialogProps) {
 	const discoveredPeers = useDiscoveredPeers();
-	const discoveredPeersArray = [...discoveredPeers.entries()];
+	const discoveredPeersArray = useMemo(() => [...discoveredPeers.entries()], [discoveredPeers]);
 	const form = useZodForm({
 		mode: 'onChange',
 		// We aren't using this but it's required for the Dialog :(

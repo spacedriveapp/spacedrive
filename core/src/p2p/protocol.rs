@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use sd_p2p::{
 	proto::{decode, encode},
-	spaceblock::{Range, SpaceblockRequest, SpacedropRequestError},
+	spaceblock::{Range, SpaceblockRequests, SpaceblockRequestsError},
 	spacetunnel::RemoteIdentity,
 };
 
@@ -13,7 +13,7 @@ use sd_p2p::{
 pub enum Header {
 	// TODO: Split out cause this is a broadcast
 	Ping,
-	Spacedrop(SpaceblockRequest),
+	Spacedrop(SpaceblockRequests),
 	Pair,
 	Sync(Uuid),
 	File {
@@ -33,7 +33,7 @@ pub enum HeaderError {
 	#[error("invalid discriminator '{0}'")]
 	DiscriminatorInvalid(u8),
 	#[error("error reading spacedrop request: {0}")]
-	SpacedropRequest(#[from] SpacedropRequestError),
+	SpacedropRequest(#[from] SpaceblockRequestsError),
 	#[error("error reading sync request: {0}")]
 	SyncRequest(decode::Error),
 }
@@ -47,7 +47,7 @@ impl Header {
 
 		match discriminator {
 			0 => Ok(Self::Spacedrop(
-				SpaceblockRequest::from_stream(stream).await?,
+				SpaceblockRequests::from_stream(stream).await?,
 			)),
 			1 => Ok(Self::Ping),
 			2 => Ok(Self::Pair),

@@ -1,4 +1,4 @@
-use rspc::alpha::AlphaRouter;
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -49,22 +49,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.mutation(|node, args: SpacedropArgs| async move {
-				// TODO: Handle multiple files path and error if zero paths
-
-				#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
-				tokio::spawn(async move {
-					node.p2p
+				node.p2p
+					.clone()
 					.spacedrop(
 						args.peer_id,
-						PathBuf::from(
-							args.file_path
-								.first()
-								.expect("https://linear.app/spacedriveapp/issue/ENG-625/spacedrop-multiple-files"),
-						),
+						args.file_path
+							.into_iter()
+							.map(PathBuf::from)
+							.collect::<Vec<_>>(),
 					)
 					.await
-					.unwrap();
-				});
+					.map_err(|_err| {
+						rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+					})
 			})
 		})
 		.procedure("acceptSpacedrop", {
