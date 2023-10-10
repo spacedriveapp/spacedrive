@@ -133,6 +133,7 @@ async fn main() -> tauri::Result<()> {
 	});
 
 	let app = app
+		.plugin(updater::plugin())
 		.setup(|app| {
 			let app = app.handle();
 
@@ -189,6 +190,7 @@ async fn main() -> tauri::Result<()> {
 			file::open_ephemeral_file_with,
 			file::reveal_items,
 			theme::lock_app_theme,
+			// TODO: move to plugin w/tauri-specta
 			updater::check_for_update,
 			updater::install_update
 		])

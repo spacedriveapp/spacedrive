@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import {
@@ -15,14 +15,15 @@ import {
 	Platform,
 	PlatformProvider,
 	routes,
-	SpacedriveInterface
+	SpacedriveInterface,
+	usePlatform
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style';
 
 import * as commands from './commands';
-import { updater, useUpdater } from './updater';
+import { createUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -76,7 +77,7 @@ const platform = {
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
-	updater,
+	updater: window.__SD_UPDATER__ ? createUpdater() : undefined,
 	auth: {
 		start(url) {
 			open(url);
@@ -121,8 +122,6 @@ export default function App() {
 		};
 	}, []);
 
-	useUpdater();
-
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<PlatformProvider platform={platform}>
@@ -136,6 +135,8 @@ export default function App() {
 
 // This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
 function AppInner() {
+	useUpdater();
+
 	if (startupError) {
 		return (
 			<ErrorPage
@@ -146,4 +147,15 @@ function AppInner() {
 	}
 
 	return <SpacedriveInterface router={router} />;
+}
+
+function useUpdater() {
+	const alreadyChecked = useRef(false);
+
+	const { updater } = usePlatform();
+
+	useEffect(() => {
+		if (!alreadyChecked.current && import.meta.env.PROD) updater?.checkForUpdate();
+		alreadyChecked.current = true;
+	}, [updater]);
 }
