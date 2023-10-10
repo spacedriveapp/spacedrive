@@ -33,7 +33,7 @@ use sd_media_metadata::MediaMetadata;
 
 use std::{
 	ffi::OsString,
-	path::{Path, PathBuf, MAIN_SEPARATOR},
+	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 	str::FromStr,
 	sync::Arc,
 };
@@ -216,7 +216,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
 					if let Some(sub_path) =
-						sub_path.and_then(|sub_path| sub_path.strip_prefix(MAIN_SEPARATOR).ok())
+						sub_path.and_then(|sub_path| sub_path.strip_prefix("/").ok())
 					{
 						path.push(sub_path)
 					}
