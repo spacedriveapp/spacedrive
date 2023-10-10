@@ -12,7 +12,7 @@ const EMOJIS = ['🤩', '😀', '🙁', '😭'];
 const FEEDBACK_URL = 'https://spacedrive.com/api/feedback';
 
 export default function FeedbackDialog(props: UseDialogProps) {
-	const form = useZodForm({ schema, mode: 'onBlur' });
+	const form = useZodForm({ schema });
 	const [emojiSelected, setEmojiSelected] = useState<string | undefined>(undefined);
 
 	const emojiSelectHandler = (index: number) => {
@@ -46,7 +46,7 @@ export default function FeedbackDialog(props: UseDialogProps) {
 			ctaLabel="Submit"
 			closeLabel="Cancel"
 			buttonsSideContent={
-				<div className="flex w-full items-center justify-center gap-1">
+				<div className="flex items-center justify-center w-full gap-1">
 					{EMOJIS.map((emoji, i) => (
 						<div
 							onClick={() => emojiSelectHandler(i)}
