@@ -52,7 +52,7 @@ function AppNavigation() {
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
-	initPlausible({ platformType: 'mobile', buildInfo });
+	initPlausible({ platformType: 'mobile', buildInfo: buildInfo?.data });
 
 	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
 	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
