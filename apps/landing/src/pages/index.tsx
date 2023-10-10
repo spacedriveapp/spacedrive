@@ -3,7 +3,7 @@
 /* eslint-disable tailwindcss/classnames-order */
 
 /* eslint-disable jsx-a11y/alt-text */
-import { Apple } from '@sd/assets/svgs/brands';
+import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
@@ -21,6 +21,7 @@ import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
 import Space from '~/components/Space';
 import WormHole from '~/components/WormHole';
+import CyclingImage from '../components/CyclingImage';
 
 const Link = dynamic(() => import('next/link'), {
 	ssr: false
@@ -36,10 +37,10 @@ const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg tr
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
 const platforms = [
-	{ name: 'Android', icon: AndroidLogo, url: 'https://www.google.com' },
-	{ name: 'iOS', icon: Apple, url: 'https://www.github.com' },
+	{ name: 'iOS and macOS', icon: Apple, url: 'https://www.github.com' },
 	{ name: 'Windows', icon: WindowsLogo, url: 'https://www.github.com' },
 	{ name: 'Linux', icon: LinuxLogo, url: 'https://www.github.com' },
+	{ name: 'Android', icon: AndroidLogo, url: 'https://www.google.com' },
 	{ name: 'Web', icon: Globe, url: 'https://www.github.com' }
 ];
 
@@ -144,20 +145,40 @@ export default function HomePage() {
 							Designed for creators, hoarders and the painfully disorganized.
 						</span>
 					</p>
-					<Link
-						target="_blank"
-						href={
-							deviceOs?.isWindows
-								? 'https://www.google.com'
-								: 'https://www.github.com'
-						}
-					>
-						<HomeCTA
-							icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
-							className="z-5 relative"
-							text={deviceOs?.isWindows ? 'Download for Windows' : 'Download for Mac'}
-						/>
-					</Link>
+					<div className="flex flex-row gap-3">
+						<Link
+							target="_blank"
+							href={
+								deviceOs?.isWindows
+									? 'https://www.google.com'
+									: 'https://www.github.com'
+							}
+						>
+							<HomeCTA
+								icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
+								className="z-5 relative"
+								text={
+									deviceOs?.isWindows
+										? 'Download for Windows'
+										: 'Download for Mac'
+								}
+							/>
+						</Link>
+						<Link
+							target="_blank"
+							href={
+								deviceOs?.isWindows
+									? 'https://www.google.com'
+									: 'https://www.github.com'
+							}
+						>
+							<HomeCTA
+								icon={<Github />}
+								className="z-5 relative"
+								text="Star on GitHub"
+							/>
+						</Link>
+					</div>
 					<p
 						className={clsx(
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
@@ -188,21 +209,29 @@ export default function HomePage() {
 						>
 							<Image
 								loading="eager"
-								className="absolute-horizontal-center animation-delay-2 top-[380px] w-[400px] fade-in xs:top-[360px] md:top-[130px] md:w-auto"
+								className="absolute-horizontal-center animation-delay-2 fade-in xs:top-[360px] md:top-[130px]"
 								width={1200}
 								height={626}
 								alt="l"
 								src="/images/appgradient.webp"
 							/>
-							<AppFrameOuter className="fade-in-heading animation-delay-2 relative overflow-hidden">
+							<AppFrameOuter className=" relative overflow-hidden transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02]">
 								<AppFrameInner>
-									<Image
+									<CyclingImage
 										loading="eager"
 										width={1278}
 										height={626}
 										alt="spacedrive app"
-										className="rounded-lg"
-										src="/images/app.webp"
+										className=" rounded-lg "
+										images={['/images/app.webp']}
+									/>
+									<Image
+										loading="eager"
+										className="absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
+										width={2278}
+										height={626}
+										alt="l"
+										src="/images/appgradientoverlay.png"
 									/>
 								</AppFrameInner>
 							</AppFrameOuter>
@@ -230,7 +259,7 @@ const Platform = ({ icon: Icon, url, label }: Props) => {
 	return (
 		<Tooltip label={label}>
 			<Link aria-label={label} href={url} target="_blank">
-				<Icon size={20} className="opacity-80" weight="fill" />
+				<Icon size={25} className="h-[25px] w-full opacity-80" weight="fill" />
 			</Link>
 		</Tooltip>
 	);
