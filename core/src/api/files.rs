@@ -48,6 +48,8 @@ use tracing::{error, warn};
 
 use super::{Ctx, R};
 
+const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
@@ -198,39 +200,55 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("createFolder", {
 			#[derive(Type, Deserialize)]
 			pub struct CreateFolderArgs {
+				pub location_id: location::id::Type,
+				pub parent_file_path_id: Option<file_path::id::Type>,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFolderArgs {
+				     location_id,
+				     parent_file_path_id,
+				     name,
+				 }: CreateFolderArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(file_path_id) = parent_file_path_id {
+						path.push(
+							library
+								.db
+								.file_path()
+								.find_unique(file_path::id::equals(file_path_id))
+								.select(file_path_to_isolate::select())
+								.exec()
+								.await?
+								.ok_or(rspc::Error::from(LocationError::FilePath(
+									FilePathError::IdNotFound(file_path_id),
+								)))
+								.and_then(|file_path| {
+									IsolatedFilePathData::try_from(file_path).map_err(Into::into)
+								})?,
+						);
+					}
+
+					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
+
+					create_directory(path, &library).await
+				},
+			)
+		})
+		.procedure("createEphemeralFolder", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFolderArgs {
 				pub path: PathBuf,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
 				|(_, library), CreateFolderArgs { mut path, name }: CreateFolderArgs| async move {
-					path.push(name.as_deref().unwrap_or("Untitled Folder"));
+					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
-					match fs::metadata(&path).await {
-						Ok(metadata) if metadata.is_dir() => {
-							path = find_available_filename_for_duplicate(&path).await?;
-						}
-						Ok(_) => {
-							return Err(
-								FileSystemJobsError::WouldOverwrite(path.into_boxed_path()).into()
-							)
-						}
-						Err(e) => return Err(FileIOError::from(
-							(
-								path,
-								e,
-								"Failed to access file system and get metadata on directory to be created"
-							)
-						).into()),
-					};
-
-					fs::create_dir(&path)
-						.await
-						.map_err(|e| FileIOError::from((path, e, "Failed to create directory")))?;
-
-					invalidate_query!(library, "search.objects");
-					invalidate_query!(library, "search.paths");
-
-					Ok(())
+					create_directory(path, &library).await
 				},
 			)
 		})
@@ -731,4 +749,32 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+}
+
+async fn create_directory(mut target_path: PathBuf, library: &Library) -> Result<(), rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_dir() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on directory to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::create_dir(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((target_path, e, "Failed to create directory")))?;
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+
+	Ok(())
 }
