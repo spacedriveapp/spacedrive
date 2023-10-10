@@ -22,6 +22,7 @@ import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 import '@sd/ui/style';
 
 import * as commands from './commands';
+import { updater, useUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
@@ -57,7 +58,7 @@ if (customUriServerUrl && !customUriServerUrl?.endsWith('/')) {
 }
 const queryParams = customUriAuthToken ? `?token=${encodeURIComponent(customUriAuthToken)}` : '';
 
-const platform: Platform = {
+const platform = {
 	platform: 'tauri',
 	getThumbnailUrlByThumbKey: (keyParts) =>
 		`${customUriServerUrl}thumbnail/${keyParts
@@ -75,13 +76,14 @@ const platform: Platform = {
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),
 	userHomeDir: homeDir,
+	updater,
 	auth: {
 		start(url) {
 			open(url);
 		}
 	},
 	...commands
-};
+} satisfies Platform;
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -118,6 +120,8 @@ export default function App() {
 			dropEventListener.then((unlisten) => unlisten());
 		};
 	}, []);
+
+	useUpdater();
 
 	return (
 		<RspcProvider queryClient={queryClient}>

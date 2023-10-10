@@ -14,7 +14,7 @@
 		"@rspc/client": "=0.0.0-main-799eec5d",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
+		"@tanstack/react-query": "^4.35",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-router-dom": "6.9.0"
@@ -23,16 +23,16 @@
 		"@playwright/test": "^1.30.0",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.0.21",
-		"@types/react-dom": "^18.0.6",
-		"@vitejs/plugin-react": "^2.1.0",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
+		"@vitejs/plugin-react": "^4.1",
 		"autoprefixer": "^10.4.12",
-		"postcss": "^8.4.17",
+		"postcss": "^8.4",
 		"rollup-plugin-visualizer": "^5.9.0",
-		"typescript": "^5.0.4",
-		"vite": "^4.0.4",
-		"vite-plugin-html": "^3.2.0",
-		"vite-plugin-svgr": "^2.2.1",
-		"vite-tsconfig-paths": "^4.0.3"
+		"typescript": "^5.2",
+		"vite": "^4.4",
+		"vite-plugin-html": "^3.2",
+		"vite-plugin-svgr": "^3.3",
+		"vite-tsconfig-paths": "^4.2"
 	}
 }

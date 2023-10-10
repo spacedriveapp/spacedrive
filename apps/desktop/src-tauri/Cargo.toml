@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.1.0"
+version = "0.0.1"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc."]
 default-run = "sd-desktop"
@@ -9,7 +9,8 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "=1.3.0", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "window-all"] }
+tauri = { version = "1.5.1", features = ["dialog-all", "linux-protocol-headers", "macos-private-api", "os-all", "path-all", "protocol-all", "shell-all", "updater", "window-all"] }
+
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
 	"ffmpeg",
@@ -44,9 +45,8 @@ sd-desktop-macos = { path = "../crates/macos" }
 sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
-tauri-build = { version = "1.4.0", features = [] }
+tauri-build = { version = "1.5.0", features = [] }
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-updater = ["tauri/updater"]

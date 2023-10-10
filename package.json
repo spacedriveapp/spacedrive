@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"scripts": {
-		"preprep": "pnpm exec node scripts/preprep.mjs",
+		"preprep": "pnpm --filter @sd/scripts -- prep",
 		"prep": "pnpm gen:prisma",
 		"postprep": "pnpm codegen",
 		"build": "turbo run build",
@@ -27,7 +27,7 @@
 		"typecheck": "pnpm -r typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint -- --fix",
-		"clean": "rimraf -g \"node_modules/\" \"**/node_modules/\" \"target/\" \"**/.build/\" \"**/.next/\" \"**/dist/!(.gitignore)**\" \"**/tsconfig.tsbuildinfo\""
+		"clean": "git clean -qfX ."
 	},
 	"pnpm": {
 		"overrides": {
@@ -35,25 +35,22 @@
 		}
 	},
 	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "^7.22.5",
-		"@cspell/dict-rust": "^2.0.1",
-		"@cspell/dict-typescript": "^2.0.2",
+		"@babel/plugin-syntax-import-assertions": "~7",
+		"@cspell/dict-rust": "^4.0.1",
+		"@cspell/dict-typescript": "^3.1.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
-		"@storybook/react-vite": "^7.0.20",
-		"archive-wasm": "^1.5.3",
-		"cspell": "^6.31.1",
-		"mustache": "^4.2.0",
+		"@storybook/react-vite": "^7.4.6",
+		"cspell": "^7.3.7",
 		"prettier": "^3.0.3",
-		"prettier-plugin-tailwindcss": "^0.5.3",
-		"rimraf": "^4.4.1",
-		"turbo": "^1.10.2",
-		"turbo-ignore": "^0.3.0",
-		"typescript": "^5.0.4",
-		"vite": "^4.3.9"
+		"prettier-plugin-tailwindcss": "^0.5.5",
+		"turbo": "^1.10.14",
+		"turbo-ignore": "^1.10.14",
+		"typescript": "^5.2",
+		"vite": "^4.4"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
-		"@types/node": "^18.0.0"
+		"@types/node": "^18.17"
 	},
 	"engines": {
 		"pnpm": ">=8.0.0",
@@ -62,23 +59,6 @@
 		"node": ">=18.17 <19 || >=20.1"
 	},
 	"eslintConfig": {
-		"root": true,
-		"overrides": [
-			{
-				"files": [
-					"*.mjs"
-				],
-				"env": {
-					"node": true,
-					"es2022": true,
-					"browser": false,
-					"commonjs": false,
-					"shared-node-browser": false
-				},
-				"parserOptions": {
-					"sourceType": "module"
-				}
-			}
-		]
+		"root": true
 	}
 }
