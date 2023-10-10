@@ -91,7 +91,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 			const rawError =
 				('error' in event && event.error) ||
 				('message' in event && event.message) ||
-				'Unsupported file type';
+				'Filetype is not supported yet';
 
 			_onError?.(thumbType, rawError instanceof Error ? rawError : new Error(rawError));
 		},
