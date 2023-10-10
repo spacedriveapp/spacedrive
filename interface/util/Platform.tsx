@@ -37,8 +37,22 @@ export type Platform = {
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
+	updater?: {
+		useSnapshot: () => UpdateStore;
+		checkForUpdate(): Promise<Update | null>;
+		installUpdate(): Promise<any>;
+	};
 	auth: auth.ProviderConfig;
 };
+
+export type Update = { version: string; body: string | null };
+export type UpdateStore =
+	| { status: 'idle' }
+	| { status: 'loading' }
+	| { status: 'error' }
+	| { status: 'updateAvailable'; update: Update }
+	| { status: 'noUpdateAvailable' }
+	| { status: 'installing' };
 
 // Keep this private and use through helpers below
 const context = createContext<Platform>(undefined!);
