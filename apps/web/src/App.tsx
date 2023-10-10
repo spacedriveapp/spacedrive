@@ -63,7 +63,9 @@ const router = createBrowserRouter(routes);
 
 function App() {
 	const domEl = useRef<HTMLDivElement>(null);
-	const showControls = window.location.search.includes('showControls');
+	const showControls =
+		window.location.search.includes('showControls') ||
+		localStorage.getItem('showControls') === 'true';
 
 	const downloadImage = async () => {
 		// Define a CSS rule to hide scrollbars
