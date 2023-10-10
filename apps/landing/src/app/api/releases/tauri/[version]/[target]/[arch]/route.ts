@@ -23,12 +23,23 @@ type TauriResponse = {
 
 export const runtime = 'edge';
 
-export async function GET(req: Request, extra: { params: Record<string, unknown> }) {
-	const version = req.headers.get('X-Spacedrive-Version');
-
-	if (version === null) return NextResponse.json({ error: 'No version header' }, { status: 400 });
-
-	const params = await paramsSchema.parseAsync({ ...extra.params, version });
+export async function GET(
+	req: Request,
+	{
+		params: rawParams
+	}: {
+		params: {
+			version: string;
+			target: string;
+			arch: string;
+		};
+	}
+) {
+	const params = await paramsSchema.parseAsync({
+		...rawParams,
+		// prefer header override to support release channels
+		version: req.headers.get('X-Spacedrive-Version') ?? rawParams.version
+	});
 
 	const release = await getRelease(params);
 
