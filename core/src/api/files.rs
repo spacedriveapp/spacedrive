@@ -261,12 +261,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("createEphemeralFolder", {
 			#[derive(Type, Deserialize)]
-			pub struct CreateFolderArgs {
+			pub struct CreateEphemeralFolderArgs {
 				pub path: PathBuf,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
-				|(_, library), CreateFolderArgs { mut path, name }: CreateFolderArgs| async move {
+				|(_, library),
+				 CreateEphemeralFolderArgs { mut path, name }: CreateEphemeralFolderArgs| async move {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
 					create_directory(path, &library).await
