@@ -1,5 +1,6 @@
-import { MutableRefObject, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Controller, get } from 'react-hook-form';
+import { useNavigate } from 'react-router';
 import { useDebouncedCallback } from 'use-debounce';
 import {
 	extractInfoRSPCError,
@@ -42,7 +43,7 @@ type SchemaType = z.infer<typeof schema>;
 
 export interface AddLocationDialog extends UseDialogProps {
 	path: string;
-	redirect: MutableRefObject<number | null>;
+	libraryId: string;
 	method?: RemoteErrorFormMessage;
 }
 
@@ -53,13 +54,12 @@ export const AddLocationDialog = ({
 }: AddLocationDialog) => {
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent();
+	const navigate = useNavigate();
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
-
-	const redirect = dialogProps.redirect;
 
 	// This is required because indexRules is undefined on first render
 	const indexerRulesIds = useMemo(
@@ -123,9 +123,16 @@ export const AddLocationDialog = ({
 					throw new Error('Unimplemented custom remote error handling');
 			}
 
-			redirect.current = shouldRedirect ? id : null;
+			shouldRedirect && id && navigate(`${dialogProps.libraryId}/location/${id}`);
 		},
-		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent, redirect]
+		[
+			createLocation,
+			relinkLocation,
+			addLocationToLibrary,
+			submitPlausibleEvent,
+			navigate,
+			dialogProps.libraryId
+		]
 	);
 
 	const handleAddError = useCallback(

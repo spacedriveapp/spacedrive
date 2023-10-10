@@ -75,7 +75,7 @@ export type Procedures = {
         { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 

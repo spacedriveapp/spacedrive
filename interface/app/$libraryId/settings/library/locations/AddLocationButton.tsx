@@ -31,9 +31,6 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 	const overflowRef = useRef<HTMLSpanElement>(null);
 	const [isOverflowing, setIsOverflowing] = useState(false);
 
-	// if this is set, it'll be the new location id and we should redirect
-	const locationIdRedirect = useRef<number | null>(null);
-
 	useCallbackToWatchResize(() => {
 		const text = textRef.current;
 		const overflow = overflowRef.current;
@@ -54,18 +51,10 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 					}
 
 					// Remember `path` will be `undefined` on web cause the user has to provide it in the modal
-					if (path !== '') {
-						await dialogManager.create((dp) => (
-							<AddLocationDialog
-								path={path ?? ''}
-								redirect={locationIdRedirect}
-								{...dp}
-							/>
+					if (path !== '')
+						dialogManager.create((dp) => (
+							<AddLocationDialog path={path ?? ''} libraryId={libraryId} {...dp} />
 						));
-
-						locationIdRedirect.current &&
-							navigate(`/${libraryId}/location/${locationIdRedirect.current}`);
-					}
 				}}
 				{...props}
 			>
