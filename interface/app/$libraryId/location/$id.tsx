@@ -148,12 +148,10 @@ const useItems = ({
 	if (explorerSettings.layoutMode === 'media') {
 		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
 
-		if (explorerSettings.mediaViewWithDescendants)
-			filter.withDescendants = true;
+		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
 	}
 
-	if (!explorerSettings.showHiddenFiles)
-		filter.hidden = false;
+	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 

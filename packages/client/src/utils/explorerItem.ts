@@ -63,7 +63,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		itemData.fullName = `${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`;
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
-		itemData.extension = filePath.extension;
+		itemData.extension = filePath.extension?.toLocaleLowerCase() ?? null;
 		if ('kind' in filePath) itemData.kind = ObjectKind[filePath.kind] ?? 'Unknown';
 		if ('cas_id' in filePath) itemData.casId = filePath.cas_id;
 		if ('location_id' in filePath) itemData.locationId = filePath.location_id;

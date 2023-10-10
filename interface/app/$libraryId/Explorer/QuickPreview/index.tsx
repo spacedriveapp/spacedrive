@@ -20,7 +20,16 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { dialogManager, DropdownMenu, Form, ModifierKeys, toast, Tooltip, z } from '@sd/ui';
+import {
+	dialogManager,
+	DropdownMenu,
+	Form,
+	ModifierKeys,
+	toast,
+	ToastMessage,
+	Tooltip,
+	z
+} from '@sd/ui';
 import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -61,6 +70,7 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
+	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
@@ -82,9 +92,29 @@ export const QuickPreview = () => {
 		if (items[index]) getQuickPreviewStore().itemIndex = index;
 	};
 
+	// Error toast
+	useEffect(() => {
+		if (!thumbErrorToast) return;
+
+		let id: string | number;
+		toast.error(
+			(_id) => {
+				id = _id;
+				return thumbErrorToast;
+			},
+			{
+				className: 'z-99',
+				duration: Infinity
+			}
+		);
+
+		return () => void toast.dismiss(id);
+	}, [thumbErrorToast]);
+
 	// Reset state
 	useEffect(() => {
 		setNewName(null);
+		setThumbErrorToast(undefined);
 
 		if (open || item) return;
 
@@ -220,7 +250,6 @@ export const QuickPreview = () => {
 										<div className="absolute inset-0 bg-black/25 backdrop-blur-3xl" />
 									</div>
 								)}
-
 								<div
 									className={clsx(
 										'z-50 flex items-center p-2',
@@ -396,6 +425,16 @@ export const QuickPreview = () => {
 
 								<FileThumb
 									data={item}
+									onLoad={(type) =>
+										type === 'ORIGINAL' && setThumbErrorToast(undefined)
+									}
+									onError={(type, error) =>
+										type === 'ORIGINAL' &&
+										setThumbErrorToast({
+											title: 'Error loading original file',
+											body: error.message
+										})
+									}
 									loadOriginal
 									mediaControls
 									className={clsx(

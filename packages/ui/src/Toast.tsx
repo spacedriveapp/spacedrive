@@ -20,7 +20,7 @@ const toastClassName = clsx(
 
 export type ToastId<T = string | number> = T;
 type ToastType = 'info' | 'success' | 'error' | 'warning';
-type ToastMessage = ReactNode | { title: ReactNode; body?: ReactNode };
+export type ToastMessage = ReactNode | { title: ReactNode; body?: ReactNode };
 type ToastPromiseData = unknown;
 type ToastPromise<T = ToastPromiseData> = Promise<T> | (() => Promise<T>);
 type ToastAction = { label: string; onClick: () => void; className?: string };
