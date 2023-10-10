@@ -148,12 +148,10 @@ const useItems = ({
 	if (explorerSettings.layoutMode === 'media') {
 		filter.object = { kind: [ObjectKindEnum.Image, ObjectKindEnum.Video] };
 
-		if (explorerSettings.mediaViewWithDescendants)
-			filter.withDescendants = true;
+		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
 	}
 
-	if (!explorerSettings.showHiddenFiles)
-		filter.hidden = false;
+	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
 
 	const count = useLibraryQuery(['search.pathsCount', { filter }]);
 
@@ -163,7 +161,7 @@ const useItems = ({
 		settings
 	});
 
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) || null, [query.data]);
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
 
 	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {
