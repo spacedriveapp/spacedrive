@@ -1,30 +1,49 @@
-// use crate::{
-// 	library::LibraryContext,
-// 	location::{check_virtual_path_exists, fetch_location, LocationError},
-// };
+use std::path::PathBuf;
+use tokio::fs; // For async file operations
 
-// use super::error::VirtualFSError;
-// use crate::prisma::{file_path, location};
+use crate::{
+	invalidate_query, library::Library, object::fs::FileSystemJobsError, prisma::location,
+};
 
-// // TODO: we should create an action handler for all FS operations, that can work for both local and remote locations
-// // if the location is remote, we queue a job for that client specifically
-// // the actual create_folder function should be an option on an enum for all vfs actions
-// pub async fn create_folder(
-// 	location_id: location::id::Type,
-// 	path: &str,
-// 	name: Option<&str>,
-// 	library: &LibraryContext,
-// ) -> Result<(), VirtualFSError> {
-// 	let location = fetch_location(library, location_id)
-// 		.exec()
-// 		.await?
-// 		.ok_or(LocationError::IdNotFound(location_id))?;
+pub async fn create_folder(
+	location_id: Option<i32>,
+	path: PathBuf,
+	name: Option<&str>,
+	library: &Library,
+) -> Result<(), FileSystemJobsError> {
+	// If location_id is provided, query the database to get the location
+	if let Some(id) = location_id {
+		library
+			.db
+			.location()
+			.find_unique(location::id::equals(id))
+			.exec()
+			.await
+			.map_err(|e| FileSystemJobsError::Database(e))?;
+	}
 
-// 	let name = name.unwrap_or("Untitled Folder");
+	name.unwrap_or("Untitled Folder");
 
-// 	let exists = check_virtual_path_exists(library, location_id, subpath).await?;
+	let path_clone = path.clone();
 
-// 	std::fs::create_dir_all(&obj_path)?;
+	match fs::metadata(&path).await {
+		Ok(metadata) if metadata.is_dir() => Ok(()),
+		Ok(_) => Err(FileSystemJobsError::WouldOverwrite(path.into_boxed_path())),
+		Err(_) => {
+			fs::create_dir_all(path_clone)
+				.await
+				.map_err(|e| FileSystemJobsError::IO(e))?;
 
-// 	Ok(())
-// }
+			// Invalidate search query only if a folder is created
+			// TODO: Tell indexer to index the new folder
+			if location_id.is_some() {
+				invalidate_query!(library, "search.objects");
+				invalidate_query!(library, "search.paths");
+			}
+
+			Ok(())
+		}
+	}?;
+
+	Ok(())
+}

@@ -1,5 +1,6 @@
 import {
 	ArrowClockwise,
+	FolderPlus,
 	Key,
 	MonitorPlay,
 	Rows,
@@ -26,6 +27,8 @@ export const useExplorerTopBarOptions = () => {
 	const controlIcon = useKeyMatcher('Meta').icon;
 
 	const settings = explorer.useSettingsSnapshot();
+
+	// const createFolder = use
 
 	const viewOptions: ToolOption[] = [
 		{
@@ -100,6 +103,13 @@ export const useExplorerTopBarOptions = () => {
 	const [{ path }] = useExplorerSearchParams();
 
 	const toolOptions = [
+		{
+			toolTipLabel: 'New Folder',
+			icon: <FolderPlus className={TOP_BAR_ICON_STYLE} />,
+			onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
 		{
 			toolTipLabel: 'Key Manager',
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,

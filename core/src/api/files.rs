@@ -11,8 +11,8 @@ use crate::{
 	},
 	object::{
 		fs::{
-			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit,
+			copy::FileCopierJobInit, create::create_folder, cut::FileCutterJobInit,
+			delete::FileDeleterJobInit, erase::FileEraserJobInit,
 		},
 		media::{
 			media_data_extractor::{
@@ -194,6 +194,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
+		// .procedure("createFolder", {
+		// 	#[derive(Type, Deserialize)]
+		// 	pub struct CreateFolderArgs {
+		// 		pub location_id: Option<i32>,
+		// 		pub path: PathBuf,
+		// 		pub name: Option<String>,
+		// 	}
+		// 	R.with2(library())
+		// 		.mutation(|(_, library), args: CreateFolderArgs| async move {
+		// 			create_folder(args.location_id, args.path, args.name.as_deref(), &library)
+		// 				.await?;
+		// 			Ok(())
+		// 		})
+		// })
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {

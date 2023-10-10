@@ -28,4 +28,6 @@ pub enum FileSystemJobsError {
 	WouldOverwrite(Box<Path>),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("io error: {0}")]
+	IO(#[from] std::io::Error),
 }
