@@ -1,88 +1,86 @@
-use std::string::FromUtf8Error;
-
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
 use sd_p2p::{
-	spaceblock::{SpaceblockRequest, SpacedropRequestError},
-	spacetime::SpaceTimeStream,
-	spacetunnel::{IdentityErr, RemoteIdentity},
+	proto::{decode, encode},
+	spaceblock::{Range, SpaceblockRequest, SpacedropRequestError},
+	spacetunnel::RemoteIdentity,
 };
-
-use crate::node::Platform;
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
+	// TODO: Split out cause this is a broadcast
 	Ping,
 	Spacedrop(SpaceblockRequest),
-	Pair(Uuid),
+	Pair,
 	Sync(Uuid),
-}
+	File {
+		library_id: Uuid,
+		file_path_id: Uuid,
+		range: Range,
+	},
 
-#[derive(Debug, Error)]
-pub enum SyncRequestError {
-	#[error("io error reading library id: {0}")]
-	LibraryIdIoError(std::io::Error),
-	#[error("io error decoding library id: {0}")]
-	ErrorDecodingLibraryId(uuid::Error),
-	#[error("io error reading sync payload len: {0}")]
-	PayloadLenIoError(std::io::Error),
+	// TODO: Remove need for this
+	Connected(Vec<RemoteIdentity>),
 }
 
 #[derive(Debug, Error)]
 pub enum HeaderError {
 	#[error("io error reading discriminator: {0}")]
-	DiscriminatorIoError(std::io::Error),
+	DiscriminatorIo(std::io::Error),
 	#[error("invalid discriminator '{0}'")]
-	InvalidDiscriminator(u8),
+	DiscriminatorInvalid(u8),
 	#[error("error reading spacedrop request: {0}")]
-	SpacedropRequestError(#[from] SpacedropRequestError),
+	SpacedropRequest(#[from] SpacedropRequestError),
 	#[error("error reading sync request: {0}")]
-	SyncRequestError(#[from] SyncRequestError),
-	#[error("invalid request. Spacedrop requires a unicast stream!")]
-	SpacedropOverMulticastIsForbidden,
+	SyncRequest(decode::Error),
 }
 
 impl Header {
-	pub async fn from_stream(stream: &mut SpaceTimeStream) -> Result<Self, HeaderError> {
+	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> Result<Self, HeaderError> {
 		let discriminator = stream
 			.read_u8()
 			.await
-			.map_err(HeaderError::DiscriminatorIoError)?;
+			.map_err(HeaderError::DiscriminatorIo)?;
 
 		match discriminator {
-			0 => match stream {
-				SpaceTimeStream::Unicast(stream) => Ok(Self::Spacedrop(
-					SpaceblockRequest::from_stream(stream).await?,
-				)),
-				_ => Err(HeaderError::SpacedropOverMulticastIsForbidden),
-			},
+			0 => Ok(Self::Spacedrop(
+				SpaceblockRequest::from_stream(stream).await?,
+			)),
 			1 => Ok(Self::Ping),
-			2 => {
-				let mut uuid = [0u8; 16];
-				stream
-					.read_exact(&mut uuid)
+			2 => Ok(Self::Pair),
+			3 => Ok(Self::Sync(
+				decode::uuid(stream)
 					.await
-					.map_err(SyncRequestError::LibraryIdIoError)?;
-
-				Ok(Self::Pair(
-					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
-				))
-			}
-			3 => {
-				let mut uuid = [0u8; 16];
-				stream
-					.read_exact(&mut uuid)
-					.await
-					.map_err(SyncRequestError::LibraryIdIoError)?;
-
-				Ok(Self::Sync(
-					Uuid::from_slice(&uuid).map_err(SyncRequestError::ErrorDecodingLibraryId)?,
-				))
-			}
-			d => Err(HeaderError::InvalidDiscriminator(d)),
+					.map_err(HeaderError::SyncRequest)?,
+			)),
+			4 => Ok(Self::File {
+				library_id: decode::uuid(stream).await.unwrap(),
+				file_path_id: decode::uuid(stream).await.unwrap(),
+				range: match stream.read_u8().await.unwrap() {
+					0 => Range::Full,
+					1 => {
+						let start = stream.read_u64_le().await.unwrap();
+						let end = stream.read_u64_le().await.unwrap();
+						Range::Partial(start..end)
+					}
+					_ => todo!(),
+				},
+			}),
+			// TODO: Error handling
+			255 => Ok(Self::Connected({
+				let len = stream.read_u16_le().await.unwrap();
+				let mut identities = Vec::with_capacity(len as usize);
+				for _ in 0..len {
+					identities.push(
+						RemoteIdentity::from_bytes(&decode::buf(stream).await.unwrap()).unwrap(),
+					);
+				}
+				identities
+			})),
+			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
 
@@ -94,176 +92,61 @@ impl Header {
 				bytes
 			}
 			Self::Ping => vec![1],
-			Self::Pair(library_id) => {
-				let mut bytes = vec![2];
-				bytes.extend_from_slice(library_id.as_bytes());
-				bytes
-			}
+			Self::Pair => vec![2],
 			Self::Sync(uuid) => {
 				let mut bytes = vec![3];
-				bytes.extend_from_slice(uuid.as_bytes());
+				encode::uuid(&mut bytes, uuid);
+				bytes
+			}
+			Self::File {
+				library_id,
+				file_path_id,
+				range,
+			} => {
+				let mut buf = vec![4];
+				encode::uuid(&mut buf, library_id);
+				encode::uuid(&mut buf, file_path_id);
+				buf.extend_from_slice(&range.to_bytes());
+				buf
+			}
+
+			Self::Connected(remote_identities) => {
+				let mut bytes = vec![255];
+				if remote_identities.len() > u16::MAX as usize {
+					panic!("Buf is too long!"); // TODO: Chunk this so it will never error
+				}
+				bytes.extend((remote_identities.len() as u16).to_le_bytes());
+				for identity in remote_identities {
+					encode::buf(&mut bytes, &identity.to_bytes());
+				}
 				bytes
 			}
 		}
-	}
-}
-
-#[derive(Debug, Error)]
-pub enum NodeInformationError {
-	#[error("io error decoding node information library pub_id: {0}")]
-	ErrorDecodingUuid(std::io::Error),
-	#[error("error formatting node information library pub_id: {0}")]
-	UuidFormatError(uuid::Error),
-	#[error("io error reading node information library name length: {0}")]
-	NameLenIoError(std::io::Error),
-	#[error("io error decoding node information library name: {0}")]
-	ErrorDecodingName(std::io::Error),
-	#[error("error formatting node information library name: {0}")]
-	NameFormatError(FromUtf8Error),
-	#[error("io error reading node information public key length: {0}")]
-	PublicKeyLenIoError(std::io::Error),
-	#[error("io error decoding node information public key: {0}")]
-	ErrorDecodingPublicKey(std::io::Error),
-	#[error("error decoding public key: {0}")]
-	ErrorParsingPublicKey(#[from] IdentityErr),
-	#[error("io error reading node information platform id: {0}")]
-	PlatformIdError(std::io::Error),
-}
-
-/// is shared between nodes during pairing and contains the information to identify the node.
-#[derive(Debug, PartialEq, Eq)]
-pub struct NodeInformation {
-	pub pub_id: Uuid,
-	pub name: String,
-	pub public_key: RemoteIdentity,
-	pub platform: Platform,
-}
-
-impl NodeInformation {
-	pub async fn from_stream(
-		stream: &mut (impl AsyncRead + Unpin),
-	) -> Result<Self, NodeInformationError> {
-		let pub_id = {
-			let mut buf = vec![0u8; 16];
-			stream
-				.read_exact(&mut buf)
-				.await
-				.map_err(NodeInformationError::ErrorDecodingUuid)?;
-
-			Uuid::from_slice(&buf).map_err(NodeInformationError::UuidFormatError)?
-		};
-
-		let name = {
-			let len = stream
-				.read_u16_le()
-				.await
-				.map_err(NodeInformationError::NameLenIoError)?;
-
-			let mut buf = vec![0u8; len as usize];
-			stream
-				.read_exact(&mut buf)
-				.await
-				.map_err(NodeInformationError::ErrorDecodingName)?;
-
-			String::from_utf8(buf).map_err(NodeInformationError::NameFormatError)?
-		};
-
-		let public_key = {
-			let len = stream
-				.read_u16_le()
-				.await
-				.map_err(NodeInformationError::PublicKeyLenIoError)?;
-
-			let mut buf = vec![0u8; len as usize];
-			stream
-				.read_exact(&mut buf)
-				.await
-				.map_err(NodeInformationError::ErrorDecodingPublicKey)?;
-
-			RemoteIdentity::from_bytes(&buf)?
-		};
-
-		let platform = stream
-			.read_u8()
-			.await
-			.map_err(NodeInformationError::PlatformIdError)?;
-
-		Ok(Self {
-			pub_id,
-			name,
-			public_key,
-			platform: Platform::try_from(platform).unwrap_or(Platform::Unknown),
-		})
-	}
-
-	pub fn to_bytes(&self) -> Vec<u8> {
-		let mut buf = Vec::new();
-
-		// Pub id
-		buf.extend(self.pub_id.as_bytes());
-
-		// Name
-		let len_buf = (self.name.len() as u16).to_le_bytes();
-		if self.name.len() > u16::MAX as usize {
-			panic!("Name is too long!"); // TODO: Error handling
-		}
-		buf.extend_from_slice(&len_buf);
-		buf.extend(self.name.as_bytes());
-
-		// Public key // TODO: Can I use a fixed size array?
-		let pk = self.public_key.to_bytes();
-		let len_buf = (pk.len() as u16).to_le_bytes();
-		if pk.len() > u16::MAX as usize {
-			panic!("Public key is too long!"); // TODO: Error handling
-		}
-		buf.extend_from_slice(&len_buf);
-		buf.extend(pk);
-
-		// Platform
-		buf.push(self.platform as u8);
-
-		buf
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use sd_p2p::spacetunnel::Identity;
+	// use super::*;
 
-	#[tokio::test]
-	async fn test_node_information() {
-		let original = NodeInformation {
-			pub_id: Uuid::new_v4(),
-			name: "Name".into(),
-			public_key: Identity::new().to_remote_identity(),
-			platform: Platform::current(),
-		};
+	#[test]
+	fn test_header() {
+		// TODO: Finish this
 
-		let buf = original.to_bytes();
-		let mut cursor = std::io::Cursor::new(buf);
-		let info = NodeInformation::from_stream(&mut cursor).await.unwrap();
+		// 	assert_eq!(
+		// 		Header::from_bytes(&Header::Ping.to_bytes()),
+		// 		Ok(Header::Ping)
+		// 	);
 
-		assert_eq!(original, info);
+		// 	assert_eq!(
+		// 		Header::from_bytes(&Header::Spacedrop.to_bytes()),
+		// 		Ok(Header::Spacedrop)
+		// 	);
+
+		// 	let uuid = Uuid::new_v4();
+		// 	assert_eq!(
+		// 		Header::from_bytes(&Header::Sync(uuid).to_bytes()),
+		// 		Ok(Header::Sync(uuid))
+		// 	);
 	}
-
-	// TODO: Unit test it because binary protocols are error prone
-	// #[test]
-	// fn test_proto() {
-	// 	assert_eq!(
-	// 		Header::from_bytes(&Header::Ping.to_bytes()),
-	// 		Ok(Header::Ping)
-	// 	);
-
-	// 	assert_eq!(
-	// 		Header::from_bytes(&Header::Spacedrop.to_bytes()),
-	// 		Ok(Header::Spacedrop)
-	// 	);
-
-	// 	let uuid = Uuid::new_v4();
-	// 	assert_eq!(
-	// 		Header::from_bytes(&Header::Sync(uuid).to_bytes()),
-	// 		Ok(Header::Sync(uuid))
-	// 	);
-	// }
 }

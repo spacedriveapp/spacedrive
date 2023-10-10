@@ -1,3 +1,0 @@
-[submodule "packages/test-files"]
-	path = packages/test-files
-	url = https://github.com/spacedriveapp/test-files

@@ -1,11 +1,14 @@
 import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
+import { useKeys } from 'rooks';
+
 import { tw } from './utils';
 
 interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
 	disabled?: boolean;
+	keybind?: string[];
 }
 
 export const PopoverContainer = tw.div`flex flex-col p-1.5`;
@@ -16,6 +19,12 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 	const triggerRef = useRef<HTMLButtonElement>(null);
 
 	const [open, setOpen] = useState(false);
+
+	useKeys(props.keybind ?? [], (e) => {
+		if (!props.keybind) return;
+		e.stopPropagation();
+		setOpen(!open);
+	});
 
 	useEffect(() => {
 		const onResize = () => {

@@ -1,12 +1,11 @@
+import { EjectSimple } from '@phosphor-icons/react';
 import { Laptop, Mobile, Server } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
-	LibraryContextProvider,
 	arraysEqual,
 	useBridgeQuery,
-	useClientContext,
 	useDebugState,
 	useFeatureFlag,
 	useLibraryQuery,
@@ -14,12 +13,25 @@ import {
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Folder } from '~/components/Folder';
-import { SubtleButton } from '~/components/SubtleButton';
+import { Folder, SubtleButton } from '~/components';
+
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
 import Section from './Section';
+import SeeMore from './SeeMore';
 import TagsContextMenu from './TagsContextMenu';
+
+type SidebarGroup = {
+	name: string;
+	items: SidebarItem[];
+};
+
+type SidebarItem = {
+	name: string;
+	icon: React.ReactNode;
+	to: string;
+	position: number;
+};
 
 type TriggeredContextItem =
 	| {
@@ -31,7 +43,11 @@ type TriggeredContextItem =
 			tagId: number;
 	  };
 
-const SEE_MORE_LOCATIONS_COUNT = 5;
+const EjectButton = ({ className }: { className?: string }) => (
+	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
+		<EjectSimple weight="bold" size={18} className="h-3 w-3 opacity-70" />
+	</Button>
+);
 
 export const LibrarySection = () => {
 	const debugState = useDebugState();
@@ -46,11 +62,6 @@ export const LibrarySection = () => {
 	);
 
 	const [seeMoreLocations, setSeeMoreLocations] = useState(false);
-
-	const locations = locationsQuery.data?.slice(
-		0,
-		seeMoreLocations ? undefined : SEE_MORE_LOCATIONS_COUNT
-	);
 
 	useEffect(() => {
 		const outsideClick = () => {
@@ -67,49 +78,24 @@ export const LibrarySection = () => {
 	return (
 		<>
 			<Section
-				name="Nodes"
-				onDoubleClick={() => setShowDummyNodesEasterEgg(!showDummyNodesEasterEgg)}
+				name="Devices"
 				actionArea={
-					isPairingEnabled ? (
+					isPairingEnabled && (
 						<Link to="settings/library/nodes">
 							<SubtleButton />
 						</Link>
-					) : (
-						<SubtleButton />
 					)
 				}
 			>
 				{node.data && (
-					<>
-						<SidebarLink
-							className="group relative w-full"
-							to={`node/${node.data.id}`}
-							key={node.data.id}
-						>
-							<img src={Laptop} className="mr-1 h-5 w-5" />
-							<span className="truncate">{node.data.name}</span>
-						</SidebarLink>
-						{showDummyNodesEasterEgg && (
-							<>
-								<SidebarLink
-									className="group relative w-full"
-									to={`node/23`}
-									key={23}
-								>
-									<img src={Mobile} className="mr-1 h-5 w-5" />
-									<span className="truncate">Spacephone</span>
-								</SidebarLink>
-								<SidebarLink
-									className="group relative w-full"
-									to={`node/24`}
-									key={24}
-								>
-									<img src={Server} className="mr-1 h-5 w-5" />
-									<span className="truncate">Titan</span>
-								</SidebarLink>
-							</>
-						)}
-					</>
+					<SidebarLink
+						className="group relative w-full"
+						to={`node/${node.data.id}`}
+						key={node.data.id}
+					>
+						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<span className="truncate">{node.data.name}</span>
+					</SidebarLink>
 				)}
 				<Tooltip
 					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
@@ -117,10 +103,11 @@ export const LibrarySection = () => {
 					position="right"
 				>
 					<Button disabled variant="dotted" className="mt-1 w-full">
-						Connect Node
+						Add Device
 					</Button>
 				</Tooltip>
 			</Section>
+
 			<Section
 				name="Locations"
 				actionArea={
@@ -129,12 +116,9 @@ export const LibrarySection = () => {
 					</Link>
 				}
 			>
-				{locations?.map((location) => {
-					const online =
-						onlineLocations?.some((l) => arraysEqual(location.pub_id, l)) || false;
-
-					// const online = onlineLocations?.some((l) => arraysEqual(location.pub_id, l));
-					return (
+				<SeeMore
+					items={locationsQuery.data || []}
+					renderItem={(location, index) => (
 						<LocationsContextMenu key={location.id} locationId={location.id}>
 							<SidebarLink
 								onContextMenu={() =>
@@ -157,7 +141,11 @@ export const LibrarySection = () => {
 									<div
 										className={clsx(
 											'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',
-											online ? 'bg-green-500' : 'bg-red-500'
+											onlineLocations.some((l) =>
+												arraysEqual(location.pub_id, l)
+											)
+												? 'bg-green-500'
+												: 'bg-red-500'
 										)}
 									/>
 								</div>
@@ -165,16 +153,8 @@ export const LibrarySection = () => {
 								<span className="truncate">{location.name}</span>
 							</SidebarLink>
 						</LocationsContextMenu>
-					);
-				})}
-				{locationsQuery.data?.[SEE_MORE_LOCATIONS_COUNT - 1] && (
-					<div
-						onClick={() => setSeeMoreLocations(!seeMoreLocations)}
-						className="mb-1 ml-2 mt-0.5 cursor-pointer text-center text-tiny font-semibold text-ink-faint/50 transition hover:text-accent"
-					>
-						See {seeMoreLocations ? 'less' : 'more'}
-					</div>
-				)}
+					)}
+				/>
 				<AddLocationButton className="mt-1" />
 			</Section>
 			{!!tags.data?.length && (
@@ -186,8 +166,9 @@ export const LibrarySection = () => {
 						</NavLink>
 					}
 				>
-					<div className="mb-2 mt-1">
-						{tags.data?.slice(0, 6).map((tag) => (
+					<SeeMore
+						items={tags.data}
+						renderItem={(tag, index) => (
 							<TagsContextMenu tagId={tag.id} key={tag.id}>
 								<SidebarLink
 									onContextMenu={() =>
@@ -212,8 +193,8 @@ export const LibrarySection = () => {
 									<span className="ml-1.5 truncate text-sm">{tag.name}</span>
 								</SidebarLink>
 							</TagsContextMenu>
-						))}
-					</div>
+						)}
+					/>
 				</Section>
 			)}
 		</>

@@ -1,29 +1,7 @@
 #![cfg(target_os = "linux")]
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-	#[error(transparent)]
-	Io(#[from] std::io::Error),
-	#[error(transparent)]
-	Xdg(#[from] xdg::BaseDirectoriesError),
-	#[error("no handlers found for '{0}'")]
-	NotFound(String),
-	#[error("bad Desktop Entry exec line: {0}")]
-	InvalidExec(String),
-	#[error("malformed desktop entry at {0}")]
-	BadEntry(std::path::PathBuf),
-	#[error("Please specify the default terminal with handlr set x-scheme-handler/terminal")]
-	NoTerminal,
-	#[error("Bad path: {0}")]
-	BadPath(String),
-}
+mod app_info;
+mod env;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-mod desktop_entry;
-mod handler;
-mod system;
-
-pub use desktop_entry::{DesktopEntry, Mode as ExecMode};
-pub use handler::{Handler, HandlerType};
-pub use system::SystemApps;
+pub use app_info::{list_apps_associated_with_ext, open_file_path, open_files_path_with};
+pub use env::{get_current_user_home, is_appimage, is_flatpak, is_snap, normalize_environment};

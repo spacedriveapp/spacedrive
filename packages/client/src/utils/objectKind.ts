@@ -1,6 +1,6 @@
 // An array of Object kinds.
-// Note: The order of this enum should never change, and always be kept in sync with `crates/file_ext/src/kind.rs`
-export enum ObjectKind {
+// Note: The order of this enum should never change, and always be kept in sync with `crates/file-ext/src/kind.rs`
+export enum ObjectKindEnum {
 	Unknown,
 	Document,
 	Folder,
@@ -23,7 +23,16 @@ export enum ObjectKind {
 	Mesh,
 	Code,
 	Database,
-	Book
+	Book,
+	Config,
+	Dotfile,
+	Screenshot
 }
 
-export type ObjectKindKey = keyof typeof ObjectKind;
+export type ObjectKindKey = keyof typeof ObjectKindEnum;
+
+// This is ugly, but typescript doesn't support type narrowing for enum index access yet:
+// https://github.com/microsoft/TypeScript/issues/38806
+export const ObjectKind = ObjectKindEnum as typeof ObjectKindEnum & {
+	[key: number]: ObjectKindKey | undefined;
+};

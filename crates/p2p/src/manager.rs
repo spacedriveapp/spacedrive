@@ -10,12 +10,12 @@ use std::{
 use libp2p::{core::muxing::StreamMuxerBox, swarm::SwarmBuilder, Transport};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, error, warn};
+use tracing::{error, trace, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, Mdns, MdnsState, Metadata,
-	MetadataManager, PeerId,
+	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
+	MdnsState, Metadata, MetadataManager, PeerId,
 };
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
@@ -23,9 +23,10 @@ use crate::{
 pub struct Manager<TMetadata: Metadata> {
 	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
-	pub(crate) application_name: &'static [u8],
+	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
-	event_stream_tx: mpsc::Sender<ManagerStreamAction<TMetadata>>,
+	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
+	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMetadata>>,
 }
 
 impl<TMetadata: Metadata> Manager<TMetadata> {
@@ -42,22 +43,19 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.ok_or(ManagerError::InvalidAppName)?;
 
 		let peer_id = PeerId(keypair.raw_peer_id());
-		let (event_stream_tx, event_stream_rx) = mpsc::channel(1024);
+		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
+		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
 		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
 			.await
 			.unwrap();
 		let this = Arc::new(Self {
 			mdns_state,
-			// Look this is bad but it's hard to avoid. Technically a memory leak but it's a small amount of memory and is should done on startup on the P2P system.
-			application_name: Box::leak(Box::new(
-				format!("/{}/spacetime/1.0.0", application_name)
-					.as_bytes()
-					.to_vec(),
-			)),
+			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			peer_id,
 			event_stream_tx,
+			event_stream_tx2,
 		});
 
 		let mut swarm = SwarmBuilder::with_tokio_executor(
@@ -74,13 +72,13 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			let listener_id = swarm
             .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
             .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
+			trace!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 		{
 			let listener_id = swarm
         .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
         .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
+			trace!("created ipv4 listener with id '{:?}'", listener_id);
 		}
 
 		Ok((
@@ -88,6 +86,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			ManagerStream {
 				manager: this,
 				event_stream_rx,
+				event_stream_rx2,
 				swarm,
 				mdns,
 				queued_events: Default::default(),
@@ -97,7 +96,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		))
 	}
 
-	pub(crate) async fn emit(&self, event: ManagerStreamAction<TMetadata>) {
+	pub(crate) async fn emit(&self, event: ManagerStreamAction) {
 		match self.event_stream_tx.send(event).await {
 			Ok(_) => {}
 			Err(err) => warn!("error emitting event: {}", err),
@@ -130,12 +129,20 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
+	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
+	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
 	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
-		self.emit(ManagerStreamAction::StartStream(peer_id, tx))
-			.await;
+		match self
+			.event_stream_tx2
+			.send(ManagerStreamAction2::StartStream(peer_id, tx))
+			.await
+		{
+			Ok(_) => {}
+			Err(err) => warn!("error emitting event: {}", err),
+		}
 		let mut stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
 

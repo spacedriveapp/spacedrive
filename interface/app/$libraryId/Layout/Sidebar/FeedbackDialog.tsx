@@ -1,11 +1,10 @@
 import clsx from 'clsx';
 import { useState } from 'react';
-import { Dialog, TextArea, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
-import { showAlertDialog } from '~/components';
+import { useZodForm } from '@sd/client';
+import { Dialog, TextAreaField, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 
 const schema = z.object({
-	feedback: z.string().min(1),
+	feedback: z.string().min(1, { message: 'Feedback is required' }),
 	emoji: z.string().emoji().max(2).optional()
 });
 
@@ -33,26 +32,21 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				mode: 'no-cors'
 			});
 		} catch (error) {
-			showAlertDialog({
-				title: 'Error',
-				value: 'There was an error submitting your feedback. Please try again.'
-			});
+			toast.error('There was an error submitting your feedback. Please try again.');
 		}
 	});
 
-	const watchForm = form.watch();
-
 	return (
 		<Dialog
+			invertButtonFocus
 			title="Feedback"
 			dialog={useDialog(props)}
 			form={form}
 			onSubmit={formSubmit}
-			submitDisabled={form.formState.isSubmitting || !watchForm.feedback}
 			ctaLabel="Submit"
 			closeLabel="Cancel"
 			buttonsSideContent={
-				<div className="flex w-full items-center justify-center gap-1">
+				<div className="flex items-center justify-center w-full gap-1">
 					{EMOJIS.map((emoji, i) => (
 						<div
 							onClick={() => emojiSelectHandler(i)}
@@ -68,10 +62,10 @@ export default function FeedbackDialog(props: UseDialogProps) {
 				</div>
 			}
 		>
-			<TextArea
+			<TextAreaField
+				{...form.register('feedback')}
 				placeholder="Your feedback..."
 				className="w-full"
-				{...form.register('feedback')}
 			/>
 		</Dialog>
 	);

@@ -4,7 +4,7 @@ use crate::{
 	library::Library,
 	prisma::indexer_rule,
 	util::{
-		db::{maybe_missing, uuid_to_bytes, MissingFieldError},
+		db::{maybe_missing, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 	},
 };
@@ -135,7 +135,7 @@ impl IndexerRuleCreateArgs {
 				.db
 				.indexer_rule()
 				.create(
-					uuid_to_bytes(generate_pub_id()),
+					sd_utils::uuid_to_bytes(generate_pub_id()),
 					vec![
 						name::set(Some(self.name)),
 						rules_per_kind::set(Some(rules_data)),
@@ -479,9 +479,9 @@ impl IndexerRule {
 			.await
 			.map(|results| {
 				results.into_iter().flatten().fold(
-					HashMap::with_capacity(RuleKind::variant_count()),
+					HashMap::<_, Vec<_>>::with_capacity(RuleKind::variant_count()),
 					|mut map, (kind, result)| {
-						map.entry(kind).or_insert_with(Vec::new).push(result);
+						map.entry(kind).or_default().push(result);
 						map
 					},
 				)

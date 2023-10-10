@@ -6,7 +6,7 @@ export const Slider = (props: SliderPrimitive.SliderProps) => (
 		{...props}
 		className={clsx('relative flex h-6 w-full select-none items-center', props.className)}
 	>
-		<SliderPrimitive.Track className="relative h-2 grow rounded-full bg-app-box outline-none">
+		<SliderPrimitive.Track className="relative h-2 grow rounded-full bg-app-slider outline-none">
 			<SliderPrimitive.Range className="absolute h-full rounded-full bg-accent outline-none" />
 		</SliderPrimitive.Track>
 		<SliderPrimitive.Thumb

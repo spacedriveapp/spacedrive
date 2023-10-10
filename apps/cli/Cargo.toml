@@ -1,16 +1,14 @@
 [package]
-name = "cli"
+name = "sd-cli"
 version = "0.1.0"
 license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-indoc = "1.0.9"
-clap = { version = "4.3.0", features = ["derive"] }
-anyhow = "1.0.71"
+indoc = "2.0.3"
+clap = { version = "4.4.2", features = ["derive"] }
+anyhow = "1.0.75"
 hex = "0.4.3"
 sd-crypto = { path = "../../crates/crypto" }
 tokio = { workspace = true, features = ["io-util", "rt-multi-thread"] }

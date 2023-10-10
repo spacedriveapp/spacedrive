@@ -1,13 +1,16 @@
 import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect, useRef } from 'react';
+
 import { useDebugState } from './useDebugState';
 import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useTelemetryState';
 
 /**
  * This should be in sync with the Core's version.
  */
-const VERSION = '0.1.0';
+const CORE_VERSION = '0.1.0'; // This will need to be embedded accordingly
+const APP_VERSION = '0.1.0'; // This is specific to desktop/web/mobile and will need to be embedded accordingly
 const DOMAIN = 'app.spacedrive.com';
+const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
 const PlausibleProvider = Plausible({
 	trackLocalhost: true,
@@ -85,6 +88,8 @@ type TagCreateEvent = BasePlausibleEvent<'tagCreate'>;
 type TagDeleteEvent = BasePlausibleEvent<'tagDelete'>;
 type TagAssignEvent = BasePlausibleEvent<'tagAssign'>;
 
+type PingEvent = BasePlausibleEvent<'ping'>;
+
 /**
  * All union of available, ready-to-use events.
  *
@@ -98,7 +103,8 @@ type PlausibleEvent =
 	| LocationDeleteEvent
 	| TagCreateEvent
 	| TagDeleteEvent
-	| TagAssignEvent;
+	| TagAssignEvent
+	| PingEvent;
 
 /**
  * An event information wrapper for internal use only.
@@ -109,7 +115,9 @@ interface PlausibleTrackerEvent {
 	eventName: string;
 	props: {
 		platform: PlausiblePlatformType;
-		version: string;
+		fullTelemetry: boolean;
+		coreVersion: string;
+		appVersion: string;
 		debug: boolean;
 	};
 	options: PlausibleTrackerOptions;
@@ -134,18 +142,18 @@ interface SubmitEventProps {
 	 */
 	screenWidth?: number;
 	/**
-	 * Whether or not telemetry sharing is enabled for the current client.
+	 * Whether or not full telemetry sharing is enabled for the current client.
 	 *
-	 * It is **crucial** that this is the direct output of `useTelemetryState().shareTelemetry`,
+	 * It is **crucial** that this is the direct output of `useTelemetryState().shareFullTelemetry`,
 	 * regardless of other conditions that may affect whether we share it (such as event overrides).
 	 */
-	shareTelemetry: boolean;
+	shareFullTelemetry: boolean;
 	/**
 	 * It is **crucial** that this is sourced from the output of `useDebugState()`
 	 */
 	debugState: {
 		enabled: boolean;
-		shareTelemetry: boolean;
+		shareFullTelemetry: boolean;
 		telemetryLogging: boolean;
 	};
 }
@@ -174,11 +182,11 @@ interface SubmitEventProps {
  */
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
 	if (props.platformType === 'unknown') return;
-	if (debugState.enabled && debugState.shareTelemetry !== true) return;
+	// if (debugState.enabled && debugState.shareFullTelemetry !== true) return;
 	if (
 		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
 			? event.plausibleOptions.telemetryOverride !== true
-			: props.shareTelemetry !== true
+			: props.shareFullTelemetry !== true && event.type !== 'ping'
 	)
 		return;
 
@@ -186,10 +194,13 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		eventName: event.type,
 		props: {
 			platform: props.platformType,
-			version: VERSION,
+			fullTelemetry: props.shareFullTelemetry,
+			coreVersion: CORE_VERSION,
+			appVersion: APP_VERSION,
 			debug: debugState.enabled
 		},
 		options: {
+			domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN,
 			deviceWidth: props.screenWidth ?? window.screen.width,
 			referrer: '',
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
@@ -268,7 +279,7 @@ export const usePlausibleEvent = () => {
 
 			submitPlausibleEvent({
 				debugState,
-				shareTelemetry: telemetryState.shareTelemetry,
+				shareFullTelemetry: telemetryState.shareFullTelemetry,
 				platformType: telemetryState.platform,
 				...props
 			});
@@ -277,7 +288,7 @@ export const usePlausibleEvent = () => {
 	);
 };
 
-export interface PageViewMonitorProps {
+export interface PlausibleMonitorProps {
 	/**
 	 * This should be sanitized, containing no user-specific information.
 	 *
@@ -311,7 +322,7 @@ export interface PageViewMonitorProps {
  *  });
  * ```
  */
-export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProps) => {
+export const usePlausiblePageViewMonitor = ({ currentPath }: PlausibleMonitorProps) => {
 	const plausibleEvent = usePlausibleEvent();
 
 	useEffect(() => {
@@ -319,6 +330,32 @@ export const usePlausiblePageViewMonitor = ({ currentPath }: PageViewMonitorProp
 			event: {
 				type: 'pageview',
 				plausibleOptions: { url: currentPath }
+			}
+		});
+	}, [currentPath, plausibleEvent]);
+};
+
+/**
+ * A Plausible Analytics `ping` monitoring hook. It watches the router's current
+ * path, and sends events if a change in the path is detected.
+ *
+ * This should be included next to the {@link usePlausiblePageViewMonitor}.
+ *
+ * For desktop/web, we use this hook in the `$libraryId` layout and it covers the
+ * entire app (excluding onboarding, which should not be monitored).
+ *
+ * @remarks
+ * This will submit an 'ping' event, independently of what the currernt telemetry
+ * sharing settings are (minimum or full).
+ *
+ */
+export const usePlausiblePingMonitor = ({ currentPath }: PlausibleMonitorProps) => {
+	const plausibleEvent = usePlausibleEvent();
+
+	useEffect(() => {
+		plausibleEvent({
+			event: {
+				type: 'ping'
 			}
 		});
 	}, [currentPath, plausibleEvent]);

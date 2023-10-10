@@ -1,12 +1,12 @@
-import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
 import { tw } from '~/lib/tailwind';
-import SettingsScreen from '~/screens/settings/Settings';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
 import LibrarySettingsScreen from '~/screens/settings/client/LibrarySettings';
 import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
+import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
@@ -14,6 +14,7 @@ import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGene
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
+import SettingsScreen from '~/screens/settings/Settings';
 
 const SettingsStack = createStackNavigator<SettingsStackParamList>();
 
@@ -104,6 +105,11 @@ export default function SettingsNavigator() {
 				component={SupportScreen}
 				options={{ headerTitle: 'Support' }}
 			/>
+			<SettingsStack.Screen
+				name="Debug"
+				component={DebugScreen}
+				options={{ headerTitle: 'Debug' }}
+			/>
 		</SettingsStack.Navigator>
 	);
 }
@@ -130,6 +136,7 @@ export type SettingsStackParamList = {
 	// Info
 	About: undefined;
 	Support: undefined;
+	Debug: undefined;
 };
 
 export type SettingsStackScreenProps<Screen extends keyof SettingsStackParamList> =

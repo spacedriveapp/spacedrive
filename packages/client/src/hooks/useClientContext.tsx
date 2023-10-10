@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useContext, useMemo } from 'react';
+import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
+
 import { LibraryConfigWrapped } from '../core';
 import { valtioPersist } from '../lib';
 import { useBridgeQuery } from '../rspc';
@@ -52,7 +53,13 @@ export const ClientContextProvider = ({
 	currentLibraryCache.id = currentLibraryId;
 
 	return (
-		<ClientContext.Provider value={{ currentLibraryId, libraries, library }}>
+		<ClientContext.Provider
+			value={{
+				currentLibraryId,
+				libraries,
+				library
+			}}
+		>
 			{children}
 		</ClientContext.Provider>
 	);

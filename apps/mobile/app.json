@@ -9,15 +9,44 @@
 		"scheme": "spacedrive",
 		"platforms": ["ios", "android"],
 		"userInterfaceStyle": "automatic",
+		"icon": "./assets/icon.png",
 		"updates": {
 			"enabled": false,
 			"fallbackToCacheTimeout": 0
 		},
 		"assetBundlePatterns": ["**/*"],
 		"ios": {
-			"supportsTablet": false
+			"supportsTablet": false,
+			"bundleIdentifier": "com.spacedrive.app",
+			"infoPlist": {
+				"ITSAppUsesNonExemptEncryption": false,
+				"UIBackgroundModes": ["remote-notification"],
+				"UIFileSharingEnabled": true
+			},
+			"entitlements": {
+				"com.apple.developer.icloud-container-identifiers": [],
+				"com.apple.developer.icloud-services": ["CloudDocuments"],
+				"com.apple.developer.ubiquity-container-identifiers": []
+			}
 		},
-		"android": {},
-		"privacy": "hidden"
+		"android": {
+			"package": "com.spacedrive.app"
+		},
+		"splash": {
+			"image": "./assets/splash.png",
+			"backgroundColor": "#000000"
+		},
+		"privacy": "hidden",
+		"plugins": [
+			[
+				"expo-build-properties",
+				{
+					"ios": {
+						"useFrameworks": "static",
+						"deploymentTarget": "13.0"
+					}
+				}
+			]
+		]
 	}
 }

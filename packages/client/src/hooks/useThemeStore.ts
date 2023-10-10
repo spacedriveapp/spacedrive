@@ -1,4 +1,5 @@
 import { useSnapshot } from 'valtio';
+
 import { valtioPersist } from '../lib';
 
 export type Themes = 'vanilla' | 'dark';
@@ -15,4 +16,8 @@ export function useThemeStore() {
 
 export function getThemeStore() {
 	return themeStore;
+}
+
+export function isDarkTheme() {
+	return themeStore.theme === 'dark';
 }

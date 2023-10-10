@@ -1,6 +1,6 @@
+import { ArrowRight } from '@phosphor-icons/react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { ArrowRight } from 'phosphor-react';
 import Markdown from '~/components/Markdown';
 import PageWrapper from '~/components/PageWrapper';
 import { TeamMember, TeamMemberProps } from '~/components/TeamMember';
@@ -11,7 +11,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Founder, Engineer & Designer',
 		imageUrl: '/images/team/jamie.jpg',
 		socials: {
-			twitter: 'https://twitter.com/jamiepine',
+			twitter: 'https://x.com/jamiepine',
 			twitch: 'https://twitch.tv/jamiepinelive',
 			github: 'https://github.com/jamiepine'
 		}
@@ -21,7 +21,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Rust Engineer',
 		imageUrl: '/images/team/brendan.jpg',
 		socials: {
-			twitter: 'https://twitter.com/brendonovichdev',
+			twitter: 'https://x.com/brendonovichdev',
 			twitch: 'https://twitch.tv/brendonovich',
 			github: 'https://github.com/brendonovich'
 		}
@@ -31,7 +31,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Rust Engineer',
 		imageUrl: '/images/team/oscar.jpg',
 		socials: {
-			twitter: 'https://twitter.com/oscartbeaumont',
+			twitter: 'https://x.com/oscartbeaumont',
 			twitch: 'https://twitch.tv/oscartbeaumont',
 			github: 'https://github.com/oscartbeaumont'
 		}
@@ -41,7 +41,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Rust Engineer',
 		imageUrl: '/images/team/ericson.jpg',
 		socials: {
-			twitter: 'https://twitter.com/fogodev',
+			twitter: 'https://x.com/fogodev',
 			github: 'https://github.com/fogodev'
 		}
 	},
@@ -66,7 +66,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Graphic Designer',
 		imageUrl: '/images/team/mihail.jpg',
 		socials: {
-			twitter: 'https://twitter.com/mmmintdesign',
+			twitter: 'https://x.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
 		}
 	},
@@ -92,7 +92,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		imageUrl: '/images/team/nikec.jpg',
 		socials: {
 			github: 'https://github.com/niikeec',
-			twitter: 'https://twitter.com/nikec_'
+			twitter: 'https://x.com/nikec_'
 		}
 	}
 ];

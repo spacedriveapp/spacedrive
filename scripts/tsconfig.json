@@ -1,0 +1,33 @@
+{
+	"compilerOptions": {
+		"lib": ["esnext"],
+		"noEmit": true,
+		"outDir": "src",
+		"strict": true,
+		"checkJs": true,
+		"allowJs": true,
+		"module": "esnext",
+		"target": "esnext",
+		"declaration": true,
+		"incremental": true,
+		"skipLibCheck": true,
+		"removeComments": false,
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"esModuleInterop": false,
+		"disableSizeLimit": true,
+		"moduleResolution": "node",
+		"noImplicitReturns": true,
+		"resolveJsonModule": true,
+		"noUnusedParameters": true,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"forceConsistentCasingInFileNames": true,
+		"noPropertyAccessFromIndexSignature": false
+	},
+	"include": ["./**/*.mjs"],
+	"exclude": ["node_modules"],
+	"$schema": "https://json.schemastore.org/tsconfig"
+}

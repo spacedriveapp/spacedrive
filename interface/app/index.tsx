@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
-import { Navigate, Outlet, RouteObject, useMatches } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
-import { Dialogs } from '@sd/ui';
+import { Dialogs, toast, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
 import { useKeybindHandler, useTheme } from '~/hooks';
+
 import libraryRoutes from './$libraryId';
-import { RootContext } from './RootContext';
 import onboardingRoutes from './onboarding';
+import { RootContext } from './RootContext';
+
 import './style.scss';
+
+import { usePlatform } from '..';
 
 const Index = () => {
 	const libraries = useCachedLibraries();
@@ -34,6 +38,7 @@ const Wrapper = () => {
 		<RootContext.Provider value={{ rawPath }}>
 			<Outlet />
 			<Dialogs />
+			<Toaster position="bottom-right" expand={true} />
 		</RootContext.Provider>
 	);
 };
@@ -75,9 +80,9 @@ const useRawRoutePath = () => {
 	// we grab the last one as it contains all previous route segments.
 	const lastMatchId = useMatches().slice(-1)[0]?.id;
 
-	const rawPath = useMemo(
-		() => {
-			const [rawPath] = lastMatchId
+	const rawPath = useMemo(() => {
+		const [rawPath] =
+			lastMatchId
 				// Gets a list of the index of each route segment
 				?.split('-')
 				?.map((s) => parseInt(s))
@@ -96,12 +101,10 @@ const useRawRoutePath = () => {
 						return [`${rawPath}/${item.path}`, item];
 					},
 					['' as string, { children: routes }] as const
-				) ?? []
+				) ?? [];
 
-			return rawPath ?? "/"
-		},
-		[lastMatchId]
-	);
+		return rawPath ?? '/';
+	}, [lastMatchId]);
 
 	return rawPath;
 };

@@ -9,15 +9,19 @@ pub struct PeerId(
 	pub(crate)  libp2p::PeerId,
 );
 
-// impl PeerId {
-// 	pub fn to_string(&self) -> String {
-// 		self.0.to_string()
-// 	}
-// }
+impl PeerId {
+	// 	pub fn to_string(&self) -> String {
+	// 		self.0.to_string()
+	// 	}
+
+	pub fn random() -> Self {
+		Self(libp2p::PeerId::random())
+	}
+}
 
 impl FromStr for PeerId {
 	#[allow(deprecated)]
-	type Err = libp2p::core::ParseError;
+	type Err = libp2p::identity::ParseError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Ok(Self(libp2p::PeerId::from_str(s)?))

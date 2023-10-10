@@ -1,5 +1,6 @@
-import { Pencil, Plus, Trash } from 'phosphor-react';
+import { Pencil, Plus, Trash } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 import { ContextMenu as CM, dialogManager } from '@sd/ui';
 import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/tags/DeleteDialog';
@@ -26,21 +27,22 @@ export default ({ children, tagId }: Props) => {
 				onClick={() => navigate(`settings/library/tags/${tagId}`)}
 			/>
 			<CM.Separator />
-			<CM.Item
-				onClick={() => {
-					navigate(`settings/library/tags/${tagId}`);
-					dialogManager.create((dp) => (
-						<DeleteDialog
-							{...dp}
-							tagId={tagId}
-							onSuccess={() => navigate(`settings/library/tags`)}
-						/>
-					));
-				}}
-				icon={Trash}
-				label="Delete"
-				variant="danger"
-			/>
+			<Link to={`settings/library/tags/${tagId}`}>
+				<CM.Item
+					onClick={() => {
+						dialogManager.create((dp) => (
+							<DeleteDialog
+								{...dp}
+								tagId={tagId}
+								onSuccess={() => navigate(`settings/library/tags`)}
+							/>
+						));
+					}}
+					icon={Trash}
+					label="Delete"
+					variant="danger"
+				/>
+			</Link>
 		</CM.Root>
 	);
 };

@@ -5,26 +5,24 @@
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
-use sd_core::{custom_uri::create_custom_uri_endpoint, Node, NodeError};
+use sd_core::{Node, NodeError};
 
-use tauri::{
-	api::path, async_runtime::block_on, ipc::RemoteDomainAccessScope, plugin::TauriPlugin, Manager,
-	RunEvent, Runtime,
-};
-use tokio::{task::block_in_place, time::sleep};
-use tracing::{debug, error};
+use tauri::{api::path, ipc::RemoteDomainAccessScope, AppHandle, Manager};
+use tauri_plugins::{sd_error_plugin, sd_server_plugin};
+use tokio::time::sleep;
+use tracing::error;
 
-#[cfg(target_os = "linux")]
-mod app_linux;
+mod tauri_plugins;
 
 mod theme;
 
 mod file;
 mod menu;
+mod updater;
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn app_ready(app_handle: tauri::AppHandle) {
+async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
@@ -32,7 +30,7 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn reset_spacedrive(app_handle: tauri::AppHandle) {
+async fn reset_spacedrive(app_handle: AppHandle) {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
@@ -51,19 +49,20 @@ async fn reset_spacedrive(app_handle: tauri::AppHandle) {
 #[tauri::command(async)]
 #[specta::specta]
 async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
-	opener::open(node.data_dir.join("logs")).ok();
-	Ok(())
+	let logs_path = node.data_dir.join("logs");
+
+	#[cfg(target_os = "linux")]
+	let open_result = sd_desktop_linux::open_file_path(logs_path);
+
+	#[cfg(not(target_os = "linux"))]
+	let open_result = opener::open(logs_path);
+
+	open_result.map_err(|e| {
+		error!("Failed to open logs dir: {e:#?}");
+	})
 }
 
-pub fn tauri_error_plugin<R: Runtime>(err: NodeError) -> TauriPlugin<R> {
-	tauri::plugin::Builder::new("spacedrive")
-		.js_init_script(format!(
-			r#"window.__SD_ERROR__ = `{}`;"#,
-			err.to_string().replace('`', "\"")
-		))
-		.build()
-}
-
+// TODO(@Oscar): A helper like this should probs exist in tauri-specta
 macro_rules! tauri_handlers {
 	($($name:path),+) => {{
 		#[cfg(debug_assertions)]
@@ -73,10 +72,15 @@ macro_rules! tauri_handlers {
 	}};
 }
 
+const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
+
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
+	#[cfg(debug_assertions)]
+	dotenv::dotenv().ok();
+
 	#[cfg(target_os = "linux")]
-	let (tx, rx) = tokio::sync::mpsc::channel(1);
+	sd_desktop_linux::normalize_environment();
 
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
@@ -85,54 +89,65 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(debug_assertions)]
 	let data_dir = data_dir.join("dev");
 
-	let _guard = Node::init_logger(&data_dir);
-
-	let result = Node::new(data_dir).await;
+	// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
+	let (_guard, result) = match Node::init_logger(&data_dir) {
+		Ok(guard) => (
+			Some(guard),
+			Node::new(
+				data_dir,
+				sd_core::Env {
+					api_url: "https://app.spacedrive.com".to_string(),
+					client_id: CLIENT_ID.to_string(),
+				},
+			)
+			.await,
+		),
+		Err(err) => (None, Err(NodeError::Logger(err))),
+	};
 
 	let app = tauri::Builder::default();
-	let (node, app) = match result {
-		Ok((node, router)) => {
-			// This is a super cringe workaround for: https://github.com/tauri-apps/tauri/issues/3725 & https://bugs.webkit.org/show_bug.cgi?id=146351#c5
-			#[cfg(target_os = "linux")]
-			let app = app_linux::setup(app, rx, create_custom_uri_endpoint(node.clone()).axum()).await;
-			let app = app
-				.register_uri_scheme_protocol(
-					"spacedrive",
-					create_custom_uri_endpoint(node.clone()).tauri_uri_scheme("spacedrive"),
-				)
-				.plugin(rspc::integrations::tauri::plugin(router, {
-					let node = node.clone();
-					move || node.clone()
-				}))
-				.manage(node.clone());
-
-			(Some(node), app)
-		}
+	let app = match result {
+		Ok((node, router)) => app
+			.plugin(rspc::integrations::tauri::plugin(router, {
+				let node = node.clone();
+				move || node.clone()
+			}))
+			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+			.manage(node),
 		Err(err) => {
-			tracing::error!("Error starting up the node: {err}");
-			(None, app.plugin(tauri_error_plugin(err)))
+			error!("Error starting up the node: {err:#?}");
+			app.plugin(sd_error_plugin(err))
 		}
 	};
 
-	let app = app
-		.setup(|app| {
-			#[cfg(feature = "updater")]
-			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
+	// macOS expected behavior is for the app to not exit when the main window is closed.
+	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
+	#[cfg(target_os = "macos")]
+	let app = app.on_window_event(|event| {
+		if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+			if event.window().label() == "main" {
+				AppHandle::hide(&event.window().app_handle()).expect("Window should hide on macOS");
+				api.prevent_close();
+			}
+		}
+	});
 
+	let app = app
+		.plugin(updater::plugin())
+		.setup(|app| {
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
-				// window.hide().unwrap();
-
 				tokio::spawn({
 					let window = window.clone();
 					async move {
 						sleep(Duration::from_secs(3)).await;
 						if !window.is_visible().unwrap_or(true) {
+							// This happens if the JS bundle crashes and hence doesn't send ready event.
 							println!(
 							"Window did not emit `app_ready` event fast enough. Showing window..."
 						);
-							let _ = window.show();
+							window.show().expect("Main window should show");
 						}
 					}
 				});
@@ -155,49 +170,32 @@ async fn main() -> tauri::Result<()> {
 			app.ipc_scope().configure_remote_access(
 				RemoteDomainAccessScope::new("localhost")
 					.allow_on_scheme("spacedrive")
-					.add_window("main")
-					.enable_tauri_api(),
+					.add_window("main"),
 			);
 
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
+		.manage(updater::State::default())
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
 			file::open_file_paths,
+			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
 			file::open_file_path_with,
+			file::open_ephemeral_file_with,
 			file::reveal_items,
-			theme::lock_app_theme
+			theme::lock_app_theme,
+			// TODO: move to plugin w/tauri-specta
+			updater::check_for_update,
+			updater::install_update
 		])
 		.build(tauri::generate_context!())?;
 
-	app.run(move |app_handler, event| {
-		if let RunEvent::ExitRequested { .. } = event {
-			debug!("Closing all open windows...");
-			app_handler
-				.windows()
-				.iter()
-				.for_each(|(window_name, window)| {
-					debug!("closing window: {window_name}");
-					if let Err(e) = window.close() {
-						error!("failed to close window '{}': {:#?}", window_name, e);
-					}
-				});
-
-			if let Some(node) = &node {
-				block_in_place(|| block_on(node.shutdown()));
-			}
-
-			#[cfg(target_os = "linux")]
-			block_in_place(|| block_on(tx.send(()))).ok();
-
-			app_handler.exit(0);
-		}
-	});
-
+	app.run(|_, _| {});
 	Ok(())
 }

@@ -8,7 +8,7 @@ appId: com.spacedrive.app
 - inputText: 'TestLib'
 - tapOn: 'New Library'
 - tapOn:
-    id: 'share-nothing'
+    id: 'share-minimal'
 - tapOn: 'Continue'
 - tapOn:
     id: 'drawer-toggle'

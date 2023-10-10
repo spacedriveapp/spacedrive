@@ -25,18 +25,31 @@ use std::sync::Mutex;
 pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
 	Mutex::new(InvalidRequests::new());
 
+// fwi: This exists to keep the enum fields private.
 #[derive(Debug, Clone, Serialize, Type)]
-pub struct InvalidateOperationEvent {
+pub struct SingleInvalidateOperationEvent {
 	/// This fields are intentionally private.
-	key: &'static str,
+	pub key: &'static str,
 	arg: Value,
 	result: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum InvalidateOperationEvent {
+	Single(SingleInvalidateOperationEvent),
+	// TODO: A temporary hack used with Brendan's sync system until the v2 invalidation system is implemented.
+	All,
 }
 
 impl InvalidateOperationEvent {
 	/// If you are using this function, your doing it wrong.
 	pub fn dangerously_create(key: &'static str, arg: Value, result: Option<Value>) -> Self {
-		Self { key, arg, result }
+		Self::Single(SingleInvalidateOperationEvent { key, arg, result })
+	}
+
+	pub fn all() -> Self {
+		Self::All
 	}
 }
 
@@ -114,20 +127,20 @@ impl InvalidRequests {
 /// );
 /// ```
 #[macro_export]
-#[allow(clippy::crate_in_macro_def)]
+// #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: None,
 						result_ty: None,
@@ -136,24 +149,53 @@ macro_rules! invalidate_query {
 			}
 		}
 
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
+		ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
 		))
 	}};
-	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
-		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+	(node; $ctx:expr, $key:literal) => {{
+		let ctx: &$crate::Node = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
+						key: $key,
+						arg_ty: None,
+						result_ty: None,
+            			macro_src: concat!(file!(), ":", line!()),
+					})
+			}
+		}
+
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
+		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
+		ctx.event_bus.0.send($crate::api::CoreEvent::InvalidateOperation(
+			$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null, None)
+		)).ok();
+	}};
+	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
+		let _: $arg_ty = $arg; // Assert the type the user provided is correct
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
+
+		#[cfg(debug_assertions)]
+		{
+			#[ctor::ctor]
+			fn invalidate() {
+				$crate::api::utils::INVALIDATION_REQUESTS
+					.lock()
+					.unwrap()
+					.queries
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
                             parent_inline: false,
@@ -165,11 +207,13 @@ macro_rules! invalidate_query {
 			}
 		}
 
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
 			.map(|v|
-				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v, None),
+				ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+					$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v, None),
 				))
 			)
 			.map_err(|_| {
@@ -178,17 +222,17 @@ macro_rules! invalidate_query {
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr, $result_ty:ty: $result:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::Library = &$ctx; // Assert the context is the correct type
+		let ctx: &$crate::library::Library = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::utils::INVALIDATION_REQUESTS
+				$crate::api::utils::INVALIDATION_REQUESTS
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::utils::InvalidationRequest {
+					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
                             parent_inline: false,
@@ -203,13 +247,15 @@ macro_rules! invalidate_query {
 			}
 		}
 
+		::tracing::trace!(target: "sd_core::invalidate-query", "invalidate_query!(\"{}\") at {}", $key, concat!(file!(), ":", line!()));
+
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		let _ = serde_json::to_value($arg)
 			.and_then(|arg|
 				serde_json::to_value($result)
 				.map(|result|
-					ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-						crate::api::utils::InvalidateOperationEvent::dangerously_create($key, arg, Some(result)),
+					ctx.emit($crate::api::CoreEvent::InvalidateOperation(
+						$crate::api::utils::InvalidateOperationEvent::dangerously_create($key, arg, Some(result)),
 					))
 				)
 			)
@@ -254,31 +300,46 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 				let manager_thread_active = manager_thread_active.clone();
 				tokio::spawn(async move {
 					let mut buf = HashMap::with_capacity(100);
+					let mut invalidate_all = false;
 
 					loop {
 						tokio::select! {
 							event = event_bus_rx.recv() => {
 								if let Ok(event) = event {
 									if let CoreEvent::InvalidateOperation(op) = event {
-										// Newer data replaces older data in the buffer
-										match to_key(&(op.key, &op.arg)) {
-											Ok(key) => {
-												buf.insert(key, op);
-											},
-											Err(err) => {
-												warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
-											},
+										if invalidate_all {
+											continue;
 										}
 
+										match &op {
+											InvalidateOperationEvent::Single(SingleInvalidateOperationEvent { key, arg, .. }) => {
+												// Newer data replaces older data in the buffer
+												match to_key(&(key, &arg)) {
+													Ok(key) => {
+														buf.insert(key, op);
+													},
+													Err(err) => {
+														warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+													},
+												}
+											},
+											InvalidateOperationEvent::All => {
+												invalidate_all = true;
+												buf.clear();
+											}
+										}
 									}
 								} else {
 									warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
 									break;
 								}
 							},
-							// THROTTLE: Given human reaction time of ~250 milli this should be a good ballance.
 							_ = tokio::time::sleep(Duration::from_millis(10)) => {
-								let events = buf.drain().map(|(_k, v)| v).collect::<Vec<_>>();
+								let events = match invalidate_all {
+									true => vec![InvalidateOperationEvent::all()],
+									false => buf.drain().map(|(_k, v)| v).collect::<Vec<_>>(),
+								};
+
 								if !events.is_empty() {
 									match tx.send(events) {
 										Ok(_) => {},

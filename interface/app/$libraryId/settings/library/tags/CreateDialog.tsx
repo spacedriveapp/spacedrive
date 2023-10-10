@@ -1,5 +1,5 @@
-import { useLibraryMutation, usePlausibleEvent } from '@sd/client';
-import { Dialog, InputField, UseDialogProps, useDialog, useZodForm, z } from '@sd/ui';
+import { Object, useLibraryMutation, usePlausibleEvent, useZodForm } from '@sd/client';
+import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
 
 const schema = z.object({
@@ -7,12 +7,13 @@ const schema = z.object({
 	color: z.string()
 });
 
-export default (props: UseDialogProps & { assignToObject?: number }) => {
+export default (props: UseDialogProps & { objects?: Object[] }) => {
 	const submitPlausibleEvent = usePlausibleEvent();
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: '#A717D9' }
+		defaultValues: { color: '#A717D9' },
+		mode: 'onBlur'
 	});
 
 	const createTag = useLibraryMutation('tags.create');
@@ -24,10 +25,10 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 
-			if (props.assignToObject !== undefined) {
+			if (props.objects !== undefined) {
 				await assignTag.mutateAsync({
 					tag_id: tag.id,
-					object_ids: [props.assignToObject],
+					object_ids: props.objects.map((o) => o.id),
 					unassign: false
 				});
 			}
@@ -38,6 +39,7 @@ export default (props: UseDialogProps & { assignToObject?: number }) => {
 
 	return (
 		<Dialog
+			invertButtonFocus
 			form={form}
 			onSubmit={onSubmit}
 			dialog={useDialog(props)}

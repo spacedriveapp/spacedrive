@@ -1,16 +1,27 @@
-import { Integrations, init } from '@sentry/browser';
+import { init, Integrations } from '@sentry/browser';
+
 import '@fontsource/inter/variable.css';
+
 import { defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { useMemo } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
-import { P2PContextProvider, useDebugState } from '@sd/client';
+import {
+	NotificationContextProvider,
+	P2PContextProvider,
+	useDebugState,
+	useLoadBackendFeatureFlags
+} from '@sd/client';
+import { TooltipProvider } from '@sd/ui';
+
+import { P2P } from './app/p2p';
+import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback from './ErrorFallback';
-import { SpacedropUI } from './app/Spacedrop';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
@@ -46,13 +57,20 @@ const Devtools = () => {
 };
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
+	useLoadBackendFeatureFlags();
+
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<P2PContextProvider>
-				<Devtools />
-				<SpacedropUI />
-				<RouterProvider router={props.router} />
-			</P2PContextProvider>
+			<TooltipProvider>
+				<P2PContextProvider>
+					<NotificationContextProvider>
+						<P2P />
+						<Devtools />
+						<WithPrismTheme />
+						<RouterProvider router={props.router} />
+					</NotificationContextProvider>
+				</P2PContextProvider>
+			</TooltipProvider>
 		</ErrorBoundary>
 	);
 };

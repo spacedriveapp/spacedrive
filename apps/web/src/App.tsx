@@ -3,7 +3,8 @@ import * as htmlToImage from 'html-to-image';
 import { useEffect, useRef } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
-import { Platform, PlatformProvider, SpacedriveInterface, routes } from '@sd/interface';
+import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
+
 import demoData from './demoData.json';
 
 // TODO: Restore this once TS is back up to functionality in rspc.
@@ -40,21 +41,34 @@ const platform: Platform = {
 		`${spacedriveURL}/file/${encodeURIComponent(libraryId)}/${encodeURIComponent(
 			locationLocalId
 		)}/${encodeURIComponent(filePathId)}`,
+	getFileUrlByPath: (path) => `${spacedriveURL}/local-file-by-path/${encodeURIComponent(path)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
-	demoMode: import.meta.env.VITE_SD_DEMO_MODE === 'true'
+	confirm: (message, cb) => cb(window.confirm(message)),
+	auth: {
+		start(url) {
+			return window.open(url);
+		},
+		finish(win: Window | null) {
+			win?.close();
+		}
+	}
 };
 
 const queryClient = new QueryClient({
 	defaultOptions: {
-		queries: import.meta.env.VITE_SD_DEMO_MODE
-			? {
-					refetchOnWindowFocus: false,
-					staleTime: Infinity,
-					cacheTime: Infinity,
-					networkMode: 'offlineFirst',
-					enabled: false
-			  }
-			: undefined
+		queries: {
+			...(import.meta.env.VITE_SD_DEMO_MODE && {
+				refetchOnWindowFocus: false,
+				staleTime: Infinity,
+				cacheTime: Infinity,
+				networkMode: 'offlineFirst',
+				enabled: false
+			}),
+			networkMode: 'always'
+		},
+		mutations: {
+			networkMode: 'always'
+		}
 		// TODO: Mutations can't be globally disable which is annoying!
 	}
 });

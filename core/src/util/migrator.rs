@@ -1,7 +1,7 @@
 use std::{
 	any::type_name,
 	fs::File,
-	io::{self, BufReader, Seek, Write},
+	io::{self, Seek, Write},
 	path::{Path, PathBuf},
 };
 
@@ -41,31 +41,22 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 	async fn load_and_migrate(path: &Path, ctx: &Self::Ctx) -> Result<Self, MigratorError> {
 		match path.try_exists()? {
 			true => {
-				let mut file = File::options().read(true).write(true).open(path)?;
-				let mut cfg: BaseConfig = match serde_json::from_reader(BufReader::new(&mut file)) {
+				let mut file = File::options().write(true).read(true).open(path)?;
+				let mut cfg: BaseConfig = match serde_json::from_reader(&mut file) {
 					Ok(cfg) => cfg,
 					Err(err) => {
 						// This is for backwards compatibility for the backwards compatibility cause the super super old system store the version as a string.
-						{
-							file.rewind()?;
-							let mut y = match serde_json::from_reader::<_, Value>(BufReader::new(
-								&mut file,
-							)) {
-								Ok(y) => y,
-								Err(_) => {
-									return Err(err.into());
-								}
-							};
+						file.rewind()?;
+						let mut cfg = serde_json::from_reader::<_, Value>(file)?;
 
-							if let Some(obj) = y.as_object_mut() {
-								if obj.contains_key("version") {
-									return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
-								} else {
-									return Err(err.into());
-								}
+						if let Some(obj) = cfg.as_object_mut() {
+							if obj.contains_key("version") {
+								return Err(MigratorError::HasSuperLegacyConfig); // This is just to make the error nicer
 							} else {
 								return Err(err.into());
 							}
+						} else {
+							return Err(err.into());
 						}
 					}
 				};
@@ -81,6 +72,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 					match Self::migrate(v, &mut cfg.other, ctx).await {
 						Ok(()) => (),
 						Err(err) => {
+							file.set_len(0)?; // Truncate the file
 							file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
 							return Err(err);
 						}
@@ -88,6 +80,7 @@ pub trait Migrate: Sized + DeserializeOwned + Serialize {
 				}
 
 				if !is_latest {
+					file.set_len(0)?; // Truncate the file
 					file.write_all(serde_json::to_string(&cfg)?.as_bytes())?; // Writes updated version
 				}
 

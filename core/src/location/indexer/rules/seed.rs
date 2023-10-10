@@ -1,7 +1,6 @@
 use crate::{
 	library::Library,
-	location::indexer::rules::{IndexerRuleError, RulePerKind},
-	util::db::uuid_to_bytes,
+	location::indexer::rules::{IndexerRule, IndexerRuleError, RulePerKind},
 };
 use chrono::Utc;
 use sd_prisma::prisma::indexer_rule;
@@ -16,25 +15,33 @@ pub enum SeederError {
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 }
 
-struct SystemIndexerRule {
+pub struct SystemIndexerRule {
 	name: &'static str,
 	rules: Vec<RulePerKind>,
 	default: bool,
 }
 
+impl From<SystemIndexerRule> for IndexerRule {
+	fn from(rule: SystemIndexerRule) -> Self {
+		Self {
+			id: None,
+			name: rule.name.to_string(),
+			default: rule.default,
+			rules: rule.rules,
+			date_created: Utc::now(),
+			date_modified: Utc::now(),
+		}
+	}
+}
+
 /// Seeds system indexer rules into a new or existing library,
 pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederError> {
 	// DO NOT REORDER THIS ARRAY!
-	for (i, rule) in [
-		no_os_protected(),
-		no_hidden(),
-		only_git_repos(),
-		only_images(),
-	]
-	.into_iter()
-	.enumerate()
+	for (i, rule) in [no_os_protected(), no_hidden(), no_git(), only_images()]
+		.into_iter()
+		.enumerate()
 	{
-		let pub_id = uuid_to_bytes(Uuid::from_u128(i as u128));
+		let pub_id = sd_utils::uuid_to_bytes(Uuid::from_u128(i as u128));
 		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
 
 		use indexer_rule::*;
@@ -62,7 +69,7 @@ pub async fn new_or_existing_library(library: &Library) -> Result<(), SeederErro
 	Ok(())
 }
 
-fn no_os_protected() -> SystemIndexerRule {
+pub fn no_os_protected() -> SystemIndexerRule {
 	SystemIndexerRule {
         // TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
         // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
@@ -120,8 +127,10 @@ fn no_os_protected() -> SystemIndexerRule {
                     ],
                     #[cfg(target_os = "macos")]
                     vec![
-                        "/{System,Network,Library,Applications}",
+                        "/{System,Network,Library,Applications,.PreviousSystemInformation,.com.apple.templatemigration.boot-install}",
+						"/System/Volumes/Data/{System,Network,Library,Applications,.PreviousSystemInformation,.com.apple.templatemigration.boot-install}",
                         "/Users/*/{Library,Applications}",
+                        "/System/Volumes/Data/Users/*/{Library,Applications}",
                         "**/*.photoslibrary/{database,external,private,resources,scope}",
                         // Files that might appear in the root of a volume
                         "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
@@ -166,22 +175,23 @@ fn no_os_protected() -> SystemIndexerRule {
     }
 }
 
-fn no_hidden() -> SystemIndexerRule {
+pub fn no_hidden() -> SystemIndexerRule {
 	SystemIndexerRule {
 		name: "No Hidden",
-		default: true,
+		default: false,
 		rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
 			.expect("this is hardcoded and should always work")],
 	}
 }
 
-fn only_git_repos() -> SystemIndexerRule {
+fn no_git() -> SystemIndexerRule {
 	SystemIndexerRule {
-		name: "Only Git Repositories",
+		name: "No Git",
 		default: false,
-		rules: vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
-			[".git".to_string()].into_iter().collect(),
-		)],
+		rules: vec![RulePerKind::new_reject_files_by_globs_str([
+			"**/{.git,.gitignore,.gitattributes,.gitkeep,.gitconfig,.gitmodules}",
+		])
+		.expect("this is hardcoded and should always work")],
 	}
 }
 

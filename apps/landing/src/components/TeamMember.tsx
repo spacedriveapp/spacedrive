@@ -54,7 +54,7 @@ export function TeamMember(props: TeamMemberProps) {
 				alt={`Portrait of ${props.name}`}
 				width={size}
 				height={size}
-				className={clsx('m-0 inline-flex rounded-md', {
+				className={clsx('m-0 inline-flex rounded-md object-cover', {
 					'!xs:w-36 !xs:h-36 !sm:w-40 !sm:h-40 h-32 w-32': !props.investmentRound,
 					'lg:h-28 lg:w-28': props.investmentRound
 				})}

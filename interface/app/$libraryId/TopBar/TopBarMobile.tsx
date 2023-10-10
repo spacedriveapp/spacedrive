@@ -1,8 +1,9 @@
-import { DotsThreeCircle } from 'phosphor-react';
-import React, { HTMLAttributes, forwardRef } from 'react';
+import { DotsThreeCircle } from '@phosphor-icons/react';
+import React, { forwardRef, HTMLAttributes } from 'react';
 import { Popover } from '@sd/ui';
+
 import TopBarButton, { TopBarButtonProps } from './TopBarButton';
-import { TOP_BAR_ICON_STYLE, ToolOption } from './TopBarOptions';
+import { ToolOption, TOP_BAR_ICON_STYLE } from './TopBarOptions';
 
 const GroupTool = forwardRef<
 	HTMLButtonElement,

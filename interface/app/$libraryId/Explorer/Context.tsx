@@ -1,30 +1,13 @@
-import { createContext, useContext } from 'react';
-import { FilePath, Location, NodeState, Tag } from '@sd/client';
+import { createContext, PropsWithChildren, useContext } from 'react';
 
-export type ExplorerParent =
-	| {
-			type: 'Location';
-			location: Location;
-			subPath?: FilePath;
-	  }
-	| {
-			type: 'Tag';
-			tag: Tag;
-	  }
-	| {
-			type: 'Node';
-			node: NodeState;
-	  };
-
-interface ExplorerContext {
-	parent?: ExplorerParent;
-}
+import { Ordering } from './store';
+import { UseExplorer } from './useExplorer';
 
 /**
  * Context that must wrap anything to do with the explorer.
  * This includes explorer views, the inspector, and top bar items.
  */
-export const ExplorerContext = createContext<ExplorerContext | null>(null);
+const ExplorerContext = createContext<UseExplorer<Ordering> | null>(null);
 
 export const useExplorerContext = () => {
 	const ctx = useContext(ExplorerContext);
@@ -33,3 +16,10 @@ export const useExplorerContext = () => {
 
 	return ctx;
 };
+
+export const ExplorerContextProvider = <TExplorer extends UseExplorer<any>>({
+	explorer,
+	children
+}: PropsWithChildren<{
+	explorer: TExplorer;
+}>) => <ExplorerContext.Provider value={explorer as any}>{children}</ExplorerContext.Provider>;

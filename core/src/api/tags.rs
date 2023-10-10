@@ -1,5 +1,9 @@
+use std::collections::BTreeMap;
+
 use chrono::Utc;
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_prisma::prisma_sync;
+use sd_sync::OperationFactory;
 use serde::Deserialize;
 use specta::Type;
 
@@ -9,8 +13,7 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	object::tag::TagCreateArgs,
-	prisma::{tag, tag_on_object},
-	sync,
+	prisma::{object, tag, tag_on_object},
 };
 
 use super::{utils::library, Ctx, R};
@@ -34,6 +37,42 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?)
 				})
+		})
+		.procedure("getWithObjects", {
+			R.with2(library()).query(
+				|(_, library), object_ids: Vec<object::id::Type>| async move {
+					let Library { db, .. } = library.as_ref();
+
+					let tags_with_objects = db
+						.tag()
+						.find_many(vec![tag::tag_objects::some(vec![
+							tag_on_object::object_id::in_vec(object_ids.clone()),
+						])])
+						.select(tag::select!({
+							id
+							tag_objects(vec![tag_on_object::object_id::in_vec(object_ids.clone())]): select {
+								object: select {
+									id
+								}
+							}
+						}))
+						.exec()
+						.await?;
+
+					Ok(tags_with_objects
+						.into_iter()
+						.map(|tag| {
+							(
+								tag.id,
+								tag.tag_objects
+									.into_iter()
+									.map(|rel| rel.object.id)
+									.collect::<Vec<_>>(),
+							)
+						})
+						.collect::<BTreeMap<_, _>>())
+				},
+			)
 		})
 		.procedure("get", {
 			R.with2(library())
@@ -66,33 +105,77 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
-					let Library { db, .. } = &library;
+					let Library { db, sync, .. } = library.as_ref();
+
+					let (tag, objects) = db
+						._batch((
+							db.tag()
+								.find_unique(tag::id::equals(args.tag_id))
+								.select(tag::select!({ pub_id })),
+							db.object()
+								.find_many(vec![object::id::in_vec(args.object_ids)])
+								.select(object::select!({ id pub_id })),
+						))
+						.await?;
+
+					let tag = tag.ok_or_else(|| {
+						rspc::Error::new(ErrorCode::NotFound, "Tag not found".to_string())
+					})?;
+
+					macro_rules! sync_id {
+						($object:ident) => {
+							prisma_sync::tag_on_object::SyncId {
+								tag: prisma_sync::tag::SyncId {
+									pub_id: tag.pub_id.clone(),
+								},
+								object: prisma_sync::object::SyncId {
+									pub_id: $object.pub_id.clone(),
+								},
+							}
+						};
+					}
 
 					if args.unassign {
-						db.tag_on_object()
-							.delete_many(vec![
-								tag_on_object::tag_id::equals(args.tag_id),
-								tag_on_object::object_id::in_vec(args.object_ids),
-							])
-							.exec()
-							.await?;
-					} else {
-						db.tag_on_object()
-							.create_many(
-								args.object_ids
-									.iter()
-									.map(|&object_id| tag_on_object::CreateUnchecked {
-										tag_id: args.tag_id,
-										object_id,
-										_params: vec![],
-									})
+						let query = db.tag_on_object().delete_many(vec![
+							tag_on_object::tag_id::equals(args.tag_id),
+							tag_on_object::object_id::in_vec(
+								objects.iter().map(|o| o.id).collect(),
+							),
+						]);
+
+						sync.write_ops(
+							db,
+							(
+								objects
+									.into_iter()
+									.map(|object| sync.relation_delete(sync_id!(object)))
 									.collect(),
-							)
-							.exec()
+								query,
+							),
+						)
+						.await?;
+					} else {
+						let (sync_ops, db_creates) = objects.into_iter().fold(
+							(vec![], vec![]),
+							|(mut sync_ops, mut db_creates), object| {
+								db_creates.push(tag_on_object::CreateUnchecked {
+									tag_id: args.tag_id,
+									object_id: object.id,
+									_params: vec![],
+								});
+
+								sync_ops.extend(sync.relation_create(sync_id!(object), []));
+
+								(sync_ops, db_creates)
+							},
+						);
+
+						sync.write_ops(db, (sync_ops, db.tag_on_object().create_many(db_creates)))
 							.await?;
 					}
 
 					invalidate_query!(library, "tags.getForObject");
+					invalidate_query!(library, "tags.getWithObjects");
 
 					Ok(())
 				})
@@ -107,7 +190,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagUpdateArgs| async move {
-					let Library { sync, db, .. } = &library;
+					let Library { sync, db, .. } = library.as_ref();
 
 					let tag = db
 						.tag()
@@ -139,7 +222,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.flatten()
 							.map(|(k, v)| {
 								sync.shared_update(
-									sync::tag::SyncId {
+									prisma_sync::tag::SyncId {
 										pub_id: tag.pub_id.clone(),
 									},
 									k,

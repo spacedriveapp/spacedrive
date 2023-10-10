@@ -1,6 +1,8 @@
 import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import React, {
+	ContextType,
+	createContext,
 	PropsWithChildren,
 	Suspense,
 	useCallback,
@@ -9,32 +11,47 @@ import React, {
 	useState
 } from 'react';
 import { Link } from 'react-router-dom';
+
 import {
-	ContextMenuDivItem,
-	ContextMenuItemProps,
 	contextMenuClassNames,
+	ContextMenuDivItem,
 	contextMenuItemClassNames,
+	ContextMenuItemProps,
 	contextMenuSeparatorClassNames
 } from './ContextMenu';
 
-interface DropdownMenuProps extends RadixDM.MenuContentProps {
+interface DropdownMenuProps
+	extends RadixDM.MenuContentProps,
+		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
 	trigger: React.ReactNode;
 	triggerClassName?: string;
 	alignToTrigger?: boolean;
 }
 
-const context = React.createContext<boolean>(false);
-export const useDropdownMenu = () => useContext(context);
+const DropdownMenuContext = createContext<boolean | null>(null);
 
-const Root = ({
-	trigger,
-	children,
-	className,
-	asChild = true,
-	triggerClassName,
-	alignToTrigger,
-	...props
-}: PropsWithChildren<DropdownMenuProps>) => {
+export const useDropdownMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
+	const ctx = useContext(DropdownMenuContext);
+
+	if (suspense && ctx === null) throw new Error('DropdownMenuContext.Provider not found!');
+
+	return ctx as T extends true
+		? NonNullable<ContextType<typeof DropdownMenuContext>>
+		: NonNullable<ContextType<typeof DropdownMenuContext>> | undefined;
+};
+
+const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
+	const {
+		alignToTrigger,
+		onOpenChange,
+		trigger,
+		triggerClassName,
+		asChild = true,
+		className,
+		children,
+		...contentProps
+	} = props;
+
 	const [width, setWidth] = useState<number>();
 
 	const measureRef = useCallback(
@@ -45,8 +62,8 @@ const Root = ({
 	);
 
 	return (
-		<RadixDM.Root>
-			<RadixDM.Trigger ref={measureRef} asChild={asChild} className={triggerClassName}>
+		<RadixDM.Root onOpenChange={onOpenChange}>
+			<RadixDM.Trigger ref={measureRef} className={triggerClassName} asChild={asChild}>
 				{trigger}
 			</RadixDM.Trigger>
 			<RadixDM.Portal>
@@ -54,9 +71,11 @@ const Root = ({
 					className={clsx(contextMenuClassNames, width && '!min-w-0', className)}
 					align="start"
 					style={{ width }}
-					{...props}
+					{...contentProps}
 				>
-					<context.Provider value={true}>{children}</context.Provider>
+					<DropdownMenuContext.Provider value={true}>
+						{children}
+					</DropdownMenuContext.Provider>
 				</RadixDM.Content>
 			</RadixDM.Portal>
 		</RadixDM.Root>
@@ -99,7 +118,6 @@ const Item = ({
 	icon,
 	iconProps,
 	label,
-	rightArrow,
 	children,
 	keybind,
 	variant,
@@ -116,13 +134,13 @@ const Item = ({
 				<Link to={to} onClick={() => ref.current?.click()}>
 					<ContextMenuDivItem
 						className={clsx(selected && 'bg-accent text-white')}
-						{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+						{...{ icon, iconProps, label, keybind, variant, children }}
 					/>
 				</Link>
 			) : (
 				<ContextMenuDivItem
 					className={clsx(selected && 'bg-accent text-white')}
-					{...{ icon, iconProps, label, rightArrow, keybind, variant, children }}
+					{...{ icon, iconProps, label, keybind, variant, children }}
 				/>
 			)}
 		</RadixDM.Item>

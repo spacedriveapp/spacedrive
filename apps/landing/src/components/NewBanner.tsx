@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import Link from 'next/link';
-import { Newspaper } from 'phosphor-react';
+import { Newspaper } from '@phosphor-icons/react';
 
 export interface NewBannerProps {
 	headline: string;

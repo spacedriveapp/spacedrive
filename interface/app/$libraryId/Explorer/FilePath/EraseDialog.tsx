@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useLibraryMutation } from '@sd/client';
-import { Dialog, Slider, UseDialogProps, useDialog } from '@sd/ui';
-import { useZodForm, z } from '@sd/ui/src/forms';
+import { FilePath, useLibraryMutation, useZodForm } from '@sd/client';
+import { Dialog, Slider, useDialog, UseDialogProps, z } from '@sd/ui';
 
 interface Props extends UseDialogProps {
-	location_id: number;
-	path_id: number;
+	locationId: number;
+	filePaths: FilePath[];
 }
 
 const schema = z.object({
@@ -29,8 +28,8 @@ export default (props: Props) => {
 			form={form}
 			onSubmit={form.handleSubmit((data) =>
 				eraseFile.mutateAsync({
-					location_id: props.location_id,
-					file_path_ids: [props.path_id],
+					location_id: props.locationId,
+					file_path_ids: props.filePaths.map((p) => p.id),
 					passes: data.passes.toString()
 				})
 			)}

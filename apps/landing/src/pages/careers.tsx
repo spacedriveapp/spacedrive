@@ -1,4 +1,3 @@
-import Head from 'next/head';
 import {
 	Clock,
 	CurrencyDollar,
@@ -9,7 +8,8 @@ import {
 	Smiley,
 	Star,
 	TrendUp
-} from 'phosphor-react';
+} from '@phosphor-icons/react';
+import Head from 'next/head';
 import { useRef } from 'react';
 import { Button } from '@sd/ui';
 import PageWrapper from '~/components/PageWrapper';
@@ -173,36 +173,43 @@ export default function CareersPage() {
 					<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight text-white">
 						Open Positions
 					</h2>
-					<p className="mb-4 mt-2">If any open positions suit you, apply now!</p>
-					<div className="mt-5 grid w-full grid-cols-1 gap-4">
-						{positions.length === 0 ? (
-							<p className="m-0 text-center text-gray-350">
-								There are no positions open at this time. Please check back later!
-							</p>
-						) : (
-							positions.map((value, index) => (
-								<div
-									key={value.name + index}
-									className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
-								>
-									<div className="flex flex-col sm:flex-row">
-										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
-										<div className="mt-3 sm:mt-0.5">
-											<span className="text-sm font-semibold text-gray-300 sm:ml-4">
-												<CurrencyDollar className="-mt-1 mr-1 inline w-4" />
-												{value.salary}
-											</span>
-											<span className="ml-4 text-sm font-semibold text-gray-300">
-												<Clock className="-mt-1 mr-1 inline w-4" />
-												{value.type}
-											</span>
+					{positions.length === 0 ? (
+						<p className="mt-2 text-center text-gray-350">
+							There are no positions open at this time. Please check back later!
+						</p>
+					) : (
+						<>
+							<p className="mb-4 mt-2">If any open positions suit you, apply now!</p>
+							<div className="mt-5 grid w-full grid-cols-1 gap-4">
+								{positions.map((value, index) => (
+									<div
+										key={value.name + index}
+										className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
+									>
+										<div className="flex flex-col sm:flex-row">
+											<h3 className="m-0 text-2xl leading-tight">
+												{value.name}
+											</h3>
+											<div className="mt-3 sm:mt-0.5">
+												<span className="text-sm font-semibold text-gray-300 sm:ml-4">
+													<CurrencyDollar className="-mt-1 mr-1 inline w-4" />
+													{value.salary}
+												</span>
+												<span className="ml-4 text-sm font-semibold text-gray-300">
+													<Clock className="-mt-1 mr-1 inline w-4" />
+													{value.type}
+												</span>
+											</div>
 										</div>
+										<p className="mb-0 mt-3 text-gray-350">
+											{value.description}
+										</p>
 									</div>
-									<p className="mb-0 mt-3 text-gray-350">{value.description}</p>
-								</div>
-							))
-						)}
-					</div>
+								))}
+							</div>
+						</>
+					)}
+
 					<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
 					<h2 className="mb-0 px-2 text-center text-3xl font-black text-white">
 						How to apply?

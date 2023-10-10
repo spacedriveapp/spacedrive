@@ -1,4 +1,4 @@
-use crate::library::Library;
+use crate::{library::Library, Node};
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
@@ -30,9 +30,21 @@ pub type JobMetadata = Option<serde_json::Value>;
 #[derive(Debug, Default)]
 pub struct JobRunErrors(pub Vec<String>);
 
-impl From<Vec<String>> for JobRunErrors {
-	fn from(errors: Vec<String>) -> Self {
-		Self(errors)
+impl JobRunErrors {
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+}
+
+impl<I: IntoIterator<Item = String>> From<I> for JobRunErrors {
+	fn from(errors: I) -> Self {
+		Self(errors.into_iter().collect())
+	}
+}
+
+impl fmt::Display for JobRunErrors {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.0.join("\n"))
 	}
 }
 
@@ -63,6 +75,7 @@ pub trait StatefulJob:
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
 	const IS_BACKGROUND: bool = false;
+	const IS_BATCHED: bool = false;
 
 	/// initialize the steps for the job
 	async fn init(
@@ -219,12 +232,14 @@ impl<SJob: StatefulJob> Job<SJob> {
 		}))
 	}
 
-	pub async fn spawn(self, library: &Library) -> Result<(), JobManagerError> {
-		library
-			.node_context
-			.job_manager
+	pub async fn spawn(
+		self,
+		node: &Arc<Node>,
+		library: &Arc<Library>,
+	) -> Result<(), JobManagerError> {
+		node.jobs
 			.clone()
-			.ingest(library, Box::new(self))
+			.ingest(node, library, Box::new(self))
 			.await
 	}
 }
@@ -288,10 +303,13 @@ impl<RunMetadata, Step> From<(RunMetadata, Vec<Step>)> for JobInitOutput<RunMeta
 	}
 }
 
-impl<Step> From<Vec<Step>> for JobInitOutput<(), Step> {
+impl<RunMetadata, Step> From<Vec<Step>> for JobInitOutput<RunMetadata, Step>
+where
+	RunMetadata: Default,
+{
 	fn from(steps: Vec<Step>) -> Self {
 		Self {
-			run_metadata: (),
+			run_metadata: RunMetadata::default(),
 			steps: VecDeque::from(steps),
 			errors: Default::default(),
 		}
@@ -359,6 +377,18 @@ impl<Step, RunMetadata: JobRunMetadata> From<(Vec<Step>, RunMetadata)>
 			maybe_more_steps: Some(more_steps),
 			maybe_more_metadata: Some(more_metadata),
 			errors: Default::default(),
+		}
+	}
+}
+
+impl<Step, RunMetadata: JobRunMetadata> From<(RunMetadata, JobRunErrors)>
+	for JobStepOutput<Step, RunMetadata>
+{
+	fn from((more_metadata, errors): (RunMetadata, JobRunErrors)) -> Self {
+		Self {
+			maybe_more_steps: None,
+			maybe_more_metadata: Some(more_metadata),
+			errors,
 		}
 	}
 }
@@ -454,11 +484,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let res = stateful_job.init(&inner_ctx, &mut new_data).await;
 
 				if let Ok(res) = res.as_ref() {
-					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
-				}
-
-				if let Ok(res) = res.as_ref() {
-					inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+					if !<SJob as StatefulJob>::IS_BATCHED {
+						inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
+					}
 				}
 
 				(new_data, res)
@@ -799,7 +827,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 										run_metadata.update(more_metadata);
 									}
 
-									ctx.progress(events);
+									if !<SJob as StatefulJob>::IS_BATCHED {
+										ctx.progress(events);
+									}
 
 									if !new_errors.is_empty() {
 										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");

@@ -3,23 +3,22 @@ import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import {
-	Location,
-	Node,
 	arraysEqual,
+	Location,
 	useLibraryMutation,
 	useLibraryQuery,
 	useOnlineLocations
 } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import { ModalRef } from '~/components/layout/Modal';
+import DeleteLocationModal from '~/components/modal/confirmModals/DeleteLocationModal';
 import ImportModal from '~/components/modal/ImportModal';
-import DeleteLocationModal from '~/components/modal/confirm-modals/DeleteLocationModal';
 import { AnimatedButton } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 type LocationItemProps = {
-	location: Location & { node: Node | null };
+	location: Location;
 	index: number;
 	navigation: SettingsStackScreenProps<'LocationSettings'>['navigation'];
 };
@@ -73,7 +72,9 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 				{/* Full Re-scan IS too much here */}
 				<Pressable
 					style={tw`items-center justify-center rounded-md border border-app-line bg-app-button px-3 py-1.5 shadow-sm`}
-					onPress={() => fullRescan.mutate({ location_id: location.id, reidentify_objects: true })}
+					onPress={() =>
+						fullRescan.mutate({ location_id: location.id, reidentify_objects: true })
+					}
 				>
 					<Repeat size={18} color="white" />
 				</Pressable>
@@ -97,7 +98,7 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<View
 						style={twStyle(
 							'absolute bottom-0.5 right-0 h-2 w-2 rounded-full',
-							onlineLocations?.some((l) => arraysEqual(location.pub_id, l))
+							onlineLocations.some((l) => arraysEqual(location.pub_id, l))
 								? 'bg-green-500'
 								: 'bg-red-500'
 						)}
@@ -107,13 +108,14 @@ function LocationItem({ location, index, navigation }: LocationItemProps) {
 					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
 						{location.name}
 					</Text>
-					{location.node && (
+					{/* // TODO: This is ephemeral so it should not come from the DB. Eg. a external USB can move between nodes */}
+					{/* {location.node && (
 						<View style={tw`mt-0.5 self-start rounded bg-app-highlight px-1 py-[1px]`}>
 							<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
 								{location.node.name}
 							</Text>
 						</View>
-					)}
+					)} */}
 					<Text
 						numberOfLines={1}
 						style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}

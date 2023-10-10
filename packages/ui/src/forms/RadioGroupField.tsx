@@ -1,8 +1,9 @@
 import { forwardRef } from 'react';
 import { useController } from 'react-hook-form';
 import { z } from 'zod';
+
 import * as RadioGroup from '../RadioGroup';
-import { FormField, UseFormFieldProps, useFormField } from './FormField';
+import { FormField, useFormField, UseFormFieldProps } from './FormField';
 
 export interface RootProps extends UseFormFieldProps, RadioGroup.RootProps {
 	name: string;

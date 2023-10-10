@@ -48,7 +48,7 @@ impl StatefulJob for FileCutterJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
 		let (sources_location_path, targets_location_path) =
 			fetch_source_and_target_location_paths(
@@ -84,7 +84,7 @@ impl StatefulJob for FileCutterJobInit {
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		let full_output = data
 			.full_target_directory_path
-			.join(construct_target_filename(file_data, &None)?);
+			.join(construct_target_filename(file_data)?);
 
 		if file_data.full_path == full_output {
 			// File is already here, do nothing

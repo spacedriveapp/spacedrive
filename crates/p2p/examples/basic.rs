@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, time::Duration};
 
-use sd_p2p::{spacetime::SpaceTimeStream, Event, Keypair, Manager, Metadata, MetadataManager};
+use sd_p2p::{Event, Keypair, Manager, Metadata, MetadataManager, PeerId};
 use tokio::{io::AsyncReadExt, time::sleep};
 use tracing::{debug, error, info};
 
@@ -14,7 +14,7 @@ impl Metadata for PeerMetadata {
 		HashMap::from([("name".to_owned(), self.name)])
 	}
 
-	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(_: &PeerId, data: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{
@@ -70,28 +70,25 @@ async fn main() {
 					);
 					event.dial().await; // We connect to everyone we find on the network. Your app will probs wanna restrict this!
 				}
-				Event::PeerMessage(event) => {
-					debug!("Peer '{}' established stream", event.peer_id);
+				Event::PeerMessage(mut event) => {
+					debug!("Peer '{}' established unicast stream", event.peer_id);
 
 					tokio::spawn(async move {
-						match event.stream {
-							SpaceTimeStream::Broadcast(mut stream) => {
-								let mut buf = [0; 100];
-								let n = stream.read(&mut buf).await.unwrap();
-								println!(
-									"GOT BROADCAST: {:?}",
-									std::str::from_utf8(&buf[..n]).unwrap()
-								);
-							}
-							SpaceTimeStream::Unicast(mut stream) => {
-								let mut buf = [0; 100];
-								let n = stream.read(&mut buf).await.unwrap();
-								println!(
-									"GOT UNICAST: {:?}",
-									std::str::from_utf8(&buf[..n]).unwrap()
-								);
-							}
-						}
+						let mut buf = [0; 100];
+						let n = event.stream.read(&mut buf).await.unwrap();
+						println!("GOT UNICAST: {:?}", std::str::from_utf8(&buf[..n]).unwrap());
+					});
+				}
+				Event::PeerBroadcast(mut event) => {
+					debug!("Peer '{}' established broadcast stream", event.peer_id);
+
+					tokio::spawn(async move {
+						let mut buf = [0; 100];
+						let n = event.stream.read(&mut buf).await.unwrap();
+						println!(
+							"GOT BROADCAST: {:?}",
+							std::str::from_utf8(&buf[..n]).unwrap()
+						);
 					});
 				}
 				Event::Shutdown => {

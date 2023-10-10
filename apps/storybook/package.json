@@ -14,21 +14,22 @@
 		"@storybook/react": "^7.0.5",
 		"@storybook/react-vite": "^7.0.5",
 		"@storybook/testing-library": "^0.1.0",
+		"postcss-pseudo-companion-classes": "^0.1.1",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.0.28",
-		"@types/react-dom": "^18.0.11",
-		"@vitejs/plugin-react": "^3.1.0",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
+		"@vitejs/plugin-react": "^4.1",
 		"autoprefixer": "^10.4.12",
-		"postcss": "^8.4.17",
+		"postcss": "^8.4",
 		"prop-types": "^15.8.1",
 		"storybook": "^7.0.5",
 		"tailwindcss": "^3.3.2",
-		"typescript": "^5.0.4",
-		"vite": "^4.2.0"
+		"typescript": "^5.2",
+		"vite": "^4.4"
 	}
 }

@@ -1,21 +1,24 @@
-import { RefObject, createContext, useContext, useRef } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { Outlet } from 'react-router';
+
 import TopBar from '.';
 
 interface TopBarContext {
-	left: RefObject<HTMLDivElement>;
-	right: RefObject<HTMLDivElement>;
+	left: HTMLDivElement | null;
+	right: HTMLDivElement | null;
+	setNoSearch: (value: boolean) => void;
 }
 
 const TopBarContext = createContext<TopBarContext | null>(null);
 
 export const Component = () => {
-	const left = useRef<HTMLDivElement>(null);
-	const right = useRef<HTMLDivElement>(null);
+	const [left, setLeft] = useState<HTMLDivElement | null>(null);
+	const [right, setRight] = useState<HTMLDivElement | null>(null);
+	const [noSearch, setNoSearch] = useState(false);
 
 	return (
-		<TopBarContext.Provider value={{ left, right }}>
-			<TopBar leftRef={left} rightRef={right} />
+		<TopBarContext.Provider value={{ left, right, setNoSearch }}>
+			<TopBar leftRef={setLeft} rightRef={setRight} noSearch={noSearch} />
 			<Outlet />
 		</TopBarContext.Provider>
 	);

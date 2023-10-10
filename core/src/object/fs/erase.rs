@@ -5,7 +5,7 @@ use crate::{
 		StatefulJob, WorkerContext,
 	},
 	library::Library,
-	location::file_path_helper::IsolatedFilePathData,
+	location::{file_path_helper::IsolatedFilePathData, get_location_path_from_location_id},
 	prisma::{file_path, location},
 	util::{db::maybe_missing, error::FileIOError},
 };
@@ -23,8 +23,8 @@ use tokio::{
 use tracing::trace;
 
 use super::{
-	error::FileSystemJobsError, get_file_data_from_isolated_file_path,
-	get_location_path_from_location_id, get_many_files_datas, FileData,
+	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_datas,
+	FileData,
 };
 
 #[serde_as]
@@ -68,9 +68,11 @@ impl StatefulJob for FileEraserJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let init = self;
-		let Library { db, .. } = &ctx.library;
+		let Library { db, .. } = &*ctx.library;
 
-		let location_path = get_location_path_from_location_id(db, init.location_id).await?;
+		let location_path = get_location_path_from_location_id(db, init.location_id)
+			.await
+			.map_err(FileSystemJobsError::from)?;
 
 		let steps = get_many_files_datas(db, &location_path, &init.file_path_ids).await?;
 
@@ -132,29 +134,34 @@ impl StatefulJob for FileEraserJobInit {
 
 			Ok((more_steps, new_metadata).into())
 		} else {
-			let mut file = OpenOptions::new()
-				.read(true)
-				.write(true)
-				.open(&step.full_path)
-				.await
-				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
-			let file_len = file
-				.metadata()
-				.await
-				.map_err(|e| FileIOError::from((&step.full_path, e)))?
-				.len();
+			{
+				let mut file = OpenOptions::new()
+					.read(true)
+					.write(true)
+					.open(&step.full_path)
+					.await
+					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+				let file_len = file
+					.metadata()
+					.await
+					.map_err(|e| FileIOError::from((&step.full_path, e)))?
+					.len();
 
-			sd_crypto::fs::erase::erase(&mut file, file_len as usize, init.passes).await?;
+				trace!(
+					"Overwriting file: {} with {} passes",
+					step.full_path.display(),
+					init.passes
+				);
 
-			file.set_len(0)
-				.await
-				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
-			file.flush()
-				.await
-				.map_err(|e| FileIOError::from((&step.full_path, e)))?;
-			drop(file);
+				sd_crypto::fs::erase::erase(&mut file, file_len as usize, init.passes).await?;
 
-			trace!("Erasing file: {}", step.full_path.display());
+				file.set_len(0)
+					.await
+					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+				file.flush()
+					.await
+					.map_err(|e| FileIOError::from((&step.full_path, e)))?;
+			}
 
 			fs::remove_file(&step.full_path)
 				.await

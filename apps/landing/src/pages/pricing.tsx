@@ -1,12 +1,11 @@
+import { Check } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import Head from 'next/head';
 import Image from 'next/image';
-import { Check } from 'phosphor-react';
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Switch } from '@sd/ui';
 import PageWrapper from '~/components/PageWrapper';
-import Space from '~/components/Space';
+import { Space } from '~/components/Space';
 
 export default function PricingPage() {
 	const [toggle, setToggle] = useState<boolean>(false);

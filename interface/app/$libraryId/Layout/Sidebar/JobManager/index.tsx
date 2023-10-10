@@ -1,76 +1,127 @@
+import { Check, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Trash, X } from 'phosphor-react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, PopoverClose, Tooltip } from '@sd/ui';
-import { showAlertDialog } from '~/components/AlertDialog';
+import dayjs from 'dayjs';
+import { useState } from 'react';
+import {
+	JobGroup as IJobGroup,
+	useJobProgress,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
+import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
+
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
 
-export function JobsManager() {
-	const queryClient = useQueryClient();
+function sortJobData(jobs: IJobGroup[]) {
+	const runningJobs: IJobGroup[] = [];
+	const otherJobs: IJobGroup[] = [];
 
-	const { data: jobs } = useLibraryQuery(['jobs.reports']);
+	jobs.forEach((job) => {
+		if (job.status === 'Running' || job.jobs.find((job) => job.status === 'Running')) {
+			runningJobs.push(job);
+		} else {
+			otherJobs.push(job);
+		}
+	});
+
+	const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
+		const aDate = dayjs(a.created_at);
+		const bDate = dayjs(b.created_at);
+		if (aDate.isBefore(bDate)) {
+			return 1;
+		} else if (bDate.isBefore(aDate)) {
+			return -1;
+		}
+		return 0;
+	};
+
+	runningJobs.sort(sortByCreatedAt);
+	otherJobs.sort(sortByCreatedAt);
+
+	return [...runningJobs, ...otherJobs];
+}
+
+export function JobManager() {
+	const queryClient = useQueryClient();
+	const [toggleConfirmation, setToggleConfirmation] = useState(false);
+
+	const jobGroups = useLibraryQuery(['jobs.reports']);
+
+	const progress = useJobProgress(jobGroups.data);
 
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
-			showAlertDialog({
+			toast.error({
 				title: 'Error',
-				value: 'There was an error clearing all jobs. Please try again.'
+				body: 'Failed to clear all jobs.'
 			});
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries(['jobs.reports ']);
+			setToggleConfirmation((t) => !t);
+			toast.success({
+				title: 'Success',
+				body: 'All jobs have been cleared.'
+			});
 		}
 	});
 
 	const clearAllJobsHandler = () => {
-		showAlertDialog({
-			title: 'Clear Jobs',
-			value: 'Are you sure you want to clear all jobs? This cannot be undone.',
-			label: 'Clear',
-			onSubmit: () => clearAllJobs.mutate(null)
-		});
+		clearAllJobs.mutate(null);
 	};
 
 	return (
 		<div className="h-full overflow-hidden pb-10">
-			<PopoverClose asChild>
-				<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-					<span className=" ml-1.5 font-medium">Recent Jobs</span>
-
-					<div className="grow" />
+			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
+				<span className=" ml-1.5 font-medium">Recent Jobs</span>
+				<div className="grow" />
+				{toggleConfirmation ? (
+					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
+						<p className="text-[10px]">Are you sure?</p>
+						<PopoverClose asChild>
+							<Check
+								onClick={clearAllJobsHandler}
+								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
+								color="white"
+							/>
+						</PopoverClose>
+						<X
+							className="h-3 w-3 transition-opacity hover:opacity-70"
+							onClick={() => setToggleConfirmation((t) => !t)}
+						/>
+					</div>
+				) : (
 					<Button
 						className="opacity-70"
-						onClick={() => clearAllJobsHandler()}
+						onClick={() => setToggleConfirmation((t) => !t)}
 						size="icon"
 					>
 						<Tooltip label="Clear out finished jobs">
 							<Trash className="h-4 w-4" />
 						</Tooltip>
 					</Button>
+				)}
+				<PopoverClose asChild>
 					<Button className="opacity-70" size="icon">
 						<Tooltip label="Close">
 							<X className="h-4 w-4" />
 						</Tooltip>
 					</Button>
-				</div>
-			</PopoverClose>
+				</PopoverClose>
+			</div>
 			<div className="custom-scroll job-manager-scroll h-full overflow-x-hidden">
 				<div className="h-full border-r border-app-line/50">
-					{jobs?.map((group) => (
-						<JobGroup
-							key={group.id}
-							data={group}
-							clearJob={function (arg: string): void {
-								throw new Error('Function not implemented.');
-							}}
-						/>
-					))}
-					{jobs?.length === 0 && (
-						<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
-							No jobs.
-						</div>
-					)}
+					{jobGroups.data &&
+						(jobGroups.data.length === 0 ? (
+							<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
+								No jobs.
+							</div>
+						) : (
+							sortJobData(jobGroups.data).map((group) => (
+								<JobGroup key={group.id} group={group} progress={progress} />
+							))
+						))}
 				</div>
 			</div>
 		</div>

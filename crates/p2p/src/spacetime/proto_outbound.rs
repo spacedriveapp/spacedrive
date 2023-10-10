@@ -6,10 +6,10 @@ use std::{
 use libp2p::{
 	core::UpgradeInfo,
 	futures::{AsyncReadExt, AsyncWriteExt},
-	swarm::NegotiatedSubstream,
-	OutboundUpgrade,
+	OutboundUpgrade, Stream,
 };
 use tokio::sync::oneshot;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::error;
 
 use super::{SpaceTimeProtocolName, UnicastStream, BROADCAST_DISCRIMINATOR};
@@ -20,23 +20,23 @@ pub enum OutboundRequest {
 	Unicast(oneshot::Sender<UnicastStream>),
 }
 
-pub struct OutboundProtocol(pub(crate) &'static [u8], pub(crate) OutboundRequest);
+pub struct OutboundProtocol(pub(crate) String, pub(crate) OutboundRequest);
 
 impl UpgradeInfo for OutboundProtocol {
 	type Info = SpaceTimeProtocolName;
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.0)]
+		[SpaceTimeProtocolName(self.0.clone())]
 	}
 }
 
-impl OutboundUpgrade<NegotiatedSubstream> for OutboundProtocol {
+impl OutboundUpgrade<Stream> for OutboundProtocol {
 	type Output = ();
 	type Error = ();
 	type Future = Ready<Result<(), ()>>;
 
-	fn upgrade_outbound(self, mut io: NegotiatedSubstream, _protocol: Self::Info) -> Self::Future {
+	fn upgrade_outbound(self, mut io: Stream, _protocol: Self::Info) -> Self::Future {
 		match self.1 {
 			OutboundRequest::Broadcast(data) => {
 				tokio::spawn(async move {
@@ -62,7 +62,7 @@ impl OutboundUpgrade<NegotiatedSubstream> for OutboundProtocol {
 			}
 			OutboundRequest::Unicast(sender) => {
 				// We write the discriminator to the stream in the `Manager::stream` method before returning the stream to the user to make async a tad nicer.
-				sender.send(UnicastStream::new(io)).unwrap();
+				sender.send(UnicastStream::new(io.compat())).unwrap();
 			}
 		}
 

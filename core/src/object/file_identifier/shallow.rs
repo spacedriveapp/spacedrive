@@ -7,13 +7,13 @@ use crate::{
 		file_path_for_file_identifier, IsolatedFilePathData,
 	},
 	prisma::{file_path, location, PrismaClient, SortOrder},
-	util::db::{chain_optional_iter, maybe_missing},
+	util::db::maybe_missing,
 };
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use super::{process_identifier_file_paths, FileIdentifierJobError, CHUNK_SIZE};
 
@@ -28,7 +28,7 @@ pub async fn shallow(
 	sub_path: &PathBuf,
 	library: &Library,
 ) -> Result<(), JobError> {
-	let Library { db, .. } = &library;
+	let Library { db, .. } = library;
 
 	debug!("Identifying orphan File Paths...");
 
@@ -73,14 +73,17 @@ pub async fn shallow(
 		orphan_count, task_count
 	);
 
-	let first_path = db
+	let Some(first_path) = db
 		.file_path()
 		.find_first(orphan_path_filters(location_id, None, &sub_iso_file_path))
 		// .order_by(file_path::id::order(Direction::Asc))
 		.select(file_path::select!({ id }))
 		.exec()
 		.await?
-		.expect("We already validated before that there are orphans `file_path`s");
+	else {
+		warn!("No orphan Paths found due to another Job finishing first");
+		return Ok(());
+	};
 
 	// Initializing `state.data` here because we need a complete state in case of early finish
 	let mut data = ShallowFileIdentifierJobState {
@@ -120,7 +123,7 @@ fn orphan_path_filters(
 	file_path_id: Option<file_path::id::Type>,
 	sub_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Vec<file_path::WhereParam> {
-	chain_optional_iter(
+	sd_utils::chain_optional_iter(
 		[
 			file_path::object_id::equals(None),
 			file_path::is_dir::equals(Some(false)),

@@ -24,11 +24,12 @@ jobs:
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage
+            bundles: appimage,deb
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-gnu
+          #   bundles: deb # no appimage for now unfortunetly
           # - host: ubuntu-20.04
           #   target: aarch64-unknown-linux-musl
           # - host: ubuntu-20.04
@@ -36,8 +37,33 @@ jobs:
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Symlink target to C:\
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
+      - name: Remove 32-bit libs
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          dpkg -l | grep i386
+          sudo apt-get purge --allow-remove-essential libc6-i386 ".*:i386"
+          sudo dpkg --remove-architecture i386
 
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
@@ -55,22 +81,22 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
+
+      - name: Setup Node.js, pnpm and dependencies
+        uses: ./.github/actions/setup-pnpm
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: |
-          pnpm desktop build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }},updater
+          pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }},updater
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -81,6 +107,7 @@ jobs:
           APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts

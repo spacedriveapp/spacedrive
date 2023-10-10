@@ -7,8 +7,8 @@ on:
   push:
     paths:
       - 'Cargo.lock'
-      - '.github/scripts/setup-system.sh'
-      - '.github/scripts/setup-system.ps1'
+      - './scripts/setup.sh'
+      - './scripts/setup.ps1'
       - '.github/workflows/cache-factory.yaml'
       - '.github/actions/**/*.yml'
       - '.github/actions/**/*.yaml'
@@ -49,14 +49,32 @@ jobs:
     name: 'Make Cache'
     runs-on: ${{ matrix.settings.host }}
     steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Symlink target to C:\
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
           save-cache: 'true'
 
       - name: Clippy

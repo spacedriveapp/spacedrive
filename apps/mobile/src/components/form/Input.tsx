@@ -1,5 +1,5 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { VariantProps, cva } from 'class-variance-authority';
+import { cva, VariantProps } from 'class-variance-authority';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, TextInputProps as RNTextInputProps, TextInput, View } from 'react-native';
