@@ -18,9 +18,6 @@ import { Space } from '~/components/Space';
 
 import CyclingImage from '../components/CyclingImage';
 
-const Link = dynamic(() => import('next/link'), {
-	ssr: false
-});
 const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 	ssr: false
 });
@@ -32,11 +29,11 @@ const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg tr
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
 const platforms = [
-	{ name: 'iOS and macOS', icon: Apple, url: 'https://www.github.com' },
-	{ name: 'Windows', icon: WindowsLogo, url: 'https://www.github.com' },
-	{ name: 'Linux', icon: LinuxLogo, url: 'https://www.github.com' },
-	{ name: 'Android', icon: AndroidLogo, url: 'https://www.google.com' },
-	{ name: 'Web', icon: Globe, url: 'https://www.github.com' }
+	{ name: 'iOS and macOS', icon: Apple, href: '/api/releases/desktop/stable/darwin/x86_64' },
+	{ name: 'Windows', icon: WindowsLogo, href: '/api/releases/desktop/stable/windows/x86_64' },
+	{ name: 'Linux', icon: LinuxLogo, href: '/api/releases/desktop/stable/linux/x86_64' },
+	{ name: 'Android', icon: AndroidLogo },
+	{ name: 'Web', icon: Globe }
 ];
 
 export default function HomePage() {
@@ -46,6 +43,7 @@ export default function HomePage() {
 		isMacOs: boolean;
 		isMobile: boolean;
 	}>(null);
+
 	useEffect(() => {
 		(async () => {
 			const os = await import('react-device-detect').then(
@@ -141,38 +139,25 @@ export default function HomePage() {
 						</span>
 					</p>
 					<div className="flex flex-row gap-3">
-						<Link
+						<a
 							target="_blank"
-							href={
-								deviceOs?.isWindows
-									? 'https://www.google.com'
-									: 'https://www.github.com'
-							}
+							href={`/api/releases/desktop/stable/${
+								deviceOs?.isWindows ? 'windows' : 'darwin'
+							}/aarch64`}
 						>
 							<HomeCTA
 								icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
 								className="z-5 relative"
-								text={
-									deviceOs?.isWindows
-										? 'Download for Windows'
-										: 'Download for Mac'
-								}
+								text={`Download for ${deviceOs?.isWindows ? 'Windows' : 'Mac'}`}
 							/>
-						</Link>
-						<Link
-							target="_blank"
-							href={
-								deviceOs?.isWindows
-									? 'https://www.google.com'
-									: 'https://www.github.com'
-							}
-						>
+						</a>
+						<a target="_blank" href="https://www.github.com/spacedriveapp/spacedrive">
 							<HomeCTA
 								icon={<Github />}
 								className="z-5 relative"
 								text="Star on GitHub"
 							/>
-						</Link>
+						</a>
 					</div>
 					<p
 						className={clsx(
@@ -191,7 +176,7 @@ export default function HomePage() {
 							>
 								<Platform
 									icon={platform.icon}
-									url={platform.url}
+									href={platform.href}
 									label={platform.name}
 								/>
 							</motion.div>
@@ -249,16 +234,16 @@ export default function HomePage() {
 
 interface Props {
 	icon: any;
-	url: string;
+	href?: string;
 	label: string;
 }
 
-const Platform = ({ icon: Icon, url, label }: Props) => {
+const Platform = ({ icon: Icon, href, label }: Props) => {
 	return (
 		<Tooltip label={label}>
-			<Link aria-label={label} href={url} target="_blank">
+			<a aria-label={label} href={href} target="_blank">
 				<Icon size={25} className="h-[25px] opacity-80" weight="fill" />
-			</Link>
+			</a>
 		</Tooltip>
 	);
 };
