@@ -62,9 +62,9 @@ export function installUpdate() {
     return invoke()<null>("install_update")
 }
 
-export type Update = { version: string; body: string | null }
 export type OpenWithApplication = { url: string; name: string }
 export type AppThemeType = "Auto" | "Light" | "Dark"
 export type EphemeralFileOpenResult = { t: "Ok"; c: string } | { t: "Err"; c: string }
+export type Update = { version: string; body: string | null }
 export type OpenFilePathResult = { t: "NoLibrary" } | { t: "NoFile"; c: number } | { t: "OpenError"; c: [number, string] } | { t: "AllGood"; c: number } | { t: "Internal"; c: string }
 export type RevealItem = { Location: { id: number } } | { FilePath: { id: number } } | { Ephemeral: { path: string } }
