@@ -5,7 +5,8 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+			file_path_to_full_path, file_path_to_isolate, file_path_to_isolate_with_id,
+			FilePathError, IsolatedFilePathData,
 		},
 		get_location_path_from_location_id, LocationError,
 	},
@@ -199,38 +200,58 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("createFolder", {
 			#[derive(Type, Deserialize)]
+			pub enum LocationOrParent {
+				Location(location::id::Type),
+				Parent(file_path::id::Type),
+			}
+
+			#[derive(Type, Deserialize)]
 			pub struct CreateFolderArgs {
-				pub location_id: location::id::Type,
-				pub parent_file_path_id: Option<file_path::id::Type>,
+				pub location_or_parent: LocationOrParent,
 				pub name: Option<String>,
 			}
 			R.with2(library()).mutation(
 				|(_, library),
 				 CreateFolderArgs {
-				     location_id,
-				     parent_file_path_id,
+				     location_or_parent,
 				     name,
 				 }: CreateFolderArgs| async move {
-					let mut path =
-						get_location_path_from_location_id(&library.db, location_id).await?;
-
-					if let Some(file_path_id) = parent_file_path_id {
-						path.push(
-							library
+					let mut path = match location_or_parent {
+						LocationOrParent::Location(location_id) => {
+							get_location_path_from_location_id(&library.db, location_id).await?
+						}
+						LocationOrParent::Parent(parent_id) => {
+							let file_path_with_location = library
 								.db
 								.file_path()
-								.find_unique(file_path::id::equals(file_path_id))
-								.select(file_path_to_isolate::select())
+								.find_unique(file_path::id::equals(parent_id))
+								.select(file_path_to_full_path::select())
 								.exec()
 								.await?
-								.ok_or(rspc::Error::from(LocationError::FilePath(
-									FilePathError::IdNotFound(file_path_id),
-								)))
-								.and_then(|file_path| {
-									IsolatedFilePathData::try_from(file_path).map_err(Into::into)
-								})?,
-						);
-					}
+								.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
+									parent_id,
+								)))?;
+
+							let location = maybe_missing(
+								&file_path_with_location.location,
+								"file_path.location",
+							)?;
+
+							let mut path = PathBuf::from(
+								location
+									.path
+									.as_ref()
+									.ok_or(LocationError::MissingPath(location.id))?,
+							);
+
+							path.push(IsolatedFilePathData::try_from((
+								location.id,
+								file_path_with_location,
+							))?);
+
+							path
+						}
+					};
 
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
