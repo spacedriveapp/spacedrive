@@ -1,6 +1,5 @@
 use tauri::{plugin::TauriPlugin, Manager, Runtime};
 use tokio::sync::Mutex;
-use tracing::{error, warn};
 
 #[derive(Debug, Clone, specta::Type, serde::Serialize)]
 pub struct Update {
@@ -108,10 +107,10 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 
 			if updater_available {
 				window
-					.eval(&format!("window.__SD_UPDATER__ = true"))
+					.eval("window.__SD_UPDATER__ = true")
 					.expect("Failed to inject updater JS");
 			}
 		})
-		.js_init_script(format!(""))
+		.js_init_script(String::new())
 		.build()
 }
