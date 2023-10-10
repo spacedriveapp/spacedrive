@@ -1,14 +1,14 @@
 import Plausible, { PlausibleOptions as PlausibleTrackerOptions } from 'plausible-tracker';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { BuildInfo } from '../core';
 import { useDebugState } from './useDebugState';
 import { PlausiblePlatformType, telemetryStore, useTelemetryState } from './useTelemetryState';
 
 /**
  * This should be in sync with the Core's version.
  */
-const CORE_VERSION = '0.1.0'; // This will need to be embedded accordingly
-const APP_VERSION = '0.1.0'; // This is specific to desktop/web/mobile and will need to be embedded accordingly
+
 const DOMAIN = 'app.spacedrive.com';
 const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
@@ -117,7 +117,7 @@ interface PlausibleTrackerEvent {
 		platform: PlausiblePlatformType;
 		fullTelemetry: boolean;
 		coreVersion: string;
-		appVersion: string;
+		commitHash: string;
 		debug: boolean;
 	};
 	options: PlausibleTrackerOptions;
@@ -156,6 +156,10 @@ interface SubmitEventProps {
 		shareFullTelemetry: boolean;
 		telemetryLogging: boolean;
 	};
+	/**
+	 * The app's build info
+	 */
+	buildInfo: BuildInfo | undefined; // TODO(brxken128): ensure this is populated *always*
 }
 
 /**
@@ -195,8 +199,8 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		props: {
 			platform: props.platformType,
 			fullTelemetry: props.shareFullTelemetry,
-			coreVersion: CORE_VERSION,
-			appVersion: APP_VERSION,
+			coreVersion: props.buildInfo?.version ?? '0.1.0', // TODO(brxken128): clean this up
+			commitHash: props.buildInfo?.commit ?? '0.1.0',
 			debug: debugState.enabled
 		},
 		options: {
@@ -281,6 +285,7 @@ export const usePlausibleEvent = () => {
 				debugState,
 				shareFullTelemetry: telemetryState.shareFullTelemetry,
 				platformType: telemetryState.platform,
+				buildInfo: telemetryState.buildInfo,
 				...props
 			});
 		},
@@ -361,7 +366,14 @@ export const usePlausiblePingMonitor = ({ currentPath }: PlausibleMonitorProps) 
 	}, [currentPath, plausibleEvent]);
 };
 
-export const initPlausible = ({ platformType }: { platformType: PlausiblePlatformType }) => {
+export const initPlausible = ({
+	platformType,
+	buildInfo
+}: {
+	platformType: PlausiblePlatformType;
+	buildInfo: BuildInfo | undefined;
+}) => {
 	telemetryStore.platform = platformType;
+	telemetryStore.buildInfo = buildInfo;
 	return;
 };

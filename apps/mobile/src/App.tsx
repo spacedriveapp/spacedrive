@@ -23,6 +23,7 @@ import {
 	NotificationContextProvider,
 	P2PContextProvider,
 	RspcProvider,
+	useBridgeQuery,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
@@ -42,7 +43,6 @@ dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
-initPlausible({ platformType: 'mobile' });
 // changeTwTheme(getThemeStore().theme);
 // TODO: Use above when light theme is ready
 changeTwTheme('dark');
@@ -50,6 +50,9 @@ changeTwTheme('dark');
 function AppNavigation() {
 	const { libraries, library } = useClientContext();
 	const plausibleEvent = usePlausibleEvent();
+	const buildInfo = useBridgeQuery(['buildInfo']);
+
+	initPlausible({ platformType: 'mobile', buildInfo: buildInfo?.data });
 
 	// TODO: Make sure library has actually been loaded by this point - precache with useCachedLibraries?
 	// if (library === undefined) throw new Error("Tried to render AppNavigation before libraries fetched!")
