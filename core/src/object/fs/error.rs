@@ -1,7 +1,10 @@
 use crate::{
 	location::{file_path_helper::FilePathError, LocationError},
 	prisma::file_path,
-	util::{db::MissingFieldError, error::FileIOError},
+	util::{
+		db::MissingFieldError,
+		error::{FileIOError, NonUtf8PathError},
+	},
 };
 
 use std::path::Path;
@@ -28,6 +31,20 @@ pub enum FileSystemJobsError {
 	WouldOverwrite(Box<Path>),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
-	#[error("io error: {0}")]
-	IO(#[from] std::io::Error),
+	#[error("no parent for path, which is supposed to be directory: <path='{}'>", .0.display())]
+	MissingParentPath(Box<Path>),
+	#[error("no stem on file path, but it's supposed to be a file: <path='{}'>", .0.display())]
+	MissingFileStem(Box<Path>),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	NonUTF8Path(#[from] NonUtf8PathError),
+	#[error("failed to find an available name to avoid duplication: <path='{}'>", .0.display())]
+	FailedToFindAvailableName(Box<Path>),
+}
+
+impl From<FileSystemJobsError> for rspc::Error {
+	fn from(e: FileSystemJobsError) -> Self {
+		Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+	}
 }

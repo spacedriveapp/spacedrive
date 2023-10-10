@@ -11,8 +11,9 @@ use crate::{
 	},
 	object::{
 		fs::{
-			copy::FileCopierJobInit, create::create_folder, cut::FileCutterJobInit,
-			delete::FileDeleterJobInit, erase::FileEraserJobInit,
+			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
+			erase::FileEraserJobInit, error::FileSystemJobsError,
+			find_available_filename_for_duplicate,
 		},
 		media::{
 			media_data_extractor::{
@@ -194,20 +195,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		// .procedure("createFolder", {
-		// 	#[derive(Type, Deserialize)]
-		// 	pub struct CreateFolderArgs {
-		// 		pub location_id: Option<i32>,
-		// 		pub path: PathBuf,
-		// 		pub name: Option<String>,
-		// 	}
-		// 	R.with2(library())
-		// 		.mutation(|(_, library), args: CreateFolderArgs| async move {
-		// 			create_folder(args.location_id, args.path, args.name.as_deref(), &library)
-		// 				.await?;
-		// 			Ok(())
-		// 		})
-		// })
+		.procedure("createFolder", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFolderArgs {
+				pub path: PathBuf,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library), CreateFolderArgs { mut path, name }: CreateFolderArgs| async move {
+					path.push(name.as_deref().unwrap_or("Untitled Folder"));
+
+					match fs::metadata(&path).await {
+						Ok(metadata) if metadata.is_dir() => {
+							path = find_available_filename_for_duplicate(&path).await?;
+						}
+						Ok(_) => {
+							return Err(
+								FileSystemJobsError::WouldOverwrite(path.into_boxed_path()).into()
+							)
+						}
+						Err(e) => return Err(FileIOError::from(
+							(
+								path,
+								e,
+								"Failed to access file system and get metadata on directory to be created"
+							)
+						).into()),
+					};
+
+					fs::create_dir(&path)
+						.await
+						.map_err(|e| FileIOError::from((path, e, "Failed to create directory")))?;
+
+					invalidate_query!(library, "search.objects");
+					invalidate_query!(library, "search.paths");
+
+					Ok(())
+				},
+			)
+		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
