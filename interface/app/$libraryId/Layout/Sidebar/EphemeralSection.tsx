@@ -53,8 +53,6 @@ export const EphemeralSection = () => {
 		return locationIdsMap;
 	}, [locations.data, volumes.data]);
 
-	console.log('locationIdsForVolumes', locationIdsForVolumes);
-
 	const items = [
 		{ type: 'network' },
 		home ? { type: 'home', path: home } : null,

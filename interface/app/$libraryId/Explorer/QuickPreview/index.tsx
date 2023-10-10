@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import {
 	ButtonHTMLAttributes,
 	createContext,
+	createRef,
 	useCallback,
 	useContext,
 	useEffect,
@@ -70,6 +71,7 @@ export const QuickPreview = () => {
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
+	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
@@ -96,20 +98,24 @@ export const QuickPreview = () => {
 	useEffect(() => {
 		if (!thumbErrorToast) return;
 
-		let id: string | number;
+		let id: string | number | undefined;
 		toast.error(
 			(_id) => {
 				id = _id;
 				return thumbErrorToast;
 			},
 			{
-				className: 'z-99',
-				duration: Infinity
+				ref: thumb,
+				duration: Infinity,
+				onClose() {
+					id = undefined;
+					setThumbErrorToast(undefined);
+				}
 			}
 		);
 
 		return () => void toast.dismiss(id);
-	}, [thumbErrorToast]);
+	}, [thumb, thumbErrorToast]);
 
 	// Reset state
 	useEffect(() => {
@@ -232,6 +238,14 @@ export const QuickPreview = () => {
 						onOpenAutoFocus={(e) => e.preventDefault()}
 						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
 						onContextMenu={(e) => e.preventDefault()}
+						onInteractOutside={(e) => {
+							if (
+								e.target &&
+								e.target instanceof Node &&
+								thumb.current?.contains(e.target)
+							)
+								e.preventDefault();
+						}}
 					>
 						<div
 							className={clsx(
