@@ -215,11 +215,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let mut path =
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
-					if let Some(sub_path) =
-						sub_path.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
 					{
-						path.push(sub_path)
+						path.push(sub_path);
 					}
+
+					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
 					dbg!(&path);
 

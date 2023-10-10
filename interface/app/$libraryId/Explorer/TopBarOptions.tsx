@@ -115,7 +115,8 @@ export const useExplorerTopBarOptions = () => {
 			onClick: () => {
 				createFolder.mutate({
 					location_id: parent.location.id,
-					sub_path: path
+					sub_path: path || null,
+					name: null
 				});
 			},
 			individual: true,
