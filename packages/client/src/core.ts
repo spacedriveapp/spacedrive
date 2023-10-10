@@ -140,7 +140,7 @@ export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" 
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
-export type CreateFolderArgs = { location_or_parent: LocationOrParent; name: string | null }
+export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
 export type CreateLibraryArgs = { name: LibraryName }
 
@@ -271,8 +271,6 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  * between the location and indexer rules.
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
-
-export type LocationOrParent = { Location: number } | { Parent: number }
 
 export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 

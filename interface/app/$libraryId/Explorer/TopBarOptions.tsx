@@ -11,7 +11,8 @@ import {
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef } from 'react';
-import { useRspcLibraryContext } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
+import { toast } from '@sd/ui';
 import { useKeyMatcher } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
@@ -28,7 +29,12 @@ export const useExplorerTopBarOptions = () => {
 
 	const settings = explorer.useSettingsSnapshot();
 
-	// const createFolder = use
+	const createFolder = useLibraryMutation(['files.createFolder'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			console.error(e);
+		}
+	});
 
 	const viewOptions: ToolOption[] = [
 		{
@@ -70,7 +76,7 @@ export const useExplorerTopBarOptions = () => {
 			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
-			showAtResolution: 'xl:flex'
+			showAtResolution: 'sm:flex'
 		},
 		{
 			toolTipLabel: 'Show Inspector',
@@ -103,12 +109,17 @@ export const useExplorerTopBarOptions = () => {
 	const [{ path }] = useExplorerSearchParams();
 
 	const toolOptions = [
-		{
+		parent?.type === 'Location' && {
 			toolTipLabel: 'New Folder',
 			icon: <FolderPlus className={TOP_BAR_ICON_STYLE} />,
-			onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			onClick: () => {
+				createFolder.mutate({
+					location_id: parent.location.id,
+					sub_path: path
+				});
+			},
 			individual: true,
-			showAtResolution: 'xl:flex'
+			showAtResolution: 'xs:flex'
 		},
 		{
 			toolTipLabel: 'Key Manager',

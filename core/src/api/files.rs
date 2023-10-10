@@ -219,7 +219,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						path = path.join(sub_path)
 					}
 
-					dbg!(path);
+					dbg!(&path);
 
 					create_directory(path, &library).await
 				},
@@ -759,7 +759,9 @@ async fn create_directory(mut target_path: PathBuf, library: &Library) -> Result
 
 	fs::create_dir(&target_path)
 		.await
-		.map_err(|e| FileIOError::from((target_path, e, "Failed to create directory")))?;
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	println!("Created directory: {}", target_path.display());
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");
