@@ -1,3 +1,4 @@
+import { getIcon, iconNames } from '@sd/assets/util';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
 import {
 	ExplorerItem,
@@ -7,7 +8,7 @@ import {
 } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
-import { useOperatingSystem, useZodSearchParams } from '~/hooks';
+import { useIsDark, useOperatingSystem, useZodSearchParams } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -18,11 +19,13 @@ import {
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
+import { EmptyNotice } from './Explorer/View';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 import { TopBarPortal } from './TopBar/Portal';
 
 const EphemeralExplorer = memo((props: { args: PathParams }) => {
 	const os = useOperatingSystem();
+	const isDark = useIsDark();
 	const { path } = props.args;
 
 	const explorerSettings = useExplorerSettings({
@@ -100,7 +103,20 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 				right={<DefaultTopBarOptions />}
 				noSearch={true}
 			/>
-			<Explorer />
+			<Explorer
+				emptyNotice={
+					<EmptyNotice
+						loading={query.isFetching}
+						icon={
+							<img
+								className="h-32 w-32"
+								src={getIcon(iconNames.FolderNoSpace, isDark)}
+							/>
+						}
+						message="No files found here"
+					/>
+				}
+			/>
 		</ExplorerContextProvider>
 	);
 });

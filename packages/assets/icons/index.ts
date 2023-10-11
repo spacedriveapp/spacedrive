@@ -59,15 +59,19 @@ import Folder_Light from './Folder_Light.png';
 import Folder from './Folder.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import FolderGrey from './FolderGrey.png';
+import FolderNoSpace_Light from './FolderNoSpace_Light.png';
 import FolderNoSpace from './FolderNoSpace.png';
 import Game_Light from './Game_Light.png';
 import Game from './Game.png';
+import Globe_Light from './Globe_Light.png';
 import Globe from './Globe.png';
 import GlobeAlt from './GlobeAlt.png';
 import GoogleDrive from './GoogleDrive.png';
+import HDD_Light from './HDD_Light.png';
 import HDD from './HDD.png';
 import Heart_Light from './Heart_Light.png';
 import Heart from './Heart.png';
+import Home_Light from './Home_Light.png';
 import Home from './Home.png';
 import Image_Light from './Image_Light.png';
 import Image from './Image.png';
@@ -97,8 +101,10 @@ import Package from './Package.png';
 import PCloud from './PCloud.png';
 import Scrapbook_Light from './Scrapbook_Light.png';
 import Scrapbook from './Scrapbook.png';
+import Screenshot_Light from './Screenshot_Light.png';
 import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
+import SD_Light from './SD_Light.png';
 import SD from './SD.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
@@ -157,6 +163,7 @@ export {
 	Document_pdf_Light,
 	Document_xls,
 	Document_xls_Light,
+	Drive,
 	DriveAmazonS3,
 	DriveBackBlaze,
 	DriveBox,
@@ -167,7 +174,6 @@ export {
 	DriveOneDrive,
 	DriveOpenStack,
 	DrivePCloud,
-	Drive,
 	Drive_Light,
 	Dropbox,
 	Encrypted,
@@ -183,16 +189,20 @@ export {
 	FolderGrey,
 	FolderGrey_Light,
 	FolderNoSpace,
+	FolderNoSpace_Light,
 	Folder_Light,
 	Game,
 	Game_Light,
 	Globe,
 	GlobeAlt,
+	Globe_Light,
 	GoogleDrive,
 	HDD,
+	HDD_Light,
 	Heart,
 	Heart_Light,
 	Home,
+	Home_Light,
 	Image,
 	Image_Light,
 	Key,
@@ -220,14 +230,16 @@ export {
 	Package,
 	Package_Light,
 	SD,
+	SD_Light,
 	Scrapbook,
 	Scrapbook_Light,
 	Screenshot,
 	ScreenshotAlt,
+	Screenshot_Light,
 	Server,
 	Server_Light,
-	Spacedrop1,
 	Spacedrop,
+	Spacedrop1,
 	Tablet,
 	Tablet_Light,
 	Tags,

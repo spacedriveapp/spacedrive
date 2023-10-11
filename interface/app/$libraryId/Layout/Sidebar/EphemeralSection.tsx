@@ -1,9 +1,10 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { Drive, Globe, HDD, Home, SD } from '@sd/assets/icons';
+import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
+import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import SidebarLink from './Link';
@@ -20,6 +21,7 @@ const EjectButton = ({ className }: { className?: string }) => (
 );
 
 export const EphemeralSection = () => {
+	const isDark = useIsDark();
 	const [home, setHome] = useState<string | null>(null);
 	const platform = usePlatform();
 	platform.userHomeDir?.().then(setHome);
@@ -87,7 +89,7 @@ export const EphemeralSection = () => {
 									to={`network/34`}
 									key={index}
 								>
-									<SidebarIcon src={Globe} />
+									<SidebarIcon src={getIcon(iconNames.Globe, isDark)} />
 									<Name>Network</Name>
 								</SidebarLink>
 							);
@@ -100,7 +102,7 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 									key={index}
 								>
-									<SidebarIcon src={Home} />
+									<SidebarIcon src={getIcon(iconNames.Home, isDark)} />
 									<Name>Home</Name>
 								</SidebarLink>
 							);
@@ -127,13 +129,14 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 								>
 									<SidebarIcon
-										src={
+										src={getIcon(
 											item.volume.file_system === 'exfat'
-												? SD
+												? iconNames.SD
 												: item.volume.name === 'Macintosh HD'
-												? HDD
-												: Drive
-										}
+												? iconNames.HDD
+												: iconNames.Drive,
+											isDark
+										)}
 									/>
 									<Name>{name}</Name>
 									{item.volume.disk_type === 'Removable' && <EjectButton />}

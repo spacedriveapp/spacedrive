@@ -1,6 +1,5 @@
 import { Info } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import clsx from 'clsx';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -20,11 +19,10 @@ import {
 import { Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { useIsDark, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { InfoPill } from '../Explorer/Inspector';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
@@ -39,6 +37,7 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
 	const rspc = useRspcLibraryContext();
+	const isDark = useIsDark();
 
 	const onlineLocations = useOnlineLocations();
 
@@ -150,7 +149,12 @@ export const Component = () => {
 				emptyNotice={
 					<EmptyNotice
 						loading={location.isFetching}
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
+						icon={
+							<img
+								className="h-32 w-32"
+								src={getIcon(iconNames.FolderNoSpace, isDark)}
+							/>
+						}
 						message="No files found here"
 					/>
 				}

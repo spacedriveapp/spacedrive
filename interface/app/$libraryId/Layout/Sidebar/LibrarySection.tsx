@@ -1,5 +1,5 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { Laptop } from '@sd/assets/icons';
+import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -13,7 +13,8 @@ import {
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
 import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
-import { Folder, SubtleButton } from '~/components';
+import { SubtleButton } from '~/components';
+import { useIsDark } from '~/hooks';
 
 import SidebarLink from './Link';
 import LocationsContextMenu from './LocationsContextMenu';
@@ -50,6 +51,7 @@ const EjectButton = ({ className }: { className?: string }) => (
 );
 
 export const LibrarySection = () => {
+	const isDark = useIsDark();
 	const debugState = useDebugState();
 	const node = useBridgeQuery(['nodeState']);
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
@@ -91,7 +93,7 @@ export const LibrarySection = () => {
 						to={`node/${node.data.id}`}
 						key={node.data.id}
 					>
-						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<img src={getIcon(iconNames.Laptop, isDark)} className="mr-1 h-5 w-5" />
 						<span className="truncate">{node.data.name}</span>
 					</SidebarLink>
 				)}
@@ -134,7 +136,11 @@ export const LibrarySection = () => {
 								to={`location/${location.id}`}
 							>
 								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-									<Folder size={18} />
+									<img
+										src={getIcon(iconNames.Folder, isDark)}
+										width={18}
+										height={18}
+									/>
 									<div
 										className={clsx(
 											'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',
