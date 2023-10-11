@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
@@ -25,29 +25,18 @@ const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
-const platforms = [
-	{ name: 'iOS and macOS', icon: Apple },
-	{ name: 'Windows', icon: WindowsLogo },
-	{ name: 'Linux', icon: LinuxLogo },
-	{ name: 'Android', icon: AndroidLogo },
-	{ name: 'Web', icon: Globe }
-];
-
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 const downloadEntries = {
 	linux: {
 		name: 'Linux',
 		icon: <LinuxLogo />,
-		links: {
-			Deb: 'linux_deb/x86_64',
-			AppImage: 'linux_appimage/x86_64'
-		}
+		links: 'linux/x86_64'
 	},
 	macOS: {
 		name: 'Mac',
 		icon: <Apple />,
 		links: {
-			'Apple Intel': 'darwin/x86_64',
+			'Intel': 'darwin/x86_64',
 			'Apple Silicon': 'darwin/aarch64'
 		}
 	},
@@ -56,7 +45,19 @@ const downloadEntries = {
 		icon: <WindowsLogo />,
 		links: 'windows/x86_64'
 	}
-};
+} as const;
+
+const platforms = [
+	{ name: 'iOS and macOS', icon: Apple, clickable: true },
+	{
+		name: 'Windows',
+		icon: WindowsLogo,
+		href: `${BASE_DL_LINK}/${downloadEntries.windows.links}`
+	},
+	{ name: 'Linux', icon: LinuxLogo, href: `${BASE_DL_LINK}/${downloadEntries.linux.links}` },
+	{ name: 'Android', icon: AndroidLogo, disbaled: true },
+	{ name: 'Web', icon: Globe }
+] as const;
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
@@ -235,7 +236,19 @@ export default function HomePage() {
 								transition={{ delay: i * 0.2, ease: 'easeInOut' }}
 								key={platform.name}
 							>
-								<Platform icon={platform.icon} label={platform.name} />
+								<Platform
+									icon={platform.icon}
+									label={platform.name}
+									href={'href' in platform ? platform.href : undefined}
+									clickable={
+										'clickable' in platform ? platform.clickable : undefined
+									}
+									onClick={() => {
+										if (platform.name === 'iOS and macOS') {
+											setMultipleDownloads(downloadEntries.macOS.links);
+										}
+									}}
+								/>
 							</motion.div>
 						))}
 					</div>
@@ -301,17 +314,23 @@ export default function HomePage() {
 }
 
 interface Props {
-	icon: any;
-	href?: string;
 	label: string;
+	icon: any;
+	clickable?: true;
 }
 
-const Platform = ({ icon: Icon, href, label }: Props) => {
+const Platform = ({ icon: Icon, label, ...props }: ComponentProps<'a'> & Props) => {
+	const Outer = props.href
+		? (props: any) => <a aria-label={label} target="_blank" {...props} />
+		: props.clickable
+		? (props: any) => <button {...props} />
+		: ({ children }: any) => <>{children}</>;
+
 	return (
 		<Tooltip label={label}>
-			<a aria-label={label} href={href} target="_blank">
+			<Outer {...props}>
 				<Icon size={25} className="h-[25px] opacity-80" weight="fill" />
-			</a>
+			</Outer>
 		</Tooltip>
 	);
 };
