@@ -55,7 +55,7 @@ const platforms = [
 		href: `${BASE_DL_LINK}/${downloadEntries.windows.links}`
 	},
 	{ name: 'Linux', icon: LinuxLogo, href: `${BASE_DL_LINK}/${downloadEntries.linux.links}` },
-	{ name: 'Android', icon: AndroidLogo, disbaled: true },
+	{ name: 'Android', icon: AndroidLogo },
 	{ name: 'Web', icon: Globe }
 ] as const;
 
