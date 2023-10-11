@@ -46,8 +46,6 @@ export default function HomePage() {
 		isLinux: boolean;
 	}>(null);
 
-	const appleArch: 'aarch64' | 'x86' = 'aarch64';
-
 	useEffect(() => {
 		(async () => {
 			const os = await import('react-device-detect').then(
@@ -179,7 +177,7 @@ export default function HomePage() {
 					</div>
 
 					{downloadMacOs && (
-						<div className="mb-2 mt-4 flex flex-row gap-3 fade-in">
+						<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
 							<a href="/api/releases/desktop/stable/darwin/aarch64">
 								<HomeCTA
 									size="md"
