@@ -193,18 +193,13 @@ export default function HomePage() {
 							/>
 						)}
 
-						{multipleDownloads == null && (
-							<a
-								target="_blank"
-								href="https://www.github.com/spacedriveapp/spacedrive"
-							>
-								<HomeCTA
-									icon={<Github />}
-									className="z-5 relative"
-									text="Star on GitHub"
-								/>
-							</a>
-						)}
+						<a target="_blank" href="https://www.github.com/spacedriveapp/spacedrive">
+							<HomeCTA
+								icon={<Github />}
+								className="z-5 relative"
+								text="Star on GitHub"
+							/>
+						</a>
 					</div>
 
 					{multipleDownloads && (
