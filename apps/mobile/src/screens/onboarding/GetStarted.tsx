@@ -37,7 +37,7 @@ export function OnboardingContainer({ children }: React.PropsWithChildren) {
 					</MotiView>
 				</KeyboardAvoidingView>
 				<Text style={tw`absolute bottom-8 text-xs text-ink-dull/50`}>
-					&copy; 2022 Spacedrive Technology Inc.
+					&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 				</Text>
 			</View>
 			{/* Bloom */}
