@@ -74,6 +74,7 @@ export default function HomePage() {
 		useState<(typeof downloadEntries)['linux' | 'macOS']['links']>();
 	const [downloadEntry, setDownloadEntry] =
 		useState<(typeof downloadEntries)['linux' | 'macOS' | 'windows']>();
+	const [isWindowResizing, setIsWindowResizing] = useState(false);
 
 	const links = downloadEntry?.links;
 
@@ -105,7 +106,6 @@ export default function HomePage() {
 				setOpacity(0);
 			}
 		};
-
 		window.addEventListener('scroll', handleScroll);
 
 		return () => {
@@ -114,6 +114,24 @@ export default function HomePage() {
 	}, []);
 
 	useEffect(() => {
+		let resizeTimer: NodeJS.Timeout;
+		const handleResize = () => {
+			setIsWindowResizing(true);
+			setBackground(null);
+			clearTimeout(resizeTimer);
+			resizeTimer = setTimeout(() => {
+				setIsWindowResizing(false);
+			}, 100);
+		};
+		window.addEventListener('resize', handleResize);
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			clearTimeout(resizeTimer);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (isWindowResizing) return;
 		if (!(getWindow() && background == null)) return;
 		(async () => {
 			if (detectWebGLContext()) {
@@ -125,7 +143,7 @@ export default function HomePage() {
 				setBackground(<Bubbles />);
 			}
 		})();
-	}, [background]);
+	}, [background, isWindowResizing]);
 
 	const currentPlatform =
 		downloadEntry !== undefined

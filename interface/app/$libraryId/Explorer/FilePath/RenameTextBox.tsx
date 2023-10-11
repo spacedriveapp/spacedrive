@@ -26,7 +26,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		//this is to determine if file name is truncated
-		const isTruncated = useIsTextTruncated(ref, name);
+		const isTruncated = useIsTextTruncated(ref);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory, hidden file or has no extension
@@ -155,7 +155,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					suppressContentEditableWarning
 					className={clsx(
 						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink outline-none',
-						allowRename && 'whitespace-normal bg-app ring-2 ring-accent-deep',
+						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
 						className
 					)}
 					onDoubleClick={(e) => {
