@@ -9,8 +9,6 @@ const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...i
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [isHovering, setIsHovering] = useState(false);
 
-	console.log({ isHovering });
-
 	useEffect(() => {
 		let timeoutId: number;
 		if (isHovering && images.length > 1) {
