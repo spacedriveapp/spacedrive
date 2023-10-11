@@ -49,7 +49,10 @@ export async function GET(
 
 	const asset = release.assets.find(({ name }: any) => name === binaryName(params));
 
-	if (!asset) return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
+	if (!asset) {
+		console.error('Failed to find asset', asset);
+		return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
+	}
 
 	const signatureAsset = release.assets.find(
 		({ name }: any) => name === `${binaryName(params)}.sig`
