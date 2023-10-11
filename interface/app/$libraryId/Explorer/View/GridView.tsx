@@ -40,7 +40,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	};
 
 	return (
-		<ViewItem data={data} className="w-full h-full">
+		<ViewItem data={data} className="h-full w-full">
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>

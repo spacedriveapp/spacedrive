@@ -31,12 +31,21 @@ pub(crate) fn not_found(err: impl Debug) -> http::Response<BoxBody> {
 #[track_caller]
 pub(crate) fn internal_server_error(err: impl Debug) -> http::Response<BoxBody> {
 	debug!(
-		"500 - Internal Server Error at {}: {err:?}",
+		"500: Internal Server Error at {}: {err:?}",
 		Location::caller()
 	);
 
 	InfallibleResponse::builder()
 		.status(StatusCode::INTERNAL_SERVER_ERROR)
+		.body(body::boxed(Full::from("")))
+}
+
+#[track_caller]
+pub(crate) fn not_implemented(err: impl Debug) -> http::Response<BoxBody> {
+	debug!("501: Not Implemented at {}: {err:?}", Location::caller());
+
+	InfallibleResponse::builder()
+		.status(StatusCode::NOT_IMPLEMENTED)
 		.body(body::boxed(Full::from("")))
 }
 
