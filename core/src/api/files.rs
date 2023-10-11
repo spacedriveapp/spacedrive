@@ -5,8 +5,7 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			file_path_to_full_path, file_path_to_isolate, file_path_to_isolate_with_id,
-			FilePathError, IsolatedFilePathData,
+			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
 		},
 		get_location_path_from_location_id, LocationError,
 	},
@@ -33,7 +32,7 @@ use sd_media_metadata::MediaMetadata;
 
 use std::{
 	ffi::OsString,
-	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
