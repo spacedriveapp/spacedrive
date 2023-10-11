@@ -40,7 +40,7 @@ export default () => {
 							defaultValue={[10 - settings.mediaColumns]}
 							min={0}
 							max={6}
-							step={2}
+							step={1}
 							onValueChange={([val]) => {
 								if (val !== undefined)
 									explorer.settingsStore.mediaColumns = 10 - val;
