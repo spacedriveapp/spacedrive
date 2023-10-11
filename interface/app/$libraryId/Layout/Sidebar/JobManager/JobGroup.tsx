@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import {
+	formatNumber,
 	getJobNiceActionName,
 	getTotalTasks,
 	JobGroup,
@@ -66,7 +67,11 @@ export default function ({ group, progress }: JobGroupProps) {
 						)}
 						textItems={[
 							[
-								{ text: `${tasks.total} ${tasks.total <= 1 ? 'task' : 'tasks'}` },
+								{
+									text: `${formatNumber(tasks.total)} ${
+										tasks.total <= 1 ? 'task' : 'tasks'
+									}`
+								},
 								{ text: dateStarted },
 								{ text: totalGroupTime || undefined },
 
