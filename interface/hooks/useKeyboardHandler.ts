@@ -9,7 +9,7 @@ export function useKeybindHandler() {
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
 			if (e.detail.action === 'open_settings') {
-				navigate('/settings');
+				navigate('/settings/client/general');
 				e.preventDefault();
 				return;
 			}
