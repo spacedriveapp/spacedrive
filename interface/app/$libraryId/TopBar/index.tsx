@@ -1,7 +1,7 @@
 import { platform } from 'os';
 import clsx from 'clsx';
 import type { Ref } from 'react';
-import { useOperatingSystem } from '~/hooks';
+import { useOperatingSystem, useShowControls } from '~/hooks';
 
 import { useExplorerStore } from '../Explorer/store';
 import { NavigationButtons } from './NavigationButtons';
@@ -16,6 +16,8 @@ interface Props {
 }
 
 const TopBar = (props: Props) => {
+	const transparentBg = useShowControls().transparentBg;
+
 	const { isDragging } = useExplorerStore();
 	const os = useOperatingSystem();
 
@@ -24,9 +26,10 @@ const TopBar = (props: Props) => {
 			data-tauri-drag-region={os === 'macOS'}
 			style={{ height: TOP_BAR_HEIGHT }}
 			className={clsx(
-				'top-bar-blur absolute inset-x-0 z-50 flex items-center gap-3.5 overflow-hidden border-b !border-sidebar-divider bg-app/90 px-3.5',
+				'top-bar-blur absolute inset-x-0 z-50 flex items-center gap-3.5 overflow-hidden border-b !border-sidebar-divider px-3.5',
 				'duration-250 transition-[background-color,border-color] ease-out',
-				isDragging && 'pointer-events-none'
+				isDragging && 'pointer-events-none',
+				transparentBg ? 'bg-app/0' : 'bg-app/90'
 			)}
 		>
 			<div

@@ -7,7 +7,7 @@ import Sticky from 'react-sticky-el';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { tw } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useShowControls } from '~/hooks';
 
 import { useLayoutContext } from '../Layout/Context';
 import { usePageLayoutContext } from '../PageLayout/Context';
@@ -45,12 +45,12 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
+	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
+	const transparentBg = useShowControls().transparentBg;
 
 	const { scroll, mouseState } = useMouseHandlers({ ref });
 
 	const categories = useLibraryQuery(['categories.list']);
-
-	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
@@ -71,7 +71,12 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`;
 
 	return (
-		<div>
+		<div
+			className={clsx(
+				'sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur',
+				transparentBg && '!bg-none'
+			)}
+		>
 			<Sticky
 				scrollElement={pageRef.current || undefined}
 				stickyClassName="z-20 !top-[46px]"

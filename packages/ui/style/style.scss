@@ -26,6 +26,10 @@
 	backdrop-filter: blur(18px);
 	-webkit-backdrop-filter: blur(18px);
 }
+.navbar-blur {
+	backdrop-filter: blur(28px);
+	-webkit-backdrop-filter: blur(28px);
+}
 
 .top-bar-blur {
 	@apply border-app-line/50;

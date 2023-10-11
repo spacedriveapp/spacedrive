@@ -1,10 +1,12 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
+import { useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
+import ScreenshotWrapper from './ScreenshotWrapper';
 
 // TODO: Restore this once TS is back up to functionality in rspc.
 // const wsClient = createWSClient({
@@ -29,8 +31,7 @@ const spacedriveURL = (() => {
 	} else if (import.meta.env.DEV) {
 		currentURL.host = 'localhost:8080';
 	}
-	currentURL.pathname = 'spacedrive';
-	return currentURL.href;
+	return `${currentURL.origin}/spacedrive`;
 })();
 
 const platform: Platform = {
@@ -76,6 +77,9 @@ const queryClient = new QueryClient({
 const router = createBrowserRouter(routes);
 
 function App() {
+	const domEl = useRef<HTMLDivElement>(null);
+	const { isEnabled: showControls } = useShowControls();
+
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
 	if (import.meta.env.VITE_SD_DEMO_MODE === 'true') {
@@ -83,15 +87,17 @@ function App() {
 	}
 
 	return (
-		<div className="App">
-			<RspcProvider queryClient={queryClient}>
-				<PlatformProvider platform={platform}>
-					<QueryClientProvider client={queryClient}>
-						<SpacedriveInterface router={router} />
-					</QueryClientProvider>
-				</PlatformProvider>
-			</RspcProvider>
-		</div>
+		<ScreenshotWrapper showControls={!!showControls}>
+			<div ref={domEl} className="App">
+				<RspcProvider queryClient={queryClient}>
+					<PlatformProvider platform={platform}>
+						<QueryClientProvider client={queryClient}>
+							<SpacedriveInterface router={router} />
+						</QueryClientProvider>
+					</PlatformProvider>
+				</RspcProvider>
+			</div>
+		</ScreenshotWrapper>
 	);
 }
 

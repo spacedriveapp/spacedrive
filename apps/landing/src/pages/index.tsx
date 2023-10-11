@@ -1,165 +1,297 @@
-import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
+/* eslint-disable tailwindcss/enforces-negative-arbitrary-values */
+
+/* eslint-disable tailwindcss/classnames-order */
+
+/* eslint-disable jsx-a11y/alt-text */
+import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
+import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import AppImage from '~/components/AppImage';
-import HomeCTA from '~/components/HomeCTA';
+import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import { detectWebGLContext, getWindow } from '~/utils/util';
+import { Space } from '~/components/Space';
 
-interface SectionProps {
-	orientation: 'left' | 'right';
-	heading?: string;
-	description?: string | React.ReactNode;
-	children?: React.ReactNode;
-	className?: string;
-}
+import CyclingImage from '../components/CyclingImage';
 
-function Section(props: SectionProps = { orientation: 'left' }) {
-	const info = (
-		<div className="px-4 py-10 sm:px-10">
-			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
-			{props.description && (
-				<p className="text-md mt-5 text-gray-450 sm:text-xl">{props.description}</p>
-			)}
-		</div>
-	);
-	return (
-		<div className={clsx('my-10 grid grid-cols-1 lg:my-44 lg:grid-cols-2', props.className)}>
-			{props.orientation === 'right' ? (
-				<>
-					{info}
-					{props.children}
-				</>
-			) : (
-				<>
-					{props.children}
-					{info}
-				</>
-			)}
-		</div>
-	);
-}
+const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
+	ssr: false
+});
+
+const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
+const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
+
+const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
+const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
+
+const platforms = [
+	{ name: 'iOS and macOS', icon: Apple, href: '/api/releases/desktop/stable/darwin/x86_64' },
+	{ name: 'Windows', icon: WindowsLogo, href: '/api/releases/desktop/stable/windows/x86_64' },
+	{ name: 'Linux', icon: LinuxLogo, href: '/api/releases/desktop/stable/linux/x86_64' },
+	{ name: 'Android', icon: AndroidLogo },
+	{ name: 'Web', icon: Globe }
+];
 
 export default function HomePage() {
-	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
-	const [background, setBackground] = useState<JSX.Element | null>(null);
+	const [opacity, setOpacity] = useState(0.6);
+	const [downloadMacOs, setDownloadMacOS] = useState(false);
+	const [deviceOs, setDeviceOs] = useState<null | {
+		isWindows: boolean;
+		isMacOs: boolean;
+		isMobile: boolean;
+		isLinux: boolean;
+	}>(null);
 
-	const router = useRouter();
+	const appleArch: 'aarch64' | 'x86' = 'aarch64';
 
 	useEffect(() => {
-		if (!getWindow()) return;
-		const cuid = router.query.wunsub;
-		if (!cuid) return;
 		(async () => {
-			console.log('Unsubscribing from waitlist', process.env.NODE_ENV);
-
-			const prod = process.env.NODE_ENV === 'production';
-
-			const req = await fetch(`https://app.spacedrive.com/api/v1/waitlist?cuid=${cuid}`, {
-				method: 'DELETE'
+			const os = await import('react-device-detect').then(
+				({ isWindows, isMacOs, isMobile }) => {
+					return { isWindows, isMacOs, isMobile };
+				}
+			);
+			setDeviceOs({
+				isWindows: os.isWindows,
+				isMacOs: os.isMacOs,
+				isMobile: os.isMobile,
+				isLinux: !os.isWindows && !os.isMacOs && !os.isMobile
 			});
-
-			if (req.ok) {
-				setUnsubscribedFromWaitlist(true);
-				window.history.replaceState(
-					{},
-					'',
-					prod ? 'https://spacedrive.com' : 'http://localhost:3001'
-				);
-
-				setTimeout(() => {
-					setUnsubscribedFromWaitlist(false);
-				}, 5000);
-			} else if (req.status >= 400 && req.status < 500) {
-				alert('An error occurred while unsubscribing from waitlist');
-			}
 		})();
-	}, [router.query.wunsub]);
+		const fadeStart = 300; // start fading out at 100px
+		const fadeEnd = 1300; // end fading out at 300px
 
-	useEffect(() => {
-		if (!(getWindow() && background == null)) return;
-		(async () => {
-			if (detectWebGLContext()) {
-				const Space = (await import('~/components/Space')).Space;
-				setBackground(<Space />);
+		const handleScroll = () => {
+			const currentScrollY = window.scrollY;
+
+			if (currentScrollY <= fadeStart) {
+				setOpacity(0.6);
+			} else if (currentScrollY <= fadeEnd) {
+				const range = fadeEnd - fadeStart;
+				const diff = currentScrollY - fadeStart;
+				const ratio = diff / range;
+				setOpacity(0.6 - ratio);
 			} else {
-				console.warn('Fallback to Bubbles background due WebGL not being available');
-				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
-				setBackground(<Bubbles />);
+				setOpacity(0);
 			}
-		})();
-	}, [background]);
+		};
+
+		window.addEventListener('scroll', handleScroll);
+
+		return () => {
+			window.removeEventListener('scroll', handleScroll);
+		};
+	}, []);
 
 	return (
-		<PageWrapper>
-			<div className="flex w-full flex-col items-center px-4">
-				<Head>
-					<title>Spacedrive — A file manager from the future.</title>
-					<meta
-						name="description"
-						content="Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized."
-					/>
-				</Head>
-				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
-				<div className="mt-24 lg:mt-8" />
-				<NewBanner
-					headline="Spacedrive raises $2M led by OSS Capital"
-					href="/blog/spacedrive-funding-announcement"
-					link="Read post"
+		<TooltipProvider>
+			<Head>
+				<title>Spacedrive — A file manager from the future.</title>
+				<meta
+					name="description"
+					content="Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized."
 				/>
-
-				{unsubscribedFromWaitlist && (
-					<div
-						className={
-							'my-2 flex flex-row items-center rounded-md border-2 border-green-900 bg-green-800/20 px-2'
-						}
-					>
-						<Info className="mr-1 w-5 fill-green-500" />
-						<p className={'text-sm text-green-500'}>
-							You have been unsubscribed from the waitlist
-						</p>
-					</div>
-				)}
-
-				<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-7xl">
-					A file explorer from the future.
-				</h1>
-				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
-					Combine your drives and clouds into one database that you can organize and
-					explore from any device.
-					<br />
-					<span className="hidden sm:block">
-						Designed for creators, hoarders and the painfully disorganized.
-					</span>
-				</p>
-				<HomeCTA />
-				<AppImage />
-				<Section
-					orientation="right"
-					heading="Never leave a file behind."
-					className="z-30 mt-0 sm:mt-8"
-					description={
-						<>
-							Spacedrive accounts for every file you own, uniquely fingerprinting and
-							extracting metadata so you can sort, tag, backup and share files without
-							limitations of any one cloud provider.
-							<br />
-							<br />
-							<Link
-								className="text-primary-600 transition hover:text-primary-500"
-								href="/docs/product/getting-started/introduction"
-							>
-								Find out more →
-							</Link>
-						</>
-					}
+				<meta
+					property="og:image"
+					content="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png"
 				/>
-				{background}
+				<meta
+					name="keywords"
+					content="files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem"
+				/>
+				<meta name="author" content="Spacedrive Technology Inc." />
+			</Head>
+			<div style={{ opacity }}>
+				<Space />
 			</div>
-		</PageWrapper>
+
+			<PageWrapper>
+				{/* <div
+					className="absolute-horizontal-center h-[140px] w-[60%] overflow-hidden
+				rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-60 blur-[80px] md:blur-[150px]"
+				/> */}
+				<Image
+					loading="eager"
+					className="absolute-horizontal-center fade-in"
+					width={1278}
+					height={626}
+					alt="l"
+					src="/images/headergradient.webp"
+				/>
+				<div className="flex w-full flex-col items-center px-4">
+					<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
+					<div className="mt-24 lg:mt-8" />
+					<NewBanner
+						headline="Alpha release is finally here!"
+						href="/blog/october-alpha-release"
+						link="Read post"
+						className="mt-[50px] lg:mt-0"
+					/>
+
+					<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-white md:text-5xl lg:text-7xl">
+						One Explorer. All Your Files.
+					</h1>
+					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+						Unify files from all your devices and clouds into a single, easy-to-use
+						explorer.
+						<br />
+						<span className="hidden sm:block">
+							Designed for creators, hoarders and the painfully disorganized.
+						</span>
+					</p>
+					<div className="flex flex-row gap-3">
+						{deviceOs?.isMacOs ? (
+							<HomeCTA
+								icon={<Apple />}
+								text="Download for Mac"
+								onClick={() => setDownloadMacOS(!downloadMacOs)}
+							/>
+						) : (
+							<a
+								target="_blank"
+								href={`/api/releases/desktop/stable/${
+									deviceOs?.isLinux ? 'linux' : 'windows'
+								}/${appleArch}`}
+							>
+								<HomeCTA
+									icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
+									className="z-5 relative"
+									text={`Download for ${deviceOs?.isWindows ? 'Windows' : 'Mac'}`}
+								/>
+							</a>
+						)}
+						{!downloadMacOs && (
+							<a
+								target="_blank"
+								href="https://www.github.com/spacedriveapp/spacedrive"
+							>
+								<HomeCTA
+									icon={<Github />}
+									className="z-5 relative"
+									text="Star on GitHub"
+								/>
+							</a>
+						)}
+					</div>
+
+					{downloadMacOs && (
+						<div className="mb-2 mt-4 flex flex-row gap-3 fade-in">
+							<a href="/api/releases/desktop/stable/macos/aarch64">
+								<HomeCTA
+									size="md"
+									className="z-5 relative !py-1 !text-sm"
+									text="Apple Silicon"
+								/>
+							</a>
+							<a href="/api/releases/desktop/stable/macos/x86">
+								<HomeCTA
+									size="md"
+									className="z-5 relative !py-1 !text-sm"
+									text="Apple Intel"
+								/>
+							</a>
+						</div>
+					)}
+					<p
+						className={clsx(
+							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
+						)}
+					>
+						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
+					</p>
+					<div className="relative z-10 mt-5 flex gap-3">
+						{platforms.map((platform, i) => (
+							<motion.div
+								initial={{ opacity: 0, y: 20 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: i * 0.2, ease: 'easeInOut' }}
+								key={platform.name}
+							>
+								<Platform
+									icon={platform.icon}
+									href={platform.href}
+									label={platform.name}
+								/>
+							</motion.div>
+						))}
+					</div>
+					<div className="pb-6 xs:pb-24">
+						<div
+							className="xl2:relative z-30 flex h-[255px] w-full px-6
+						 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto"
+						>
+							<Image
+								loading="eager"
+								className="absolute-horizontal-center animation-delay-2 top-[380px] fade-in xs:top-[180px] md:top-[130px]"
+								width={1200}
+								height={626}
+								alt="l"
+								src="/images/appgradient.webp"
+							/>
+							<AppFrameOuter
+								className=" relative mt-10 overflow-hidden
+							transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] md:mt-0"
+							>
+								<AppFrameInner>
+									<CyclingImage
+										loading="eager"
+										width={1278}
+										height={626}
+										alt="spacedrive app"
+										className="rounded-lg"
+										images={[
+											'/images/app/1.webp',
+											'/images/app/2.webp',
+											'/images/app/3.webp',
+											'/images/app/4.webp',
+											'/images/app/5.webp',
+											'/images/app/10.webp',
+											'/images/app/6.webp',
+											'/images/app/7.webp',
+											'/images/app/8.webp',
+											'/images/app/9.webp'
+										]}
+									/>
+									<Image
+										loading="eager"
+										className="pointer-events-none absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
+										width={2278}
+										height={626}
+										alt="l"
+										src="/images/appgradientoverlay.png"
+									/>
+								</AppFrameInner>
+							</AppFrameOuter>
+						</div>
+					</div>
+
+					{/* <WormHole /> */}
+					{/* <BentoBoxes /> */}
+					{/* <CloudStorage /> */}
+					{/* <DownloadToday isWindows={deviceOs?.isWindows} /> */}
+					{/* <div className="h-[100px] sm:h-[200px] w-full" /> */}
+				</div>
+			</PageWrapper>
+		</TooltipProvider>
 	);
 }
+
+interface Props {
+	icon: any;
+	href?: string;
+	label: string;
+}
+
+const Platform = ({ icon: Icon, href, label }: Props) => {
+	return (
+		<Tooltip label={label}>
+			<a aria-label={label} href={href} target="_blank">
+				<Icon size={25} className="h-[25px] opacity-80" weight="fill" />
+			</a>
+		</Tooltip>
+	);
+};
