@@ -30,6 +30,9 @@ export const Delete = new ConditionalItem({
 
 		const rescan = useQuickRescan();
 
+		const atLeastOneDirectory = selectedFilePaths.some((p) => p.is_dir);
+		const atLeastOneFile = selectedFilePaths.some((p) => !p.is_dir);
+
 		return (
 			<Menu.Item
 				icon={Trash}
@@ -43,6 +46,8 @@ export const Delete = new ConditionalItem({
 							rescan={rescan}
 							locationId={locationId}
 							pathIds={selectedFilePaths.map((p) => p.id)}
+							includesDirectorys={atLeastOneDirectory}
+							includesFiles={atLeastOneFile}
 						/>
 					))
 				}

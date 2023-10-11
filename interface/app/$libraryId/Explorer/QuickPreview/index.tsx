@@ -207,7 +207,13 @@ export const QuickPreview = () => {
 		if (!path || path.location_id === null) return;
 
 		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} locationId={path.location_id!} pathIds={[path.id]} />
+			<DeleteDialog
+				{...dp}
+				locationId={path.location_id!}
+				pathIds={[path.id]}
+				includesDirectorys={path.is_dir ?? false}
+				includesFiles={!path.is_dir}
+			/>
 		));
 	});
 

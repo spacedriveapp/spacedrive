@@ -5,12 +5,25 @@ interface Props extends UseDialogProps {
 	locationId: number;
 	rescan?: () => void;
 	pathIds: number[];
+	includesDirectorys?: boolean;
+	includesFiles?: boolean;
 }
 
 export default (props: Props) => {
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 
 	const form = useZodForm();
+
+	let type = "file";
+
+	if(props.includesDirectorys){
+		type = "directory";
+		if(props.includesFiles){
+			type = "item";
+		}
+	}
+
+	const description = `Warning: This will delete your ${type} forever, we don't have a trash can yet...`;
 
 	return (
 		<Dialog
@@ -24,8 +37,8 @@ export default (props: Props) => {
 				props.rescan?.();
 			})}
 			dialog={useDialog(props)}
-			title="Delete a file"
-			description="Warning: This will delete your file forever, we don't have a trash can yet..."
+			title={"Delete a " + type}
+			description={description}
 			loading={deleteFile.isLoading}
 			ctaLabel="Delete"
 			ctaDanger
@@ -34,7 +47,7 @@ export default (props: Props) => {
 			<Tooltip label="Coming soon">
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
-					<p className="text-sm text-ink-dull">Delete all matching files</p>
+					<p className="text-sm text-ink-dull">Delete all matching {type}s</p>
 				</div>
 			</Tooltip>
 		</Dialog>
