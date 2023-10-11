@@ -43,7 +43,7 @@ import {
 	useLibraryQuery,
 	type ExplorerItem
 } from '@sd/client';
-import { Button, Divider, DropdownMenu, Tooltip, tw } from '@sd/ui';
+import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useIsDark, useZodRouteParams } from '~/hooks';
@@ -304,8 +304,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					label="Path"
 					value={fullPath}
 					onClick={() => {
-						// TODO: Add toast notification
-						fullPath && navigator.clipboard.writeText(fullPath);
+						if (fullPath) {
+							navigator.clipboard.writeText(fullPath);
+							toast.info('Copied path to clipboard');
+						}
 					}}
 				/>
 			</MetaContainer>
