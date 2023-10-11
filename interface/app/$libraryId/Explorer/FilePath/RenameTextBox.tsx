@@ -155,7 +155,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					suppressContentEditableWarning
 					className={clsx(
 						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink outline-none',
-						allowRename && 'whitespace-normal bg-app ring-2 ring-accent-deep',
+						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
 						className
 					)}
 					onDoubleClick={(e) => {
