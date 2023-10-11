@@ -18,7 +18,7 @@ const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...i
 			const img = new window.Image();
 			img.src = images[nextIndex];
 			img.onload = () => {
-				timeoutId = window.setTimeout(() => setCurrentIndex(nextIndex), 2500);
+				timeoutId = window.setTimeout(() => setCurrentIndex(nextIndex), 1500);
 			};
 		}
 		return () => window.clearTimeout(timeoutId);

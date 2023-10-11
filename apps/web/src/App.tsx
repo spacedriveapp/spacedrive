@@ -1,5 +1,4 @@
 import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import * as htmlToImage from 'html-to-image';
 import { useEffect, useRef } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
@@ -81,64 +80,24 @@ function App() {
 	const domEl = useRef<HTMLDivElement>(null);
 	const { isEnabled: showControls } = useShowControls();
 
-	const downloadImage = async () => {
-		// Define a CSS rule to hide scrollbars
-		const style = document.createElement('style');
-		style.innerHTML = `
-			::-webkit-scrollbar {
-				display: none;
-		  	}
-			body, .no-scrollbar, .custom-scroll {
-				overflow: hidden !important;
-				-ms-overflow-style: none;  /* Internet Explorer 10+ */
-				scrollbar-width: none;  /* Firefox */
-			}
-		`;
-
-		// Add the rule to the document
-		document.head.appendChild(style);
-
-		if (!domEl.current) return;
-		const dataUrl = await htmlToImage.toPng(domEl.current);
-
-		document.head.removeChild(style);
-
-		// download image
-		const link = document.createElement('a');
-		link.download = 'test.png';
-		link.href = dataUrl;
-		link.click();
-	};
-
 	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
 	if (import.meta.env.VITE_SD_DEMO_MODE === 'true') {
 		hydrate(queryClient, demoData);
 	}
 
-	useEffect(() => {
-		// if showControls then make K keybind take screenshot
-		if (showControls) {
-			window.addEventListener('keyup', (e) => {
-				if (e.key === 'k') {
-					downloadImage();
-				}
-			});
-		}
-	}, []);
-
 	return (
-		<div ref={domEl} className="App">
-			<RspcProvider queryClient={queryClient}>
-				<PlatformProvider platform={platform}>
-					<QueryClientProvider client={queryClient}>
-						<ScreenshotWrapper showControls={!!showControls}>
+		<ScreenshotWrapper showControls={!!showControls}>
+			<div ref={domEl} className="App">
+				<RspcProvider queryClient={queryClient}>
+					<PlatformProvider platform={platform}>
+						<QueryClientProvider client={queryClient}>
 							<SpacedriveInterface router={router} />
-						</ScreenshotWrapper>
-					</QueryClientProvider>
-				</PlatformProvider>
-			</RspcProvider>
-		</div>
+						</QueryClientProvider>
+					</PlatformProvider>
+				</RspcProvider>
+			</div>
+		</ScreenshotWrapper>
 	);
 }
 

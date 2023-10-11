@@ -37,6 +37,7 @@ const ScreenshotWrapper = ({
 
 	useEffect(() => {
 		if (showControls) {
+			window.document.body.style.backgroundColor = 'black';
 			window.addEventListener('keyup', (e) => {
 				if (e.key === 'k') {
 					downloadImage();
@@ -47,23 +48,21 @@ const ScreenshotWrapper = ({
 	}, [showControls]);
 
 	return (
-		<div className="flex h-screen items-center justify-center bg-black ">
-			<div
-				ref={showControls ? domEl : null}
-				style={
-					showControls
-						? {
-								width: '1278px',
-								height: '626px',
-								margin: '0 auto',
-								position: 'relative',
-								overflow: 'hidden'
-						  }
-						: {}
-				}
-			>
-				{children}
-			</div>
+		<div
+			ref={showControls ? domEl : null}
+			style={
+				showControls
+					? {
+							width: '1278px',
+							height: '626px',
+							margin: '0 auto',
+							position: 'relative',
+							overflow: 'hidden'
+					  }
+					: {}
+			}
+		>
+			{children}
 		</div>
 	);
 };

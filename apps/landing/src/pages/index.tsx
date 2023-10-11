@@ -38,11 +38,15 @@ const platforms = [
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
+	const [downloadMacOs, setDownloadMacOS] = useState(false);
 	const [deviceOs, setDeviceOs] = useState<null | {
 		isWindows: boolean;
 		isMacOs: boolean;
 		isMobile: boolean;
+		isLinux: boolean;
 	}>(null);
+
+	const appleArch: 'aarch64' | 'x86' = 'aarch64';
 
 	useEffect(() => {
 		(async () => {
@@ -54,7 +58,8 @@ export default function HomePage() {
 			setDeviceOs({
 				isWindows: os.isWindows,
 				isMacOs: os.isMacOs,
-				isMobile: os.isMobile
+				isMobile: os.isMobile,
+				isLinux: !os.isWindows && !os.isMacOs && !os.isMobile
 			});
 		})();
 		const fadeStart = 300; // start fading out at 100px
@@ -139,26 +144,58 @@ export default function HomePage() {
 						</span>
 					</p>
 					<div className="flex flex-row gap-3">
-						<a
-							target="_blank"
-							href={`/api/releases/desktop/stable/${
-								deviceOs?.isWindows ? 'windows' : 'darwin'
-							}/aarch64`}
-						>
+						{deviceOs?.isMacOs ? (
 							<HomeCTA
-								icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
-								className="z-5 relative"
-								text={`Download for ${deviceOs?.isWindows ? 'Windows' : 'Mac'}`}
+								icon={<Apple />}
+								text="Download for Mac"
+								onClick={() => setDownloadMacOS(!downloadMacOs)}
 							/>
-						</a>
-						<a target="_blank" href="https://www.github.com/spacedriveapp/spacedrive">
-							<HomeCTA
-								icon={<Github />}
-								className="z-5 relative"
-								text="Star on GitHub"
-							/>
-						</a>
+						) : (
+							<a
+								target="_blank"
+								href={`/api/releases/desktop/stable/${
+									deviceOs?.isLinux ? 'linux' : 'windows'
+								}/${appleArch}`}
+							>
+								<HomeCTA
+									icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
+									className="z-5 relative"
+									text={`Download for ${deviceOs?.isWindows ? 'Windows' : 'Mac'}`}
+								/>
+							</a>
+						)}
+						{!downloadMacOs && (
+							<a
+								target="_blank"
+								href="https://www.github.com/spacedriveapp/spacedrive"
+							>
+								<HomeCTA
+									icon={<Github />}
+									className="z-5 relative"
+									text="Star on GitHub"
+								/>
+							</a>
+						)}
 					</div>
+
+					{downloadMacOs && (
+						<div className="mb-2 mt-4 flex flex-row gap-3 fade-in">
+							<a href="/api/releases/desktop/stable/macos/aarch64">
+								<HomeCTA
+									size="md"
+									className="z-5 relative !py-1 !text-sm"
+									text="Apple Silicon"
+								/>
+							</a>
+							<a href="/api/releases/desktop/stable/macos/x86">
+								<HomeCTA
+									size="md"
+									className="z-5 relative !py-1 !text-sm"
+									text="Apple Intel"
+								/>
+							</a>
+						</div>
+					)}
 					<p
 						className={clsx(
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
@@ -206,7 +243,18 @@ export default function HomePage() {
 										height={626}
 										alt="spacedrive app"
 										className="rounded-lg"
-										images={['/images/app2.webp', '/images/app.webp']}
+										images={[
+											'/images/app/1.webp',
+											'/images/app/2.webp',
+											'/images/app/3.webp',
+											'/images/app/4.webp',
+											'/images/app/5.webp',
+											'/images/app/10.webp',
+											'/images/app/6.webp',
+											'/images/app/7.webp',
+											'/images/app/8.webp',
+											'/images/app/9.webp'
+										]}
 									/>
 									<Image
 										loading="eager"
