@@ -2,12 +2,13 @@ import clsx from 'clsx';
 import { useRef } from 'react';
 import { Outlet } from 'react-router';
 
+import { useShowControls } from '../../../hooks';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { PageLayoutContext } from './Context';
 
 export const Component = () => {
 	const ref = useRef<HTMLDivElement>(null);
-	const transparentBg = window.location.search.includes('transparentBg');
+	const transparentBg = useShowControls().transparentBg;
 
 	return (
 		<div

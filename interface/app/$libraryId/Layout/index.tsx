@@ -12,7 +12,7 @@ import {
 } from '@sd/client';
 import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
-import { useOperatingSystem, useZodRouteParams } from '~/hooks';
+import { useOperatingSystem, useShowControls, useZodRouteParams } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
@@ -23,7 +23,7 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 
-	const transparentBg = window.location.search.includes('transparentBg');
+	const transparentBg = useShowControls().transparentBg;
 	const plausibleEvent = usePlausibleEvent();
 
 	const layoutRef = useRef<HTMLDivElement>(null);

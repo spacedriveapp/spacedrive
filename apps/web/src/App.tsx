@@ -1,11 +1,13 @@
-import { QueryClient, QueryClientProvider, hydrate } from '@tanstack/react-query';
+import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as htmlToImage from 'html-to-image';
 import { useEffect, useRef } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import { Platform, PlatformProvider, routes, SpacedriveInterface } from '@sd/interface';
+import { useShowControls } from '@sd/interface/hooks';
 
 import demoData from './demoData.json';
+import ScreenshotWrapper from './ScreenshotWrapper';
 
 // TODO: Restore this once TS is back up to functionality in rspc.
 // const wsClient = createWSClient({
@@ -77,9 +79,7 @@ const router = createBrowserRouter(routes);
 
 function App() {
 	const domEl = useRef<HTMLDivElement>(null);
-	const showControls =
-		window.location.search.includes('showControls') ||
-		localStorage.getItem('showControls') === 'true';
+	const { isEnabled: showControls } = useShowControls();
 
 	const downloadImage = async () => {
 		// Define a CSS rule to hide scrollbars
@@ -132,7 +132,9 @@ function App() {
 			<RspcProvider queryClient={queryClient}>
 				<PlatformProvider platform={platform}>
 					<QueryClientProvider client={queryClient}>
-						<SpacedriveInterface router={router} />
+						<ScreenshotWrapper showControls={!!showControls}>
+							<SpacedriveInterface router={router} />
+						</ScreenshotWrapper>
 					</QueryClientProvider>
 				</PlatformProvider>
 			</RspcProvider>

@@ -205,12 +205,12 @@ export default function HomePage() {
 										width={1278}
 										height={626}
 										alt="spacedrive app"
-										className="rounded-lg "
-										images={['/images/app.webp']}
+										className="rounded-lg"
+										images={['/images/app2.webp', '/images/app.webp']}
 									/>
 									<Image
 										loading="eager"
-										className="absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
+										className="pointer-events-none absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
 										width={2278}
 										height={626}
 										alt="l"

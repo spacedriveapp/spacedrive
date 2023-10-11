@@ -1,7 +1,7 @@
 import { platform } from 'os';
 import clsx from 'clsx';
 import type { Ref } from 'react';
-import { useOperatingSystem } from '~/hooks';
+import { useOperatingSystem, useShowControls } from '~/hooks';
 
 import { useExplorerStore } from '../Explorer/store';
 import { NavigationButtons } from './NavigationButtons';
@@ -16,7 +16,7 @@ interface Props {
 }
 
 const TopBar = (props: Props) => {
-	const transparentBg = window.location.search.includes('transparentBg');
+	const transparentBg = useShowControls().transparentBg;
 
 	const { isDragging } = useExplorerStore();
 	const os = useOperatingSystem();

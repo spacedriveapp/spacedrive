@@ -10,7 +10,7 @@ import LibrariesDropdown from './LibrariesDropdown';
 export default () => {
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
-	const transparentBg = window.location.search.includes('transparentBg');
+	const transparentBg = useShowControls().transparentBg;
 
 	//prevent sidebar scrolling with keyboard
 	useEffect(() => {

@@ -9,6 +9,8 @@ const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...i
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [isHovering, setIsHovering] = useState(false);
 
+	console.log({ isHovering });
+
 	useEffect(() => {
 		let timeoutId: number;
 		if (isHovering && images.length > 1) {
@@ -16,17 +18,14 @@ const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...i
 			const img = new window.Image();
 			img.src = images[nextIndex];
 			img.onload = () => {
-				timeoutId = window.setTimeout(() => setCurrentIndex(nextIndex), 500);
+				timeoutId = window.setTimeout(() => setCurrentIndex(nextIndex), 2500);
 			};
 		}
 		return () => window.clearTimeout(timeoutId);
 	}, [isHovering, currentIndex, images]);
 
-	const handleMouseEnter = () => setIsHovering(true);
-	const handleMouseLeave = () => setIsHovering(false);
-
 	return (
-		<div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+		<div onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
 			{images.map((src, index) => (
 				<div
 					key={src}
