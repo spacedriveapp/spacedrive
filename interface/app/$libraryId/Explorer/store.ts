@@ -84,8 +84,10 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 			sizeInBytes: true,
 			dateCreated: true,
 			dateModified: true,
+			dateImageTaken: true,
 			dateAccessed: false,
 			dateIndexed: false,
+			imageResolution: true,
 			contentId: false,
 			objectId: false
 		},
@@ -95,8 +97,10 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 			sizeInBytes: 100,
 			dateCreated: 150,
 			dateModified: 150,
+			dateImageTaken: 150,
 			dateAccessed: 150,
 			dateIndexed: 150,
+			imageResolution: 180,
 			contentId: 180,
 			objectId: 180
 		}
@@ -162,12 +166,14 @@ export const filePathOrderingKeysSchema = z.union([
 	z.literal('dateModified').describe('Date Modified'),
 	z.literal('dateIndexed').describe('Date Indexed'),
 	z.literal('dateCreated').describe('Date Created'),
-	z.literal('object.dateAccessed').describe('Date Accessed')
+	z.literal('object.dateAccessed').describe('Date Accessed'),
+	z.literal('object.dateImageTaken').describe('Date Taken')
 ]);
 
 export const objectOrderingKeysSchema = z.union([
 	z.literal('dateAccessed').describe('Date Accessed'),
-	z.literal('kind').describe('Kind')
+	z.literal('kind').describe('Kind'),
+	z.literal('dateImageTaken').describe('Date Taken')
 ]);
 
 export const nonIndexedPathOrderingSchema = z.union([

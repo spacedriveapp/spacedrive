@@ -1,8 +1,13 @@
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat'; // import plugin
+
+import utc from 'dayjs/plugin/utc'; // import plugin
+
 import {
 	CoordinatesFormat,
+	MediaDate,
 	MediaLocation,
 	MediaMetadata,
-	MediaTime,
 	useUnitFormatStore
 } from '@sd/client';
 import Accordion from '~/components/Accordion';
@@ -15,12 +20,33 @@ interface Props {
 	data: MediaMetadata;
 }
 
-const formatMediaTime = (time: MediaTime): string | null => {
-	if (time === 'Undefined') return null;
-	if ('Utc' in time) return time.Utc;
-	if ('Naive' in time) return time.Naive;
-	return null;
-};
+// const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
+// const DateFormatWithoutTz = 'YYYY-MM-DD HH:mm:ss';
+
+// const formatMediaDate = (datetime: MediaDate): { formatted: string; raw: string } | undefined => {
+// 	dayjs.extend(customParseFormat);
+// 	dayjs.extend(utc);
+
+// 	// dayjs.tz.setDefault(dayjs.tz.guess());
+
+// 	const getTzData = (dt: string): [string, number] => {
+// 		if (dt.includes('+'))
+// 			return [DateFormatWithTz, Number.parseInt(dt.substring(dt.indexOf('+'), 3))];
+// 		return [DateFormatWithoutTz, 0];
+// 	};
+
+// 	const [tzFormat, tzOffset] = getTzData(datetime);
+
+// 	console.log({
+// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+// 		raw: datetime
+// 	});
+
+// 	return {
+// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
+// 		raw: datetime
+// 	};
+// };
 
 const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
 	// the lack of a + here will mean that coordinates may have padding at the end
@@ -85,6 +111,7 @@ const orientations = {
 const MediaData = ({ data }: Props) => {
 	const platform = usePlatform();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
+
 	const explorerStore = useExplorerStore();
 
 	return data.type === 'Image' ? (
@@ -95,7 +122,12 @@ const MediaData = ({ data }: Props) => {
 				variant="apple"
 				title="More info"
 			>
-				<MetaData label="Date" value={formatMediaTime(data.date_taken)} />
+				<MetaData
+					label="Date"
+					tooltipValue={data.date_taken ?? null} // should show full raw value
+					// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
+					value={data.date_taken ?? null}
+				/>
 				<MetaData label="Type" value={data.type} />
 				<MetaData
 					label="Location"
@@ -131,12 +163,11 @@ const MediaData = ({ data }: Props) => {
 					}
 				/>
 				<MetaData
-					label="Dimensions"
-					value={`${data.dimensions.width} x ${data.dimensions.height}`}
+					label="Resolution"
+					value={`${data.resolution.width} x ${data.resolution.height}`}
 				/>
 				<MetaData label="Device" value={data.camera_data.device_make} />
 				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData label="Orientation" value={orientations[data.camera_data.orientation]} />
 				<MetaData label="Color profile" value={data.camera_data.color_profile} />
 				<MetaData label="Color space" value={data.camera_data.color_space} />
 				<MetaData label="Flash" value={data.camera_data.flash?.mode} />

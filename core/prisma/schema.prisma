@@ -173,12 +173,12 @@ model FilePath {
     // the name and extension, MUST have 'COLLATE NOCASE' in migration
     name      String?
     extension String?
-    hidden 	  Boolean?
+    hidden    Boolean?
 
     size_in_bytes       String? // deprecated
     size_in_bytes_bytes Bytes?
 
-    inode  Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
+    inode Bytes? // This is actually an unsigned 64 bit integer, but we don't have this type in SQLite
 
     // the unique Object for this file path
     object_id Int?
@@ -242,7 +242,9 @@ model Object {
     @@map("object")
 }
 
-// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
+// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as
+//the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that
+//there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
 // @brendan: nah this probably won't fly
 // model FileConflict {
 //     original_object_id   Int @unique
@@ -296,7 +298,7 @@ model Object {
 model MediaData {
     id Int @id @default(autoincrement())
 
-    dimensions     Bytes?
+    resolution     Bytes?
     media_date     Bytes?
     media_location Bytes?
     camera_data    Bytes?
@@ -305,11 +307,17 @@ model MediaData {
     copyright      String?
     exif_version   String?
 
+    // purely for sorting/ordering, never sent to the frontend as they'd be useless
+    // these are also usually one-way, and not reversible
+    // (e.g. we can't get `MediaDate::Utc(2023-09-26T22:04:37+01:00)` from `1695758677` as we don't store the TZ)
+    epoch_time BigInt? // time since unix epoch
+
     // video-specific
     // duration Int?
     // fps      Int?
     // streams  Int?
-    // codecs   String? // eg: "h264,acc"
+    // video_codec   String? // eg: "h264, h265, av1"
+    // audio_codec String? // eg: "opus"
 
     object_id Int    @unique
     object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)

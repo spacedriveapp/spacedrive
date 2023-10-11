@@ -17,6 +17,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or, WhereQuery};
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_prisma::prisma::media_data;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -62,6 +63,7 @@ pub enum FilePathOrder {
 	DateModified(SortOrder),
 	DateIndexed(SortOrder),
 	Object(Box<ObjectOrder>),
+	DateImageTaken(Box<ObjectOrder>),
 }
 
 impl FilePathOrder {
@@ -73,6 +75,7 @@ impl FilePathOrder {
 			Self::DateModified(v) => v,
 			Self::DateIndexed(v) => v,
 			Self::Object(v) => return v.get_sort_order(),
+			Self::DateImageTaken(v) => return v.get_sort_order(),
 		})
 		.into()
 	}
@@ -87,6 +90,7 @@ impl FilePathOrder {
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
 			Self::Object(v) => object::order(vec![v.into_param()]),
+			Self::DateImageTaken(v) => object::order(vec![v.into_param()]),
 		}
 	}
 }
@@ -245,6 +249,11 @@ pub enum ObjectCursor {
 pub enum ObjectOrder {
 	DateAccessed(SortOrder),
 	Kind(SortOrder),
+	DateImageTaken(SortOrder),
+}
+
+enum MediaDataSortParameter {
+	DateImageTaken,
 }
 
 impl ObjectOrder {
@@ -252,8 +261,21 @@ impl ObjectOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
 			Self::Kind(v) => v,
+			Self::DateImageTaken(v) => v,
 		})
 		.into()
+	}
+
+	fn media_data(
+		&self,
+		param: MediaDataSortParameter,
+		dir: prisma::SortOrder,
+	) -> object::OrderByWithRelationParam {
+		let order = match param {
+			MediaDataSortParameter::DateImageTaken => media_data::epoch_time::order(dir),
+		};
+
+		object::media_data::order(vec![order])
 	}
 
 	fn into_param(self) -> object::OrderByWithRelationParam {
@@ -263,6 +285,7 @@ impl ObjectOrder {
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
 			Self::Kind(_) => kind::order(dir),
+			Self::DateImageTaken(_) => self.media_data(MediaDataSortParameter::DateImageTaken, dir),
 		}
 	}
 }
