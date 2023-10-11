@@ -744,7 +744,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 }
 
-async fn create_directory(mut target_path: PathBuf, library: &Library) -> Result<(), rspc::Error> {
+async fn create_directory(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
 	match fs::metadata(&target_path).await {
 		Ok(metadata) if metadata.is_dir() => {
 			target_path = find_available_filename_for_duplicate(&target_path).await?;
@@ -774,5 +777,9 @@ async fn create_directory(mut target_path: PathBuf, library: &Library) -> Result
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");
 
-	Ok(())
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
 }
