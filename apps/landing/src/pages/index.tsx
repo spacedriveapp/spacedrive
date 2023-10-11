@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import { Space } from '~/components/Space';
+import { detectWebGLContext, getWindow } from '~/utils/util';
 
 import CyclingImage from '../components/CyclingImage';
 
@@ -38,6 +38,7 @@ const platforms = [
 
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
+	const [background, setBackground] = useState<JSX.Element | null>(null);
 	const [downloadMacOs, setDownloadMacOS] = useState(false);
 	const [deviceOs, setDeviceOs] = useState<null | {
 		isWindows: boolean;
@@ -85,6 +86,20 @@ export default function HomePage() {
 		};
 	}, []);
 
+	useEffect(() => {
+		if (!(getWindow() && background == null)) return;
+		(async () => {
+			if (detectWebGLContext()) {
+				const Space = (await import('~/components/Space')).Space;
+				setBackground(<Space />);
+			} else {
+				console.warn('Fallback to Bubbles background due WebGL not being available');
+				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
+				setBackground(<Bubbles />);
+			}
+		})();
+	}, [background]);
+
 	return (
 		<TooltipProvider>
 			<Head>
@@ -103,9 +118,7 @@ export default function HomePage() {
 				/>
 				<meta name="author" content="Spacedrive Technology Inc." />
 			</Head>
-			<div style={{ opacity }}>
-				<Space />
-			</div>
+			<div style={{ opacity }}>{background}</div>
 
 			<PageWrapper>
 				{/* <div
