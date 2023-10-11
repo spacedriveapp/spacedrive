@@ -5,7 +5,6 @@
 /* eslint-disable jsx-a11y/alt-text */
 import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
-import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
@@ -25,6 +24,8 @@ const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
+const RELEASE_VERSION = 'Alpha v0.1.0';
+
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 const downloadEntries = {
 	linux: {
@@ -33,7 +34,7 @@ const downloadEntries = {
 		links: 'linux/x86_64'
 	},
 	macOS: {
-		name: 'Mac',
+		name: 'MacOS',
 		icon: <Apple />,
 		links: {
 			'Intel': 'darwin/x86_64',
@@ -48,14 +49,20 @@ const downloadEntries = {
 } as const;
 
 const platforms = [
-	{ name: 'iOS and macOS', icon: Apple, clickable: true },
+	{ name: 'MacOS', icon: Apple, clickable: true, version: '12+' },
 	{
 		name: 'Windows',
 		icon: WindowsLogo,
-		href: `${BASE_DL_LINK}/${downloadEntries.windows.links}`
+		href: `${BASE_DL_LINK}/${downloadEntries.windows.links}`,
+		version: '10+'
 	},
-	{ name: 'Linux', icon: LinuxLogo, href: `${BASE_DL_LINK}/${downloadEntries.linux.links}` },
-	{ name: 'Android', icon: AndroidLogo },
+	{
+		name: 'Linux',
+		icon: LinuxLogo,
+		href: `${BASE_DL_LINK}/${downloadEntries.linux.links}`,
+		version: 'AppImage'
+	},
+	{ name: 'Android', icon: AndroidLogo, version: '10+' },
 	{ name: 'Web', icon: Globe }
 ] as const;
 
@@ -137,6 +144,19 @@ export default function HomePage() {
 		})();
 	}, [background, isWindowResizing]);
 
+	const currentPlatform =
+		downloadEntry !== undefined
+			? platforms.find((e) => e.name === downloadEntry.name)
+			: undefined;
+
+	const supportedVersion =
+		currentPlatform && 'version' in currentPlatform ? currentPlatform.version : undefined;
+
+	const formattedVersion =
+		downloadEntry && supportedVersion && downloadEntry.name !== 'Linux'
+			? `${downloadEntry.name} ${supportedVersion}`
+			: supportedVersion;
+
 	return (
 		<TooltipProvider>
 			<Head>
@@ -211,13 +231,18 @@ export default function HomePage() {
 							/>
 						)}
 
-						<a target="_blank" href="https://www.github.com/spacedriveapp/spacedrive">
-							<HomeCTA
-								icon={<Github />}
-								className="z-5 relative"
-								text="Star on GitHub"
-							/>
-						</a>
+						{!downloadEntry && (
+							<a
+								target="_blank"
+								href="https://www.github.com/spacedriveapp/spacedrive"
+							>
+								<HomeCTA
+									icon={<Github />}
+									className="z-5 relative"
+									text="Star on GitHub"
+								/>
+							</a>
+						)}
 					</div>
 
 					{multipleDownloads && (
@@ -233,13 +258,18 @@ export default function HomePage() {
 							))}
 						</div>
 					)}
-
 					<p
-						className={clsx(
+						className={
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
-						)}
+						}
 					>
-						Alpha v0.1.0 <span className="mx-2 opacity-50">|</span> macOS 12+
+						{RELEASE_VERSION}
+						{formattedVersion && (
+							<>
+								<span className="mx-2 opacity-50">|</span>
+								{formattedVersion}
+							</>
+						)}
 					</p>
 					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
@@ -253,12 +283,21 @@ export default function HomePage() {
 									icon={platform.icon}
 									label={platform.name}
 									href={'href' in platform ? platform.href : undefined}
+									iconDisabled={
+										platform.name === 'Android' || platform.name === 'Web'
+											? true
+											: undefined
+									}
 									clickable={
 										'clickable' in platform ? platform.clickable : undefined
 									}
 									onClick={() => {
-										if (platform.name === 'iOS and macOS') {
-											setMultipleDownloads(downloadEntries.macOS.links);
+										if (platform.name === 'MacOS') {
+											setMultipleDownloads(
+												multipleDownloads
+													? undefined
+													: downloadEntries.macOS.links
+											);
 										}
 									}}
 								/>
@@ -329,6 +368,7 @@ export default function HomePage() {
 interface Props {
 	label: string;
 	icon: any;
+	iconDisabled?: true;
 	clickable?: true;
 }
 
@@ -342,7 +382,11 @@ const Platform = ({ icon: Icon, label, ...props }: ComponentProps<'a'> & Props) 
 	return (
 		<Tooltip label={label}>
 			<Outer {...props}>
-				<Icon size={25} className="h-[25px] opacity-80" weight="fill" />
+				<Icon
+					size={25}
+					className={`h-[25px] ${props.iconDisabled ? 'opacity-20' : 'opacity-80'}`}
+					weight="fill"
+				/>
 			</Outer>
 		</Tooltip>
 	);
