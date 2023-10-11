@@ -87,13 +87,23 @@ export function Footer() {
 					<FooterLink link="/docs/changelog/beta/0.1.0">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
-				<div className="pointer-events-none col-span-1 flex flex-col space-y-2">
+				<div className="col-span-1 flex flex-col space-y-2">
 					<h1 className="mb-1 text-xs font-bold uppercase">Downloads</h1>
-					<div className="col-span-1 flex flex-col space-y-2 opacity-50">
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64">macOS</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64">macOS Intel</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64">Windows</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64">Linux</FooterLink>
+					<div className="col-span-1 flex flex-col space-y-2">
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64">
+							macOS
+						</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64">
+							macOS Intel
+						</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64">
+							Windows
+						</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64">
+							Linux
+						</FooterLink>
+					</div>
+					<div className="pointer-events-none col-span-1 flex flex-col space-y-2 opacity-50">
 						<FooterLink link="#">Android</FooterLink>
 						<FooterLink link="#">iOS</FooterLink>
 					</div>
