@@ -1,5 +1,5 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { Laptop, Mobile, Server } from '@sd/assets/icons';
+import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -97,7 +97,6 @@ export const LibrarySection = () => {
 				)}
 				<Tooltip
 					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
-					tooltipClassName="bg-black"
 					position="right"
 				>
 					<Button disabled variant="dotted" className="mt-1 w-full">
