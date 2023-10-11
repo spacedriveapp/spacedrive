@@ -5,14 +5,16 @@ use crate::{
 	library::Library,
 	location::{
 		file_path_helper::{
-			file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+			file_path_to_full_path, file_path_to_isolate, file_path_to_isolate_with_id,
+			FilePathError, IsolatedFilePathData,
 		},
 		get_location_path_from_location_id, LocationError,
 	},
 	object::{
 		fs::{
 			copy::FileCopierJobInit, cut::FileCutterJobInit, delete::FileDeleterJobInit,
-			erase::FileEraserJobInit,
+			erase::FileEraserJobInit, error::FileSystemJobsError,
+			find_available_filename_for_duplicate,
 		},
 		media::{
 			media_data_extractor::{
@@ -31,7 +33,7 @@ use sd_media_metadata::MediaMetadata;
 
 use std::{
 	ffi::OsString,
-	path::{Path, PathBuf},
+	path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 	str::FromStr,
 	sync::Arc,
 };
@@ -46,6 +48,8 @@ use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
 
 use super::{Ctx, R};
+
+const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -193,6 +197,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					Ok(())
 				})
+		})
+		.procedure("createFolder", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFolderArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFolderArgs {
+				     location_id,
+				     sub_path,
+				     name,
+				 }: CreateFolderArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					{
+						path.push(sub_path);
+					}
+
+					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
+
+					dbg!(&path);
+
+					create_directory(path, &library).await
+				},
+			)
+		})
+		.procedure("createEphemeralFolder", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateEphemeralFolderArgs {
+				pub path: PathBuf,
+				pub name: Option<String>,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateEphemeralFolderArgs { mut path, name }: CreateEphemeralFolderArgs| async move {
+					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
+
+					create_directory(path, &library).await
+				},
+			)
 		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
@@ -691,4 +742,44 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+}
+
+async fn create_directory(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_dir() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on directory to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::create_dir(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	println!("Created directory: {}", target_path.display());
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
 }

@@ -60,8 +60,6 @@ export const LibrarySection = () => {
 		null
 	);
 
-	const [seeMoreLocations, setSeeMoreLocations] = useState(false);
-
 	useEffect(() => {
 		const outsideClick = () => {
 			document.addEventListener('click', () => {
