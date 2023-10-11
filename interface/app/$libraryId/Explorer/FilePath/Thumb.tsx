@@ -2,6 +2,7 @@ import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	memo,
+	SyntheticEvent,
 	useCallback,
 	useEffect,
 	useLayoutEffect,
@@ -37,6 +38,8 @@ export interface ThumbProps {
 	size?: number;
 	cover?: boolean;
 	frame?: boolean;
+	onLoad?: (state: ThumbType) => void;
+	onError?: (state: ThumbType, error: Error) => void;
 	blackBars?: boolean;
 	blackBarsSize?: number;
 	extension?: boolean;
@@ -69,16 +72,31 @@ export const FileThumb = memo((props: ThumbProps) => {
 		isDark ? classes.checkers : classes.checkersLight
 	);
 
-	const onLoad = useCallback(() => setLoaded(true), []);
+	const _onLoad = props.onLoad;
+	const onLoad = useCallback(() => {
+		setLoaded(true);
+		_onLoad?.(thumbType);
+	}, [_onLoad, thumbType]);
 
-	const onError = useCallback(() => {
-		setLoaded(false);
-		setThumbType((prevThumbType) =>
-			prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
-				? ThumbType.Thumbnail
-				: ThumbType.Icon
-		);
-	}, [itemData.hasLocalThumbnail]);
+	const _onError = props.onError;
+	const onError = useCallback(
+		(event: ErrorEvent | SyntheticEvent<Element, Event>) => {
+			setLoaded(false);
+			setThumbType((prevThumbType) =>
+				prevThumbType === ThumbType.Original && itemData.hasLocalThumbnail
+					? ThumbType.Thumbnail
+					: ThumbType.Icon
+			);
+
+			const rawError =
+				('error' in event && event.error) ||
+				('message' in event && event.message) ||
+				'Filetype is not supported yet';
+
+			_onError?.(thumbType, rawError instanceof Error ? rawError : new Error(rawError));
+		},
+		[_onError, thumbType, itemData.hasLocalThumbnail]
+	);
 
 	// useLayoutEffect is required to ensure the thumbType is always updated before the onError listener can execute,
 	// thus avoiding improper thumb types changes
@@ -251,6 +269,11 @@ export const FileThumb = memo((props: ThumbProps) => {
 										)}
 									</>
 								);
+							default:
+								setThumbType(ThumbType.Thumbnail);
+								return null;
+							case 'Image':
+							// Fallthrough as image and thumbnail use the same component
 						}
 					}
 
