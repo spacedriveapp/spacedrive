@@ -52,4 +52,8 @@ pub enum ObjectKind {
 	Book = 22,
 	/// Config file
 	Config = 23,
+	/// Dotfile
+	Dotfile = 24,
+	/// Screenshot
+	Screenshot = 25,
 }

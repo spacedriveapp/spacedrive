@@ -1,16 +1,8 @@
 {
 	"name": "@sd/interface",
-	"version": "1.0.0",
-	"license": "GPL-3.0-only",
 	"private": true,
 	"main": "index.tsx",
 	"types": "index.tsx",
-	"exports": {
-		".": "./index.tsx",
-		"./assets/*": "./assets/*",
-		"./components/*": "./components/*",
-		"./hooks/*": "./hooks/*"
-	},
 	"scripts": {
 		"lint": "eslint . --cache",
 		"typecheck": "tsc -b"
@@ -19,6 +11,7 @@
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
 		"@icons-pack/react-simple-icons": "^7.2.0",
+		"@phosphor-icons/react": "^2.0.10",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
 		"@radix-ui/react-toast": "^1.1.2",
@@ -31,13 +24,10 @@
 		"@splinetool/react-spline": "^2.2.3",
 		"@splinetool/runtime": "^0.9.128",
 		"@tailwindcss/forms": "^0.5.3",
-		"@tanstack/react-query": "^4.12.0",
-		"@tanstack/react-query-devtools": "^4.22.0",
+		"@tanstack/react-query": "^4.35",
+		"@tanstack/react-query-devtools": "^4.35",
 		"@tanstack/react-table": "^8.8.5",
 		"@tanstack/react-virtual": "3.0.0-beta.61",
-		"@types/react-scroll-sync": "^0.8.4",
-		"@types/uuid": "^9.0.2",
-		"@vitejs/plugin-react": "^2.1.0",
 		"autoprefixer": "^10.4.12",
 		"class-variance-authority": "^0.5.3",
 		"clsx": "^1.2.1",
@@ -45,7 +35,6 @@
 		"dayjs": "^1.11.8",
 		"dragselect": "^2.7.4",
 		"framer-motion": "^10.11.5",
-		"@phosphor-icons/react": "^2.0.10",
 		"prismjs": "^1.29.0",
 		"react": "^18.2.0",
 		"react-colorful": "^5.6.1",
@@ -76,15 +65,16 @@
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@types/babel__core": "^7.20.1",
+		"@types/babel__core": "^7.20",
 		"@types/loadable__component": "^5.13.4",
-		"@types/node": "^18.11.9",
-		"@types/react": "^18.0.21",
-		"@types/react-dom": "^18.0.6",
+		"@types/node": "^18.17",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
 		"@types/react-router-dom": "^5.3.3",
-		"@vitejs/plugin-react": "^1.3.1",
-		"typescript": "5.0.4",
-		"vite": "^4.0.4",
-		"vite-plugin-svgr": "^2.2.1"
+		"@types/uuid": "^9.0.2",
+		"@vitejs/plugin-react": "^4.1",
+		"typescript": "^5.2",
+		"vite": "^4.4",
+		"vite-plugin-svgr": "^3.3"
 	}
 }

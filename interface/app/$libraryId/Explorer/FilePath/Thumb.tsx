@@ -1,4 +1,4 @@
-import { getIcon, iconNames } from '@sd/assets/util';
+import { getIcon, getIconByName, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	memo,
@@ -102,13 +102,10 @@ export const FileThumb = memo((props: ThumbProps) => {
 
 		switch (thumbType) {
 			case ThumbType.Original:
-				if (
-					locationId &&
-					filePath &&
-					'id' in filePath &&
-					(itemData.extension !== 'pdf' || pdfViewerEnabled())
-				) {
-					setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+				if (filePath && (itemData.extension !== 'pdf' || pdfViewerEnabled())) {
+					if ('id' in filePath && locationId)
+						setSrc(platform.getFileUrl(library.uuid, locationId, filePath.id));
+					else if ('path' in filePath) setSrc(platform.getFileUrlByPath(filePath.path));
 				} else {
 					setThumbType(ThumbType.Thumbnail);
 				}
@@ -123,9 +120,14 @@ export const FileThumb = memo((props: ThumbProps) => {
 				break;
 
 			default:
+				if (itemData.customIcon) {
+					setSrc(getIconByName(itemData.customIcon as any));
+					break;
+				}
 				setSrc(
 					getIcon(
-						itemData.isDir || parent?.type === 'Node' ? 'Folder' : itemData.kind,
+						// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
+						itemData.kind,
 						isDark,
 						itemData.extension,
 						itemData.isDir

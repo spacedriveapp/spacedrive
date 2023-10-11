@@ -1,8 +1,10 @@
 import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
+import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, ModifierKeys, Popover, Tooltip } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { Button, ButtonLink, dialogManager, modifierSymbols, Popover, Tooltip } from '@sd/ui';
+import { useKeyMatcher } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
 import FeedbackDialog from './FeedbackDialog';
@@ -11,17 +13,32 @@ import { IsRunningJob, JobManager } from './JobManager';
 export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
-	const os = useOperatingSystem();
 	const navigate = useNavigate();
-	const jobManagerKeys = [os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'j'];
+	const { key, icon } = useKeyMatcher('Meta');
 
-	useKeybind(['g', 's'], (e) => {
+	useKeys([key, 'Shift', 'KeyS'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
 
+	const updater = usePlatform().updater;
+	const updaterState = updater?.useSnapshot();
+
 	return (
 		<div className="space-y-2">
+			{updater && updaterState && (
+				<>
+					{updaterState.status === 'updateAvailable' && (
+						<Button
+							variant="outline"
+							className="w-full"
+							onClick={updater.installUpdate}
+						>
+							Install Update
+						</Button>
+					)}
+				</>
+			)}
 			<div className="flex w-full items-center justify-between">
 				<div className="flex">
 					<ButtonLink
@@ -30,13 +47,17 @@ export default () => {
 						variant="subtle"
 						className="text-sidebar-inkFaint ring-offset-sidebar"
 					>
-						<Tooltip label="Settings" keybinds={['G', 'S']}>
+						<Tooltip
+							position="top"
+							label="Settings"
+							keybinds={[modifierSymbols.Shift.Other, icon, 'S']}
+						>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							keybind={jobManagerKeys}
+							keybind={[key, 'j']}
 							trigger={
 								<Button
 									size="icon"
@@ -47,7 +68,8 @@ export default () => {
 									{library && (
 										<Tooltip
 											label="Recent Jobs"
-											keybinds={[useKeyMatcher('Meta').icon, 'J']}
+											position="top"
+											keybinds={[icon, 'J']}
 										>
 											<IsRunningJob />
 										</Tooltip>

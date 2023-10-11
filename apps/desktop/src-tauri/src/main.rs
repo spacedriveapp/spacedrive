@@ -18,6 +18,7 @@ mod theme;
 
 mod file;
 mod menu;
+mod updater;
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -51,13 +52,13 @@ async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	let logs_path = node.data_dir.join("logs");
 
 	#[cfg(target_os = "linux")]
-	let open_result = sd_desktop_linux::open_file_path(&logs_path);
+	let open_result = sd_desktop_linux::open_file_path(logs_path);
 
 	#[cfg(not(target_os = "linux"))]
 	let open_result = opener::open(logs_path);
 
-	open_result.map_err(|err| {
-		error!("Failed to open logs dir: {err}");
+	open_result.map_err(|e| {
+		error!("Failed to open logs dir: {e:#?}");
 	})
 }
 
@@ -114,7 +115,7 @@ async fn main() -> tauri::Result<()> {
 			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
 			.manage(node),
 		Err(err) => {
-			error!("Error starting up the node: {err}");
+			error!("Error starting up the node: {err:#?}");
 			app.plugin(sd_error_plugin(err))
 		}
 	};
@@ -132,10 +133,8 @@ async fn main() -> tauri::Result<()> {
 	});
 
 	let app = app
+		.plugin(updater::plugin())
 		.setup(|app| {
-			#[cfg(feature = "updater")]
-			tauri::updater::builder(app.handle()).should_install(|_current, _latest| true);
-
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
@@ -152,13 +151,6 @@ async fn main() -> tauri::Result<()> {
 						}
 					}
 				});
-
-				#[cfg(debug_assertions)]
-				{
-					if std::env::var("SD_DEVTOOLS").is_ok() {
-						window.open_devtools();
-					}
-				}
 
 				#[cfg(target_os = "windows")]
 				window.set_decorations(true).unwrap();
@@ -185,15 +177,22 @@ async fn main() -> tauri::Result<()> {
 		})
 		.on_menu_event(menu::handle_menu_event)
 		.menu(menu::get_menu())
+		.manage(updater::State::default())
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
 			file::open_file_paths,
+			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
 			file::open_file_path_with,
+			file::open_ephemeral_file_with,
 			file::reveal_items,
-			theme::lock_app_theme
+			theme::lock_app_theme,
+			// TODO: move to plugin w/tauri-specta
+			updater::check_for_update,
+			updater::install_update
 		])
 		.build(tauri::generate_context!())?;
 

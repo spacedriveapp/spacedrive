@@ -157,7 +157,10 @@ pub async fn walk(
 				.map(Into::into)
 				.unwrap_or(ObjectKind::Unknown);
 
-			let thumbnail_key = if matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+			let thumbnail_key = if matches!(
+				kind,
+				ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+			) {
 				if let Ok(cas_id) = generate_cas_id(&entry_path, metadata.len())
 					.await
 					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))

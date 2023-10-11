@@ -1,0 +1,42 @@
+{
+	"name": "@sd/scripts",
+	"private": true,
+	"main": "./preprep.mjs",
+	"type": "module",
+	"scripts": {
+		"prep": "node preprep.mjs",
+		"tauri": "node tauri.mjs",
+		"lint": "eslint --cache",
+		"typecheck": "tsc"
+	},
+	"prettier": {
+		"semi": false,
+		"endOfLine": "lf",
+		"printWidth": 99,
+		"singleQuote": true,
+		"arrowParens": "avoid",
+		"trailingComma": "es5"
+	},
+	"dependencies": {
+		"@iarna/toml": "^2.2.5",
+		"archive-wasm": "^1.5.3",
+		"mustache": "^4.2.0",
+		"semver": "^7.5.0",
+		"undici": "^5.25.4"
+	},
+	"devDependencies": {
+		"@babel/core": "~7",
+		"@babel/eslint-parser": "~7",
+		"@babel/eslint-plugin": "~7",
+		"@types/mustache": "^4.2.3",
+		"@types/node": "^18.17",
+		"@typescript-eslint/eslint-plugin": "^6.7",
+		"@typescript-eslint/parser": "^6.7",
+		"eslint": "^8.50",
+		"eslint-config-prettier": "^9.0",
+		"eslint-config-standard": "^17.1",
+		"eslint-plugin-jsdoc": "^46.8",
+		"eslint-plugin-prettier": "^5.0",
+		"typescript": "^5.2"
+	}
+}

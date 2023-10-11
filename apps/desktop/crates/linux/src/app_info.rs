@@ -134,7 +134,7 @@ pub fn open_files_path_with(file_paths: &[impl AsRef<Path>], id: &str) -> Result
 	})
 }
 
-pub fn open_file_path(file_path: &impl AsRef<Path>) -> Result<(), GlibError> {
+pub fn open_file_path(file_path: impl AsRef<Path>) -> Result<(), GlibError> {
 	let file_uri = GioFile::for_path(file_path).uri().to_string();
 	LAUNCH_CTX.with(|ctx| AppInfo::launch_default_for_uri(&file_uri.to_string(), Some(ctx)))
 }

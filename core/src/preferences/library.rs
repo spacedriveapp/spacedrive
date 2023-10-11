@@ -62,6 +62,7 @@ pub struct ExplorerSettings<TOrder> {
 	grid_item_size: Option<i32>,
 	media_columns: Option<i32>,
 	media_aspect_square: Option<bool>,
+	media_view_with_descendants: Option<bool>,
 	open_on_double_click: Option<DoubleClickAction>,
 	show_bytes_in_grid_view: Option<bool>,
 	col_visibility: Option<BTreeMap<String, bool>>,

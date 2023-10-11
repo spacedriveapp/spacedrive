@@ -8,6 +8,7 @@ pub struct FileIOError {
 	pub path: Box<Path>,
 	#[source]
 	pub source: io::Error,
+	pub maybe_context: Option<&'static str>,
 }
 
 impl<P: AsRef<Path>> From<(P, io::Error)> for FileIOError {
@@ -15,7 +16,31 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for FileIOError {
 		Self {
 			path: path.as_ref().into(),
 			source,
+			maybe_context: None,
 		}
+	}
+}
+
+impl<P: AsRef<Path>> From<(P, io::Error, &'static str)> for FileIOError {
+	fn from((path, source, context): (P, io::Error, &'static str)) -> Self {
+		Self {
+			path: path.as_ref().into(),
+			source,
+			maybe_context: Some(context),
+		}
+	}
+}
+
+impl From<FileIOError> for rspc::Error {
+	fn from(value: FileIOError) -> Self {
+		Self::with_cause(
+			rspc::ErrorCode::InternalServerError,
+			value
+				.maybe_context
+				.unwrap_or("Error accessing file system")
+				.to_string(),
+			value,
+		)
 	}
 }
 

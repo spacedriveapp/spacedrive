@@ -8,6 +8,7 @@ import {
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import { useMatch } from 'react-router';
 import { stringify } from 'uuid';
 import {
 	byteSize,
@@ -24,7 +25,7 @@ import { InfoPill } from '../../../Inspector';
 import { useQuickPreviewStore } from '../../../QuickPreview/store';
 import { isCut, useExplorerStore } from '../../../store';
 import { uniqueId } from '../../../util';
-import RenamableItemText from '../../RenamableItemText';
+import { RenamableItemText } from '../../RenamableItemText';
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
@@ -33,6 +34,7 @@ export const useTable = () => {
 
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const columns = useMemo<ColumnDef<ExplorerItem>[]>(
 		() => [
@@ -44,8 +46,6 @@ export const useTable = () => {
 				accessorFn: (file) => getExplorerItemData(file).fullName,
 				cell: (cell) => {
 					const item = cell.row.original;
-
-					const selected = explorer.selectedItems.has(item);
 					const cut = isCut(item, explorerStore.cutCopyState);
 
 					return (
@@ -58,14 +58,8 @@ export const useTable = () => {
 							/>
 
 							<RenamableItemText
-								allowHighlight={false}
 								item={item}
-								selected={selected}
-								disabled={
-									!selected ||
-									explorer.selectedItems.size > 1 ||
-									quickPreviewStore.open
-								}
+								allowHighlight={false}
 								style={{ maxHeight: 36 }}
 							/>
 						</div>
@@ -87,16 +81,24 @@ export const useTable = () => {
 				id: 'sizeInBytes',
 				header: 'Size',
 				accessorFn: (file) => {
+					const isFolder =
+						isEphemeralLocation && 'is_dir' in file.item
+							? file.item.is_dir || file.type === 'Location'
+							: false;
 					const file_path = getItemFilePath(file);
 					if (!file_path || !file_path.size_in_bytes_bytes) return;
 
-					return byteSize(file_path.size_in_bytes_bytes);
+					return isFolder ? '-' : byteSize(file_path.size_in_bytes_bytes);
 				}
 			},
 			{
 				id: 'dateCreated',
 				header: 'Date Created',
-				accessorFn: (file) => dayjs(file.item.date_created).format('MMM Do YYYY')
+				accessorFn: (file) => {
+					if (file.type === 'SpacedropPeer') return null;
+
+					dayjs(file.item.date_created).format('MMM Do YYYY');
+				}
 			},
 			{
 				id: 'dateModified',
@@ -138,7 +140,7 @@ export const useTable = () => {
 				}
 			}
 		],
-		[explorer.selectedItems, explorerStore.cutCopyState, quickPreviewStore.open]
+		[explorerStore.cutCopyState]
 	);
 
 	const table = useReactTable({

@@ -197,6 +197,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			onSubmit={onSubmit}
 			ctaLabel="Add"
+			formClassName="min-w-[375px]"
 			errorMessageException="Location is already linked"
 			description={
 				platform.platform === 'web'
@@ -205,7 +206,7 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
+			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mt-2 mb-4" />
 
 			<LocationPathInputField {...form.register('path')} />
 
@@ -217,9 +218,9 @@ export const AddLocationDialog = ({
 					render={({ field }) => (
 						<IndexerRuleEditor
 							field={field}
-							label="File indexing rules:"
+							label="File indexing rules"
 							className="relative flex flex-col"
-							rulesContainerClass="grid grid-cols-2 gap-1"
+							rulesContainerClass="grid grid-cols-2 gap-2"
 							ruleButtonClass="w-full"
 						/>
 					)}

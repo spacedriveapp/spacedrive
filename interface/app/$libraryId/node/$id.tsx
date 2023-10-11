@@ -1,6 +1,6 @@
 import { Laptop } from '@sd/assets/icons';
 import { useMemo } from 'react';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 

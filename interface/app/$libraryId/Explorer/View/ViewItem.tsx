@@ -22,7 +22,7 @@ export const useViewItemDoubleClick = () => {
 	const navigate = useNavigate();
 	const explorer = useExplorerContext();
 	const { library } = useLibraryContext();
-	const { openFilePaths } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 
@@ -48,10 +48,16 @@ export const useViewItemDoubleClick = () => {
 							items.non_indexed.splice(sameAsClicked ? 0 : -1, 0, selectedItem.item);
 							break;
 						}
+						case 'SpacedropPeer': {
+							break;
+						}
 						default: {
-							for (const filePath of selectedItem.type === 'Path'
-								? [selectedItem.item]
-								: selectedItem.item.file_paths) {
+							const paths =
+								selectedItem.type === 'Path'
+									? [selectedItem.item]
+									: selectedItem.item.file_paths;
+
+							for (const filePath of paths) {
 								if (isPath(selectedItem) && selectedItem.item.is_dir) {
 									items.dirs.splice(sameAsClicked ? 0 : -1, 0, filePath);
 								} else {
@@ -127,12 +133,28 @@ export const useViewItemDoubleClick = () => {
 			}
 
 			if (items.non_indexed.length > 0) {
-				const [non_indexed] = items.non_indexed;
-				if (non_indexed) {
-					navigate({
-						search: createSearchParams({ path: non_indexed.path }).toString()
-					});
-					return;
+				if (items.non_indexed.length === 1) {
+					const [non_indexed] = items.non_indexed;
+					if (non_indexed && non_indexed.is_dir) {
+						navigate({
+							search: createSearchParams({ path: non_indexed.path }).toString()
+						});
+						return;
+					}
+				}
+
+				if (explorer.settingsStore.openOnDoubleClick === 'openFile' && openEphemeralFiles) {
+					try {
+						await openEphemeralFiles(items.non_indexed.map(({ path }) => path));
+					} catch (error) {
+						toast.error({ title: 'Failed to open file', body: `Error: ${error}.` });
+					}
+				} else if (item && explorer.settingsStore.openOnDoubleClick === 'quickPreview') {
+					if (item.type !== 'Location' && !(isPath(item) && item.item.is_dir)) {
+						getQuickPreviewStore().itemIndex = itemIndex;
+						getQuickPreviewStore().open = true;
+						return;
+					}
 				}
 			}
 		},
@@ -142,6 +164,7 @@ export const useViewItemDoubleClick = () => {
 			library.uuid,
 			navigate,
 			openFilePaths,
+			openEphemeralFiles,
 			updateAccessTime
 		]
 	);

@@ -9,8 +9,8 @@ use crate::{
 		media::{
 			media_processor,
 			thumbnail::{
-				can_generate_thumbnail_for_image, generate_image_thumbnail, get_thumb_key,
-				get_thumbnail_path,
+				can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
+				generate_image_thumbnail, get_thumb_key, get_thumbnail_path,
 			},
 			MediaProcessorJobInit,
 		},
@@ -27,7 +27,7 @@ use std::{
 	sync::Arc,
 };
 
-use sd_file_ext::extensions::ImageExtension;
+use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 
 use chrono::Utc;
 use futures::future::TryFutureExt;
@@ -928,6 +928,12 @@ pub(super) async fn generate_thumbnail(
 				error!("Failed to image thumbnail on location manager: {e:#?}");
 			}
 		}
+	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
+		if can_generate_thumbnail_for_document(&extension) {
+			if let Err(e) = generate_image_thumbnail(path, &output_path).await {
+				error!("Failed to document thumbnail on location manager: {e:#?}");
+			}
+		}
 	}
 
 	#[cfg(feature = "ffmpeg")]
@@ -998,4 +1004,25 @@ pub async fn update_location_size(
 	invalidate_query!(library, "locations.get");
 
 	Ok(())
+}
+
+pub async fn get_location_path_from_location_id(
+	db: &PrismaClient,
+	location_id: file_path::id::Type,
+) -> Result<PathBuf, LocationError> {
+	db.location()
+		.find_unique(location::id::equals(location_id))
+		.exec()
+		.await
+		.map_err(Into::into)
+		.and_then(|maybe_location| {
+			maybe_location
+				.ok_or(LocationError::IdNotFound(location_id))
+				.and_then(|location| {
+					location
+						.path
+						.map(PathBuf::from)
+						.ok_or(LocationError::MissingPath(location_id))
+				})
+		})
 }

@@ -24,6 +24,9 @@ export function getIndexedItemFilePath(data: ExplorerItem) {
 export function getItemLocation(data: ExplorerItem) {
 	return data.type === 'Location' ? data.item : null;
 }
+export function getItemSpacedropPeer(data: ExplorerItem) {
+	return data.type === 'SpacedropPeer' ? data.item : null;
+}
 
 export function getExplorerItemData(data?: null | ExplorerItem) {
 	const itemObj = data ? getItemObject(data) : null;
@@ -40,11 +43,15 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		extension: null as string | null,
 		locationId: null as number | null,
 		dateIndexed: null as string | null,
-		dateCreated: data?.item.date_created ?? itemObj?.date_created ?? null,
+		dateCreated:
+			data?.item && 'date_created' in data.item
+				? data.item.date_created
+				: itemObj?.date_created ?? null,
 		dateModified: null as string | null,
 		dateAccessed: itemObj?.date_accessed ?? null,
 		thumbnailKey: data?.thumbnail_key ?? [],
-		hasLocalThumbnail: data?.has_local_thumbnail ?? false // this will be overwritten if new thumbnail is generated
+		hasLocalThumbnail: data?.has_local_thumbnail ?? false, // this will be overwritten if new thumbnail is generated
+		customIcon: null as string | null
 	};
 
 	if (!data) return itemData;
@@ -53,9 +60,7 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 	const location = getItemLocation(data);
 	if (filePath) {
 		itemData.name = filePath.name;
-		itemData.fullName = `${filePath.name}${
-			filePath.extension ? `.${filePath.extension}` : ''
-		}}`;
+		itemData.fullName = `${filePath.name}${filePath.extension ? `.${filePath.extension}` : ''}`;
 		itemData.size = byteSize(filePath.size_in_bytes_bytes);
 		itemData.isDir = filePath.is_dir ?? false;
 		itemData.extension = filePath.extension;
@@ -74,6 +79,9 @@ export function getExplorerItemData(data?: null | ExplorerItem) {
 		itemData.isDir = true;
 		itemData.locationId = location.id;
 		itemData.dateIndexed = location.date_created;
+	} else if (data.type === 'SpacedropPeer') {
+		itemData.name = data.item.name;
+		itemData.customIcon = 'Laptop';
 	}
 
 	if (data.type == 'Path' && itemData.isDir) itemData.kind = 'Folder';
@@ -129,5 +137,13 @@ export const useItemsAsFilePaths = (items: ExplorerItem[]) => {
 		}
 
 		return array;
+	}, [items]);
+};
+
+export const useItemsAsEphemeralPaths = (items: ExplorerItem[]) => {
+	return useMemo(() => {
+		return items
+			.filter((item) => item.type === 'NonIndexedPath')
+			.map((item) => item.item as NonIndexedPathItem);
 	}, [items]);
 };

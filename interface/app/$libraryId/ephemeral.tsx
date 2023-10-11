@@ -46,7 +46,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			'search.ephemeralPaths',
 			{
 				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-				withHiddenFiles: true,
+				withHiddenFiles: false,
 				order: settingsSnapshot.order
 			}
 		],
@@ -94,7 +94,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 						label="Add path as an indexed location"
 						className="w-max min-w-0 shrink"
 					>
-						<AddLocationButton path={path} />
+						<AddLocationButton className="ml-2" path={path} />
 					</Tooltip>
 				}
 				right={<DefaultTopBarOptions />}

@@ -42,7 +42,6 @@ interface ListViewItemProps {
 	columnSizing: ColumnSizingState;
 	columnVisibility: VisibilityState;
 	isCut: boolean;
-	isSelected: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
@@ -1036,7 +1035,6 @@ export default () => {
 											columnSizing={columnSizing}
 											columnVisibility={columnVisibility}
 											isCut={cut}
-											isSelected={selected}
 										/>
 									</div>
 								);

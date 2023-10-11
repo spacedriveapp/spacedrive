@@ -1,15 +1,18 @@
 use std::{
 	collections::{BTreeSet, HashMap, HashSet},
 	hash::{Hash, Hasher},
+	path::PathBuf,
 	sync::Arc,
 };
 
+use futures::future::join_all;
 use sd_core::{
 	prisma::{file_path, location},
 	Node,
 };
 use serde::Serialize;
 use specta::Type;
+use tauri::async_runtime::spawn_blocking;
 use tracing::error;
 
 type NodeState<'a> = tauri::State<'a, Arc<Node>>;
@@ -39,11 +42,17 @@ pub async fn open_file_paths(
 					.into_iter()
 					.map(|(id, maybe_path)| {
 						if let Some(path) = maybe_path {
-							#[cfg(target_os = "linux")]
-							let open_result = sd_desktop_linux::open_file_path(&path);
+							let open_result = {
+								#[cfg(target_os = "linux")]
+								{
+									sd_desktop_linux::open_file_path(path)
+								}
 
-							#[cfg(not(target_os = "linux"))]
-							let open_result = opener::open(path);
+								#[cfg(not(target_os = "linux"))]
+								{
+									opener::open(path)
+								}
+							};
 
 							open_result
 								.map(|_| OpenFilePathResult::AllGood(id))
@@ -63,6 +72,39 @@ pub async fn open_file_paths(
 	};
 
 	Ok(res)
+}
+
+#[derive(Serialize, Type)]
+#[serde(tag = "t", content = "c")]
+pub enum EphemeralFileOpenResult {
+	Ok(PathBuf),
+	Err(String),
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn open_ephemeral_files(paths: Vec<PathBuf>) -> Result<Vec<EphemeralFileOpenResult>, ()> {
+	Ok(paths
+		.into_iter()
+		.map(|path| {
+			if let Err(e) = {
+				#[cfg(target_os = "linux")]
+				{
+					sd_desktop_linux::open_file_path(&path)
+				}
+
+				#[cfg(not(target_os = "linux"))]
+				{
+					opener::open(&path)
+				}
+			} {
+				error!("Failed to open file: {e:#?}");
+				EphemeralFileOpenResult::Err(e.to_string())
+			} else {
+				EphemeralFileOpenResult::Ok(path)
+			}
+		})
+		.collect())
 }
 
 #[derive(Serialize, Type, Debug, Clone)]
@@ -85,6 +127,100 @@ impl PartialEq for OpenWithApplication {
 
 impl Eq for OpenWithApplication {}
 
+#[cfg(target_os = "macos")]
+async fn get_file_path_open_apps_set(path: PathBuf) -> Option<HashSet<OpenWithApplication>> {
+	let Some(path_str) = path.to_str() else {
+		error!(
+			"File path contains non-UTF8 characters: '{}'",
+			path.display()
+		);
+		return None;
+	};
+
+	let res = unsafe { sd_desktop_macos::get_open_with_applications(&path_str.into()) }
+		.as_slice()
+		.iter()
+		.map(|app| OpenWithApplication {
+			url: app.url.to_string(),
+			name: app.name.to_string(),
+		})
+		.collect::<HashSet<_>>();
+
+	Some(res)
+}
+
+#[cfg(target_os = "linux")]
+async fn get_file_path_open_apps_set(path: PathBuf) -> Option<HashSet<OpenWithApplication>> {
+	Some(
+		sd_desktop_linux::list_apps_associated_with_ext(&path)
+			.await
+			.into_iter()
+			.map(|app| OpenWithApplication {
+				url: app.id,
+				name: app.name,
+			})
+			.collect::<HashSet<_>>(),
+	)
+}
+
+#[cfg(target_os = "windows")]
+async fn get_file_path_open_apps_set(path: PathBuf) -> Option<HashSet<OpenWithApplication>> {
+	let Some(ext) = path.extension() else {
+		error!("Failed to extract file extension for '{}'", path.display());
+		return None;
+	};
+
+	sd_desktop_windows::list_apps_associated_with_ext(ext)
+		.map_err(|e| {
+			error!("{e:#?}");
+		})
+		.map(|handlers| {
+			handlers
+				.iter()
+				.filter_map(|handler| {
+					let (Ok(name), Ok(url)) = (
+						unsafe { handler.GetUIName() }
+							.map_err(|e| {
+								error!("Error on '{}': {e:#?}", path.display());
+							})
+							.and_then(|name| {
+								unsafe { name.to_string() }.map_err(|e| {
+									error!("Error on '{}': {e:#?}", path.display());
+								})
+							}),
+						unsafe { handler.GetName() }
+							.map_err(|e| {
+								error!("Error on '{}': {e:#?}", path.display());
+							})
+							.and_then(|name| {
+								unsafe { name.to_string() }.map_err(|e| {
+									error!("Error on '{}': {e:#?}", path.display());
+								})
+							}),
+					) else {
+						error!("Failed to get handler info for '{}'", path.display());
+						return None;
+					};
+
+					Some(OpenWithApplication { name, url })
+				})
+				.collect::<HashSet<_>>()
+		})
+		.ok()
+}
+
+async fn aggregate_open_with_apps(
+	paths: impl Iterator<Item = PathBuf>,
+) -> Result<Vec<OpenWithApplication>, ()> {
+	Ok(join_all(paths.map(get_file_path_open_apps_set))
+		.await
+		.into_iter()
+		.flatten()
+		.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+		.map(|set| set.into_iter().collect())
+		.unwrap_or(vec![]))
+}
+
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_file_path_open_with_apps(
@@ -102,123 +238,21 @@ pub async fn get_file_path_open_with_apps(
 		return Ok(vec![]);
 	};
 
-	#[cfg(target_os = "macos")]
-	return {
-		Ok(paths
-			.into_values()
-			.flat_map(|path| {
-				let Some(path) = path.and_then(|path| path.into_os_string().into_string().ok())
-				else {
-					error!("File not found in database");
-					return None;
-				};
+	aggregate_open_with_apps(paths.into_values().filter_map(|maybe_path| {
+		if maybe_path.is_none() {
+			error!("File not found in database");
+		}
+		maybe_path
+	}))
+	.await
+}
 
-				Some(
-					unsafe { sd_desktop_macos::get_open_with_applications(&path.as_str().into()) }
-						.as_slice()
-						.iter()
-						.map(|app| OpenWithApplication {
-							url: app.url.to_string(),
-							name: app.name.to_string(),
-						})
-						.collect::<HashSet<_>>(),
-				)
-			})
-			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
-			.map(|set| set.into_iter().collect())
-			.unwrap_or(vec![]))
-	};
-
-	#[cfg(target_os = "linux")]
-	{
-		use futures::future;
-		use sd_desktop_linux::list_apps_associated_with_ext;
-
-		let apps = future::join_all(paths.into_values().map(|path| async {
-			let Some(path) = path else {
-				error!("File not found in database");
-				return None;
-			};
-
-			Some(
-				list_apps_associated_with_ext(&path)
-					.await
-					.into_iter()
-					.map(|app| OpenWithApplication {
-						url: app.id,
-						name: app.name,
-					})
-					.collect::<HashSet<_>>(),
-			)
-		}))
-		.await;
-
-		return Ok(apps
-			.into_iter()
-			.flatten()
-			.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
-			.map(|set| set.into_iter().collect())
-			.unwrap_or(vec![]));
-	}
-
-	#[cfg(windows)]
-	return Ok(paths
-		.into_values()
-		.filter_map(|path| {
-			let Some(path) = path else {
-				error!("File not found in database");
-				return None;
-			};
-
-			let Some(ext) = path.extension() else {
-				error!("Failed to extract file extension");
-				return None;
-			};
-
-			sd_desktop_windows::list_apps_associated_with_ext(ext)
-				.map_err(|e| {
-					error!("{e:#?}");
-				})
-				.ok()
-		})
-		.map(|handler| {
-			handler
-				.iter()
-				.filter_map(|handler| {
-					let (Ok(name), Ok(url)) = (
-						unsafe { handler.GetUIName() }
-							.map_err(|e| {
-								error!("{e:#?}");
-							})
-							.and_then(|name| {
-								unsafe { name.to_string() }.map_err(|e| {
-									error!("{e:#?}");
-								})
-							}),
-						unsafe { handler.GetName() }
-							.map_err(|e| {
-								error!("{e:#?}");
-							})
-							.and_then(|name| {
-								unsafe { name.to_string() }.map_err(|e| {
-									error!("{e:#?}");
-								})
-							}),
-					) else {
-						error!("Failed to get handler info");
-						return None;
-					};
-
-					Some(OpenWithApplication { name, url })
-				})
-				.collect::<HashSet<_>>()
-		})
-		.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
-		.map(|set| set.into_iter().collect())
-		.unwrap_or(vec![]));
-
-	#[allow(unreachable_code)]
-	Ok(vec![])
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_ephemeral_files_open_with_apps(
+	paths: Vec<PathBuf>,
+) -> Result<Vec<OpenWithApplication>, ()> {
+	aggregate_open_with_apps(paths.into_iter()).await
 }
 
 type FileIdAndUrl = (i32, String);
@@ -248,10 +282,11 @@ pub async fn open_file_path_with(
 				.iter()
 				.map(|(id, path)| {
 					let (Some(path), Some(url)) = (
-						#[cfg(windows)]
+						#[cfg(any(target_os = "windows", target_os = "linux"))]
 						path.as_ref(),
-						#[cfg(not(windows))]
-						path.as_ref().and_then(|path| path.to_str()),
+						#[cfg(target_os = "macos")]
+						path.as_ref()
+							.and_then(|path| path.to_str().map(str::to_string)),
 						url_by_id.get(id),
 					) else {
 						error!("File not found in database");
@@ -269,7 +304,7 @@ pub async fn open_file_path_with(
 						error!("{e:#?}");
 					});
 
-					#[cfg(windows)]
+					#[cfg(target_os = "windows")]
 					return sd_desktop_windows::open_file_path_with(path, url).map_err(|e| {
 						error!("{e:#?}");
 					});
@@ -282,10 +317,85 @@ pub async fn open_file_path_with(
 		})
 }
 
+type PathAndUrl = (PathBuf, String);
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn open_ephemeral_file_with(paths_and_urls: Vec<PathAndUrl>) -> Result<(), ()> {
+	join_all(
+		paths_and_urls
+			.into_iter()
+			.collect::<HashMap<_, _>>() // Just to avoid duplicates
+			.into_iter()
+			.map(|(path, url)| async move {
+				#[cfg(target_os = "macos")]
+				if let Some(path) = path.to_str().map(str::to_string) {
+					if let Err(e) = spawn_blocking(move || {
+						sd_desktop_macos::open_file_paths_with(&[path], &url)
+					})
+					.await
+					{
+						error!("Error joining spawned task for opening files with: {e:#?}");
+					}
+				} else {
+					error!(
+						"File path contains non-UTF8 characters: '{}'",
+						path.display()
+					);
+				};
+
+				#[cfg(target_os = "linux")]
+				match spawn_blocking(move || sd_desktop_linux::open_files_path_with(&[path], &url))
+					.await
+				{
+					Ok(Ok(())) => (),
+					Ok(Err(e)) => error!("Error opening file with: {e:#?}"),
+					Err(e) => error!("Error joining spawned task for opening files with: {e:#?}"),
+				}
+
+				#[cfg(windows)]
+				match spawn_blocking(move || sd_desktop_windows::open_file_path_with(path, &url))
+					.await
+				{
+					Ok(Ok(())) => (),
+					Ok(Err(e)) => error!("Error opening file with: {e:#?}"),
+					Err(e) => error!("Error joining spawned task for opening files with: {e:#?}"),
+				}
+			}),
+	)
+	.await;
+
+	Ok(())
+}
+
+fn inner_reveal_paths(paths: impl Iterator<Item = PathBuf>) {
+	for path in paths {
+		#[cfg(target_os = "linux")]
+		if sd_desktop_linux::is_appimage() {
+			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
+			if let Err(e) = sd_desktop_linux::open_file_path(if path.is_file() {
+				path.parent().unwrap_or(&path)
+			} else {
+				&path
+			}) {
+				error!("Failed to open logs dir: {e:#?}");
+			}
+		} else if let Err(e) = opener::reveal(path) {
+			error!("Failed to open logs dir: {e:#?}");
+		}
+
+		#[cfg(not(target_os = "linux"))]
+		if let Err(e) = opener::reveal(path) {
+			error!("Failed to open logs dir: {e:#?}");
+		}
+	}
+}
+
 #[derive(specta::Type, serde::Deserialize)]
 pub enum RevealItem {
 	Location { id: location::id::Type },
 	FilePath { id: file_path::id::Type },
+	Ephemeral { path: PathBuf },
 }
 
 #[tauri::command(async)]
@@ -299,6 +409,8 @@ pub async fn reveal_items(
 		return Err(());
 	};
 
+	let mut paths_to_open = BTreeSet::new();
+
 	let (paths, locations): (Vec<_>, Vec<_>) =
 		items
 			.into_iter()
@@ -306,12 +418,13 @@ pub async fn reveal_items(
 				match item {
 					RevealItem::FilePath { id } => paths.push(id),
 					RevealItem::Location { id } => locations.push(id),
+					RevealItem::Ephemeral { path } => {
+						paths_to_open.insert(path);
+					}
 				}
 
 				(paths, locations)
 			});
-
-	let mut paths_to_open = BTreeSet::new();
 
 	if !paths.is_empty() {
 		paths_to_open.extend(
@@ -343,35 +456,8 @@ pub async fn reveal_items(
 		);
 	}
 
-	for path in paths_to_open {
-		#[cfg(target_os = "linux")]
-		if sd_desktop_linux::is_appimage() {
-			// This is a workaround for the app, when package inside an AppImage, crashing when using opener::reveal.
-			sd_desktop_linux::open_file_path(
-				&(if path.is_file() {
-					path.parent().unwrap_or(&path)
-				} else {
-					&path
-				}),
-			)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok()
-		} else {
-			opener::reveal(path)
-				.map_err(|err| {
-					error!("Failed to open logs dir: {err}");
-				})
-				.ok()
-		};
-
-		#[cfg(not(target_os = "linux"))]
-		opener::reveal(path)
-			.map_err(|err| {
-				error!("Failed to open logs dir: {err}");
-			})
-			.ok();
+	if let Err(e) = spawn_blocking(|| inner_reveal_paths(paths_to_open.into_iter())).await {
+		error!("Error joining reveal paths thread: {e:#?}");
 	}
 
 	Ok(())

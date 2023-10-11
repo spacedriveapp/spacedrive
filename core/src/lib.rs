@@ -141,6 +141,7 @@ impl Node {
 		node.p2p.start(p2p_stream, node.clone());
 
 		let router = api::mount();
+
 		info!("Spacedrive online.");
 		Ok((node, router))
 	}

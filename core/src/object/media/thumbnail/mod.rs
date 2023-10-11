@@ -8,8 +8,10 @@ use crate::{
 	Node,
 };
 
-use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
-use sd_images::format_image;
+use sd_file_ext::extensions::{
+	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
+};
+use sd_images::{format_image, scale_dimensions};
 use sd_media_metadata::image::Orientation;
 
 #[cfg(feature = "ffmpeg")]
@@ -26,7 +28,7 @@ use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io};
+use tokio::{fs, io, task};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
@@ -57,7 +59,7 @@ pub fn get_thumb_key(cas_id: &str) -> Vec<String> {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub(super) static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub(super) static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_VIDEO_EXTENSIONS
 		.iter()
 		.cloned()
@@ -66,12 +68,19 @@ pub(super) static FILTERED_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(||
 		.collect()
 });
 
-pub(super) static FILTERED_IMAGE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub(super) static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.cloned()
 		.filter(can_generate_thumbnail_for_image)
 		.map(Extension::Image)
+		.chain(
+			ALL_DOCUMENT_EXTENSIONS
+				.iter()
+				.cloned()
+				.filter(can_generate_thumbnail_for_document)
+				.map(Extension::Document),
+		)
 		.collect()
 });
 
@@ -88,6 +97,8 @@ pub enum ThumbnailerError {
 	Encoding,
 	#[error("error while converting the image: {0}")]
 	SdImages(#[from] sd_images::Error),
+	#[error("failed to execute converting task: {0}")]
+	Task(#[from] task::JoinError),
 }
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
@@ -97,14 +108,6 @@ const TAGRET_PX: f32 = 262144_f32;
 /// This is the target quality that we render thumbnails at, it is a float between 0-100
 /// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
 const TARGET_QUALITY: f32 = 30_f32;
-
-/// This takes in a width and a height, and returns a scaled width and height
-/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
-/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
-fn calculate_factor(w: f32, h: f32) -> (u32, u32) {
-	let sf = (TAGRET_PX / (w * h)).sqrt();
-	((w * sf).round() as u32, (h * sf).round() as u32)
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ThumbnailerEntryKind {
@@ -125,17 +128,17 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 ) -> Result<(), ThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
-	let webp = tokio::task::block_in_place(move || -> Result<_, ThumbnailerError> {
+	let webp = task::spawn_blocking(move || -> Result<_, ThumbnailerError> {
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
-		let (w_scale, h_scale) = calculate_factor(w as f32, h as f32);
+		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TAGRET_PX);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
-			w_scale,
-			h_scale,
+			w_scaled as u32,
+			h_scaled as u32,
 			imageops::FilterType::Triangle,
 		));
 
@@ -154,7 +157,8 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
 		// which implies on a unwanted clone...
 		Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
-	})?;
+	})
+	.await??;
 
 	let output_path = output_path.as_ref();
 
@@ -198,6 +202,12 @@ pub const fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) 
 		image_extension,
 		Jpg | Jpeg | Png | Webp | Gif | Svg | Heic | Heics | Heif | Heifs | Avif | Bmp | Ico
 	)
+}
+
+pub const fn can_generate_thumbnail_for_document(document_extension: &DocumentExtension) -> bool {
+	use DocumentExtension::*;
+
+	matches!(document_extension, Pdf)
 }
 
 pub(super) async fn process(
