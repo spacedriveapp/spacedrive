@@ -23,9 +23,8 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 				existing_volumes = current_volumes;
 				invalidate_query!(
 					&library,
-					"volumes.list":
-					Vec<Volume>,
-					existing_volumes.iter().cloned().collect::<Vec<_>>()
+					"volumes.list": (),
+					()
 				);
 			}
 		}
