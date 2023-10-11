@@ -47,6 +47,13 @@ const downloadEntries = {
 	}
 } as const;
 
+const Space = dynamic(async () => (await import('~/components/Space')).Space, {
+	ssr: false
+});
+const Bubbles = dynamic(async () => (await import('~/components/Bubbles')).Bubbles, {
+	ssr: false
+});
+
 const platforms = [
 	{ name: 'iOS and macOS', icon: Apple, clickable: true },
 	{
@@ -66,6 +73,7 @@ export default function HomePage() {
 		useState<(typeof downloadEntries)['linux' | 'macOS']['links']>();
 	const [downloadEntry, setDownloadEntry] =
 		useState<(typeof downloadEntries)['linux' | 'macOS' | 'windows']>();
+	const [isWindowResizing, setIsWindowResizing] = useState(false);
 
 	const links = downloadEntry?.links;
 
@@ -97,7 +105,6 @@ export default function HomePage() {
 				setOpacity(0);
 			}
 		};
-
 		window.addEventListener('scroll', handleScroll);
 
 		return () => {
@@ -106,18 +113,32 @@ export default function HomePage() {
 	}, []);
 
 	useEffect(() => {
+		let resizeTimer: NodeJS.Timeout;
+		const handleResize = () => {
+			setIsWindowResizing(true);
+			setBackground(null);
+			clearTimeout(resizeTimer);
+			resizeTimer = setTimeout(() => {
+				setIsWindowResizing(false);
+			}, 500);
+		};
+		window.addEventListener('resize', handleResize);
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			clearTimeout(resizeTimer);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (isWindowResizing) return;
 		if (!(getWindow() && background == null)) return;
-		(async () => {
-			if (detectWebGLContext()) {
-				const Space = (await import('~/components/Space')).Space;
-				setBackground(<Space />);
-			} else {
-				console.warn('Fallback to Bubbles background due WebGL not being available');
-				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
-				setBackground(<Bubbles />);
-			}
-		})();
-	}, [background]);
+		if (detectWebGLContext()) {
+			setBackground(<Space />);
+		} else {
+			console.warn('Fallback to Bubbles background due to WebGL not being available');
+			setBackground(<Bubbles />);
+		}
+	}, [background, isWindowResizing]);
 
 	return (
 		<TooltipProvider>
