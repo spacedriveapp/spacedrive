@@ -1,81 +1,30 @@
-use std::io::BufRead;
-use std::process::Command;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+use crate::{invalidate_query, library::Library};
 
-use crate::invalidate_query;
-use crate::library::Library;
+use std::{collections::HashSet, sync::Arc};
 
-/// Currently the only thing we do is invalidate the volumes.list query.
-/// Later, we will want to extract specific data into a struct.
-/// That way we can determine if we want to trigger the import files flow.
-///
-fn handle_disk_change(library: Arc<Library>) {
-	// Clone the Arc to be moved into the closure
-	let library_cloned = library.clone();
+use tokio::{spawn, time::Duration};
 
-	// Spawn a new thread to perform a delayed operation
-	thread::spawn(move || {
-		thread::sleep(Duration::from_millis(500)); // Delay for 500 milliseconds
-		invalidate_query!(library_cloned, "volumes.list");
-	});
-}
+use super::{get_volumes, Volume};
 
 pub fn spawn_volume_watcher(library: Arc<Library>) {
-	#[cfg(target_os = "macos")]
-	thread::spawn(move || {
-		let mut child = Command::new("diskutil")
-			.arg("activity")
-			.stdout(std::process::Stdio::piped())
-			.spawn()
-			.expect("Failed to start diskutil");
+	spawn(async move {
+		let mut interval = tokio::time::interval(Duration::from_secs(1));
+		let mut existing_volumes = get_volumes().await.into_iter().collect::<HashSet<_>>();
 
-		let stdout = child.stdout.as_mut().expect("Failed to capture stdout");
-		let mut reader = std::io::BufReader::new(stdout);
+		loop {
+			interval.tick().await;
 
-		let mut buffer = String::new();
-		while reader.read_line(&mut buffer).expect("Failed to read line") > 0 {
-			if buffer.contains("DiskAppeared") || buffer.contains("DiskDisappeared") {
-				// println!("Disk change detected: {:?}", &buffer);
-				handle_disk_change(library.clone());
+			let current_volumes = get_volumes().await.into_iter().collect::<HashSet<_>>();
+
+			if existing_volumes != current_volumes {
+				existing_volumes = current_volumes;
+				invalidate_query!(
+					&library,
+					"volumes.list":
+					Vec<Volume>,
+					existing_volumes.iter().cloned().collect::<Vec<_>>()
+				);
 			}
-			buffer.clear();
 		}
-	});
-
-	#[cfg(target_os = "linux")]
-	thread::spawn(move || {
-		let mut child = Command::new("udevadm")
-			.arg("monitor")
-			.stdout(std::process::Stdio::piped())
-			.spawn()
-			.expect("Failed to start udevadm");
-
-		let stdout = child.stdout.as_mut().expect("Failed to capture stdout");
-		let mut reader = std::io::BufReader::new(stdout);
-
-		let mut buffer = String::new();
-		while reader.read_line(&mut buffer).expect("Failed to read line") > 0 {
-			if buffer.contains("add") || buffer.contains("remove") {
-				println!("Disk change detected: {:?}", &buffer);
-				handle_disk_change(library.clone());
-			}
-
-			buffer.clear();
-		}
-	});
-
-	#[cfg(target_os = "windows")]
-	thread::spawn(move || {
-		let mut child = Command::new("wmic")
-			.arg("diskdrive")
-			.stdout(std::process::Stdio::piped())
-			.spawn()
-			.expect("Failed to start wmic");
-
-		// Shared handling code
-		// ...
-		// handle_disk_change(library.clone());
 	});
 }
