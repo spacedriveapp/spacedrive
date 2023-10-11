@@ -59,7 +59,7 @@ const items = [
 	},
 	{
 		when: '0.1.0 Alpha',
-		subtext: 'June 2023',
+		subtext: 'Oct 2023',
 		title: 'Key manager',
 		description:
 			'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
