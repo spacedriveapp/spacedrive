@@ -5,12 +5,11 @@
 /* eslint-disable jsx-a11y/alt-text */
 import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
-import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import Image from 'next/image';
-import { ComponentProps, useEffect, useMemo, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
@@ -232,7 +231,7 @@ export default function HomePage() {
 							/>
 						)}
 
-						{downloadEntry === undefined && (
+						{!downloadEntry && (
 							<a
 								target="_blank"
 								href="https://www.github.com/spacedriveapp/spacedrive"
@@ -260,9 +259,9 @@ export default function HomePage() {
 						</div>
 					)}
 					<p
-						className={clsx(
+						className={
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
-						)}
+						}
 					>
 						{RELEASE_VERSION}
 						{formattedVersion && (
@@ -385,10 +384,7 @@ const Platform = ({ icon: Icon, label, ...props }: ComponentProps<'a'> & Props) 
 			<Outer {...props}>
 				<Icon
 					size={25}
-					className={clsx('h-[25px]', {
-						['opacity-20']: props.iconDisabled,
-						['opacity-80']: props.iconDisabled === undefined
-					})}
+					className={`h-[25px] ${props.iconDisabled ? 'opacity-20' : 'opacity-80'}`}
 					weight="fill"
 				/>
 			</Outer>
