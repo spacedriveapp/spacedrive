@@ -21,6 +21,12 @@ import CyclingImage from '../components/CyclingImage';
 const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 	ssr: false
 });
+const Space = dynamic(async () => (await import('~/components/Space')).Space, {
+	ssr: false
+});
+const Bubbles = dynamic(async () => (await import('~/components/Bubbles')).Bubbles, {
+	ssr: false
+});
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
@@ -46,13 +52,6 @@ const downloadEntries = {
 		links: 'windows/x86_64'
 	}
 } as const;
-
-const Space = dynamic(async () => (await import('~/components/Space')).Space, {
-	ssr: false
-});
-const Bubbles = dynamic(async () => (await import('~/components/Bubbles')).Bubbles, {
-	ssr: false
-});
 
 const platforms = [
 	{ name: 'iOS and macOS', icon: Apple, clickable: true },
