@@ -29,10 +29,10 @@ export const Component = () => {
 		},
 		mode: 'onChange'
 	});
+	const { isValid } = form.formState;
 
 	useDebouncedFormWatch(form, (value) => {
-		if (!form.formState.isValid) return;
-
+		if (!isValid) return;
 		editLibrary.mutate({
 			id: library.uuid,
 			name: value.name ?? null,
@@ -63,7 +63,6 @@ export const Component = () => {
 						size="md"
 						formFieldClassName="flex-1"
 						{...form.register('description')}
-						placeholder=""
 					/>
 				</div>
 
