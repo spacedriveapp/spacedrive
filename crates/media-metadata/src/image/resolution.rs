@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use exif::Tag;
 
 use super::ExifReader;
@@ -7,21 +5,21 @@ use super::ExifReader;
 #[derive(
 	Default, Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize, specta::Type,
 )]
-pub struct Dimensions {
+pub struct Resolution {
 	pub width: i32,
 	pub height: i32,
 }
 
-impl Dimensions {
+impl Resolution {
 	#[must_use]
 	/// Creates a new width and height container
 	///
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::Dimensions;
+	/// use sd_media_metadata::image::Resolution;
 	///
-	/// Dimensions::new(1920, 1080);
+	/// Resolution::new(1920, 1080);
 	/// ```
 	pub const fn new(width: i32, height: i32) -> Self {
 		Self { width, height }
@@ -37,11 +35,5 @@ impl Dimensions {
 				.get_tag(Tag::PixelYDimension)
 				.unwrap_or_else(|| reader.get_tag(Tag::YResolution).unwrap_or_default()),
 		}
-	}
-}
-
-impl Display for Dimensions {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_fmt(format_args!("{}x{}", self.width, self.height))
 	}
 }
