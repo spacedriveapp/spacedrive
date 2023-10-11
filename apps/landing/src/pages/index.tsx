@@ -175,7 +175,7 @@ export default function HomePage() {
 					</p>
 					<div className="flex flex-row gap-3">
 						{!(downloadEntry && links) ? null : typeof links === 'string' ? (
-							<a target="_blank" href={links}>
+							<a target="_blank" href={`${BASE_DL_LINK}/${links}`}>
 								<HomeCTA
 									icon={downloadEntry.icon}
 									text={`Download for ${downloadEntry.name}`}
