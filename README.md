@@ -32,7 +32,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 <br/>
 <br/>
 
-> UPDATE: Spacedrive is under active development, we are in the pre-alpha stage, with builds occasionally released via GitHub actions, official alpha coming soon.
+> UPDATE: Spacedrive is under active development, we are in the alpha stage and some features might be missing or disabled in the official release downloads.
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
