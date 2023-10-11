@@ -21,12 +21,6 @@ import CyclingImage from '../components/CyclingImage';
 const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 	ssr: false
 });
-const Space = dynamic(async () => (await import('~/components/Space')).Space, {
-	ssr: false
-});
-const Bubbles = dynamic(async () => (await import('~/components/Bubbles')).Bubbles, {
-	ssr: false
-});
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
@@ -119,7 +113,7 @@ export default function HomePage() {
 			clearTimeout(resizeTimer);
 			resizeTimer = setTimeout(() => {
 				setIsWindowResizing(false);
-			}, 500);
+			}, 100);
 		};
 		window.addEventListener('resize', handleResize);
 		return () => {
@@ -131,12 +125,16 @@ export default function HomePage() {
 	useEffect(() => {
 		if (isWindowResizing) return;
 		if (!(getWindow() && background == null)) return;
-		if (detectWebGLContext()) {
-			setBackground(<Space />);
-		} else {
-			console.warn('Fallback to Bubbles background due to WebGL not being available');
-			setBackground(<Bubbles />);
-		}
+		(async () => {
+			if (detectWebGLContext()) {
+				const Space = (await import('~/components/Space')).Space;
+				setBackground(<Space />);
+			} else {
+				console.warn('Fallback to Bubbles background due WebGL not being available');
+				const Bubbles = (await import('~/components/Bubbles')).Bubbles;
+				setBackground(<Bubbles />);
+			}
+		})();
 	}, [background, isWindowResizing]);
 
 	return (
