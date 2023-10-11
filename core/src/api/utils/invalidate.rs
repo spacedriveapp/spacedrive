@@ -197,10 +197,16 @@ macro_rules! invalidate_query {
 					.queries
 					.push($crate::api::utils::InvalidationRequest {
 						key: $key,
-						arg_ty: Some(<$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
+						arg_ty: <$arg_ty as specta::Type>::reference(specta::DefOpts {
                             parent_inline: false,
-                            type_map: &mut rspc::internal::specta::TypeDefs::new(),
-                        }, &[])),
+                            type_map: &mut specta::TypeDefs::new(),
+                        }, &[]).map_err(|e| {
+								::tracing::error!(
+									"Failed to get type reference for invalidate query '{}': {:?}",
+									$key,
+									e
+								)
+							}).ok(),
 						result_ty: None,
                         macro_src: concat!(file!(), ":", line!()),
 					})
