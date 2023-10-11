@@ -46,8 +46,6 @@ export default function HomePage() {
 		isLinux: boolean;
 	}>(null);
 
-	const appleArch: 'aarch64' | 'x86' = 'aarch64';
-
 	useEffect(() => {
 		(async () => {
 			const os = await import('react-device-detect').then(
@@ -155,7 +153,7 @@ export default function HomePage() {
 								target="_blank"
 								href={`/api/releases/desktop/stable/${
 									deviceOs?.isLinux ? 'linux' : 'windows'
-								}/${appleArch}`}
+								}/x86_64`}
 							>
 								<HomeCTA
 									icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
@@ -179,15 +177,15 @@ export default function HomePage() {
 					</div>
 
 					{downloadMacOs && (
-						<div className="mb-2 mt-4 flex flex-row gap-3 fade-in">
-							<a href="/api/releases/desktop/stable/macos/aarch64">
+						<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
+							<a href="/api/releases/desktop/stable/darwin/aarch64">
 								<HomeCTA
 									size="md"
 									className="z-5 relative !py-1 !text-sm"
 									text="Apple Silicon"
 								/>
 							</a>
-							<a href="/api/releases/desktop/stable/macos/x86">
+							<a href="/api/releases/desktop/stable/darwin/x86_64">
 								<HomeCTA
 									size="md"
 									className="z-5 relative !py-1 !text-sm"
