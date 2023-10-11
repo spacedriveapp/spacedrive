@@ -90,9 +90,10 @@ export function Footer() {
 				<div className="pointer-events-none col-span-1 flex flex-col space-y-2">
 					<h1 className="mb-1 text-xs font-bold uppercase">Downloads</h1>
 					<div className="col-span-1 flex flex-col space-y-2 opacity-50">
-						<FooterLink link="#">macOS</FooterLink>
-						<FooterLink link="#">Windows</FooterLink>
-						<FooterLink link="#">Linux</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64">macOS</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64">macOS Intel</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64">Windows</FooterLink>
+						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64">Linux</FooterLink>
 						<FooterLink link="#">Android</FooterLink>
 						<FooterLink link="#">iOS</FooterLink>
 					</div>
