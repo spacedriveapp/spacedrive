@@ -201,7 +201,7 @@ export default function HomePage() {
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
 						)}
 					>
-						Alpha v0.1.4 <span className="mx-2 opacity-50">|</span> macOS 12+
+						Alpha v0.1.0 <span className="mx-2 opacity-50">|</span> macOS 12+
 					</p>
 					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
