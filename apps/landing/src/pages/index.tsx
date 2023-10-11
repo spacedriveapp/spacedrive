@@ -22,45 +22,63 @@ const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 	ssr: false
 });
 
-const ExplainerHeading = tw.h1`z-30 mb-3 px-2 text-center text-3xl font-black leading-tight text-white`;
-const ExplainerText = tw.p`leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450"`;
-
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
 
 const platforms = [
-	{ name: 'iOS and macOS', icon: Apple, href: '/api/releases/desktop/stable/darwin/x86_64' },
-	{ name: 'Windows', icon: WindowsLogo, href: '/api/releases/desktop/stable/windows/x86_64' },
-	{ name: 'Linux', icon: LinuxLogo, href: '/api/releases/desktop/stable/linux/x86_64' },
+	{ name: 'iOS and macOS', icon: Apple },
+	{ name: 'Windows', icon: WindowsLogo },
+	{ name: 'Linux', icon: LinuxLogo },
 	{ name: 'Android', icon: AndroidLogo },
 	{ name: 'Web', icon: Globe }
 ];
 
+const BASE_DL_LINK = '/api/releases/desktop/stable';
+const downloadEntries = {
+	linux: {
+		name: 'Linux',
+		icon: <LinuxLogo />,
+		links: {
+			Deb: 'linux_deb/x86_64',
+			AppImage: 'linux_appimage/x86_64'
+		}
+	},
+	macOS: {
+		name: 'Mac',
+		icon: <Apple />,
+		links: {
+			'Apple Intel': 'darwin/x86_64',
+			'Apple Silicon': 'darwin/aarch64'
+		}
+	},
+	windows: {
+		name: 'Windows',
+		icon: <WindowsLogo />,
+		links: 'windows/x86_64'
+	}
+};
+
 export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
 	const [background, setBackground] = useState<JSX.Element | null>(null);
-	const [downloadMacOs, setDownloadMacOS] = useState(false);
-	const [deviceOs, setDeviceOs] = useState<null | {
-		isWindows: boolean;
-		isMacOs: boolean;
-		isMobile: boolean;
-		isLinux: boolean;
-	}>(null);
+	const [multipleDownloads, setMultipleDownloads] =
+		useState<(typeof downloadEntries)['linux' | 'macOS']['links']>();
+	const [downloadEntry, setDownloadEntry] =
+		useState<(typeof downloadEntries)['linux' | 'macOS' | 'windows']>();
+
+	const links = downloadEntry?.links;
 
 	useEffect(() => {
-		(async () => {
-			const os = await import('react-device-detect').then(
-				({ isWindows, isMacOs, isMobile }) => {
-					return { isWindows, isMacOs, isMobile };
-				}
-			);
-			setDeviceOs({
-				isWindows: os.isWindows,
-				isMacOs: os.isMacOs,
-				isMobile: os.isMobile,
-				isLinux: !os.isWindows && !os.isMacOs && !os.isMobile
-			});
-		})();
+		import('react-device-detect').then(({ isWindows, isMacOs, isMobile }) => {
+			if (isWindows) {
+				setDownloadEntry(downloadEntries.windows);
+			} else if (isMacOs) {
+				setDownloadEntry(downloadEntries.macOS);
+			} else if (!isMobile) {
+				setDownloadEntry(downloadEntries.linux);
+			}
+		});
+
 		const fadeStart = 300; // start fading out at 100px
 		const fadeEnd = 1300; // end fading out at 300px
 
@@ -118,6 +136,7 @@ export default function HomePage() {
 				/>
 				<meta name="author" content="Spacedrive Technology Inc." />
 			</Head>
+
 			<div style={{ opacity }}>{background}</div>
 
 			<PageWrapper>
@@ -155,27 +174,25 @@ export default function HomePage() {
 						</span>
 					</p>
 					<div className="flex flex-row gap-3">
-						{deviceOs?.isMacOs ? (
-							<HomeCTA
-								icon={<Apple />}
-								text="Download for Mac"
-								onClick={() => setDownloadMacOS(!downloadMacOs)}
-							/>
-						) : (
-							<a
-								target="_blank"
-								href={`/api/releases/desktop/stable/${
-									deviceOs?.isLinux ? 'linux' : 'windows'
-								}/x86_64`}
-							>
+						{!(downloadEntry && links) ? null : typeof links === 'string' ? (
+							<a target="_blank" href={links}>
 								<HomeCTA
-									icon={deviceOs?.isWindows ? <WindowsLogo /> : <Apple />}
+									icon={downloadEntry.icon}
+									text={`Download for ${downloadEntry.name}`}
 									className="z-5 relative"
-									text={`Download for ${deviceOs?.isWindows ? 'Windows' : 'Mac'}`}
 								/>
 							</a>
+						) : (
+							<HomeCTA
+								icon={downloadEntry.icon}
+								text={`Download for ${downloadEntry.name}`}
+								onClick={() =>
+									setMultipleDownloads(multipleDownloads ? undefined : links)
+								}
+							/>
 						)}
-						{!downloadMacOs && (
+
+						{multipleDownloads == null && (
 							<a
 								target="_blank"
 								href="https://www.github.com/spacedriveapp/spacedrive"
@@ -189,24 +206,20 @@ export default function HomePage() {
 						)}
 					</div>
 
-					{downloadMacOs && (
+					{multipleDownloads && (
 						<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
-							<a href="/api/releases/desktop/stable/darwin/aarch64">
-								<HomeCTA
-									size="md"
-									className="z-5 relative !py-1 !text-sm"
-									text="Apple Silicon"
-								/>
-							</a>
-							<a href="/api/releases/desktop/stable/darwin/x86_64">
-								<HomeCTA
-									size="md"
-									className="z-5 relative !py-1 !text-sm"
-									text="Apple Intel"
-								/>
-							</a>
+							{Object.entries(multipleDownloads).map(([name, link]) => (
+								<a key={name} target="_blank" href={`${BASE_DL_LINK}/${link}`}>
+									<HomeCTA
+										size="md"
+										text={name}
+										className="z-5 relative !py-1 !text-sm"
+									/>
+								</a>
+							))}
 						</div>
 					)}
+
 					<p
 						className={clsx(
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
@@ -222,11 +235,7 @@ export default function HomePage() {
 								transition={{ delay: i * 0.2, ease: 'easeInOut' }}
 								key={platform.name}
 							>
-								<Platform
-									icon={platform.icon}
-									href={platform.href}
-									label={platform.name}
-								/>
+								<Platform icon={platform.icon} label={platform.name} />
 							</motion.div>
 						))}
 					</div>

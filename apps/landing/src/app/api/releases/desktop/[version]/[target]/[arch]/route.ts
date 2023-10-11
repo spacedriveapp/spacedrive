@@ -3,7 +3,12 @@ import { z } from 'zod';
 import { env } from '~/env';
 
 const version = z.union([z.literal('stable'), z.literal('alpha')]);
-const tauriTarget = z.union([z.literal('linux'), z.literal('windows'), z.literal('darwin')]);
+const tauriTarget = z.union([
+	z.literal('linux_deb'),
+	z.literal('linux_appimage'),
+	z.literal('windows'),
+	z.literal('darwin')
+]);
 const tauriArch = z.union([z.literal('x86_64'), z.literal('aarch64')]);
 
 const paramsSchema = z.object({
@@ -34,9 +39,14 @@ export async function GET(
 
 	params.version = release.tag_name;
 
-	const asset = release.assets.find(({ name }: any) =>
-		name.startsWith(`Spacedrive-${params.target}-${params.arch}`)
-	);
+	const releaseName =
+		params.target === 'linux_deb'
+			? `Spacedrive-linux-${params.arch}.deb`
+			: params.target === 'linux_appimage'
+			? `Spacedrive-linux-${params.arch}.AppImage`
+			: `Spacedrive-${params.target}-${params.arch}`;
+
+	const asset = release.assets?.find(({ name }: any) => name.startsWith(releaseName));
 
 	if (!asset) return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
 
