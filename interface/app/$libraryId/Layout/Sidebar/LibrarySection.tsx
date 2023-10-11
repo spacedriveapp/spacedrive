@@ -56,6 +56,7 @@ export const LibrarySection = () => {
 	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const onlineLocations = useOnlineLocations();
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const [showDummyNodesEasterEgg, setShowDummyNodesEasterEgg] = useState(false);
 	const [triggeredContextItem, setTriggeredContextItem] = useState<TriggeredContextItem | null>(
 		null
 	);
@@ -85,37 +86,14 @@ export const LibrarySection = () => {
 				}
 			>
 				{node.data && (
-					<>
-						<SidebarLink
-							className="group relative w-full"
-							to={`node/${node.data.id}`}
-							key={node.data.id}
-						>
-							<img src={Laptop} className="mr-1 h-5 w-5" />
-							<span className="truncate">{node.data.name}</span>
-						</SidebarLink>
-
-						{/* {debugState.enabled && (
-							<>
-								<SidebarLink
-									className="group relative w-full"
-									to={`node/23`}
-									key={23}
-								>
-									<img src={Mobile} className="mr-1 h-5 w-5" />
-									<span className="truncate">Spacephone</span>
-								</SidebarLink>
-								<SidebarLink
-									className="group relative w-full"
-									to={`node/24`}
-									key={24}
-								>
-									<img src={Server} className="mr-1 h-5 w-5" />
-									<span className="truncate">Titan</span>
-								</SidebarLink>
-							</>
-						)} */}
-					</>
+					<SidebarLink
+						className="group relative w-full"
+						to={`node/${node.data.id}`}
+						key={node.data.id}
+					>
+						<img src={Laptop} className="mr-1 h-5 w-5" />
+						<span className="truncate">{node.data.name}</span>
+					</SidebarLink>
 				)}
 				<Tooltip
 					label="Coming soon! This alpha release doesn't include library sync, it will be ready very soon."
