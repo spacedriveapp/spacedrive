@@ -26,7 +26,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
 
 		//this is to determine if file name is truncated
-		const isTruncated = useIsTextTruncated(ref, name);
+		const isTruncated = useIsTextTruncated(ref);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory, hidden file or has no extension
