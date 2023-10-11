@@ -4,16 +4,21 @@ use crate::{
 		LocationError,
 	},
 	prisma::{file_path, location, PrismaClient},
-	util::db::{maybe_missing, MissingFieldError},
+	util::{
+		db::{maybe_missing, MissingFieldError},
+		error::{FileIOError, NonUtf8PathError},
+	},
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+	ffi::OsStr,
+	path::{Path, PathBuf},
+};
 
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-pub mod create;
 pub mod delete;
 pub mod erase;
 
@@ -26,6 +31,7 @@ pub mod cut;
 pub mod error;
 
 use error::FileSystemJobsError;
+use tokio::{fs, io};
 
 static DUPLICATE_PATTERN: Lazy<Regex> =
 	Lazy::new(|| Regex::new(r" \(\d+\)").expect("Failed to compile hardcoded regex"));
@@ -166,4 +172,49 @@ pub fn append_digit_to_filename(
 	} else {
 		final_path.push(format!("{new_file_name} ({current_int})"));
 	}
+}
+
+pub async fn find_available_filename_for_duplicate(
+	target_path: impl AsRef<Path>,
+) -> Result<PathBuf, FileSystemJobsError> {
+	let target_path = target_path.as_ref();
+
+	let new_file_name = target_path
+		.file_stem()
+		.ok_or_else(|| {
+			FileSystemJobsError::MissingFileStem(target_path.to_path_buf().into_boxed_path())
+		})?
+		.to_str()
+		.ok_or_else(|| NonUtf8PathError(target_path.to_path_buf().into_boxed_path()))?;
+
+	let new_file_full_path_without_suffix =
+		target_path.parent().map(Path::to_path_buf).ok_or_else(|| {
+			FileSystemJobsError::MissingParentPath(target_path.to_path_buf().into_boxed_path())
+		})?;
+
+	for i in 1..u32::MAX {
+		let mut new_file_full_path_candidate = new_file_full_path_without_suffix.clone();
+
+		append_digit_to_filename(
+			&mut new_file_full_path_candidate,
+			new_file_name,
+			target_path.extension().and_then(OsStr::to_str),
+			i,
+		);
+
+		match fs::metadata(&new_file_full_path_candidate).await {
+			Ok(_) => {
+				// This candidate already exists, so we try the next one
+				continue;
+			}
+			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+				return Ok(new_file_full_path_candidate);
+			}
+			Err(e) => return Err(FileIOError::from((new_file_full_path_candidate, e)).into()),
+		}
+	}
+
+	Err(FileSystemJobsError::FailedToFindAvailableName(
+		target_path.to_path_buf().into_boxed_path(),
+	))
 }

@@ -3,6 +3,7 @@ import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
 	locationId: number;
+	rescan?: () => void;
 	pathIds: number[];
 }
 
@@ -14,12 +15,14 @@ export default (props: Props) => {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={form.handleSubmit(() =>
-				deleteFile.mutateAsync({
+			onSubmit={form.handleSubmit(async () => {
+				await deleteFile.mutateAsync({
 					location_id: props.locationId,
 					file_path_ids: props.pathIds
-				})
-			)}
+				});
+
+				props.rescan?.();
+			})}
 			dialog={useDialog(props)}
 			title="Delete a file"
 			description="Warning: This will delete your file forever, we don't have a trash can yet..."

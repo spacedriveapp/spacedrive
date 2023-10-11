@@ -48,6 +48,8 @@ export type Procedures = {
         { key: "backups.restore", input: string, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.createEphemeralFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
+        { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
@@ -135,6 +137,10 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
 export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf"
+
+export type CreateEphemeralFolderArgs = { path: string; name: string | null }
+
+export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
 export type CreateLibraryArgs = { name: LibraryName }
 

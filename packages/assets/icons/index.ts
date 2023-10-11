@@ -34,6 +34,16 @@ import Document_xls_Light from './Document_xls_Light.png';
 import Document_xls from './Document_xls.png';
 import Document from './Document.png';
 import Drive_Light from './Drive_Light.png';
+import DriveAmazonS3 from './Drive-AmazonS3.png';
+import DriveBackBlaze from './Drive-BackBlaze.png';
+import DriveBox from './Drive-Box.png';
+import DriveDAV from './Drive-DAV.png';
+import DriveDropbox from './Drive-Dropbox.png';
+import DriveGoogleDrive from './Drive-GoogleDrive.png';
+import DriveMega from './Drive-Mega.png';
+import DriveOneDrive from './Drive-OneDrive.png';
+import DriveOpenStack from './Drive-OpenStack.png';
+import DrivePCloud from './Drive-PCloud.png';
 import Drive from './Drive.png';
 import Dropbox from './Dropbox.png';
 import Encrypted_Light from './Encrypted_Light.png';
@@ -49,6 +59,7 @@ import Folder_Light from './Folder_Light.png';
 import Folder from './Folder.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import FolderGrey from './FolderGrey.png';
+import FolderNoSpace from './FolderNoSpace.png';
 import Game_Light from './Game_Light.png';
 import Game from './Game.png';
 import Globe from './Globe.png';
@@ -91,6 +102,7 @@ import ScreenshotAlt from './ScreenshotAlt.png';
 import SD from './SD.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
+import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
 import Tablet_Light from './Tablet_Light.png';
 import Tablet from './Tablet.png';
@@ -145,6 +157,16 @@ export {
 	Document_pdf_Light,
 	Document_xls,
 	Document_xls_Light,
+	DriveAmazonS3,
+	DriveBackBlaze,
+	DriveBox,
+	DriveDAV,
+	DriveDropbox,
+	DriveGoogleDrive,
+	DriveMega,
+	DriveOneDrive,
+	DriveOpenStack,
+	DrivePCloud,
 	Drive,
 	Drive_Light,
 	Dropbox,
@@ -160,6 +182,7 @@ export {
 	Folder,
 	FolderGrey,
 	FolderGrey_Light,
+	FolderNoSpace,
 	Folder_Light,
 	Game,
 	Game_Light,
@@ -203,6 +226,7 @@ export {
 	ScreenshotAlt,
 	Server,
 	Server_Light,
+	Spacedrop1,
 	Spacedrop,
 	Tablet,
 	Tablet_Light,
