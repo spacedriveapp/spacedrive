@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Controller } from 'react-hook-form';
 import { useBridgeMutation, useZodForm } from '@sd/client';
 import { Button, Form, Popover, TextAreaField, toast, usePopover, z } from '@sd/ui';
+import { LoginButton } from '~/components/LoginButton';
 
 const schema = z.object({
 	message: z.string().min(1, { message: 'Feedback is required' }),
@@ -45,7 +46,7 @@ export default function () {
 					<TextAreaField
 						{...form.register('message')}
 						placeholder="Your feedback..."
-						className="h-40 w-full flex-1"
+						className="!h-36 w-full flex-1"
 					/>
 
 					<div className="flex flex-row justify-between">
