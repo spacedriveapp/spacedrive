@@ -13,11 +13,14 @@
     <br />
     <br />
     <b>Download for </b>
-    macOS
+		·
+    !(macOS Intel)[https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64]
+    
+		!(macOS AppleSelicon)[https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64]
     ·
-    Windows
+    !(Windows)[https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64]
     ·
-    Linux
+    !(Linux)[https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64]
     ·
     iOS
     ·
@@ -25,7 +28,7 @@
     ·
     Android
     <br />
-    <i>~ Links will be added once a release is available. ~</i>
+   
   </p>
 </p>
 Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust.
