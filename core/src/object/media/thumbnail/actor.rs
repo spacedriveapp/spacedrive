@@ -495,9 +495,12 @@ async fn batch_processor(
 	let mut queue = VecDeque::from(batch);
 
 	enum RaceOutputs {
-		CasIds(Vec<String>),
+		Processed,
 		Stop,
 	}
+
+	// Need this borrow here to satisfy the async move below
+	let generated_cas_ids_tx = &generated_cas_ids_tx;
 
 	while !queue.is_empty() {
 		let chunk = (0..4)
@@ -521,7 +524,7 @@ async fn batch_processor(
 			)
 			.collect::<Vec<_>>();
 
-		match (
+		if let RaceOutputs::Stop = (
 			async move {
 				let cas_ids = chunk
 					.join()
@@ -543,8 +546,12 @@ async fn batch_processor(
 					})
 					.collect();
 
+				if generated_cas_ids_tx.send(cas_ids).await.is_err() {
+					error!("Thumbnail remover actor is dead: Failed to send generated cas ids")
+				}
+
 				trace!("Processed chunk of thumbnails");
-				RaceOutputs::CasIds(cas_ids)
+				RaceOutputs::Processed
 			},
 			async {
 				stop_rx
@@ -558,27 +565,20 @@ async fn batch_processor(
 			.race()
 			.await
 		{
-			RaceOutputs::CasIds(cas_ids) => {
-				if generated_cas_ids_tx.send(cas_ids).await.is_err() {
-					error!("Thumbnail remover actor is dead: Failed to send generated cas ids")
-				}
+			// Our queue is always contiguous, so this `from`` is free
+			let leftovers = Vec::from(queue);
+
+			trace!(
+				"Stopped with {} thumbnails left to process",
+				leftovers.len()
+			);
+			if !leftovers.is_empty() && leftovers_tx.send(leftovers).await.is_err() {
+				error!("Thumbnail remover actor is dead: Failed to send leftovers")
 			}
-			RaceOutputs::Stop => {
-				// Our queue is always contiguous, so this `from`` is free
-				let leftovers = Vec::from(queue);
 
-				trace!(
-					"Stopped with {} thumbnails left to process",
-					leftovers.len()
-				);
-				if !leftovers.is_empty() && leftovers_tx.send(leftovers).await.is_err() {
-					error!("Thumbnail remover actor is dead: Failed to send leftovers")
-				}
+			done_tx.send(()).ok();
 
-				done_tx.send(()).ok();
-
-				return;
-			}
+			return;
 		}
 	}
 
