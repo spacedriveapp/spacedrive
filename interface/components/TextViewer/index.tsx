@@ -24,12 +24,13 @@ export const TextViewer = memo(
 		const rowVirtualizer = useVirtualizer({
 			count: lines.length,
 			getScrollElement: () => parentRef.current,
-			estimateSize: () => 25
+			estimateSize: () => 22
 		});
 
 		useEffect(() => {
 			// Ignore empty urls
 			if (!src || src === '#') return;
+			if (lines.length) return;
 
 			const controller = new AbortController();
 			fetch(src, {
@@ -68,7 +69,7 @@ export const TextViewer = memo(
 				<div
 					tabIndex={0}
 					className={clsx(
-						'relative w-full whitespace-pre text-ink',
+						'relative w-full whitespace-pre text-sm text-ink',
 						codeExtension &&
 							`language-${prism.languageMapping.get(codeExtension) ?? codeExtension}`
 					)}
