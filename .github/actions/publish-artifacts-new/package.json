@@ -1,6 +1,5 @@
 {
 	"private": true,
-	"module": true,
 	"scripts": {
 		"build": "ncc build index.ts --minify"
 	},

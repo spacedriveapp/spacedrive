@@ -1,6 +1,6 @@
-import artifact from '@actions/artifact';
-import core from '@actions/core';
-import io from '@actions/io';
+import * as artifact from '@actions/artifact';
+import * as core from '@actions/core';
+import * as io from '@actions/io';
 
 type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
@@ -29,30 +29,37 @@ const ARTIFACTS_DIR = '.artifacts';
 
 const client = artifact.create();
 
-for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
-	const bundleDir = `${BUNDLE_DIR}/${bundle}`;
+async function run() {
+	for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
+		const bundleDir = `${BUNDLE_DIR}/${bundle}`;
 
-	const name = `Spacedrive-${OS}-${ARCH}.${ext}`;
-	const artifactPath = `${ARTIFACTS_DIR}/${name}`;
+		const name = `Spacedrive-${OS}-${ARCH}.${ext}`;
+		const artifactPath = `${ARTIFACTS_DIR}/${name}`;
 
-	await io.mv(`${bundleDir}/Spacedrive*.${ext}`, artifactPath);
-	await client.uploadArtifact(`Spacedrive-${OS}-${ARCH}`, [name], ARTIFACTS_DIR);
+		await io.mv(`${bundleDir}/Spacedrive*.${ext}`, artifactPath);
+		await client.uploadArtifact(`Spacedrive-${OS}-${ARCH}`, [name], ARTIFACTS_DIR);
 
-	if (updaterExt) {
-		const buildName = `Spacedrive.${ext}.${updaterExt}`;
-		const artifactName = `Spacedrive-Updater-${OS}-${ARCH}`;
+		if (updaterExt) {
+			const buildName = `Spacedrive.${ext}.${updaterExt}`;
+			const artifactName = `Spacedrive-Updater-${OS}-${ARCH}`;
 
-		// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-		await io.mv(`${bundleDir}/${buildName}`, `${ARTIFACTS_DIR}/${artifactName}.${updaterExt}`);
-		await io.mv(
-			`${bundleDir}/${buildName}.sig`,
-			`${ARTIFACTS_DIR}/${artifactName}.${updaterExt}.sig`
-		);
+			// https://tauri.app/v1/guides/distribution/updater#update-artifacts
+			await io.mv(
+				`${bundleDir}/${buildName}`,
+				`${ARTIFACTS_DIR}/${artifactName}.${updaterExt}`
+			);
+			await io.mv(
+				`${bundleDir}/${buildName}.sig`,
+				`${ARTIFACTS_DIR}/${artifactName}.${updaterExt}.sig`
+			);
 
-		await client.uploadArtifact(
-			artifactName,
-			[`${artifactName}.${updaterExt}*`],
-			ARTIFACTS_DIR
-		);
+			await client.uploadArtifact(
+				artifactName,
+				[`${artifactName}.${updaterExt}*`],
+				ARTIFACTS_DIR
+			);
+		}
 	}
 }
+
+run();
