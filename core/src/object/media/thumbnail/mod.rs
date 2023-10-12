@@ -21,6 +21,8 @@ use std::{
 	collections::HashMap,
 	ops::Deref,
 	path::{Path, PathBuf},
+	str::FromStr,
+	sync::Arc,
 };
 
 use futures::future::{join_all, try_join_all};
@@ -32,6 +34,7 @@ use tokio::{fs, io, task};
 use tracing::{error, trace, warn};
 use webp::Encoder;
 
+pub mod actor;
 mod directory;
 mod shard;
 
@@ -99,11 +102,15 @@ pub enum ThumbnailerError {
 	SdImages(#[from] sd_images::Error),
 	#[error("failed to execute converting task: {0}")]
 	Task(#[from] task::JoinError),
+	#[error(transparent)]
+	FFmpeg(#[from] sd_ffmpeg::ThumbnailerError),
+	#[error("thumbnail generation timed out for {}", .0.display())]
+	TimedOut(Box<Path>),
 }
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
 /// to [`TARGET_QUALITY`].
-const TAGRET_PX: f32 = 262144_f32;
+const TARGET_PX: f32 = 262144_f32;
 
 /// This is the target quality that we render thumbnails at, it is a float between 0-100
 /// and is treated as a percentage (so 30% in this case, or it's the same as multiplying by `0.3`).
@@ -122,9 +129,9 @@ pub struct ThumbnailerMetadata {
 	pub skipped: u32,
 }
 
-pub async fn generate_image_thumbnail<P: AsRef<Path>>(
-	file_path: P,
-	output_path: P,
+pub async fn generate_image_thumbnail(
+	file_path: impl AsRef<Path>,
+	output_path: impl AsRef<Path>,
 ) -> Result<(), ThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
@@ -132,7 +139,7 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
 
 		let (w, h) = img.dimensions();
-		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TAGRET_PX);
+		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
 
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let mut img = DynamicImage::ImageRgba8(imageops::resize(
@@ -177,15 +184,15 @@ pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 }
 
 #[cfg(feature = "ffmpeg")]
-pub async fn generate_video_thumbnail<P: AsRef<Path> + Send>(
-	file_path: P,
-	output_path: P,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn generate_video_thumbnail(
+	file_path: impl AsRef<Path>,
+	output_path: impl AsRef<Path>,
+) -> Result<(), ThumbnailerError> {
 	use sd_ffmpeg::to_thumbnail;
 
-	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY).await?;
-
-	Ok(())
+	to_thumbnail(file_path, output_path, 256, TARGET_QUALITY)
+		.await
+		.map_err(Into::into)
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -415,4 +422,82 @@ async fn process_single_thumbnail(
 		thumb_key: get_thumb_key(cas_id),
 	});
 	run_metadata.created += 1;
+}
+
+// TODO(fogodev): Unify how we generate thumbnails
+
+#[derive(Debug)]
+pub struct GenerateThumbnailArgs {
+	pub extension: String,
+	pub cas_id: String,
+	pub path: PathBuf,
+	pub node: Arc<Node>,
+}
+
+impl GenerateThumbnailArgs {
+	pub fn new(extension: String, cas_id: String, path: PathBuf, node: Arc<Node>) -> Self {
+		Self {
+			extension,
+			cas_id,
+			path,
+			node,
+		}
+	}
+}
+
+pub async fn generate_thumbnail(
+	extension: &str,
+	cas_id: String,
+	path: impl AsRef<Path>,
+	node: Arc<Node>,
+	in_background: bool,
+) -> Result<String, ThumbnailerError> {
+	let path = path.as_ref();
+	trace!("Generating thumbnail for {}", path.display());
+	let output_path = get_thumbnail_path(&node, &cas_id);
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != io::ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
+			);
+		}
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else {
+		trace!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return Ok(cas_id);
+	}
+
+	if let Ok(extension) = ImageExtension::from_str(extension) {
+		if can_generate_thumbnail_for_image(&extension) {
+			generate_image_thumbnail(&path, &output_path).await?;
+		}
+	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
+		if can_generate_thumbnail_for_document(&extension) {
+			generate_image_thumbnail(&path, &output_path).await?;
+		}
+	}
+
+	#[cfg(feature = "ffmpeg")]
+	{
+		if let Ok(extension) = VideoExtension::from_str(extension) {
+			if can_generate_thumbnail_for_video(&extension) {
+				generate_video_thumbnail(&path, &output_path).await?;
+			}
+		}
+	}
+
+	if !in_background {
+		trace!("Emitting new thumbnail event");
+		node.emit(CoreEvent::NewThumbnail {
+			thumb_key: get_thumb_key(&cas_id),
+		});
+	}
+
+	trace!("Generated thumbnail for {}", path.display());
+
+	Ok(cas_id)
 }
