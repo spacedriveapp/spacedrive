@@ -211,8 +211,8 @@ export const QuickPreview = () => {
 				{...dp}
 				locationId={path.location_id!}
 				pathIds={[path.id]}
-				includesDirectorys={path.is_dir ?? false}
-				includesFiles={!path.is_dir}
+				dirCount={path.is_dir ? 1 : 0}
+				fileCount={path.is_dir ? 0 : 1}
 			/>
 		));
 	});

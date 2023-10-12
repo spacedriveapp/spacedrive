@@ -30,8 +30,8 @@ export const Delete = new ConditionalItem({
 
 		const rescan = useQuickRescan();
 
-		const atLeastOneDirectory = selectedFilePaths.some((p) => p.is_dir);
-		const atLeastOneFile = selectedFilePaths.some((p) => !p.is_dir);
+		const dirCount = selectedFilePaths.filter((p) => p.is_dir).length;
+		const fileCount = selectedFilePaths.filter((p) => !p.is_dir).length;
 
 		return (
 			<Menu.Item
@@ -46,8 +46,8 @@ export const Delete = new ConditionalItem({
 							rescan={rescan}
 							locationId={locationId}
 							pathIds={selectedFilePaths.map((p) => p.id)}
-							includesDirectorys={atLeastOneDirectory}
-							includesFiles={atLeastOneFile}
+							dirCount={dirCount}
+							fileCount={fileCount}
 						/>
 					))
 				}
