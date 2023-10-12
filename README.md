@@ -5,27 +5,22 @@
   <p align="center">
    <img width="150" height="150" src="packages/assets/images/AppLogo.png" alt="Logo">
   </p>
-  <h1 align="center"><b>Spacedrive</b></h1>
-  <p align="center">
+    <h1 align="center"><b>Spacedrive</b></h1>
+	 <p align="center">
   A file explorer from the future.
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
     <b>Download for </b>
-    macOS
-    ·
-    Windows
-    ·
-    Linux
-    ·
-    iOS
-    ·
-    watchOS
-    ·
-    Android
+   <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64" >macOSIntel</a> ·
+		   <a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64" >Windows</a> ·
+   <a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64" >Linux</a> ·
+     <a href="" >IOS</a> ·
+    <a href="" >watchOS</a> ·
+		 <a href="" >Android</a> ·
     <br />
-    <i>~ Links will be added once a release is available. ~</i>
+    <i>~ Links for (IOS · watchOS · Android ) will be added once a release is available. ~</i>
   </p>
 </p>
 Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust.
