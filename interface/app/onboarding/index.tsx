@@ -24,10 +24,10 @@ export default [
 		element: <Index />
 	},
 	{ path: 'alpha', element: <Alpha /> },
-	{
-		element: <Login />,
-		path: 'login'
-	},
+	// {
+	// 	element: <Login />,
+	// 	path: 'login'
+	// },
 	{
 		element: <NewLibrary />,
 		path: 'new-library'
