@@ -1,6 +1,6 @@
 import { DotsThreeCircle } from '@phosphor-icons/react';
 import React, { forwardRef, HTMLAttributes } from 'react';
-import { Popover } from '@sd/ui';
+import { Popover, usePopover } from '@sd/ui';
 
 import TopBarButton, { TopBarButtonProps } from './TopBarButton';
 import { ToolOption, TOP_BAR_ICON_STYLE } from './TopBarOptions';
@@ -36,6 +36,7 @@ export default ({ toolOptions, className }: Props) => {
 	return (
 		<div className={className}>
 			<Popover
+				popover={usePopover()}
 				trigger={
 					<TopBarButton>
 						<DotsThreeCircle className={TOP_BAR_ICON_STYLE} />
@@ -49,11 +50,7 @@ export default ({ toolOptions, className }: Props) => {
 								{group.map((tool) => (
 									<React.Fragment key={tool.toolTipLabel}>
 										{tool.popOverComponent ? (
-											<Popover trigger={<GroupTool tool={tool} />}>
-												<div className="min-w-[250px]">
-													{tool.popOverComponent}
-												</div>
-											</Popover>
+											<ToolPopover tool={tool} />
 										) : (
 											<GroupTool tool={tool} />
 										)}
@@ -71,3 +68,11 @@ export default ({ toolOptions, className }: Props) => {
 		</div>
 	);
 };
+
+function ToolPopover({ tool }: { tool: ToolOption }) {
+	return (
+		<Popover popover={usePopover()} trigger={<GroupTool tool={tool} />}>
+			<div className="min-w-[250px]">{tool.popOverComponent}</div>
+		</Popover>
+	);
+}

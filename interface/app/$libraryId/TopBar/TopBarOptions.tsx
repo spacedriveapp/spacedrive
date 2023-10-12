@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
-import { ModifierKeys, Popover, Tooltip } from '@sd/ui';
+import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
@@ -84,6 +84,8 @@ export default ({ options }: TopBarChildrenProps) => {
 								: index === group.length - 1
 								? 'right'
 								: 'none';
+							const popover = usePopover();
+
 							return (
 								<div
 									data-tauri-drag-region={os === 'macOS'}
@@ -97,6 +99,7 @@ export default ({ options }: TopBarChildrenProps) => {
 									<>
 										{popOverComponent ? (
 											<Popover
+												popover={popover}
 												className="focus:outline-none"
 												trigger={
 													<TopBarButton

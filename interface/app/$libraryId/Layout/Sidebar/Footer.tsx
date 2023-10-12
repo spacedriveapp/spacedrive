@@ -2,12 +2,20 @@ import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, modifierSymbols, Popover, Tooltip } from '@sd/ui';
+import {
+	Button,
+	ButtonLink,
+	dialogManager,
+	modifierSymbols,
+	Popover,
+	Tooltip,
+	usePopover
+} from '@sd/ui';
 import { useKeyMatcher } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
-import FeedbackDialog from './FeedbackDialog';
+import FeedbackButton from './FeedbackButton';
 import { IsRunningJob, JobManager } from './JobManager';
 
 export default () => {
@@ -57,6 +65,7 @@ export default () => {
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
+							popover={usePopover()}
 							keybind={[key, 'j']}
 							trigger={
 								<Button
@@ -83,15 +92,7 @@ export default () => {
 						</Popover>
 					</JobManagerContextProvider>
 				</div>
-				<Button
-					variant="outline"
-					className="flex items-center gap-1"
-					onClick={() => {
-						dialogManager.create((dp) => <FeedbackDialog {...dp} />);
-					}}
-				>
-					<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
-				</Button>
+				<FeedbackButton />
 			</div>
 			{debugState.enabled && <DebugPopover />}
 		</div>

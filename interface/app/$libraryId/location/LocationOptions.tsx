@@ -21,7 +21,8 @@ import {
 	toast,
 	TOAST_TIMEOUT,
 	Tooltip,
-	tw
+	tw,
+	usePopover
 } from '@sd/ui';
 
 import TopBarButton from '../TopBar/TopBarButton';
@@ -48,6 +49,7 @@ export default function LocationOptions({ location, path }: { location: Location
 		<div className="opacity-30 group-hover:opacity-70">
 			<IconContext.Provider value={{ size: 20, className: 'r-1 h-4 w-4 opacity-60' }}>
 				<Popover
+					popover={usePopover()}
 					trigger={
 						<Button className="!p-[5px]" variant="subtle">
 							<Ellipsis className="h-3 w-3" />

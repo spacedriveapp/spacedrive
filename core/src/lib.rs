@@ -11,6 +11,7 @@ use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
+use reqwest::{RequestBuilder, Response};
 pub use sd_prisma::*;
 
 use std::{
@@ -235,6 +236,27 @@ impl Node {
 				error!("Error saving notification to config: {:?}", err);
 			}
 		}
+	}
+
+	pub async fn authed_api_request(
+		&self,
+		mut req: RequestBuilder,
+	) -> Result<Response, rspc::Error> {
+		let Some(auth_token) = self.config.get().await.auth_token else {
+			return Err(rspc::Error::new(
+				rspc::ErrorCode::Unauthorized,
+				"No auth token".to_string(),
+			));
+		};
+
+		req = req.header("authorization", auth_token.to_header());
+
+		req.send().await.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Request failed".to_string(),
+			)
+		})
 	}
 }
 
