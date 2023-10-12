@@ -7,7 +7,7 @@ use tokio::{
 	time::{interval, Duration},
 };
 
-use super::{get_volumes, Volume};
+use super::get_volumes;
 
 pub fn spawn_volume_watcher(library: Arc<Library>) {
 	spawn(async move {
@@ -21,11 +21,7 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 
 			if existing_volumes != current_volumes {
 				existing_volumes = current_volumes;
-				invalidate_query!(
-					&library,
-					"volumes.list": (),
-					()
-				);
+				invalidate_query!(&library, "volumes.list");
 			}
 		}
 	});
