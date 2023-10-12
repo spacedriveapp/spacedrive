@@ -13,14 +13,14 @@
     <br />
     <br />
     <b>Download for </b>
-		·
-    !(macOS Intel)[https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64]
-    
-		!(macOS AppleSelicon)[https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64]
+		
+    [macOS Intel](https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64)
     ·
-    !(Windows)[https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64]
+		[macOS AppleSelicon](https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64)
     ·
-    !(Linux)[https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64]
+    [Windows](https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64)
+    ·
+    [Linux](https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64)
     ·
     iOS
     ·
