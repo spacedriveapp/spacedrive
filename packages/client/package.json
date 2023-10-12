@@ -1,11 +1,8 @@
 {
 	"name": "@sd/client",
-	"version": "0.0.0",
 	"private": true,
 	"main": "./src/index.ts",
-	"files": [
-		"dist/**"
-	],
+	"types": "./src/index.ts",
 	"scripts": {
 		"test": "jest",
 		"lint": "eslint src --cache",
@@ -16,7 +13,7 @@
 		"@rspc/client": "=0.0.0-main-799eec5d",
 		"@rspc/react": "=0.0.0-main-799eec5d",
 		"@sd/config": "workspace:*",
-		"@tanstack/react-query": "^4.12.0",
+		"@tanstack/react-query": "^4.35",
 		"@zxcvbn-ts/core": "^2.1.0",
 		"@zxcvbn-ts/language-common": "^2.0.1",
 		"@zxcvbn-ts/language-en": "^2.1.0",
@@ -29,7 +26,7 @@
 		"@types/react": "^18.0.21",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^5.0.4"
+		"typescript": "^5.2"
 	},
 	"peerDependencies": {
 		"react": "^18.2.0"

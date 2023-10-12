@@ -13,7 +13,7 @@ use crate::{
 	},
 };
 
-use std::{ffi::OsStr, hash::Hash, path::PathBuf};
+use std::{hash::Hash, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -22,8 +22,8 @@ use tokio::{fs, io};
 use tracing::{trace, warn};
 
 use super::{
-	append_digit_to_filename, construct_target_filename, error::FileSystemJobsError,
-	fetch_source_and_target_location_paths, get_file_data_from_isolated_file_path,
+	construct_target_filename, error::FileSystemJobsError, fetch_source_and_target_location_paths,
+	find_available_filename_for_duplicate, get_file_data_from_isolated_file_path,
 	get_many_files_datas, FileData,
 };
 
@@ -173,68 +173,27 @@ impl StatefulJob for FileCopierJobInit {
 		} else {
 			match fs::metadata(target_full_path).await {
 				Ok(_) => {
-					let new_file_name =
-						target_full_path
-							.file_stem()
-							.ok_or(JobError::JobDataNotFound(
-								"No stem on file path, but it's supposed to be a file".to_string(),
-							))?;
-
-					let new_file_full_path_without_suffix = target_full_path.parent().map_or_else(
-						|| {
-							Err(JobError::JobDataNotFound(
-								"No parent for file path, which is supposed to be directory"
-									.to_string(),
-							))
-						},
-						|x| Ok(x.to_path_buf()),
-					)?;
-
-					for i in 1..u32::MAX {
-						let mut new_file_full_path_candidate =
-							new_file_full_path_without_suffix.clone();
-
-						append_digit_to_filename(
-							&mut new_file_full_path_candidate,
-							new_file_name.to_str().ok_or(JobError::JobDataNotFound(
-								"Unable to convert file name to &str".to_string(),
-							))?,
-							target_full_path.extension().and_then(OsStr::to_str),
-							i,
-						);
-
-						match fs::metadata(&new_file_full_path_candidate).await {
-							Ok(_) => {
-								// This candidate already exists, so we try the next one
-								continue;
-							}
-							Err(e) if e.kind() == io::ErrorKind::NotFound => {
-								fs::copy(
-									&source_file_data.full_path,
-									&new_file_full_path_candidate,
-								)
+					// Already exist a file with this name, so we need to find an available name
+					match find_available_filename_for_duplicate(target_full_path).await {
+						Ok(new_path) => {
+							fs::copy(&source_file_data.full_path, &new_path)
 								.await
 								// Using the ? here because we don't want to increase the completed task
 								// count in case of file system errors
-								.map_err(|e| {
-									FileIOError::from((new_file_full_path_candidate, e))
-								})?;
+								.map_err(|e| FileIOError::from((new_path, e)))?;
 
-								break;
-							}
-							Err(e) => {
-								return Err(
-									FileIOError::from((new_file_full_path_candidate, e)).into()
-								)
-							}
+							Ok(().into())
 						}
-					}
 
-					Ok(JobRunErrors(vec![FileSystemJobsError::WouldOverwrite(
-						target_full_path.clone().into_boxed_path(),
-					)
-					.to_string()])
-					.into())
+						Err(FileSystemJobsError::FailedToFindAvailableName(path)) => {
+							Ok(JobRunErrors(vec![
+								FileSystemJobsError::WouldOverwrite(path).to_string()
+							])
+							.into())
+						}
+
+						Err(e) => Err(e.into()),
+					}
 				}
 				Err(e) if e.kind() == io::ErrorKind::NotFound => {
 					trace!(
@@ -251,7 +210,7 @@ impl StatefulJob for FileCopierJobInit {
 
 					Ok(().into())
 				}
-				Err(e) => return Err(FileIOError::from((target_full_path, e)).into()),
+				Err(e) => Err(FileIOError::from((target_full_path, e)).into()),
 			}
 		}
 	}

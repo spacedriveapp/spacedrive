@@ -3,6 +3,7 @@ import { libraryClient, useLibraryMutation } from '@sd/client';
 import { ContextMenu, dialogManager, ModifierKeys, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
+import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../../Context';
@@ -27,6 +28,8 @@ export const Delete = new ConditionalItem({
 	Component: ({ selectedFilePaths, locationId }) => {
 		const keybind = useKeybindFactory();
 
+		const rescan = useQuickRescan();
+
 		return (
 			<Menu.Item
 				icon={Trash}
@@ -37,6 +40,7 @@ export const Delete = new ConditionalItem({
 					dialogManager.create((dp) => (
 						<DeleteDialog
 							{...dp}
+							rescan={rescan}
 							locationId={locationId}
 							pathIds={selectedFilePaths.map((p) => p.id)}
 						/>

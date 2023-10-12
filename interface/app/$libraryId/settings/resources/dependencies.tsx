@@ -11,7 +11,7 @@ export const Component = () => {
 	const platform = usePlatform();
 
 	return (
-		<div className="custom-scroll page-scroll app-background flex h-screen w-full flex-col p-5">
+		<div className="custom-scroll page-scroll flex h-screen w-full flex-col bg-app p-5">
 			<ScreenHeading>Dependencies</ScreenHeading>
 
 			{/* item has a LOT more data that we can display, i just went with the basics */}

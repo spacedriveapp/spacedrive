@@ -91,18 +91,18 @@ export function useExplorerSettings<TOrder extends Ordering>({
 	>;
 	location?: Location | null;
 }) {
-	const [store] = useState(() => proxy(settings));
+	const [store, setStore] = useState(() => proxy(settings));
 
 	useEffect(() => {
 		Object.assign(store, {
 			...settings,
-			layoutMode: store.layoutMode
+			...store
 		});
 	}, [store, settings]);
 
 	useEffect(() => {
-		store.layoutMode = settings.layoutMode;
-	}, [location])
+		setStore(proxy(settings));
+	}, [location]);
 
 	useEffect(
 		() =>

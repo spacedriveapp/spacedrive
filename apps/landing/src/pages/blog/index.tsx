@@ -1,4 +1,5 @@
 import { allPosts } from '@contentlayer/generated';
+import dayjs from 'dayjs';
 import { InferGetStaticPropsType } from 'next';
 import Head from 'next/head';
 import Image from 'next/image';
@@ -24,12 +25,12 @@ export default function BlogPage({ posts }: InferGetStaticPropsType<typeof getSt
 						Get the latest from Spacedrive.
 					</p>
 				</section>
-				<section className="animation-delay-2 mt-8 grid grid-cols-1 gap-4 will-change-transform fade-in sm:grid-cols-1 lg:grid-cols-1">
+				<section className="animation-delay-2 mt-8 grid grid-cols-1 will-change-transform fade-in sm:grid-cols-1 lg:grid-cols-1">
 					{posts.map((post) => (
 						<Link
 							key={post.slug}
 							href={post.url}
-							className="relative z-0 flex cursor-pointer flex-col gap-2 overflow-hidden rounded-xl border border-gray-500 transition-colors"
+							className="relative z-0 mb-10 flex cursor-pointer flex-col gap-2 overflow-hidden rounded-xl border border-gray-500 transition-colors"
 						>
 							{post.image && (
 								<Image
@@ -47,7 +48,7 @@ export default function BlogPage({ posts }: InferGetStaticPropsType<typeof getSt
 								{/* <p className="line-clamp-3 my-2">{post.excerpt}</p> */}
 								<p className="m-0 text-white">
 									by {post.author} &middot;{' '}
-									{new Date(post.date).toLocaleDateString()}
+									{dayjs(post.date).format('MM/DD/YYYY')}
 								</p>
 								<div className="mt-4 flex flex-wrap gap-2">
 									{post.tags.map((tag) => (

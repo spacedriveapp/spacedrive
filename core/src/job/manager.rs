@@ -29,7 +29,7 @@ use uuid::Uuid;
 use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
 
 // db is single threaded, nerd
-const MAX_WORKERS: usize = 1;
+const MAX_WORKERS: usize = 5;
 
 pub enum JobManagerEvent {
 	IngestJob(Arc<Library>, Box<dyn DynJob>),

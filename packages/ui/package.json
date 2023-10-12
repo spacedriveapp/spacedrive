@@ -36,7 +36,6 @@
 		"class-variance-authority": "^0.5.3",
 		"clsx": "^1.2.1",
 		"@phosphor-icons/react": "^2.0.10",
-		"postcss": "^8.4.17",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-loading-icons": "^1.1.0",
@@ -48,20 +47,18 @@
 		"zod": "~3.22.2"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.22.11",
+		"@babel/core": "~7",
 		"@sd/config": "workspace:*",
 		"@storybook/types": "^7.0.24",
 		"@tailwindcss/typography": "^0.5.7",
-		"@types/node": "^18.15.1",
-		"@types/react": "^18.0.21",
-		"@types/react-dom": "^18.0.6",
+		"@types/node": "^18.17",
+		"@types/react": "^18.2.0",
+		"@types/react-dom": "^18.2.0",
 		"autoprefixer": "^10.4.12",
-		"babel-loader": "^8.2.5",
-		"sass": "^1.55.0",
-		"sass-loader": "^13.0.2",
-		"style-loader": "^3.3.1",
+		"sass": "^1.68",
+		"postcss": "^8.4",
 		"tailwindcss": "^3.3.2",
 		"tailwindcss-animate": "^1.0.5",
-		"typescript": "5.0.4"
+		"typescript": "^5.2"
 	}
 }

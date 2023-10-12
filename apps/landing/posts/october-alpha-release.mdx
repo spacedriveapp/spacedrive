@@ -1,0 +1,103 @@
+---
+author: Jamie Pine
+title: October '23 Alpha Release
+tags: [News, Updates, Release]
+date: 2023-10-06
+image: images/october-23-alpha-release.png
+imageAlt: Spacedrive UI snapshot alongside logo
+---
+
+Last year, we introduced Spacedrive to the world by open-sourcing the codebase on GitHub. The reception was nothing short of phenomenal, allowing us to secure $2m in venture funding. As of today, our dedicated remote team of nine continues to grow, celebrated by over 22,000 stars on the repository. It's with immense anticipation and excitement that we present to you the public alpha of Spacedrive.
+
+Spacedrive reimagines the traditional file explorer. Its modern interface design, cross-platform framework, and constantly expanding toolkit offer a seamless file management experience.
+
+For this alpha release, downloads are available for [macOS Intel](https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64), [macOS](https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64), [Windows](https://spacedrive.com/api/releases/desktop/stable/windows/x86_64), and [Linux](https://spacedrive.com/api/releases/desktop/stable/linux/x86_64). We're aware that there are some bugs and important features yet to be incorporated such as device connectivity, multi-select, and cloud support. Despite that, there is still a lot to explore today.
+
+You start by adding local folders, network locations, and external drives into your data library. Spacedrive will keep its database in sync with the underlying file system, extracting metadata, uniquely identifying files, and generating thumbnails. This allows you to organize and search your library even when the storage locations go offline. A job manager lets you track the progress for each phase of indexing, copy/paste, encryption, media encoding, and more.
+
+For a comprehensive overview of the features included in this release, check out our [changelog](https://www.spacedrive.com/docs/changelog/alpha/0.1.0). Your participation in this alpha release will help shape the future of Spacedrive, and we can't wait for you to try it.
+
+Let's take a look at what you can do with Spacedrive today...
+
+## The Explorer
+
+The primary interface in the Spacedrive app is the Explorer—designed as a familiar interface, it is the heart of the app. From here you can explore storage locations and devices in your network. It features 4 views: Icons, List, Columns, and Media. All sidebar buttons open some variation of the Explorer.
+
+![Spacedrive Explorer](/images/explorer.png)
+
+In an upcoming release, system locations such as "Desktop", "Documents", "Downloads", "Music", etc. will be automatically added to the Explorer with indexing disabled by default. For now, you can add them manually by clicking the `Add location` button in the sidebar.
+
+## Tagging
+
+Tags are core to Spacedrive's design. Unlike folders, tags work great even when you're using many devices or storing files in different places. With tags, you can sort files easily, and even set up automatic backups, encryption, and more.
+
+We've also introduced a "tag assign mode". This handy feature lets you add tags to your files in any view. Just select your files, then click the tag you want in the bar at the bottom.¹
+
+Tags are assigned uniquely to files, so every copy of that file across your library will have the same tags. This is achieved by our content-addressable storage system, which identifies files by their content, not their location.
+
+## Albums
+
+Spacedrive will be the ultimate photo and video manager. Our personal photo libraries and camera roll are some of the most important data we own. We've designed Albums to be the best way to manage your media, from family photos to video collaboration.²
+
+## Quick Preview
+
+Quick preview is our macOS-like way of viewing files from within Spacedrive. We plan to support many more file types than we do currently, but for now, you can preview images, videos, audio, and PDFs.
+
+In a future release, we will have multi-window support, which will allow you to optionally open Quick Preview as its own window. This extends to other parts of the app, such as the Job Manager, and enables multiple windows for the app itself.
+
+## File identification
+
+Spacedrive is able to understand over 250 common file types from all operating systems and differentiate conflicting extensions by reading [magic bytes](). All files are categorized by our [Object]() kind classification. Code files never show up as video files, and all media will have thumbnails and previews. As we evolve, a few file types should be unrecognizable by Spacedrive.
+
+## Search
+
+Today you can search for files by keyword across your library instantly. Our database-powered filesystem makes for a fast and responsive search experience. In the future, we will add more advanced search features such as an array of filters, and boolean operators.
+
+## Multi-platform support
+
+We've designed Spacedrive with cross-platform support in mind from the start. Aside from the downloads for macOS, Windows and Linux, Spacedrive's core can be run via Docker, allowing you to easily self-host a node on a web server or NAS, and control it with the same interface as the app, but in the browser through your network.
+
+We've also built a mobile app for iOS and Android, which will be available in the coming weeks. Select users will have access sooner via TestFlight and Google Play Beta.
+
+## Our cloud service
+
+At its heart, Spacedrive will always be open source and free. However, we do offer optional paid services to boost your experience. For instance, with a subscription to our cloud service, you get an encrypted database and preview media backup, file transfer options, ample storage, and backup plans. These are perfect for individuals, teams, and businesses looking for better collaboration.³
+
+Connections between devices in your network are always peer-to-peer, and never go through our servers. We do not have access to your data, and we never will. Our cloud service is completely optional, and you can use Spacedrive without it.
+
+## Upcoming features
+
+- Cloud support (Dropbox, Google Drive, Mega, etc.)
+- Drag and drop, and selection history
+- Multi-device connectivity with peer-to-peer sync
+- Spacedrop (AirDrop-like experience with end-to-end encrypted internet transfer)
+- Location backup and sync between devices and clouds
+- File sharing via Spaces
+- File versioning
+- Encryption key manager
+- File encryption and encrypted containers
+- Extensions
+- Custom themes
+- Tabs and dual-pane view
+- More supported file types for Quick Preview and thumbnails
+- Machine learning for face detection, video transcription, automatic labeling, and more
+
+_...and much more!_
+
+## Underlying technology
+
+Reinventing the file explorer is a tremendous task. From OS compatibility to synchronizing a highly scalable distributed database running on-device, we've tackled the most challenging engineering problems and developed entirely new technologies to realize the Spacedrive vision. Our tech stack has never been done before, yet is working beyond expectation—from developer experience to runtime performance.
+
+Our unique implementation of a VDFS (Virtual Distributed File System) has been a key enabler for Spacedrive. It allows us to abstract away the underlying file system, and provide a unified interface for all storage locations. Utilizing content addressable storage, we can provide an unprecedented view of your data across many platforms. We've employed techniques such as constant time hashing, a novel indexing strategy to ensure that Spacedrive is fast and responsive, even with millions of files.⁴
+
+[Prisma Client Rust](https://prisma.brendonovich.dev), [rspc](https://www.rspc.dev), and [Specta](https://github.com/oscartbeaumont/specta) are all libraries developed by members of our team initially for Spacedrive, but are now growing into their own communities, with Prisma officially sponsoring PCR and working closely with Tauri to improve the developer experience.
+
+## Notes:
+
+_¹ This feature is not functional until the next minor release, in the following few days._
+
+_² Collaboration and more advanced photo management features are planned for a future release._
+
+³ Our cloud service is not yet available, but will be in the coming weeks.\_
+
+_⁴ Our constant time hashing strategy generates what we call a `cas_id`. It is used to assign file paths to a unique Object. We generate this identifier using fixed-size samples at specific points in the file's contents, along with the total size. This gives us high certainty that a given file is unique at the same speed regardless of file size. However, for sensitive operations, we generate a full `integrity_hash` which is hashed from the entire file contents. This is used for encryption, file sync, overwrite protection, and other operations where we need to be sure that the file has not been tampered with._

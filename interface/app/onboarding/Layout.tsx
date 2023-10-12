@@ -43,7 +43,7 @@ export const Component = () => {
 				</div>
 				<div className="flex justify-center p-4">
 					<p className="text-xs text-ink-dull opacity-50">
-						&copy; 2022 Spacedrive Technology Inc.
+						&copy; {new Date().getFullYear()} Spacedrive Technology Inc.
 					</p>
 				</div>
 				<div className="absolute -z-10">

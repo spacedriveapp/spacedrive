@@ -67,7 +67,6 @@ export const OBJECT_CATEGORIES: Category[] = ['Recents', 'Favorites'];
 
 // this is a gross function so it's in a separate hook :)
 export function useCategoryExplorer(category: Category) {
-	const rspc = useRspcLibraryContext();
 	const { library } = useLibraryContext();
 	const page = usePageLayoutContext();
 

@@ -16,7 +16,7 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 		<Link
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
-			className="cursor-pointer p-4 text-gray-300 no-underline transition hover:text-gray-50"
+			className="cursor-pointer p-4 text-[11pt] text-gray-300 no-underline transition hover:text-gray-50"
 			rel="noreferrer"
 		>
 			{props.children}
@@ -58,12 +58,7 @@ export default function NavBar() {
 	}, []);
 
 	return (
-		<div
-			className={clsx(
-				'fixed z-[55] h-16 w-full px-2 transition',
-				isAtTop ? 'bg-transparent' : 'backdrop-blur'
-			)}
-		>
+		<div className={'navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition'}>
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
 					<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 h-8 w-8" />
@@ -73,6 +68,7 @@ export default function NavBar() {
 				<div className="m-auto hidden space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
+					{/* <NavLink link="/pricing">Pricing</NavLink> */}
 					<NavLink link="/blog">Blog</NavLink>
 					<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
 					<div className="relative inline">
@@ -87,7 +83,11 @@ export default function NavBar() {
 				<div className="flex-1 lg:hidden" />
 				<Dropdown.Root
 					button={
-						<Button className="ml-[140px] hover:!bg-transparent" size="icon">
+						<Button
+							aria-label="mobile-menu"
+							className="ml-[140px] hover:!bg-transparent"
+							size="icon"
+						>
 							<DotsThreeVertical weight="bold" className="h-6 w-6 " />
 						</Button>
 					}
@@ -115,6 +115,9 @@ export default function NavBar() {
 						<Dropdown.Item icon={User} {...link('/team', router)}>
 							Team
 						</Dropdown.Item>
+						{/* <Dropdown.Item icon={Money} {...link('/pricing', router)}>
+							Pricing
+						</Dropdown.Item> */}
 						<Dropdown.Item icon={Chat} {...link('/blog', router)}>
 							Blog
 						</Dropdown.Item>
@@ -136,10 +139,16 @@ export default function NavBar() {
 				</Dropdown.Root>
 
 				<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
-					<Link href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
+					<Link
+						aria-label="discord"
+						href="https://discord.gg/gTaF2Z44f5"
+						target="_blank"
+						rel="noreferrer"
+					>
 						<Discord className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 					<Link
+						aria-label="github"
 						href="https://github.com/spacedriveapp/spacedrive"
 						target="_blank"
 						rel="noreferrer"
@@ -149,8 +158,8 @@ export default function NavBar() {
 				</div>
 			</div>
 			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
-				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/30"></div>
-				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/30"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
+				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
 		</div>
 	);

@@ -11,19 +11,19 @@
 		"lint": "eslint . --cache"
 	},
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^5.59.6",
-		"@typescript-eslint/parser": "^5.59.6",
-		"eslint": "^8.41.0",
+		"@typescript-eslint/eslint-plugin": "^6.7",
+		"@typescript-eslint/parser": "^6.7",
+		"eslint": "^8.50",
 		"eslint-config-next": "13.3.0",
-		"eslint-config-prettier": "^8.8.0",
+		"eslint-config-prettier": "^9.0",
 		"eslint-config-turbo": "^1.9.8",
-		"eslint-plugin-prettier": "^4.2.1",
+		"eslint-plugin-prettier": "^5.0",
 		"eslint-plugin-react": "^7.32.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"eslint-plugin-tailwindcss": "^3.12.0",
 		"eslint-utils": "^3.0.0",
 		"regexpp": "^3.2.0",
-		"vite-plugin-html": "^3.2.0",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-html": "^3.2",
+		"vite-plugin-svgr": "^3.3"
 	}
 }

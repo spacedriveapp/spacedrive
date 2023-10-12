@@ -61,7 +61,6 @@ jobs:
           build-args: |
             REPO=${{ steps.image_info.outputs.repo }}
             REPO_REF=${{ steps.image_info.outputs.repo_ref }}
-            NODE_OPTIONS: "--max-old-space-size=4096"
           containerfiles: |
             ./apps/server/docker/Dockerfile
 

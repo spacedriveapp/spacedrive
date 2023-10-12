@@ -64,7 +64,7 @@ runs:
         TARGET_TRIPLE: ${{ inputs.target }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        pushd ..
-        npm i archive-wasm mustache
+        pushd scripts
+        npm i --production
         popd
         node scripts/preprep.mjs
