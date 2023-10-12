@@ -62,7 +62,7 @@ export const ExplorerPath = memo(() => {
 		if (!pathInfo) return;
 		const pathNameLocationName = (explorerContext.parent?.type === 'Location' &&
 			explorerContext.parent?.location.name) as string;
-		const splitPaths = pathInfo.replaceAll('/', '\\').split(pathSlashOS); //replace all '/' with '\' for windows
+		const splitPaths = pathInfo.replaceAll('/', pathSlashOS).split(pathSlashOS); //replace all '/' with '\' for windows
 		const startIndex = isEphemeralLocation ? 1 : splitPaths.indexOf(pathNameLocationName);
 		const updatedPathData = splitPaths.slice(startIndex);
 		const updatedData = updatedPathData.map((path) => ({
