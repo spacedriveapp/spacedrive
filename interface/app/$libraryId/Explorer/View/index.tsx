@@ -98,7 +98,7 @@ export default memo(
 
 		useKey(['Enter'], (e) => {
 			e.stopPropagation();
-			if (os === 'windows') {
+			if (os === 'windows' && !isRenaming) {
 				doubleClick();
 			}
 		});
