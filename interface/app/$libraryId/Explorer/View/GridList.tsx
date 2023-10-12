@@ -104,7 +104,8 @@ const GridListItem = (props: {
 const CHROME_REGEX = /Chrome/;
 
 export default ({ children }: { children: RenderItem }) => {
-	const os = useOperatingSystem(true);
+	const os = useOperatingSystem();
+	const realOS = useOperatingSystem(true);
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
@@ -264,7 +265,7 @@ export default ({ children }: { children: RenderItem }) => {
 			const id = uniqueId(item.data);
 
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${os === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
 			);
 
 			if (selectedItemDom) {
@@ -311,7 +312,7 @@ export default ({ children }: { children: RenderItem }) => {
 			const id = uniqueId(newSelectedItem.data);
 
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${os === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
 			);
 			if (!selectedItemDom) return;
 
