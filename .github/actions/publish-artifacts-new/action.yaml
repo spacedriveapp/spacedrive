@@ -11,4 +11,4 @@ inputs:
     description: "'x86_64' or 'aarch64'"
 runs:
   using: node20
-  main: index.mjs
+  main: dist/index.js
