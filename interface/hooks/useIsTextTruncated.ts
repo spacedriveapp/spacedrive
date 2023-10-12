@@ -1,11 +1,23 @@
-import { RefObject, useMemo } from 'react';
+import { RefObject, useState } from 'react';
+import { useMutationObserver } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 
-export const useIsTextTruncated = (element: RefObject<HTMLElement>, text: string | null) => {
-	const { width } = useResizeObserver({ ref: element });
+export const useIsTextTruncated = (element: RefObject<HTMLElement>) => {
+	const [truncated, setTruncated] = useState(false);
 
-	return useMemo(() => {
-		if (!element.current) return false;
-		return element.current.scrollWidth > element.current.clientWidth;
-	}, [element, width, text]);
+	const handleIsTruncated = () => {
+		if (!element.current) return;
+		setTruncated(element.current.scrollWidth > element.current.clientWidth);
+	};
+
+	useMutationObserver(element, handleIsTruncated, {
+		attributes: true
+	});
+
+	useResizeObserver({
+		ref: element,
+		onResize: handleIsTruncated
+	});
+
+	return truncated;
 };

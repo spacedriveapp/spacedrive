@@ -1,5 +1,5 @@
 ---
-index: 0
+index: 1
 ---
 
 # Library Setup
@@ -10,6 +10,22 @@ For the convenience of finding, organizing and sharing files even when you don't
 
 This data is heavily compressed and very portable, you can have multiple libraries and even lock and encrypt them.
 
+## Library Sync
+
+<Notice type="warning" text="This feature is WIP" />
+
+When you connect another device, it happens via the Library. The two [Nodes]() are connected via this Library and the data is synced automatically between them.
+
+## Encrypting a Library
+
+<Notice type="warning" text="This feature is WIP" />
+
+You can encrypt a Library by clicking the Lock icon button in the Library Settings, once you have set a master password, the Library will be encrypted. If a library is locked, you will be prompted to enter the password when you try to open it. You can set an expiration time for the password, after which you will be prompted to enter it again.
+
+When a library is encrypted, the data is encrypted on disk, but the files themselves are not encrypted. This means that if you have a library that is not encrypted, and you encrypt it, the files will not be re-encrypted, only the metadata will be encrypted.
+
+If you wish to learn about encrypting files, see [File Encryption](#).
+
 ## Deleting a Library
 
-A Library can be deleted,
+A Library can be deleted by clicking the Trash icon button in the Library Settings. Deleting a library will permanently the database, the files themselves will not be deleted.

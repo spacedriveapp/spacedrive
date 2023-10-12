@@ -1,5 +1,6 @@
 import { useSnapshot } from 'valtio';
 
+import { BuildInfo } from '../core';
 import { valtioPersist } from '../lib';
 
 /**
@@ -13,11 +14,13 @@ export type PlausiblePlatformType = 'web' | 'mobile' | 'desktop' | 'unknown';
 type TelemetryState = {
 	shareFullTelemetry: boolean;
 	platform: PlausiblePlatformType;
+	buildInfo: BuildInfo | undefined;
 };
 
 export const telemetryStore = valtioPersist<TelemetryState>('sd-telemetryStore', {
 	shareFullTelemetry: false, // false by default
-	platform: 'unknown'
+	platform: 'unknown',
+	buildInfo: undefined
 });
 
 export function useTelemetryState() {

@@ -3,32 +3,32 @@ use std::path::Path;
 
 mod composite;
 mod consts;
-mod dimensions;
+mod datetime;
 mod flash;
 mod geographic;
 mod orientation;
 mod profile;
 mod reader;
-mod time;
+mod resolution;
 
 pub use composite::Composite;
 pub use consts::DMS_DIVISION;
-pub use dimensions::Dimensions;
+pub use datetime::MediaDate;
 pub use flash::{Flash, FlashMode, FlashValue};
 pub use geographic::{MediaLocation, PlusCode};
 pub use orientation::Orientation;
 pub use profile::ColorProfile;
 pub use reader::ExifReader;
-pub use time::MediaTime;
+pub use resolution::Resolution;
 
 use crate::Result;
 
 #[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct ImageMetadata {
-	pub dimensions: Dimensions,
-	pub date_taken: MediaTime,
+	pub resolution: Resolution,
+	pub date_taken: Option<MediaDate>,
 	pub location: Option<MediaLocation>,
-	pub camera_data: ImageData,
+	pub camera_data: CameraData,
 	pub artist: Option<String>,
 	pub description: Option<String>,
 	pub copyright: Option<String>,
@@ -36,7 +36,7 @@ pub struct ImageMetadata {
 }
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct ImageData {
+pub struct CameraData {
 	pub device_make: Option<String>,
 	pub device_model: Option<String>,
 	pub color_space: Option<String>,
@@ -74,8 +74,8 @@ impl ImageMetadata {
 		let mut data = Self::default();
 		let camera_data = &mut data.camera_data;
 
-		data.date_taken = MediaTime::from_reader(reader);
-		data.dimensions = Dimensions::from_reader(reader);
+		data.date_taken = MediaDate::from_reader(reader);
+		data.resolution = Resolution::from_reader(reader);
 		data.artist = reader.get_tag(Tag::Artist);
 		data.description = reader.get_tag(Tag::ImageDescription);
 		data.copyright = reader.get_tag(Tag::Copyright);
@@ -122,3 +122,14 @@ impl ImageMetadata {
 		Ok(data)
 	}
 }
+
+// TODO(brxken128): more exif spec reading so we can source colour spaces correctly too
+// pub enum ImageColorSpace {
+// 	Rgb,
+// 	RgbP,
+// 	SRgb,
+// 	Cmyk,
+// 	DciP3,
+// 	Wiz,
+// 	Biz,
+// }

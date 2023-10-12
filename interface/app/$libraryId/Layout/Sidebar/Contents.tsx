@@ -1,23 +1,14 @@
-import {
-	ArrowsClockwise,
-	CopySimple,
-	Crosshair,
-	Eraser,
-	FilmStrip,
-	Planet
-} from '@phosphor-icons/react';
+import { ArrowsClockwise, Broadcast, Planet } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { modifierSymbols, Tooltip } from '@sd/ui';
-import { SubtleButton } from '~/components/SubtleButton';
 import { useKeyMatcher } from '~/hooks';
 
 import { EphemeralSection } from './EphemeralSection';
 import Icon from './Icon';
 import { LibrarySection } from './LibrarySection';
 import SidebarLink from './Link';
-import Section from './Section';
 
 export default () => {
 	const { library } = useClientContext();
@@ -45,8 +36,9 @@ export default () => {
 				{/* <SidebarLink to="spacedrop">
 					<Icon component={Broadcast} />
 					Spacedrop
-				</SidebarLink>
-				<SidebarLink to="imports">
+				</SidebarLink> */}
+				{/*
+				{/* <SidebarLink to="imports">
 					<Icon component={ArchiveBox} />
 					Imports
 				</SidebarLink> */}
@@ -63,10 +55,10 @@ export default () => {
 					<LibrarySection />
 				</LibraryContextProvider>
 			)}
-			<Section name="Tools" actionArea={<SubtleButton />}>
+			{/* <Section name="Tools" actionArea={<SubtleButton />}>
 				<SidebarLink disabled to="duplicate-finder">
 					<Icon component={CopySimple} />
-					Duplicate Finder
+					Duplicates
 				</SidebarLink>
 				<SidebarLink disabled to="lost-and-found">
 					<Icon component={Crosshair} />
@@ -80,7 +72,7 @@ export default () => {
 					<Icon component={FilmStrip} />
 					Media Encoder
 				</SidebarLink>
-			</Section>
+			</Section> */}
 			<div className="grow" />
 		</div>
 	);

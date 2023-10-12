@@ -7,7 +7,7 @@ import Sticky from 'react-sticky-el';
 import { useDraggable } from 'react-use-draggable-scroll';
 import { Category, useLibraryQuery } from '@sd/client';
 import { tw } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useShowControls } from '~/hooks';
 
 import { useLayoutContext } from '../Layout/Context';
 import { usePageLayoutContext } from '../PageLayout/Context';
@@ -19,12 +19,13 @@ export const CategoryList = [
 	'Favorites',
 	'Albums',
 	'Photos',
+	'Screenshots',
 	'Videos',
 	'Movies',
 	'Music',
-	'Documents',
 	'Downloads',
 	'Encrypted',
+	'Documents',
 	'Projects',
 	'Applications',
 	// 'Archives',
@@ -44,12 +45,12 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 
 	const ref = useRef<HTMLDivElement>(null);
 	const { events } = useDraggable(ref as React.MutableRefObject<HTMLDivElement>);
+	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
+	const transparentBg = useShowControls().transparentBg;
 
 	const { scroll, mouseState } = useMouseHandlers({ ref });
 
 	const categories = useLibraryQuery(['categories.list']);
-
-	const [lastCategoryVisible, setLastCategoryVisible] = useState(false);
 
 	const handleArrowOnClick = (direction: 'right' | 'left') => {
 		const element = ref.current;
@@ -76,7 +77,12 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 				stickyClassName="z-20 !top-[46px]"
 				topOffset={-46}
 			>
-				<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">
+				<div
+					className={clsx(
+						'relative flex px-3 py-1.5 backdrop-blur',
+						!transparentBg && 'bg-app/90'
+					)}
+				>
 					<ArrowButton
 						onClick={() => handleArrowOnClick('right')}
 						className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}

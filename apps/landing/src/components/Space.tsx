@@ -9,8 +9,8 @@ const Stars = (props: any) => {
 	const [sphere] = useState(() => randomInSphere(new Float32Array(35000), { radius: 1 }));
 	useFrame((_, delta) => {
 		if (ref.current) {
-			ref.current.rotation.x -= delta / 100;
-			ref.current.rotation.y -= delta / 100;
+			ref.current.rotation.x -= delta / 300;
+			ref.current.rotation.y -= delta / 300;
 		}
 	});
 	return (
@@ -52,7 +52,7 @@ function ShootingStar() {
 
 export const Space: FunctionComponent = () => {
 	return (
-		<div className="absolute z-0 h-screen w-screen opacity-50">
+		<div className="absolute z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
 				<ShootingStar />
 				<ShootingStar />

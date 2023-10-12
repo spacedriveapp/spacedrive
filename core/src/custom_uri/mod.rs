@@ -475,8 +475,8 @@ async fn infer_the_mime_type(
 			"txt" => "text/plain",
 			_ => {
 				if charset.is_empty() {
-					todo!("file ext='{ext}' mime_type='{mime_type}' is not supported");
 					// "TODO: This filetype is not supported because of the missing mime type!",
+					return Err(not_implemented(()));
 				};
 				mime_type
 			}

@@ -1,28 +1,20 @@
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useMemo } from 'react';
-import { ObjectOrder, useLibraryQuery } from '@sd/client';
+import { useCallback, useMemo } from 'react';
+import { ObjectFilterArgs, ObjectOrder, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
+import { useObjectsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
-import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
-
-	const explorerData = useLibraryQuery([
-		'search.objects',
-		{
-			filter: { tags: [tagId] },
-			take: 100
-		}
-	]);
-
 	const tag = useLibraryQuery(['tags.get', tagId], { suspense: true });
 
 	const explorerSettings = useExplorerSettings({
@@ -33,12 +25,15 @@ export const Component = () => {
 				}),
 			[]
 		),
-		onSettingsChanged: () => {},
 		orderingKeys: objectOrderingKeysSchema
 	});
 
+	const { items, count, loadMore, query } = useItems({ tagId, settings: explorerSettings });
+
 	const explorer = useExplorer({
-		items: explorerData.data?.items || null,
+		items,
+		count,
+		loadMore,
 		settings: explorerSettings,
 		...(tag.data && {
 			parent: { type: 'Tag', tag: tag.data }
@@ -52,7 +47,7 @@ export const Component = () => {
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
-						loading={explorerData.isFetching}
+						loading={query.isFetching}
 						icon={<img className="h-32 w-32" src={getIcon(iconNames.Tags)} />}
 						message="No items assigned to this tag."
 					/>
@@ -61,3 +56,33 @@ export const Component = () => {
 		</ExplorerContextProvider>
 	);
 };
+
+function useItems({
+	tagId,
+	settings
+}: {
+	tagId: number;
+	settings: UseExplorerSettings<ObjectOrder>;
+}) {
+	const { library } = useLibraryContext();
+
+	const filter: ObjectFilterArgs = { tags: [tagId] };
+
+	const count = useLibraryQuery(['search.objectsCount', { filter }]);
+
+	const query = useObjectsInfiniteQuery({
+		library,
+		arg: { take: 100, filter: { tags: [tagId] } },
+		settings
+	});
+
+	const items = useMemo(() => query.data?.pages?.flatMap((d) => d.items) ?? null, [query.data]);
+
+	const loadMore = useCallback(() => {
+		if (query.hasNextPage && !query.isFetchingNextPage) {
+			query.fetchNextPage.call(undefined);
+		}
+	}, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
+
+	return { query, items, loadMore, count: count.data };
+}

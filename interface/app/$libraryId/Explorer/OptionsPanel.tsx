@@ -177,13 +177,13 @@ export default () => {
 					<Select
 						className="w-full"
 						value={
-							explorer.settingsStore.mediaViewWithDescendants ?
-							'withDescendants'
-							: 'withoutDescendants'
+							explorer.settingsStore.mediaViewWithDescendants
+								? 'withDescendants'
+								: 'withoutDescendants'
 						}
 						onChange={(value) => {
-
-							explorer.settingsStore.mediaViewWithDescendants = value === 'withDescendants';
+							explorer.settingsStore.mediaViewWithDescendants =
+								value === 'withDescendants';
 						}}
 					>
 						{mediaViewContextActions.options.map((option) => (

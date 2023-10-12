@@ -8,6 +8,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
+        { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
         { key: "files.getEphemeralMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
@@ -45,7 +46,10 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.createEphemeralFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
+        { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
@@ -119,10 +123,12 @@ export type CRDTOperation = { instance: string; timestamp: number; id: string; t
 
 export type CRDTOperationType = SharedOperation | RelationOperation
 
+export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
+
 /**
  * Meow
  */
-export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash"
+export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash" | "Screenshots"
 
 export type ChangeNodeNameArgs = { name: string | null }
 
@@ -130,11 +136,17 @@ export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOrigi
 
 export type Composite = "Unknown" | "False" | "General" | "Live"
 
+export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
+
+export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf"
+
+export type CreateEphemeralFolderArgs = { path: string; name: string | null }
+
+export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
+
 export type CreateLibraryArgs = { name: LibraryName }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
-
-export type Dimensions = { width: number; height: number }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -153,7 +165,7 @@ export type Error = { code: ErrorCode; message: string }
  */
 export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
-export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem }
+export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -177,7 +189,7 @@ export type FilePathFilterArgs = { locationId?: number | null; search?: string |
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
+export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder } | { field: "dateImageTaken"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
 
@@ -201,9 +213,7 @@ export type Header = { id: string; timestamp: string; library_id: string; librar
 
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
-export type ImageData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; red_eye: boolean | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
-
-export type ImageMetadata = { dimensions: Dimensions; date_taken: MediaTime; location: MediaLocation | null; camera_data: ImageData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
+export type ImageMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
 export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
@@ -278,16 +288,15 @@ export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
 
+/**
+ * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC (`YYYY-MM-DD HH-MM-SS ±HHMM`),
+ * where `±HHMM` is the timezone data. It may be negative if West of the Prime Meridian, or positive if East.
+ */
+export type MediaDate = string | string
+
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
-
-/**
- * This can be either naive with no TZ (`YYYY-MM-DD HH-MM-SS`) or UTC with a fixed offset (`rfc3339`).
- * 
- * This may also be `undefined`.
- */
-export type MediaTime = { Naive: string } | { Utc: string } | "Undefined"
 
 export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
 
@@ -316,7 +325,7 @@ export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHidde
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
-export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder }
+export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "dateImageTaken"; value: SortOrder }
 
 export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
 
@@ -364,6 +373,8 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 export type RenameOne = { from_file_path_id: number; to: string }
 
 export type RescanArgs = { location_id: number; sub_path: string }
+
+export type Resolution = { width: number; height: number }
 
 export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | "Error"
 

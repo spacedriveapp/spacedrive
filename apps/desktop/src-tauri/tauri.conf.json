@@ -1,13 +1,12 @@
 {
 	"package": {
-		"productName": "Spacedrive",
-		"version": "0.1.0"
+		"productName": "Spacedrive"
 	},
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
 		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm turbo run build --filter @sd/desktop"
+		"beforeBuildCommand": "pnpm turbo run build --filter=@sd/desktop..."
 	},
 	"tauri": {
 		"macOSPrivateApi": true,
@@ -31,10 +30,16 @@
 			"shortDescription": "The universal file manager.",
 			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
-				"depends": []
+				"depends": [
+					"ffmpeg",
+					"gstreamer1.0-plugins-bad",
+					"gstreamer1.0-plugins-ugly",
+					"gstreamer1.0-gtk3",
+					"gstreamer1.0-libav"
+				]
 			},
 			"macOS": {
-				"frameworks": [],
+				"frameworks": ["../../.deps/FFMpeg.framework"],
 				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"entitlements": null
@@ -50,9 +55,12 @@
 			}
 		},
 		"updater": {
-			"active": false,
+			"active": true,
+			"dialog": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
-			"endpoints": ["https://spacedrive.com/api/releases/alpha/{{target}}/{{arch}}"]
+			"endpoints": [
+				"https://spacedrive.com/api/releases/tauri/{{version}}/{{target}}/{{arch}}"
+			]
 		},
 		"allowlist": {
 			"all": false,

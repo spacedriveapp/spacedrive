@@ -94,7 +94,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 	return (
 		<div className={props.className}>
 			<Menu as="div" className={clsx('relative flex w-full text-left')}>
-				<Menu.Button as="div" className="flex-1 outline-none">
+				<Menu.Button role="button" as="div" className="flex-1 outline-none">
 					{props.button}
 				</Menu.Button>
 				<Transition

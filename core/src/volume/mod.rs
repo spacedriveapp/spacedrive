@@ -1,20 +1,28 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
 
+use std::{
+	fmt::Display,
+	hash::{Hash, Hasher},
+	path::PathBuf,
+	sync::OnceLock,
+};
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::{fmt::Display, path::PathBuf, sync::OnceLock};
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::error;
+
+pub mod watcher;
 
 fn sys_guard() -> &'static Mutex<System> {
 	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
 	SYS.get_or_init(|| Mutex::new(System::new_all()))
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum DiskType {
 	SSD,
@@ -47,6 +55,33 @@ pub struct Volume {
 	pub file_system: Option<String>,
 	pub is_root_filesystem: bool,
 }
+
+impl Hash for Volume {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.name.hash(state);
+		self.mount_points.iter().for_each(|mount_point| {
+			// Hashing like this to ignore ordering between mount points
+			mount_point.hash(state);
+		});
+		self.disk_type.hash(state);
+		self.file_system.hash(state);
+	}
+}
+
+impl PartialEq for Volume {
+	fn eq(&self, other: &Self) -> bool {
+		self.name == other.name
+			&& self.disk_type == other.disk_type
+			&& self.file_system == other.file_system
+			// Leaving mount points for last because O(n * m)
+			&& self
+				.mount_points
+				.iter()
+				.all(|mount_point| other.mount_points.contains(mount_point))
+	}
+}
+
+impl Eq for Volume {}
 
 #[derive(Error, Debug)]
 pub enum VolumeError {

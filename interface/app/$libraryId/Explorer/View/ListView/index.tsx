@@ -42,7 +42,6 @@ interface ListViewItemProps {
 	columnSizing: ColumnSizingState;
 	columnVisibility: VisibilityState;
 	isCut: boolean;
-	isSelected: boolean;
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
@@ -72,7 +71,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 const HeaderColumnName = ({ name }: { name: string }) => {
 	const textRef = useRef<HTMLParagraphElement>(null);
 
-	const isTruncated = useIsTextTruncated(textRef, name);
+	const isTruncated = useIsTextTruncated(textRef);
 
 	return (
 		<div ref={textRef} className="truncate">
@@ -1036,7 +1035,6 @@ export default () => {
 											columnSizing={columnSizing}
 											columnVisibility={columnVisibility}
 											isCut={cut}
-											isSelected={selected}
 										/>
 									</div>
 								);

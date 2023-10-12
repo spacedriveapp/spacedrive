@@ -1,5 +1,6 @@
 {
 	"name": "@sd/landing",
+	"private": true,
 	"scripts": {
 		"dev": "next dev",
 		"build": "contentlayer build && next build",
@@ -22,16 +23,20 @@
 		"autoprefixer": "^10.4.14",
 		"clsx": "^1.2.1",
 		"contentlayer": "^0.3.2",
+		"dayjs": "^1.11.8",
 		"drizzle-orm": "^0.26.0",
+		"framer-motion": "^10.11.5",
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
 		"next": "13.4.3",
-		"next-contentlayer": "^0.3.2",
+		"next-contentlayer": "^0.3.4",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
+		"react-device-detect": "^2.2.3",
 		"react-dom": "^18.2.0",
-		"react-hook-form": "~7.45.2",
-		"react-tsparticles": "^2.10.1",
+		"react-github-btn": "^1.4.0",
+		"react-hook-form": "^7.43.9",
+		"react-tsparticles": "^2.9.3",
 		"reading-time": "^1.5.0",
 		"rehype-autolink-headings": "^6.1.1",
 		"rehype-external-links": "^2.1.0",
@@ -41,7 +46,8 @@
 		"remark-gfm": "^3.0.1",
 		"remark-math": "^5.1.1",
 		"sharp": "^0.32.1",
-		"three": "^0.154",
+		"tailwind-merge": "^1.14.0",
+		"three": "^0.153.0",
 		"tsparticles": "^2.9.3",
 		"uuid": "^9.0.0",
 		"zod": "~3.22.2"
@@ -49,15 +55,14 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.0.1",
-		"@types/node": "20.2.1",
-		"@types/react": "18.2.6",
+		"@types/node": "^18.17",
+		"@types/react": "^18.2.0",
 		"@types/react-burger-menu": "^2.8.3",
-		"@types/react-dom": "18.2.4",
-		"@types/react-helmet": "^6.1.6",
-		"@types/three": "^0.152.1",
+		"@types/react-dom": "^18.2.0",
+		"@types/three": "^0.152",
 		"drizzle-kit": "db-push",
-		"postcss": "^8.4.23",
+		"postcss": "^8.4",
 		"tailwindcss": "^3.3.2",
-		"typescript": "5.0.4"
+		"typescript": "^5.2"
 	}
 }

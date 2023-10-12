@@ -197,6 +197,7 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			onSubmit={onSubmit}
 			ctaLabel="Add"
+			formClassName="min-w-[375px]"
 			errorMessageException="Location is already linked"
 			description={
 				platform.platform === 'web'
@@ -217,7 +218,7 @@ export const AddLocationDialog = ({
 					render={({ field }) => (
 						<IndexerRuleEditor
 							field={field}
-							label="File indexing rules:"
+							label="File indexing rules"
 							className="relative flex flex-col"
 							rulesContainerClass="grid grid-cols-2 gap-2"
 							ruleButtonClass="w-full"
