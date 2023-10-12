@@ -25,6 +25,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	const location = getItemLocation(data);
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 	const isFolder = 'is_dir' in data.item ? data.item.is_dir || data.type === 'Location' : false;
+	const hidden = filePathData?.hidden ?? false;
 
 	//do not refactor please - this has been done for readability
 
@@ -49,7 +50,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 					frame
 					blackBars
 					extension
-					className={clsx('px-2 py-1', cut && 'opacity-60')}
+					className={clsx('px-2 py-1', cut && 'opacity-60', hidden && 'opacity-50 grayscale')}
 				/>
 			</div>
 
