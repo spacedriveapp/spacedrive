@@ -117,13 +117,13 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Publish Artifacts (Old)
-        uses: ./.github/actions/publish-artifacts-old
+        uses: ./.github/actions/publish-artifacts
         with:
           target: ${{ matrix.settings.target }}
           profile: release
 
       - name: Publish Artifcats (New)
-        uses: ./.github/actions/publish-artifacts
+        uses: ./.github/actions/publish-artifacts-new
         with:
           os: ${{ matrix.settings.os }}
           arch: ${{ matrix.settings.arch }}
