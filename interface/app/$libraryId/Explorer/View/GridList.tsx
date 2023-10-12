@@ -261,7 +261,7 @@ export default ({ children }: { children: RenderItem }) => {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(item.data)}"]`
+				`[data-selectable-id="${uniqueId(item.data).replaceAll('\\', '\\\\')}"]`
 			);
 			if (selectedItemDom) {
 				explorer.resetSelectedItems([item.data]);
@@ -302,11 +302,10 @@ export default ({ children }: { children: RenderItem }) => {
 
 		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem?.data) return;
-
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(newSelectedItem.data)}"]`
+				`[data-selectable-id="${uniqueId(newSelectedItem.data).replaceAll('\\', '\\\\')}"]`
 			);
 
 			if (!selectedItemDom) return;
