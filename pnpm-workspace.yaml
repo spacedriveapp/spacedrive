@@ -6,3 +6,4 @@ packages:
   - 'docs'
   - 'crates/sync/example/web'
   - 'scripts'
+  - '.github/actions/*'
