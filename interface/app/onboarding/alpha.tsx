@@ -40,7 +40,7 @@ export default function OnboardingAlpha() {
 							<Discord className="h-4 w-4 fill-ink" />
 							Join Discord
 						</Button>
-						<ButtonLink to="../login" replace variant="accent">
+						<ButtonLink to="../new-library" replace variant="accent">
 							Continue
 						</ButtonLink>
 					</div>
