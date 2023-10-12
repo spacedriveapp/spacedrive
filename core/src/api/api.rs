@@ -17,8 +17,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			|node, args: Feedback| async move {
-				dbg!(&args);
-
 				node.http
 					.post(&format!("{}/api/v1/feedback", &node.env.api_url))
 					.json(&args)

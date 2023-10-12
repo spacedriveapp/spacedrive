@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Controller } from 'react-hook-form';
 import { useBridgeMutation, useZodForm } from '@sd/client';
 import { Button, Form, Popover, TextAreaField, toast, usePopover, z } from '@sd/ui';
+import { AuthCheck } from '~/components/AuthCheck';
 import { LoginButton } from '~/components/LoginButton';
 
 const schema = z.object({
@@ -43,6 +44,16 @@ export default function () {
 				className="p-2"
 			>
 				<div className="flex w-72 flex-col gap-2">
+					<AuthCheck
+						fallback={
+							<div className="flex flex-row items-center gap-2">
+								<p className="flex-1 text-xs text-ink-dull">
+									Logging in allows us to respond to your feedback
+								</p>
+								<LoginButton />
+							</div>
+						}
+					/>
 					<TextAreaField
 						{...form.register('message')}
 						placeholder="Your feedback..."
