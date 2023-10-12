@@ -10,7 +10,7 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, generate_thumbnail,
+		find_location,
 		indexer::reverse_update_directories_sizes,
 		location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -21,7 +21,7 @@ use crate::{
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query,
-			thumbnail::get_thumbnail_path,
+			thumbnail::{generate_thumbnail, get_thumbnail_path},
 		},
 		validation::hash::file_checksum,
 	},
@@ -283,7 +283,11 @@ async fn inner_create_file(
 		let inner_extension = extension.clone();
 		if let Some(cas_id) = cas_id {
 			tokio::spawn(async move {
-				generate_thumbnail(&inner_extension, &cas_id, inner_path, &node).await;
+				if let Err(e) =
+					generate_thumbnail(&inner_extension, cas_id, inner_path, node, true).await
+				{
+					error!("Failed to generate thumbnail in the watcher: {e:#?}");
+				}
 			});
 		}
 
@@ -499,7 +503,12 @@ async fn inner_update_file(
 						let inner_node = node.clone();
 						if let Some(cas_id) = cas_id {
 							tokio::spawn(async move {
-								generate_thumbnail(&ext, &cas_id, inner_path, &inner_node).await;
+								if let Err(e) =
+									generate_thumbnail(&ext, cas_id, inner_path, inner_node, true)
+										.await
+								{
+									error!("Failed to generate thumbnail in the watcher: {e:#?}");
+								}
 							});
 						}
 

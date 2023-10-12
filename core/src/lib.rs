@@ -3,7 +3,7 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	object::thumbnail_remover,
+	object::media::thumbnail::actor::Thumbnailer,
 	p2p::sync::NetworkedLibraries,
 };
 
@@ -65,7 +65,7 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
-	pub thumbnail_remover: thumbnail_remover::Actor,
+	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub env: env::Env,
 	pub http: reqwest::Client,
@@ -113,10 +113,7 @@ impl Node {
 			p2p,
 			config,
 			event_bus,
-			thumbnail_remover: thumbnail_remover::Actor::new(
-				data_dir.to_path_buf(),
-				libraries.clone(),
-			),
+			thumbnailer: Thumbnailer::new(data_dir.to_path_buf(), libraries.clone()),
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),

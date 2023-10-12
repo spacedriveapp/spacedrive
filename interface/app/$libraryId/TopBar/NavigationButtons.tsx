@@ -23,6 +23,7 @@ export const NavigationButtons = () => {
 	});
 
 	useEffect(() => {
+		if (os === 'windows') return; //windows already navigates back and forth with mouse buttons
 		const onMouseDown = (e: MouseEvent) => {
 			e.stopPropagation();
 			if (e.buttons === 8) {
@@ -35,7 +36,7 @@ export const NavigationButtons = () => {
 		};
 		window.addEventListener('mousedown', onMouseDown);
 		return () => window.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, idx, isFocused]);
+	}, [navigate, idx, isFocused, os]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">

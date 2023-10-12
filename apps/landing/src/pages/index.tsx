@@ -1,8 +1,3 @@
-/* eslint-disable tailwindcss/enforces-negative-arbitrary-values */
-
-/* eslint-disable tailwindcss/classnames-order */
-
-/* eslint-disable jsx-a11y/alt-text */
 import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import { motion } from 'framer-motion';
@@ -231,18 +226,13 @@ export default function HomePage() {
 							/>
 						)}
 
-						{!downloadEntry && (
-							<a
-								target="_blank"
-								href="https://www.github.com/spacedriveapp/spacedrive"
-							>
-								<HomeCTA
-									icon={<Github />}
-									className="z-5 relative"
-									text="Star on GitHub"
-								/>
-							</a>
-						)}
+						<a target="_blank" href="https://www.github.com/spacedriveapp/spacedrive">
+							<HomeCTA
+								icon={<Github />}
+								className="z-5 relative"
+								text="Star on GitHub"
+							/>
+						</a>
 					</div>
 
 					{multipleDownloads && (

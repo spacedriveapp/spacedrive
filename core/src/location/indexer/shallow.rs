@@ -92,7 +92,7 @@ pub async fn shallow(
 
 	debug!("Walker at shallow indexer found {to_remove_count} file_paths to be removed");
 
-	node.thumbnail_remover
+	node.thumbnailer
 		.remove_cas_ids(
 			to_remove
 				.iter()
