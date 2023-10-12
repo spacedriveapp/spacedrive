@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useMatch } from 'react-router';
 import { ExplorerItem } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
-import { useIsDark, useZodSearchParams } from '~/hooks';
+import { useIsDark, useOperatingSystem, useZodSearchParams } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -16,6 +16,8 @@ export const PATH_BAR_HEIGHT = 32;
 export const ExplorerPath = memo(() => {
 	const isDark = useIsDark();
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
+	const os = useOperatingSystem();
+	const pathSlashOS = os === 'windows' ? '\\' : '/';
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);
@@ -30,39 +32,38 @@ export const ExplorerPath = memo(() => {
 	//There are cases where the path ends with a '/' and cases where it doesn't
 	const pathInfo = indexedPath
 		? indexedPath + (path ? path.slice(0, -1) : '')
-		: path?.endsWith('/')
+		: path?.endsWith(pathSlashOS)
 		? path?.slice(0, -1)
 		: path;
 
 	const pathBuilder = (pathsToSplit: string, clickedPath: string): string => {
-		const splitPaths = pathsToSplit?.split('/');
+		const slashCheck = isEphemeralLocation ? pathSlashOS : '/'; //in ephemeral locations, the path is built with '\' instead of '/' for windows
+		const splitPaths = pathsToSplit?.split(slashCheck);
 		const indexOfClickedPath = splitPaths?.indexOf(clickedPath);
-		const newPath = splitPaths?.slice(0, (indexOfClickedPath as number) + 1).join('/') + '/';
+		const newPath =
+			splitPaths?.slice(0, (indexOfClickedPath as number) + 1).join(slashCheck) + slashCheck;
 		return newPath;
 	};
 
 	const pathRedirectHandler = (pathName: string, index: number): void => {
 		if (isEphemeralLocation) {
-			const getPaths = data?.map((p) => p.name).join('/');
-			const newPath = `/${pathBuilder(getPaths as string, pathName)}`;
-			return setSearchParams((p) => ({ ...p, path: newPath }), {
+			const currentPaths = data?.map((p) => p.name).join(pathSlashOS);
+			const newPath = `${pathSlashOS}${pathBuilder(currentPaths as string, pathName)}`;
+			setSearchParams((params) => ({ ...params, path: newPath }), { replace: true });
+		} else {
+			const newPath = pathBuilder(path as string, pathName);
+			setSearchParams((params) => ({ ...params, path: index === 0 ? '' : newPath }), {
 				replace: true
 			});
 		}
-		const newPath = pathBuilder(path as string, pathName);
-		setSearchParams((p) => ({ ...p, path: index === 0 ? '' : newPath }), {
-			replace: true
-		});
 	};
 
 	const formatPathData = useCallback(() => {
 		if (!pathInfo) return;
-
 		const pathNameLocationName = (explorerContext.parent?.type === 'Location' &&
 			explorerContext.parent?.location.name) as string;
-		const splitPaths = pathInfo.split('/');
+		const splitPaths = pathInfo.replaceAll('/', '\\').split(pathSlashOS); //replace all '/' with '\' for windows
 		const startIndex = isEphemeralLocation ? 1 : splitPaths.indexOf(pathNameLocationName);
-
 		const updatedPathData = splitPaths.slice(startIndex);
 		const updatedData = updatedPathData.map((path) => ({
 			kind: 'Folder',
