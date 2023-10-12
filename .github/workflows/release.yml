@@ -117,7 +117,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Publish Artifcats
-        uses: ./.github/actions/publish-artifacts-new
+        uses: ./.github/actions/publish-artifacts
         with:
           os: ${{ matrix.settings.os }}
           arch: ${{ matrix.settings.arch }}

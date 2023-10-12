@@ -1,5 +1,6 @@
 import * as artifact from '@actions/artifact';
 import * as core from '@actions/core';
+import * as glob from '@actions/glob';
 import * as io from '@actions/io';
 
 type OS = 'darwin' | 'windows' | 'linux';
@@ -26,38 +27,38 @@ const PROFILE = core.getInput('profile');
 
 const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
+const ARTIFACT_NAME = `Spacedrive-${OS}-${ARCH}`;
 
 const client = artifact.create();
 
 async function run() {
 	for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
-		const bundleDir = `${BUNDLE_DIR}/${bundle}`;
+		const bundlePath = `${BUNDLE_DIR}/${bundle}`;
 
-		const name = `Spacedrive-${OS}-${ARCH}.${ext}`;
+		const name = `${ARTIFACT_NAME}.${ext}`;
 		const artifactPath = `${ARTIFACTS_DIR}/${name}`;
 
-		await io.mv(`${bundleDir}/Spacedrive*.${ext}`, artifactPath);
-		await client.uploadArtifact(`Spacedrive-${OS}-${ARCH}`, [name], ARTIFACTS_DIR);
+		const globber = await glob.create(`${bundlePath}/*.${ext}*`);
+		const files = await globber.glob();
+
+		const standalonePath = files.find((file) => file.endsWith(ext));
+		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
+
+		await io.mv(standalonePath, artifactPath);
+		await client.uploadArtifact(ARTIFACT_NAME, [artifactPath], './');
 
 		if (updaterExt) {
-			const buildName = `Spacedrive.${ext}.${updaterExt}`;
-			const artifactName = `Spacedrive-Updater-${OS}-${ARCH}`;
+			const artifactName = `Spacedrive-Updater-${OS}-${ARCH}.${updaterExt}`;
+			const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
+
+			const updaterPath = files.find((file) => file.endsWith(updaterExt));
+			if (!updaterPath) throw `Updater path not found. Files: ${files}`;
 
 			// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-			await io.mv(
-				`${bundleDir}/${buildName}`,
-				`${ARTIFACTS_DIR}/${artifactName}.${updaterExt}`
-			);
-			await io.mv(
-				`${bundleDir}/${buildName}.sig`,
-				`${ARTIFACTS_DIR}/${artifactName}.${updaterExt}.sig`
-			);
+			await io.mv(updaterPath, artifactPath);
+			await io.mv(`${updaterPath}.sig`, `${artifactPath}.sig`);
 
-			await client.uploadArtifact(
-				artifactName,
-				[`${artifactName}.${updaterExt}*`],
-				ARTIFACTS_DIR
-			);
+			await client.uploadArtifact(artifactName, [`Spacedrive-Updater-*`], ARTIFACTS_DIR);
 		}
 	}
 }
