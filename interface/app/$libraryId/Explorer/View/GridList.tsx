@@ -105,6 +105,7 @@ const CHROME_REGEX = /Chrome/;
 
 export default ({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
+	const realOS = useOperatingSystem(true);
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
@@ -260,9 +261,13 @@ export default ({ children }: { children: RenderItem }) => {
 		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
+
+			const id = uniqueId(item.data);
+
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(item.data)}"]`
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
 			);
+
 			if (selectedItemDom) {
 				explorer.resetSelectedItems([item.data]);
 				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
@@ -302,13 +307,13 @@ export default ({ children }: { children: RenderItem }) => {
 
 		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem?.data) return;
-
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
-			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(newSelectedItem.data)}"]`
-			);
+			const id = uniqueId(newSelectedItem.data);
 
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
+			);
 			if (!selectedItemDom) return;
 
 			if (e.shiftKey && !getQuickPreviewStore().open) {
