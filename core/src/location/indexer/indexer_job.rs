@@ -220,7 +220,7 @@ impl StatefulJob for IndexerJobInit {
 		);
 
 		ctx.node
-			.thumbnail_remover
+			.thumbnailer
 			.remove_cas_ids(
 				to_remove
 					.iter()

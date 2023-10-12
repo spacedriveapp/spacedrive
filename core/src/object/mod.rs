@@ -9,7 +9,6 @@ pub mod fs;
 pub mod media;
 pub mod orphan_remover;
 pub mod tag;
-pub mod thumbnail_remover;
 pub mod validation;
 
 // Objects are primarily created by the identifier from Paths
