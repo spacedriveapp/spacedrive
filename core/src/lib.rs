@@ -238,10 +238,15 @@ impl Node {
 		}
 	}
 
-	pub async fn authed_api_request(
-		&self,
-		mut req: RequestBuilder,
-	) -> Result<Response, rspc::Error> {
+	pub async fn add_auth_header(&self, mut req: RequestBuilder) -> RequestBuilder {
+		if let Some(auth_token) = self.config.get().await.auth_token {
+			req = req.header("authorization", auth_token.to_header());
+		};
+
+		req
+	}
+
+	pub async fn authed_api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
 		let Some(auth_token) = self.config.get().await.auth_token else {
 			return Err(rspc::Error::new(
 				rspc::ErrorCode::Unauthorized,
@@ -249,7 +254,7 @@ impl Node {
 			));
 		};
 
-		req = req.header("authorization", auth_token.to_header());
+		let req = req.header("authorization", auth_token.to_header());
 
 		req.send().await.map_err(|_| {
 			rspc::Error::new(

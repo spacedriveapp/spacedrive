@@ -17,18 +17,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			|node, args: Feedback| async move {
-				node.http
-					.post(&format!("{}/api/v1/feedback", &node.env.api_url))
-					.json(&args)
-					.send()
-					.await
-					.map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Request failed".to_string(),
-						)
-					})
-					.and_then(ensure_response)?;
+				node.add_auth_header(
+					node.http
+						.post(&format!("{}/api/v1/feedback", &node.env.api_url)),
+				)
+				.await
+				.json(&args)
+				.send()
+				.await
+				.map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Request failed".to_string(),
+					)
+				})
+				.and_then(ensure_response)?;
 
 				Ok(())
 			}
