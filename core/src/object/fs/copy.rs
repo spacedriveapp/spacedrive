@@ -54,6 +54,10 @@ impl StatefulJob for FileCopierJobInit {
 
 	const NAME: &'static str = "file_copier";
 
+	fn target_location(&self) -> location::id::Type {
+		self.target_location_id
+	}
+
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
