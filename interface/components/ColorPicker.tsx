@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { FieldValues, useController, UseControllerProps } from 'react-hook-form';
-import { inputStyles, Popover } from '@sd/ui';
+import { inputStyles, Popover, usePopover } from '@sd/ui';
 
 interface Props<T extends FieldValues> extends UseControllerProps<T> {
 	className?: string;
@@ -12,6 +12,7 @@ export const ColorPicker = <T extends FieldValues>({ className, ...props }: Prop
 
 	return (
 		<Popover
+			popover={usePopover()}
 			trigger={
 				<div
 					className={clsx('h-4 w-4 rounded-full shadow', className)}
