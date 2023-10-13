@@ -45,7 +45,7 @@ async function run() {
 		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
 
 		await io.mv(standalonePath, artifactPath);
-		await client.uploadArtifact(ARTIFACT_NAME, [artifactPath], './');
+		await client.uploadArtifact(ARTIFACT_NAME, [artifactPath], ARTIFACTS_DIR);
 
 		if (updaterExt) {
 			const artifactName = `Spacedrive-Updater-${OS}-${ARCH}.${updaterExt}`;
@@ -58,7 +58,11 @@ async function run() {
 			await io.mv(updaterPath, artifactPath);
 			await io.mv(`${updaterPath}.sig`, `${artifactPath}.sig`);
 
-			await client.uploadArtifact(artifactName, [`Spacedrive-Updater-*`], ARTIFACTS_DIR);
+			await client.uploadArtifact(
+				artifactName,
+				[artifactPath, `${artifactPath}.sig`],
+				ARTIFACTS_DIR
+			);
 		}
 	}
 }
