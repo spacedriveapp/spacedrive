@@ -53,6 +53,7 @@ enum Error {
 #[derive(Debug)]
 enum DatabaseMessage {
 	Add(Uuid, Arc<PrismaClient>),
+	Update(Uuid, Arc<PrismaClient>),
 	Remove(Uuid),
 }
 
@@ -113,15 +114,29 @@ impl Thumbnailer {
 							match event {
 								LibraryManagerEvent::Load(library) => {
 									if databases_tx
-										.send(DatabaseMessage::Add(library.id, library.db.clone()))
+										.send(DatabaseMessage::Add(
+											library.id,
+											Arc::clone(&library.db),
+										))
 										.await
 										.is_err()
 									{
 										error!("Thumbnail remover actor is dead")
 									}
 								}
-								LibraryManagerEvent::Edit(_) => {}
-								LibraryManagerEvent::InstancesModified(_) => {}
+								LibraryManagerEvent::Edit(library)
+								| LibraryManagerEvent::InstancesModified(library) => {
+									if databases_tx
+										.send(DatabaseMessage::Update(
+											library.id,
+											Arc::clone(&library.db),
+										))
+										.await
+										.is_err()
+									{
+										error!("Thumbnail remover actor is dead")
+									}
+								}
 								LibraryManagerEvent::Delete(library) => {
 									if databases_tx
 										.send(DatabaseMessage::Remove(library.id))
@@ -283,7 +298,8 @@ impl Thumbnailer {
 					ephemeral_thumbnails_leftovers_queue.push_back(batch);
 				}
 
-				StreamMessage::Database(DatabaseMessage::Add(id, db)) => {
+				StreamMessage::Database(DatabaseMessage::Add(id, db))
+				| StreamMessage::Database(DatabaseMessage::Update(id, db)) => {
 					databases.insert(id, db);
 				}
 				StreamMessage::Database(DatabaseMessage::Remove(id)) => {
