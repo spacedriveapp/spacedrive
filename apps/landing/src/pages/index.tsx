@@ -8,7 +8,7 @@ import { ComponentProps, useEffect, useState } from 'react';
 import { Tooltip, TooltipProvider, tw } from '@sd/ui';
 import NewBanner from '~/components/NewBanner';
 import PageWrapper from '~/components/PageWrapper';
-import { detectWebGLContext, getWindow } from '~/utils/util';
+import { detectWebGLContext, getLatestSpacedriveVersion, getWindow } from '~/utils/util';
 
 import CyclingImage from '../components/CyclingImage';
 
@@ -18,8 +18,6 @@ const HomeCTA = dynamic(() => import('~/components/HomeCTA'), {
 
 const AppFrameOuter = tw.div`relative m-auto flex w-full max-w-7xl rounded-lg transition-opacity`;
 const AppFrameInner = tw.div`z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur`;
-
-const RELEASE_VERSION = 'Alpha v0.1.0';
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 const downloadEntries = {
@@ -72,6 +70,8 @@ export default function HomePage() {
 
 	const links = downloadEntry?.links;
 
+	const [spacedriveVersion, setSpacedriveVersion] = useState("Alpha");
+
 	useEffect(() => {
 		import('react-device-detect').then(({ isWindows, isMacOs, isMobile }) => {
 			if (isWindows) {
@@ -122,6 +122,10 @@ export default function HomePage() {
 			window.removeEventListener('resize', handleResize);
 			clearTimeout(resizeTimer);
 		};
+	}, []);
+
+	useEffect(() => {
+		getLatestSpacedriveVersion().then((res) => setSpacedriveVersion(res));
 	}, []);
 
 	useEffect(() => {
@@ -253,7 +257,7 @@ export default function HomePage() {
 							'animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in'
 						}
 					>
-						{RELEASE_VERSION}
+						{spacedriveVersion}
 						{formattedVersion && (
 							<>
 								<span className="mx-2 opacity-50">|</span>

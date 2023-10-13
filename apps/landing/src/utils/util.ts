@@ -1,3 +1,5 @@
+import { env } from "~/env";
+
 /**
  * Accessor for the browser's `window` object, so that `window` is
  * not access during SSG.
@@ -38,3 +40,14 @@ export function detectWebGLContext() {
 				ctx.getParameter(ctx.VERSION) != null
 		);
 }
+
+export async function getLatestSpacedriveVersion() {
+	try {
+		const r = await fetch(`https://api.github.com/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/latest`);
+		const data = await r.json();
+		return data.name;
+	} catch {
+		return "Alpha";
+	}
+}
+
