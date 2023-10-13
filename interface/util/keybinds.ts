@@ -30,7 +30,12 @@ export function keybind<T extends string>(
 		return symbol[os] ?? symbol.Other;
 	});
 
-	return [...modifierSymbol, ...keySymbol].join(os === 'macOS' ? '' : '+');
+	const value = [...modifierSymbol, ...keySymbol].join(os === 'macOS' ? '' : '+');
+
+	//we don't want modifer symbols and key symbols to be duplicated if they are the same value
+	const noDuplicates = [...new Set(value.split('+'))].join('+');
+
+	return noDuplicates;
 }
 
 export function keybindForOs(

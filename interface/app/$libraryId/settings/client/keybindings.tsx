@@ -135,10 +135,10 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Show path bar',
 			keys: {
 				macOS: {
-					value: [modifierSymbols.Meta.macOS, 'p']
+					value: [modifierSymbols.Alt.macOS, modifierSymbols.Meta.macOS, 'p']
 				},
 				all: {
-					value: [modifierSymbols.Control.Other, 'p']
+					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'p']
 				}
 			}
 		},
@@ -279,7 +279,7 @@ function createKeybindColumns(os: OperatingSystem) {
 				});
 				return shortcuts.map((shortcut, idx) => {
 					if (shortcut) {
-						if (shortcut.length <= 5) {
+						if (shortcut.length > 2) {
 							return (
 								<div key={idx.toString()} className="inline-flex items-center">
 									<kbd
@@ -292,15 +292,13 @@ function createKeybindColumns(os: OperatingSystem) {
 							);
 						} else {
 							return shortcut?.split(' ').map(([key], idx) => {
-								const controlSymbolCheck =
-									key === '⌘' ? (os === 'macOS' ? '⌘' : 'Ctrl') : key;
 								return (
 									<div key={idx.toString()} className="inline-flex items-center">
 										<kbd
 											className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 											key={idx.toString()}
 										>
-											{controlSymbolCheck}
+											{key}
 										</kbd>
 									</div>
 								);
