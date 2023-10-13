@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
-import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useIsDark, useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
@@ -59,7 +59,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region={os === 'macOS'} className="flex justify-end flex-1">
+		<div data-tauri-drag-region={os === 'macOS'} className="flex flex-1 justify-end">
 			<div data-tauri-drag-region={os === 'macOS'} className={`flex gap-0`}>
 				{options?.map((group, groupIndex) =>
 					group.map((option, index) => (
@@ -120,6 +120,7 @@ function ToolGroup({
 
 	const popover = usePopover();
 	const os = useOperatingSystem();
+	const isDark = useIsDark();
 
 	return (
 		<div
@@ -169,7 +170,10 @@ function ToolGroup({
 			{index + 1 === group.length && groupIndex + 1 !== groupCount && (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
-					className="mx-4 h-[15px] w-0 border-l border-zinc-600"
+					className={clsx(
+						'mx-4 h-[15px] w-0 border-l',
+						isDark ? 'border-zinc-600' : 'border-zinc-300'
+					)}
 				/>
 			)}
 		</div>
