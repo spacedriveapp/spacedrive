@@ -21,6 +21,13 @@
 		},
 		{
 			"type": "shell",
+			"label": "start",
+			"command": "sh",
+			"args": ["-c", "'pnpm i && pnpm prep'"],
+			"problemMatcher": ["$tsc-watch", "$rustc"]
+		},
+		{
+			"type": "shell",
 			"label": "ui:dev",
 			"problemMatcher": {
 				"base": "$tsc-watch",
