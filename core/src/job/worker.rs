@@ -22,7 +22,8 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	DynJob, JobError, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus, Jobs,
+	DynJob, JobError, JobIdentity, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput,
+	JobStatus, Jobs,
 };
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -47,6 +48,7 @@ pub enum WorkerEvent {
 pub enum WorkerCommand {
 	Pause(Instant),
 	Resume(Instant),
+	IdentifyYourself(oneshot::Sender<JobIdentity>),
 	Cancel(Instant, oneshot::Sender<()>),
 	Shutdown(Instant, oneshot::Sender<()>),
 }
@@ -172,6 +174,23 @@ impl Worker {
 					.send_modify(|report| report.status = JobStatus::Paused);
 			}
 		}
+	}
+
+	pub async fn who_am_i(&self) -> Option<JobIdentity> {
+		let (tx, rx) = oneshot::channel();
+		if self
+			.commands_tx
+			.send(WorkerCommand::IdentifyYourself(tx))
+			.await
+			.is_err()
+		{
+			warn!("Failed to send identify yourself command to a job worker");
+			return None;
+		}
+
+		rx.await
+			.map_err(|_| warn!("Failed to receive identify yourself answer from a job worker"))
+			.ok()
 	}
 
 	pub async fn resume(&self) {

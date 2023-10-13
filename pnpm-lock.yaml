@@ -754,6 +754,9 @@ importers:
       react-sticky-el:
         specifier: ^2.1.0
         version: 2.1.0(react-dom@18.2.0)(react@18.2.0)
+      react-truncate-markup:
+        specifier: ^5.1.2
+        version: 5.1.2(react@18.2.0)
       react-use-draggable-scroll:
         specifier: ^0.4.7
         version: 0.4.7(react@18.2.0)
@@ -14010,6 +14013,10 @@ packages:
     transitivePeerDependencies:
       - supports-color
 
+  /computed-style@0.1.4:
+    resolution: {integrity: sha512-WpAmaKbMNmS3OProfHIdJiNleNJdgUrJfbKArXua28QF7+0CoZjlLn0lp6vlc+dl5r2/X9GQiQRQQU4BzSa69w==}
+    dev: false
+
   /concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
@@ -18670,6 +18677,13 @@ packages:
     resolution: {integrity: sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ==}
     engines: {node: '>=10'}
 
+  /line-height@0.3.1:
+    resolution: {integrity: sha512-YExecgqPwnp5gplD2+Y8e8A5+jKpr25+DzMbFdI1/1UAr0FJrTFv4VkHLf8/6B590i1wUPJWMKKldkd/bdQ//w==}
+    engines: {node: '>= 4.0.0'}
+    dependencies:
+      computed-style: 0.1.4
+    dev: false
+
   /lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
@@ -22396,6 +22410,18 @@ packages:
       - '@types/react'
     dev: false
 
+  /react-truncate-markup@5.1.2(react@18.2.0):
+    resolution: {integrity: sha512-eEq6T8Rs+wz98cRYzQECGFNBfXwRYraLg/kz52f6DRBKmzxqB+GYLeDkVe/zrC+2vh5AEwM6nSYFvDWEBljd0w==}
+    peerDependencies:
+      react: '>=16.3'
+    dependencies:
+      line-height: 0.3.1
+      memoize-one: 5.2.1
+      prop-types: 15.8.1
+      react: 18.2.0
+      resize-observer-polyfill: 1.5.1
+    dev: false
+
   /react-tsparticles@2.10.1(react@18.2.0):
     resolution: {integrity: sha512-l/xzw9ZOV9M0WJTsZh6AE0SQ9gqZCeGpLsKdm5rr6qWk1DEOd/szbQca3DQENTjQNXXwqZZjKuoAOomnLlRvuA==}
     requiresBuild: true
@@ -22819,6 +22845,10 @@ packages:
 
   /reselect@4.1.8:
     resolution: {integrity: sha512-ab9EmR80F/zQTMNeneUr4cv+jSwPJgIlvEmVwLerwrWVbpLlBuls9XHzIeTFy4cegU2NHBp3va0LKOzU5qFEYQ==}
+
+  /resize-observer-polyfill@1.5.1:
+    resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
+    dev: false
 
   /resolve-from@3.0.0:
     resolution: {integrity: sha512-GnlH6vxLymXJNMBo7XP1fJIzBFbdYt49CuTwmB/6N53t+kMPRMFKz783LlQ4tv28XoQfMWinAJX6WCGf2IlaIw==}

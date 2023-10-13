@@ -24,7 +24,7 @@ export default () => {
 	const navigate = useNavigate();
 	const { key, icon } = useKeyMatcher('Meta');
 
-	useKeys([key, 'Shift', 'KeyS'], (e) => {
+	useKeys([key, 'Shift', 'KeyT'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
@@ -58,7 +58,7 @@ export default () => {
 						<Tooltip
 							position="top"
 							label="Settings"
-							keybinds={[modifierSymbols.Shift.Other, icon, 'S']}
+							keybinds={[modifierSymbols.Shift.Other, icon, 'T']}
 						>
 							<Gear className="h-5 w-5" />
 						</Tooltip>

@@ -3,8 +3,9 @@ import type {} from '@sd/client';
 
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ContextMenu, ModifierKeys, toast } from '@sd/ui';
+import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
+import { useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 import { usePlatform, type Platform } from '~/util/Platform';
@@ -104,11 +105,12 @@ export const Rename = new ConditionalItem({
 	Component: () => {
 		const explorerView = useExplorerViewContext();
 		const keybind = useKeybindFactory();
+		const os = useOperatingSystem(true);
 
 		return (
 			<ContextMenu.Item
 				label="Rename"
-				keybind={keybind([], ['Enter'])}
+				keybind={keybind([], [os === 'windows' ? 'F2' : 'Enter'])}
 				onClick={() => explorerView.setIsRenaming(true)}
 			/>
 		);

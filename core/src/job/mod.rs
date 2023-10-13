@@ -9,6 +9,8 @@ use std::{
 	time::Instant,
 };
 
+use sd_prisma::prisma::location;
+
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{select, sync::mpsc};
 use tracing::{debug, info, trace, warn};
@@ -26,6 +28,14 @@ pub use worker::*;
 
 pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<serde_json::Value>;
+
+#[derive(Debug)]
+pub struct JobIdentity {
+	pub id: Uuid,
+	pub name: &'static str,
+	pub target_location: location::id::Type,
+	pub status: JobStatus,
+}
 
 #[derive(Debug, Default)]
 pub struct JobRunErrors(pub Vec<String>);
@@ -83,6 +93,9 @@ pub trait StatefulJob:
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError>;
+
+	/// The location id where this job will act upon
+	fn target_location(&self) -> location::id::Type;
 
 	/// is called for each step in the job. These steps are created in the `Self::init` method.
 	async fn execute_step(
@@ -182,7 +195,6 @@ pub struct Job<SJob: StatefulJob> {
 	hash: u64,
 	report: Option<JobReport>,
 	state: Option<JobState<SJob>>,
-	// stateful_job: Option<SJob>,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
 
@@ -462,12 +474,17 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			.take()
 			.expect("critical error: missing job state");
 
+		let target_location = init.target_location();
+
 		let stateful_job = Arc::new(init);
 
 		let ctx = Arc::new(ctx);
 
 		let mut job_should_run = true;
 		let job_time = Instant::now();
+
+		// Just for self identification purposes
+		let mut inner_status = JobStatus::Running;
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		let working_data = if let Some(data) = data {
@@ -496,16 +513,42 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				select! {
 					Some(command) = commands_rx.recv() => {
 						match command {
+							WorkerCommand::IdentifyYourself(tx) => {
+								if tx.send(
+									JobIdentity {
+										id: job_id,
+										name: job_name,
+										target_location,
+										status: inner_status
+									}
+								).is_err() {
+									warn!("Failed to send IdentifyYourself event reply");
+								}
+							}
 							WorkerCommand::Pause(when) => {
 								debug!(
 									"Pausing Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
 									when.elapsed()
 								);
 
+								inner_status = JobStatus::Paused;
+
 								// In case of a Pause command, we keep waiting for the next command
 								let paused_time = Instant::now();
 								while let Some(command) = commands_rx.recv().await {
 									match command {
+										WorkerCommand::IdentifyYourself(tx) => {
+											if tx.send(
+												JobIdentity {
+													id: job_id,
+													name: job_name,
+													target_location,
+													status: inner_status
+												}
+											).is_err() {
+												warn!("Failed to send IdentifyYourself event reply");
+											}
+										}
 										WorkerCommand::Resume(when) => {
 											debug!(
 												"Resuming Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
@@ -515,6 +558,8 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 												"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
 												paused_time.elapsed()
 											);
+											inner_status = JobStatus::Running;
+
 											break;
 										}
 										// The job can also be shutdown or canceled while paused
@@ -654,16 +699,42 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 						// Here we have a channel that we use to receive commands from the worker
 						Some(command) = commands_rx.recv() => {
 							match command {
+								WorkerCommand::IdentifyYourself(tx) => {
+									if tx.send(
+										JobIdentity {
+											id: job_id,
+											name: job_name,
+											target_location,
+											status: inner_status
+										}
+									).is_err() {
+										warn!("Failed to send IdentifyYourself event reply");
+									}
+								}
 								WorkerCommand::Pause(when) => {
 									debug!(
 										"Pausing Job <id='{job_id}', name='{job_name}'> took {:?}",
 										when.elapsed()
 									);
 
+									inner_status = JobStatus::Paused;
+
 									// In case of a Pause command, we keep waiting for the next command
 									let paused_time = Instant::now();
 									while let Some(command) = commands_rx.recv().await {
 										match command {
+											WorkerCommand::IdentifyYourself(tx) => {
+												if tx.send(
+													JobIdentity {
+														id: job_id,
+														name: job_name,
+														target_location,
+														status: inner_status
+													}
+												).is_err() {
+													warn!("Failed to send IdentifyYourself event reply");
+												}
+											}
 											WorkerCommand::Resume(when) => {
 												debug!(
 													"Resuming Job <id='{job_id}', name='{job_name}'> took {:?}",
@@ -673,6 +744,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
 													paused_time.elapsed(),
 												);
+												inner_status = JobStatus::Running;
 												break;
 											}
 											// The job can also be shutdown or canceled while paused
