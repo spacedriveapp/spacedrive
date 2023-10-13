@@ -21,16 +21,15 @@ export function LoginButton({ children, ...props }: { onLogin?(): void } & Butto
 				{authState.status !== 'loggingIn' ? children || 'Log in' : 'Logging In...'}
 			</Button>
 			{authState.status === 'loggingIn' && (
-				<a
-					href="#"
+				<button
 					onClick={(e) => {
 						e.preventDefault();
 						auth.cancel();
 					}}
-					className="light:text-gray-800 mt-2 text-sm dark:text-gray-200"
+					className="text-ink-200 mt-2 text-sm"
 				>
 					Cancel
-				</a>
+				</button>
 			)}
 		</div>
 	);
