@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { useInView } from 'framer-motion';
 import Image from 'next/image';
 import React, { useRef } from 'react';
+
 import CloudStorageArt from './CloudStorageArt';
 
 const CloudStorage = () => {
@@ -25,7 +26,7 @@ const CloudStorage = () => {
 				</div>
 				<Image
 					src="/images/cloudgradient.webp"
-					className="absolute left-0 right-0 top-[-100px] mx-auto"
+					className="absolute inset-x-0 top-[-100px] mx-auto"
 					width={560}
 					height={200}
 					alt="cloud gradient"

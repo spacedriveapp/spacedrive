@@ -50,7 +50,7 @@ export const keySymbols: Record<string, { macOS?: string; Windows?: string; Othe
 	'End': { macOS: '↘', Other: 'End' },
 	'PageUp': { macOS: '⇞', Other: 'PgUp' },
 	'PageDown': { macOS: '⇟', Other: 'PgDn' },
-	'Shift': { macOS: '⇧', Other: 'Shift'},
+	'Shift': { macOS: '⇧', Other: 'Shift' },
 	'PrintScreen': { Other: 'PrtSc' },
 	'ScrollLock': { macOS: '⤓', Other: 'ScrLk' },
 	'Pause': { macOS: '⎉', Other: 'Pause' }
