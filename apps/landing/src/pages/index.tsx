@@ -220,7 +220,9 @@ export default function HomePage() {
 							<HomeCTA
 								icon={downloadEntry.icon}
 								text={`Download for ${downloadEntry.name}`}
-								onClick={() => (multipleDownloads ? undefined : links)}
+								onClick={() =>
+									setMultipleDownloads(multipleDownloads ? undefined : links)
+								}
 							/>
 						)}
 
