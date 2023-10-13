@@ -44,7 +44,7 @@ async function run() {
 		const standalonePath = files.find((file) => file.endsWith(ext));
 		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
 
-		await io.mv(standalonePath, artifactPath);
+		await io.cp(standalonePath, artifactPath);
 		await client.uploadArtifact(ARTIFACT_NAME, [artifactPath], './');
 
 		if (updaterExt) {
@@ -55,8 +55,8 @@ async function run() {
 			if (!updaterPath) throw `Updater path not found. Files: ${files}`;
 
 			// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-			await io.mv(updaterPath, artifactPath);
-			await io.mv(`${updaterPath}.sig`, `${artifactPath}.sig`);
+			await io.cp(updaterPath, artifactPath);
+			await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
 
 			await client.uploadArtifact(artifactName, [artifactPath, `${artifactPath}.sig`], './');
 		}
