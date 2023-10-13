@@ -1,18 +1,11 @@
 import { auth, useBridgeQuery } from '@sd/client';
-import { Button, Card, Loader } from '@sd/ui';
-import { LoginButton } from '~/components/LoginButton';
+import { Button, Card } from '@sd/ui';
+import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 
 export function SpacedriveAccount() {
-	const authState = auth.useStateSnapshot();
-
 	return (
 		<Card className="relative overflow-hidden px-5">
-			{authState.status !== 'loggedIn' && (
-				<div className="absolute inset-0 z-50 flex items-center justify-center bg-app/75 backdrop-blur-lg">
-					{authState.status === 'loading' ? <Loader /> : <LoginButton />}
-				</div>
-			)}
-
+			<AuthRequiredOverlay />
 			<Account />
 		</Card>
 	);

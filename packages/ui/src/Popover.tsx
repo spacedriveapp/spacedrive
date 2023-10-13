@@ -9,26 +9,31 @@ interface Props extends Radix.PopoverContentProps {
 	trigger: React.ReactNode;
 	disabled?: boolean;
 	keybind?: string[];
+	popover: ReturnType<typeof usePopover>;
 }
 
 export const PopoverContainer = tw.div`flex flex-col p-1.5`;
 export const PopoverSection = tw.div`flex flex-col`;
 export const PopoverDivider = tw.div`my-2 border-b border-app-line`;
 
-export const Popover = ({ trigger, children, disabled, className, ...props }: Props) => {
-	const triggerRef = useRef<HTMLButtonElement>(null);
-
+export function usePopover() {
 	const [open, setOpen] = useState(false);
+
+	return { open, setOpen };
+}
+
+export const Popover = ({ popover, trigger, children, disabled, className, ...props }: Props) => {
+	const triggerRef = useRef<HTMLButtonElement>(null);
 
 	useKeys(props.keybind ?? [], (e) => {
 		if (!props.keybind) return;
 		e.stopPropagation();
-		setOpen(!open);
+		popover.setOpen(!open);
 	});
 
 	useEffect(() => {
 		const onResize = () => {
-			if (triggerRef.current && triggerRef.current.offsetWidth === 0) setOpen(false);
+			if (triggerRef.current && triggerRef.current.offsetWidth === 0) popover.setOpen(false);
 		};
 
 		window.addEventListener('resize', onResize);
@@ -38,7 +43,7 @@ export const Popover = ({ trigger, children, disabled, className, ...props }: Pr
 	}, []);
 
 	return (
-		<Radix.Root open={open} onOpenChange={setOpen}>
+		<Radix.Root open={popover.open} onOpenChange={popover.setOpen}>
 			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
 				{trigger}
 			</Radix.Trigger>

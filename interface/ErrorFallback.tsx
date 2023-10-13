@@ -6,6 +6,7 @@ import { Button, Dialogs } from '@sd/ui';
 
 import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
+import { usePlatform } from './util/Platform';
 
 export function RouterErrorBoundary() {
 	const error = useRouteError();
@@ -56,6 +57,7 @@ export function ErrorPage({
 	useTheme();
 	const debug = useDebugState();
 	const os = useOperatingSystem();
+	const platform = usePlatform();
 	const isMacOS = os === 'macOS';
 
 	const resetHandler = () => {
@@ -97,11 +99,19 @@ export function ErrorPage({
 						Reload
 					</Button>
 				)}
-				{sendReportBtn && (
-					<Button variant="gray" className="mt-2" onClick={sendReportBtn}>
-						Send report
+				<Button
+					variant="gray"
+					className="mt-2"
+					onClick={() => (sendReportBtn ? sendReportBtn() : captureException(message))}
+				>
+					Send report
+				</Button>
+				{platform.openLogsDir && (
+					<Button variant="gray" className="mt-2" onClick={platform.openLogsDir}>
+						Open Logs
 					</Button>
 				)}
+
 				{(errorsThatRequireACoreReset.includes(message) ||
 					message.startsWith('NodeError::FailedToInitializeConfig') ||
 					message.startsWith('failed to initialize library manager')) && (

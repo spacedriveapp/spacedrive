@@ -8,6 +8,7 @@ import {
 	useState,
 	type ReactNode
 } from 'react';
+import { useMatch } from 'react-router';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
@@ -108,6 +109,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const realOS = useOperatingSystem(true);
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
@@ -121,7 +123,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
 
-	const itemDetailsHeight = settings.gridItemSize / 4 + (settings.showBytesInGridView ? 20 : 0);
+	const itemDetailsHeight = 44 + (settings.showBytesInGridView && !isEphemeralLocation ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
 
 	const padding = settings.layoutMode === 'grid' ? 12 : 0;

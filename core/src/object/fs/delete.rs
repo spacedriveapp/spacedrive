@@ -33,6 +33,10 @@ impl StatefulJob for FileDeleterJobInit {
 
 	const NAME: &'static str = "file_deleter";
 
+	fn target_location(&self) -> location::id::Type {
+		self.location_id
+	}
+
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
