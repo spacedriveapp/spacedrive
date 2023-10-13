@@ -14,7 +14,6 @@ export function LoginButton({ children, ...props }: { onLogin?(): void } & Butto
 				disabled={authState.status === 'loggingIn'}
 				onClick={async () => {
 					await auth.login(platform.auth);
-
 					props.onLogin?.();
 				}}
 				{...props}
@@ -28,7 +27,7 @@ export function LoginButton({ children, ...props }: { onLogin?(): void } & Butto
 						e.preventDefault();
 						auth.cancel();
 					}}
-					className="mt-2 text-sm text-gray-200"
+					className="light:text-gray-800 mt-2 text-sm dark:text-gray-200"
 				>
 					Cancel
 				</a>
