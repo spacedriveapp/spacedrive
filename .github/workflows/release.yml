@@ -116,7 +116,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - name: Publish Artifcats
+      - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
           os: ${{ matrix.settings.os }}
