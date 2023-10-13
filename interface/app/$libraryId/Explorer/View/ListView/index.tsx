@@ -61,7 +61,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 					className={clsx(
 						'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
 						cell.column.columnDef.meta?.className,
-						hidden && 'opacity-50 grayscale'
+						hidden && 'opacity-50'
 					)}
 					style={{ width: cell.column.getSize() }}
 				>

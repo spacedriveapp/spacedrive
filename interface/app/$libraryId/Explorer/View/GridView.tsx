@@ -50,7 +50,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 					frame
 					blackBars
 					extension
-					className={clsx('px-2 py-1', cut && 'opacity-60', hidden && 'opacity-50 grayscale')}
+					className={clsx('px-2 py-1', cut && 'opacity-60', hidden && 'opacity-50')}
 				/>
 			</div>
 
