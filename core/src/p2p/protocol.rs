@@ -17,6 +17,8 @@ pub enum Header {
 	Pair,
 	Sync(Uuid),
 	File {
+		// Request ID
+		id: Uuid,
 		library_id: Uuid,
 		file_path_id: Uuid,
 		range: Range,
@@ -57,6 +59,7 @@ impl Header {
 					.map_err(HeaderError::SyncRequest)?,
 			)),
 			4 => Ok(Self::File {
+				id: decode::uuid(stream).await.unwrap(),
 				library_id: decode::uuid(stream).await.unwrap(),
 				file_path_id: decode::uuid(stream).await.unwrap(),
 				range: match stream.read_u8().await.unwrap() {
@@ -99,11 +102,13 @@ impl Header {
 				bytes
 			}
 			Self::File {
+				id,
 				library_id,
 				file_path_id,
 				range,
 			} => {
 				let mut buf = vec![4];
+				encode::uuid(&mut buf, id);
 				encode::uuid(&mut buf, library_id);
 				encode::uuid(&mut buf, file_path_id);
 				buf.extend_from_slice(&range.to_bytes());

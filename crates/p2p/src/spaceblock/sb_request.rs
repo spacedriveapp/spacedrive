@@ -1,5 +1,6 @@
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
+use uuid::Uuid;
 
 use crate::proto::{decode, encode};
 
@@ -45,12 +46,15 @@ impl Range {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpaceblockRequests {
+	pub id: Uuid,
 	pub block_size: BlockSize,
 	pub requests: Vec<SpaceblockRequest>,
 }
 
 #[derive(Debug, Error)]
 pub enum SpaceblockRequestsError {
+	#[error("SpaceblockRequestsError::Id({0:?})")]
+	Id(#[from] decode::Error),
 	#[error("SpaceblockRequestsError::InvalidLen({0})")]
 	InvalidLen(std::io::Error),
 	#[error("SpaceblockRequestsError::SpaceblockRequest({0:?})")]
@@ -63,6 +67,10 @@ impl SpaceblockRequests {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
 	) -> Result<Self, SpaceblockRequestsError> {
+		let id = decode::uuid(stream)
+			.await
+			.map_err(SpaceblockRequestsError::Id)?;
+
 		let block_size = BlockSize::from_stream(stream)
 			.await
 			.map_err(SpaceblockRequestsError::BlockSize)?;
@@ -79,6 +87,7 @@ impl SpaceblockRequests {
 		}
 
 		Ok(Self {
+			id,
 			block_size,
 			requests,
 		})
@@ -86,6 +95,7 @@ impl SpaceblockRequests {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let Self {
+			id,
 			block_size,
 			requests,
 		} = self;
@@ -94,6 +104,7 @@ impl SpaceblockRequests {
 		}
 
 		let mut buf = block_size.to_bytes().to_vec();
+		encode::uuid(&mut buf, id);
 		buf.push(requests.len() as u8);
 		for request in requests {
 			buf.extend_from_slice(&request.to_bytes());

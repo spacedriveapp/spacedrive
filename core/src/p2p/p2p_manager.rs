@@ -345,6 +345,7 @@ impl P2PManager {
 										};
 									}
 									Header::File {
+										id,
 										library_id,
 										file_path_id,
 										range,
@@ -397,6 +398,7 @@ impl P2PManager {
 										let file = BufReader::new(file);
 										Transfer::new(
 											&SpaceblockRequests {
+												id,
 												block_size,
 												requests: vec![SpaceblockRequest {
 													// TODO: Removing need for this field in this case
@@ -616,6 +618,7 @@ impl P2PManager {
 		tokio::spawn(async move {
 			debug!("({id}): connected, sending header");
 			let header = Header::Spacedrop(SpaceblockRequests {
+				id,
 				block_size: BlockSize::from_size(total_length),
 				requests,
 			});
@@ -691,6 +694,7 @@ impl P2PManager {
 		range: Range,
 		output: impl AsyncWrite + Unpin,
 	) {
+		let id = Uuid::new_v4();
 		let mut stream = self.manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 
 		// TODO: Tunnel for encryption + authentication
@@ -698,6 +702,7 @@ impl P2PManager {
 		stream
 			.write_all(
 				&Header::File {
+					id: id.clone(),
 					library_id: library.id,
 					file_path_id,
 					range: range.clone(),
@@ -712,6 +717,7 @@ impl P2PManager {
 
 		Transfer::new(
 			&SpaceblockRequests {
+				id,
 				block_size,
 				requests: vec![SpaceblockRequest {
 					// TODO: Removing need for this field in this case
