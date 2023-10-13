@@ -26,7 +26,7 @@ export function LoginButton({ children, ...props }: { onLogin?(): void } & Butto
 						e.preventDefault();
 						auth.cancel();
 					}}
-					className="text-ink-200 mt-2 text-sm"
+					className="mt-2 text-sm text-ink-faint"
 				>
 					Cancel
 				</button>
