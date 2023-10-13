@@ -168,12 +168,12 @@ impl Node {
 			.with(
 				tracing_fmt::Subscriber::new()
 					.with_ansi(false)
+					.with_writer(logfile)
 					.with_filter(
 						EnvFilter::builder()
 							.from_env()?
 							.add_directive("info".parse()?),
-					)
-					.with_writer(logfile),
+					),
 			)
 			.with(
 				tracing_fmt::Subscriber::new()
