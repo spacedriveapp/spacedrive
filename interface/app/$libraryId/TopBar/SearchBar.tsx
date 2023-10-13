@@ -83,19 +83,19 @@ export default () => {
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
 				getSearchStore().isFocused = false;
-				if (value === '') {
-					setSearchParams({}, { replace: true });
-					navigate(-1);
-				}
+				// if (value === '') {
+				// 	setSearchParams({}, { replace: true });
+				// 	navigate(-1);
+				// }
 			}}
 			onFocus={() => {
 				getSearchStore().isFocused = true;
-				if (searchPath.pathname !== location.pathname) {
-					navigate({
-						pathname: 'search',
-						search: createSearchParams({ search: value }).toString()
-					});
-				}
+				// if (searchPath.pathname !== location.pathname) {
+				// 	navigate({
+				// 		pathname: 'search',
+				// 		search: createSearchParams({ search: value }).toString()
+				// 	});
+				// }
 			}}
 			value={value}
 			right={

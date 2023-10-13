@@ -16,7 +16,7 @@ import { IconForCategory } from './data';
 
 export const CategoryList = [
 	'Recents',
-	'Favorites',
+	// 'Favorites',
 	'Albums',
 	'Photos',
 	'Screenshots',

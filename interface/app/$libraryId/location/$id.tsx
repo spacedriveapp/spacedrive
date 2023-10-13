@@ -31,6 +31,7 @@ import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
+import SearchOptions from '../Explorer/View/SearchOptions';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
@@ -145,7 +146,6 @@ export const Component = () => {
 				}
 				right={<DefaultTopBarOptions />}
 			/>
-
 			<Explorer
 				emptyNotice={
 					<EmptyNotice

@@ -1,7 +1,7 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeybind, useKeyMatcher } from '~/hooks';
+import { useKeybind, useKeyMatcher, useSearchStore } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -12,6 +12,7 @@ import ExplorerContextMenu from './ParentContextMenu';
 import { useExplorerStore } from './store';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
+import SearchOptions from './View/SearchOptions';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -27,6 +28,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 	const metaCtrlKey = useKeyMatcher('Meta').key;
+	const searchStore = useSearchStore();
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -67,6 +69,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						}
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
+
+						{searchStore.isFocused && <SearchOptions />}
 
 						<View
 							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}

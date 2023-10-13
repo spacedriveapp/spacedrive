@@ -26,7 +26,7 @@ export const styles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
-		'focus:ring-none focus:ring-offset-none ring-offset-app-box cursor-pointer'
+		'focus:ring-none focus:ring-offset-none cursor-pointer ring-offset-app-box'
 	],
 	{
 		variants: {
@@ -34,7 +34,8 @@ export const styles = cva(
 				icon: '!p-1',
 				lg: 'text-md px-3 py-1.5 font-medium',
 				md: 'px-2.5 py-1.5 text-sm font-medium',
-				sm: 'px-2 py-1 text-sm font-medium'
+				sm: 'px-2 py-1 text-sm font-medium',
+				xs: 'px-1.5 py-0.5 text-sm font-medium'
 			},
 			variant: {
 				default: [
@@ -60,6 +61,12 @@ export const styles = cva(
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
+			},
+			rounding: {
+				none: 'rounded-none',
+				left: 'rounded-l-md rounded-r-none',
+				right: 'rounded-l-none rounded-r-md',
+				both: 'rounded-md'
 			}
 		},
 		defaultVariants: {
