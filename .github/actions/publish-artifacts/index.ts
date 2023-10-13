@@ -5,19 +5,38 @@ import * as io from '@actions/io';
 
 type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
-type BuildTarget = { ext: string; updaterExt?: string; bundle: string };
+type TargetConfig = { bundle: string; ext: string };
+type BuildTarget = {
+	updater: TargetConfig;
+	standalone: Array<TargetConfig>;
+};
 
 const OS_TARGETS = {
-	darwin: [
-		{ ext: 'dmg', bundle: 'dmg' },
-		{ ext: 'app', updaterExt: 'tar.gz', bundle: 'macos' }
-	],
-	windows: [{ ext: 'msi', updaterExt: 'zip', bundle: 'msi' }],
-	linux: [
-		{ ext: 'deb', bundle: 'deb' },
-		{ ext: 'AppImage', updaterExt: 'tar.gz', bundle: 'appimage' }
-	]
-} satisfies Record<OS, Array<BuildTarget>>;
+	darwin: {
+		updater: {
+			bundle: 'macos',
+			ext: 'app.tar.gz'
+		},
+		standalone: [{ ext: 'dmg', bundle: 'dmg' }]
+	},
+	windows: {
+		updater: {
+			bundle: 'msi',
+			ext: 'msi.zip'
+		},
+		standalone: [{ ext: 'msi', bundle: 'msi' }]
+	},
+	linux: {
+		updater: {
+			bundle: 'appimage',
+			ext: 'AppImage.tar.gz'
+		},
+		standalone: [
+			{ ext: 'deb', bundle: 'deb' },
+			{ ext: 'AppImage', bundle: 'appimage' }
+		]
+	}
+} satisfies Record<OS, BuildTarget>;
 
 // Workflow inputs
 const OS: OS = core.getInput('os') as any;
@@ -28,48 +47,56 @@ const PROFILE = core.getInput('profile');
 const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
 const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
-const UPDATER_ARTIFACT_BASE = `Spacedrive-Updater-${OS}-${ARCH}`;
+const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
 
 const client = artifact.create();
 
-const cpOpts = { recursive: true };
+async function globFiles(pattern: string) {
+	const globber = await glob.create(pattern);
+	return await globber.glob();
+}
+
+async function uploadUpdater({ bundle, ext }: TargetConfig) {
+	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
+
+	const updaterPath = files.find((file) => file.endsWith(ext));
+	if (!updaterPath) return console.error(`Updater path not found. Files: ${files}`);
+
+	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${ext}`;
+
+	// https://tauri.app/v1/guides/distribution/updater#update-artifacts
+	await io.cp(updaterPath, artifactPath);
+	await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
+
+	await client.uploadArtifact(
+		UPDATER_ARTIFACT_NAME,
+		[artifactPath, `${artifactPath}.sig`],
+		ARTIFACTS_DIR
+	);
+}
+
+async function uploadStandalone({ bundle, ext }: TargetConfig) {
+	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
+
+	const standalonePath = files.find((file) => file.endsWith(ext));
+	if (!standalonePath) return console.error(`Standalone path not found. Files: ${files}`);
+
+	const artifactName = `${ARTIFACT_BASE}.${ext}`;
+	const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
+
+	await io.cp(standalonePath, artifactPath, { recursive: true });
+	await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
+}
 
 async function run() {
 	await io.mkdirP(ARTIFACTS_DIR);
 
-	for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
-		const bundlePath = `${BUNDLE_DIR}/${bundle}`;
+	const { updater, standalone } = OS_TARGETS[OS];
 
-		const artifactName = `${ARTIFACT_BASE}.${ext}`;
-		const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
+	await uploadUpdater(updater);
 
-		const globber = await glob.create(`${bundlePath}/*.${ext}*`);
-		const files = await globber.glob();
-
-		const standalonePath = files.find((file) => file.endsWith(ext));
-		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
-
-		await io.cp(standalonePath, artifactPath, cpOpts);
-		await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
-
-		if (updaterExt) {
-			const updaterName = `${UPDATER_ARTIFACT_BASE}.${updaterExt}`;
-			const artifactPath = `${ARTIFACTS_DIR}/${updaterName}`;
-
-			const updaterPath = files.find((file) => file.endsWith(updaterExt));
-			if (!updaterPath) throw `Updater path not found. Files: ${files}`;
-
-			// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-			await io.cp(updaterPath, artifactPath, cpOpts);
-			await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`, cpOpts);
-
-			await client.uploadArtifact(
-				UPDATER_ARTIFACT_BASE,
-				[artifactPath, `${artifactPath}.sig`],
-				ARTIFACTS_DIR
-			);
-		}
+	for (const config of standalone) {
+		await uploadStandalone(config);
 	}
 }
-
 run();
