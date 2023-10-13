@@ -68,6 +68,39 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 	],
 	Explorer: [
 		{
+			action: 'Switch to grid view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '1']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '1']
+				}
+			}
+		},
+		{
+			action: 'Switch to list view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '2']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '2']
+				}
+			}
+		},
+		{
+			action: 'Switch to media view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '3']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '3']
+				}
+			}
+		},
+		{
 			description: 'Where you explore your folders and files',
 			action: 'Navigate explorer items',
 			keys: {
@@ -95,17 +128,6 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 				},
 				all: {
 					value: [modifierSymbols.Control.Other, '[']
-				}
-			}
-		},
-		{
-			action: 'Switch explorer layout',
-			keys: {
-				macOS: {
-					value: [modifierSymbols.Meta.macOS, 'b']
-				},
-				all: {
-					value: [modifierSymbols.Control.Other, 'b']
 				}
 			}
 		},
