@@ -35,7 +35,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 		(!isRenaming || (isRenaming && !selected));
 
 	return (
-		<ViewItem data={data} className="h-full w-full">
+		<ViewItem data={data} className={clsx("h-full w-full", hidden && 'opacity-50')}>
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>
@@ -44,7 +44,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 					frame
 					blackBars
 					extension
-					className={clsx('px-2 py-1', cut && 'opacity-60', hidden && 'opacity-50')}
+					className={clsx('px-2 py-1', cut && 'opacity-60')}
 				/>
 			</div>
 
@@ -53,7 +53,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
-							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
+							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull'
 						)}
 					>
 						{`${byteSize(filePathData.size_in_bytes_bytes)}`}
