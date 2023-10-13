@@ -26,9 +26,8 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{JobManagerError, JobReport, JobStatus, StatefulJob};
+use super::{JobIdentity, JobManagerError, JobReport, JobStatus, StatefulJob};
 
-// db is single threaded, nerd
 const MAX_WORKERS: usize = 5;
 
 pub enum JobManagerEvent {
@@ -353,6 +352,15 @@ impl Jobs {
 			}
 		}
 
+		false
+	}
+
+	pub async fn has_job_running(&self, predicate: impl Fn(JobIdentity) -> bool) -> bool {
+		for worker in self.running_workers.read().await.values() {
+			if worker.who_am_i().await.map(&predicate).unwrap_or(false) {
+				return true;
+			}
+		}
 		false
 	}
 }

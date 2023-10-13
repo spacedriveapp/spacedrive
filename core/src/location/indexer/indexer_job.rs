@@ -150,6 +150,10 @@ impl StatefulJob for IndexerJobInit {
 	const NAME: &'static str = "indexer";
 	const IS_BATCHED: bool = true;
 
+	fn target_location(&self) -> location::id::Type {
+		self.location.id
+	}
+
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
 		&self,

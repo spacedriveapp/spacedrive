@@ -62,6 +62,10 @@ impl StatefulJob for FileEraserJobInit {
 
 	const NAME: &'static str = "file_eraser";
 
+	fn target_location(&self) -> location::id::Type {
+		self.location_id
+	}
+
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
