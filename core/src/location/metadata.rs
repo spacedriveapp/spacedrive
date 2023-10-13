@@ -10,11 +10,14 @@ use tokio::{fs, io};
 use tracing::error;
 use uuid::Uuid;
 
+// Definition of a constant for the metadata file name
 static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
 
+// Custom type definitions
 pub(super) type LibraryId = Uuid;
 pub(super) type LocationPubId = Uuid;
 
+// Definition of a struct to store location metadata
 #[derive(Serialize, Deserialize, Default, Debug)]
 struct LocationMetadata {
 	pub_id: LocationPubId,
@@ -24,6 +27,7 @@ struct LocationMetadata {
 	updated_at: DateTime<Utc>,
 }
 
+// Definition of a struct to store metadata for multiple locations
 #[derive(Serialize, Deserialize, Default, Debug)]
 struct SpacedriveLocationMetadata {
 	libraries: HashMap<LibraryId, LocationMetadata>,
@@ -31,12 +35,15 @@ struct SpacedriveLocationMetadata {
 	updated_at: DateTime<Utc>,
 }
 
+// Definition of a struct to manage a location metadata file
 pub(super) struct SpacedriveLocationMetadataFile {
 	path: PathBuf,
 	metadata: SpacedriveLocationMetadata,
 }
 
+// Implementation of methods for the SpacedriveLocationMetadataFile struct
 impl SpacedriveLocationMetadataFile {
+	// Method to attempt loading metadata from a file
 	pub(super) async fn try_load(
 		location_path: impl AsRef<Path>,
 	) -> Result<Option<Self>, LocationMetadataError> {
@@ -248,7 +255,7 @@ impl SpacedriveLocationMetadataFile {
 			.ok_or(LocationMetadataError::LibraryNotFound(library_id))
 			.map(|m| m.pub_id)
 	}
-
+	// Method to write metadata to a file
 	async fn write_metadata(&self) -> Result<(), LocationMetadataError> {
 		fs::write(
 			&self.path,
@@ -259,13 +266,14 @@ impl SpacedriveLocationMetadataFile {
 		.map_err(|e| LocationMetadataError::Write(e, self.path.clone()))
 	}
 }
-
+// Definition of an enum to handle errors related to location metadata
 #[derive(Error, Debug)]
 pub enum LocationMetadataError {
 	#[error("Library not found: {0}")]
 	LibraryNotFound(LibraryId),
 	#[error("Failed to read location metadata file (path: {1:?}); (error: {0:?})")]
 	Read(io::Error, PathBuf),
+	// Other error cases for different operations.
 	#[error("Failed to delete location metadata file (path: {1:?}); (error: {0:?})")]
 	Delete(io::Error, PathBuf),
 	#[error("Failed to serialize metadata file for location (at path: {1:?}); (error: {0:?})")]
