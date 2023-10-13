@@ -59,7 +59,7 @@ enum DatabaseMessage {
 // Thumbnails directory have the following structure:
 // thumbnails/
 // ├── version.txt
-//└── <cas_id>[0..2]/ # sharding
+// └── <cas_id>[0..2]/ # sharding
 //    └── <cas_id>.webp
 pub struct Thumbnailer {
 	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
