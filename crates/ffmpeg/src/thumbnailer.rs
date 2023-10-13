@@ -16,8 +16,8 @@ impl Thumbnailer {
 	/// Processes an video input file and write to file system a thumbnail with webp format
 	pub async fn process(
 		&self,
-		video_file_path: impl AsRef<Path> + Send,
-		output_thumbnail_path: impl AsRef<Path> + Send,
+		video_file_path: impl AsRef<Path>,
+		output_thumbnail_path: impl AsRef<Path>,
 	) -> Result<(), ThumbnailerError> {
 		let path = output_thumbnail_path.as_ref().parent().ok_or_else(|| {
 			io::Error::new(
@@ -39,7 +39,7 @@ impl Thumbnailer {
 	/// Processes an video input file and returns a webp encoded thumbnail as bytes
 	pub async fn process_to_webp_bytes(
 		&self,
-		video_file_path: impl AsRef<Path> + Send,
+		video_file_path: impl AsRef<Path>,
 	) -> Result<Vec<u8>, ThumbnailerError> {
 		let video_file_path = video_file_path.as_ref().to_path_buf();
 		let prefer_embedded_metadata = self.builder.prefer_embedded_metadata;

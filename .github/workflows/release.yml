@@ -2,29 +2,35 @@ name: Release
 
 on:
   workflow_dispatch:
-
 # NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
 jobs:
   desktop-main:
     strategy:
-      fail-fast: true
       matrix:
         settings:
           - host: macos-latest
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
+            os: darwin
+            arch: x86_64
           - host: macos-latest
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
+            os: darwin
+            arch: aarch64
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: msi
+            os: windows
+            arch: x86_64
           # - host: windows-latest
           #   target: aarch64-pc-windows-msvc
           - host: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
+            bundles: deb,appimage
+            os: linux
+            arch: x86_64
           # - host: ubuntu-20.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-20.04
@@ -112,5 +118,24 @@ jobs:
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
+          os: ${{ matrix.settings.os }}
+          arch: ${{ matrix.settings.arch }}
           target: ${{ matrix.settings.target }}
           profile: release
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: desktop-main
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: "*/**"

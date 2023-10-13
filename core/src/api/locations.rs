@@ -1,11 +1,15 @@
 use crate::{
 	invalidate_query,
+	job::StatefulJob,
 	location::{
-		delete_location, find_location, indexer::rules::IndexerRuleCreateArgs, light_scan_location,
-		location_with_indexer_rules, non_indexed::NonIndexedPathItem, relink_location,
-		scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		delete_location, find_location,
+		indexer::{rules::IndexerRuleCreateArgs, IndexerJobInit},
+		light_scan_location, location_with_indexer_rules,
+		non_indexed::NonIndexedPathItem,
+		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs,
 	},
+	object::file_identifier::file_identifier_job::FileIdentifierJobInit,
 	p2p::PeerMetadata,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder},
 	util::AbortOnDrop,
@@ -307,24 +311,44 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub sub_path: String,
 			}
 
-			R.with2(library())
-				.subscription(|(node, library), args: LightScanArgs| async move {
-					let location = find_location(&library, args.location_id)
+			R.with2(library()).subscription(
+				|(node, library),
+				 LightScanArgs {
+				     location_id,
+				     sub_path,
+				 }: LightScanArgs| async move {
+					if node
+						.jobs
+						.has_job_running(|job_identity| {
+							job_identity.target_location == location_id
+								&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
+									|| job_identity.name
+										== <FileIdentifierJobInit as StatefulJob>::NAME)
+						})
+						.await
+					{
+						return Err(rspc::Error::new(
+							ErrorCode::Conflict,
+							"We're still indexing this location, pleases wait a bit...".to_string(),
+						));
+					}
+
+					let location = find_location(&library, location_id)
 						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?
-						.ok_or(LocationError::IdNotFound(args.location_id))?;
+						.ok_or(LocationError::IdNotFound(location_id))?;
 
 					let handle = tokio::spawn(async move {
-						if let Err(e) =
-							light_scan_location(node, library, location, args.sub_path).await
+						if let Err(e) = light_scan_location(node, library, location, sub_path).await
 						{
 							error!("light scan error: {e:#?}");
 						}
 					});
 
 					Ok(AbortOnDrop(handle))
-				})
+				},
+			)
 		})
 		.procedure(
 			"online",

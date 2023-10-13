@@ -23,7 +23,7 @@ export const inputSizes = {
 
 export const inputStyles = cva(
 	[
-		'rounded-md border text-sm leading-7',
+		'rounded-md border text-sm leading-4',
 		'shadow-sm outline-none transition-all focus-within:ring-2',
 		'text-ink'
 	],
@@ -120,7 +120,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 					e.stopPropagation();
 				}}
 				className={clsx(
-					'h-auto px-3 py-2',
+					'h-auto p-2',
 					inputStyles({ size, variant, error }),
 					props.className
 				)}

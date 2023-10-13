@@ -71,18 +71,18 @@ export const Categories = (props: { selected: Category; onSelectedChanged(c: Cat
 	}, rgba(0, 0, 0, 1) ${lastCategoryVisible ? '95%' : '85%'}, transparent 99%)`;
 
 	return (
-		<div
-			className={clsx(
-				'sticky top-0 z-10 mt-2 flex bg-app/90 backdrop-blur',
-				transparentBg && '!bg-none'
-			)}
-		>
+		<div>
 			<Sticky
 				scrollElement={pageRef.current || undefined}
 				stickyClassName="z-20 !top-[46px]"
 				topOffset={-46}
 			>
-				<div className="relative flex bg-app/90 px-3 py-1.5 backdrop-blur">
+				<div
+					className={clsx(
+						'relative flex px-3 py-1.5 backdrop-blur',
+						!transparentBg && 'bg-app/90'
+					)}
+				>
 					<ArrowButton
 						onClick={() => handleArrowOnClick('right')}
 						className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
