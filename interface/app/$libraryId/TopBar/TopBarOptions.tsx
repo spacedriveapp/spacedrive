@@ -36,7 +36,7 @@ export default ({ options }: TopBarChildrenProps) => {
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	const layoutKeybinds = [
+	const layoutKeybinds: Array<{ key: string; mode: ExplorerLayout }> = [
 		{ key: '1', mode: 'grid' },
 		{ key: '2', mode: 'list' },
 		{ key: '3', mode: 'media' }
@@ -45,7 +45,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	layoutKeybinds.forEach(({ key, mode }) => {
 		useKeybind([metaCtrlKey, key], (e) => {
 			e.stopPropagation();
-			explorer.settingsStore.layoutMode = mode as ExplorerLayout;
+			explorer.settingsStore.layoutMode = mode;
 		});
 	});
 

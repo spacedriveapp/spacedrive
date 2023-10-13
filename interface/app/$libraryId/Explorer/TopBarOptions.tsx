@@ -9,10 +9,8 @@ import {
 	SquaresFour,
 	Tag
 } from '@phosphor-icons/react';
-import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { useEffect, useRef } from 'react';
-import { useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { ModifierKeys, toast } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
