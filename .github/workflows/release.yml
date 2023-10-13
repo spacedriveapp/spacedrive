@@ -7,7 +7,6 @@ on:
 jobs:
   desktop-main:
     strategy:
-      fail-fast: true
       matrix:
         settings:
           - host: macos-latest

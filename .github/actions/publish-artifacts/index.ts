@@ -33,6 +33,8 @@ const UPDATER_ARTIFACT_BASE = `Spacedrive-Updater-${OS}-${ARCH}`;
 const client = artifact.create();
 
 async function run() {
+	await io.mkdirP(ARTIFACTS_DIR);
+
 	for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
 		const bundlePath = `${BUNDLE_DIR}/${bundle}`;
 
