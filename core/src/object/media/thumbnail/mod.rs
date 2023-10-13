@@ -102,6 +102,7 @@ pub enum ThumbnailerError {
 	SdImages(#[from] sd_images::Error),
 	#[error("failed to execute converting task: {0}")]
 	Task(#[from] task::JoinError),
+	#[cfg(feature = "ffmpeg")]
 	#[error(transparent)]
 	FFmpeg(#[from] sd_ffmpeg::ThumbnailerError),
 	#[error("thumbnail generation timed out for {}", .0.display())]
