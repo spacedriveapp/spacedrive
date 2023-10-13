@@ -32,6 +32,8 @@ const UPDATER_ARTIFACT_BASE = `Spacedrive-Updater-${OS}-${ARCH}`;
 
 const client = artifact.create();
 
+const cpOpts = { recursive: true };
+
 async function run() {
 	await io.mkdirP(ARTIFACTS_DIR);
 
@@ -47,7 +49,7 @@ async function run() {
 		const standalonePath = files.find((file) => file.endsWith(ext));
 		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
 
-		await io.cp(standalonePath, artifactPath);
+		await io.cp(standalonePath, artifactPath, cpOpts);
 		await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
 
 		if (updaterExt) {
@@ -58,8 +60,8 @@ async function run() {
 			if (!updaterPath) throw `Updater path not found. Files: ${files}`;
 
 			// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-			await io.cp(updaterPath, artifactPath);
-			await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
+			await io.cp(updaterPath, artifactPath, cpOpts);
+			await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`, cpOpts);
 
 			await client.uploadArtifact(
 				UPDATER_ARTIFACT_BASE,
