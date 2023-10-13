@@ -22,7 +22,13 @@ export default function () {
 		}
 	});
 
-	const form = useZodForm({ schema });
+	const form = useZodForm({
+		schema,
+		defaultValues: {
+			emoji: -1,
+			message: ''
+		}
+	});
 	const popover = usePopover();
 
 	return (
