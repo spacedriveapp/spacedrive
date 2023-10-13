@@ -27,6 +27,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 	const metaCtrlKey = useKeyMatcher('Meta').key;
+	const optionAltKey = useKeyMatcher('Alt').key;
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -43,7 +44,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeybind([metaCtrlKey, 'p'], (e) => {
+	useKeybind([optionAltKey, metaCtrlKey, 'p'], (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
@@ -54,7 +55,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={explorer.scrollRef}
-						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
+						className="h-screen overflow-x-hidden custom-scroll explorer-scroll"
 						style={
 							{
 								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
