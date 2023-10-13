@@ -33,10 +33,10 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate to Settings page',
 			keys: {
 				macOS: {
-					value: ['Shift', modifierSymbols.Meta.macOS, 'S']
+					value: ['Shift', modifierSymbols.Meta.macOS, 'T']
 				},
 				all: {
-					value: ['Shift', modifierSymbols.Control.Other, 'S']
+					value: ['Shift', modifierSymbols.Control.Other, 'T']
 				}
 			}
 		},
