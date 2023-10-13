@@ -18,9 +18,10 @@ interface Props {
 	item: ExplorerItem;
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
+	lines?: number;
 }
 
-export const RenamableItemText = ({ item, allowHighlight = true, style }: Props) => {
+export const RenamableItemText = ({ item, allowHighlight = true, style, lines }: Props) => {
 	const rspc = useRspcLibraryContext();
 	const explorer = useExplorerContext();
 	const quickPreviewStore = useQuickPreviewStore();
@@ -117,6 +118,7 @@ export const RenamableItemText = ({ item, allowHighlight = true, style }: Props)
 				selected && allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
 			style={style}
+			lines={lines}
 		/>
 	);
 };

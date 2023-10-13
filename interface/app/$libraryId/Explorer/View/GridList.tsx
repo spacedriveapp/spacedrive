@@ -123,8 +123,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
 
-	const itemDetailsHeight =
-		settings.gridItemSize / 4 + (settings.showBytesInGridView && !isEphemeralLocation ? 20 : 0);
+	const itemDetailsHeight = 44 + (settings.showBytesInGridView && !isEphemeralLocation ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
 
 	const padding = settings.layoutMode === 'grid' ? 12 : 0;
