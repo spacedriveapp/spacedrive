@@ -10,12 +10,12 @@ type BuildTarget = { ext: string; updaterExt?: string; bundle: string };
 const OS_TARGETS = {
 	darwin: [
 		{ ext: 'dmg', bundle: 'dmg' },
-		{ ext: 'app', updaterExt: '.tar.gz', bundle: 'macos' }
+		{ ext: 'app', updaterExt: 'tar.gz', bundle: 'macos' }
 	],
-	windows: [{ ext: 'msi', updaterExt: '.zip', bundle: 'msi' }],
+	windows: [{ ext: 'msi', updaterExt: 'zip', bundle: 'msi' }],
 	linux: [
 		{ ext: 'deb', bundle: 'deb' },
-		{ ext: 'AppImage', updaterExt: '.tar.gz', bundle: 'appimage' }
+		{ ext: 'AppImage', updaterExt: 'tar.gz', bundle: 'appimage' }
 	]
 } satisfies Record<OS, Array<BuildTarget>>;
 
@@ -27,7 +27,8 @@ const PROFILE = core.getInput('profile');
 
 const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
-const ARTIFACT_NAME = `Spacedrive-${OS}-${ARCH}`;
+const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
+const UPDATER_ARTIFACT_BASE = `Spacedrive-Updater-${OS}-${ARCH}`;
 
 const client = artifact.create();
 
@@ -35,8 +36,8 @@ async function run() {
 	for (const { ext, updaterExt, bundle } of OS_TARGETS[OS]) {
 		const bundlePath = `${BUNDLE_DIR}/${bundle}`;
 
-		const name = `${ARTIFACT_NAME}.${ext}`;
-		const artifactPath = `${ARTIFACTS_DIR}/${name}`;
+		const artifactName = `${ARTIFACT_BASE}.${ext}`;
+		const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
 
 		const globber = await glob.create(`${bundlePath}/*.${ext}*`);
 		const files = await globber.glob();
@@ -45,11 +46,11 @@ async function run() {
 		if (!standalonePath) throw `Standalone path not found. Files: ${files}`;
 
 		await io.cp(standalonePath, artifactPath);
-		await client.uploadArtifact(ARTIFACT_NAME, [artifactPath], './');
+		await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
 
 		if (updaterExt) {
-			const artifactName = `Spacedrive-Updater-${OS}-${ARCH}.${updaterExt}`;
-			const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
+			const updaterName = `${UPDATER_ARTIFACT_BASE}.${updaterExt}`;
+			const artifactPath = `${ARTIFACTS_DIR}/${updaterName}`;
 
 			const updaterPath = files.find((file) => file.endsWith(updaterExt));
 			if (!updaterPath) throw `Updater path not found. Files: ${files}`;
@@ -58,7 +59,11 @@ async function run() {
 			await io.cp(updaterPath, artifactPath);
 			await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
 
-			await client.uploadArtifact(artifactName, [artifactPath, `${artifactPath}.sig`], './');
+			await client.uploadArtifact(
+				UPDATER_ARTIFACT_BASE,
+				[artifactPath, `${artifactPath}.sig`],
+				ARTIFACTS_DIR
+			);
 		}
 	}
 }
