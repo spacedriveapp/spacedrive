@@ -36,16 +36,17 @@ export default ({ options }: TopBarChildrenProps) => {
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	useKeybind([metaCtrlKey, 'b'], (e) => {
-		e.stopPropagation();
-		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
-		const currentLayout = explorerLayouts.indexOf(
-			explorer.settingsStore.layoutMode as ExplorerLayout
-		);
-		const nextLayout = explorerLayouts[
-			(currentLayout + 1) % explorerLayouts.length
-		] as ExplorerLayout;
-		explorer.settingsStore.layoutMode = nextLayout;
+	const layoutKeybinds: Array<{ key: string; mode: ExplorerLayout }> = [
+		{ key: '1', mode: 'grid' },
+		{ key: '2', mode: 'list' },
+		{ key: '3', mode: 'media' }
+	];
+
+	layoutKeybinds.forEach(({ key, mode }) => {
+		useKeybind([metaCtrlKey, key], (e) => {
+			e.stopPropagation();
+			explorer.settingsStore.layoutMode = mode;
+		});
 	});
 
 	useLayoutEffect(() => {
@@ -58,7 +59,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region={os === 'macOS'} className="flex flex-1 justify-end">
+		<div data-tauri-drag-region={os === 'macOS'} className="flex justify-end flex-1">
 			<div data-tauri-drag-region={os === 'macOS'} className={`flex gap-0`}>
 				{options?.map((group, groupIndex) =>
 					group.map((option, index) => (

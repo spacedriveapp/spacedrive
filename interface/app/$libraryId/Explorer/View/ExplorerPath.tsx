@@ -17,7 +17,8 @@ export const ExplorerPath = memo(() => {
 	const isDark = useIsDark();
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 	const os = useOperatingSystem();
-	const pathSlashOS = os === 'windows' ? '\\' : '/';
+	const realOs = useOperatingSystem(true);
+	const pathSlashOS = os === 'browser' ? '/' : realOs === 'windows' ? '\\' : '/';
 
 	const [data, setData] = useState<{ kind: string; name: string }[] | null>(null);
 	const [selectedItem, setSelectedItem] = useState<ExplorerItem | undefined>(undefined);
