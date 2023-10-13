@@ -42,6 +42,10 @@ impl StatefulJob for FileCutterJobInit {
 
 	const NAME: &'static str = "file_cutter";
 
+	fn target_location(&self) -> location::id::Type {
+		self.target_location_id
+	}
+
 	async fn init(
 		&self,
 		ctx: &WorkerContext,
