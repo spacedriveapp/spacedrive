@@ -1,8 +1,7 @@
 import clsx from 'clsx';
 import { Controller } from 'react-hook-form';
-import { useBridgeMutation, useZodForm } from '@sd/client';
+import { auth, useBridgeMutation, useZodForm } from '@sd/client';
 import { Button, Form, Popover, TextAreaField, toast, usePopover, z } from '@sd/ui';
-import { AuthCheck } from '~/components/AuthCheck';
 import { LoginButton } from '~/components/LoginButton';
 
 const schema = z.object({
@@ -31,6 +30,8 @@ export default function () {
 	});
 	const popover = usePopover();
 
+	const authState = auth.useStateSnapshot();
+
 	return (
 		<Popover
 			popover={popover}
@@ -50,22 +51,20 @@ export default function () {
 				className="p-2"
 			>
 				<div className="flex w-72 flex-col gap-2">
-					<AuthCheck
-						fallback={
-							<div className="flex flex-row items-center gap-2">
-								<p className="flex-1 text-xs text-ink-dull">
-									Logging in allows us to respond to your feedback
-								</p>
-								<LoginButton />
-							</div>
-						}
-					/>
+					{authState.status !== 'loggedIn' && (
+						<div className="flex flex-row items-center gap-2">
+							<p className="flex-1 text-xs text-ink-dull">
+								{authState.status !== 'loggingIn' &&
+									'Logging in allows us to respond to your feedback'}
+							</p>
+							<LoginButton cancelPosition="left" />
+						</div>
+					)}
 					<TextAreaField
 						{...form.register('message')}
 						placeholder="Your feedback..."
 						className="!h-36 w-full flex-1"
 					/>
-
 					<div className="flex flex-row justify-between">
 						<Controller
 							control={form.control}

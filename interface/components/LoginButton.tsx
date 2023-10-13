@@ -1,14 +1,24 @@
+import clsx from 'clsx';
 import { auth } from '@sd/client';
 import { Button, ButtonProps } from '@sd/ui';
 
 import { usePlatform } from '..';
 
-export function LoginButton({ children, ...props }: { onLogin?(): void } & ButtonProps) {
+export function LoginButton({
+	children,
+	cancelPosition = 'bottom',
+	...props
+}: { onLogin?(): void; cancelPosition?: 'bottom' | 'left' } & ButtonProps) {
 	const authState = auth.useStateSnapshot();
 	const platform = usePlatform();
 
 	return (
-		<div className="flex flex-col items-center justify-center">
+		<div
+			className={clsx(
+				'flex items-center justify-center gap-2',
+				cancelPosition === 'bottom' ? 'flex-col' : 'flex-row-reverse'
+			)}
+		>
 			<Button
 				variant="accent"
 				disabled={authState.status === 'loggingIn'}
@@ -26,7 +36,7 @@ export function LoginButton({ children, ...props }: { onLogin?(): void } & Butto
 						e.preventDefault();
 						auth.cancel();
 					}}
-					className="mt-2 text-sm text-ink-faint"
+					className="text-sm text-ink-faint"
 				>
 					Cancel
 				</button>
