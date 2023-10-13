@@ -220,9 +220,7 @@ export default function HomePage() {
 							<HomeCTA
 								icon={downloadEntry.icon}
 								text={`Download for ${downloadEntry.name}`}
-								onClick={() =>
-									setMultipleDownloads(multipleDownloads ? undefined : links)
-								}
+								onClick={() => (multipleDownloads ? undefined : links)}
 							/>
 						)}
 
@@ -238,7 +236,12 @@ export default function HomePage() {
 					{multipleDownloads && (
 						<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
 							{Object.entries(multipleDownloads).map(([name, link]) => (
-								<a key={name} target="_blank" href={`${BASE_DL_LINK}/${link}`}>
+								<a
+									key={name}
+									target="_blank"
+									className="plausible-event-name=download"
+									href={`${BASE_DL_LINK}/${link}`}
+								>
 									<HomeCTA
 										size="md"
 										text={name}
@@ -261,6 +264,7 @@ export default function HomePage() {
 							</>
 						)}
 					</p>
+					{/* Platforms */}
 					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
 							<motion.div
