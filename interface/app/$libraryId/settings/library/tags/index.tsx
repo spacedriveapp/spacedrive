@@ -26,7 +26,7 @@ export const Component = () => {
 	useEffect(() => {
 		if (tags?.data?.length || (0 > 1 && !selectedTag)) setSelectedTag(tags.data?.[0] ?? null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [tags?.data]);
+	}, []);
 
 	return (
 		<>
