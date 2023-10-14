@@ -1,4 +1,7 @@
+'use client';
+
 import { SmileyXEyes } from '@phosphor-icons/react/dist/ssr';
+import { useRouter } from 'next/navigation';
 import { Button } from '@sd/ui';
 import Markdown from '~/components/Markdown';
 
@@ -6,8 +9,8 @@ export const metadata = {
 	title: 'Not Found - Spacedrive'
 };
 
-export default function Custom404Page() {
-	// {/* onClick={() => router.back()} */}
+export default function NotFound() {
+	const router = useRouter();
 
 	return (
 		<Markdown classNames="flex w-full justify-center">
@@ -19,7 +22,11 @@ export default function Custom404Page() {
 				</h1>
 				<p>In other words, thats a 404.</p>
 				<div className="flex flex-wrap justify-center">
-					<Button className="mr-3 mt-2 cursor-pointer " variant="gray">
+					<Button
+						className="mr-3 mt-2 cursor-pointer "
+						variant="gray"
+						onClick={() => router.back()}
+					>
 						← Back
 					</Button>
 					<Button href="/" className="mt-2 cursor-pointer !text-white" variant="accent">

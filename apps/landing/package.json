@@ -7,8 +7,7 @@
 		"start": "next start",
 		"prod": "pnpm build && pnpm start",
 		"lint": "next lint",
-		"typecheck": "contentlayer build && tsc -b",
-		"push": "drizzle-kit push:mysql"
+		"typecheck": "contentlayer build && tsc -b"
 	},
 	"dependencies": {
 		"@aws-sdk/client-ses": "^3.337.0",
@@ -24,7 +23,6 @@
 		"clsx": "^1.2.1",
 		"contentlayer": "^0.3.2",
 		"dayjs": "^1.11.8",
-		"drizzle-orm": "^0.26.0",
 		"framer-motion": "^10.11.5",
 		"katex": "^0.16.9",
 		"markdown-to-jsx": "^7.2.0",
@@ -63,7 +61,6 @@
 		"@types/react-burger-menu": "^2.8.4",
 		"@types/react-dom": "^18.2.13",
 		"@types/three": "^0.152.1",
-		"drizzle-kit": "db-push",
 		"postcss": "^8.4.31",
 		"tailwindcss": "^3.3.3",
 		"typescript": "^5.2.2"

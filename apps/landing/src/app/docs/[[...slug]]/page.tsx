@@ -9,6 +9,7 @@ import { DocMDXComponents } from '~/components/mdx';
 import { toTitleCase } from '~/utils/util';
 
 import { getDoc } from './data';
+import { Index } from './Index';
 import { Markdown } from './Markdown';
 
 export function generateStaticParams() {
@@ -76,25 +77,5 @@ function BottomCard(props: any) {
 			className="group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:border-primary hover:!text-primary hover:shadow-xl hover:shadow-primary/10"
 			{...props}
 		/>
-	);
-}
-
-function Index() {
-	return (
-		<Markdown>
-			<div className="mt-[105px]">
-				<h1 className="text-4xl font-bold">Spacedrive Docs</h1>
-				<p className="text-lg text-gray-400">
-					Welcome to the Spacedrive documentation. Here you can find all the information
-					you need to get started with Spacedrive.
-				</p>
-				<Link
-					className="text-primary-600 transition hover:text-primary-500"
-					href="/docs/product/getting-started/introduction"
-				>
-					Get Started →
-				</Link>
-			</div>
-		</Markdown>
 	);
 }
