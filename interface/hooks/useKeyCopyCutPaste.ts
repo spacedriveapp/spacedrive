@@ -29,6 +29,18 @@ export const useKeyCopyPaste = () => {
 		}
 	});
 
+	useKeys([metaCtrlKey, 'KeyX'], (e) => {
+		e.stopPropagation();
+		if (explorer.parent?.type === 'Location') {
+			getExplorerStore().cutCopyState = {
+				sourceParentPath: path ?? '/',
+				sourceLocationId: explorer.parent.location.id,
+				sourcePathIds: selectedFilePaths.map((p) => p.id),
+				type: 'Cut'
+			};
+		}
+	});
+
 	useKeys([metaCtrlKey, 'KeyV'], async (e) => {
 		e.stopPropagation();
 		const parent = explorer.parent;
