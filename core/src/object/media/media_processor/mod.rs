@@ -4,21 +4,26 @@ use crate::{
 	location::file_path_helper::{
 		file_path_for_media_processor, FilePathError, IsolatedFilePathData,
 	},
+	util::db::{maybe_missing, MissingFieldError},
+	Node,
 };
 
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 
-use std::path::Path;
+use std::{future::Future, path::Path};
 
-use futures::try_join;
-use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::error;
 
 use super::{
 	media_data_extractor::{self, MediaDataError, MediaDataExtractorMetadata},
-	thumbnail::{self, ThumbnailerEntryKind, ThumbnailerError, ThumbnailerMetadata},
+	thumbnail::{
+		self,
+		actor::{BatchToProcess, GenerateThumbnailArgs},
+		ThumbnailerError,
+	},
 };
 
 mod job;
@@ -43,174 +48,173 @@ pub enum MediaProcessorError {
 	MediaDataExtractor(#[from] MediaDataError),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub enum MediaProcessorEntryKind {
-	MediaData,
-	Thumbnailer(ThumbnailerEntryKind),
-	MediaDataAndThumbnailer(ThumbnailerEntryKind),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct MediaProcessorEntry {
-	file_path: file_path_for_media_processor::Data,
-	operation_kind: MediaProcessorEntryKind,
-}
-
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MediaProcessorMetadata {
 	media_data: MediaDataExtractorMetadata,
-	thumbnailer: ThumbnailerMetadata,
+}
+
+impl From<MediaDataExtractorMetadata> for MediaProcessorMetadata {
+	fn from(media_data: MediaDataExtractorMetadata) -> Self {
+		Self { media_data }
+	}
 }
 
 impl JobRunMetadata for MediaProcessorMetadata {
 	fn update(&mut self, new_data: Self) {
 		self.media_data.extracted += new_data.media_data.extracted;
 		self.media_data.skipped += new_data.media_data.skipped;
-
-		self.thumbnailer.created += new_data.thumbnailer.created;
-		self.thumbnailer.skipped += new_data.thumbnailer.skipped;
 	}
 }
 
-async fn get_all_children_files_by_extensions(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	extensions: &[Extension],
-) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
-	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw(raw!(
-		&format!(
-			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
-			FROM file_path
-			WHERE
-				location_id={{}}
-				AND cas_id IS NOT NULL
-				AND LOWER(extension) IN ({})
-				AND materialized_path LIKE {{}}",
-			extensions
-				.iter()
-				.map(|ext| format!("LOWER('{ext}')"))
-				.collect::<Vec<_>>()
-				.join(",")
-		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
-		PrismaValue::String(format!(
-			"{}%",
-			parent_iso_file_path
-				.materialized_path_for_children()
-				.expect("sub path iso_file_path must be a directory")
-		))
-	))
-	.exec()
-	.await
-	.map_err(Into::into)
-}
-
-async fn get_files_by_extensions(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	extensions: &[Extension],
-) -> Result<Vec<file_path_for_media_processor::Data>, MediaDataError> {
-	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw(raw!(
-		&format!(
-			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
-			FROM file_path
-			WHERE
-				location_id={{}}
-				AND cas_id IS NOT NULL
-				AND LOWER(extension) IN ({})
-				AND materialized_path = {{}}",
-			extensions
-				.iter()
-				.map(|ext| format!("LOWER('{ext}')"))
-				.collect::<Vec<_>>()
-				.join(",")
-		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
-		PrismaValue::String(
-			parent_iso_file_path
-				.materialized_path_for_children()
-				.expect("sub path iso_file_path must be a directory")
-		)
-	))
-	.exec()
-	.await
-	.map_err(Into::into)
-}
-
-async fn process(
-	entries: &[MediaProcessorEntry],
+// `thumbs_fetcher_fn` MUST return file_paths ordered by `materialized_path` for optimal results
+async fn dispatch_thumbnails_for_processing<'d, 'p, 'e, 'ret, F>(
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
-	thumbnails_base_dir: impl AsRef<Path>,
-	regenerate_thumbnails: bool,
-	library: &Library,
-	ctx_update_fn: impl Fn(usize),
-) -> Result<(MediaProcessorMetadata, JobRunErrors), MediaProcessorError> {
+	parent_iso_file_path: &'p IsolatedFilePathData<'_>,
+	library: &'d Library,
+	node: &Node,
+	should_regenerate: bool,
+	thumbs_fetcher_fn: impl Fn(&'d PrismaClient, &'p IsolatedFilePathData<'_>, &'e [Extension]) -> F,
+) -> Result<(), MediaProcessorError>
+where
+	'd: 'ret,
+	'p: 'ret,
+	'e: 'ret,
+	F: Future<Output = Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError>>
+		+ 'ret,
+{
+	let Library { db, .. } = library;
+
 	let location_path = location_path.as_ref();
 
-	let ((media_data_metadata, mut media_data_errors), (thumbnailer_metadata, thumbnailer_errors)) =
-		try_join!(
-			async {
-				media_data_extractor::process(
-					entries.iter().filter_map(
-						|MediaProcessorEntry {
-						     file_path,
-						     operation_kind,
-						 }| {
-							matches!(
-								operation_kind,
-								MediaProcessorEntryKind::MediaDataAndThumbnailer(_)
-									| MediaProcessorEntryKind::MediaData
-							)
-							.then_some(file_path)
-						},
-					),
-					location_id,
-					location_path,
-					&library.db,
-				)
-				.await
-				.map_err(MediaProcessorError::from)
-			},
-			async {
-				thumbnail::process(
-					entries.iter().filter_map(
-						|MediaProcessorEntry {
-						     file_path,
-						     operation_kind,
-						 }| {
-							if let MediaProcessorEntryKind::Thumbnailer(thumb_kind)
-							| MediaProcessorEntryKind::MediaDataAndThumbnailer(thumb_kind) = operation_kind
-							{
-								Some((file_path, *thumb_kind))
-							} else {
-								None
-							}
-						},
-					),
-					location_id,
-					location_path,
-					thumbnails_base_dir,
-					regenerate_thumbnails,
-					library,
-					ctx_update_fn,
-				)
-				.await
-				.map_err(MediaProcessorError::from)
-			},
-		)?;
+	let file_paths = thumbs_fetcher_fn(
+		db,
+		parent_iso_file_path,
+		&thumbnail::ALL_THUMBNAILABLE_EXTENSIONS,
+	)
+	.await?;
 
-	media_data_errors.0.extend(thumbnailer_errors.0.into_iter());
+	tracing::debug!("Found {} file_paths to process", file_paths.len());
 
-	Ok((
-		MediaProcessorMetadata {
-			media_data: media_data_metadata,
-			thumbnailer: thumbnailer_metadata,
-		},
-		media_data_errors,
-	))
+	let mut current_batch = Vec::with_capacity(16);
+
+	// PDF thumbnails are currently way slower so we process them by last
+	let mut pdf_thumbs = Vec::with_capacity(16);
+
+	let mut current_materialized_path = None;
+
+	let mut in_background = false;
+
+	for file_path in file_paths {
+		// Initializing current_materialized_path with the first file_path materialized_path
+		if current_materialized_path.is_none() {
+			current_materialized_path = file_path.materialized_path.clone();
+		}
+
+		if file_path.materialized_path != current_materialized_path
+			&& (!current_batch.is_empty() || !pdf_thumbs.is_empty())
+		{
+			// Now we found a different materialized_path so we dispatch the current batch and start a new one
+
+			// We starting by appending all pdfs and leaving the vec clean to be reused
+			current_batch.append(&mut pdf_thumbs);
+
+			tracing::debug!(
+				"Found {} file_paths to process in {}",
+				current_batch.len(),
+				if in_background {
+					"background"
+				} else {
+					"foreground"
+				}
+			);
+
+			node.thumbnailer
+				.new_indexed_thumbnails_batch(BatchToProcess {
+					batch: current_batch,
+					should_regenerate,
+					in_background,
+				})
+				.await;
+
+			// We moved our vec so we need a new
+			current_batch = Vec::with_capacity(16);
+			in_background = true; // Only the first batch should be processed in foreground
+
+			// Exchaging for the first different materialized_path
+			current_materialized_path = file_path.materialized_path.clone();
+		}
+
+		let file_path_id = file_path.id;
+		if let Err(e) = add_to_batch(
+			location_id,
+			location_path,
+			file_path,
+			&mut current_batch,
+			&mut pdf_thumbs,
+		) {
+			error!("Error adding file_path <id='{file_path_id}'> to thumbnail batch: {e:#?}");
+		}
+	}
+
+	// Dispatching the last batch
+	if !current_batch.is_empty() {
+		tracing::debug!(
+			"Found {} file_paths to process in {}",
+			current_batch.len(),
+			if in_background {
+				"background"
+			} else {
+				"foreground"
+			}
+		);
+		node.thumbnailer
+			.new_indexed_thumbnails_batch(BatchToProcess {
+				batch: current_batch,
+				should_regenerate,
+				in_background,
+			})
+			.await;
+	}
+
+	Ok(())
+}
+
+fn add_to_batch(
+	location_id: location::id::Type,
+	location_path: &Path, // This function is only used internally once, so we can pass &Path as a parameter
+	file_path: file_path_for_media_processor::Data,
+	current_batch: &mut Vec<GenerateThumbnailArgs>,
+	pdf_thumbs: &mut Vec<GenerateThumbnailArgs>,
+) -> Result<(), MissingFieldError> {
+	let cas_id = maybe_missing(&file_path.cas_id, "file_path.cas_id")?.clone();
+
+	let iso_file_path = IsolatedFilePathData::try_from((location_id, file_path))?;
+	let full_path = location_path.join(&iso_file_path);
+
+	let extension = iso_file_path.extension();
+	let args = GenerateThumbnailArgs::new(extension.to_string(), cas_id, full_path);
+
+	if extension != "pdf" {
+		current_batch.push(args);
+	} else {
+		pdf_thumbs.push(args);
+	}
+
+	Ok(())
+}
+
+pub async fn process(
+	files_paths: &[file_path_for_media_processor::Data],
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	db: &PrismaClient,
+	ctx_update_fn: &impl Fn(usize),
+) -> Result<(MediaProcessorMetadata, JobRunErrors), MediaProcessorError> {
+	// Add here new kinds of media processing if necessary in the future
+
+	media_data_extractor::process(files_paths, location_id, location_path, db, ctx_update_fn)
+		.await
+		.map(|(media_data, errors)| (media_data.into(), errors))
+		.map_err(Into::into)
 }

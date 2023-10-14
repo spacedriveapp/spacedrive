@@ -1,42 +1,69 @@
 use crate::{
+	api::CoreEvent,
 	library::{Libraries, LibraryManagerEvent},
-	object::media::thumbnail::ThumbnailerError,
-	prisma::{file_path, PrismaClient},
+	object::media::thumbnail::{
+		can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
+		generate_image_thumbnail, get_shard_hex, get_thumb_key, ThumbnailerError,
+	},
 	util::error::{FileIOError, NonUtf8PathError},
 };
+
+use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
+use sd_prisma::prisma::{file_path, PrismaClient};
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	ffi::OsStr,
 	path::{Path, PathBuf},
 	pin::pin,
+	str::FromStr,
 	sync::Arc,
 	time::{Duration, SystemTime},
 };
 
 use async_channel as chan;
-use futures::{future::try_join_all, stream::FuturesUnordered, FutureExt};
+use futures::{stream::FuturesUnordered, FutureExt};
 use futures_concurrency::{
-	future::{Join, Race},
+	future::{Join, Race, TryJoin},
 	stream::Merge,
 };
+use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tokio::{
 	fs, io, spawn,
-	sync::oneshot,
-	time::{interval, interval_at, timeout, Instant, MissedTickBehavior},
+	sync::{broadcast, oneshot, Mutex},
+	time::{interval, interval_at, sleep, timeout, Instant, MissedTickBehavior},
 };
 use tokio_stream::{wrappers::IntervalStream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
 
-use super::{generate_thumbnail, GenerateThumbnailArgs, THUMBNAIL_CACHE_DIR_NAME};
+use super::{init_thumbnail_dir, THUMBNAIL_CACHE_DIR_NAME};
 
 const ONE_SEC: Duration = Duration::from_secs(1);
 const THIRTY_SECS: Duration = Duration::from_secs(30);
 const HALF_HOUR: Duration = Duration::from_secs(30 * 60);
 const ONE_WEEK: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+static BATCH_SIZE: OnceCell<usize> = OnceCell::new();
+
+#[derive(Debug)]
+pub struct GenerateThumbnailArgs {
+	pub extension: String,
+	pub cas_id: String,
+	pub path: PathBuf,
+}
+
+impl GenerateThumbnailArgs {
+	pub fn new(extension: String, cas_id: String, path: PathBuf) -> Self {
+		Self {
+			extension,
+			cas_id,
+			path,
+		}
+	}
+}
 
 #[derive(Error, Debug)]
 enum Error {
@@ -57,33 +84,73 @@ enum DatabaseMessage {
 	Remove(Uuid),
 }
 
+#[derive(Debug)]
+pub struct BatchToProcess {
+	pub batch: Vec<GenerateThumbnailArgs>,
+	pub should_regenerate: bool,
+	pub in_background: bool,
+}
+
+#[derive(Debug)]
+enum ProcessingKind {
+	Indexed,
+	Ephemeral,
+}
+
 // Thumbnails directory have the following structure:
 // thumbnails/
 // ├── version.txt
 // └── <cas_id>[0..2]/ # sharding
 //    └── <cas_id>.webp
 pub struct Thumbnailer {
+	thumbnails_directory: PathBuf,
 	cas_ids_to_delete_tx: chan::Sender<Vec<String>>,
-	ephemeral_thumbnails_to_generate_tx: chan::Sender<Vec<GenerateThumbnailArgs>>,
+	thumbnails_to_generate_tx: chan::Sender<(BatchToProcess, ProcessingKind)>,
+	last_single_thumb_generated: Mutex<Instant>,
+	reporter: broadcast::Sender<CoreEvent>,
 	_cancel_loop: DropGuard,
 }
 
 impl Thumbnailer {
-	pub fn new(data_dir: PathBuf, lm: Arc<Libraries>) -> Self {
-		let mut thumbnails_directory = data_dir;
-		thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
+	pub async fn new(
+		data_dir: PathBuf,
+		lm: Arc<Libraries>,
+		reporter: broadcast::Sender<CoreEvent>,
+	) -> Self {
+		let thumbnails_directory = init_thumbnail_dir(&data_dir).await.unwrap_or_else(|e| {
+			error!("Failed to initialize thumbnail directory: {e:#?}");
+			let mut thumbnails_directory = data_dir;
+			thumbnails_directory.push(THUMBNAIL_CACHE_DIR_NAME);
+			thumbnails_directory
+		});
 
 		let (databases_tx, databases_rx) = chan::bounded(4);
-		let (ephemeral_thumbnails_to_generate_tx, ephemeral_thumbnails_to_generate_rx) =
-			chan::unbounded();
+		let (thumbnails_to_generate_tx, ephemeral_thumbnails_to_generate_rx) = chan::unbounded();
 		let (cas_ids_to_delete_tx, cas_ids_to_delete_rx) = chan::bounded(16);
 		let cancel_token = CancellationToken::new();
 
+		BATCH_SIZE
+			.set(std::thread::available_parallelism().map_or_else(
+				|e| {
+					error!("Failed to get available parallelism: {e:#?}");
+					4
+				},
+				|non_zero| {
+					let count = non_zero.get();
+					debug!("Thumbnailer will process batches of {count} thumbnails in parallel.");
+					count
+				},
+			))
+			.ok();
+
 		let inner_cancel_token = cancel_token.child_token();
+		let inner_thumbnails_directory = thumbnails_directory.clone();
+		let inner_reporter = reporter.clone();
 		tokio::spawn(async move {
 			loop {
 				if let Err(e) = tokio::spawn(Self::worker(
-					thumbnails_directory.clone(),
+					inner_reporter.clone(),
+					inner_thumbnails_directory.clone(),
 					databases_rx.clone(),
 					cas_ids_to_delete_rx.clone(),
 					ephemeral_thumbnails_to_generate_rx.clone(),
@@ -157,17 +224,21 @@ impl Thumbnailer {
 		});
 
 		Self {
+			thumbnails_directory,
 			cas_ids_to_delete_tx,
-			ephemeral_thumbnails_to_generate_tx,
+			thumbnails_to_generate_tx,
+			last_single_thumb_generated: Mutex::new(Instant::now()),
+			reporter,
 			_cancel_loop: cancel_token.drop_guard(),
 		}
 	}
 
 	async fn worker(
+		reporter: broadcast::Sender<CoreEvent>,
 		thumbnails_directory: PathBuf,
 		databases_rx: chan::Receiver<DatabaseMessage>,
 		cas_ids_to_delete_rx: chan::Receiver<Vec<String>>,
-		ephemeral_thumbnails_to_generate_rx: chan::Receiver<Vec<GenerateThumbnailArgs>>,
+		thumbnails_to_generate_rx: chan::Receiver<(BatchToProcess, ProcessingKind)>,
 		cancel_token: CancellationToken,
 	) {
 		let mut to_remove_interval = interval_at(Instant::now() + THIRTY_SECS, HALF_HOUR);
@@ -184,8 +255,8 @@ impl Thumbnailer {
 			RemovalTick,
 			ToDelete(Vec<String>),
 			Database(DatabaseMessage),
-			EphemeralThumbnailNewBatch(Vec<GenerateThumbnailArgs>),
-			Leftovers(Vec<GenerateThumbnailArgs>),
+			NewBatch((BatchToProcess, ProcessingKind)),
+			Leftovers((BatchToProcess, ProcessingKind)),
 			NewEphemeralThumbnailCasIds(Vec<String>),
 			Stop,
 			IdleTick,
@@ -193,11 +264,11 @@ impl Thumbnailer {
 
 		let cancel = pin!(cancel_token.cancelled());
 
-		// This is a LIFO queue, so we can process the most recent thumbnails first
-		let mut ephemeral_thumbnails_queue = Vec::with_capacity(8);
+		// These are FIFO queues, so we can process leftovers from the previous batch first
+		let mut queue = VecDeque::with_capacity(32);
 
-		// This one is a FIFO queue, so we can process leftovers from the previous batch first
-		let mut ephemeral_thumbnails_leftovers_queue = VecDeque::with_capacity(8);
+		let mut ephemeral_leftovers_queue = VecDeque::with_capacity(8);
+		let mut indexed_leftovers_queue = VecDeque::with_capacity(8);
 
 		let (ephemeral_thumbnails_cas_ids_tx, ephemeral_thumbnails_cas_ids_rx) = chan::bounded(32);
 		let (leftovers_tx, leftovers_rx) = chan::bounded(8);
@@ -209,7 +280,7 @@ impl Thumbnailer {
 		let mut msg_stream = (
 			databases_rx.map(StreamMessage::Database),
 			cas_ids_to_delete_rx.map(StreamMessage::ToDelete),
-			ephemeral_thumbnails_to_generate_rx.map(StreamMessage::EphemeralThumbnailNewBatch),
+			thumbnails_to_generate_rx.map(StreamMessage::NewBatch),
 			leftovers_rx.map(StreamMessage::Leftovers),
 			ephemeral_thumbnails_cas_ids_rx.map(StreamMessage::NewEphemeralThumbnailCasIds),
 			IntervalStream::new(to_remove_interval).map(|_| StreamMessage::RemovalTick),
@@ -232,32 +303,35 @@ impl Thumbnailer {
 					}
 
 					if current_batch_processing_rx.is_none()
-						&& (!ephemeral_thumbnails_queue.is_empty()
-							|| !ephemeral_thumbnails_leftovers_queue.is_empty())
+						&& (!queue.is_empty()
+							|| !indexed_leftovers_queue.is_empty()
+							|| !ephemeral_leftovers_queue.is_empty())
 					{
 						let (done_tx, done_rx) = oneshot::channel();
 						current_batch_processing_rx = Some(done_rx);
 
-						if let Some(batch) = ephemeral_thumbnails_queue.pop() {
-							spawn(batch_processor(
-								batch,
-								ephemeral_thumbnails_cas_ids_tx.clone(),
-								stop_older_processing_rx.clone(),
+						let batch_and_kind = if let Some(batch_and_kind) = queue.pop_front() {
+							batch_and_kind
+						} else if let Some(batch) = indexed_leftovers_queue.pop_front() {
+							// indexed leftovers have bigger priority
+							(batch, ProcessingKind::Indexed)
+						} else if let Some(batch) = ephemeral_leftovers_queue.pop_front() {
+							(batch, ProcessingKind::Ephemeral)
+						} else {
+							continue;
+						};
+
+						spawn(batch_processor(
+							thumbnails_directory.clone(),
+							batch_and_kind,
+							ephemeral_thumbnails_cas_ids_tx.clone(),
+							ProcessorControlChannels {
+								stop_rx: stop_older_processing_rx.clone(),
 								done_tx,
-								leftovers_tx.clone(),
-								false,
-							));
-						} else if let Some(batch) = ephemeral_thumbnails_leftovers_queue.pop_front()
-						{
-							spawn(batch_processor(
-								batch,
-								ephemeral_thumbnails_cas_ids_tx.clone(),
-								stop_older_processing_rx.clone(),
-								done_tx,
-								leftovers_tx.clone(),
-								true,
-							));
-						}
+							},
+							leftovers_tx.clone(),
+							reporter.clone(),
+						));
 					}
 				}
 
@@ -285,18 +359,43 @@ impl Thumbnailer {
 					}
 				}
 
-				StreamMessage::EphemeralThumbnailNewBatch(batch) => {
-					ephemeral_thumbnails_queue.push(batch);
-					if current_batch_processing_rx.is_some() // Only sends stop signal if there is a batch being processed
-						&& stop_older_processing_tx.send(()).await.is_err()
-					{
-						error!("Thumbnail remover actor died when trying to stop older processing");
+				StreamMessage::NewBatch((batch, kind)) => {
+					let in_background = batch.in_background;
+
+					tracing::debug!(
+						"New {kind:?} batch to process in {}, size: {}",
+						if in_background {
+							"background"
+						} else {
+							"foreground"
+						},
+						batch.batch.len()
+					);
+
+					if in_background {
+						queue.push_back((batch, kind));
+					} else {
+						// If a processing must be in foreground, then it takes maximum priority
+						queue.push_front((batch, kind));
+					}
+
+					// Only sends stop signal if there is a batch being processed
+					if !in_background && current_batch_processing_rx.is_some() {
+						tracing::debug!("Sending stop signal to older processing");
+						let (tx, rx) = oneshot::channel();
+						if stop_older_processing_tx.send(tx).await.is_err() {
+							error!(
+								"Thumbnail remover actor died when trying to stop older processing"
+							);
+						}
+						rx.await.ok();
 					}
 				}
 
-				StreamMessage::Leftovers(batch) => {
-					ephemeral_thumbnails_leftovers_queue.push_back(batch);
-				}
+				StreamMessage::Leftovers((batch, kind)) => match kind {
+					ProcessingKind::Indexed => indexed_leftovers_queue.push_back(batch),
+					ProcessingKind::Ephemeral => ephemeral_leftovers_queue.push_back(batch),
+				},
 
 				StreamMessage::Database(DatabaseMessage::Add(id, db))
 				| StreamMessage::Database(DatabaseMessage::Update(id, db)) => {
@@ -320,19 +419,23 @@ impl Thumbnailer {
 		thumbnails_directory: &Path,
 		cas_ids: Vec<String>,
 	) -> Result<(), Error> {
-		try_join_all(cas_ids.into_iter().map(|cas_id| async move {
-			let thumbnail_path =
-				thumbnails_directory.join(format!("{}/{cas_id}.webp", &cas_id[0..2]));
+		cas_ids
+			.into_iter()
+			.map(|cas_id| async move {
+				let thumbnail_path =
+					thumbnails_directory.join(format!("{}/{cas_id}.webp", &cas_id[0..2]));
 
-			trace!("Removing thumbnail: {}", thumbnail_path.display());
+				trace!("Removing thumbnail: {}", thumbnail_path.display());
 
-			match fs::remove_file(&thumbnail_path).await {
-				Ok(()) => Ok(()),
-				Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-				Err(e) => Err(FileIOError::from((thumbnail_path, e))),
-			}
-		}))
-		.await?;
+				match fs::remove_file(&thumbnail_path).await {
+					Ok(()) => Ok(()),
+					Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+					Err(e) => Err(FileIOError::from((thumbnail_path, e))),
+				}
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
 
 		Ok(())
 	}
@@ -436,8 +539,9 @@ impl Thumbnailer {
 
 			let now = SystemTime::now();
 
-			let removed_count = try_join_all(thumbnails_paths_by_cas_id.into_values().map(
-				|path| async move {
+			let removed_count = thumbnails_paths_by_cas_id
+				.into_values()
+				.map(|path| async move {
 					if let Ok(metadata) = fs::metadata(&path).await {
 						if metadata
 							.accessed()
@@ -454,17 +558,18 @@ impl Thumbnailer {
 						}
 					}
 
-					tracing::warn!("Removing stale thumbnail: {}", path.display());
+					trace!("Removing stale thumbnail: {}", path.display());
 					fs::remove_file(&path)
 						.await
 						.map(|()| true)
 						.map_err(|e| FileIOError::from((path, e)))
-				},
-			))
-			.await?
-			.into_iter()
-			.filter(|r| *r)
-			.count();
+				})
+				.collect::<Vec<_>>()
+				.try_join()
+				.await?
+				.into_iter()
+				.filter(|r| *r)
+				.count();
 
 			if thumbs_found == removed_count {
 				// if we removed all the thumnails we found, it means that the directory is empty
@@ -482,10 +587,11 @@ impl Thumbnailer {
 		Ok(())
 	}
 
-	pub async fn new_non_indexed_thumbnails_batch(&self, batch: Vec<GenerateThumbnailArgs>) {
+	#[inline]
+	async fn new_batch(&self, batch: BatchToProcess, kind: ProcessingKind) {
 		if self
-			.ephemeral_thumbnails_to_generate_tx
-			.send(batch)
+			.thumbnails_to_generate_tx
+			.send((batch, kind))
 			.await
 			.is_err()
 		{
@@ -493,45 +599,121 @@ impl Thumbnailer {
 		}
 	}
 
+	pub async fn new_ephemeral_thumbnails_batch(&self, batch: BatchToProcess) {
+		self.new_batch(batch, ProcessingKind::Ephemeral).await;
+	}
+
+	pub async fn new_indexed_thumbnails_batch(&self, batch: BatchToProcess) {
+		self.new_batch(batch, ProcessingKind::Indexed).await;
+	}
+
 	pub async fn remove_cas_ids(&self, cas_ids: Vec<String>) {
 		if self.cas_ids_to_delete_tx.send(cas_ids).await.is_err() {
 			error!("Thumbnail remover actor is dead: Failed to send cas ids to delete");
 		}
 	}
+
+	/// WARNING!!!! DON'T USE THIS METHOD IN A LOOP!!!!!!!!!!!!! It will be pretty slow on purpose!
+	pub async fn generate_single_thumbnail(
+		&self,
+		extension: &str,
+		cas_id: String,
+		path: impl AsRef<Path>,
+	) -> Result<(), ThumbnailerError> {
+		let mut last_single_thumb_generated_guard = self.last_single_thumb_generated.lock().await;
+
+		let elapsed = Instant::now() - *last_single_thumb_generated_guard;
+		if elapsed < ONE_SEC {
+			// This will choke up in case someone try to use this method in a loop, otherwise
+			// it will consume all the machine resources like a gluton monster from hell
+			sleep(ONE_SEC - elapsed).await;
+		}
+
+		let res = generate_thumbnail(
+			self.thumbnails_directory.clone(),
+			extension,
+			cas_id,
+			path,
+			false,
+			false,
+			self.reporter.clone(),
+		)
+		.await
+		.map(|_| ());
+
+		*last_single_thumb_generated_guard = Instant::now();
+
+		res
+	}
+}
+
+struct ProcessorControlChannels {
+	stop_rx: chan::Receiver<oneshot::Sender<()>>,
+	done_tx: oneshot::Sender<()>,
 }
 
 async fn batch_processor(
-	batch: Vec<GenerateThumbnailArgs>,
+	thumbnails_directory: PathBuf,
+	(
+		BatchToProcess {
+			batch,
+			should_regenerate,
+			in_background,
+		},
+		kind,
+	): (BatchToProcess, ProcessingKind),
 	generated_cas_ids_tx: chan::Sender<Vec<String>>,
-	stop_rx: chan::Receiver<()>,
-	done_tx: oneshot::Sender<()>,
-	leftovers_tx: chan::Sender<Vec<GenerateThumbnailArgs>>,
-	in_background: bool,
+	ProcessorControlChannels { stop_rx, done_tx }: ProcessorControlChannels,
+	leftovers_tx: chan::Sender<(BatchToProcess, ProcessingKind)>,
+	reporter: broadcast::Sender<CoreEvent>,
 ) {
+	tracing::debug!(
+		"Processing thumbnails batch of kind {kind:?} with size {} in {}",
+		batch.len(),
+		if in_background {
+			"background"
+		} else {
+			"foreground"
+		},
+	);
+
+	// Tranforming to `VecDeque` so we don't need to move anything as we consume from the beginning
+	// This from is guaranteed to be O(1)
 	let mut queue = VecDeque::from(batch);
 
 	enum RaceOutputs {
 		Processed,
-		Stop,
+		Stop(oneshot::Sender<()>),
 	}
 
 	// Need this borrow here to satisfy the async move below
 	let generated_cas_ids_tx = &generated_cas_ids_tx;
 
 	while !queue.is_empty() {
-		let chunk = (0..4)
+		let chunk = (0..*BATCH_SIZE
+			.get()
+			.expect("BATCH_SIZE is set at thumbnailer new method"))
 			.filter_map(|_| queue.pop_front())
 			.map(
 				|GenerateThumbnailArgs {
 				     extension,
 				     cas_id,
 				     path,
-				     node,
 				 }| {
+					let reporter = reporter.clone();
+					let thumbnails_directory = thumbnails_directory.clone();
 					spawn(async move {
 						timeout(
 							THIRTY_SECS,
-							generate_thumbnail(&extension, cas_id, &path, node, in_background),
+							generate_thumbnail(
+								thumbnails_directory,
+								&extension,
+								cas_id,
+								&path,
+								in_background,
+								should_regenerate,
+								reporter,
+							),
 						)
 						.await
 						.unwrap_or_else(|_| Err(ThumbnailerError::TimedOut(path.into_boxed_path())))
@@ -540,7 +722,7 @@ async fn batch_processor(
 			)
 			.collect::<Vec<_>>();
 
-		if let RaceOutputs::Stop = (
+		if let RaceOutputs::Stop(tx) = (
 			async move {
 				let cas_ids = chunk
 					.join()
@@ -566,37 +748,125 @@ async fn batch_processor(
 					error!("Thumbnail remover actor is dead: Failed to send generated cas ids")
 				}
 
-				trace!("Processed chunk of thumbnails");
+				tracing::debug!("Processed chunk of thumbnails");
 				RaceOutputs::Processed
 			},
 			async {
-				stop_rx
+				let tx = stop_rx
 					.recv()
 					.await
 					.expect("Critical error on thumbnails actor");
-				trace!("Received a stop signal");
-				RaceOutputs::Stop
+				tracing::debug!("Received a stop signal");
+				RaceOutputs::Stop(tx)
 			},
 		)
 			.race()
 			.await
 		{
-			// Our queue is always contiguous, so this `from`` is free
+			// Our queue is always contiguous, so this `from` is free
 			let leftovers = Vec::from(queue);
 
-			trace!(
+			tracing::debug!(
 				"Stopped with {} thumbnails left to process",
 				leftovers.len()
 			);
-			if !leftovers.is_empty() && leftovers_tx.send(leftovers).await.is_err() {
+			if !leftovers.is_empty()
+				&& leftovers_tx
+					.send((
+						BatchToProcess {
+							batch: leftovers,
+							should_regenerate,
+							in_background: true, // Leftovers should always be in background
+						},
+						kind,
+					))
+					.await
+					.is_err()
+			{
 				error!("Thumbnail remover actor is dead: Failed to send leftovers")
 			}
 
 			done_tx.send(()).ok();
+			tx.send(()).ok();
 
 			return;
 		}
 	}
 
+	tracing::debug!("Finished batch!");
+
 	done_tx.send(()).ok();
+}
+
+async fn generate_thumbnail(
+	thumbnails_directory: PathBuf,
+	extension: &str,
+	cas_id: String,
+	path: impl AsRef<Path>,
+	in_background: bool,
+	should_regenerate: bool,
+	reporter: broadcast::Sender<CoreEvent>,
+) -> Result<String, ThumbnailerError> {
+	let path = path.as_ref();
+	trace!("Generating thumbnail for {}", path.display());
+
+	let mut output_path = thumbnails_directory;
+	output_path.push(get_shard_hex(&cas_id));
+	output_path.push(&cas_id);
+	output_path.set_extension("webp");
+
+	if let Err(e) = fs::metadata(&output_path).await {
+		if e.kind() != io::ErrorKind::NotFound {
+			error!(
+				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e:#?}"
+			);
+		}
+	// Otherwise we good, thumbnail doesn't exist so we can generate it
+	} else if !should_regenerate {
+		trace!(
+			"Skipping thumbnail generation for {} because it already exists",
+			path.display()
+		);
+		return Ok(cas_id);
+	}
+
+	if let Ok(extension) = ImageExtension::from_str(extension) {
+		if can_generate_thumbnail_for_image(&extension) {
+			generate_image_thumbnail(&path, &output_path).await?;
+		}
+	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
+		if can_generate_thumbnail_for_document(&extension) {
+			generate_image_thumbnail(&path, &output_path).await?;
+		}
+	}
+
+	#[cfg(feature = "ffmpeg")]
+	{
+		use crate::object::media::thumbnail::{
+			can_generate_thumbnail_for_video, generate_video_thumbnail,
+		};
+		use sd_file_ext::extensions::VideoExtension;
+
+		if let Ok(extension) = VideoExtension::from_str(extension) {
+			if can_generate_thumbnail_for_video(&extension) {
+				generate_video_thumbnail(&path, &output_path).await?;
+			}
+		}
+	}
+
+	if !in_background {
+		trace!("Emitting new thumbnail event");
+		if reporter
+			.send(CoreEvent::NewThumbnail {
+				thumb_key: get_thumb_key(&cas_id),
+			})
+			.is_err()
+		{
+			warn!("Error sending event to Node's event bus");
+		}
+	}
+
+	trace!("Generated thumbnail for {}", path.display());
+
+	Ok(cas_id)
 }

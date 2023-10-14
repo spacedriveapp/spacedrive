@@ -54,7 +54,7 @@ macro_rules! extension_enum {
 		}
 	) => {
 		// construct enum
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, PartialEq, Eq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, PartialEq, Eq, Clone)]
 		pub enum Extension {
 			$( $variant($type), )*
 		}

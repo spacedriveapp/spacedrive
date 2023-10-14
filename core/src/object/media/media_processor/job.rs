@@ -9,26 +9,26 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_media_processor, IsolatedFilePathData,
 	},
-	object::media::media_data_extractor,
-	object::media::thumbnail::{self, init_thumbnail_dir},
 	prisma::{location, PrismaClient},
 	util::db::maybe_missing,
 };
 
 use std::{
-	collections::HashMap,
+	future::Future,
 	hash::Hash,
 	path::{Path, PathBuf},
 };
 
 use itertools::Itertools;
+use prisma_client_rust::{raw, PrismaValue};
+use sd_file_ext::extensions::Extension;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{debug, info};
 
 use super::{
-	get_all_children_files_by_extensions, process, MediaProcessorEntry, MediaProcessorEntryKind,
-	MediaProcessorError, MediaProcessorMetadata, ThumbnailerEntryKind,
+	dispatch_thumbnails_for_processing, media_data_extractor, process, MediaProcessorError,
+	MediaProcessorMetadata,
 };
 
 const BATCH_SIZE: usize = 10;
@@ -51,17 +51,14 @@ impl Hash for MediaProcessorJobInit {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MediaProcessorJobData {
-	thumbnails_base_dir: PathBuf,
 	location_path: PathBuf,
 	to_process_path: PathBuf,
 }
 
-type MediaProcessorJobStep = Vec<MediaProcessorEntry>;
-
 #[async_trait::async_trait]
 impl StatefulJob for MediaProcessorJobInit {
 	type Data = MediaProcessorJobData;
-	type Step = MediaProcessorJobStep;
+	type Step = Vec<file_path_for_media_processor::Data>;
 	type RunMetadata = MediaProcessorMetadata;
 
 	const NAME: &'static str = "media_processor";
@@ -77,10 +74,6 @@ impl StatefulJob for MediaProcessorJobInit {
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
 		let Library { db, .. } = ctx.library.as_ref();
-
-		let thumbnails_base_dir = init_thumbnail_dir(ctx.node.config.data_directory())
-			.await
-			.map_err(MediaProcessorError::from)?;
 
 		let location_id = self.location.id;
 		let location_path =
@@ -120,53 +113,37 @@ impl StatefulJob for MediaProcessorJobInit {
 			"Searching for media files in location {location_id} at directory \"{iso_file_path}\""
 		);
 
-		let thumbnailer_files = get_files_for_thumbnailer(db, &iso_file_path).await?;
+		dispatch_thumbnails_for_processing(
+			location_id,
+			&location_path,
+			&iso_file_path,
+			&ctx.library,
+			&ctx.node,
+			false,
+			get_all_children_files_by_extensions,
+		)
+		.await?;
 
-		let mut media_data_files_map = get_files_for_media_data_extraction(db, &iso_file_path)
-			.await?
-			.map(|file_path| (file_path.id, file_path))
-			.collect::<HashMap<_, _>>();
+		let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
 
-		let mut total_files_for_thumbnailer = 0;
+		let total_files = file_paths.len();
 
-		let chunked_files = thumbnailer_files
+		let chunked_files = file_paths
 			.into_iter()
-			.map(|(file_path, thumb_kind)| {
-				total_files_for_thumbnailer += 1;
-				MediaProcessorEntry {
-					operation_kind: if media_data_files_map.remove(&file_path.id).is_some() {
-						MediaProcessorEntryKind::MediaDataAndThumbnailer(thumb_kind)
-					} else {
-						MediaProcessorEntryKind::Thumbnailer(thumb_kind)
-					},
-					file_path,
-				}
-			})
-			.collect::<Vec<_>>()
-			.into_iter()
-			.chain(
-				media_data_files_map
-					.into_values()
-					.map(|file_path| MediaProcessorEntry {
-						operation_kind: MediaProcessorEntryKind::MediaData,
-						file_path,
-					}),
-			)
 			.chunks(BATCH_SIZE)
 			.into_iter()
 			.map(|chunk| chunk.collect::<Vec<_>>())
 			.collect::<Vec<_>>();
 
 		ctx.progress(vec![
-			JobReportUpdate::TaskCount(total_files_for_thumbnailer),
+			JobReportUpdate::TaskCount(total_files),
 			JobReportUpdate::Message(format!(
-				"Preparing to process {total_files_for_thumbnailer} files in {} chunks",
+				"Preparing to process {total_files} files in {} chunks",
 				chunked_files.len()
 			)),
 		]);
 
 		*data = Some(MediaProcessorJobData {
-			thumbnails_base_dir,
 			location_path,
 			to_process_path,
 		});
@@ -177,18 +154,19 @@ impl StatefulJob for MediaProcessorJobInit {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		CurrentStep { step, step_number }: CurrentStep<'_, Self::Step>,
+		CurrentStep {
+			step: file_paths,
+			step_number,
+		}: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		process(
-			step,
+			file_paths,
 			self.location.id,
 			&data.location_path,
-			&data.thumbnails_base_dir,
-			self.regenerate_thumbnails,
-			&ctx.library,
-			|completed_count| {
+			&ctx.library.db,
+			&|completed_count| {
 				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 					step_number * BATCH_SIZE + completed_count,
 				)]);
@@ -214,7 +192,7 @@ impl StatefulJob for MediaProcessorJobInit {
 				.display()
 		);
 
-		if run_metadata.thumbnailer.created > 0 || run_metadata.media_data.extracted > 0 {
+		if run_metadata.media_data.extracted > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
 
@@ -222,55 +200,60 @@ impl StatefulJob for MediaProcessorJobInit {
 	}
 }
 
-async fn get_files_for_thumbnailer(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-) -> Result<
-	impl Iterator<Item = (file_path_for_media_processor::Data, ThumbnailerEntryKind)>,
-	MediaProcessorError,
-> {
-	// query database for all image files in this location that need thumbnails
-	let image_thumb_files = get_all_children_files_by_extensions(
-		db,
-		parent_iso_file_path,
-		&thumbnail::THUMBNAILABLE_EXTENSIONS,
-	)
-	.await?
-	.into_iter()
-	.map(|file_path| (file_path, ThumbnailerEntryKind::Image));
-
-	#[cfg(feature = "ffmpeg")]
-	let all_files = {
-		// query database for all video files in this location that need thumbnails
-		let video_files = get_all_children_files_by_extensions(
-			db,
-			parent_iso_file_path,
-			&thumbnail::THUMBNAILABLE_VIDEO_EXTENSIONS,
-		)
-		.await?;
-
-		image_thumb_files.chain(
-			video_files
-				.into_iter()
-				.map(|file_path| (file_path, ThumbnailerEntryKind::Video)),
-		)
-	};
-	#[cfg(not(feature = "ffmpeg"))]
-	let all_files = { image_thumb_files };
-
-	Ok(all_files)
-}
-
 async fn get_files_for_media_data_extraction(
 	db: &PrismaClient,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
-) -> Result<impl Iterator<Item = file_path_for_media_processor::Data>, MediaProcessorError> {
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
 	get_all_children_files_by_extensions(
 		db,
 		parent_iso_file_path,
 		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
 	)
 	.await
-	.map(|file_paths| file_paths.into_iter())
 	.map_err(Into::into)
+}
+
+fn get_all_children_files_by_extensions<'d, 'p, 'e, 'ret>(
+	db: &'d PrismaClient,
+	parent_iso_file_path: &'p IsolatedFilePathData<'_>,
+	extensions: &'e [Extension],
+) -> impl Future<Output = Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError>> + 'ret
+where
+	'd: 'ret,
+	'p: 'ret,
+	'e: 'ret,
+{
+	async move {
+		// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+		// We have no data coming from the user, so this is sql injection safe
+		db._query_raw(raw!(
+			&format!(
+				"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			FROM file_path
+			WHERE
+				location_id={{}}
+				AND cas_id IS NOT NULL
+				AND LOWER(extension) IN ({})
+				AND materialized_path LIKE {{}}
+			ORDER BY materialized_path ASC",
+				// Orderind by materialized_path so we can prioritize processing the first files
+				// in the above part of the directories tree
+				extensions
+					.iter()
+					.map(|ext| format!("LOWER('{ext}')"))
+					.collect::<Vec<_>>()
+					.join(",")
+			),
+			PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+			PrismaValue::String(format!(
+				"{}%",
+				parent_iso_file_path
+					.materialized_path_for_children()
+					.expect("sub path iso_file_path must be a directory")
+			))
+		))
+		.exec()
+		.await
+		.map_err(Into::into)
+	}
 }
