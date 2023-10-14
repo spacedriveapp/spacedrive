@@ -44,20 +44,6 @@ public func blurWindowBackground(window: NSWindow) {
   blurryView.addSubview(windowContent)
 }
 
-func setInvisibleToolbar(windowPtr: NSWindow, hasToolbar: Bool) {
-  let window = windowPtr
-
-  if !hasToolbar {
-    window.toolbar = nil
-    return
-  }
-
-  let toolbar = NSToolbar(identifier: "window_invisible_toolbar")
-
-  toolbar.showsBaselineSeparator = false
-  window.toolbar = toolbar
-}
-
 @_cdecl("set_titlebar_style")
 public func setTitlebarStyle(window: NSWindow, transparent: Bool) {
   window.titleVisibility = transparent ? .hidden : .visible
