@@ -16,6 +16,7 @@ export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 's
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 export const inputSizes = {
+	xs: 'h-[27px]',
 	sm: 'h-[30px]',
 	md: 'h-[34px]',
 	lg: 'h-[38px]'

@@ -70,7 +70,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-						{searchStore.isFocused && <SearchOptions />}
+						{searchStore.isSearching && <SearchOptions />}
 
 						<View
 							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}

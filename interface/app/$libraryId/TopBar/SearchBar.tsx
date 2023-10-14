@@ -82,14 +82,14 @@ export default () => {
 			size="sm"
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
-				getSearchStore().isFocused = false;
+				// getSearchStore().isSearching = false;
 				// if (value === '') {
 				// 	setSearchParams({}, { replace: true });
 				// 	navigate(-1);
 				// }
 			}}
 			onFocus={() => {
-				getSearchStore().isFocused = true;
+				getSearchStore().isSearching = true;
 				// if (searchPath.pathname !== location.pathname) {
 				// 	navigate({
 				// 		pathname: 'search',
