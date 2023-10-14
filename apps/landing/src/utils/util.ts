@@ -17,7 +17,9 @@ export function toTitleCase(str: string) {
 
 // https://github.com/mrdoob/three.js/blob/7fa8637df3edcf21a516e1ebbb9b327136457baa/src/renderers/WebGLRenderer.js#L266
 const webGLCtxNames = ['webgl2', 'webgl', 'experimental-webgl'];
-export function detectWebGLContext() {
+export function hasWebGLContext() {
+	const window = getWindow();
+	if (!window) return false;
 	const { WebGLRenderingContext, WebGL2RenderingContext } = window;
 	if (WebGLRenderingContext == null) return false;
 

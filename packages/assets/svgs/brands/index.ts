@@ -3,6 +3,8 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
+'use client';
+
 import { ReactComponent as Academia } from './Academia.svg';
 import { ReactComponent as Apple } from './apple.svg';
 import { ReactComponent as Discord } from './Discord.svg';
