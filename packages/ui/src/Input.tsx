@@ -8,6 +8,7 @@ import { Button } from './Button';
 export interface InputBaseProps extends VariantProps<typeof inputStyles> {
 	icon?: Icon | React.ReactNode;
 	iconPosition?: 'left' | 'right';
+	inputElementClassName?: string;
 	right?: React.ReactNode;
 }
 
@@ -16,7 +17,7 @@ export type InputProps = InputBaseProps & Omit<React.ComponentProps<'input'>, 's
 export type TextareaProps = InputBaseProps & React.ComponentProps<'textarea'>;
 
 export const inputSizes = {
-	xs: 'h-[27px]',
+	xs: 'h-[25px]',
 	sm: 'h-[30px]',
 	md: 'h-[34px]',
 	lg: 'h-[38px]'
@@ -82,7 +83,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 					className={clsx(
 						'flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint',
 						(right || (icon && iconPosition === 'right')) && 'pr-0',
-						icon && iconPosition === 'left' && 'pl-0'
+						icon && iconPosition === 'left' && 'pl-0',
+						size === 'xs' && '!py-0',
+						props.inputElementClassName
 					)}
 					onKeyDown={(e) => {
 						e.stopPropagation();

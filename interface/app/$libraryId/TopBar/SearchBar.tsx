@@ -5,7 +5,7 @@ import { createSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { SearchParamsSchema } from '~/app/route-schemas';
-import { getSearchStore, useOperatingSystem, useZodSearchParams } from '~/hooks';
+import { getSearchStore, useOperatingSystem, useSearchStore, useZodSearchParams } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 export default () => {
@@ -14,6 +14,8 @@ export default () => {
 	const [searchParams, setSearchParams] = useZodSearchParams(SearchParamsSchema);
 	const navigate = useNavigate();
 	const location = useLocation();
+
+	const searchStore = useSearchStore();
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
@@ -82,11 +84,11 @@ export default () => {
 			size="sm"
 			onChange={(e) => updateValue(e.target.value)}
 			onBlur={() => {
-				// getSearchStore().isSearching = false;
-				// if (value === '') {
-				// 	setSearchParams({}, { replace: true });
-				// 	navigate(-1);
-				// }
+				if (value === '' && !searchStore.interactingWithSearchOptions) {
+					getSearchStore().isSearching = false;
+					// setSearchParams({}, { replace: true });
+					// navigate(-1);
+				}
 			}}
 			onFocus={() => {
 				getSearchStore().isSearching = true;

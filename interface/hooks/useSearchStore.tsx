@@ -7,6 +7,7 @@ export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
 const searchStore = proxy({
 	isSearching: false,
+	interactingWithSearchOptions: false,
 	searchType: 'paths',
 	searchScope: 'directory',
 	objectKind: null as typeof ObjectKind | null,
