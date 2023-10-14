@@ -21,3 +21,4 @@ export * from './useZodRouteParams';
 export * from './useZodSearchParams';
 export * from './useIsTextTruncated';
 export * from './useKeyMatcher';
+export * from './useKeyCopyPaste';
