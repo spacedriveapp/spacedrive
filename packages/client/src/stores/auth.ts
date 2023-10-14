@@ -11,6 +11,7 @@ export interface ProviderConfig {
 	start(key: string): any;
 	finish?(ret: any): void;
 }
+
 // inner object so we can overwrite it in one assignment
 const store = proxy<Store>({
 	state: {
@@ -32,7 +33,8 @@ nonLibraryClient
 		store.state = { status: 'notLoggedIn' };
 	});
 
-const loginCallbacks = new Set<(status: 'success' | 'error') => void>();
+type CallbackStatus = 'success' | 'error' | 'cancel';
+const loginCallbacks = new Set<(status: CallbackStatus) => void>();
 
 function onError() {
 	loginCallbacks.forEach((cb) => cb('error'));
@@ -57,7 +59,7 @@ export function login(config: ProviderConfig) {
 	});
 
 	return new Promise<void>((res, rej) => {
-		const cb = async (status: 'success' | 'error') => {
+		const cb = async (status: CallbackStatus) => {
 			loginCallbacks.delete(cb);
 
 			if (status === 'success') {
@@ -77,5 +79,11 @@ export function logout() {
 	store.state = { status: 'loggingOut' };
 	nonLibraryClient.mutation(['auth.logout']);
 	nonLibraryClient.query(['auth.me']);
+	store.state = { status: 'notLoggedIn' };
+}
+
+export function cancel() {
+	loginCallbacks.forEach((cb) => cb('cancel'));
+	loginCallbacks.clear();
 	store.state = { status: 'notLoggedIn' };
 }

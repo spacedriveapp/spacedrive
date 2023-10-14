@@ -28,7 +28,9 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 	const metaCtrlKey = useKeyMatcher('Meta').key;
+
 	const searchStore = useSearchStore();
+	const optionAltKey = useKeyMatcher('Alt').key;
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -45,7 +47,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeybind([metaCtrlKey, 'p'], (e) => {
+	useKeybind([optionAltKey, metaCtrlKey, 'p'], (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});

@@ -68,6 +68,39 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 	],
 	Explorer: [
 		{
+			action: 'Switch to grid view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '1']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '1']
+				}
+			}
+		},
+		{
+			action: 'Switch to list view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '2']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '2']
+				}
+			}
+		},
+		{
+			action: 'Switch to media view',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, '3']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, '3']
+				}
+			}
+		},
+		{
 			description: 'Where you explore your folders and files',
 			action: 'Navigate explorer items',
 			keys: {
@@ -99,17 +132,6 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
-			action: 'Switch explorer layout',
-			keys: {
-				macOS: {
-					value: [modifierSymbols.Meta.macOS, 'b']
-				},
-				all: {
-					value: [modifierSymbols.Control.Other, 'b']
-				}
-			}
-		},
-		{
 			action: 'Open selected item',
 			keys: {
 				macOS: {
@@ -135,10 +157,10 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Show path bar',
 			keys: {
 				macOS: {
-					value: [modifierSymbols.Meta.macOS, 'p']
+					value: [modifierSymbols.Alt.macOS, modifierSymbols.Meta.macOS, 'p']
 				},
 				all: {
-					value: [modifierSymbols.Control.Other, 'p']
+					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'p']
 				}
 			}
 		},
@@ -279,7 +301,7 @@ function createKeybindColumns(os: OperatingSystem) {
 				});
 				return shortcuts.map((shortcut, idx) => {
 					if (shortcut) {
-						if (shortcut.length <= 5) {
+						if (shortcut.length > 2) {
 							return (
 								<div key={idx.toString()} className="inline-flex items-center">
 									<kbd
@@ -292,15 +314,13 @@ function createKeybindColumns(os: OperatingSystem) {
 							);
 						} else {
 							return shortcut?.split(' ').map(([key], idx) => {
-								const controlSymbolCheck =
-									key === '⌘' ? (os === 'macOS' ? '⌘' : 'Ctrl') : key;
 								return (
 									<div key={idx.toString()} className="inline-flex items-center">
 										<kbd
 											className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
 											key={idx.toString()}
 										>
-											{controlSymbolCheck}
+											{key}
 										</kbd>
 									</div>
 								);

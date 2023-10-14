@@ -26,16 +26,15 @@
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
-		"@tauri-apps/cli": "^1.5",
-		"@types/babel__core": "^7.20",
-		"@types/react": "^18.2.0",
-		"@types/react-dom": "^18.2.0",
-		"@vitejs/plugin-react": "^4.1",
-		"sass": "^1.68",
-		"typescript": "^5.2",
-		"vite": "^4.4",
-		"vite-plugin-html": "^3.2",
-		"vite-plugin-svgr": "^3.3",
-		"vite-tsconfig-paths": "^4.2"
+		"@tauri-apps/cli": "^1.5.2",
+		"@types/react": "^18.2.28",
+		"@types/react-dom": "^18.2.13",
+		"@vitejs/plugin-react": "^4.1.0",
+		"sass": "^1.69.3",
+		"typescript": "^5.2.2",
+		"vite": "^4.4.11",
+		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-svgr": "^3.3.0",
+		"vite-tsconfig-paths": "^4.2.1"
 	}
 }
