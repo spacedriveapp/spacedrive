@@ -214,7 +214,7 @@ pub async fn walk(
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&entry_path), &metadata),
+					hidden: path_is_hidden(&entry_path, &metadata),
 					path: entry_path,
 					name,
 					extension,
@@ -270,7 +270,7 @@ pub async fn walk(
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
-					hidden: path_is_hidden(Path::new(&directory), &metadata),
+					hidden: path_is_hidden(&directory, &metadata),
 					path: directory,
 					name,
 					extension: String::new(),

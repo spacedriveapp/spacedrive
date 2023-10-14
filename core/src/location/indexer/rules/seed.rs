@@ -104,7 +104,7 @@ pub fn no_os_protected() -> SystemIndexerRule {
                         "C:/Users/*/ntuser.dat*",
                         "C:/Users/*/{ntuser.ini,ntuser.dat,NTUSER.DAT}",
                         // User special folders (most of these the user dont even have permission to access)
-                        "C:/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings}",
+                        "C:/Users/*/{Cookies,AppData,NetHood,Recent,PrintHood,SendTo,Templates,Start Menu,Application Data,Local Settings,My Documents}",
                         // System special folders
                         "C:/{$Recycle.Bin,$WinREAgent,Documents and Settings,Program Files,Program Files (x86),ProgramData,Recovery,PerfLogs,Windows,Windows.old}",
                         // NTFS internal dir, can exists on any drive
