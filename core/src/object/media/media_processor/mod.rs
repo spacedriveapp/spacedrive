@@ -117,7 +117,6 @@ where
 			// We starting by appending all pdfs and leaving the vec clean to be reused
 			current_batch.append(&mut pdf_thumbs);
 
-
 			node.thumbnailer
 				.new_indexed_thumbnails_batch(BatchToProcess {
 					batch: current_batch,
