@@ -59,7 +59,7 @@ export default ({ options }: TopBarChildrenProps) => {
 	}, []);
 
 	return (
-		<div data-tauri-drag-region={os === 'macOS'} className="flex justify-end flex-1">
+		<div data-tauri-drag-region={os === 'macOS'} className="flex flex-1 justify-end">
 			<div data-tauri-drag-region={os === 'macOS'} className={`flex gap-0`}>
 				{options?.map((group, groupIndex) =>
 					group.map((option, index) => (

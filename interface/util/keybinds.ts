@@ -38,6 +38,9 @@ export function keybind<T extends string>(
 	return noDuplicates;
 }
 
+// Required to export keybind without importing @sd/ui
+export type { ModifierKeys } from '@sd/ui';
+
 export function keybindForOs(
 	os: OperatingSystem
 ): (modifers: ModifierKeys[], keys: string[]) => string {
