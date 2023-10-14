@@ -125,7 +125,7 @@ export default function HomePage() {
 	}, []);
 
 	useEffect(() => {
-		getLatestSpacedriveVersion().then((res) => setSpacedriveVersion(res));
+		getLatestSpacedriveVersion().then(setSpacedriveVersion);
 	}, []);
 
 	useEffect(() => {
