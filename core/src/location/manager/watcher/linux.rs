@@ -66,7 +66,7 @@ impl<'lib> EventHandler<'lib> for LinuxEventHandler<'lib> {
 	}
 
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
-		tracing::debug!("Received Linux event: {:#?}", event);
+		trace!("Received Linux event: {:#?}", event);
 
 		let Event {
 			kind, mut paths, ..

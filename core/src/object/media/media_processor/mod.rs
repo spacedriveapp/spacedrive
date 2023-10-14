@@ -94,8 +94,6 @@ where
 	)
 	.await?;
 
-	tracing::debug!("Found {} file_paths to process", file_paths.len());
-
 	let mut current_batch = Vec::with_capacity(16);
 
 	// PDF thumbnails are currently way slower so we process them by last
@@ -119,15 +117,6 @@ where
 			// We starting by appending all pdfs and leaving the vec clean to be reused
 			current_batch.append(&mut pdf_thumbs);
 
-			tracing::debug!(
-				"Found {} file_paths to process in {}",
-				current_batch.len(),
-				if in_background {
-					"background"
-				} else {
-					"foreground"
-				}
-			);
 
 			node.thumbnailer
 				.new_indexed_thumbnails_batch(BatchToProcess {
@@ -159,15 +148,6 @@ where
 
 	// Dispatching the last batch
 	if !current_batch.is_empty() {
-		tracing::debug!(
-			"Found {} file_paths to process in {}",
-			current_batch.len(),
-			if in_background {
-				"background"
-			} else {
-				"foreground"
-			}
-		);
 		node.thumbnailer
 			.new_indexed_thumbnails_batch(BatchToProcess {
 				batch: current_batch,

@@ -362,7 +362,7 @@ impl Thumbnailer {
 				StreamMessage::NewBatch((batch, kind)) => {
 					let in_background = batch.in_background;
 
-					tracing::debug!(
+					trace!(
 						"New {kind:?} batch to process in {}, size: {}",
 						if in_background {
 							"background"
@@ -381,7 +381,7 @@ impl Thumbnailer {
 
 					// Only sends stop signal if there is a batch being processed
 					if !in_background && current_batch_processing_rx.is_some() {
-						tracing::debug!("Sending stop signal to older processing");
+						trace!("Sending stop signal to older processing");
 						let (tx, rx) = oneshot::channel();
 						if stop_older_processing_tx.send(tx).await.is_err() {
 							error!(
@@ -667,7 +667,7 @@ async fn batch_processor(
 	leftovers_tx: chan::Sender<(BatchToProcess, ProcessingKind)>,
 	reporter: broadcast::Sender<CoreEvent>,
 ) {
-	tracing::debug!(
+	trace!(
 		"Processing thumbnails batch of kind {kind:?} with size {} in {}",
 		batch.len(),
 		if in_background {
@@ -748,7 +748,7 @@ async fn batch_processor(
 					error!("Thumbnail remover actor is dead: Failed to send generated cas ids")
 				}
 
-				tracing::debug!("Processed chunk of thumbnails");
+				trace!("Processed chunk of thumbnails");
 				RaceOutputs::Processed
 			},
 			async {
@@ -756,7 +756,7 @@ async fn batch_processor(
 					.recv()
 					.await
 					.expect("Critical error on thumbnails actor");
-				tracing::debug!("Received a stop signal");
+				trace!("Received a stop signal");
 				RaceOutputs::Stop(tx)
 			},
 		)
@@ -766,7 +766,7 @@ async fn batch_processor(
 			// Our queue is always contiguous, so this `from` is free
 			let leftovers = Vec::from(queue);
 
-			tracing::debug!(
+			trace!(
 				"Stopped with {} thumbnails left to process",
 				leftovers.len()
 			);
@@ -793,7 +793,7 @@ async fn batch_processor(
 		}
 	}
 
-	tracing::debug!("Finished batch!");
+	trace!("Finished batch!");
 
 	done_tx.send(()).ok();
 }
