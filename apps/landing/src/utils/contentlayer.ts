@@ -11,10 +11,12 @@ type DocsCategory = {
 	docs: CoreContent<Doc>[];
 };
 
-export type DocsNavigation = {
+type DocsSection = {
 	slug: string;
 	categories: DocsCategory[];
-}[];
+};
+
+export type DocsNavigation = DocsSection[];
 
 export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 	const coreDocs = allCoreContent(docs);

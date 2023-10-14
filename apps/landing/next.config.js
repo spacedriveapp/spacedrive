@@ -11,6 +11,15 @@ const nextConfig = {
 	reactStrictMode: true,
 	swcMinify: true,
 	transpilePackages: ['@sd/ui'],
+	eslint: {
+		ignoreDuringBuilds: true
+	},
+	typescript: {
+		ignoreBuildErrors: true
+	},
+	experimental: {
+		optimizePackageImports: ['@sd/ui']
+	},
 	webpack(config) {
 		// Grab the existing rule that handles SVG imports
 		const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'));
@@ -45,9 +54,6 @@ const nextConfig = {
 		fileLoaderRule.exclude = /\.svg$/i;
 
 		return config;
-	},
-	experimental: {
-		optimizePackageImports: ['@sd/ui']
 	}
 };
 

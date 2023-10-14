@@ -1,16 +1,15 @@
-import { allDocs } from '@contentlayer/generated';
 import { List } from '@phosphor-icons/react/dist/ssr';
 import { PropsWithChildren } from 'react';
 import { Button } from '@sd/ui';
-import { getDocsNavigation } from '~/utils/contentlayer';
 
 import { Sidebar } from './Sidebar';
 
 import 'katex/dist/katex.min.css';
 
-export default function Layout({ children }: PropsWithChildren) {
-	const navigation = getDocsNavigation(allDocs);
-
+export default function Layout({
+	children,
+	params
+}: PropsWithChildren<{ params: { slug?: string[] } }>) {
 	// {/* <Menu
 	// 	onClose={() => setMenuOpen(false)}
 	// 	customBurgerIcon={false}
@@ -34,7 +33,7 @@ export default function Layout({ children }: PropsWithChildren) {
 	return (
 		<div className="flex w-full flex-col items-start sm:flex-row">
 			<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden px-5 sm:inline lg:mr-4">
-				<Sidebar navigation={navigation} />
+				<Sidebar slug={params.slug} />
 			</aside>
 			<div className="flex w-full flex-col sm:flex-row" id="page-container">
 				<div className="mt-[65px] flex h-12 w-full items-center border-y border-gray-600 px-5 sm:hidden">

@@ -1,35 +1,43 @@
 import { allDocs } from '@contentlayer/generated';
 import { CaretRight } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
-import { useMDXComponent } from 'next-contentlayer/hooks';
+import { Metadata } from 'next';
+import { getMDXComponent } from 'next-contentlayer/hooks';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DocMDXComponents } from '~/components/mdx';
-import { getDocsNavigation } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
 
-import { Markdown } from '../Markdown';
+import { getDoc } from './data';
+import { Markdown } from './Markdown';
 
 export function generateStaticParams() {
 	const slugs = allDocs.map((doc) => doc.slug);
 	return slugs.map((slug) => ({ slug: slug.split('/') }));
 }
 
-function BottomCard(props: any) {
-	return (
-		<div
-			className="group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:border-primary hover:!text-primary hover:shadow-xl hover:shadow-primary/10"
-			{...props}
-		/>
-	);
+interface Props {
+	params: { slug?: string[] };
 }
 
-export default function Page({ params }: any) {
+export function generateMetadata({ params }: Props): Metadata {
+	if (!params.slug)
+		return {
+			title: 'Spacedrive Docs',
+			description: 'Learn more about Spacedrive'
+		};
+
+	return {};
+}
+
+export default function Page({ params }: Props) {
+	if (!params.slug) return <Index />;
+
 	const { doc, nextDoc } = getDoc(params.slug);
 
 	if (!doc) notFound();
 
-	const MDXContent = useMDXComponent(doc.body.code);
+	const MDXContent = getMDXComponent(doc.body.code);
 
 	return (
 		<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">
@@ -62,33 +70,31 @@ export default function Page({ params }: any) {
 	);
 }
 
-function getDoc(params: string[]) {
-	const slug = params.join('/');
+function BottomCard(props: any) {
+	return (
+		<div
+			className="group flex flex-row items-center rounded-lg border border-gray-700 p-4 text-sm !text-gray-200 transition-all duration-200 hover:translate-y-[-2px] hover:border-primary hover:!text-primary hover:shadow-xl hover:shadow-primary/10"
+			{...props}
+		/>
+	);
+}
 
-	const doc = allDocs.find((doc) => doc.slug === slug);
-
-	if (!doc) {
-		return {
-			notFound: true
-		};
-	}
-
-	const docNavigation = getDocsNavigation(allDocs);
-
-	// TODO: Doesn't work properly (can't skip categories)
-	const docIndex = docNavigation
-		.find((sec) => sec.slug == doc.section)
-		?.categories.find((cat) => cat.slug == doc.category)
-		?.docs.findIndex((d) => d.slug == doc.slug);
-
-	const nextDoc =
-		docNavigation
-			.find((sec) => sec.slug == doc.section)
-			?.categories.find((cat) => cat.slug == doc.category)?.docs[(docIndex || 0) + 1] || null;
-
-	return {
-		navigation: docNavigation,
-		doc,
-		nextDoc
-	};
+function Index() {
+	return (
+		<Markdown>
+			<div className="mt-[105px]">
+				<h1 className="text-4xl font-bold">Spacedrive Docs</h1>
+				<p className="text-lg text-gray-400">
+					Welcome to the Spacedrive documentation. Here you can find all the information
+					you need to get started with Spacedrive.
+				</p>
+				<Link
+					className="text-primary-600 transition hover:text-primary-500"
+					href="/docs/product/getting-started/introduction"
+				>
+					Get Started →
+				</Link>
+			</div>
+		</Markdown>
+	);
 }
