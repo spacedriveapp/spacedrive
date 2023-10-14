@@ -76,9 +76,6 @@ const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
-	#[cfg(debug_assertions)]
-	dotenv::dotenv().ok();
-
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
