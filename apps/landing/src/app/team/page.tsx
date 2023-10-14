@@ -36,7 +36,7 @@ export default function Page() {
 						href="/docs/product/resources/faq"
 						className="animation-delay-3 fade-in-heading text-underline flex flex-row items-center text-gray-400 underline-offset-4 duration-150 hover:text-white"
 					>
-						<ArrowRight width="1rem" height="1rem" className="mr-2" />
+						<ArrowRight className="mr-2" width="1rem" height="1rem" />
 						Read more
 					</Link>
 					<div className="fade-in-heading animation-delay-5">

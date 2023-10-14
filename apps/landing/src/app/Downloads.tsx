@@ -79,7 +79,7 @@ export function Downloads() {
 										: undefined
 								}
 								className={`z-5 plausible-event-name=download relative plausible-event-os=${currentPlatform.name}`}
-								icon={Icon ? <Icon /> : undefined}
+								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
 								text={`Download for ${currentPlatform.name}`}
 								onClick={() => setSelectedPlatform(currentPlatform)}
 							/>
@@ -104,7 +104,10 @@ export function Downloads() {
 							text={name}
 							target="_blank"
 							href={`${BASE_DL_LINK}/${selectedPlatform.os}/${arch}`}
-							className={`z-5 plausible-event-name=download relative !py-1 !text-sm plausible-event-os=${selectedPlatform.name}+${arch}`}
+							className={clsx(
+								'z-5 relative !py-1 !text-sm',
+								`plausible-event-name=download plausible-event-os=${selectedPlatform.name}+${arch}`
+							)}
 						/>
 					))}
 				</div>
