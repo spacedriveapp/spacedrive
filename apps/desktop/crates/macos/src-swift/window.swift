@@ -59,19 +59,7 @@ func setInvisibleToolbar(windowPtr: NSWindow, hasToolbar: Bool) {
 }
 
 @_cdecl("set_titlebar_style")
-public func setTitlebarStyle(window: NSWindow, transparent: Bool, large: Bool) {
-  var styleMask = window.styleMask
-
-  if transparent && large {
-    styleMask.insert(.unifiedTitleAndToolbar)
-  }
-
-  window.styleMask = styleMask
-
-  if large {
-    setInvisibleToolbar(windowPtr: window, hasToolbar: true)
-  }
-
+public func setTitlebarStyle(window: NSWindow, transparent: Bool) {
   window.titleVisibility = transparent ? .hidden : .visible
   window.titlebarAppearsTransparent = transparent
 }

@@ -161,7 +161,7 @@ async fn main() -> tauri::Result<()> {
 
 					let window = window.ns_window().unwrap();
 
-					unsafe { set_titlebar_style(&window, true, true) };
+					unsafe { set_titlebar_style(&window, true) };
 					unsafe { blur_window_background(&window) };
 				}
 			});
