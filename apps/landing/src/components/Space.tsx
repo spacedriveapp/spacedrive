@@ -18,8 +18,6 @@ const Stars = (props: any) => {
 		}
 	});
 
-	console.log({ sphere });
-
 	return (
 		<group rotation={[0, 0, Math.PI / 4]}>
 			<Points ref={ref} positions={sphere} stride={3} frustumCulled={false} {...props}>
@@ -60,8 +58,6 @@ function ShootingStar() {
 }
 
 export default function Space() {
-	if (!hasWebGLContext()) throw new Error('WebGL not supported');
-
 	return (
 		<div className="absolute z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>

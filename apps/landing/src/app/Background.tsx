@@ -1,9 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Suspense, useEffect, useState } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
-import { getWindow, hasWebGLContext } from '~/utils/util';
+import { ReactNode, Suspense, useEffect, useState } from 'react';
+import { hasWebGLContext } from '~/utils/util';
 
 const FADE = {
 	start: 300, // start fading out at 100px
@@ -18,6 +17,7 @@ const Bubbles = dynamic(() => import('~/components/Bubbles').then((m) => m.Bubbl
 export function Background() {
 	const [opacity, setOpacity] = useState(0.6);
 	const [isWindowResizing, setIsWindowResizing] = useState(false);
+	const [inner, setInner] = useState<ReactNode>(null);
 
 	useEffect(() => {
 		const handleScroll = () => {
@@ -57,22 +57,13 @@ export function Background() {
 		};
 	}, []);
 
+	useEffect(() => {
+		setInner(hasWebGLContext() ? <Space /> : <Bubbles />);
+	}, []);
+
 	return (
 		<div style={{ opacity }}>
-			<Suspense>
-				{!isWindowResizing && (
-					<ErrorBoundary
-						fallbackRender={() => {
-							console.warn(
-								'Fallback to Bubbles background due WebGL not being available'
-							);
-							return <Bubbles />;
-						}}
-					>
-						<Space />
-					</ErrorBoundary>
-				)}
-			</Suspense>
+			<Suspense>{!isWindowResizing && inner}</Suspense>
 		</div>
 	);
 }
