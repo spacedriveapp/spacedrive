@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
 
-export function useKeybindHandler() {
+export function useKeybindEventHandler(libraryId?: string) {
 	const navigate = useNavigate();
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
 			if (e.detail.action === 'open_settings') {
-				navigate('/settings/client/general');
+				libraryId && navigate(`/${libraryId}/settings/client/general`);
 				e.preventDefault();
 				return;
 			}
@@ -17,5 +17,5 @@ export function useKeybindHandler() {
 
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
-	}, [navigate]);
+	}, [navigate, libraryId]);
 }

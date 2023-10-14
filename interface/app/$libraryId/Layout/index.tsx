@@ -13,7 +13,12 @@ import {
 } from '@sd/client';
 import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
-import { useOperatingSystem, useShowControls, useZodRouteParams } from '~/hooks';
+import {
+	useKeybindEventHandler,
+	useOperatingSystem,
+	useShowControls,
+	useZodRouteParams
+} from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
@@ -23,6 +28,7 @@ import Sidebar from './Sidebar';
 const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
+	useKeybindEventHandler(library?.uuid);
 
 	const transparentBg = useShowControls().transparentBg;
 	const plausibleEvent = usePlausibleEvent();
