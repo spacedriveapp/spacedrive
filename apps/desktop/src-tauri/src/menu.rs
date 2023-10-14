@@ -103,37 +103,29 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			.emit("keybind", "open_search".to_string())
 			.unwrap(),
 		"reload_app" => {
-			#[cfg(target_os = "macos")]
-			{
-				event
-					.window()
-					.with_webview(|webview| {
-						unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) };
-					})
-					.expect("Error while reloading webview");
-			}
+			event
+				.window()
+				.with_webview(|webview| {
+					#[cfg(target_os = "macos")]
+					{
+						unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) }
+					}
+					#[cfg(target_os = "linux")]
+					{
+						use webkit2gtk::traits::WebViewExt;
 
-			#[cfg(target_os = "linux")]
-			{
-				use webkit2gtk::traits::WebViewExt;
-
-				event
-					.window()
-					.with_webview(|webview| webview.inner().reload())
-					.expect("Error while reloading webview");
-			}
-
-			#[cfg(target_os = "windows")]
-			unsafe {
-				event.window().with_webview(|webview| {
-					webview
-						.controller()
-						.CoreWebView2()
-						.expect("Unable to get handle on inner webview")
-						.Reload()
-						.expect("Error while reloading webview")
-				});
-			}
+						webview.inner().reload()
+					}
+					#[cfg(target_os = "windows")]
+					unsafe {
+						webview
+							.controller()
+							.CoreWebView2()
+							.expect("Unable to get handle on inner webview")
+							.Reload()
+					}
+				})
+				.expect("Error while reloading webview");
 		}
 		#[cfg(debug_assertions)]
 		"toggle_devtools" => {
