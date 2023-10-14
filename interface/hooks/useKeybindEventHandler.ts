@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
 
-export function useKeybindEventHandler(libraryId?: string) {
+export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -18,4 +18,4 @@ export function useKeybindEventHandler(libraryId?: string) {
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
 	}, [navigate, libraryId]);
-}
+};
