@@ -50,6 +50,7 @@
 		"react-router": "6.9.0",
 		"react-router-dom": "6.9.0",
 		"react-selecto": "^1.26.0",
+		"react-slidedown": "^2.4.7",
 		"react-sticky-el": "^2.1.0",
 		"react-truncate-markup": "^5.1.2",
 		"react-use-draggable-scroll": "^0.4.7",

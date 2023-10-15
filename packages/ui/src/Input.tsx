@@ -35,6 +35,10 @@ export const inputStyles = cva(
 				default: [
 					'border-app-line bg-app-input placeholder-ink-faint focus-within:bg-app-focus',
 					'focus-within:border-app-divider/80 focus-within:ring-app-selected/30'
+				],
+				transparent: [
+					'border-transparent bg-transparent placeholder-ink-dull focus-within:bg-transparent',
+					'focus-within:border-transparent focus-within:ring-transparent'
 				]
 			},
 			error: {

@@ -89,13 +89,16 @@ const Separator = (props: { className?: string }) => (
 const SubMenu = ({
 	label,
 	icon,
+	iconProps,
+	keybind,
+	variant,
 	className,
 	...props
 }: RadixDM.MenuSubContentProps & ContextMenuItemProps) => {
 	return (
 		<RadixDM.Sub>
 			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
-				<ContextMenuDivItem rightArrow {...{ label, icon }} />
+				<ContextMenuDivItem rightArrow {...{ label, icon, iconProps, keybind, variant }} />
 			</RadixDM.SubTrigger>
 			<RadixDM.Portal>
 				<Suspense fallback={null}>
@@ -128,20 +131,22 @@ const Item = ({
 }: DropdownItemProps & RadixDM.MenuItemProps) => {
 	const ref = useRef<HTMLDivElement>(null);
 
+	const renderInner = (
+		// to style this, pass in variant
+		<ContextMenuDivItem
+			// className={clsx(selected && 'bg-accent text-white')}
+			{...{ icon, iconProps, label, keybind, variant, children }}
+		/>
+	);
+
 	return (
 		<RadixDM.Item ref={ref} className={clsx(contextMenuItemClassNames, className)} {...props}>
 			{to ? (
 				<Link to={to} onClick={() => ref.current?.click()}>
-					<ContextMenuDivItem
-						className={clsx(selected && 'bg-accent text-white')}
-						{...{ icon, iconProps, label, keybind, variant, children }}
-					/>
+					{renderInner}
 				</Link>
 			) : (
-				<ContextMenuDivItem
-					className={clsx(selected && 'bg-accent text-white')}
-					{...{ icon, iconProps, label, keybind, variant, children }}
-				/>
+				renderInner
 			)}
 		</RadixDM.Item>
 	);

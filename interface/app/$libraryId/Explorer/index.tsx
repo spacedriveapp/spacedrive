@@ -1,5 +1,6 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { SlideDown } from 'react-slidedown';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 import { useKeybind, useKeyMatcher, useSearchStore } from '~/hooks';
 
@@ -13,6 +14,8 @@ import { useExplorerStore } from './store';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 import SearchOptions from './View/SearchOptions';
+
+import 'react-slidedown/lib/slidedown.css';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
@@ -72,7 +75,9 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-						{searchStore.isSearching && <SearchOptions />}
+						<SlideDown className="search-options-slide sticky top-0 z-10 ">
+							{searchStore.isSearching && <SearchOptions />}
+						</SlideDown>
 
 						<View
 							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
@@ -90,7 +95,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					</div>
 				</div>
 			</ExplorerContextMenu>
-
 			{showPathBar && <ExplorerPath />}
 
 			{explorerStore.showInspector && (
