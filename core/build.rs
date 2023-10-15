@@ -8,4 +8,7 @@ fn main() {
 	let git_hash = String::from_utf8(output.stdout)
 		.expect("Error passing output of `git rev-parse --short HEAD`");
 	println!("cargo:rustc-env=GIT_HASH={git_hash}");
+
+	#[cfg(target_os = "linux")]
+	println!("cargo:rustc-link-arg=-Wl,-rpath=$ORIGIN/../lib/spacedrive");
 }
