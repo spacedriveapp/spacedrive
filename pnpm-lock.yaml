@@ -46,7 +46,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.4.11
-        version: 4.4.11(@types/node@18.17.19)
+        version: 4.4.11(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -603,7 +603,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.4.11
-        version: 4.4.11(@types/node@18.17.19)
+        version: 4.4.11(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.4.11)
@@ -623,8 +623,8 @@ importers:
         specifier: ^1.7.3
         version: 1.7.17(react-dom@18.2.0)(react@18.2.0)
       '@icons-pack/react-simple-icons':
-        specifier: ^7.2.0
-        version: 7.2.0(react@18.2.0)
+        specifier: ^9.1.0
+        version: 9.1.0(react@18.2.0)
       '@phosphor-icons/react':
         specifier: ^2.0.10
         version: 2.0.13(react-dom@18.2.0)(react@18.2.0)
@@ -4497,8 +4497,8 @@ packages:
     resolution: {integrity: sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==}
     dev: false
 
-  /@icons-pack/react-simple-icons@7.2.0(react@18.2.0):
-    resolution: {integrity: sha512-XmyAiE+cDWDoCQGboie4se79ph2xAj/lQV+YVmLlX0nAFf92lci2ciVxWSN28f4MWZojskRWsu9S9BoH8UCQgg==}
+  /@icons-pack/react-simple-icons@9.1.0(react@18.2.0):
+    resolution: {integrity: sha512-3v6W4SgkYX6bHfKrFvRZrxilv+4wXKYQ2DVRldqaZgcwGK5ajsW4PzLlqF9aw+uT/NeoMklunonoYwZlx9Kbwg==}
     peerDependencies:
       react: ^16.13 || ^17 || ^18
     dependencies:
@@ -9565,7 +9565,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.2
       react-refresh: 0.14.0
-      vite: 4.4.11(sass@1.69.3)
+      vite: 4.4.11(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -21724,7 +21724,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.4.11(sass@1.69.3)
+      vite: 4.4.11(@types/node@18.17.19)
     transitivePeerDependencies:
       - rollup
       - supports-color
