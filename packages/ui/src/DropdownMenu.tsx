@@ -4,6 +4,7 @@ import React, {
 	ContextType,
 	createContext,
 	PropsWithChildren,
+	ReactNode,
 	Suspense,
 	useCallback,
 	useContext,
@@ -94,11 +95,16 @@ const SubMenu = ({
 	variant,
 	className,
 	...props
-}: RadixDM.MenuSubContentProps & ContextMenuItemProps) => {
+}: RadixDM.MenuSubContentProps & ContextMenuItemProps & { trigger?: ReactNode }) => {
 	return (
 		<RadixDM.Sub>
 			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
-				<ContextMenuDivItem rightArrow {...{ label, icon, iconProps, keybind, variant }} />
+				{props.trigger || (
+					<ContextMenuDivItem
+						rightArrow
+						{...{ label, icon, iconProps, keybind, variant }}
+					/>
+				)}
 			</RadixDM.SubTrigger>
 			<RadixDM.Portal>
 				<Suspense fallback={null}>

@@ -1,11 +1,9 @@
 import {
-	CircleDashed,
 	Clock,
 	Cube,
 	Devices,
 	FileDoc,
 	FilePlus,
-	Folder,
 	FunnelSimple,
 	Icon,
 	Image,
@@ -14,11 +12,23 @@ import {
 	User
 } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
+import clsx from 'clsx';
 import { PropsWithChildren, useState } from 'react';
 import { useLibraryQuery } from '@sd/client';
-import { Button, CheckBox, DropdownMenu, Input, Select, SelectOption, tw } from '@sd/ui';
-import { getSearchStore, useKeybind, useSearchStore } from '~/hooks';
+import {
+	Button,
+	ContextMenuDivItem,
+	cva,
+	DropdownMenu,
+	Input,
+	RadixCheckbox,
+	Select,
+	SelectOption,
+	tw
+} from '@sd/ui';
+import { getSearchStore, SearchOptionMenu, useKeybind, useSearchStore } from '~/hooks';
 
+import { KindOptions, LocationOptions, TagOptions } from './Options';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
@@ -31,35 +41,64 @@ type DateOption = 'before' | 'after' | 'exactly' | 'today' | 'within_last';
 
 type CustomFilterOptions = 'none' | 'created_date' | 'modified_date' | 'indexed_date';
 
-const SEPARATOR_STYLES = `!border-app-line`;
-
 interface SearchOptionItemProps extends PropsWithChildren {
-	checkbox?: boolean;
+	selected?: boolean;
+	setSelected?: (selected: boolean) => void;
 	icon?: Icon | IconTypes;
 }
+const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 
-const SearchOptionItem = (props: SearchOptionItemProps) => {
+// One component so all items have the same styling, including the submenu
+const SearchOptionItemInternals = (props: SearchOptionItemProps) => {
 	return (
-		<DropdownMenu.Item variant="dull" className="group">
-			{props.checkbox && <CheckBox className="mr-2 text-ink-dull" />}
+		<div className="flex flex-row gap-2">
+			{props.selected !== undefined && (
+				<RadixCheckbox checked={props.selected} onCheckedChange={props.setSelected} />
+			)}
 			<RenderIcon icon={props.icon} />
 			{props.children}
+		</div>
+	);
+};
+
+// for individual items in a submenu, defined in Options
+export const SearchOptionItem = (props: SearchOptionItemProps) => {
+	return (
+		<DropdownMenu.Item
+			onSelect={(event) => {
+				event.preventDefault();
+				props.setSelected?.(!props.selected);
+			}}
+			variant="dull"
+		>
+			<SearchOptionItemInternals {...props} />
 		</DropdownMenu.Item>
 	);
 };
 
-const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: string }) => {
+export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: string }) => {
 	return (
-		<DropdownMenu.SubMenu label={props.name} variant="dull" className="group">
-			<RenderIcon icon={props.icon} />
+		<DropdownMenu.SubMenu
+			trigger={
+				<ContextMenuDivItem rightArrow variant="dull">
+					<SearchOptionItemInternals {...props}>{props.name}</SearchOptionItemInternals>
+				</ContextMenuDivItem>
+			}
+			className={clsx(MENU_STYLES, '-mt-1.5')}
+		>
 			{props.children}
 		</DropdownMenu.SubMenu>
 	);
 };
 
-const SearchOptions = () => {
-	const [customFilterOption, setCustomFilterOption] = useState<CustomFilterOptions>('none');
+export const FilterInput = (props: { searchOption: SearchOptionMenu }) => {
+	// talk to store
+	return <Input autoFocus variant="transparent" placeholder="Filter..." />;
+};
 
+export const Separator = () => <DropdownMenu.Separator className="!border-app-line" />;
+
+const SearchOptions = () => {
 	const [searchContext, setSearchContext] = useState<'paths' | 'objects'>('paths');
 
 	const handleMouseEnter = () => {
@@ -74,13 +113,12 @@ const SearchOptions = () => {
 		getSearchStore().isSearching = false;
 	});
 
-	const { isSearching, searchScope } = useSearchStore();
-	const tags = useLibraryQuery(['tags.list']);
+	const { searchScope } = useSearchStore();
 	return (
 		<div
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
-			className="bg-app-darkerBox/90 flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 px-4 backdrop-blur"
+			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
 		>
 			<OptionContainer className="flex flex-row items-center">
 				<Label>Show:</Label>
@@ -119,7 +157,7 @@ const SearchOptions = () => {
 
 			<OptionContainer>
 				<DropdownMenu.Root
-					className="!rounded-md border !border-app-line !bg-app-box"
+					className={MENU_STYLES}
 					trigger={
 						<Button className="flex flex-row gap-1" size="xs" variant="dotted">
 							<FunnelSimple />
@@ -128,25 +166,23 @@ const SearchOptions = () => {
 					}
 				>
 					<Input autoFocus variant="transparent" placeholder="Filter..." />
-					<DropdownMenu.Separator className={SEPARATOR_STYLES} />
-					<SearchOptionItem icon={Folder}>In Location</SearchOptionItem>
-					<SearchOptionSubMenu name="In Location" icon={Folder}>
-						<Input autoFocus variant="transparent" placeholder="Filter..." />
-						<DropdownMenu.Separator className={SEPARATOR_STYLES} />
-						<SearchOptionItem icon={Folder}>Location 1</SearchOptionItem>
-					</SearchOptionSubMenu>
-					<SearchOptionItem icon={FileDoc}>Kind</SearchOptionItem>
+					<Separator />
+					<LocationOptions />
+					<KindOptions />
 					<SearchOptionItem icon={Cube}>Size</SearchOptionItem>
-					<SearchOptionItem icon={CircleDashed}>Tagged</SearchOptionItem>
+					{/* <SearchOptionItem icon={CircleDashed}>Tagged</SearchOptionItem> */}
+					<TagOptions />
 					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
 					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
 					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
 					<SearchOptionItem icon={Key}>Encrypted with Key</SearchOptionItem>
 					<SearchOptionItem icon={User}>Shared by</SearchOptionItem>
+					<Separator />
 					<SearchOptionItem icon={Clock}>Created At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
+					<Separator />
 					<SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem>
 				</DropdownMenu.Root>
 			</OptionContainer>
