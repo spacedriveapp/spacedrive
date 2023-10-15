@@ -9,7 +9,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tauri = { version = "1.5.1", features = [
+tauri = { version = "1.5.2", features = [
   "dialog-all",
   "linux-protocol-headers",
   "macos-private-api",
@@ -56,7 +56,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = { version = "1.5.0", features = [] }
+tauri-build = "1.5.0"
 
 [features]
 default = ["custom-protocol"]

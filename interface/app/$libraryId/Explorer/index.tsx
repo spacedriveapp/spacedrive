@@ -55,7 +55,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={explorer.scrollRef}
-						className="h-screen overflow-x-hidden custom-scroll explorer-scroll"
+						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
 						style={
 							{
 								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
