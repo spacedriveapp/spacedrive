@@ -10,7 +10,6 @@ import LibrariesDropdown from './LibrariesDropdown';
 export default () => {
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
-	const transparentBg = useShowControls().transparentBg;
 
 	//prevent sidebar scrolling with keyboard
 	useEffect(() => {
@@ -28,7 +27,9 @@ export default () => {
 		<div
 			className={clsx(
 				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col gap-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2 pt-2.5',
-				os === 'macOS' || transparentBg ? 'bg-opacity-[0.65]' : 'bg-opacity-[1]'
+				os === 'macOS' || showControls.transparentBg
+					? 'bg-opacity-[0.65]'
+					: 'bg-opacity-[1]'
 			)}
 		>
 			{showControls.isEnabled && <MacTrafficLights className="z-50 mb-1" />}

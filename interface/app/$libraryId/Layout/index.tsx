@@ -28,9 +28,9 @@ import Sidebar from './Sidebar';
 const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
+	const showControls = useShowControls();
 	useKeybindEventHandler(library?.uuid);
 
-	const transparentBg = useShowControls().transparentBg;
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
@@ -75,6 +75,10 @@ const Layout = () => {
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
 					os === 'macOS' && 'has-blur-effects',
+
+					// essentially "if not fullscreen". the borders are still round without this, they just don't look smooth
+					os === 'macOS' && showControls.isEnabled && 'rounded-[10px]',
+
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
@@ -87,7 +91,7 @@ const Layout = () => {
 				<div
 					className={clsx(
 						'relative flex w-full overflow-hidden',
-						transparentBg ? 'bg-app/80' : 'bg-app'
+						showControls.transparentBg ? 'bg-app/80' : 'bg-app'
 					)}
 				>
 					{library ? (
