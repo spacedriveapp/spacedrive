@@ -105,26 +105,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		"reload_app" => {
 			event
 				.window()
-				.with_webview(|webview| {
-					#[cfg(target_os = "macos")]
-					{
-						unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) }
-					}
-					#[cfg(target_os = "linux")]
-					{
-						use webkit2gtk::traits::WebViewExt;
-
-						webview.inner().reload()
-					}
-					#[cfg(target_os = "windows")]
-					unsafe {
-						webview
-							.controller()
-							.CoreWebView2()
-							.expect("Unable to get handle on inner webview")
-							.Reload()
-					}
-				})
+				.with_webview(crate::reload_webview_inner)
 				.expect("Error while reloading webview");
 		}
 		#[cfg(debug_assertions)]
