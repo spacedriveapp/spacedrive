@@ -28,7 +28,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 	useKeys(props.keybind ?? [], (e) => {
 		if (!props.keybind) return;
 		e.stopPropagation();
-		popover.setOpen(!open);
+		popover.setOpen((o) => !o);
 	});
 
 	useEffect(() => {
