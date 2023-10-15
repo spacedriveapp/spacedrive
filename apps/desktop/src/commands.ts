@@ -22,6 +22,10 @@ export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
 
+export function refreshMenuBar() {
+    return invoke()<null>("refresh_menu_bar")
+}
+
 export function openFilePaths(library: string, ids: number[]) {
     return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
 }

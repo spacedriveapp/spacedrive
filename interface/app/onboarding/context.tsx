@@ -16,6 +16,7 @@ import {
 	usePlausibleEvent
 } from '@sd/client';
 import { RadioGroupField, z } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -61,6 +62,7 @@ const schemas = {
 
 const useFormState = () => {
 	const obStore = useOnboardingStore();
+	const platform = usePlatform();
 
 	const { handleSubmit, ...forms } = useMultiZodForm({
 		schemas,
@@ -106,6 +108,8 @@ const useFormState = () => {
 					...(libraries ?? []),
 					library
 				]);
+
+				platform.refreshMenuBar && platform.refreshMenuBar();
 
 				if (telemetryStore.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });

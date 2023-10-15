@@ -48,6 +48,30 @@ async fn reset_spacedrive(app_handle: AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
+async fn refresh_menu_bar(
+	_node: tauri::State<'_, Arc<Node>>,
+	_app_handle: AppHandle,
+) -> Result<(), ()> {
+	#[cfg(target_os = "macos")]
+	{
+		let menu_handles: Vec<tauri::window::MenuHandle> = _app_handle
+			.windows()
+			.iter()
+			.map(|x| x.1.menu_handle())
+			.collect();
+
+		let has_library = !_node.libraries.get_all().await.is_empty();
+
+		for menu in menu_handles {
+			menu::set_library_locked_menu_items_enabled(menu, has_library);
+		}
+	}
+
+	Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 async fn open_logs_dir(node: tauri::State<'_, Arc<Node>>) -> Result<(), ()> {
 	let logs_path = node.data_dir.join("logs");
 
@@ -106,19 +130,28 @@ async fn main() -> tauri::Result<()> {
 	};
 
 	let app = tauri::Builder::default();
-	let app = match result {
-		Ok((node, router)) => app
-			.plugin(rspc::integrations::tauri::plugin(router, {
-				let node = node.clone();
-				move || node.clone()
-			}))
-			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
-			.manage(node),
+
+	let (node_router, app) = match result {
+		Ok((node, router)) => (Some((node, router)), app),
 		Err(err) => {
 			error!("Error starting up the node: {err:#?}");
-			app.plugin(sd_error_plugin(err))
+			(None, app.plugin(sd_error_plugin(err)))
 		}
 	};
+
+	let (node, router) = if let Some((node, router)) = node_router {
+		(node, router)
+	} else {
+		panic!("Unable to get the node or router");
+	};
+
+	let app = app
+		.plugin(rspc::integrations::tauri::plugin(router, {
+			let node = node.clone();
+			move || node.clone()
+		}))
+		.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+		.manage(node.clone());
 
 	// macOS expected behavior is for the app to not exit when the main window is closed.
 	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
@@ -134,7 +167,7 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.plugin(updater::plugin())
-		.setup(|app| {
+		.setup(move |app| {
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
@@ -159,10 +192,22 @@ async fn main() -> tauri::Result<()> {
 				{
 					use sd_desktop_macos::*;
 
-					let window = window.ns_window().unwrap();
+					let nswindow = window.ns_window().unwrap();
 
-					unsafe { set_titlebar_style(&window, true) };
-					unsafe { blur_window_background(&window) };
+					unsafe { set_titlebar_style(&nswindow, true) };
+					unsafe { blur_window_background(&nswindow) };
+
+					let menu_handle = window.menu_handle();
+
+					tokio::spawn({
+						let libraries = node.libraries.clone();
+						let menu_handle = menu_handle.clone();
+						async move {
+							if libraries.get_all().await.is_empty() {
+								menu::set_library_locked_menu_items_enabled(menu_handle, false);
+							}
+						}
+					});
 				}
 			});
 
@@ -182,6 +227,7 @@ async fn main() -> tauri::Result<()> {
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
+			refresh_menu_bar,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,

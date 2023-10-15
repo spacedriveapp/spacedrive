@@ -1,16 +1,31 @@
-use std::env::consts;
-
 use tauri::{
 	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
 };
 
 pub(crate) fn get_menu() -> Menu {
-	match consts::OS {
-		"macos" => custom_menu_bar(),
-		_ => Menu::new(),
+	#[cfg(target_os = "macos")]
+	{
+		custom_menu_bar()
+	}
+	#[cfg(not(target_os = "macos"))]
+	{
+		Menu::new()
 	}
 }
 
+// update this whenever you add something which requires a valid library to use
+#[cfg(target_os = "macos")]
+const LIBRARY_LOCKED_MENU_IDS: [&str; 7] = [
+	"open_settings",
+	"new_window",
+	"open_search",
+	"layout",
+	"select_all",
+	"copy",
+	"paste",
+];
+
+#[cfg(target_os = "macos")]
 fn custom_menu_bar() -> Menu {
 	let app_menu = Menu::new()
 		.add_native_item(MenuItem::About(
@@ -40,10 +55,14 @@ fn custom_menu_bar() -> Menu {
 		.add_item(
 			CustomMenuItem::new("close".to_string(), "Close Window").accelerator("CmdOrCtrl+W"),
 		);
+
 	let edit_menu = Menu::new()
-		.add_native_item(MenuItem::Copy)
-		.add_native_item(MenuItem::Paste)
-		.add_native_item(MenuItem::SelectAll);
+		.add_item(CustomMenuItem::new("copy".to_string(), "Copy").accelerator("CmdOrCtrl+C"))
+		.add_item(CustomMenuItem::new("paste".to_string(), "Paste").accelerator("CmdOrCtrl+V"))
+		.add_item(
+			CustomMenuItem::new("select_all".to_string(), "Select all").accelerator("CmdOrCtrl+A"),
+		);
+
 	let view_menu = Menu::new()
 		.add_item(
 			CustomMenuItem::new("open_search".to_string(), "Search...").accelerator("CmdOrCtrl+F"),
@@ -53,13 +72,13 @@ fn custom_menu_bar() -> Menu {
 		// 		.accelerator("CmdOrCtrl+P"),
 		// )
 		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
+
 	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
 
 	#[cfg(debug_assertions)]
 	let view_menu = {
 		let view_menu = view_menu.add_native_item(MenuItem::Separator);
 
-		#[cfg(target_os = "macos")]
 		let view_menu = view_menu.add_item(
 			CustomMenuItem::new("reload_app".to_string(), "Reload").accelerator("CmdOrCtrl+R"),
 		);
@@ -130,4 +149,17 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		}
 		_ => {}
 	}
+}
+
+/// If any are explicitly marked with `.disabled()` in the `custom_menu_bar()` function, this won't have an effect.
+/// We include them in the locked menu IDs anyway for future-proofing, in-case someone forgets.
+#[cfg(target_os = "macos")]
+pub(crate) fn set_library_locked_menu_items_enabled(
+	handle: tauri::window::MenuHandle,
+	enabled: bool,
+) {
+	LIBRARY_LOCKED_MENU_IDS
+		.iter()
+		.try_for_each(|id| handle.get_item(id).set_enabled(enabled))
+		.expect("Unable to disable menu items (there are no libraries present, so certain options should be hidden)")
 }
