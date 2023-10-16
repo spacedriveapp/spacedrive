@@ -1,6 +1,5 @@
 import { Info } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import clsx from 'clsx';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -24,7 +23,6 @@ import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { InfoPill } from '../Explorer/Inspector';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';

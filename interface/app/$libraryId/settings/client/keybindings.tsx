@@ -176,6 +176,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Show hidden files',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, modifierSymbols.Shift.macOS, '.']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'h']
+				}
+			}
+		},
+		{
 			action: 'Rename file or folder',
 			keys: {
 				windows: {
