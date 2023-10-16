@@ -41,13 +41,15 @@ async fn reload_webview(app_handle: AppHandle) {
 fn reload_webview_inner(webview: PlatformWebview) {
 	#[cfg(target_os = "macos")]
 	{
-		unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) }
+		unsafe {
+			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+		}
 	}
 	#[cfg(target_os = "linux")]
 	{
 		use webkit2gtk::traits::WebViewExt;
 
-		webview.inner().reload()
+		webview.inner().reload();
 	}
 	#[cfg(target_os = "windows")]
 	unsafe {
@@ -56,6 +58,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 			.CoreWebView2()
 			.expect("Unable to get handle on inner webview")
 			.Reload()
+			.expect("Unable to reload webview");
 	}
 }
 
