@@ -9,7 +9,7 @@ import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
 
-const RELEASE_VERSION = 'Alpha v0.1.0';
+const RELEASE_VERSION = 'Alpha v0.1.1';
 
 interface Platform {
 	name: string;
