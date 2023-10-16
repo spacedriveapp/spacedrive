@@ -61,7 +61,7 @@ export const Bubbles = () => {
 	return (
 		<Particles
 			id="tsparticles"
-			className="absolute z-0"
+			className="absolute inset-0 z-0"
 			init={particlesInit}
 			options={options}
 		/>

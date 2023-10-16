@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
 import { ExplorerLayout } from '~/../packages/client/src';
-import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useIsDark, useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
@@ -36,16 +36,17 @@ export default ({ options }: TopBarChildrenProps) => {
 		.filter((t) => t.showAtResolution !== 'sm:flex');
 	const metaCtrlKey = useKeyMatcher('Meta').key;
 
-	useKeybind([metaCtrlKey, 'b'], (e) => {
-		e.stopPropagation();
-		const explorerLayouts: ExplorerLayout[] = ['grid', 'list', 'media']; //based on the order of the icons
-		const currentLayout = explorerLayouts.indexOf(
-			explorer.settingsStore.layoutMode as ExplorerLayout
-		);
-		const nextLayout = explorerLayouts[
-			(currentLayout + 1) % explorerLayouts.length
-		] as ExplorerLayout;
-		explorer.settingsStore.layoutMode = nextLayout;
+	const layoutKeybinds: Array<{ key: string; mode: ExplorerLayout }> = [
+		{ key: '1', mode: 'grid' },
+		{ key: '2', mode: 'list' },
+		{ key: '3', mode: 'media' }
+	];
+
+	layoutKeybinds.forEach(({ key, mode }) => {
+		useKeybind([metaCtrlKey, key], (e) => {
+			e.stopPropagation();
+			explorer.settingsStore.layoutMode = mode;
+		});
 	});
 
 	useLayoutEffect(() => {
@@ -119,6 +120,7 @@ function ToolGroup({
 
 	const popover = usePopover();
 	const os = useOperatingSystem();
+	const isDark = useIsDark();
 
 	return (
 		<div
@@ -168,7 +170,10 @@ function ToolGroup({
 			{index + 1 === group.length && groupIndex + 1 !== groupCount && (
 				<div
 					data-tauri-drag-region={os === 'macOS'}
-					className="mx-4 h-[15px] w-0 border-l border-zinc-600"
+					className={clsx(
+						'mx-4 h-[15px] w-0 border-l',
+						isDark ? 'border-zinc-600' : 'border-zinc-300'
+					)}
 				/>
 			)}
 		</div>

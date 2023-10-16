@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { NextRouter, useRouter } from 'next/router';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { Button, Dropdown } from '@sd/ui';
-import { positions } from '~/pages/careers';
+import { positions } from '~/app/careers/data';
 import { getWindow } from '~/utils/util';
 
 import Logo from '../../public/logo.png';
@@ -58,7 +58,7 @@ export default function NavBar() {
 	}, []);
 
 	return (
-		<div className={'navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition'}>
+		<div className="navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition">
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
 					<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 h-8 w-8" />

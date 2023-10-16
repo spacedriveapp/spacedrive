@@ -1,12 +1,29 @@
 import clsx from 'clsx';
-import { getPasswordStrength } from '@sd/client';
+import { useEffect, useState } from 'react';
+import { type getPasswordStrength } from '@sd/client';
 
 export interface PasswordMeterProps {
 	password: string;
 }
 
 export const PasswordMeter = (props: PasswordMeterProps) => {
-	const { score, scoreText } = getPasswordStrength(props.password);
+	const [getStrength, setGetStrength] = useState<typeof getPasswordStrength | undefined>();
+	const { score, scoreText } = getStrength
+		? getStrength(props.password)
+		: { score: 0, scoreText: 'Loading...' };
+
+	useEffect(() => {
+		let cancelled = false;
+
+		import('@sd/client').then(({ getPasswordStrength }) => {
+			if (cancelled) return;
+			setGetStrength(() => getPasswordStrength);
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	return (
 		<div className="relative">
