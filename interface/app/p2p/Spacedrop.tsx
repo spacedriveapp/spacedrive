@@ -96,7 +96,7 @@ export function SpacedropUI() {
 								if (platform.saveFilePickerDialog) {
 									const result = await platform.saveFilePickerDialog({
 										title: 'Save Spacedrop',
-										defaultPath: data.file_name
+										defaultPath: data.files?.[0]
 									});
 									if (!result) {
 										return;
