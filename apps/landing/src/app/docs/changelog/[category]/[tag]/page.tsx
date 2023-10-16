@@ -17,10 +17,12 @@ export async function generateStaticParams(): Promise<Array<Props['params']>> {
 	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
 }
 
-export async function metadata({ params }: Props) {
+export async function generateMetadata({ params }: Props) {
+	const title = `${params.tag} - Spacedrive Documentation`;
+
 	return {
-		title: `${params.tag} - Spacedrive Documentation`,
-		openGraph: { title: params.tag },
+		title,
+		openGraph: { title },
 		authors: { name: 'Spacedrive Technology Inc.' }
 	};
 }

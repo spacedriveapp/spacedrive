@@ -11,7 +11,7 @@ import { toTitleCase } from '~/utils/util';
 import { getDoc } from '../data';
 import { Markdown } from '../Markdown';
 
-export function generateStaticParams() {
+export function generateStaticParams(): Array<Props['params']> {
 	const slugs = allDocs.map((doc) => doc.slug);
 	return slugs.map((slug) => ({ slug: slug.split('/') }));
 }
@@ -20,17 +20,17 @@ interface Props {
 	params: { slug: string[] };
 }
 
-export function metadata({ params }: Props): Metadata {
+export function generateMetadata({ params }: Props): Metadata {
 	const { doc } = getDoc(params.slug);
 	if (!doc) return {};
 
+	const title = `${doc.title} - Spacedrive Documentation`;
+	const { description } = doc;
+
 	return {
-		title: `${doc.title} - Spacedrive Documentation`,
-		description: doc.description,
-		openGraph: {
-			title: doc.title,
-			description: doc.description
-		},
+		title,
+		description,
+		openGraph: { title, description },
 		authors: {
 			name: 'Spacedrive Technology Inc.'
 		}
