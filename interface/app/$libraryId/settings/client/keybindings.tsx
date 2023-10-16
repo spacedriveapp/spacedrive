@@ -132,6 +132,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Delete selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'Backspace']
+				},
+				windows: {
+					value: 'Del'
+				}
+			}
+		},
+		{
 			action: 'Open selected item',
 			keys: {
 				macOS: {

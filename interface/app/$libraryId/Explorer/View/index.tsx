@@ -14,7 +14,7 @@ import { useKey, useKeys } from 'rooks';
 import { getItemObject, useLibraryContext, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
@@ -108,7 +108,7 @@ export default memo(
 			doubleClick();
 		});
 
-		useKeyCopyPaste();
+		useKeyCopyCutPaste();
 
 		return (
 			<>
