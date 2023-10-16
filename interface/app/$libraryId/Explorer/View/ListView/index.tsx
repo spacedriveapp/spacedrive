@@ -13,7 +13,7 @@ import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate, useSearchStore } from '~/hooks';
+import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';

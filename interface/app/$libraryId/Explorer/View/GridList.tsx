@@ -8,12 +8,12 @@ import {
 	useState,
 	type ReactNode
 } from 'react';
-import { useMatch, useNavigate } from 'react-router';
+import { useMatch } from 'react-router';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
 import { GridList, useGridList } from '~/components';
-import { useMouseNavigate, useOperatingSystem, useSearchStore } from '~/hooks';
+import { useMouseNavigate, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
