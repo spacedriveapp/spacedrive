@@ -57,8 +57,7 @@ fn reload_webview_inner(webview: PlatformWebview) {
 			.controller()
 			.CoreWebView2()
 			.expect("Unable to get handle on inner webview")
-			.Reload()
-			.expect("Unable to reload webview");
+			.Reload();
 	}
 }
 
