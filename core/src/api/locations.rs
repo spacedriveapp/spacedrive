@@ -18,6 +18,7 @@ use crate::{
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use directories::UserDirs;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -56,6 +57,16 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: PeerMetadata,
 	},
+}
+#[derive(Serialize, Type, Debug)]
+pub struct SystemLocations {
+	desktop: Option<String>,
+	documents: Option<String>,
+	downloads: Option<String>,
+	pictures: Option<String>,
+	music: Option<String>,
+	movies: Option<String>,
+	videos: Option<String>,
 }
 
 impl ExplorerItem {
@@ -366,6 +377,54 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}),
 		)
+		.procedure("systemLocations", {
+			R.query(|_, _: ()| async move {
+				if let Some(user_dirs) = UserDirs::new() {
+					let mut locations = SystemLocations {
+						desktop: user_dirs
+							.desktop_dir()
+							.map(|p| p.to_string_lossy().to_string()),
+						documents: user_dirs
+							.document_dir()
+							.map(|p| p.to_string_lossy().to_string()),
+						downloads: user_dirs
+							.download_dir()
+							.map(|p| p.to_string_lossy().to_string()),
+						pictures: user_dirs
+							.picture_dir()
+							.map(|p| p.to_string_lossy().to_string()),
+						music: user_dirs
+							.audio_dir()
+							.map(|p| p.to_string_lossy().to_string()),
+						movies: None,
+						videos: None,
+					};
+
+					let video_dir_path = user_dirs
+						.video_dir()
+						.map(|p| p.to_string_lossy().to_string());
+
+					locations.movies = if cfg!(target_os = "macos") {
+						video_dir_path.clone()
+					} else {
+						None
+					};
+
+					locations.videos = if cfg!(not(target_os = "macos")) {
+						video_dir_path.clone()
+					} else {
+						None
+					};
+
+					return Ok(locations);
+				}
+
+				Err(rspc::Error::new(
+					ErrorCode::NotFound,
+					"Didn't find any system locations".to_string(),
+				))
+			})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 

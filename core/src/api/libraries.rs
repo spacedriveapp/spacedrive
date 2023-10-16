@@ -108,6 +108,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: LibraryName,
+				locations: Vec<String>,
 			}
 
 			R.mutation(|node, args: CreateLibraryArgs| async move {

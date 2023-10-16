@@ -23,6 +23,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "locations.systemLocations", input: never, result: SystemLocations } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
@@ -145,7 +146,7 @@ export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName }
+export type CreateLibraryArgs = { name: LibraryName; locations: string[] }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
@@ -402,6 +403,8 @@ export type SortOrder = "Asc" | "Desc"
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; movies: string | null; videos: string | null }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 
