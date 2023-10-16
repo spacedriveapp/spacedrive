@@ -1,3 +1,5 @@
+'use client';
+
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { cva, VariantProps } from 'class-variance-authority';
 import { forwardRef } from 'react';

@@ -1,6 +1,3 @@
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { forwardRef, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -29,28 +26,47 @@ export interface PasswordInputProps extends UseFormFieldProps, Root.InputProps {
 }
 
 const PasswordStrengthMeter = (props: { password: string }) => {
+	const [zxcvbn, setZxcvbn] = useState<typeof import('./zxcvbn') | undefined>();
+
 	const [strength, setStrength] = useState<{ label: string; score: number }>();
-	const updateStrength = useDebouncedCallback(
-		() => setStrength(props.password ? getPasswordStrength(props.password) : undefined),
-		100
-	);
+	const updateStrength = useDebouncedCallback(() => {
+		if (!zxcvbn) return;
+
+		setStrength(props.password ? getPasswordStrength(props.password, zxcvbn) : undefined);
+	}, 100);
 
 	// TODO: Remove duplicate in @sd/client
-	function getPasswordStrength(password: string): { label: string; score: number } {
+	function getPasswordStrength(
+		password: string,
+		zxcvbn: typeof import('./zxcvbn')
+	): { label: string; score: number } {
 		const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
-		zxcvbnOptions.setOptions({
+		zxcvbn.zxcvbnOptions.setOptions({
 			dictionary: {
-				...zxcvbnCommonPackage.dictionary,
-				...zxcvbnEnPackage.dictionary
+				...zxcvbn.languageCommon.dictionary,
+				...zxcvbn.languageEn.dictionary
 			},
-			graphs: zxcvbnCommonPackage.adjacencyGraphs,
-			translations: zxcvbnEnPackage.translations
+			graphs: zxcvbn.languageCommon.adjacencyGraphs,
+			translations: zxcvbn.languageEn.translations
 		});
 
-		const result = zxcvbn(password);
+		const result = zxcvbn.zxcvbn(password);
 		return { label: ratings[result.score]!, score: result.score };
 	}
+
+	useEffect(() => {
+		let cancelled = false;
+
+		import('./zxcvbn').then((zxcvbn) => {
+			if (cancelled) return;
+			setZxcvbn(zxcvbn);
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => updateStrength(), [props.password, updateStrength]);
 
