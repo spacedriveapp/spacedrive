@@ -20,6 +20,7 @@ import { getQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, isCut, useExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from '../ViewContext';
+import clsx from 'clsx';
 
 const SelectoContext = createContext<{
 	selecto: React.RefObject<Selecto>;
@@ -625,7 +626,6 @@ export default ({ children }: { children: RenderItem }) => {
 			<GridList grid={grid} scrollRef={explorer.scrollRef}>
 				{(index) => {
 					const item = explorer.items?.[index];
-
 					if (!item) return null;
 
 					return (
