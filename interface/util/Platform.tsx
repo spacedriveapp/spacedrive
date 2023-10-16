@@ -14,7 +14,11 @@ export type Platform = {
 	// Tauri patches `window.confirm` to return `Promise` not `bool`
 	confirm(msg: string, cb: (result: boolean) => void): void;
 	getOs?(): Promise<OperatingSystem>;
-	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
+	openDirectoryPickerDialog?(opts?: { title?: string; multiple: false }): Promise<null | string>;
+	openDirectoryPickerDialog?(opts?: {
+		title?: string;
+		multiple?: boolean;
+	}): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
 	saveFilePickerDialog?(opts?: { title?: string; defaultPath?: string }): Promise<string | null>;
 	showDevtools?(): void;

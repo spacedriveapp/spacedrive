@@ -121,10 +121,12 @@ where
 			); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
-				// TODO: add this back in
-				// if offset != self.req.size {
-				// 	panic!("U dun goofed"); // TODO: Error handling
-				// }
+				// TODO: Properly handle zero-sized files
+				if (offset + read as u64) != self.reqs.requests[self.i].size {
+					panic!("U dun goofed"); // TODO: Error handling
+				}
+
+				// TODO: Should indicate to the other side it's done???
 
 				return;
 			}

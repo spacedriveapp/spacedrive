@@ -19,7 +19,7 @@ use sd_prisma::prisma::file_path;
 use serde::Serialize;
 use specta::Type;
 use tokio::{
-	fs::File,
+	fs::{create_dir_all, File},
 	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
@@ -294,12 +294,22 @@ impl P2PManager {
 														}, &cancelled);
 
 														let file_path = PathBuf::from(file_path);
+														let names_len = names.len();
 														for file_name in names {
-															let mut temp_path = file_path.clone();
-															temp_path.set_file_name(file_name);
-															debug!("({id}): accepting and saving to '{:?}'", temp_path);
+															 // When transferring more than 1 file we wanna join the incoming file name to the directory provided by the user
+															 let mut path = file_path.clone();
+															 if names_len != 1 {
+																// We know the `file_path` will be a directory so we can just push the file name to it
+																path.push(&file_name);
+															}
 
-															let f = File::create(temp_path).await.unwrap();
+															debug!("({id}): accepting '{file_name}' and saving to '{:?}'", path);
+
+															if let Some(parent) = path.parent() {
+															 create_dir_all(parent).await.unwrap();
+															}
+
+															let f = File::create(path).await.unwrap();
 															let f = BufWriter::new(f);
 															transfer.receive(&mut stream, f).await;
 														}
@@ -547,7 +557,7 @@ impl P2PManager {
 
 	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
 		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
-			chan.send(Some(path)).unwrap();
+			chan.send(Some(path)).unwrap(); // TODO: will fail if timed out
 		}
 	}
 
@@ -581,21 +591,20 @@ impl P2PManager {
 			return Err(());
 		}
 
-		let mut total_length = 0;
 		let (files, requests): (Vec<_>, Vec<_>) =
 			join_all(paths.into_iter().map(|path| async move {
 				let file = File::open(&path).await?;
 				let metadata = file.metadata().await?;
-				total_length += metadata.len();
+				let name = path
+					.file_name()
+					.map(|v| v.to_string_lossy())
+					.unwrap_or(Cow::Borrowed(""))
+					.to_string();
 
 				Ok((
-					file,
+					(path, file),
 					SpaceblockRequest {
-						name: path
-							.file_name()
-							.map(|v| v.to_string_lossy())
-							.unwrap_or(Cow::Borrowed(""))
-							.to_string(),
+						name,
 						size: metadata.len(),
 						range: Range::Full,
 					},
@@ -607,6 +616,8 @@ impl P2PManager {
 			.map_err(|_| ())? // TODO: Error handling
 			.into_iter()
 			.unzip();
+
+		let total_length: u64 = requests.iter().map(|req| req.size).sum();
 
 		let id = Uuid::new_v4();
 		debug!("({id}): starting Spacedrop with peer '{peer_id}");
@@ -672,8 +683,8 @@ impl P2PManager {
 				&cancelled,
 			);
 
-			for (file_id, file) in files.into_iter().enumerate() {
-				debug!("({id}): transmitting {file_id}");
+			for (file_id, (path, file)) in files.into_iter().enumerate() {
+				debug!("({id}): transmitting '{file_id}' from '{path:?}'");
 				let file = BufReader::new(file);
 				transfer.send(&mut stream, file).await;
 			}

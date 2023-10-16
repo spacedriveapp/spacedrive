@@ -81,18 +81,31 @@ export function SpacedropUI() {
 						async onClick() {
 							let destinationFilePath = filePathInput.current?.value ?? placeholder;
 
-							if (destinationFilePath === '') return;
-							if (platform.saveFilePickerDialog) {
-								const result = await platform.saveFilePickerDialog({
-									title: 'Save Spacedrop',
-									defaultPath: data.file_name
-								});
-								if (!result) {
-									return;
+							if (data.files.length != 1) {
+								if (platform.openDirectoryPickerDialog) {
+									const result = await platform.openDirectoryPickerDialog({
+										title: 'Save Spacedrop',
+										multiple: false
+									});
+									if (!result) {
+										return;
+									}
+									destinationFilePath = result;
 								}
-								destinationFilePath = result;
+							} else {
+								if (platform.saveFilePickerDialog) {
+									const result = await platform.saveFilePickerDialog({
+										title: 'Save Spacedrop',
+										defaultPath: data.file_name
+									});
+									if (!result) {
+										return;
+									}
+									destinationFilePath = result;
+								}
 							}
 
+							if (destinationFilePath === '') return;
 							await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
 						}
 					},
