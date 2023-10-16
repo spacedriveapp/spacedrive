@@ -1,6 +1,7 @@
 import { allDocs } from '@contentlayer/generated';
 import { CaretRight } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
+import { Metadata } from 'next';
 import { getMDXComponent } from 'next-contentlayer/hooks';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -17,6 +18,23 @@ export function generateStaticParams() {
 
 interface Props {
 	params: { slug: string[] };
+}
+
+export function metadata({ params }: Props): Metadata {
+	const { doc } = getDoc(params.slug);
+	if (!doc) return {};
+
+	return {
+		title: `${doc.title} - Spacedrive Documentation`,
+		description: doc.description,
+		openGraph: {
+			title: doc.title,
+			description: doc.description
+		},
+		authors: {
+			name: 'Spacedrive Technology Inc.'
+		}
+	};
 }
 
 export default function Page({ params }: Props) {

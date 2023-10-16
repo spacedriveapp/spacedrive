@@ -7,13 +7,25 @@ import { toTitleCase } from '~/utils/util';
 import { Markdown } from '../../../Markdown';
 import { getReleasesCategories } from '../../data';
 
-export async function generateStaticParams() {
+interface Props {
+	params: { category: string; tag: string };
+}
+
+export async function generateStaticParams(): Promise<Array<Props['params']>> {
 	const categories = await getReleasesCategories();
 
 	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
 }
 
-export default async function Page({ params }: { params: { category: string; tag: string } }) {
+export async function metadata({ params }: Props) {
+	return {
+		title: `${params.tag} - Spacedrive Documentation`,
+		openGraph: { title: params.tag },
+		authors: { name: 'Spacedrive Technology Inc.' }
+	};
+}
+
+export default async function Page({ params }: Props) {
 	const release = await githubFetch(getRelease(params.tag));
 
 	const { code } = await bundleMDX({ source: processComments(release.body ?? '') });
