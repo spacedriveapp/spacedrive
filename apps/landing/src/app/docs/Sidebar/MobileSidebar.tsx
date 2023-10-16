@@ -12,8 +12,6 @@ import {
 import { slide as Menu } from 'react-burger-menu';
 import { Button } from '@sd/ui';
 
-import { Sidebar } from './Sidebar';
-
 const MenuContext = createContext<{
 	open: boolean;
 	setOpen: Dispatch<SetStateAction<boolean>>;
@@ -43,7 +41,7 @@ export function OpenMobileSidebarButton() {
 	);
 }
 
-export function MobileSidebar({ children }: PropsWithChildren) {
+export function MobileSidebarWrapper({ children }: PropsWithChildren) {
 	const menu = useMenuContext();
 
 	return (

@@ -68,7 +68,7 @@ export async function GET(
 		pub_date: release.published_at
 	};
 
-	return NextResponse.json(response);
+	return withCors(Response.json(response));
 }
 
 async function getRelease({ version }: z.infer<typeof paramsSchema>): Promise<any> {

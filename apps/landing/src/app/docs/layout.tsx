@@ -2,8 +2,8 @@ import { PropsWithChildren } from 'react';
 
 import { Sidebar } from './Sidebar';
 import {
-	MobileSidebar,
 	MobileSidebarProvider,
+	MobileSidebarWrapper,
 	OpenMobileSidebarButton
 } from './Sidebar/MobileSidebar';
 
@@ -17,7 +17,7 @@ export default function Layout({ children }: PropsWithChildren) {
 	return (
 		<MobileSidebarProvider>
 			<div className="flex w-full flex-col items-start sm:flex-row">
-				<MobileSidebar>{sidebar}</MobileSidebar>
+				<MobileSidebarWrapper>{sidebar}</MobileSidebarWrapper>
 				<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden px-5 sm:inline lg:mr-4">
 					{sidebar}
 				</aside>
