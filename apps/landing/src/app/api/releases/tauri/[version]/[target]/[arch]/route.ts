@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getLatestRelease, getRecentReleases, getRelease, githubFetch } from '~/app/api/github';
 import { env } from '~/env';
 
 const version = z.union([z.literal('stable'), z.literal('alpha')]);
@@ -41,9 +42,10 @@ export async function GET(
 		version: req.headers.get('X-Spacedrive-Version') ?? rawParams.version
 	});
 
-	const release = await getRelease(params);
+	const release = await fetchRelease(params);
 
-	if (!release) return NextResponse.json({ error: 'Release not found' }, { status: 404 });
+	if (!release || !release.published_at)
+		return NextResponse.json({ error: 'Release not found' }, { status: 404 });
 
 	params.version = release.tag_name;
 
@@ -64,41 +66,25 @@ export async function GET(
 		version: release.tag_name,
 		url: asset.browser_download_url,
 		signature,
-		notes: release.body,
-		pub_date: release.published_at
+		notes: release.body ?? '',
+		pub_date: release.published_at!
 	};
 
-	return withCors(Response.json(response));
+	return Response.json(response);
 }
 
-async function getRelease({ version }: z.infer<typeof paramsSchema>): Promise<any> {
+async function fetchRelease({ version }: z.infer<typeof paramsSchema>) {
 	switch (version) {
 		case 'alpha': {
-			const data = await githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`);
+			const data = await githubFetch(getRecentReleases);
 
 			return data.find((d: any) => d.tag_name.includes('alpha'));
 		}
 		case 'stable':
-			return githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/latest`);
+			return githubFetch(getLatestRelease);
 		default:
-			return githubFetch(
-				`/repos/$${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/tags/${version}`
-			);
+			return githubFetch(getRelease(version));
 	}
-}
-
-const FETCH_META = {
-	headers: {
-		Authorization: `Bearer ${env.GITHUB_PAT}`,
-		Accept: 'application/vnd.github+json'
-	},
-	next: {
-		revalidate: 60
-	}
-} as RequestInit;
-
-async function githubFetch(path: string) {
-	return fetch(`https://api.github.com${path}`, FETCH_META).then((r) => r.json());
 }
 
 function binaryName({ target, arch }: z.infer<typeof paramsSchema>) {
