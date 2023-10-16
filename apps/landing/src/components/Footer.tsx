@@ -12,11 +12,15 @@ import { PropsWithChildren } from 'react';
 
 import Logo from '../../public/logo.png';
 
-function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>) {
+function FooterLink({
+	blank,
+	link,
+	...props
+}: PropsWithChildren<{ link: string; blank?: boolean }>) {
 	return (
 		<Link
-			href={props.link}
-			target={props.blank ? '_blank' : ''}
+			href={link}
+			target={blank ? '_blank' : ''}
 			className="text-gray-300 duration-300 hover:text-white hover:opacity-50"
 			rel="noreferrer"
 			{...props}

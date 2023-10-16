@@ -1,4 +1,5 @@
 import { useId } from 'react';
+
 import { cn } from './MagicCard';
 
 interface DotPatternProps {

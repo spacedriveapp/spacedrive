@@ -18,8 +18,8 @@ pub use thumbnailer::{Thumbnailer, ThumbnailerBuilder};
 
 /// Helper function to generate a thumbnail file from a video file with reasonable defaults
 pub async fn to_thumbnail(
-	video_file_path: impl AsRef<Path> + Send,
-	output_thumbnail_path: impl AsRef<Path> + Send,
+	video_file_path: impl AsRef<Path>,
+	output_thumbnail_path: impl AsRef<Path>,
 	size: u32,
 	quality: f32,
 ) -> Result<(), ThumbnailerError> {
@@ -34,7 +34,7 @@ pub async fn to_thumbnail(
 
 /// Helper function to generate a thumbnail bytes from a video file with reasonable defaults
 pub async fn to_webp_bytes(
-	video_file_path: impl AsRef<Path> + Send,
+	video_file_path: impl AsRef<Path>,
 	size: u32,
 	quality: f32,
 ) -> Result<Vec<u8>, ThumbnailerError> {

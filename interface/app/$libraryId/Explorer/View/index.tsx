@@ -12,9 +12,9 @@ import {
 import { createPortal } from 'react-dom';
 import { useKey, useKeys } from 'rooks';
 import { getItemObject, useLibraryContext, type Object } from '@sd/client';
-import { dialogManager, ModifierKeys, toast } from '@sd/ui';
+import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyCopyPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
@@ -63,7 +63,6 @@ export default memo(
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
 		const os = useOperatingSystem();
-
 		const { doubleClick } = useViewItemDoubleClick();
 
 		const { layoutMode } = explorer.useSettingsSnapshot();
@@ -98,7 +97,7 @@ export default memo(
 
 		useKey(['Enter'], (e) => {
 			e.stopPropagation();
-			if (os === 'windows') {
+			if (os === 'windows' && !isRenaming) {
 				doubleClick();
 			}
 		});
@@ -108,6 +107,8 @@ export default memo(
 			if (os === 'windows') return;
 			doubleClick();
 		});
+
+		useKeyCopyPaste();
 
 		return (
 			<>
@@ -179,7 +180,7 @@ export const EmptyNotice = (props: {
 	if (props.loading) return null;
 
 	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon

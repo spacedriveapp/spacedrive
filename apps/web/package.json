@@ -22,19 +22,19 @@
 		"react-router-dom": "6.9.0"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.30.0",
+		"@playwright/test": "^1.39.0",
 		"@sd/config": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@types/react": "^18.2.0",
-		"@types/react-dom": "^18.2.0",
-		"@vitejs/plugin-react": "^4.1",
-		"autoprefixer": "^10.4.12",
-		"postcss": "^8.4",
-		"rollup-plugin-visualizer": "^5.9.0",
-		"typescript": "^5.2",
-		"vite": "^4.4",
-		"vite-plugin-html": "^3.2",
-		"vite-plugin-svgr": "^3.3",
-		"vite-tsconfig-paths": "^4.2"
+		"@types/react": "^18.2.28",
+		"@types/react-dom": "^18.2.13",
+		"@vitejs/plugin-react": "^4.1.0",
+		"autoprefixer": "^10.4.16",
+		"postcss": "^8.4.31",
+		"rollup-plugin-visualizer": "^5.9.2",
+		"typescript": "^5.2.2",
+		"vite": "^4.4.11",
+		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-svgr": "^3.3.0",
+		"vite-tsconfig-paths": "^4.2.1"
 	}
 }

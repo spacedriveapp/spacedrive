@@ -45,6 +45,7 @@ export async function tauriUpdaterKey(nativeDeps) {
 	}
 
 	env.TAURI_PRIVATE_KEY = privateKey
+	env.TAURI_KEY_PASSWORD = ''
 	return publicKey
 }
 

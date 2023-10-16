@@ -1,35 +1,21 @@
 use std::time::Duration;
 
-use reqwest::RequestBuilder;
-use reqwest::StatusCode;
+use reqwest::{Response, StatusCode};
 use rspc::alpha::AlphaRouter;
-
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 
-use crate::auth::DEVICE_CODE_URN;
+use crate::{auth::DEVICE_CODE_URN, util::http::ensure_response};
 
 use super::{Ctx, R};
 
-async fn json_req<T: DeserializeOwned>(req: RequestBuilder) -> Result<T, rspc::Error> {
-	req.send()
-		.await
-		.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"Request failed".to_string(),
-			)
-		})?
-		.json()
-		.await
-		.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"JSON conversion failed".to_string(),
-			)
-		})
+async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
+	response.json().await.map_err(|_| {
+		rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			"JSON conversion failed".to_string(),
+		)
+	})
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -147,13 +133,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure("me", {
 			R.query(|node, _: ()| async move {
-				let Some(auth_token) = node.config.get().await.auth_token else {
-					return Err(rspc::Error::new(
-						rspc::ErrorCode::Unauthorized,
-						"No auth token".to_string(),
-					));
-				};
-
 				#[derive(Serialize, Deserialize, Type)]
 				#[specta(inline)]
 				struct Response {
@@ -161,14 +140,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					email: String,
 				}
 
-				let res: Response = json_req(
+				node.authed_api_request(
 					node.http
-						.get(&format!("{}/api/v1/user/me", &node.env.api_url))
-						.header("authorization", &auth_token.to_header()),
+						.get(&format!("{}/api/v1/user/me", &node.env.api_url)),
 				)
-				.await?;
-
-				Ok(res)
+				.await
+				.and_then(ensure_response)
+				.map(parse_json_body::<Response>)?
+				.await
 			})
 		})
 }

@@ -1,3 +1,5 @@
+'use client';
+
 import Image, { ImageProps } from 'next/image';
 import React, { useEffect, useState } from 'react';
 
@@ -8,8 +10,6 @@ interface CyclingImageProps extends Omit<ImageProps, 'src'> {
 const CyclingImage: React.FC<CyclingImageProps> = ({ images, width, height, ...imgProps }) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [isHovering, setIsHovering] = useState(false);
-
-	console.log({ isHovering });
 
 	useEffect(() => {
 		let timeoutId: number;

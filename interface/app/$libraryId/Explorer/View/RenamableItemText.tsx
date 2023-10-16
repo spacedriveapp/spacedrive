@@ -8,6 +8,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
+import { useIsDark } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { RenameTextBox } from '../FilePath/RenameTextBox';
@@ -17,12 +18,14 @@ interface Props {
 	item: ExplorerItem;
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
+	lines?: number;
 }
 
-export const RenamableItemText = ({ item, allowHighlight, style }: Props) => {
+export const RenamableItemText = ({ item, allowHighlight = true, style, lines }: Props) => {
 	const rspc = useRspcLibraryContext();
 	const explorer = useExplorerContext();
 	const quickPreviewStore = useQuickPreviewStore();
+	const isDark = useIsDark();
 
 	const itemData = getExplorerItemData(item);
 
@@ -111,10 +114,11 @@ export const RenamableItemText = ({ item, allowHighlight, style }: Props) => {
 			disabled={disabled}
 			onRename={handleRename}
 			className={clsx(
-				'text-center font-medium text-ink',
-				selected && allowHighlight !== false && 'bg-accent text-white dark:text-ink'
+				'text-center font-medium',
+				selected && allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
 			style={style}
+			lines={lines}
 		/>
 	);
 };

@@ -1,6 +1,7 @@
 // https://www.w3.org/TR/uievents-key/#keys-modifier
 export enum ModifierKeys {
 	Alt = 'Alt',
+	Shift = 'Shift',
 	AltGraph = 'AltGraph',
 	CapsLock = 'CapsLock',
 	Control = 'Control',
@@ -9,7 +10,6 @@ export enum ModifierKeys {
 	Meta = 'Meta',
 	NumLock = 'NumLock',
 	ScrollLock = 'ScrollLock',
-	Shift = 'Shift',
 	Symbol = 'Symbol',
 	SymbolLock = 'SymbolLock'
 }
@@ -20,8 +20,8 @@ export const modifierSymbols: Record<
 	ModifierKeys,
 	{ macOS?: string; Windows?: string; Other: string }
 > = {
-	Alt: { macOS: '⌥', Other: '⎇' },
-	AltGraph: { macOS: '⌥', Other: '⎇' },
+	Alt: { macOS: '⌥', Other: 'Alt' },
+	AltGraph: { macOS: '⌥', Other: 'Alt' },
 	CapsLock: { Other: '⇪' },
 	Control: { macOS: '⌃', Other: 'Ctrl' },
 	Fn: { macOS: 'fn', Other: 'Fn' },
@@ -29,7 +29,7 @@ export const modifierSymbols: Record<
 	Meta: { macOS: '⌘', Windows: '⊞ Win', Other: 'Meta' },
 	NumLock: { macOS: '⇭', Other: 'Num' },
 	ScrollLock: { macOS: '⤓', Other: 'ScrLk' },
-	Shift: { Other: '⇧' },
+	Shift: { Other: 'Shift', macOS: '⇧' },
 	Symbol: { macOS: '⎄', Other: 'Sym' },
 	SymbolLock: { macOS: '⎄', Other: 'Sym' }
 };
@@ -50,6 +50,7 @@ export const keySymbols: Record<string, { macOS?: string; Windows?: string; Othe
 	'End': { macOS: '↘', Other: 'End' },
 	'PageUp': { macOS: '⇞', Other: 'PgUp' },
 	'PageDown': { macOS: '⇟', Other: 'PgDn' },
+	'Shift': { macOS: '⇧', Other: 'Shift' },
 	'PrintScreen': { Other: 'PrtSc' },
 	'ScrollLock': { macOS: '⤓', Other: 'ScrLk' },
 	'Pause': { macOS: '⎉', Other: 'Pause' }

@@ -56,7 +56,8 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 					role="cell"
 					key={cell.id}
 					className={clsx(
-						'table-cell shrink-0 truncate px-4 text-xs text-ink-dull',
+						'table-cell shrink-0 px-4 text-xs text-ink-dull',
+						cell.column.id !== 'name' && 'truncate',
 						cell.column.columnDef.meta?.className
 					)}
 					style={{ width: cell.column.getSize() }}
@@ -71,7 +72,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 const HeaderColumnName = ({ name }: { name: string }) => {
 	const textRef = useRef<HTMLParagraphElement>(null);
 
-	const isTruncated = useIsTextTruncated(textRef, name);
+	const isTruncated = useIsTextTruncated(textRef);
 
 	return (
 		<div ref={textRef} className="truncate">
