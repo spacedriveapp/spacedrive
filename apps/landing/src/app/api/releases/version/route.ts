@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 async function getReleaseVersion(): Promise<any> {
-	return await githubFetch(`/repos/spacedriveapp/spacedrive/releases/latest`);
+	return await githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/latest`);
 }
 
 const FETCH_META = {
