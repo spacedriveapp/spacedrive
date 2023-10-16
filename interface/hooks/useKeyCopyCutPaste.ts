@@ -7,7 +7,7 @@ import {useItemsAsFilePaths, useLibraryMutation} from '@sd/client';
 import {toast} from '@sd/ui';
 
 
-export const useKeyCopyPaste = () => {
+export const useKeyCopyCutPaste = () => {
 	const {cutCopyState} = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
 
