@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { Button, tw } from '@sd/ui';
 import { useWindowSize } from '~/hooks/useWindowSize';
+
 import { MagicCard, MagicContainer } from './MagicCard';
 import PlatformsArt from './PlatformsArt';
 import SpacedropArt from './SpacedropArt';

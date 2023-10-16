@@ -25,6 +25,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 	const location = getItemLocation(data);
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 	const isFolder = 'is_dir' in data.item ? data.item.is_dir || data.type === 'Location' : false;
+	const hidden = filePathData?.hidden ?? false;
 
 	const showSize =
 		showBytesInGridView &&
@@ -34,7 +35,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 		(!isRenaming || (isRenaming && !selected));
 
 	return (
-		<ViewItem data={data} className="h-full w-full">
+		<ViewItem data={data} className={clsx("h-full w-full", hidden && 'opacity-50')}>
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>
@@ -52,7 +53,7 @@ const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProp
 				{showSize && filePathData?.size_in_bytes_bytes && (
 					<span
 						className={clsx(
-							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull '
+							'cursor-default truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull'
 						)}
 					>
 						{`${byteSize(filePathData.size_in_bytes_bytes)}`}

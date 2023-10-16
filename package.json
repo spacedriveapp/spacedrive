@@ -35,22 +35,22 @@
 		}
 	},
 	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "~7",
+		"@babel/plugin-syntax-import-assertions": "^7.22.5",
 		"@cspell/dict-rust": "^4.0.1",
 		"@cspell/dict-typescript": "^3.1.2",
-		"@ianvs/prettier-plugin-sort-imports": "^4.1.0",
+		"@ianvs/prettier-plugin-sort-imports": "^4.1.1",
 		"@storybook/react-vite": "^7.4.6",
-		"cspell": "^7.3.7",
+		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
-		"prettier-plugin-tailwindcss": "^0.5.5",
-		"turbo": "^1.10.14",
-		"turbo-ignore": "^1.10.14",
-		"typescript": "^5.2",
-		"vite": "^4.4"
+		"prettier-plugin-tailwindcss": "^0.5.6",
+		"turbo": "^1.10.15",
+		"turbo-ignore": "^1.10.15",
+		"typescript": "^5.2.2",
+		"vite": "^4.4.11"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
-		"@types/node": "^18.17"
+		"@types/node": "~18.17.19"
 	},
 	"engines": {
 		"pnpm": ">=8.0.0",

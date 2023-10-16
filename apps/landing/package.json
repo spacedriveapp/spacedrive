@@ -7,12 +7,11 @@
 		"start": "next start",
 		"prod": "pnpm build && pnpm start",
 		"lint": "next lint",
-		"typecheck": "contentlayer build && tsc -b",
-		"push": "drizzle-kit push:mysql"
+		"typecheck": "contentlayer build && tsc -b"
 	},
 	"dependencies": {
 		"@aws-sdk/client-ses": "^3.337.0",
-		"@phosphor-icons/react": "^2.0.10",
+		"@phosphor-icons/react": "^2.1.3",
 		"@planetscale/database": "^1.7.0",
 		"@react-three/drei": "^9.78.1",
 		"@react-three/fiber": "^8.13.4",
@@ -24,18 +23,19 @@
 		"clsx": "^1.2.1",
 		"contentlayer": "^0.3.2",
 		"dayjs": "^1.11.8",
-		"drizzle-orm": "^0.26.0",
 		"framer-motion": "^10.11.5",
+		"katex": "^0.16.9",
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
-		"next": "13.4.3",
+		"next": "13.5.4",
 		"next-contentlayer": "^0.3.4",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
 		"react-dom": "^18.2.0",
+		"react-error-boundary": "^3.1.4",
 		"react-github-btn": "^1.4.0",
-		"react-hook-form": "^7.43.9",
+		"react-hook-form": "^7.47.0",
 		"react-tsparticles": "^2.9.3",
 		"reading-time": "^1.5.0",
 		"rehype-autolink-headings": "^6.1.1",
@@ -50,19 +50,19 @@
 		"three": "^0.153.0",
 		"tsparticles": "^2.9.3",
 		"uuid": "^9.0.0",
-		"zod": "~3.22.2"
+		"zod": "~3.22.4"
 	},
 	"devDependencies": {
+		"@next/bundle-analyzer": "^13.5.4",
 		"@sd/config": "workspace:*",
-		"@svgr/webpack": "^8.0.1",
-		"@types/node": "^18.17",
-		"@types/react": "^18.2.0",
-		"@types/react-burger-menu": "^2.8.3",
-		"@types/react-dom": "^18.2.0",
-		"@types/three": "^0.152",
-		"drizzle-kit": "db-push",
-		"postcss": "^8.4",
-		"tailwindcss": "^3.3.2",
-		"typescript": "^5.2"
+		"@svgr/webpack": "^8.1.0",
+		"@types/node": "~18.17.19",
+		"@types/react": "^18.2.28",
+		"@types/react-burger-menu": "^2.8.4",
+		"@types/react-dom": "^18.2.13",
+		"@types/three": "^0.152.1",
+		"postcss": "^8.4.31",
+		"tailwindcss": "^3.3.3",
+		"typescript": "^5.2.2"
 	}
 }
