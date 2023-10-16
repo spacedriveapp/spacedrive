@@ -13,7 +13,7 @@ import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
 import { GridList, useGridList } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useMouseNavigate, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -122,6 +122,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const selectoLastColumn = useRef<number | undefined>();
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
+	const mouseNavigate = useMouseNavigate();
 
 	const itemDetailsHeight = 44 + (settings.showBytesInGridView && !isEphemeralLocation ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
@@ -625,7 +626,6 @@ export default ({ children }: { children: RenderItem }) => {
 			<GridList grid={grid} scrollRef={explorer.scrollRef}>
 				{(index) => {
 					const item = explorer.items?.[index];
-
 					if (!item) return null;
 
 					return (
@@ -634,6 +634,8 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							onMouseDown={(e) => {
 								e.stopPropagation();
+
+								mouseNavigate(e);
 
 								if (!explorerView.selectable) return;
 

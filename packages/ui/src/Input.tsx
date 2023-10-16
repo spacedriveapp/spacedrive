@@ -1,3 +1,5 @@
+'use client';
+
 import { Eye, EyeSlash, Icon, IconProps, MagnifyingGlass } from '@phosphor-icons/react';
 import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';

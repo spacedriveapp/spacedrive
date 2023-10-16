@@ -1,97 +1,67 @@
+'use client';
+
 import { Check } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import Head from 'next/head';
-import Image from 'next/image';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button, Switch } from '@sd/ui';
-import PageWrapper from '~/components/PageWrapper';
-import { Space } from '~/components/Space';
 
-export default function PricingPage() {
+export function Cards() {
 	const [toggle, setToggle] = useState<boolean>(false);
+
 	return (
 		<>
-			<Head>
-				<title>Pricing - Spacedrive</title>
-				<meta name="description" content="Spacedrive pricing and packages" />
-			</Head>
-			<div className="opacity-60">
-				<Space />
+			<div className="fade-in-heading animation-delay-2 mx-auto flex w-full items-center justify-center gap-3">
+				<p className="text-sm font-medium text-white">Monthly</p>
+				<Switch checked={toggle} onCheckedChange={setToggle} size="lg" />
+				<p className="text-sm font-medium text-white">Yearly</p>
 			</div>
-			<PageWrapper>
-				<Image
-					loading="eager"
-					className="absolute-horizontal-center top-0 fade-in"
-					width={1278}
-					height={626}
-					alt="l"
-					src="/images/headergradient.webp"
+			<div
+				className="fade-in-heading animation-delay-2 mx-auto mb-[200px] mt-[75px] flex
+				 w-full max-w-[1000px] flex-col items-center justify-center gap-10 px-2 md:flex-row"
+			>
+				<PackageCard
+					features={[
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text'
+					]}
+					subTitle="Free for everyone"
+					toggle={toggle}
+					name="Free"
 				/>
-				<div className="z-5 relative mt-48">
-					<h1
-						className="fade-in-heading mb-3 bg-gradient-to-r from-white from-40% to-indigo-400 to-60% bg-clip-text px-2 text-center text-4xl
-				font-bold leading-tight text-transparent"
-					>
-						Pricing
-					</h1>
-					<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mx-auto mb-8 mt-1 max-w-2xl px-2 text-center text-gray-450 lg:text-lg lg:leading-8">
-						Spacedrive can be used for free as you like. Upgrading gives you access to
-						early features, and this is placeholder text
-					</p>
-					<div className="fade-in-heading animation-delay-2 mx-auto flex w-full items-center justify-center gap-3">
-						<p className="text-sm font-medium text-white">Monthly</p>
-						<Switch onCheckedChange={setToggle} checked={toggle} size="lg" />
-						<p className="text-sm font-medium text-white">Yearly</p>
-					</div>
-					<div
-						className="fade-in-heading animation-delay-2 mx-auto mb-[200px] mt-[75px] flex
-							 w-full max-w-[1000px] flex-col items-center justify-center gap-10 px-2 md:flex-row"
-					>
-						<PackageCard
-							features={[
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text'
-							]}
-							subTitle="Free for everyone"
-							toggle={toggle}
-							name="Free"
-						/>
-						<PackageCard
-							features={[
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text'
-							]}
-							toggle={toggle}
-							name="Pro"
-							price={{
-								monthly: '14.99',
-								yearly: '99.99'
-							}}
-						/>
-						<PackageCard
-							features={[
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text',
-								'lorem ipsum text'
-							]}
-							subTitle="Contact sales"
-							toggle={toggle}
-							name="Enterprise"
-						/>
-					</div>
-				</div>
-			</PageWrapper>
+				<PackageCard
+					features={[
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text'
+					]}
+					toggle={toggle}
+					name="Pro"
+					price={{
+						monthly: '14.99',
+						yearly: '99.99'
+					}}
+				/>
+				<PackageCard
+					features={[
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text',
+						'lorem ipsum text'
+					]}
+					subTitle="Contact sales"
+					toggle={toggle}
+					name="Enterprise"
+				/>
+			</div>
 		</>
 	);
 }

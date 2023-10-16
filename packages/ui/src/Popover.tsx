@@ -1,3 +1,5 @@
+'use client';
+
 import * as Radix from '@radix-ui/react-popover';
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,7 +30,7 @@ export const Popover = ({ popover, trigger, children, disabled, className, ...pr
 	useKeys(props.keybind ?? [], (e) => {
 		if (!props.keybind) return;
 		e.stopPropagation();
-		popover.setOpen(!open);
+		popover.setOpen((o) => !o);
 	});
 
 	useEffect(() => {

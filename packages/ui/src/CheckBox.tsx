@@ -1,3 +1,5 @@
+'use client';
+
 import { Check } from '@phosphor-icons/react';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import { cva, VariantProps } from 'class-variance-authority';

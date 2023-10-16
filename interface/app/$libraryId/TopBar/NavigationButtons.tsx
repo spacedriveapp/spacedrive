@@ -9,8 +9,8 @@ import TopBarButton from './TopBarButton';
 export const NavigationButtons = () => {
 	const navigate = useNavigate();
 	const { isFocused } = useSearchStore();
-	const os = useOperatingSystem();
 	const idx = history.state.idx as number;
+	const os = useOperatingSystem();
 	const { icon, key } = useKeyMatcher('Meta');
 
 	useKeybind([key, '['], () => {
@@ -34,8 +34,8 @@ export const NavigationButtons = () => {
 				navigate(1);
 			}
 		};
-		window.addEventListener('mousedown', onMouseDown);
-		return () => window.removeEventListener('mousedown', onMouseDown);
+		document.addEventListener('mousedown', onMouseDown);
+		return () => document.removeEventListener('mousedown', onMouseDown);
 	}, [navigate, idx, isFocused, os]);
 
 	return (

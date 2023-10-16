@@ -1,4 +1,4 @@
-import { Fire, Info } from '@phosphor-icons/react';
+import { Fire, Info } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import MarkdownToJsx from 'markdown-to-jsx';
 
