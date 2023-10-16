@@ -28,6 +28,7 @@
 		"katex": "^0.16.9",
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
+		"mdx-loader": "^3.0.2",
 		"next": "13.5.4",
 		"next-contentlayer": "^0.3.4",
 		"octokit": "^3.1.1",

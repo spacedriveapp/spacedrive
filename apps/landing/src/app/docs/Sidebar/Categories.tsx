@@ -2,13 +2,12 @@
 
 import clsx from 'clsx';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
-import { useDocsParams } from '../utils';
-
 export function Categories(props: { sections: { slug: string; categories: ReactNode }[] }) {
-	const { slug } = useDocsParams();
-	const sectionSlug = slug?.[0];
+	const path = usePathname();
+	const sectionSlug = path.split('/')[2]!;
 
 	const section = props.sections.find((s) => s.slug === sectionSlug) ?? props.sections[0];
 
@@ -16,9 +15,9 @@ export function Categories(props: { sections: { slug: string; categories: ReactN
 }
 
 export function Doc(props: { slug: string; title?: string; url: string }) {
-	const { slug } = useDocsParams();
+	const path = usePathname();
 
-	const active = slug?.join('/') === props.slug;
+	const active = path === props.url;
 
 	return (
 		<li
@@ -34,8 +33,6 @@ export function Doc(props: { slug: string; title?: string; url: string }) {
 			>
 				{props.title}
 			</Link>
-			{/* this fixes the links no joke */}
-			{active && <div />}
 		</li>
 	);
 }

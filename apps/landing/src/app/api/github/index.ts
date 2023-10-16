@@ -40,27 +40,26 @@ export async function githubFetch<T>({ path }: FetchConfig<T>): Promise<T> {
 }
 
 export function getReleaseFrontmatter({ body }: Release): {
-	frontmatter: object;
+	frontmatter: Record<string, string>;
 	body: string;
 } {
 	if (!body) return { frontmatter: {}, body: '' };
 
-	let tagline: string | undefined;
-
 	const lines = body.split('\n');
+	const frontmatter: Record<string, string> = {};
 
 	if (lines[0].startsWith('<!-- frontmatter')) {
 		const endIndex = lines.findIndex((l) => l.startsWith('-->'));
 		if (!endIndex) return { frontmatter: {}, body: '' };
 
-		const [_, ...frontmatter] = lines.splice(0, endIndex + 1);
+		const [_, ...frontmatterLines] = lines.slice(1, endIndex - 1);
 
-		for (const line of frontmatter) {
+		for (const line of frontmatterLines) {
 			const [name, value] = line.split(': ');
 
-			if (name === 'tagline') tagline = value.trim();
+			frontmatter[name] = value.trim();
 		}
 	}
 
-	return { frontmatter: { tagline }, body: lines.join('\n') };
+	return { frontmatter, body: lines.join('\n') };
 }

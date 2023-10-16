@@ -1,13 +1,46 @@
+import { getRecentReleases, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
 import { iconConfig } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
 
-import { navigationMeta } from '../data';
+import { navigationMeta, SectionMeta } from '../data';
 import { Categories, Doc } from './Categories';
 import { SearchBar } from './Search';
 import { SectionLink } from './SectionLink';
 
 export async function Sidebar() {
-	const categoriesPerSection = navigationMeta.map((section) => ({
+	const releases = await githubFetch(getRecentReleases);
+
+	const navigationWithReleases = [
+		...navigationMeta,
+		{
+			slug: 'changelog',
+			categories: (() => {
+				const categories: Record<string, SectionMeta['categories'][number]> = {};
+
+				for (const release of releases) {
+					const { frontmatter } = getReleaseFrontmatter(release);
+
+					const slug = frontmatter.category;
+
+					const category = (categories[slug] ??= {
+						title: toTitleCase(slug),
+						slug,
+						docs: []
+					});
+
+					category.docs.push({
+						slug: release.tag_name,
+						title: release.tag_name,
+						url: `/docs/changelog/${slug}/${release.tag_name}`
+					});
+				}
+
+				return Object.values(categories);
+			})()
+		}
+	];
+
+	const categoriesPerSection = navigationWithReleases.map((section) => ({
 		slug: section.slug,
 		categories: (
 			<>
@@ -34,7 +67,7 @@ export async function Sidebar() {
 		<nav className="mr-8 flex w-full flex-col sm:w-52">
 			<SearchBar />
 			<div className="mb-6 flex flex-col">
-				{navigationMeta.map((section) => {
+				{navigationWithReleases.map((section) => {
 					const Icon = iconConfig[section.slug];
 
 					return (

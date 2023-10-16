@@ -1,5 +1,5 @@
 import { Webhooks } from '@octokit/webhooks';
-import { revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { headers } from 'next/headers';
 import { env } from '~/env';
 
@@ -24,8 +24,11 @@ export async function POST(req: Request) {
 	return new Response();
 }
 
-webhook.on('release', (a) => {
-	revalidateTag(getRelease(a.payload.release.tag_name).path);
+webhook.on('release', ({ payload }) => {
+	revalidateTag(getRelease(payload.release.tag_name).path);
 	revalidateTag(getRecentReleases.path);
 	revalidateTag(getLatestRelease.path);
+
+	revalidatePath('/docs', 'layout');
+	revalidatePath(`/docs/alpha/${payload.release.tag_name}`, 'page');
 });
