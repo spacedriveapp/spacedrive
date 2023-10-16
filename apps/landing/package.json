@@ -29,6 +29,7 @@
 		"md5": "^2.3.0",
 		"next": "13.5.4",
 		"next-contentlayer": "^0.3.4",
+		"octokit": "^3.1.1",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
@@ -54,6 +55,7 @@
 	},
 	"devDependencies": {
 		"@next/bundle-analyzer": "^13.5.4",
+		"@octokit/openapi-types": "^19.0.0",
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.1.0",
 		"@types/node": "~18.17.19",

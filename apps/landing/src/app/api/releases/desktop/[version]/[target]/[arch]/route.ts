@@ -1,3 +1,4 @@
+import { type components } from '@octokit/openapi-types';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { env } from '~/env';
@@ -34,7 +35,19 @@ export async function GET(
 ) {
 	const params = await paramsSchema.parseAsync(rawParams);
 
-	const release = await getRelease(params);
+	const release = await (async () => {
+		switch (params.version) {
+			case 'alpha': {
+				const data = await getRecentReleases();
+
+				return data.find((d: any) => d.tag_name.includes('alpha'));
+			}
+			case 'stable':
+				return await getLatestRelease();
+			default:
+				return getRelease(params.version);
+		}
+	})();
 
 	if (!release) return NextResponse.json({ error: 'Release not found' }, { status: 404 });
 
@@ -49,32 +62,34 @@ export async function GET(
 	return NextResponse.redirect(asset.browser_download_url);
 }
 
-async function getRelease({ version }: z.infer<typeof paramsSchema>): Promise<any> {
-	switch (version) {
-		case 'alpha': {
-			const data = await githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`);
-
-			return data.find((d: any) => d.tag_name.includes('alpha'));
-		}
-		case 'stable':
-			return githubFetch(`/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/latest`);
-		default:
-			return githubFetch(
-				`/repos/$${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases/tags/${version}`
-			);
-	}
-}
+type Release = components['schemas']['release'];
 
 const FETCH_META = {
 	headers: {
 		Authorization: `Bearer ${env.GITHUB_PAT}`,
 		Accept: 'application/vnd.github+json'
-	},
-	next: {
-		revalidate: 60
 	}
 } as RequestInit;
 
+const RELEASES_PATH = `/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`;
+
+export function getRecentReleases(): Promise<Release[]> {
+	return githubFetch(RELEASES_PATH);
+}
+
+export function getLatestRelease(): Promise<Release> {
+	return githubFetch(`${RELEASES_PATH}/latest`);
+}
+
+export function getRelease(tag: string): Promise<Release> {
+	return githubFetch(`${RELEASES_PATH}/tags/${tag}`);
+}
+
 async function githubFetch(path: string) {
-	return fetch(`https://api.github.com${path}`, FETCH_META).then((r) => r.json());
+	return fetch(`https://api.github.com${path}`, {
+		...FETCH_META,
+		next: {
+			tags: [path]
+		}
+	}).then((r) => r.json());
 }

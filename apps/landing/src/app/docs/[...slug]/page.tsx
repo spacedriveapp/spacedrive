@@ -1,16 +1,14 @@
 import { allDocs } from '@contentlayer/generated';
 import { CaretRight } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
-import { Metadata } from 'next';
 import { getMDXComponent } from 'next-contentlayer/hooks';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DocMDXComponents } from '~/components/mdx';
 import { toTitleCase } from '~/utils/util';
 
-import { getDoc } from './data';
-import { Index } from './Index';
-import { Markdown } from './Markdown';
+import { getDoc } from '../data';
+import { Markdown } from '../Markdown';
 
 export function generateStaticParams() {
 	const slugs = allDocs.map((doc) => doc.slug);
@@ -18,22 +16,10 @@ export function generateStaticParams() {
 }
 
 interface Props {
-	params: { slug?: string[] };
-}
-
-export function generateMetadata({ params }: Props): Metadata {
-	if (!params.slug)
-		return {
-			title: 'Spacedrive Docs',
-			description: 'Learn more about Spacedrive'
-		};
-
-	return {};
+	params: { slug: string[] };
 }
 
 export default function Page({ params }: Props) {
-	if (!params.slug) return <Index />;
-
 	const { doc, nextDoc } = getDoc(params.slug);
 
 	if (!doc) notFound();
@@ -41,9 +27,9 @@ export default function Page({ params }: Props) {
 	const MDXContent = getMDXComponent(doc.body.code);
 
 	return (
-		<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">
+		<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen px-8">
 			<h5 className="mb-2 text-sm font-semibold text-primary lg:min-w-[700px]">
-				{toTitleCase(doc.category)}
+				{toTitleCase(params.slug[1])}
 			</h5>
 			<MDXContent components={DocMDXComponents} />
 			<div className="mt-10 flex flex-col gap-3 sm:flex-row">
