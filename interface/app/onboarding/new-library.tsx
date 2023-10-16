@@ -1,15 +1,10 @@
-import { Database } from '@sd/assets/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Form, InputField } from '@sd/ui';
+import { Icon } from '~/components';
 
 import { useOnboardingContext } from './context';
-import {
-	OnboardingContainer,
-	OnboardingDescription,
-	OnboardingImg,
-	OnboardingTitle
-} from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
@@ -29,7 +24,7 @@ export default function OnboardingNewLibrary() {
 			})}
 		>
 			<OnboardingContainer>
-				<OnboardingImg src={Database} />
+				<Icon name="Database" size={80} className="mb-2" />
 				<OnboardingTitle>Create a Library</OnboardingTitle>
 				<OnboardingDescription>
 					Libraries are a secure, on-device database. Your files remain where they are,
