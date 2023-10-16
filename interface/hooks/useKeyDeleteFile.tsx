@@ -8,8 +8,9 @@ import { useOperatingSystem } from './useOperatingSystem';
 export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {
 	const os = useOperatingSystem();
 
-	const deleteHandler = () => {
-		if (!locationId) return;
+	const deleteHandler = (e: KeyboardEvent) => {
+		e.preventDefault();
+		if (!locationId || selectedItems.size === 0) return;
 
 		const pathIds: number[] = [];
 
@@ -24,13 +25,11 @@ export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: 
 
 	useKeys(['Meta', 'Backspace'], (e) => {
 		if (os !== 'macOS') return;
-		e.preventDefault();
-		deleteHandler();
+		deleteHandler(e);
 	});
 
 	useKey('Delete', (e) => {
 		if (os === 'macOS') return;
-		e.preventDefault();
-		deleteHandler();
+		deleteHandler(e);
 	});
 };
