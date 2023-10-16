@@ -38,6 +38,7 @@ export const OpenOrDownload = new ConditionalItem({
 		const keybind = useKeybindFactory();
 		const { platform } = usePlatform();
 		const { doubleClick } = useViewItemDoubleClick();
+		const os = useOperatingSystem(true);
 
 		if (platform === 'web') return <Menu.Item label="Download" />;
 		else
@@ -45,7 +46,9 @@ export const OpenOrDownload = new ConditionalItem({
 				<>
 					<Menu.Item
 						label="Open"
-						keybind={keybind([ModifierKeys.Control], ['O'])}
+						keybind={keybind(os === 'windows' ? [] : [ModifierKeys.Control], [
+							os === 'windows' ? 'Enter' : 'O'
+						])}
 						onClick={() => doubleClick()}
 					/>
 					<Conditional items={[OpenWith]} />

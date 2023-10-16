@@ -1,40 +1,39 @@
-import { useState, useEffect
- } from "react";
+import { useEffect, useState } from 'react';
 
- /*
+/*
  A simple hook that returns the window size
  */
 
- type hookReturn = {
+type hookReturn = {
 	width: number | null;
 	height: number | null;
-	  };
+};
 
 export const useWindowSize = (): hookReturn => {
-	  const [windowSize, setWindowSize] = useState<hookReturn>({
+	const [windowSize, setWindowSize] = useState<hookReturn>({
 		width: null,
-		height: null,
-	  });
+		height: null
+	});
 
-  useEffect(() => {
-	if (typeof window === 'undefined') {
-	  return;
-	}
-	const handleResize = () => {
-	  setWindowSize({
-		width: window.innerWidth,
-		height: window.innerHeight,
-	  });
-	};
+	useEffect(() => {
+		if (typeof window === 'undefined') {
+			return;
+		}
+		const handleResize = () => {
+			setWindowSize({
+				width: window.innerWidth,
+				height: window.innerHeight
+			});
+		};
 
-	window.addEventListener('load', handleResize);
-	window.addEventListener('resize', handleResize);
+		window.addEventListener('load', handleResize);
+		window.addEventListener('resize', handleResize);
 
-	return () => {
-		window.removeEventListener('resize', handleResize)
-		window.removeEventListener('load', handleResize)
-	};
-  }, [windowSize.width, windowSize.height]);
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			window.removeEventListener('load', handleResize);
+		};
+	}, [windowSize.width, windowSize.height]);
 
-  return windowSize;
-}
+	return windowSize;
+};

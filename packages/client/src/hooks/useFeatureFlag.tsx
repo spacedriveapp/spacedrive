@@ -117,10 +117,8 @@ export function withFeatureFlag(
 	Component: React.FunctionComponent,
 	fallback: React.ReactNode = null
 ): React.FunctionComponent {
-	// @ts-expect-error
 	return (props) => {
 		const enabled = useFeatureFlag(flag);
-		// eslint-disable-next-line react-hooks/rules-of-hooks
 		return enabled ? <Component /> : fallback;
 	};
 }

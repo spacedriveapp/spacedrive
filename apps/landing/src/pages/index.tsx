@@ -1,5 +1,6 @@
 import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
+import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
@@ -29,7 +30,7 @@ const downloadEntries = {
 		links: 'linux/x86_64'
 	},
 	macOS: {
-		name: 'MacOS',
+		name: 'macOS',
 		icon: <Apple />,
 		links: {
 			'Intel': 'darwin/x86_64',
@@ -44,7 +45,7 @@ const downloadEntries = {
 } as const;
 
 const platforms = [
-	{ name: 'MacOS', icon: Apple, clickable: true, version: '12+' },
+	{ name: 'macOS', icon: Apple, clickable: true, version: '12+' },
 	{
 		name: 'Windows',
 		icon: WindowsLogo,
@@ -65,7 +66,7 @@ export default function HomePage() {
 	const [opacity, setOpacity] = useState(0.6);
 	const [background, setBackground] = useState<JSX.Element | null>(null);
 	const [multipleDownloads, setMultipleDownloads] =
-		useState<(typeof downloadEntries)['linux' | 'macOS']['links']>();
+		useState<(typeof downloadEntries)['macOS']['links']>();
 	const [downloadEntry, setDownloadEntry] =
 		useState<(typeof downloadEntries)['linux' | 'macOS' | 'windows']>();
 	const [isWindowResizing, setIsWindowResizing] = useState(false);
@@ -209,7 +210,11 @@ export default function HomePage() {
 					</p>
 					<div className="flex flex-row gap-3">
 						{!(downloadEntry && links) ? null : typeof links === 'string' ? (
-							<a target="_blank" href={`${BASE_DL_LINK}/${links}`}>
+							<a
+								target="_blank"
+								href={`${BASE_DL_LINK}/${links}`}
+								className={`plausible-event-name=download plausible-event-os=${downloadEntry.name}`}
+							>
 								<HomeCTA
 									icon={downloadEntry.icon}
 									text={`Download for ${downloadEntry.name}`}
@@ -238,7 +243,14 @@ export default function HomePage() {
 					{multipleDownloads && (
 						<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
 							{Object.entries(multipleDownloads).map(([name, link]) => (
-								<a key={name} target="_blank" href={`${BASE_DL_LINK}/${link}`}>
+								<a
+									key={name}
+									target="_blank"
+									href={`${BASE_DL_LINK}/${link}`}
+									className={`plausible-event-name=download plausible-event-os=macOS+${
+										link.split('/')[1]
+									}`}
+								>
 									<HomeCTA
 										size="md"
 										text={name}
@@ -261,6 +273,7 @@ export default function HomePage() {
 							</>
 						)}
 					</p>
+					{/* Platforms */}
 					<div className="relative z-10 mt-5 flex gap-3">
 						{platforms.map((platform, i) => (
 							<motion.div
@@ -272,6 +285,10 @@ export default function HomePage() {
 								<Platform
 									icon={platform.icon}
 									label={platform.name}
+									className={clsx(
+										platform.name !== 'macOS' &&
+											`plausible-event-name=download plausible-event-os=${platform.name}`
+									)}
 									href={'href' in platform ? platform.href : undefined}
 									iconDisabled={
 										platform.name === 'Android' || platform.name === 'Web'
@@ -282,7 +299,7 @@ export default function HomePage() {
 										'clickable' in platform ? platform.clickable : undefined
 									}
 									onClick={() => {
-										if (platform.name === 'MacOS') {
+										if (platform.name === 'macOS') {
 											setMultipleDownloads(
 												multipleDownloads
 													? undefined

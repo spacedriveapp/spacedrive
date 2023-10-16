@@ -18,17 +18,15 @@
 		"@zxcvbn-ts/language-common": "^2.0.1",
 		"@zxcvbn-ts/language-en": "^2.1.0",
 		"plausible-tracker": "^0.3.8",
-		"react-hook-form": "~7.45.2",
+		"react-hook-form": "^7.47.0",
 		"valtio": "^1.7.4",
-		"zod": "~3.22.2"
+		"zod": "~3.22.4"
 	},
 	"devDependencies": {
-		"@types/react": "^18.0.21",
-		"scripts": "*",
-		"tsconfig": "*",
-		"typescript": "^5.2"
+		"@types/react": "^18.2.28",
+		"typescript": "^5.2.2"
 	},
 	"peerDependencies": {
-		"react": "^18.2.0"
+		"react": "^18.2"
 	}
 }
