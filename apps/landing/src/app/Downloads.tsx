@@ -76,7 +76,7 @@ export function Downloads() {
 										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
 										: undefined
 								}
-								className={`z-5 plausible-event-name=download plausible-event-os= relative${currentPlatform.name}`}
+								className={`z-5 plausible-event-name=download relative plausible-event-os=${currentPlatform.name}`}
 								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
 								text={`Download for ${currentPlatform.name}`}
 								onClick={() => setSelectedPlatform(currentPlatform)}
