@@ -2,16 +2,8 @@ import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import {
-	Button,
-	ButtonLink,
-	dialogManager,
-	modifierSymbols,
-	Popover,
-	Tooltip,
-	usePopover
-} from '@sd/ui';
-import { useKeyMatcher } from '~/hooks';
+import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
+import { useKeysMatcher } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
@@ -22,9 +14,9 @@ export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
 	const navigate = useNavigate();
-	const { key, icon } = useKeyMatcher('Meta');
+	const shortcuts = useKeysMatcher(['Meta', 'Shift']);
 
-	useKeys([key, 'Shift', 'KeyT'], (e) => {
+	useKeys([shortcuts.Meta.key, 'Shift', 'KeyT'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
@@ -58,7 +50,7 @@ export default () => {
 						<Tooltip
 							position="top"
 							label="Settings"
-							keybinds={[modifierSymbols.Shift.Other, icon, 'T']}
+							keybinds={[shortcuts.Shift.icon, shortcuts.Meta.icon, 'T']}
 						>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
@@ -66,7 +58,7 @@ export default () => {
 					<JobManagerContextProvider>
 						<Popover
 							popover={usePopover()}
-							keybind={[key, 'j']}
+							keybind={[shortcuts.Meta.key, 'j']}
 							trigger={
 								<Button
 									size="icon"
@@ -78,7 +70,7 @@ export default () => {
 										<Tooltip
 											label="Recent Jobs"
 											position="top"
-											keybinds={[icon, 'J']}
+											keybinds={[shortcuts.Meta.icon, 'J']}
 										>
 											<IsRunningJob />
 										</Tooltip>
