@@ -1,42 +1,18 @@
-import { getRecentReleases, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
 import { iconConfig } from '~/utils/contentlayer';
 import { toTitleCase } from '~/utils/util';
 
-import { navigationMeta, SectionMeta } from '../data';
+import { getReleasesCategories } from '../changelog/data';
+import { navigationMeta } from '../data';
 import { Categories, Doc } from './Categories';
 import { SearchBar } from './Search';
 import { SectionLink } from './SectionLink';
 
 export async function Sidebar() {
-	const releases = await githubFetch(getRecentReleases);
-
 	const navigationWithReleases = [
 		...navigationMeta,
 		{
 			slug: 'changelog',
-			categories: (() => {
-				const categories: Record<string, SectionMeta['categories'][number]> = {};
-
-				for (const release of releases) {
-					const { frontmatter } = getReleaseFrontmatter(release);
-
-					const slug = frontmatter.category;
-
-					const category = (categories[slug] ??= {
-						title: toTitleCase(slug),
-						slug,
-						docs: []
-					});
-
-					category.docs.push({
-						slug: release.tag_name,
-						title: release.tag_name,
-						url: `/docs/changelog/${slug}/${release.tag_name}`
-					});
-				}
-
-				return Object.values(categories);
-			})()
+			categories: await getReleasesCategories()
 		}
 	];
 

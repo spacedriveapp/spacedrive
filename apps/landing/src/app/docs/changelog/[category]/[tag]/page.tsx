@@ -5,6 +5,13 @@ import { DocMDXComponents } from '~/components/mdx';
 import { toTitleCase } from '~/utils/util';
 
 import { Markdown } from '../../../Markdown';
+import { getReleasesCategories } from '../../data';
+
+export async function generateStaticParams() {
+	const categories = await getReleasesCategories();
+
+	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
+}
 
 export default async function Page({ params }: { params: { category: string; tag: string } }) {
 	const release = await githubFetch(getRelease(params.tag));
