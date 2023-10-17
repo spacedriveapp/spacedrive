@@ -103,8 +103,9 @@ impl SpaceblockRequests {
 			panic!("Can't Spacedrop more than 255 files at once!");
 		}
 
-		let mut buf = block_size.to_bytes().to_vec();
+		let mut buf = vec![];
 		encode::uuid(&mut buf, id);
+		buf.append(&mut block_size.to_bytes().to_vec());
 		buf.push(requests.len() as u8);
 		for request in requests {
 			buf.extend_from_slice(&request.to_bytes());
@@ -161,4 +162,94 @@ impl SpaceblockRequest {
 	}
 }
 
-// TODO: This file is missing protocol unit tests
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use super::*;
+
+	#[tokio::test]
+	async fn test_range() {
+		let req = Range::Full;
+		let bytes = req.to_bytes();
+		let req2 = Range::from_stream(&mut Cursor::new(bytes)).await.unwrap();
+		assert_eq!(req, req2);
+
+		let req = Range::Partial(0..10);
+		let bytes = req.to_bytes();
+		let req2 = Range::from_stream(&mut Cursor::new(bytes)).await.unwrap();
+		assert_eq!(req, req2);
+	}
+
+	#[tokio::test]
+	async fn test_spaceblock_requests_empty() {
+		let req = SpaceblockRequests {
+			id: Uuid::new_v4(),
+			block_size: BlockSize::from_size(42069),
+			requests: vec![],
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpaceblockRequests::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
+
+	#[tokio::test]
+	async fn test_spaceblock_requests_one() {
+		let req = SpaceblockRequests {
+			id: Uuid::new_v4(),
+			block_size: BlockSize::from_size(42069),
+			requests: vec![SpaceblockRequest {
+				name: "Demo".to_string(),
+				size: 42069,
+				range: Range::Full,
+			}],
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpaceblockRequests::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+
+		let req = SpaceblockRequest {
+			name: "Demo".to_string(),
+			size: 42069,
+			range: Range::Partial(0..420),
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpaceblockRequest::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
+
+	#[tokio::test]
+	async fn test_spaceblock_requests_many() {
+		let req = SpaceblockRequests {
+			id: Uuid::new_v4(),
+			block_size: BlockSize::from_size(42069),
+			requests: vec![
+				SpaceblockRequest {
+					name: "Demo".to_string(),
+					size: 42069,
+					range: Range::Full,
+				},
+				SpaceblockRequest {
+					name: "Demo2".to_string(),
+					size: 420,
+					range: Range::Full,
+				},
+			],
+		};
+
+		let bytes = req.to_bytes();
+		let req2 = SpaceblockRequests::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
+}
