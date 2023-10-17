@@ -177,7 +177,7 @@ pub async fn walk(
 
 				#[cfg(not(feature = "ffmpeg"))]
 				{
-					matches!(kind, ObjectKind::Image | ObjectKind::Video)
+					matches!(kind, ObjectKind::Image | ObjectKind::Document)
 				}
 			};
 
