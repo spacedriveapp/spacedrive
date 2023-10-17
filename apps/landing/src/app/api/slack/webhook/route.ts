@@ -134,7 +134,8 @@ export async function POST(req: Request) {
 									tag_name: value.tag,
 									name: value.tag,
 									target_commitish: value.commit,
-									draft: true
+									draft: true,
+									generate_release_notes: true
 								}),
 								headers: {
 									'Authorization': `Bearer ${env.GITHUB_PAT}`,
