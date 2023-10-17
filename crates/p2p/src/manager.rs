@@ -126,7 +126,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		self.mdns_state.listen_addrs.read().await.clone()
 	}
 
-	pub async fn update_config(&self, config: ManagerConfig) -> () {
+	pub async fn update_config(&self, config: ManagerConfig) {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
 	}
 

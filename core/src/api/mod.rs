@@ -1,7 +1,6 @@
 use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
-use sd_p2p::ManagerConfig;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::{atomic::Ordering, Arc};
