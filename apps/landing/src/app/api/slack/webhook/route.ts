@@ -35,6 +35,13 @@ export async function POST(req: Request) {
 	if (parsedBody.command) {
 		switch (parsedBody.command) {
 			case '/release': {
+				if (parsedBody.channel_id !== env.SLACK_RELEASES_CHANNEL) {
+					return Response.json({
+						response_type: 'ephemeral',
+						text: `This command can only be used in <#${env.SLACK_RELEASES_CHANNEL}>`
+					});
+				}
+
 				const [tag, commitSha] = parsedBody.text.split(' ');
 
 				const commitData = await fetch(
@@ -58,7 +65,7 @@ export async function POST(req: Request) {
 							text: {
 								type: 'mrkdwn',
 								text: [
-									'Are you sure you want to create this release?',
+									`<@${parsedBody.user_id}> Are you sure you want to create this release?`,
 									`*Version:* \`${tag}\``,
 									`*Commit:* \`${commitData.sha}\``,
 									`> ${commitData.commit.message.split('\n')[0]}`
@@ -158,7 +165,7 @@ export async function POST(req: Request) {
 											text: [
 												`*Release \`${value.tag}\` created!*`,
 												`Go give it some release notes.`,
-												`*Created By:* <@${payload.user.id}>`
+												`*Created By* <@${payload.user.id}>`
 											].join('\n')
 										}
 									},
