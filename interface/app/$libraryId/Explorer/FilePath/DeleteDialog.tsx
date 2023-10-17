@@ -5,8 +5,8 @@ interface Props extends UseDialogProps {
 	locationId: number;
 	rescan?: () => void;
 	pathIds: number[];
-	dirCount: number;
-	fileCount: number;
+	dirCount?: number;
+	fileCount?: number;
 }
 
 function getWording(dirCount: number, fileCount: number) {
@@ -36,12 +36,13 @@ function getWording(dirCount: number, fileCount: number) {
 	return { type, prefix };
 }
 
-const deleteDialog = (props: Props) => {
+export default (props: Props) => {
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 
 	const form = useZodForm();
+	const { dirCount = 0, fileCount = 0 } = props;
 
-	const { type, prefix } = getWording(props.dirCount, props.fileCount);
+	const { type, prefix } = getWording(dirCount, fileCount);
 
 	const description = `Warning: This will delete your ${type} forever, we don't have a trash can yet...`;
 
@@ -73,10 +74,3 @@ const deleteDialog = (props: Props) => {
 		</Dialog>
 	);
 };
-
-deleteDialog.defaultProps = {
-	dirCount: 0,
-	fileCount: 0
-}
-
-export default deleteDialog;
