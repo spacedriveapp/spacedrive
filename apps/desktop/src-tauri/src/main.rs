@@ -7,7 +7,7 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{Node, NodeError};
 
-use tauri::{api::path, ipc::RemoteDomainAccessScope, AppHandle, Manager};
+use tauri::{api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tokio::time::sleep;
 use tracing::error;
@@ -26,6 +26,39 @@ async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn reload_webview(app_handle: AppHandle) {
+	app_handle
+		.get_window("main")
+		.expect("Error getting window handle")
+		.with_webview(reload_webview_inner)
+		.expect("Error while reloading webview");
+}
+
+fn reload_webview_inner(webview: PlatformWebview) {
+	#[cfg(target_os = "macos")]
+	{
+		unsafe {
+			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+		}
+	}
+	#[cfg(target_os = "linux")]
+	{
+		use webkit2gtk::traits::WebViewExt;
+
+		webview.inner().reload();
+	}
+	#[cfg(target_os = "windows")]
+	unsafe {
+		webview
+			.controller()
+			.CoreWebView2()
+			.expect("Unable to get handle on inner webview")
+			.Reload();
+	}
 }
 
 #[tauri::command(async)]
@@ -76,9 +109,6 @@ const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
-	#[cfg(debug_assertions)]
-	dotenv::dotenv().ok();
-
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
@@ -182,6 +212,7 @@ async fn main() -> tauri::Result<()> {
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
+			reload_webview,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
