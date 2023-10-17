@@ -234,7 +234,7 @@ impl P2PManager {
 										debug!("Received ping from peer '{}'", event.peer_id);
 									}
 									Header::Spacedrop(req) => {
-										let id = Uuid::new_v4(); // TODO: Get ID from the remote
+										let id = req.id.clone();
 										let (tx, rx) = oneshot::channel();
 
 										info!(
@@ -254,7 +254,6 @@ impl P2PManager {
 													.find(|p| p.peer_id == event.peer_id)
 													.map(|p| p.metadata.name)
 													.unwrap_or_else(|| "Unknown".to_string()),
-												// TODO: If multiple files in request ask user to select a whole directory instead!
 												files: req
 													.requests
 													.iter()
@@ -270,7 +269,7 @@ impl P2PManager {
 
 										tokio::select! {
 											_ = sleep(SPACEDROP_TIMEOUT) => {
-												info!("spacedrop({id}): timeout, rejecting!");
+												info!("({id}): timeout, rejecting!");
 
 												stream.write_all(&[0]).await.unwrap();
 												stream.flush().await.unwrap();
