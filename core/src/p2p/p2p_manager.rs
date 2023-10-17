@@ -623,7 +623,7 @@ impl P2PManager {
 		debug!("({id}): starting Spacedrop with peer '{peer_id}");
 		let mut stream = self.manager.stream(peer_id).await.map_err(|err| {
 			debug!("({id}): failed to connect: {err:?}");
-			() // TODO: Proper error
+			// TODO: Proper error
 		})?;
 
 		tokio::spawn(async move {
@@ -713,7 +713,7 @@ impl P2PManager {
 		stream
 			.write_all(
 				&Header::File {
-					id: id.clone(),
+					id,
 					library_id: library.id,
 					file_path_id,
 					range: range.clone(),
