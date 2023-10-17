@@ -79,15 +79,15 @@ pub(super) static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| 
 });
 
 pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
-	if cfg!(feature = "ffmpeg") {
-		THUMBNAILABLE_EXTENSIONS
-			.iter()
-			.cloned()
-			.chain(THUMBNAILABLE_VIDEO_EXTENSIONS.iter().cloned())
-			.collect()
-	} else {
-		THUMBNAILABLE_EXTENSIONS.clone()
-	}
+	#[cfg(feature = "ffmpeg")]
+	return THUMBNAILABLE_EXTENSIONS
+		.iter()
+		.cloned()
+		.chain(THUMBNAILABLE_VIDEO_EXTENSIONS.iter().cloned())
+		.collect();
+
+	#[cfg(not(feature = "ffmpeg"))]
+	THUMBNAILABLE_EXTENSIONS.clone()
 });
 
 #[derive(Error, Debug)]
