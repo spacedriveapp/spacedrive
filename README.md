@@ -16,7 +16,7 @@
    MacOS - <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64">Apple Silicon</a> | <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64">Intel</a> ·
 		   <a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64" >Windows</a> ·
    <a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64" >Linux</a> ·
-		 <a href="" disabled>IOS</a> ·
+		 <a href="" disabled>iOS</a> ·
 <a href="" disabled>watchOS</a> ·
 <a href="" disabled>Android</a> ·
     <br />
