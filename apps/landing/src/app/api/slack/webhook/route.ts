@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 				if (parsedBody.channel_id !== env.SLACK_RELEASES_CHANNEL) {
 					return Response.json({
 						response_type: 'ephemeral',
-						text: `This command can only be used in <#${env.SLACK_RELEASES_CHANNEL}>`
+						text: `\`${parsedBody.command}\` can only be used in <#${env.SLACK_RELEASES_CHANNEL}>`
 					});
 				}
 
