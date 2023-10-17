@@ -4,7 +4,7 @@ use std::{
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, PoisonError,
 	},
 };
 
@@ -22,7 +22,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Event, Manager, Mdns, Metadata, PeerId,
+	DynamicManagerState, Event, Manager, ManagerConfig, Mdns, Metadata, PeerId,
 };
 
 /// TODO
@@ -38,6 +38,8 @@ pub enum ManagerStreamAction {
 	},
 	/// TODO
 	BroadcastData(Vec<u8>),
+	/// Update the config. This requires the `libp2p::Swarm`
+	UpdateConfig(ManagerConfig),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
 }
@@ -80,6 +82,49 @@ pub struct ManagerStream<TMetadata: Metadata> {
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
+}
+
+impl<TMetadata: Metadata> ManagerStream<TMetadata> {
+	/// Setup the libp2p listeners based on the manager config.
+	/// This method will take care of removing old listeners if needed
+	pub(crate) fn refresh_listeners(
+		swarm: &mut Swarm<SpaceTime<TMetadata>>,
+		state: &mut DynamicManagerState,
+	) {
+		if state.config.enabled {
+			let port = state.config.port.unwrap_or(0);
+
+			if let None = state.ipv4_listener_id {
+				{
+					let listener_id = swarm
+		               .listen_on(format!("/ip4/0.0.0.0/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+		               .unwrap();
+					debug!("created ipv4 listener with id '{:?}'", listener_id);
+					state.ipv4_listener_id = Some(listener_id);
+				}
+			}
+
+			if let None = state.ipv6_listener_id {
+				{
+					let listener_id = swarm
+		               .listen_on(format!("/ip6/::/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+		               .unwrap();
+					debug!("created ipv6 listener with id '{:?}'", listener_id);
+					state.ipv6_listener_id = Some(listener_id);
+				}
+			}
+		} else {
+			if let Some(listener) = state.ipv4_listener_id.take() {
+				debug!("removing ipv4 listener with id '{:?}'", listener);
+				swarm.remove_listener(listener);
+			}
+
+			if let Some(listener) = state.ipv6_listener_id.take() {
+				debug!("removing ipv6 listener with id '{:?}'", listener);
+				swarm.remove_listener(listener);
+			}
+		}
+	}
 }
 
 enum EitherManagerStreamAction<TMetadata: Metadata> {
@@ -262,6 +307,18 @@ where
 							event: OutboundRequest::Broadcast(data.clone()),
 						});
 					}
+				}
+				ManagerStreamAction::UpdateConfig(config) => {
+					let mut state = self
+						.manager
+						.state
+						.write()
+						.unwrap_or_else(PoisonError::into_inner);
+
+					state.config = config;
+					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
+
+					drop(state);
 				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");

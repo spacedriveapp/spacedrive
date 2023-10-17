@@ -3,20 +3,35 @@ use std::{
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
-		Arc,
+		Arc, PoisonError, RwLock,
 	},
 };
 
-use libp2p::{core::muxing::StreamMuxerBox, swarm::SwarmBuilder, Transport};
+use libp2p::{
+	core::{muxing::StreamMuxerBox, transport::ListenerId},
+	swarm::SwarmBuilder,
+	Transport,
+};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{error, trace, warn};
+use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
 	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
 	MdnsState, Metadata, MetadataManager, PeerId,
 };
+
+// State of the manager that may infrequently change
+// These are broken out so updates to them can be done in sync (With single RwLock lock)
+#[derive(Debug)]
+pub(crate) struct DynamicManagerState {
+	pub(crate) config: ManagerConfig,
+	pub(crate) ipv4_listener_id: Option<ListenerId>,
+	pub(crate) ipv6_listener_id: Option<ListenerId>,
+}
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 #[derive(Debug)]
@@ -25,6 +40,7 @@ pub struct Manager<TMetadata: Metadata> {
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
+	pub(crate) state: RwLock<DynamicManagerState>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
 	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMetadata>>,
 }
@@ -34,6 +50,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
+		config: ManagerConfig,
 		metadata_manager: Arc<MetadataManager<TMetadata>>,
 	) -> Result<(Arc<Self>, ManagerStream<TMetadata>), ManagerError> {
 		application_name
@@ -53,6 +70,11 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			mdns_state,
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
+			state: RwLock::new(DynamicManagerState {
+				config,
+				ipv4_listener_id: None,
+				ipv6_listener_id: None,
+			}),
 			peer_id,
 			event_stream_tx,
 			event_stream_tx2,
@@ -68,18 +90,11 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			keypair.raw_peer_id(),
 		)
 		.build();
-		{
-			let listener_id = swarm
-            .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-            .unwrap();
-			trace!("created ipv4 listener with id '{:?}'", listener_id);
-		}
-		{
-			let listener_id = swarm
-        .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-        .unwrap();
-			trace!("created ipv4 listener with id '{:?}'", listener_id);
-		}
+
+		ManagerStream::refresh_listeners(
+			&mut swarm,
+			&mut this.state.write().unwrap_or_else(PoisonError::into_inner),
+		);
 
 		Ok((
 			this.clone(),
@@ -109,6 +124,10 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 
 	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
 		self.mdns_state.listen_addrs.read().await.clone()
+	}
+
+	pub async fn update_config(&self, config: ManagerConfig) -> () {
+		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
 	}
 
 	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
@@ -176,4 +195,30 @@ pub enum ManagerError {
 	InvalidAppName,
 	#[error("error with mdns discovery: {0}")]
 	Mdns(#[from] mdns_sd::Error),
+}
+
+/// The configuration for the P2P Manager
+/// DO NOT MAKE BREAKING CHANGES - This is embedded in the `node_config.json`
+/// For future me: `Keypair` is not on here cause hot reloading it hard.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ManagerConfig {
+	// Enable or disable the P2P layer
+	#[serde(default, skip_serializing_if = "is_true")]
+	pub enabled: bool,
+	// `None` will chose a random free port on startup
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub port: Option<u16>,
+}
+
+fn is_true(b: &bool) -> bool {
+	*b
+}
+
+impl Default for ManagerConfig {
+	fn default() -> Self {
+		Self {
+			enabled: true,
+			port: None,
+		}
+	}
 }

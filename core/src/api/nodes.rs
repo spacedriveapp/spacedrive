@@ -1,4 +1,4 @@
-use crate::prisma::location;
+use crate::{invalidate_query, prisma::location, util::MaybeUndefined};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 
 use sd_prisma::prisma::instance;
@@ -15,29 +15,52 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
+				pub p2p_enabled: Option<bool>,
+				pub p2p_port: MaybeUndefined<u16>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
-				if let Some(name) = args.name {
+				if let Some(name) = &args.name {
 					if name.is_empty() || name.len() > 32 {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
 							"invalid node name".into(),
 						));
 					}
-
-					node.config
-						.write(|mut config| {
-							config.name = name;
-						})
-						.await
-						.map_err(|err| {
-							error!("Failed to write config: {}", err);
-							rspc::Error::new(
-								ErrorCode::InternalServerError,
-								"error updating config".into(),
-							)
-						})?;
 				}
+
+				let does_p2p_need_refresh =
+					args.p2p_enabled.is_some() || args.p2p_port.is_defined();
+
+				node.config
+					.write(|mut config| {
+						if let Some(name) = args.name {
+							config.name = name;
+						}
+
+						config.p2p.enabled = args.p2p_enabled.unwrap_or(config.p2p.enabled);
+
+						if let Some(v) = args.p2p_port.into() {
+							config.p2p.port = v;
+						}
+					})
+					.await
+					.map_err(|err| {
+						error!("Failed to write config: {}", err);
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"error updating config".into(),
+						)
+					})?;
+
+				// If a P2P config was modified reload it
+				if does_p2p_need_refresh {
+					node.p2p
+						.manager
+						.update_config(node.config.get().await.p2p.clone())
+						.await;
+				}
+
+				invalidate_query!(node; node, "nodeState");
 
 				Ok(())
 			})

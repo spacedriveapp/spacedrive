@@ -103,11 +103,15 @@ impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
 	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
-		let (config, keypair) = {
+		let (config, keypair, manager_config) = {
 			let config = node_config.get().await;
 
 			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
-			(Self::config_to_metadata(&config, vec![]), config.keypair)
+			(
+				Self::config_to_metadata(&config, vec![]),
+				config.keypair,
+				config.p2p.clone(),
+			)
 		};
 
 		// TODO: Delay building this until the libraries are loaded
@@ -116,6 +120,7 @@ impl P2PManager {
 		let (manager, stream) = sd_p2p::Manager::<PeerMetadata>::new(
 			SPACEDRIVE_APP_ID,
 			&keypair,
+			manager_config,
 			metadata_manager.clone(),
 		)
 		.await?;
@@ -466,8 +471,10 @@ impl P2PManager {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
-			email: config.p2p_email.clone(),
-			img_url: config.p2p_img_url.clone(),
+			// TODO: Source these via Spacedrive account
+			// TODO: Maybe anonymise them like Apple do
+			email: None,
+			img_url: None,
 			instances,
 		}
 	}
