@@ -234,7 +234,7 @@ impl P2PManager {
 										debug!("Received ping from peer '{}'", event.peer_id);
 									}
 									Header::Spacedrop(req) => {
-										let id = req.id.clone();
+										let id = req.id;
 										let (tx, rx) = oneshot::channel();
 
 										info!(
