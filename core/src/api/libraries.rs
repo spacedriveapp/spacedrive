@@ -108,6 +108,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: LibraryName,
+				#[specta(optional)]
 				locations: Vec<String>,
 			}
 
