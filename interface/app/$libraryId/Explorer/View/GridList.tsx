@@ -8,11 +8,12 @@ import {
 	useState,
 	type ReactNode
 } from 'react';
+import { useMatch } from 'react-router';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
 import { GridList, useGridList } from '~/components';
-import { useOperatingSystem } from '~/hooks';
+import { useMouseNavigate, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -105,8 +106,10 @@ const CHROME_REGEX = /Chrome/;
 
 export default ({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
+	const realOS = useOperatingSystem(true);
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
+	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
@@ -119,8 +122,9 @@ export default ({ children }: { children: RenderItem }) => {
 	const selectoLastColumn = useRef<number | undefined>();
 
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
+	const mouseNavigate = useMouseNavigate();
 
-	const itemDetailsHeight = settings.gridItemSize / 4 + (settings.showBytesInGridView ? 20 : 0);
+	const itemDetailsHeight = 44 + (settings.showBytesInGridView && !isEphemeralLocation ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
 
 	const padding = settings.layoutMode === 'grid' ? 12 : 0;
@@ -260,9 +264,13 @@ export default ({ children }: { children: RenderItem }) => {
 		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
 			const item = grid.getItem(0);
 			if (!item?.data) return;
+
+			const id = uniqueId(item.data);
+
 			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(item.data)}"]`
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
 			);
+
 			if (selectedItemDom) {
 				explorer.resetSelectedItems([item.data]);
 				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
@@ -302,13 +310,13 @@ export default ({ children }: { children: RenderItem }) => {
 
 		const newSelectedItem = grid.getItem(newIndex);
 		if (!newSelectedItem?.data) return;
-
 		if (!explorer.allowMultiSelect) explorer.resetSelectedItems([newSelectedItem.data]);
 		else {
-			const selectedItemDom = document.querySelector(
-				`[data-selectable-id="${uniqueId(newSelectedItem.data)}"]`
-			);
+			const id = uniqueId(newSelectedItem.data);
 
+			const selectedItemDom = document.querySelector(
+				`[data-selectable-id="${realOS === 'windows' ? id.replaceAll('\\', '\\\\') : id}"]`
+			);
 			if (!selectedItemDom) return;
 
 			if (e.shiftKey && !getQuickPreviewStore().open) {
@@ -618,7 +626,6 @@ export default ({ children }: { children: RenderItem }) => {
 			<GridList grid={grid} scrollRef={explorer.scrollRef}>
 				{(index) => {
 					const item = explorer.items?.[index];
-
 					if (!item) return null;
 
 					return (
@@ -627,6 +634,8 @@ export default ({ children }: { children: RenderItem }) => {
 							item={item}
 							onMouseDown={(e) => {
 								e.stopPropagation();
+
+								mouseNavigate(e);
 
 								if (!explorerView.selectable) return;
 

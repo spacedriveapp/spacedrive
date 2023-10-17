@@ -53,7 +53,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 }: UseGridListProps<IdT, DataT>) => {
 	const { width } = useResizeObserver({ ref });
 
-	const count = props.totalCount ?? props.count;
+	const count = !props.totalCount ? props.count : Math.max(props.count, props.totalCount);
 
 	const gridPadding = useExplorerViewPadding(padding);
 

@@ -1,7 +1,13 @@
 use crate::{
 	api::locations::ExplorerItem,
 	library::Library,
-	object::{cas::generate_cas_id, media::thumbnail::get_thumb_key},
+	object::{
+		cas::generate_cas_id,
+		media::thumbnail::{
+			actor::{BatchToProcess, GenerateThumbnailArgs},
+			get_thumb_key,
+		},
+	},
 	prisma::location,
 	util::error::FileIOError,
 	Node,
@@ -26,7 +32,6 @@ use tracing::{error, warn};
 
 use super::{
 	file_path_helper::{path_is_hidden, MetadataExt},
-	generate_thumbnail,
 	indexer::rules::{
 		seed::{no_hidden, no_os_protected},
 		IndexerRule, RuleKind,
@@ -104,6 +109,10 @@ pub async fn walk(
 		[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
 	);
 
+	let mut thumbnails_to_generate = vec![];
+	// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
+	let mut document_thumbnails_to_generate = vec![];
+
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
 		let Ok((entry_path, name)) = normalize_path(entry.path())
 			.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
@@ -157,27 +166,41 @@ pub async fn walk(
 				.map(Into::into)
 				.unwrap_or(ObjectKind::Unknown);
 
-			let thumbnail_key = if matches!(
-				kind,
-				ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
-			) {
-				if let Ok(cas_id) = generate_cas_id(&entry_path, metadata.len())
+			let should_generate_thumbnail = {
+				#[cfg(feature = "ffmpeg")]
+				{
+					matches!(
+						kind,
+						ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+					)
+				}
+
+				#[cfg(not(feature = "ffmpeg"))]
+				{
+					matches!(kind, ObjectKind::Image | ObjectKind::Document)
+				}
+			};
+
+			let thumbnail_key = if should_generate_thumbnail {
+				if let Ok(cas_id) = generate_cas_id(&path, metadata.len())
 					.await
 					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
 				{
-					let thumbnail_key = get_thumb_key(&cas_id);
-					let entry_path = entry_path.clone();
-					let extension = extension.clone();
-					let inner_node = Arc::clone(&node);
-					let inner_cas_id = cas_id.clone();
-					tokio::spawn(async move {
-						generate_thumbnail(&extension, &inner_cas_id, entry_path, &inner_node)
-							.await;
-					});
+					if kind == ObjectKind::Document {
+						document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+							extension.clone(),
+							cas_id.clone(),
+							path.to_path_buf(),
+						));
+					} else {
+						thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+							extension.clone(),
+							cas_id.clone(),
+							path.to_path_buf(),
+						));
+					}
 
-					node.thumbnail_remover
-						.new_non_indexed_thumbnail(cas_id)
-						.await;
+					let thumbnail_key = get_thumb_key(&cas_id);
 
 					Some(thumbnail_key)
 				} else {
@@ -204,6 +227,16 @@ pub async fn walk(
 			});
 		}
 	}
+
+	thumbnails_to_generate.extend(document_thumbnails_to_generate);
+
+	node.thumbnailer
+		.new_ephemeral_thumbnails_batch(BatchToProcess {
+			batch: thumbnails_to_generate,
+			should_regenerate: false,
+			in_background: false,
+		})
+		.await;
 
 	let mut locations = library
 		.db

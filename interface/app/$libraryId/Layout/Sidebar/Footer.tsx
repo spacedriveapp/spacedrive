@@ -2,21 +2,21 @@ import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
-import { Button, ButtonLink, dialogManager, modifierSymbols, Popover, Tooltip } from '@sd/ui';
-import { useKeyMatcher } from '~/hooks';
+import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
+import { useKeysMatcher } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import DebugPopover from './DebugPopover';
-import FeedbackDialog from './FeedbackDialog';
+import FeedbackButton from './FeedbackButton';
 import { IsRunningJob, JobManager } from './JobManager';
 
 export default () => {
 	const { library } = useClientContext();
 	const debugState = useDebugState();
 	const navigate = useNavigate();
-	const { key, icon } = useKeyMatcher('Meta');
+	const shortcuts = useKeysMatcher(['Meta', 'Shift']);
 
-	useKeys([key, 'Shift', 'KeyS'], (e) => {
+	useKeys([shortcuts.Meta.key, 'Shift', 'KeyT'], (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
@@ -50,14 +50,15 @@ export default () => {
 						<Tooltip
 							position="top"
 							label="Settings"
-							keybinds={[modifierSymbols.Shift.Other, icon, 'S']}
+							keybinds={[shortcuts.Shift.icon, shortcuts.Meta.icon, 'T']}
 						>
 							<Gear className="h-5 w-5" />
 						</Tooltip>
 					</ButtonLink>
 					<JobManagerContextProvider>
 						<Popover
-							keybind={[key, 'j']}
+							popover={usePopover()}
+							keybind={[shortcuts.Meta.key, 'j']}
 							trigger={
 								<Button
 									size="icon"
@@ -69,7 +70,7 @@ export default () => {
 										<Tooltip
 											label="Recent Jobs"
 											position="top"
-											keybinds={[icon, 'J']}
+											keybinds={[shortcuts.Meta.icon, 'J']}
 										>
 											<IsRunningJob />
 										</Tooltip>
@@ -83,15 +84,7 @@ export default () => {
 						</Popover>
 					</JobManagerContextProvider>
 				</div>
-				<Button
-					variant="outline"
-					className="flex items-center gap-1"
-					onClick={() => {
-						dialogManager.create((dp) => <FeedbackDialog {...dp} />);
-					}}
-				>
-					<p className="text-[11px] font-normal text-sidebar-inkFaint">Feedback</p>
-				</Button>
+				<FeedbackButton />
 			</div>
 			{debugState.enabled && <DebugPopover />}
 		</div>

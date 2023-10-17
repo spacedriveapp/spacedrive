@@ -1,8 +1,9 @@
 import clsx from 'clsx';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import TruncateMarkup from 'react-truncate-markup';
 import { useKey } from 'rooks';
 import { Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useOperatingSystem } from '~/hooks';
+import { useOperatingSystem } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -10,23 +11,22 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 	name: string;
 	onRename: (newName: string) => void;
 	disabled?: boolean;
+	lines?: number;
 }
 
 export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
-	({ name, onRename, disabled, className, ...props }, _ref) => {
+	({ name, onRename, disabled, className, lines, ...props }, _ref) => {
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
 
 		const [allowRename, setAllowRename] = useState(false);
+		const [isTruncated, setIsTruncated] = useState(false);
 
 		const renamable = useRef<boolean>(false);
 		const timeout = useRef<NodeJS.Timeout | null>(null);
 
 		const ref = useRef<HTMLDivElement>(null);
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
-
-		//this is to determine if file name is truncated
-		const isTruncated = useIsTextTruncated(ref);
 
 		// Highlight file name up to extension or
 		// fully if it's a directory, hidden file or has no extension
@@ -102,6 +102,12 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			}
 		};
 
+		const ellipsis = useCallback(() => {
+			const extension = name.lastIndexOf('.');
+			if (extension !== -1) return `...${name.slice(-(name.length - extension + 2))}`;
+			return `...${name.slice(-8)}`;
+		}, [name]);
+
 		useKey(['F2', 'Enter'], (e) => {
 			e.preventDefault();
 			if (os === 'windows' && e.key === 'Enter') return;
@@ -154,7 +160,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					contentEditable={allowRename}
 					suppressContentEditableWarning
 					className={clsx(
-						'cursor-default truncate rounded-md px-1.5 py-px text-xs text-ink outline-none',
+						'cursor-default overflow-hidden rounded-md px-1.5 py-px text-xs text-ink outline-none',
 						allowRename && 'whitespace-normal bg-app !text-ink ring-2 ring-accent-deep',
 						className
 					)}
@@ -179,7 +185,17 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					onKeyDown={handleKeyDown}
 					{...props}
 				>
-					{name}
+					{allowRename ? (
+						name
+					) : (
+						<TruncateMarkup
+							lines={lines}
+							ellipsis={ellipsis}
+							onTruncate={setIsTruncated}
+						>
+							<div>{name}</div>
+						</TruncateMarkup>
+					)}
 				</div>
 			</Tooltip>
 		);

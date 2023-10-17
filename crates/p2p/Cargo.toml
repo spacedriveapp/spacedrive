@@ -43,3 +43,4 @@ hex = "0.4.3"
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+uuid = { version = "1.4.1", features = ["v4"] }

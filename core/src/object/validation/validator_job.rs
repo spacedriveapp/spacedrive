@@ -58,6 +58,10 @@ impl StatefulJob for ObjectValidatorJobInit {
 
 	const NAME: &'static str = "object_validator";
 
+	fn target_location(&self) -> location::id::Type {
+		self.location.id
+	}
+
 	async fn init(
 		&self,
 		ctx: &WorkerContext,

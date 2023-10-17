@@ -1,7 +1,7 @@
 import { ArrowsOutSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { memo } from 'react';
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, getItemFilePath } from '@sd/client';
 import { Button } from '@sd/ui';
 
 import { useExplorerContext } from '../Context';
@@ -18,13 +18,16 @@ interface MediaViewItemProps {
 
 const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 	const settings = useExplorerContext().useSettingsSnapshot();
+	const filePathData = getItemFilePath(data);
+	const hidden = filePathData?.hidden ?? false;
 
 	return (
 		<ViewItem
 			data={data}
 			className={clsx(
 				'h-full w-full overflow-hidden border-2',
-				selected ? 'border-accent' : 'border-transparent'
+				selected ? 'border-accent' : 'border-transparent',
+				hidden && 'opacity-50'
 			)}
 		>
 			<div

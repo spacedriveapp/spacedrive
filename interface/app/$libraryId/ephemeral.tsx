@@ -94,7 +94,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 						label="Add path as an indexed location"
 						className="w-max min-w-0 shrink"
 					>
-						<AddLocationButton className="ml-2" path={path} />
+						<AddLocationButton path={path} />
 					</Tooltip>
 				}
 				right={<DefaultTopBarOptions />}

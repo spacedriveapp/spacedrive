@@ -90,9 +90,7 @@ pub async fn shallow(
 
 	let to_remove_count = to_remove.len();
 
-	debug!("Walker at shallow indexer found {to_remove_count} file_paths to be removed");
-
-	node.thumbnail_remover
+	node.thumbnailer
 		.remove_cas_ids(
 			to_remove
 				.iter()
@@ -167,11 +165,14 @@ pub async fn shallow(
 		})
 		.collect::<Vec<_>>();
 
-	debug!("Walker at shallow indexer found {to_update_count} file_paths to be updated");
-
 	for step in update_steps {
 		execute_indexer_update_step(&step, library).await?;
 	}
+
+	debug!(
+		"Walker at shallow indexer found: \
+		To create: {to_create_count}; To update: {to_update_count}; To remove: {to_remove_count};"
+	);
 
 	if to_create_count > 0 || to_update_count > 0 || to_remove_count > 0 {
 		if to_walk_path != location_path {
@@ -185,6 +186,7 @@ pub async fn shallow(
 			.map_err(IndexerError::from)?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	library.orphan_remover.invoke().await;

@@ -1,6 +1,6 @@
 use crate::util::{error::FileIOError, version_manager::VersionManager};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use int_enum::IntEnum;
 use tokio::fs;
@@ -16,9 +16,9 @@ enum ThumbnailVersion {
 	Unknown = 0,
 }
 
-pub async fn init_thumbnail_dir(data_dir: PathBuf) -> Result<PathBuf, ThumbnailerError> {
+pub async fn init_thumbnail_dir(data_dir: impl AsRef<Path>) -> Result<PathBuf, ThumbnailerError> {
 	debug!("Initializing thumbnail directory");
-	let thumbnail_dir = data_dir.join(THUMBNAIL_CACHE_DIR_NAME);
+	let thumbnail_dir = data_dir.as_ref().join(THUMBNAIL_CACHE_DIR_NAME);
 
 	let version_file = thumbnail_dir.join("version.txt");
 	let version_manager =

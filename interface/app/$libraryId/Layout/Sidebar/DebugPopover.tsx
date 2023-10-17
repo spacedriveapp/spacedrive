@@ -11,7 +11,16 @@ import {
 	useFeatureFlags,
 	useLibraryMutation
 } from '@sd/client';
-import { Button, Dropdown, DropdownMenu, Popover, Select, SelectOption, Switch } from '@sd/ui';
+import {
+	Button,
+	Dropdown,
+	DropdownMenu,
+	Popover,
+	Select,
+	SelectOption,
+	Switch,
+	usePopover
+} from '@sd/ui';
 import { usePlatform } from '~/util/Platform';
 
 import Setting from '../../settings/Setting';
@@ -25,6 +34,7 @@ export default () => {
 
 	return (
 		<Popover
+			popover={usePopover()}
 			className="p-4 focus:outline-none"
 			trigger={
 				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
@@ -97,6 +107,21 @@ export default () => {
 								}}
 							>
 								Open
+							</Button>
+						</div>
+					</Setting>
+				)}
+				{platform.reloadWebview && (
+					<Setting mini title="Reload webview" description="Reload the window's webview">
+						<div className="mt-2">
+							<Button
+								size="sm"
+								variant="gray"
+								onClick={() => {
+									platform.reloadWebview && platform.reloadWebview();
+								}}
+							>
+								Reload
 							</Button>
 						</div>
 					</Setting>

@@ -1,3 +1,5 @@
+'use client';
+
 import * as ProgressPrimitive from '@radix-ui/react-progress';
 import clsx from 'clsx';
 import { memo } from 'react';

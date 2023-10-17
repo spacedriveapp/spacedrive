@@ -9,8 +9,8 @@ import TopBarButton from './TopBarButton';
 export const NavigationButtons = () => {
 	const navigate = useNavigate();
 	const { isFocused } = useSearchStore();
-	const os = useOperatingSystem();
 	const idx = history.state.idx as number;
+	const os = useOperatingSystem();
 	const { icon, key } = useKeyMatcher('Meta');
 
 	useKeybind([key, '['], () => {
@@ -23,6 +23,7 @@ export const NavigationButtons = () => {
 	});
 
 	useEffect(() => {
+		if (os === 'windows') return; //windows already navigates back and forth with mouse buttons
 		const onMouseDown = (e: MouseEvent) => {
 			e.stopPropagation();
 			if (e.buttons === 8) {
@@ -33,9 +34,9 @@ export const NavigationButtons = () => {
 				navigate(1);
 			}
 		};
-		window.addEventListener('mousedown', onMouseDown);
-		return () => window.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, idx, isFocused]);
+		document.addEventListener('mousedown', onMouseDown);
+		return () => document.removeEventListener('mousedown', onMouseDown);
+	}, [navigate, idx, isFocused, os]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">

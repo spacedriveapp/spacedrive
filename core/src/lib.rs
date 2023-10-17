@@ -3,7 +3,7 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	object::thumbnail_remover,
+	object::media::thumbnail::actor::Thumbnailer,
 	p2p::sync::NetworkedLibraries,
 };
 
@@ -11,6 +11,7 @@ use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
 use node::config;
 use notifications::Notifications;
+use reqwest::{RequestBuilder, Response};
 pub use sd_prisma::*;
 
 use std::{
@@ -65,7 +66,7 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub nlm: Arc<NetworkedLibraries>,
-	pub thumbnail_remover: thumbnail_remover::Actor,
+	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub env: env::Env,
 	pub http: reqwest::Client,
@@ -112,11 +113,13 @@ impl Node {
 			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
-			event_bus,
-			thumbnail_remover: thumbnail_remover::Actor::new(
+			thumbnailer: Thumbnailer::new(
 				data_dir.to_path_buf(),
 				libraries.clone(),
-			),
+				event_bus.0.clone(),
+			)
+			.await,
+			event_bus,
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
@@ -171,7 +174,12 @@ impl Node {
 			.with(
 				tracing_fmt::Subscriber::new()
 					.with_ansi(false)
-					.with_writer(logfile),
+					.with_writer(logfile)
+					.with_filter(
+						EnvFilter::builder()
+							.from_env()?
+							.add_directive("info".parse()?),
+					),
 			)
 			.with(
 				tracing_fmt::Subscriber::new()
@@ -207,6 +215,7 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
+		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");
@@ -238,6 +247,32 @@ impl Node {
 				error!("Error saving notification to config: {:?}", err);
 			}
 		}
+	}
+
+	pub async fn add_auth_header(&self, mut req: RequestBuilder) -> RequestBuilder {
+		if let Some(auth_token) = self.config.get().await.auth_token {
+			req = req.header("authorization", auth_token.to_header());
+		};
+
+		req
+	}
+
+	pub async fn authed_api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
+		let Some(auth_token) = self.config.get().await.auth_token else {
+			return Err(rspc::Error::new(
+				rspc::ErrorCode::Unauthorized,
+				"No auth token".to_string(),
+			));
+		};
+
+		let req = req.header("authorization", auth_token.to_header());
+
+		req.send().await.map_err(|_| {
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Request failed".to_string(),
+			)
+		})
 	}
 }
 

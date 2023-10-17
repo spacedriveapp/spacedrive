@@ -10,7 +10,7 @@ use crate::{
 			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
-		find_location, generate_thumbnail,
+		find_location,
 		indexer::reverse_update_directories_sizes,
 		location_with_indexer_rules,
 		manager::LocationManagerError,
@@ -59,6 +59,7 @@ use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
+	spawn,
 	time::Instant,
 };
 use tracing::{debug, error, trace, warn};
@@ -130,6 +131,7 @@ pub(super) async fn create_dir(
 	scan_location_sub_path(node, library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -278,12 +280,19 @@ async fn inner_create_file(
 
 	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-		let inner_path = path.to_path_buf();
-		let node = node.clone();
-		let inner_extension = extension.clone();
+
 		if let Some(cas_id) = cas_id {
-			tokio::spawn(async move {
-				generate_thumbnail(&inner_extension, &cas_id, inner_path, &node).await;
+			let extension = extension.clone();
+			let path = path.to_path_buf();
+			let node = node.clone();
+			spawn(async move {
+				if let Err(e) = node
+					.thumbnailer
+					.generate_single_thumbnail(&extension, cas_id, path)
+					.await
+				{
+					error!("Failed to generate thumbnail in the watcher: {e:#?}");
+				}
 			});
 		}
 
@@ -311,6 +320,7 @@ async fn inner_create_file(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -357,7 +367,10 @@ pub(super) async fn update_file(
 		)
 		.await
 	}
-	.map(|_| invalidate_query!(library, "search.paths"))
+	.map(|_| {
+		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
+	})
 }
 
 async fn inner_update_file(
@@ -495,11 +508,17 @@ async fn inner_update_file(
 				if library.thumbnail_exists(node, old_cas_id).await? {
 					if let Some(ext) = file_path.extension.clone() {
 						// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-						let inner_path = full_path.to_path_buf();
-						let inner_node = node.clone();
 						if let Some(cas_id) = cas_id {
-							tokio::spawn(async move {
-								generate_thumbnail(&ext, &cas_id, inner_path, &inner_node).await;
+							let node = node.clone();
+							let path = full_path.to_path_buf();
+							spawn(async move {
+								if let Err(e) = node
+									.thumbnailer
+									.generate_single_thumbnail(&ext, cas_id, path)
+									.await
+								{
+									error!("Failed to generate thumbnail in the watcher: {e:#?}");
+								}
 							});
 						}
 
@@ -558,6 +577,7 @@ async fn inner_update_file(
 		}
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
@@ -650,6 +670,7 @@ pub(super) async fn rename(
 			.await?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
@@ -727,6 +748,7 @@ pub(super) async fn remove_by_file_path(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -831,6 +853,7 @@ pub(super) async fn recalculate_directories_size(
 
 	if should_invalidate {
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	candidates.extend(buffer.drain(..));

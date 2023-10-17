@@ -9,6 +9,7 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
+import { useIsDark } from '~/hooks';
 
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
@@ -50,6 +51,8 @@ export function JobManager() {
 
 	const progress = useJobProgress(jobGroups.data);
 
+	const isDark = useIsDark();
+
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 		onError: () => {
 			toast.error({
@@ -83,7 +86,7 @@ export function JobManager() {
 							<Check
 								onClick={clearAllJobsHandler}
 								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
-								color="white"
+								color={isDark ? 'white' : 'black'}
 							/>
 						</PopoverClose>
 						<X

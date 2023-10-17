@@ -496,7 +496,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 		Ok(Self {
 			id: Some(data.id),
 			name: maybe_missing(data.name.clone(), "indexer_rule.name")?,
-			default: maybe_missing(data.default, "indexer_rule.default")?,
+			default: data.default.unwrap_or_default(),
 			rules: rmp_serde::from_slice(maybe_missing(
 				&data.rules_per_kind,
 				"indexer_rule.rules_per_kind",
