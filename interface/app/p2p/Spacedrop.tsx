@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import {
+	P2PEvent,
 	useBridgeMutation,
+	useBridgeQuery,
 	useDiscoveredPeers,
 	useP2PEvents,
 	useSpacedropProgress,
@@ -40,95 +42,112 @@ function SpacedropProgress({ toastId, dropId }: { toastId: ToastId; dropId: stri
 }
 
 const placeholder = '/Users/oscar/Desktop/demo.txt';
-export function SpacedropUI() {
+
+function useIncomingSpacedropToast() {
 	const platform = usePlatform();
-	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
 	const acceptSpacedrop = useBridgeMutation('p2p.acceptSpacedrop');
 	const filePathInput = useRef<HTMLInputElement>(null);
 
-	useP2PEvents((data) => {
-		if (data.type === 'SpacedropRequest') {
-			toast.info(
-				{
-					title: 'Incoming Spacedrop',
-					// TODO: Make this pretty
-					body: (
-						<>
-							<p>
-								File '{data.files[0]}' from '{data.peer_name}'
-							</p>
-							{/* TODO: This will be removed in the future for now it's just a hack */}
-							{platform.saveFilePickerDialog ? null : (
-								<Input
-									ref={filePathInput}
-									name="file_path"
-									size="sm"
-									placeholder={placeholder}
-									className="w-full"
-								/>
-							)}
-							{/* TODO: Button to expand the toast and show the entire PeerID for manual verification? */}
-						</>
-					)
+	return (data: Extract<P2PEvent, { type: 'SpacedropRequest' }>) =>
+		toast.info(
+			{
+				title: 'Incoming Spacedrop',
+				// TODO: Make this pretty
+				body: (
+					<>
+						<p>
+							File '{data.files[0]}' from '{data.peer_name}'
+						</p>
+						{/* TODO: This will be removed in the future for now it's just a hack */}
+						{platform.saveFilePickerDialog ? null : (
+							<Input
+								ref={filePathInput}
+								name="file_path"
+								size="sm"
+								placeholder={placeholder}
+								className="w-full"
+							/>
+						)}
+						{/* TODO: Button to expand the toast and show the entire PeerID for manual verification? */}
+					</>
+				)
+			},
+			{
+				duration: 30 * 1000,
+				onClose: ({ event }) => {
+					event !== 'on-action' && acceptSpacedrop.mutate([data.id, null]);
 				},
-				{
-					duration: 30 * 1000,
-					onClose: ({ event }) => {
-						event !== 'on-action' && acceptSpacedrop.mutate([data.id, null]);
-					},
-					action: {
-						label: 'Accept',
-						async onClick() {
-							let destinationFilePath = filePathInput.current?.value ?? placeholder;
+				action: {
+					label: 'Accept',
+					async onClick() {
+						let destinationFilePath = filePathInput.current?.value ?? placeholder;
 
-							if (data.files.length != 1) {
-								if (platform.openDirectoryPickerDialog) {
-									const result = await platform.openDirectoryPickerDialog({
-										title: 'Save Spacedrop',
-										multiple: false
-									});
-									if (!result) {
-										return;
-									}
-									destinationFilePath = result;
+						if (data.files.length != 1) {
+							if (platform.openDirectoryPickerDialog) {
+								const result = await platform.openDirectoryPickerDialog({
+									title: 'Save Spacedrop',
+									multiple: false
+								});
+								if (!result) {
+									return;
 								}
-							} else {
-								if (platform.saveFilePickerDialog) {
-									const result = await platform.saveFilePickerDialog({
-										title: 'Save Spacedrop',
-										defaultPath: data.files?.[0]
-									});
-									if (!result) {
-										return;
-									}
-									destinationFilePath = result;
-								}
+								destinationFilePath = result;
 							}
+						} else {
+							if (platform.saveFilePickerDialog) {
+								const result = await platform.saveFilePickerDialog({
+									title: 'Save Spacedrop',
+									defaultPath: data.files?.[0]
+								});
+								if (!result) {
+									return;
+								}
+								destinationFilePath = result;
+							}
+						}
 
-							if (destinationFilePath === '') return;
-							await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
-						}
-					},
-					cancel: 'Reject'
-				}
-			);
-		} else if (data.type === 'SpacedropProgress') {
-			toast.info(
-				(id) => ({
-					title: 'Spacedrop',
-					body: <SpacedropProgress toastId={id} dropId={data.id} />
-				}),
-				{
-					id: data.id,
-					duration: Infinity,
-					cancel: {
-						label: 'Cancel',
-						onClick() {
-							cancelSpacedrop.mutate(data.id);
-						}
+						if (destinationFilePath === '') return;
+						await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
+					}
+				},
+				cancel: 'Reject'
+			}
+		);
+}
+
+function useSpacedropProgressToast() {
+	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
+
+	return (data: Extract<P2PEvent, { type: 'SpacedropProgress' }>) => {
+		toast.info(
+			(id) => ({
+				title: 'Spacedrop',
+				body: <SpacedropProgress toastId={id} dropId={data.id} />
+			}),
+			{
+				id: data.id,
+				duration: Infinity,
+				cancel: {
+					label: 'Cancel',
+					onClick() {
+						cancelSpacedrop.mutate(data.id);
 					}
 				}
-			);
+			}
+		);
+	};
+}
+
+export function SpacedropUI() {
+	const node = useBridgeQuery(['nodeState']);
+	const incomingRequestToast = useIncomingSpacedropToast();
+	const progressToast = useSpacedropProgressToast();
+
+	useP2PEvents((data) => {
+		if (data.type === 'SpacedropRequest') {
+			incomingRequestToast(data);
+		} else if (data.type === 'SpacedropProgress') {
+			progressToast(data);
 		} else if (data.type === 'SpacedropRejected') {
 			// TODO: Add more information to this like peer name, etc in future
 			toast.warning('Spacedrop Rejected');
@@ -139,6 +158,14 @@ export function SpacedropUI() {
 		let open = false;
 
 		return subscribeSpacedropState(() => {
+			if (node.data?.p2p_enabled === false) {
+				toast.error({
+					title: 'Spacedrop is disabled!',
+					body: 'Please enable networking in settings!'
+				});
+				return;
+			}
+
 			if (open) return;
 			open = true;
 			dialogManager.create((dp) => <SpacedropDialog {...dp} />).then(() => (open = false));
