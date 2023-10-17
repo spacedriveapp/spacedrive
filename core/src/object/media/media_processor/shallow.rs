@@ -113,6 +113,7 @@ pub async fn shallow(
 
 	if run_metadata.media_data.extracted > 0 {
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
