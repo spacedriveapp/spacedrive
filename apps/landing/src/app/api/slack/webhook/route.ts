@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 										type: 'plain_text',
 										text: 'View Commit'
 									},
-									url: `https://github.com/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commit/${commitData.sha.commit}`
+									url: `https://github.com/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commit/${commitData.sha}`
 								},
 								{
 									type: 'button',
