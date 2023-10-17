@@ -47,7 +47,6 @@ impl BackendFeature {
 	}
 }
 
-mod api;
 mod auth;
 mod backups;
 mod categories;
@@ -65,6 +64,7 @@ mod sync;
 mod tags;
 pub mod utils;
 pub mod volumes;
+mod web_api;
 
 // A version of [NodeConfig] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -167,7 +167,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(())
 			})
 		})
-		.merge("api.", api::mount())
+		.merge("api.", web_api::mount())
 		.merge("auth.", auth::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
