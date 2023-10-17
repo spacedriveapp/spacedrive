@@ -66,6 +66,7 @@ export async function POST(req: Request) {
 								type: 'mrkdwn',
 								text: [
 									`<@${parsedBody.user_id}> Are you sure you want to create this release?`,
+									`*Make sure you've bumped the versions of sd-core and sd-desktop*`,
 									`*Version:* \`${tag}\``,
 									`*Commit:* \`${commitData.sha}\``,
 									`> ${commitData.commit.message.split('\n')[0]}`
@@ -79,7 +80,15 @@ export async function POST(req: Request) {
 									type: 'button',
 									text: {
 										type: 'plain_text',
-										text: 'Create'
+										text: 'View Commit'
+									},
+									url: `https://github.com/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commit/${commitData.sha.commit}`
+								},
+								{
+									type: 'button',
+									text: {
+										type: 'plain_text',
+										text: 'Create Release'
 									},
 									value: JSON.stringify({ tag, commit: commitData.sha }),
 									action_id: 'createRelease'
@@ -164,7 +173,7 @@ export async function POST(req: Request) {
 											type: 'mrkdwn',
 											text: [
 												`*Release \`${value.tag}\` created!*`,
-												`Go give it some release notes.`,
+												`Go give it some release notes`,
 												`*Created By* <@${payload.user.id}>`
 											].join('\n')
 										}
