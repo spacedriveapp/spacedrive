@@ -121,12 +121,10 @@ where
 			); // SAFETY: Percent must be between 0 and 100
 
 			if read == 0 {
-				// TODO: Properly handle zero-sized files
 				if (offset + read as u64) != self.reqs.requests[self.i].size {
-					panic!("U dun goofed"); // TODO: Error handling
+					// The file may have been modified during sender on the sender and we don't account for that.
+					panic!("File sending has stopped but it doesn't match the expected length!"); // TODO: Error handling + send error to remote
 				}
-
-				// TODO: Should indicate to the other side it's done???
 
 				return;
 			}
@@ -173,6 +171,11 @@ where
 		// We manually implement what is basically a `BufReader` so we have more control
 		let mut data_buf = vec![0u8; self.reqs.block_size.size() as usize];
 		let mut offset: u64 = 0;
+
+		if self.reqs.requests[self.i].size == 0 {
+			self.i += 1;
+			return;
+		}
 
 		// TODO: Prevent loop being a DOS vector
 		loop {
@@ -395,6 +398,49 @@ mod tests {
 
 		let mut result = Vec::new();
 		Transfer::new(&req, |_| {}, &Arc::new(AtomicBool::new(true)))
+			.receive(&mut server, &mut result)
+			.await;
+		assert_eq!(result, Vec::<u8>::new()); // Cancelled by sender so no data
+	}
+
+	// https://linear.app/spacedriveapp/issue/ENG-1300/spaceblock-doesnt-like-zero-sized-files
+	#[tokio::test]
+	async fn test_spaceblock_zero_sized_file() {
+		let (mut client, mut server) = tokio::io::duplex(64);
+
+		// This is sent out of band of Spaceblock
+		let block_size = 25u32;
+		let data = vec![0u8; 0]; // Zero sized file
+		let block_size = BlockSize::dangerously_new(block_size); // TODO: Determine it using proper algo instead of harcoding it
+
+		let req = SpaceblockRequests {
+			id: Uuid::new_v4(),
+			block_size,
+			requests: vec![SpaceblockRequest {
+				name: "Demo".to_string(),
+				size: data.len() as u64,
+				range: Range::Full,
+			}],
+		};
+
+		let (tx, rx) = oneshot::channel();
+		tokio::spawn({
+			let req = req.clone();
+			let data = data.clone();
+			async move {
+				let file = BufReader::new(Cursor::new(data));
+				tx.send(()).unwrap();
+
+				Transfer::new(&req, |_| {}, &Default::default())
+					.send(&mut client, file)
+					.await;
+			}
+		});
+
+		rx.await.unwrap();
+
+		let mut result = Vec::new();
+		Transfer::new(&req, |_| {}, &Default::default())
 			.receive(&mut server, &mut result)
 			.await;
 		assert_eq!(result, Vec::<u8>::new()); // Cancelled by sender so no data
