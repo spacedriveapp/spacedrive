@@ -134,8 +134,10 @@ export default () => {
 		right: viewPadding.right ?? PADDING_X
 	};
 
+	const count = !explorer.count ? rows.length : Math.max(rows.length, explorer.count);
+
 	const rowVirtualizer = useVirtualizer({
-		count: explorer.count ?? rows.length,
+		count: count,
 		getScrollElement: useCallback(() => explorer.scrollRef.current, [explorer.scrollRef]),
 		estimateSize: useCallback(() => ROW_HEIGHT, []),
 		paddingStart: padding.top,
