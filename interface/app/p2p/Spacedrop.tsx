@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	useBridgeMutation,
 	useDiscoveredPeers,
@@ -39,6 +39,7 @@ function SpacedropProgress({ toastId, dropId }: { toastId: ToastId; dropId: stri
 	);
 }
 
+const placeholder = '/Users/oscar/Desktop/demo.txt';
 export function SpacedropUI() {
 	const platform = usePlatform();
 	const cancelSpacedrop = useBridgeMutation(['p2p.cancelSpacedrop']);
@@ -54,7 +55,7 @@ export function SpacedropUI() {
 					body: (
 						<>
 							<p>
-								File '{data.file_name}' from '{data.peer_name}'
+								File '{data.files[0]}' from '{data.peer_name}'
 							</p>
 							{/* TODO: This will be removed in the future for now it's just a hack */}
 							{platform.saveFilePickerDialog ? null : (
@@ -62,7 +63,7 @@ export function SpacedropUI() {
 									ref={filePathInput}
 									name="file_path"
 									size="sm"
-									placeholder="/Users/oscar/Desktop/demo.txt"
+									placeholder={placeholder}
 									className="w-full"
 								/>
 							)}
@@ -78,18 +79,33 @@ export function SpacedropUI() {
 					action: {
 						label: 'Accept',
 						async onClick() {
-							let destinationFilePath = filePathInput.current?.value ?? '';
-							if (platform.saveFilePickerDialog) {
-								const result = await platform.saveFilePickerDialog({
-									title: 'Save Spacedrop',
-									defaultPath: data.file_name
-								});
-								if (!result) {
-									return;
+							let destinationFilePath = filePathInput.current?.value ?? placeholder;
+
+							if (data.files.length != 1) {
+								if (platform.openDirectoryPickerDialog) {
+									const result = await platform.openDirectoryPickerDialog({
+										title: 'Save Spacedrop',
+										multiple: false
+									});
+									if (!result) {
+										return;
+									}
+									destinationFilePath = result;
 								}
-								destinationFilePath = result;
+							} else {
+								if (platform.saveFilePickerDialog) {
+									const result = await platform.saveFilePickerDialog({
+										title: 'Save Spacedrop',
+										defaultPath: data.files?.[0]
+									});
+									if (!result) {
+										return;
+									}
+									destinationFilePath = result;
+								}
 							}
 
+							if (destinationFilePath === '') return;
 							await acceptSpacedrop.mutateAsync([data.id, destinationFilePath]);
 						}
 					},
@@ -119,37 +135,51 @@ export function SpacedropUI() {
 		}
 	});
 
-	useEffect(() =>
-		subscribeSpacedropState(() => {
-			dialogManager.create((dp) => <SpacedropDialog {...dp} />);
-		})
-	);
+	useEffect(() => {
+		let open = false;
+
+		return subscribeSpacedropState(() => {
+			if (open) return;
+			open = true;
+			dialogManager.create((dp) => <SpacedropDialog {...dp} />).then(() => (open = false));
+		});
+	});
 
 	return null;
 }
 
 function SpacedropDialog(props: UseDialogProps) {
 	const discoveredPeers = useDiscoveredPeers();
+	const discoveredPeersArray = useMemo(() => [...discoveredPeers.entries()], [discoveredPeers]);
 	const form = useZodForm({
+		mode: 'onChange',
 		// We aren't using this but it's required for the Dialog :(
 		schema: z.object({
-			targetPeer: z.string()
+			// This field is actually required but the Zod validator is not working with select's so this is good enough for now.
+			targetPeer: z.string().optional()
 		})
 	});
+	const value = form.watch('targetPeer');
+
+	useEffect(() => {
+		// If peer goes offline deselect it
+		if (
+			value !== undefined &&
+			discoveredPeersArray.find(([peerId]) => peerId === value) === undefined
+		)
+			form.setValue('targetPeer', undefined);
+
+		const defaultValue = discoveredPeersArray[0]?.[0];
+		// If no peer is selected, select the first one
+		if (value === undefined && defaultValue) form.setValue('targetPeer', defaultValue);
+	}, [form, value, discoveredPeersArray]);
 
 	const doSpacedrop = useBridgeMutation('p2p.spacedrop');
 
-	useEffect(() => {
-		if (!form.getValues('targetPeer')) {
-			const [peerId] = [...discoveredPeers.entries()][0] ?? [];
-			if (peerId) {
-				form.setValue('targetPeer', peerId);
-			}
-		}
-	}, [form, discoveredPeers]);
-
 	return (
 		<Dialog
+			// This `key` is a hack to workaround https://linear.app/spacedriveapp/issue/ENG-1208/improve-dialogs
+			key={props.id}
 			form={form}
 			dialog={useDialog(props)}
 			title="Spacedrop a File"
@@ -159,14 +189,15 @@ function SpacedropDialog(props: UseDialogProps) {
 			onSubmit={form.handleSubmit((data) =>
 				doSpacedrop.mutateAsync({
 					file_path: getSpacedropState().droppedFiles,
-					peer_id: data.targetPeer
+					peer_id: data.targetPeer! // `submitDisabled` ensures this
 				})
 			)}
+			submitDisabled={value === undefined}
 		>
 			<div className="space-y-2 py-2">
 				<SelectField name="targetPeer">
-					{[...discoveredPeers.entries()].map(([peerId, metadata], index) => (
-						<SelectOption key={peerId} value={peerId}>
+					{discoveredPeersArray.map(([peerId, metadata], index) => (
+						<SelectOption key={peerId} value={peerId} default={index === 0}>
 							{metadata.name}
 						</SelectOption>
 					))}

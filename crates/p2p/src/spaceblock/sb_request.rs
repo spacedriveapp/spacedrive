@@ -1,5 +1,6 @@
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
+use uuid::Uuid;
 
 use crate::proto::{decode, encode};
 
@@ -43,53 +44,114 @@ impl Range {
 	}
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpaceblockRequests {
+	pub id: Uuid,
+	pub block_size: BlockSize,
+	pub requests: Vec<SpaceblockRequest>,
+}
+
+#[derive(Debug, Error)]
+pub enum SpaceblockRequestsError {
+	#[error("SpaceblockRequestsError::Id({0:?})")]
+	Id(#[from] decode::Error),
+	#[error("SpaceblockRequestsError::InvalidLen({0})")]
+	InvalidLen(std::io::Error),
+	#[error("SpaceblockRequestsError::SpaceblockRequest({0:?})")]
+	SpaceblockRequest(#[from] SpaceblockRequestError),
+	#[error("SpaceblockRequestsError::BlockSize({0:?})")]
+	BlockSize(std::io::Error),
+}
+
+impl SpaceblockRequests {
+	pub async fn from_stream(
+		stream: &mut (impl AsyncRead + Unpin),
+	) -> Result<Self, SpaceblockRequestsError> {
+		let id = decode::uuid(stream)
+			.await
+			.map_err(SpaceblockRequestsError::Id)?;
+
+		let block_size = BlockSize::from_stream(stream)
+			.await
+			.map_err(SpaceblockRequestsError::BlockSize)?;
+
+		let size = stream
+			// Max of 255 files in one request
+			.read_u8()
+			.await
+			.map_err(SpaceblockRequestsError::InvalidLen)?;
+
+		let mut requests = Vec::new();
+		for i in 0..size {
+			requests.push(SpaceblockRequest::from_stream(stream).await?);
+		}
+
+		Ok(Self {
+			id,
+			block_size,
+			requests,
+		})
+	}
+
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let Self {
+			id,
+			block_size,
+			requests,
+		} = self;
+		if requests.len() > 255 {
+			panic!("Can't Spacedrop more than 255 files at once!");
+		}
+
+		let mut buf = block_size.to_bytes().to_vec();
+		encode::uuid(&mut buf, id);
+		buf.push(requests.len() as u8);
+		for request in requests {
+			buf.extend_from_slice(&request.to_bytes());
+		}
+		buf
+	}
+}
+
 /// TODO
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpaceblockRequest {
 	pub name: String,
 	pub size: u64,
 	// TODO: Include file permissions
-	pub block_size: BlockSize,
 	pub range: Range,
 }
 
 #[derive(Debug, Error)]
-pub enum SpacedropRequestError {
-	#[error("SpacedropRequestError::Name({0})")]
+pub enum SpaceblockRequestError {
+	#[error("SpaceblockRequestError::Name({0})")]
 	Name(decode::Error),
-	#[error("SpacedropRequestError::Size({0})")]
+	#[error("SpaceblockRequestError::Size({0})")]
 	Size(std::io::Error),
 }
 
 impl SpaceblockRequest {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncRead + Unpin),
-	) -> Result<Self, SpacedropRequestError> {
+	) -> Result<Self, SpaceblockRequestError> {
 		let name = decode::string(stream)
 			.await
-			.map_err(SpacedropRequestError::Name)?;
+			.map_err(SpaceblockRequestError::Name)?;
 
 		let size = stream
 			.read_u64_le()
 			.await
-			.map_err(SpacedropRequestError::Size)?;
-		let block_size = BlockSize::from_size(size); // TODO: Get from stream: stream.read_u8().await.map_err(|_| ())?; // TODO: Error handling
+			.map_err(SpaceblockRequestError::Size)?;
 
 		Ok(Self {
 			name,
 			size,
-			block_size,
 			range: Range::from_stream(stream).await.unwrap(),
 		})
 	}
 
 	pub fn to_bytes(&self) -> Vec<u8> {
-		let Self {
-			name,
-			size,
-			block_size,
-			range,
-		} = self;
+		let Self { name, size, range } = self;
 		let mut buf = Vec::new();
 
 		encode::string(&mut buf, name);
@@ -98,3 +160,5 @@ impl SpaceblockRequest {
 		buf
 	}
 }
+
+// TODO: This file is missing protocol unit tests
