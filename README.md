@@ -6,19 +6,19 @@
    <img width="150" height="150" src="packages/assets/images/AppLogo.png" alt="Logo">
   </p>
     <h1 align="center"><b>Spacedrive</b></h1>
-	 <p align="center">
+	     <p align="center">
   A file explorer from the future.
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
     <b>Download for </b>
-   <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64" >macOSIntel</a> ·
+   MacOS - <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64">Apple Silicon</a> | <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64">Intel</a> ·
 		   <a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64" >Windows</a> ·
    <a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64" >Linux</a> ·
-     <a href="" >IOS</a> ·
-    <a href="" >watchOS</a> ·
-		 <a href="" >Android</a> ·
+		 <a href="" disabled>IOS</a> ·
+<a href="" disabled>watchOS</a> ·
+<a href="" disabled>Android</a> ·
     <br />
     <i>~ Links for (IOS · watchOS · Android ) will be added once a release is available. ~</i>
   </p>
