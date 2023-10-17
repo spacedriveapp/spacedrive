@@ -131,6 +131,7 @@ pub(super) async fn create_dir(
 	scan_location_sub_path(node, library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -319,6 +320,7 @@ async fn inner_create_file(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -365,7 +367,10 @@ pub(super) async fn update_file(
 		)
 		.await
 	}
-	.map(|_| invalidate_query!(library, "search.paths"))
+	.map(|_| {
+		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
+	})
 }
 
 async fn inner_update_file(
@@ -572,6 +577,7 @@ async fn inner_update_file(
 		}
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
@@ -664,6 +670,7 @@ pub(super) async fn rename(
 			.await?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
@@ -741,6 +748,7 @@ pub(super) async fn remove_by_file_path(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -845,6 +853,7 @@ pub(super) async fn recalculate_directories_size(
 
 	if should_invalidate {
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	candidates.extend(buffer.drain(..));
