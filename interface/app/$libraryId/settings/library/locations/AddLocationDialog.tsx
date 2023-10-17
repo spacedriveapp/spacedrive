@@ -220,37 +220,39 @@ export const AddLocationDialog = ({
 					  'need to specify an absolute URL of a directory local to the remote node.'
 					: ''
 			}
-		>			<div className="flex flex-col">
-
-			<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4 mt-2" />
-
-			<LocationPathInputField {...form.register('path')} />
-
-			<input type="hidden" {...form.register('method')} />
-
-			<div className="mb-4 flex flex-row gap-2">
-			<CheckBox {...form.register('shouldRedirect')} />
-					<Label className="ml-[3px] mt-[3px] font-semibold">
-						Open new location once added
-					</Label>
-				</div>
-
-			<Accordion title="Advanced settings">
-				<Controller
-					name="indexerRulesIds"
-					render={({ field }) => (
-						<IndexerRuleEditor
-							field={field}
-							label="File indexing rules"
-							className="relative flex flex-col"
-							rulesContainerClass="grid grid-cols-2 gap-2"
-							ruleButtonClass="w-full"
-						/>
-					)}
-					control={form.control}
+		>
+			{' '}
+			<div className="flex flex-col">
+				<ErrorMessage
+					name={REMOTE_ERROR_FORM_FIELD}
+					variant="large"
+					className="mb-4 mt-2"
 				/>
 
+				<LocationPathInputField {...form.register('path')} />
 
+				<input type="hidden" {...form.register('method')} />
+
+				<div className="mb-4 flex">
+					<CheckBox {...form.register('shouldRedirect')} />
+					<Label className="mt-[3px] font-semibold">Open new location once added</Label>
+				</div>
+
+				<Accordion title="Advanced settings">
+					<Controller
+						name="indexerRulesIds"
+						render={({ field }) => (
+							<IndexerRuleEditor
+								field={field}
+								label="File indexing rules"
+								className="relative flex flex-col"
+								rulesContainerClass="grid grid-cols-2 gap-2"
+								ruleButtonClass="w-full"
+							/>
+						)}
+						control={form.control}
+					/>
+				</Accordion>
 			</div>
 		</Dialog>
 	);
