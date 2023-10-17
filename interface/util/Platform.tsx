@@ -37,6 +37,7 @@ export type Platform = {
 		)[]
 	): Promise<unknown>;
 	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	reloadWebview?(): Promise<unknown>;
 	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;

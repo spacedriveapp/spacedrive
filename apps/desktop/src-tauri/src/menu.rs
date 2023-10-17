@@ -103,20 +103,10 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			.emit("keybind", "open_search".to_string())
 			.unwrap(),
 		"reload_app" => {
-			#[cfg(target_os = "macos")]
-			{
-				event
-					.window()
-					.with_webview(|webview| {
-						unsafe { sd_desktop_macos::reload_webview(&(webview.inner() as _)) };
-					})
-					.unwrap();
-			}
-
-			#[cfg(not(target_os = "macos"))]
-			{
-				unimplemented!();
-			}
+			event
+				.window()
+				.with_webview(crate::reload_webview_inner)
+				.expect("Error while reloading webview");
 		}
 		#[cfg(debug_assertions)]
 		"toggle_devtools" => {

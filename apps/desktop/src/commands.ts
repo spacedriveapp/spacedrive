@@ -22,6 +22,10 @@ export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
 
+export function reloadWebview() {
+    return invoke()<null>("reload_webview")
+}
+
 export function openFilePaths(library: string, ids: number[]) {
     return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
 }
