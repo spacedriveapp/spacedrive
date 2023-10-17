@@ -186,6 +186,7 @@ pub async fn shallow(
 			.map_err(IndexerError::from)?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	library.orphan_remover.invoke().await;

@@ -71,7 +71,11 @@ const platform = {
 		`${customUriServerUrl}local-file-by-path/${encodeURIComponent(path)}${queryParams}`,
 	openLink: shell.open,
 	getOs,
-	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
+	openDirectoryPickerDialog: (opts) => {
+		const result = dialog.open({ directory: true, ...opts });
+		if (opts?.multiple) return result as any; // Tauri don't properly type narrow on `multiple` argument
+		return result;
+	},
 	openFilePickerDialog: () => dialog.open(),
 	saveFilePickerDialog: (opts) => dialog.save(opts),
 	showDevtools: () => invoke('show_devtools'),

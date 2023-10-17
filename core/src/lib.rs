@@ -113,8 +113,13 @@ impl Node {
 			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
+			thumbnailer: Thumbnailer::new(
+				data_dir.to_path_buf(),
+				libraries.clone(),
+				event_bus.0.clone(),
+			)
+			.await,
 			event_bus,
-			thumbnailer: Thumbnailer::new(data_dir.to_path_buf(), libraries.clone()),
 			libraries,
 			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
@@ -210,6 +215,7 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
+		self.thumbnailer.shutdown().await;
 		self.jobs.shutdown().await;
 		self.p2p.shutdown().await;
 		info!("Spacedrive Core shutdown successful!");

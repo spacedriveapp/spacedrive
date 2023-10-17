@@ -6815,7 +6815,6 @@ name = "sd-desktop"
 version = "0.1.1"
 dependencies = [
  "axum",
- "dotenv",
  "futures",
  "http",
  "opener",
@@ -6836,6 +6835,8 @@ dependencies = [
  "tokio",
  "tracing 0.2.0",
  "uuid",
+ "webkit2gtk",
+ "webview2-com",
  "window-shadows",
 ]
 

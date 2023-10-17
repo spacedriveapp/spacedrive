@@ -1,9 +1,4 @@
 use crate::{
-	api::CoreEvent,
-	job::JobRunErrors,
-	library::Library,
-	location::file_path_helper::{file_path_for_media_processor, IsolatedFilePathData},
-	prisma::location,
 	util::{error::FileIOError, version_manager::VersionManagerError},
 	Node,
 };
@@ -18,20 +13,16 @@ use sd_media_metadata::image::Orientation;
 use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
-	collections::HashMap,
 	ops::Deref,
 	path::{Path, PathBuf},
-	str::FromStr,
-	sync::Arc,
 };
 
-use futures::future::{join_all, try_join_all};
 use image::{self, imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{fs, io, task};
-use tracing::{error, trace, warn};
+use tokio::{fs, task};
+use tracing::error;
 use webp::Encoder;
 
 pub mod actor;
@@ -85,6 +76,18 @@ pub(super) static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| 
 				.map(Extension::Document),
 		)
 		.collect()
+});
+
+pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+	#[cfg(feature = "ffmpeg")]
+	return THUMBNAILABLE_EXTENSIONS
+		.iter()
+		.cloned()
+		.chain(THUMBNAILABLE_VIDEO_EXTENSIONS.iter().cloned())
+		.collect();
+
+	#[cfg(not(feature = "ffmpeg"))]
+	THUMBNAILABLE_EXTENSIONS.clone()
 });
 
 #[derive(Error, Debug)]
@@ -216,289 +219,4 @@ pub const fn can_generate_thumbnail_for_document(document_extension: &DocumentEx
 	use DocumentExtension::*;
 
 	matches!(document_extension, Pdf)
-}
-
-pub(super) async fn process(
-	entries: impl IntoIterator<Item = (&file_path_for_media_processor::Data, ThumbnailerEntryKind)>,
-	location_id: location::id::Type,
-	location_path: impl AsRef<Path>,
-	thumbnails_base_dir: impl AsRef<Path>,
-	regenerate: bool,
-	library: &Library,
-	ctx_update_fn: impl Fn(usize),
-) -> Result<(ThumbnailerMetadata, JobRunErrors), ThumbnailerError> {
-	let mut run_metadata = ThumbnailerMetadata::default();
-
-	let location_path = location_path.as_ref();
-	let thumbnails_base_dir = thumbnails_base_dir.as_ref();
-	let mut errors = vec![];
-
-	let mut to_create_dirs = HashMap::new();
-
-	struct WorkTable<'a> {
-		kind: ThumbnailerEntryKind,
-		input_path: PathBuf,
-		cas_id: &'a str,
-		output_path: PathBuf,
-		metadata_res: io::Result<()>,
-	}
-
-	let entries = entries
-		.into_iter()
-		.filter_map(|(file_path, kind)| {
-			IsolatedFilePathData::try_from((location_id, file_path))
-				.map(|iso_file_path| (file_path, kind, location_path.join(iso_file_path)))
-				.map_err(|e| {
-					errors.push(format!(
-						"Failed to build path for file with id {}: {e}",
-						file_path.id
-					))
-				})
-				.ok()
-		})
-		.filter_map(|(file_path, kind, path)| {
-			if let Some(cas_id) = &file_path.cas_id {
-				Some((kind, path, cas_id))
-			} else {
-				warn!(
-					"Skipping thumbnail generation for {} due to missing cas_id",
-					path.display()
-				);
-				run_metadata.skipped += 1;
-				None
-			}
-		})
-		.map(|(kind, input_path, cas_id)| {
-			let thumbnails_shard_dir = thumbnails_base_dir.join(get_shard_hex(cas_id));
-			let output_path = thumbnails_shard_dir.join(format!("{cas_id}.webp"));
-
-			// Putting all sharding directories in a map to avoid trying to create repeteaded ones
-			to_create_dirs
-				.entry(thumbnails_shard_dir.clone())
-				.or_insert_with(|| async move {
-					fs::create_dir_all(&thumbnails_shard_dir)
-						.await
-						.map_err(|e| FileIOError::from((thumbnails_shard_dir, e)))
-				});
-
-			async move {
-				WorkTable {
-					kind,
-					input_path,
-					cas_id,
-					// Discarding the ok part as we don't actually care about metadata here, maybe avoiding extra space
-					metadata_res: fs::metadata(&output_path).await.map(|_| ()),
-					output_path,
-				}
-			}
-		})
-		.collect::<Vec<_>>();
-	if entries.is_empty() {
-		return Ok((run_metadata, errors.into()));
-	}
-
-	// Resolving these futures first, as we want to fail early if we can't create the directories
-	try_join_all(to_create_dirs.into_values()).await?;
-
-	// Running thumbs generation sequentially to don't overload the system, if we're wasting too much time on I/O we can
-	// try to run them in parallel
-	for (
-		idx,
-		WorkTable {
-			kind,
-			input_path,
-			cas_id,
-			output_path,
-			metadata_res,
-		},
-	) in join_all(entries).await.into_iter().enumerate()
-	{
-		ctx_update_fn(idx + 1);
-		match metadata_res {
-			Ok(_) => {
-				if !regenerate {
-					trace!(
-						"Thumbnail already exists, skipping generation for {}",
-						input_path.display()
-					);
-					run_metadata.skipped += 1;
-				} else {
-					tracing::debug!(
-						"Renegerating thumbnail {} to {}",
-						input_path.display(),
-						output_path.display()
-					);
-					process_single_thumbnail(
-						cas_id,
-						kind,
-						&input_path,
-						&output_path,
-						&mut errors,
-						&mut run_metadata,
-						library,
-					)
-					.await;
-				}
-			}
-
-			Err(e) if e.kind() == io::ErrorKind::NotFound => {
-				trace!(
-					"Writing {} to {}",
-					input_path.display(),
-					output_path.display()
-				);
-
-				process_single_thumbnail(
-					cas_id,
-					kind,
-					&input_path,
-					&output_path,
-					&mut errors,
-					&mut run_metadata,
-					library,
-				)
-				.await;
-			}
-			Err(e) => {
-				error!(
-					"Error getting metadata for thumb: {:#?}",
-					FileIOError::from((output_path, e))
-				);
-				errors.push(format!(
-					"Had an error generating thumbnail for \"{}\"",
-					input_path.display()
-				));
-			}
-		}
-	}
-
-	Ok((run_metadata, errors.into()))
-}
-
-// Using &Path as this function if private only to this module, always being used with a &Path, so we
-// don't pay the compile price for generics
-async fn process_single_thumbnail(
-	cas_id: &str,
-	kind: ThumbnailerEntryKind,
-	input_path: &Path,
-	output_path: &Path,
-	errors: &mut Vec<String>,
-	run_metadata: &mut ThumbnailerMetadata,
-	library: &Library,
-) {
-	match kind {
-		ThumbnailerEntryKind::Image => {
-			if let Err(e) = generate_image_thumbnail(&input_path, &output_path).await {
-				error!(
-					"Error generating thumb for image \"{}\": {e:#?}",
-					input_path.display()
-				);
-				errors.push(format!(
-					"Had an error generating thumbnail for \"{}\"",
-					input_path.display()
-				));
-
-				return;
-			}
-		}
-		#[cfg(feature = "ffmpeg")]
-		ThumbnailerEntryKind::Video => {
-			if let Err(e) = generate_video_thumbnail(&input_path, &output_path).await {
-				error!(
-					"Error generating thumb for video \"{}\": {e:#?}",
-					input_path.display()
-				);
-				errors.push(format!(
-					"Had an error generating thumbnail for \"{}\"",
-					input_path.display()
-				));
-
-				return;
-			}
-		}
-	}
-
-	trace!("Emitting new thumbnail event");
-	library.emit(CoreEvent::NewThumbnail {
-		thumb_key: get_thumb_key(cas_id),
-	});
-	run_metadata.created += 1;
-}
-
-// TODO(fogodev): Unify how we generate thumbnails
-
-#[derive(Debug)]
-pub struct GenerateThumbnailArgs {
-	pub extension: String,
-	pub cas_id: String,
-	pub path: PathBuf,
-	pub node: Arc<Node>,
-}
-
-impl GenerateThumbnailArgs {
-	pub fn new(extension: String, cas_id: String, path: PathBuf, node: Arc<Node>) -> Self {
-		Self {
-			extension,
-			cas_id,
-			path,
-			node,
-		}
-	}
-}
-
-pub async fn generate_thumbnail(
-	extension: &str,
-	cas_id: String,
-	path: impl AsRef<Path>,
-	node: Arc<Node>,
-	in_background: bool,
-) -> Result<String, ThumbnailerError> {
-	let path = path.as_ref();
-	trace!("Generating thumbnail for {}", path.display());
-	let output_path = get_thumbnail_path(&node, &cas_id);
-
-	if let Err(e) = fs::metadata(&output_path).await {
-		if e.kind() != io::ErrorKind::NotFound {
-			error!(
-				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e}"
-			);
-		}
-	// Otherwise we good, thumbnail doesn't exist so we can generate it
-	} else {
-		trace!(
-			"Skipping thumbnail generation for {} because it already exists",
-			path.display()
-		);
-		return Ok(cas_id);
-	}
-
-	if let Ok(extension) = ImageExtension::from_str(extension) {
-		if can_generate_thumbnail_for_image(&extension) {
-			generate_image_thumbnail(&path, &output_path).await?;
-		}
-	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
-		if can_generate_thumbnail_for_document(&extension) {
-			generate_image_thumbnail(&path, &output_path).await?;
-		}
-	}
-
-	#[cfg(feature = "ffmpeg")]
-	{
-		if let Ok(extension) = VideoExtension::from_str(extension) {
-			if can_generate_thumbnail_for_video(&extension) {
-				generate_video_thumbnail(&path, &output_path).await?;
-			}
-		}
-	}
-
-	if !in_background {
-		trace!("Emitting new thumbnail event");
-		node.emit(CoreEvent::NewThumbnail {
-			thumb_key: get_thumb_key(&cas_id),
-		});
-	}
-
-	trace!("Generated thumbnail for {}", path.display());
-
-	Ok(cas_id)
 }
