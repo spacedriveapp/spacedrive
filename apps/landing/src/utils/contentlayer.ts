@@ -1,5 +1,6 @@
 import { Doc, DocumentTypes } from '@contentlayer/generated';
-import { Circle, Cube, Icon, Sparkle, Star } from '@phosphor-icons/react';
+import { type Icon } from '@phosphor-icons/react';
+import { Circle, Cube, Sparkle, Star } from '@phosphor-icons/react/dist/ssr';
 
 import { toTitleCase } from './util';
 
@@ -10,10 +11,12 @@ type DocsCategory = {
 	docs: CoreContent<Doc>[];
 };
 
-export type DocsNavigation = {
+type DocsSection = {
 	slug: string;
 	categories: DocsCategory[];
-}[];
+};
+
+export type DocsNavigation = DocsSection[];
 
 export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 	const coreDocs = allCoreContent(docs);

@@ -11,9 +11,9 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import BasicSticky from 'react-sticky-el';
 import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { type ExplorerItem } from '@sd/client';
+import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated } from '~/hooks';
+import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -45,6 +45,9 @@ interface ListViewItemProps {
 }
 
 const ListViewItem = memo((props: ListViewItemProps) => {
+	const filePathData = getItemFilePath(props.row.original);
+	const hidden = filePathData?.hidden ?? false;
+
 	return (
 		<ViewItem
 			data={props.row.original}
@@ -58,7 +61,8 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 					className={clsx(
 						'table-cell shrink-0 px-4 text-xs text-ink-dull',
 						cell.column.id !== 'name' && 'truncate',
-						cell.column.columnDef.meta?.className
+						cell.column.columnDef.meta?.className,
+						hidden && 'opacity-50'
 					)}
 					style={{ width: cell.column.getSize() }}
 				>
@@ -97,6 +101,7 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
+	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
 	const tableHeaderRef = useRef<HTMLDivElement>(null);
@@ -824,6 +829,7 @@ export default () => {
 			ref={tableRef}
 			onMouseDown={(e) => {
 				e.stopPropagation();
+				mouseNavigate(e);
 				setIsLeftMouseDown(true);
 			}}
 			className={clsx(!initialized && 'invisible')}

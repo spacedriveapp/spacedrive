@@ -1,3 +1,5 @@
+'use client';
+
 import * as RDialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
 import clsx from 'clsx';

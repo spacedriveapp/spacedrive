@@ -20,7 +20,7 @@ import {
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
-import '@sd/ui/style';
+import '@sd/ui/style/style.scss';
 
 import * as commands from './commands';
 import { createUpdater } from './updater';

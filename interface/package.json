@@ -3,6 +3,7 @@
 	"private": true,
 	"main": "index.tsx",
 	"types": "index.tsx",
+	"sideEffects": false,
 	"scripts": {
 		"lint": "eslint . --cache",
 		"typecheck": "tsc -b"
@@ -10,7 +11,7 @@
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
-		"@icons-pack/react-simple-icons": "^7.2.0",
+		"@icons-pack/react-simple-icons": "^9.1.0",
 		"@phosphor-icons/react": "^2.0.10",
 		"@radix-ui/react-progress": "^1.0.1",
 		"@radix-ui/react-slider": "^1.1.0",
