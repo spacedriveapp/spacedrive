@@ -1,6 +1,5 @@
 import {
 	Barcode,
-	BookOpenText,
 	CircleWavyCheck,
 	Clock,
 	Cube,
@@ -317,13 +316,12 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					<MetaTitle>Locations</MetaTitle>
 					<div className="flex flex-wrap gap-2">
 						{fileLocations.map((location) => (
-							<div
-								className="flex flex-row rounded bg-app-hover/60 px-1 py-0.5 hover:bg-app-selected"
-								key={location.id}
-							>
-								<Folder size={18} />
-								<span className="ml-1 text-xs text-ink">{location.name}</span>
-							</div>
+							<NavLink to={`/${libraryId}/location/${location.id}`} key={location.id}>
+								<div className="flex flex-row rounded bg-app-hover/60 px-1 py-0.5 hover:bg-app-selected">
+									<Folder size={18} />
+									<span className="ml-1 text-xs text-ink">{location.name}</span>
+								</div>
+							</NavLink>
 						))}
 					</div>
 				</MetaContainer>
