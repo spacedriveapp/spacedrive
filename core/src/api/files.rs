@@ -258,6 +258,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.await?;
 
 					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 					Ok(())
 				})
 		})
@@ -274,6 +275,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
+					invalidate_query!(library, "search.objects");
 					invalidate_query!(library, "search.paths");
 					Ok(())
 				})
@@ -479,6 +481,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						fs::remove_file(path.as_ref()).await.map_err(|e| {
 							// Let's also invalidate the query here, because we succeeded in converting the file
 							invalidate_query!(library, "search.paths");
+							invalidate_query!(library, "search.objects");
 
 							FileIOError::from((
 								path.as_ref(),
@@ -489,6 +492,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					invalidate_query!(library, "search.paths");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})
