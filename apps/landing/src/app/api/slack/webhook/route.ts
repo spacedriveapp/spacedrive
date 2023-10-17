@@ -1,4 +1,3 @@
-import { Octokit } from 'octokit';
 import { env } from '~/env';
 
 export const runtime = 'edge';
@@ -16,7 +15,7 @@ export async function POST(req: Request) {
 
 	const key = await crypto.subtle.importKey(
 		'raw',
-		new TextEncoder().encode('7823b4c149599d16ecb77fd39f1b6b0f'),
+		new TextEncoder().encode(env.SLACK_SIGNING_SECRET),
 		{ name: 'HMAC', hash: 'SHA-256' },
 		false,
 		['verify']
