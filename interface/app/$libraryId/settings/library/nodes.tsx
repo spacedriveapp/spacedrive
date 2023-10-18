@@ -13,6 +13,7 @@ import { Heading } from '../Layout';
 
 export const Component = () => {
 	const isPairingEnabled = useFeatureFlag('p2pPairing');
+	const node = useBridgeQuery(['nodeState']);
 
 	return (
 		<>
@@ -23,7 +24,11 @@ export const Component = () => {
 			{/* TODO: Show paired nodes + unpair button */}
 
 			{/* TODO: Replace with modal */}
-			{isPairingEnabled && <IncorrectP2PPairingPane />}
+			{node.data?.p2p_enabled === false ? (
+				<p>P2P is disabled. Please enable it in settings!</p>
+			) : (
+				<>{isPairingEnabled && <IncorrectP2PPairingPane />}</>
+			)}
 		</>
 	);
 };
