@@ -15,15 +15,7 @@ pub(crate) fn get_menu() -> Menu {
 
 // update this whenever you add something which requires a valid library to use
 #[cfg(target_os = "macos")]
-const LIBRARY_LOCKED_MENU_IDS: [&str; 7] = [
-	"open_settings",
-	"new_window",
-	"open_search",
-	"layout",
-	"select_all",
-	"copy",
-	"paste",
-];
+const LIBRARY_LOCKED_MENU_IDS: [&str; 7] = ["open_settings", "new_window", "open_search", "layout"];
 
 #[cfg(target_os = "macos")]
 fn custom_menu_bar() -> Menu {
