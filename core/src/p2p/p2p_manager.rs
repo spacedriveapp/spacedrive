@@ -106,20 +106,14 @@ impl P2PManager {
 
 		tokio::spawn({
 			let this = self.clone();
-			let manager = self.manager.clone();
-			let metadata_manager = self.metadata_manager.clone();
-			let events = self.events.0.clone();
-			let spacedrop_pairing_reqs = self.spacedrop_pairing_reqs.clone();
-			let spacedrop_cancelations = self.spacedrop_cancelations.clone();
-
-			let pairing = self.pairing.clone();
 
 			async move {
 				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {
 						Event::PeerDiscovered(event) => {
-							events
+							this.events
+								.0
 								.send(P2PEvent::DiscoveredPeer {
 									peer_id: event.peer_id,
 									metadata: event.metadata.clone(),
@@ -130,7 +124,8 @@ impl P2PManager {
 							this.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, .. } => {
-							events
+							this.events
+								.0
 								.send(P2PEvent::ExpiredPeer { peer_id: id })
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
@@ -138,7 +133,8 @@ impl P2PManager {
 							this.peer_expired(id);
 						}
 						Event::PeerConnected(event) => {
-							events
+							this.events
+								.0
 								.send(P2PEvent::ConnectedPeer {
 									peer_id: event.peer_id,
 								})
@@ -148,13 +144,12 @@ impl P2PManager {
 							this.peer_connected(event.peer_id);
 
 							let this = this.clone();
-							let manager = manager.clone();
-							// let nlm = node.nlm.clone();
-							let instances = metadata_manager.get().instances;
 							let node = node.clone();
+							let instances = this.metadata_manager.get().instances;
 							tokio::spawn(async move {
 								if event.establisher {
-									let mut stream = manager.stream(event.peer_id).await.unwrap();
+									let mut stream =
+										this.manager.stream(event.peer_id).await.unwrap();
 									Self::resync(
 										&this.libraries,
 										&mut stream,
@@ -168,7 +163,8 @@ impl P2PManager {
 							});
 						}
 						Event::PeerDisconnected(peer_id) => {
-							events
+							this.events
+								.0
 								.send(P2PEvent::DisconnectedPeer { peer_id })
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
@@ -177,13 +173,7 @@ impl P2PManager {
 						}
 						Event::PeerMessage(event) => {
 							let this = this.clone();
-							let events = events.clone();
-							let metadata_manager = metadata_manager.clone();
-							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
-							let pairing = pairing.clone();
-							let spacedrop_cancelations = spacedrop_cancelations.clone();
 							let node = node.clone();
-							let manager = manager.clone();
 
 							tokio::spawn(async move {
 								let mut stream = event.stream;
@@ -201,9 +191,11 @@ impl P2PManager {
 											"({id}): received '{}' files from peer '{}' with block size '{:?}'",
 											req.requests.len(), event.peer_id, req.block_size
 										);
-										spacedrop_pairing_reqs.lock().await.insert(id, tx);
+										this.spacedrop_pairing_reqs.lock().await.insert(id, tx);
 
-										if events
+										if this
+											.events
+											.0
 											.send(P2PEvent::SpacedropRequest {
 												id,
 												peer_id: event.peer_id,
@@ -242,7 +234,7 @@ impl P2PManager {
 														info!("({id}): accepted saving to '{:?}'", file_path);
 
 														let cancelled = Arc::new(AtomicBool::new(false));
-														spacedrop_cancelations
+														this.spacedrop_cancelations
 															.lock()
 															.await
 															.insert(id, cancelled.clone());
@@ -251,7 +243,7 @@ impl P2PManager {
 
 														let names = req.requests.iter().map(|req| req.name.clone()).collect::<Vec<_>>();
 														let mut transfer = Transfer::new(&req, |percent| {
-															events.send(P2PEvent::SpacedropProgress { id, percent }).ok();
+															this.events.0.send(P2PEvent::SpacedropProgress { id, percent }).ok();
 														}, &cancelled);
 
 														let file_path = PathBuf::from(file_path);
@@ -291,7 +283,8 @@ impl P2PManager {
 										};
 									}
 									Header::Pair => {
-										pairing
+										this.pairing
+											.clone()
 											.responder(
 												event.peer_id,
 												stream,
@@ -394,7 +387,7 @@ impl P2PManager {
 											&this.libraries,
 											&mut stream,
 											event.peer_id,
-											metadata_manager.get().instances,
+											this.metadata_manager.get().instances,
 											identities,
 										)
 										.await;
