@@ -1,8 +1,9 @@
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_p2p::PeerId;
+use sd_p2p::{spacetunnel::RemoteIdentity, PeerId};
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::p2p::{P2PEvent, PairingDecision};
@@ -15,14 +16,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.subscription(|node, _: ()| async move {
 				let mut rx = node.p2p.subscribe();
 				async_stream::stream! {
+					// TODO: Account for library-services cause this doesn't & that will cuase issues
+
 					// TODO: Don't block subscription start
-					for peer in node.p2p.manager.get_discovered_peers().await {
-						yield P2PEvent::DiscoveredPeer {
+					for peer in node.p2p.node.get_discovered() {
+						 yield P2PEvent::DiscoveredPeer {
 							peer_id: peer.peer_id,
 							metadata: peer.metadata,
 						};
 					}
-
 
 					// TODO: Don't block subscription start
 					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
@@ -38,9 +40,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
-		.procedure("nlmState", {
-			R.query(|node, _: ()| async move { node.nlm.state().await })
-		})
+		// TODO: Bring this back
+		// .procedure("state", {
+		// 	pub struct P2PState {
+		// 		nodes: Vec<RemoteIdentity, PeerId>,
+		// 		libs: Vec<
+		// 	}
+		// 	R.query(|node, _: ()| async move {})
+		// })
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
