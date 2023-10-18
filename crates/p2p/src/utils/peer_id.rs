@@ -1,5 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
+// TODO: Removing this from the public API and then we can just use `libp2p::PeerId` instead internally
 #[derive(Debug, Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

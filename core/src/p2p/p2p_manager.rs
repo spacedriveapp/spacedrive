@@ -4,7 +4,7 @@ use std::{
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, PoisonError, RwLock,
 	},
 	time::{Duration, Instant},
 };
@@ -13,7 +13,8 @@ use futures::future::join_all;
 use sd_p2p::{
 	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
+	DiscoveredPeer, Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
+	PeerStatus, Service,
 };
 use sd_prisma::prisma::file_path;
 use serde::Serialize;
@@ -36,13 +37,14 @@ use crate::{
 };
 
 use super::{
-	sync::{InstanceState, NetworkedLibraries, SyncMessage},
+	sync::{NetworkedLibraries, SyncMessage},
 	Header, PairingManager, PairingStatus, PeerMetadata,
 };
 
 /// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
 const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
 
+// TODO: Split into another file
 /// TODO: P2P event for the frontend
 #[derive(Debug, Clone, Type, Serialize)]
 #[serde(tag = "type")]
@@ -89,7 +91,14 @@ pub enum P2PEvent {
 	}, // TODO: Expire peer + connection/disconnect
 }
 
+type Libraries = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
+
 pub struct P2PManager {
+	pub(crate) node: Service<PeerMetadata>,
+	// TODO: Remove `pub(crate)` from this
+	pub(crate) libraries: Libraries,
+
+	// TODO: Following stuff still needs cleanup
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
 	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
@@ -137,6 +146,8 @@ impl P2PManager {
 
 		Ok((
 			Arc::new(Self {
+				node: Service::new("node", todo!()).unwrap(),
+				libraries: Default::default(), // TODO: Initially populate this
 				pairing,
 				events: (tx, rx),
 				manager,
@@ -149,8 +160,11 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(&self, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
+	pub fn start(self: Arc<Self>, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
+		// TODO: Relay `self.node` and `self.libraries` to `self.events` for P2PEvents frontend subscription
+
 		tokio::spawn({
+			let this = self.clone();
 			let manager = self.manager.clone();
 			let metadata_manager = self.metadata_manager.clone();
 			let events = self.events.0.clone();
@@ -172,7 +186,7 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							node.nlm.peer_discovered(event).await;
+							this.peer_discovered(event).await;
 						}
 						Event::PeerExpired { id, .. } => {
 							events
@@ -180,7 +194,7 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							node.nlm.peer_expired(id).await;
+							this.peer_expired(id);
 						}
 						Event::PeerConnected(event) => {
 							events
@@ -190,27 +204,26 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							node.nlm.peer_connected(event.peer_id).await;
+							this.peer_connected(event.peer_id);
 
+							let this = this.clone();
 							let manager = manager.clone();
-							let nlm = node.nlm.clone();
+							// let nlm = node.nlm.clone();
 							let instances = metadata_manager.get().instances;
 							let node = node.clone();
 							tokio::spawn(async move {
 								if event.establisher {
 									let mut stream = manager.stream(event.peer_id).await.unwrap();
 									Self::resync(
-										nlm.clone(),
+										&this.libraries,
 										&mut stream,
 										event.peer_id,
 										instances,
 									)
 									.await;
-
-									drop(stream);
 								}
 
-								Self::resync_part2(nlm, node, &event.peer_id).await;
+								Self::resync_part2(&this.libraries, node, &event.peer_id).await;
 							});
 						}
 						Event::PeerDisconnected(peer_id) => {
@@ -219,9 +232,10 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							node.nlm.peer_disconnected(peer_id).await;
+							this.peer_disconnected(peer_id);
 						}
 						Event::PeerMessage(event) => {
+							let this = this.clone();
 							let events = events.clone();
 							let metadata_manager = metadata_manager.clone();
 							let spacedrop_pairing_reqs = spacedrop_pairing_reqs.clone();
@@ -252,13 +266,15 @@ impl P2PManager {
 											.send(P2PEvent::SpacedropRequest {
 												id,
 												peer_id: event.peer_id,
-												peer_name: manager
-													.get_discovered_peers()
-													.await
-													.into_iter()
-													.find(|p| p.peer_id == event.peer_id)
-													.map(|p| p.metadata.name)
-													.unwrap_or_else(|| "Unknown".to_string()),
+												peer_name: "Unknown".into(),
+												// TODO: A better solution to this
+												// manager
+												// 	.get_discovered_peers()
+												// 	.await
+												// 	.into_iter()
+												// 	.find(|p| p.peer_id == event.peer_id)
+												// 	.map(|p| p.metadata.name)
+												// 	.unwrap_or_else(|| "Unknown".to_string()),
 												files: req
 													.requests
 													.iter()
@@ -434,7 +450,7 @@ impl P2PManager {
 									}
 									Header::Connected(identities) => {
 										Self::resync_handler(
-											&node.nlm,
+											&this.libraries,
 											&mut stream,
 											event.peer_id,
 											metadata_manager.get().instances,
@@ -465,15 +481,21 @@ impl P2PManager {
 		});
 	}
 
+	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
+		Some(
+			self.libraries
+				.read()
+				.unwrap_or_else(PoisonError::into_inner)
+				.get(library_id)?
+				.clone(),
+		)
+	}
+
 	fn config_to_metadata(config: &NodeConfig, instances: Vec<RemoteIdentity>) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
-			// TODO: Source these via Spacedrive account
-			// TODO: Maybe anonymise them like Apple do
-			email: None,
-			img_url: None,
 			instances,
 		}
 	}
@@ -486,8 +508,106 @@ impl P2PManager {
 		));
 	}
 
+	// TODO: Can this be merged with `peer_connected`???
+	pub fn peer_connected2(libraries: &Libraries, instance_id: RemoteIdentity, peer_id: PeerId) {
+		for lib in libraries
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.values_mut()
+		{
+			if let Some(instance) = lib._get_mut().get_mut(&instance_id) {
+				*instance = PeerStatus::Connected(peer_id);
+				return; // Will only exist once so we short circuit
+			}
+		}
+	}
+
+	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
+		let mut should_connect = false;
+		for lib in self
+			.libraries
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.values_mut()
+		{
+			if let Some((_pk, instance)) = lib
+				._get_mut()
+				.iter_mut()
+				.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
+			{
+				if !matches!(instance, PeerStatus::Connected(_)) {
+					should_connect = matches!(instance, PeerStatus::Unavailable);
+
+					*instance = PeerStatus::Discovered(event.peer_id);
+				}
+
+				break; // PK can only exist once so we short circuit
+			}
+		}
+
+		// We do this here not in the loop so the future can be `Send`
+		if should_connect {
+			event.dial().await;
+		}
+	}
+
+	pub fn peer_expired(&self, id: PeerId) {
+		for lib in self
+			.libraries
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.values_mut()
+		{
+			for instance in lib._get_mut().values_mut() {
+				if let PeerStatus::Discovered(peer_id) = instance {
+					if *peer_id == id {
+						*instance = PeerStatus::Unavailable;
+					}
+				}
+			}
+		}
+	}
+
+	pub fn peer_connected(&self, peer_id: PeerId) {
+		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
+		// TODO: Hence part of the need for `Self::peer_connected2`
+		for lib in self
+			.libraries
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.values_mut()
+		{
+			for instance in lib._get_mut().values_mut() {
+				if let PeerStatus::Discovered(id) = instance {
+					if *id == peer_id {
+						*instance = PeerStatus::Connected(peer_id);
+						return; // Will only exist once so we short circuit
+					}
+				}
+			}
+		}
+	}
+
+	pub fn peer_disconnected(&self, peer_id: PeerId) {
+		for lib in self
+			.libraries
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.values_mut()
+		{
+			for instance in lib._get_mut().values_mut() {
+				if let PeerStatus::Connected(id) = instance {
+					if *id == peer_id {
+						*instance = PeerStatus::Unavailable;
+						return; // Will only exist once so we short circuit
+					}
+				}
+			}
+		}
+	}
+
 	pub async fn resync(
-		nlm: Arc<NetworkedLibraries>,
+		libraries: &Libraries,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		instances: Vec<RemoteIdentity>,
@@ -504,19 +624,19 @@ impl P2PManager {
 		};
 
 		for identity in identities {
-			nlm.peer_connected2(identity, peer_id).await;
+			Self::peer_connected2(libraries, identity, peer_id);
 		}
 	}
 
 	pub async fn resync_handler(
-		nlm: &NetworkedLibraries,
+		libraries: &Libraries,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,
 		remote_identities: Vec<RemoteIdentity>,
 	) {
 		for identity in remote_identities {
-			nlm.peer_connected2(identity, peer_id).await;
+			Self::peer_connected2(libraries, identity, peer_id);
 		}
 
 		stream
@@ -527,19 +647,26 @@ impl P2PManager {
 
 	// TODO: Using tunnel for security - Right now all sync events here are unencrypted
 	pub async fn resync_part2(
-		nlm: Arc<NetworkedLibraries>,
+		libraries: &Libraries,
 		node: Arc<Node>,
 		connected_with_peer_id: &PeerId,
 	) {
-		for (library_id, data) in nlm.state().await {
+		let data = libraries
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+			.map(|(k, v)| (k.clone(), v.clone()))
+			.collect::<Vec<_>>();
+
+		for (library_id, data) in data {
 			let mut library = None;
 
-			for (_, data) in data.instances {
-				let InstanceState::Connected(instance_peer_id) = data else {
+			for (_, data) in data._get() {
+				let PeerStatus::Connected(instance_peer_id) = data else {
 					continue;
 				};
 
-				if instance_peer_id != *connected_with_peer_id {
+				if *instance_peer_id != *connected_with_peer_id {
 					continue;
 				};
 
@@ -556,7 +683,7 @@ impl P2PManager {
 				};
 
 				// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-				super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+				super::sync::originator(library_id, &library.sync, &node.p2p).await;
 			}
 		}
 	}
@@ -586,6 +713,8 @@ impl P2PManager {
 	pub async fn ping(&self) {
 		self.manager.broadcast(Header::Ping.to_bytes()).await;
 	}
+
+	// TODO: Replacing `PeerId` with `ConnectedPeer2`
 
 	// TODO: Proper error handling
 	pub async fn spacedrop(
@@ -699,61 +828,6 @@ impl P2PManager {
 		});
 
 		Ok(id)
-	}
-
-	// DO NOT USE THIS WITHOUT `node.files_over_p2p_flag == true`
-	// TODO: Error handling
-	pub async fn request_file(
-		&self,
-		peer_id: PeerId,
-		library: &Library,
-		file_path_id: Uuid,
-		range: Range,
-		output: impl AsyncWrite + Unpin,
-	) {
-		let id = Uuid::new_v4();
-		let mut stream = self.manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
-
-		// TODO: Tunnel for encryption + authentication
-
-		stream
-			.write_all(
-				&Header::File {
-					id,
-					library_id: library.id,
-					file_path_id,
-					range: range.clone(),
-				}
-				.to_bytes(),
-			)
-			.await
-			.unwrap();
-
-		let block_size = BlockSize::from_stream(&mut stream).await.unwrap();
-		let size = stream.read_u64_le().await.unwrap();
-
-		Transfer::new(
-			&SpaceblockRequests {
-				id,
-				block_size,
-				requests: vec![SpaceblockRequest {
-					// TODO: Removing need for this field in this case
-					name: "todo".to_string(),
-					// TODO: Maybe removing need for `size` from this side
-					size,
-					range,
-				}],
-			},
-			|percent| {
-				debug!(
-					"P2P receiving file path '{}' - progress {}%",
-					file_path_id, percent
-				);
-			},
-			&Arc::new(AtomicBool::new(false)),
-		)
-		.receive(&mut stream, output)
-		.await;
 	}
 
 	pub async fn shutdown(&self) {

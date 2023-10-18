@@ -11,13 +11,13 @@ use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
-pub struct DiscoveredPeer<TMetadata: Metadata> {
+pub struct DiscoveredPeer<TMeta: Metadata> {
 	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+	pub(crate) manager: Arc<Manager<TMeta>>,
 	/// get the peer id of the discovered peer
 	pub peer_id: PeerId,
 	/// get the metadata of the discovered peer
-	pub metadata: TMetadata,
+	pub metadata: TMeta,
 	/// get the addresses of the discovered peer
 	pub addresses: Vec<SocketAddr>,
 }

@@ -36,7 +36,6 @@ pub(crate) struct DynamicManagerState {
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 #[derive(Debug)]
 pub struct Manager<TMetadata: Metadata> {
-	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
@@ -66,8 +65,8 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
 			.await
 			.unwrap();
+
 		let this = Arc::new(Self {
-			mdns_state,
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
@@ -103,7 +102,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 				event_stream_rx,
 				event_stream_rx2,
 				swarm,
-				mdns,
+				mdns: todo!(), // TODO: RwLock::new(Some(mdns)),
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),
@@ -122,22 +121,14 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		self.peer_id
 	}
 
+	#[deprecated]
 	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		self.mdns_state.listen_addrs.read().await.clone()
+		// self.mdns_state.listen_addrs.read().await.clone()
+		todo!();
 	}
 
 	pub async fn update_config(&self, config: ManagerConfig) {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
-	}
-
-	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
-		self.mdns_state
-			.discovered
-			.read()
-			.await
-			.values()
-			.cloned()
-			.collect()
 	}
 
 	pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, ()> {

@@ -20,8 +20,10 @@ use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId};
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
 
 /// TODO
+// TODO: `pub(crate)`???
 #[derive(Debug)]
 pub struct MdnsState<TMetadata: Metadata> {
+	// TOOD: Avoiding locks???
 	pub discovered: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
 	pub listen_addrs: RwLock<HashSet<SocketAddr>>,
 }

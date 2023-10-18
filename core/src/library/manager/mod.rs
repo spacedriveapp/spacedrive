@@ -420,7 +420,7 @@ impl Libraries {
 							InvalidateOperationEvent::all(),
 						)),
 						SyncMessage::Created => {
-							p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await
+							p2p::sync::originator(id, &library.sync, &node.p2p).await
 						}
 					}
 				}

@@ -13,8 +13,7 @@ pub struct PeerMetadata {
 	pub(super) name: String,
 	pub(super) operating_system: Option<OperatingSystem>,
 	pub(super) version: Option<String>,
-	pub(super) email: Option<String>,
-	pub(super) img_url: Option<String>,
+	// TODO: Actually remove this now
 	// TODO: Max vec length to prevent it being used to spam??
 	#[serde(skip)]
 	pub(super) instances: Vec<RemoteIdentity>,
@@ -29,12 +28,6 @@ impl Metadata for PeerMetadata {
 		}
 		if let Some(version) = self.version {
 			map.insert("version".to_owned(), version);
-		}
-		if let Some(email) = self.email {
-			map.insert("email".to_owned(), email);
-		}
-		if let Some(img_url) = self.img_url {
-			map.insert("img_url".to_owned(), img_url);
 		}
 
 		// This is not pretty but a DNS record has a max of 255 characters so we use multiple records. Be aware the MDNS library adds `i_{i}=` to the start so it counts towards the 255 length.
@@ -72,8 +65,6 @@ impl Metadata for PeerMetadata {
 				.map(|os| os.parse().map_err(|_| "Unable to parse 'OperationSystem'!"))
 				.transpose()?,
 			version: data.get("version").map(|v| v.to_owned()),
-			email: data.get("email").map(|v| v.to_owned()),
-			img_url: data.get("img_url").map(|v| v.to_owned()),
 			instances: {
 				let mut i = 0;
 				let mut instances = String::new();

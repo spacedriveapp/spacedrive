@@ -1,6 +1,7 @@
 //! Rust Peer to Peer Networking Library
 
 mod discovery;
+mod discovery2;
 mod event;
 mod manager;
 mod manager_stream;
@@ -12,6 +13,7 @@ pub mod spacetunnel;
 mod utils;
 
 pub use discovery::*;
+pub use discovery2::*;
 pub use event::*;
 pub use manager::*;
 pub use manager_stream::*;

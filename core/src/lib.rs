@@ -65,7 +65,6 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub env: env::Env,
@@ -109,7 +108,6 @@ impl Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
 			locations,
-			nlm: NetworkedLibraries::new(p2p.clone(), &libraries),
 			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
@@ -141,7 +139,7 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		node.p2p.start(p2p_stream, node.clone());
+		node.p2p.clone().start(p2p_stream, node.clone());
 
 		let router = api::mount();
 

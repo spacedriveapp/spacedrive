@@ -3,6 +3,7 @@
 #![allow(clippy::unnecessary_cast)] // Yeah they aren't necessary on this arch, but they are on others
 
 mod identity_or_remote_identity;
+pub mod operations;
 mod p2p_manager;
 mod pairing;
 mod peer_metadata;

@@ -1,11 +1,13 @@
 use std::{
 	collections::{HashMap, VecDeque},
 	fmt,
+	future::poll_fn,
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc, PoisonError,
+		Arc, PoisonError, RwLock,
 	},
+	task::Poll,
 };
 
 use libp2p::{
@@ -22,7 +24,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	DynamicManagerState, Event, Manager, ManagerConfig, Mdns, Metadata, PeerId,
+	DynamicManagerState, Event, Manager, ManagerConfig, Mdns, MdnsState, Metadata, PeerId,
 };
 
 /// TODO
@@ -78,7 +80,7 @@ pub struct ManagerStream<TMetadata: Metadata> {
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
 	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMetadata>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Mdns<TMetadata>,
+	pub(crate) mdns: Option<Mdns<TMetadata>>,
 	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
@@ -163,7 +165,13 @@ where
 			}
 
 			tokio::select! {
-				event = self.mdns.poll(&self.manager) => {
+				event = async {
+					if let Some(mdns) = &mut self.mdns {
+						mdns.poll(&self.manager).await
+					} else {
+					   pending().await
+					}
+				} => {
 					if let Some(event) = event {
 						return Some(event);
 					}
@@ -214,7 +222,8 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address added: {}", addr);
-									self.mdns.register_addr(addr).await;
+									// self.mdns.register_addr(addr).await;
+									todo!();
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -227,7 +236,8 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address expired: {}", addr);
-									self.mdns.unregister_addr(&addr).await;
+									// self.mdns.unregister_addr(&addr).await;
+									todo!();
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -242,7 +252,8 @@ where
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										trace!("listen address closed: {}", addr);
-										self.mdns.unregister_addr(&addr).await;
+										// self.mdns.unregister_addr(&addr).await;
+										todo!();
 
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
@@ -318,11 +329,26 @@ where
 					state.config = config;
 					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
 
-					drop(state);
+					if !state.config.enabled {
+						// if let Some(mdns) = self.mdns.take() {
+						// 	drop(state);
+						// 	mdns.shutdown().await;
+						// }
+					} else {
+						// if self.mdns.is_none() {
+						// 	let mdns = Mdns::new().await;
+						// 	self.mdns = Some(mdns);
+						// }
+						todo!();
+					}
+
+					// drop(state);
 				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
-					self.mdns.shutdown().await;
+					if let Some(mdns) = &self.mdns {
+						mdns.shutdown().await;
+					}
 					tx.send(()).unwrap_or_else(|_| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
@@ -336,6 +362,8 @@ where
 					if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
 						let addresses = self
 							.mdns
+							.as_mut()
+							.unwrap() // TODO: Error handling
 							.state
 							.discovered
 							.read()
@@ -379,4 +407,8 @@ where
 
 		None
 	}
+}
+
+async fn pending() -> ! {
+	poll_fn(|_| Poll::Pending).await
 }

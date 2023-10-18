@@ -206,7 +206,7 @@ impl PairingManager {
 					node.libraries.update_instances(library.clone()).await;
 
 					P2PManager::resync(
-						node.nlm.clone(),
+						&node.p2p.libraries,
 						&mut stream,
 						peer_id,
 						self.metadata_manager.get().instances,
@@ -218,7 +218,7 @@ impl PairingManager {
 					stream.flush().await.unwrap();
 
 					// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-					super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+					super::sync::originator(library_id, &library.sync, &node.p2p).await;
 				}
 				PairingResponse::Rejected => {
 					info!("Pairing '{pairing_id}' rejected by remote");
@@ -336,7 +336,7 @@ impl PairingManager {
 		};
 
 		P2PManager::resync_handler(
-			&node.nlm,
+			&node.p2p.libraries,
 			&mut stream,
 			peer_id,
 			self.metadata_manager.get().instances,
@@ -348,7 +348,7 @@ impl PairingManager {
 		stream.flush().await.unwrap();
 
 		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+		super::sync::originator(library_id, &library.sync, &node.p2p).await;
 	}
 }
 
