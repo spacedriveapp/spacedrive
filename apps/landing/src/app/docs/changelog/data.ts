@@ -12,6 +12,7 @@ export async function getReleasesCategories(): Promise<SectionMeta['categories']
 		const { frontmatter } = getReleaseFrontmatter(release);
 
 		const slug = frontmatter.category;
+		if (!slug) continue;
 
 		const category = (categories[slug] ??= {
 			title: toTitleCase(slug),
