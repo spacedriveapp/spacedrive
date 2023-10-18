@@ -10,8 +10,7 @@ use std::{
 use sd_p2p::{
 	spaceblock::{BlockSize, SpaceblockRequest, SpaceblockRequests, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
-	DiscoveredPeer, Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
-	PeerStatus, Service,
+	DiscoveredPeer, Event, Manager, ManagerError, ManagerStream, PeerId, PeerStatus, Service,
 };
 use sd_prisma::prisma::file_path;
 use tokio::{
@@ -44,7 +43,6 @@ pub struct P2PManager {
 	pub manager: Arc<Manager<PeerMetadata>>,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
-	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub pairing: Arc<PairingManager>,
 	node_config_manager: Arc<config::Manager>,
 }
@@ -65,15 +63,11 @@ impl P2PManager {
 		};
 
 		// TODO: Delay building this until the libraries are loaded
-		let metadata_manager = MetadataManager::new(config);
+		// let metadata_manager = MetadataManager::new(config);
 
-		let (manager, stream) = sd_p2p::Manager::<PeerMetadata>::new(
-			SPACEDRIVE_APP_ID,
-			&keypair,
-			manager_config,
-			metadata_manager.clone(),
-		)
-		.await?;
+		let (manager, stream) =
+			sd_p2p::Manager::<PeerMetadata>::new(SPACEDRIVE_APP_ID, &keypair, manager_config)
+				.await?;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -83,7 +77,7 @@ impl P2PManager {
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
-		let pairing = PairingManager::new(manager.clone(), tx.clone(), metadata_manager.clone());
+		let pairing = PairingManager::new(manager.clone(), tx.clone(), todo!());
 
 		Ok((
 			Arc::new(Self {
@@ -94,7 +88,6 @@ impl P2PManager {
 				manager,
 				spacedrop_pairing_reqs: Default::default(),
 				spacedrop_cancelations: Default::default(),
-				metadata_manager,
 				node_config_manager: node_config,
 			}),
 			stream,
@@ -145,18 +138,19 @@ impl P2PManager {
 
 							let this = this.clone();
 							let node = node.clone();
-							let instances = this.metadata_manager.get().instances;
+							// let instances = this.metadata_manager.get().instances;
 							tokio::spawn(async move {
 								if event.establisher {
 									let mut stream =
 										this.manager.stream(event.peer_id).await.unwrap();
-									Self::resync(
-										&this.libraries,
-										&mut stream,
-										event.peer_id,
-										instances,
-									)
-									.await;
+									// Self::resync(
+									// 	&this.libraries,
+									// 	&mut stream,
+									// 	event.peer_id,
+									// 	instances,
+									// )
+									// .await;
+									todo!();
 								}
 
 								Self::resync_part2(&this.libraries, node, &event.peer_id).await;
@@ -383,14 +377,15 @@ impl P2PManager {
 										.await;
 									}
 									Header::Connected(identities) => {
-										Self::resync_handler(
-											&this.libraries,
-											&mut stream,
-											event.peer_id,
-											this.metadata_manager.get().instances,
-											identities,
-										)
-										.await;
+										// Self::resync_handler(
+										// 	&this.libraries,
+										// 	&mut stream,
+										// 	event.peer_id,
+										// 	this.metadata_manager.get().instances,
+										// 	identities,
+										// )
+										// .await;
+										todo!();
 									}
 								}
 							});
@@ -436,10 +431,11 @@ impl P2PManager {
 
 	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
-		self.metadata_manager.update(Self::config_to_metadata(
-			&self.node_config_manager.get().await,
-			instances,
-		));
+		// self.metadata_manager.update(Self::config_to_metadata(
+		// 	&self.node_config_manager.get().await,
+		// 	instances,
+		// ));
+		todo!();
 	}
 
 	// TODO: Can this be merged with `peer_connected`???

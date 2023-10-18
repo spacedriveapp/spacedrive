@@ -1,7 +1,4 @@
-use std::{
-	collections::HashMap,
-	sync::{mpsc, Arc},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
 	spacetime::UnicastStream,

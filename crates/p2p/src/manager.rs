@@ -20,8 +20,8 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
-	MdnsState, Metadata, MetadataManager, PeerId,
+	Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns, Metadata,
+	MetadataManager, PeerId,
 };
 
 // State of the manager that may infrequently change
@@ -50,7 +50,6 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		application_name: &'static str,
 		keypair: &Keypair,
 		config: ManagerConfig,
-		metadata_manager: Arc<MetadataManager<TMeta>>,
 	) -> Result<(Arc<Self>, ManagerStream<TMeta>), ManagerError> {
 		application_name
 			.chars()
@@ -62,9 +61,10 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
-		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
-			.await
-			.unwrap();
+		// TODO
+		// let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
+		// 	.await
+		// 	.unwrap();
 
 		let this = Arc::new(Self {
 			application_name: format!("/{}/spacetime/1.0.0", application_name),

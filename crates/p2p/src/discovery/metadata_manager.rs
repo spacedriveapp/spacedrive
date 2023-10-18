@@ -8,6 +8,7 @@ use crate::Metadata;
 
 /// is a wrapper around `ArcSwap` and provides an API for the application to update the metadata about the current device.
 /// This wrapper exists to ensure we ask the MDNS service to re-advertise the new metadata on change.
+#[deprecated]
 pub struct MetadataManager<TMeta: Metadata>(
 	ArcSwap<TMeta>,
 	// Starts out `None` cause this is constructed in userspace but when passed into `Manager::new` this will be set.
