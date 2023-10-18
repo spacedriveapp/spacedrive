@@ -77,7 +77,10 @@ const Layout = () => {
 					os === 'macOS' && 'has-blur-effects',
 
 					// essentially "if not fullscreen". the borders are still round without this, they just don't look smooth
-					os === 'macOS' && showControls.isEnabled && 'rounded-[10px]',
+
+					// FIXME: if the window is fully maximized (with the green traffic light), only on macos, this needs disabling
+					// otherwise the corners are missing lol
+					// os === 'macOS' && isfulymaximized && 'rounded-[10px]',
 
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
