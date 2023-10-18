@@ -15,14 +15,17 @@ pub(crate) fn get_menu() -> Menu {
 
 // update this whenever you add something which requires a valid library to use
 #[cfg(target_os = "macos")]
-const LIBRARY_LOCKED_MENU_IDS: [&str; 8] = [
-	"open_settings",
+const LIBRARY_LOCKED_MENU_IDS: [&str; 11] = [
 	"new_window",
+	"open_overview",
 	"open_search",
-	"layout",
+	"open_settings",
+	"reload_explorer",
+	"layout_grid",
+	"layout_list",
 	"new_file",
-	"new_file",
-	"new_library,",
+	"new_directory",
+	"new_library",
 	"add_location",
 ];
 
@@ -77,6 +80,7 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("select_all", "Select all").accelerator("CmdOrCtrl+A"));
 
 	let view_menu = Menu::new()
+		.add_item(CustomMenuItem::new("open_overview", "Overview").accelerator("CmdOrCtrl+."))
 		.add_item(CustomMenuItem::new("open_search", "Search").accelerator("CmdOrCtrl+F"))
 		.add_item(CustomMenuItem::new("open_settings", "Settings").accelerator("CmdOrCtrl+Comma"))
 		.add_item(
@@ -108,6 +112,7 @@ fn custom_menu_bar() -> Menu {
 				.disabled(),
 		)
 		.add_item(CustomMenuItem::new("close_window", "Close Window").accelerator("CmdOrCtrl+W"))
+		.add_native_item(MenuItem::EnterFullScreen)
 		.add_native_item(MenuItem::Separator)
 		.add_item(
 			CustomMenuItem::new("reload_app", "Reload Webview")
