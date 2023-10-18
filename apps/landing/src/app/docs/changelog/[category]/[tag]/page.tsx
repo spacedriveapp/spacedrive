@@ -14,7 +14,7 @@ interface Props {
 export async function generateStaticParams(): Promise<Array<Props['params']>> {
 	const categories = await getReleasesCategories();
 
-	console.log(JSON.stringify(categories));
+	console.error(JSON.stringify(categories));
 
 	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
 }
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function Page({ params }: Props) {
-	console.log(params);
+	console.error(params);
 	const release = await githubFetch(getRelease(params.tag));
 
 	const { code } = await bundleMDX({ source: processComments(release.body ?? '') });
