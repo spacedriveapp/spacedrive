@@ -32,17 +32,17 @@ pub enum OutboundFailure {}
 
 /// SpaceTime is a [`NetworkBehaviour`](libp2p_swarm::NetworkBehaviour) that implements the SpaceTime protocol.
 /// This protocol sits under the application to abstract many complexities of 2 way connections and deals with authentication, chucking, etc.
-pub struct SpaceTime<TMetadata: Metadata> {
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+pub struct SpaceTime<TMeta: Metadata> {
+	pub(crate) manager: Arc<Manager<TMeta>>,
 	pub(crate) pending_events:
 		VecDeque<ToSwarm<<Self as NetworkBehaviour>::ToSwarm, THandlerInEvent<Self>>>,
 	// For future me's sake, DON't try and refactor this to use shared state (for the nth time), it doesn't fit into libp2p's synchronous trait and polling model!!!
 	// pub(crate) connected_peers: HashMap<PeerId, ConnectedPeer>,
 }
 
-impl<TMetadata: Metadata> SpaceTime<TMetadata> {
+impl<TMeta: Metadata> SpaceTime<TMeta> {
 	/// intialise the fabric of space time
-	pub fn new(manager: Arc<Manager<TMetadata>>) -> Self {
+	pub fn new(manager: Arc<Manager<TMeta>>) -> Self {
 		Self {
 			manager,
 			pending_events: VecDeque::new(),
@@ -51,9 +51,9 @@ impl<TMetadata: Metadata> SpaceTime<TMetadata> {
 	}
 }
 
-impl<TMetadata: Metadata> NetworkBehaviour for SpaceTime<TMetadata> {
-	type ConnectionHandler = SpaceTimeConnection<TMetadata>;
-	type ToSwarm = ManagerStreamAction2<TMetadata>;
+impl<TMeta: Metadata> NetworkBehaviour for SpaceTime<TMeta> {
+	type ConnectionHandler = SpaceTimeConnection<TMeta>;
+	type ToSwarm = ManagerStreamAction2<TMeta>;
 
 	fn handle_established_inbound_connection(
 		&mut self,

@@ -29,31 +29,31 @@ pub struct MdnsState<TMetadata: Metadata> {
 }
 
 /// TODO
-pub struct Mdns<TMetadata>
+pub struct Mdns<TMeta>
 where
-	TMetadata: Metadata,
+	TMeta: Metadata,
 {
 	// used to ignore events from our own mdns advertisement
 	peer_id: PeerId,
-	metadata_manager: Arc<MetadataManager<TMetadata>>,
+	metadata_manager: Arc<MetadataManager<TMeta>>,
 	mdns_daemon: ServiceDaemon,
 	mdns_service_receiver: flume::Receiver<ServiceEvent>,
 	service_name: String,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 	next_allowed_discovery_advertisement: Instant,
 	trigger_advertisement: mpsc::UnboundedReceiver<()>,
-	pub(crate) state: Arc<MdnsState<TMetadata>>,
+	pub(crate) state: Arc<MdnsState<TMeta>>,
 }
 
-impl<TMetadata> Mdns<TMetadata>
+impl<TMeta> Mdns<TMeta>
 where
-	TMetadata: Metadata,
+	TMeta: Metadata,
 {
 	pub async fn new(
 		application_name: &'static str,
 		peer_id: PeerId,
-		metadata_manager: Arc<MetadataManager<TMetadata>>,
-	) -> Result<(Self, Arc<MdnsState<TMetadata>>), mdns_sd::Error> {
+		metadata_manager: Arc<MetadataManager<TMeta>>,
+	) -> Result<(Self, Arc<MdnsState<TMeta>>), mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
 		let service_name = format!("_{}._udp.local.", application_name);
 		let mdns_service_receiver = mdns_daemon.browse(&service_name)?;
@@ -138,7 +138,7 @@ where
 	}
 
 	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
-	pub async fn poll(&mut self, manager: &Arc<Manager<TMetadata>>) -> Option<Event<TMetadata>> {
+	pub async fn poll(&mut self, manager: &Arc<Manager<TMeta>>) -> Option<Event<TMeta>> {
 		tokio::select! {
 			_ = &mut self.next_mdns_advertisement => self.advertise().await,
 			_ = self.trigger_advertisement.recv() => self.advertise().await,
@@ -159,7 +159,7 @@ where
 									return None;
 								}
 
-								match TMetadata::from_hashmap(
+								match TMeta::from_hashmap(
 									&peer_id,
 									&info
 										.get_properties()

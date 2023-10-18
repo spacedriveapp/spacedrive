@@ -8,8 +8,8 @@ use crate::Metadata;
 
 /// is a wrapper around `ArcSwap` and provides an API for the application to update the metadata about the current device.
 /// This wrapper exists to ensure we ask the MDNS service to re-advertise the new metadata on change.
-pub struct MetadataManager<TMetadata: Metadata>(
-	ArcSwap<TMetadata>,
+pub struct MetadataManager<TMeta: Metadata>(
+	ArcSwap<TMeta>,
 	// Starts out `None` cause this is constructed in userspace but when passed into `Manager::new` this will be set.
 	OnceCell<mpsc::UnboundedSender<()>>,
 );
@@ -22,8 +22,8 @@ impl<TMetdata: Metadata + fmt::Debug> fmt::Debug for MetadataManager<TMetdata> {
 	}
 }
 
-impl<TMetadata: Metadata> MetadataManager<TMetadata> {
-	pub fn new(metadata: TMetadata) -> Arc<Self> {
+impl<TMeta: Metadata> MetadataManager<TMeta> {
+	pub fn new(metadata: TMeta) -> Arc<Self> {
 		Arc::new(Self(ArcSwap::new(Arc::new(metadata)), OnceCell::default()))
 	}
 
@@ -32,12 +32,12 @@ impl<TMetadata: Metadata> MetadataManager<TMetadata> {
 	}
 
 	/// Returns a copy of the current metadata
-	pub fn get(&self) -> TMetadata {
-		TMetadata::clone(&self.0.load())
+	pub fn get(&self) -> TMeta {
+		TMeta::clone(&self.0.load())
 	}
 
 	/// Updates the metadata and asks the MDNS service to re-advertise the new metadata
-	pub fn update(&self, metadata: TMetadata) {
+	pub fn update(&self, metadata: TMeta) {
 		self.0.store(Arc::new(metadata));
 		if let Some(chan) = self.1.get() {
 			chan.send(())

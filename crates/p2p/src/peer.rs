@@ -23,7 +23,7 @@ pub struct DiscoveredPeer<TMeta: Metadata> {
 }
 
 // `Manager` impls `Debug` but it causes infinite loop and stack overflow, lmao.
-impl<TMetadata: Metadata> fmt::Debug for DiscoveredPeer<TMetadata> {
+impl<TMeta: Metadata> fmt::Debug for DiscoveredPeer<TMeta> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("DiscoveredPeer")
 			.field("peer_id", &self.peer_id)
@@ -33,7 +33,7 @@ impl<TMetadata: Metadata> fmt::Debug for DiscoveredPeer<TMetadata> {
 	}
 }
 
-impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
+impl<TMeta: Metadata> DiscoveredPeer<TMeta> {
 	/// dial will queue an event to start a connection with the peer
 	pub async fn dial(self) {
 		self.manager

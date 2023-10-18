@@ -49,9 +49,9 @@ pub enum ManagerStreamAction {
 /// TODO: Get ride of this and merge into `ManagerStreamAction` without breaking rspc procedures
 ///
 /// This is `!Sync` so can't be used from within rspc.
-pub enum ManagerStreamAction2<TMetadata: Metadata> {
+pub enum ManagerStreamAction2<TMeta: Metadata> {
 	/// Events are returned to the application via the `ManagerStream::next` method.
-	Event(Event<TMetadata>),
+	Event(Event<TMeta>),
 	/// TODO
 	StartStream(PeerId, oneshot::Sender<UnicastStream>),
 }
@@ -62,35 +62,35 @@ impl fmt::Debug for ManagerStreamAction {
 	}
 }
 
-impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction2<TMetadata> {
+impl<TMeta: Metadata> fmt::Debug for ManagerStreamAction2<TMeta> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.write_str("ManagerStreamAction2")
 	}
 }
 
-impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction2<TMetadata> {
-	fn from(event: Event<TMetadata>) -> Self {
+impl<TMeta: Metadata> From<Event<TMeta>> for ManagerStreamAction2<TMeta> {
+	fn from(event: Event<TMeta>) -> Self {
 		Self::Event(event)
 	}
 }
 
 /// TODO
-pub struct ManagerStream<TMetadata: Metadata> {
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+pub struct ManagerStream<TMeta: Metadata> {
+	pub(crate) manager: Arc<Manager<TMeta>>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
-	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMetadata>>,
-	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Option<Mdns<TMetadata>>,
-	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
+	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMeta>>,
+	pub(crate) swarm: Swarm<SpaceTime<TMeta>>,
+	pub(crate) mdns: Option<Mdns<TMeta>>,
+	pub(crate) queued_events: VecDeque<Event<TMeta>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
 }
 
-impl<TMetadata: Metadata> ManagerStream<TMetadata> {
+impl<TMeta: Metadata> ManagerStream<TMeta> {
 	/// Setup the libp2p listeners based on the manager config.
 	/// This method will take care of removing old listeners if needed
 	pub(crate) fn refresh_listeners(
-		swarm: &mut Swarm<SpaceTime<TMetadata>>,
+		swarm: &mut Swarm<SpaceTime<TMeta>>,
 		state: &mut DynamicManagerState,
 	) {
 		if state.config.enabled {
@@ -129,31 +129,29 @@ impl<TMetadata: Metadata> ManagerStream<TMetadata> {
 	}
 }
 
-enum EitherManagerStreamAction<TMetadata: Metadata> {
+enum EitherManagerStreamAction<TMeta: Metadata> {
 	A(ManagerStreamAction),
-	B(ManagerStreamAction2<TMetadata>),
+	B(ManagerStreamAction2<TMeta>),
 }
 
-impl<TMetadata: Metadata> From<ManagerStreamAction> for EitherManagerStreamAction<TMetadata> {
+impl<TMeta: Metadata> From<ManagerStreamAction> for EitherManagerStreamAction<TMeta> {
 	fn from(event: ManagerStreamAction) -> Self {
 		Self::A(event)
 	}
 }
 
-impl<TMetadata: Metadata> From<ManagerStreamAction2<TMetadata>>
-	for EitherManagerStreamAction<TMetadata>
-{
-	fn from(event: ManagerStreamAction2<TMetadata>) -> Self {
+impl<TMeta: Metadata> From<ManagerStreamAction2<TMeta>> for EitherManagerStreamAction<TMeta> {
+	fn from(event: ManagerStreamAction2<TMeta>) -> Self {
 		Self::B(event)
 	}
 }
 
-impl<TMetadata> ManagerStream<TMetadata>
+impl<TMeta> ManagerStream<TMeta>
 where
-	TMetadata: Metadata,
+	TMeta: Metadata,
 {
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
-	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
+	pub async fn next(&mut self) -> Option<Event<TMeta>> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
 			if self.shutdown.load(Ordering::Relaxed) {
@@ -276,8 +274,8 @@ where
 
 	async fn handle_manager_stream_action(
 		&mut self,
-		event: EitherManagerStreamAction<TMetadata>,
-	) -> Option<Event<TMetadata>> {
+		event: EitherManagerStreamAction<TMeta>,
+	) -> Option<Event<TMeta>> {
 		match event {
 			EitherManagerStreamAction::A(event) => match event {
 				ManagerStreamAction::GetConnectedPeers(response) => {
