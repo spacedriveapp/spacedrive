@@ -237,10 +237,7 @@ impl SpacedriveLocationMetadataFile {
 		}
 	}
 
-	pub fn location_pub_id(
-		&self,
-		library_id: LibraryId,
-	) -> Result<Uuid, LocationMetadataError> {
+	pub fn location_pub_id(&self, library_id: LibraryId) -> Result<Uuid, LocationMetadataError> {
 		self.metadata
 			.libraries
 			.get(&library_id)
