@@ -49,7 +49,6 @@
 		"remark-gfm": "^3.0.1",
 		"remark-math": "^5.1.1",
 		"sharp": "^0.32.1",
-		"slack-edge": "^0.4.0",
 		"tailwind-merge": "^1.14.0",
 		"three": "^0.153.0",
 		"tsparticles": "^2.9.3",

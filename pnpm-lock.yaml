@@ -265,9 +265,6 @@ importers:
       sharp:
         specifier: ^0.32.1
         version: 0.32.6
-      slack-edge:
-        specifier: ^0.4.0
-        version: 0.4.0
       tailwind-merge:
         specifier: ^1.14.0
         version: 1.14.0
@@ -21075,16 +21072,6 @@ packages:
 
   /sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
-
-  /slack-edge@0.4.0:
-    resolution: {integrity: sha512-8KYYU17/nFPlMLI1AatLHn7VFdvIuEzJZ9Zl/oQRoB4lyslKaSZsj0DpAmUENuHdaGW2WVT2LBKTZ25JbsVWLg==}
-    dependencies:
-      slack-web-api-client: 0.4.5
-    dev: false
-
-  /slack-web-api-client@0.4.5:
-    resolution: {integrity: sha512-ANfS59n8/WcZW5YJWavIYtiI7IvhOhbjFOa7W37tUp4wu3Cn2hKwG4+6CLKyY/YogOzxBIvSYJCQQP6h1DAzcg==}
-    dev: false
 
   /slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
