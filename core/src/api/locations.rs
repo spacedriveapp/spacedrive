@@ -15,7 +15,7 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use directories::UserDirs;
@@ -60,13 +60,35 @@ pub enum ExplorerItem {
 }
 #[derive(Serialize, Type, Debug)]
 pub struct SystemLocations {
-	desktop: Option<String>,
-	documents: Option<String>,
-	downloads: Option<String>,
-	pictures: Option<String>,
-	music: Option<String>,
-	movies: Option<String>,
-	videos: Option<String>,
+	desktop: Option<PathBuf>,
+	documents: Option<PathBuf>,
+	downloads: Option<PathBuf>,
+	pictures: Option<PathBuf>,
+	music: Option<PathBuf>,
+	movies: Option<PathBuf>,
+	videos: Option<PathBuf>,
+}
+
+impl From<UserDirs> for SystemLocations {
+	fn from(value: UserDirs) -> Self {
+		Self {
+			desktop: value.desktop_dir().map(Path::to_path_buf),
+			documents: value.document_dir().map(Path::to_path_buf),
+			downloads: value.download_dir().map(Path::to_path_buf),
+			pictures: value.picture_dir().map(Path::to_path_buf),
+			music: value.audio_dir().map(Path::to_path_buf),
+			movies: if cfg!(target_os = "macos") {
+				value.video_dir().map(Path::to_path_buf)
+			} else {
+				None
+			},
+			videos: if cfg!(not(target_os = "macos")) {
+				value.video_dir().map(Path::to_path_buf)
+			} else {
+				None
+			},
+		}
+	}
 }
 
 impl ExplorerItem {
@@ -379,50 +401,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure("systemLocations", {
 			R.query(|_, _: ()| async move {
-				if let Some(user_dirs) = UserDirs::new() {
-					let mut locations = SystemLocations {
-						desktop: user_dirs
-							.desktop_dir()
-							.map(|p| p.to_string_lossy().to_string()),
-						documents: user_dirs
-							.document_dir()
-							.map(|p| p.to_string_lossy().to_string()),
-						downloads: user_dirs
-							.download_dir()
-							.map(|p| p.to_string_lossy().to_string()),
-						pictures: user_dirs
-							.picture_dir()
-							.map(|p| p.to_string_lossy().to_string()),
-						music: user_dirs
-							.audio_dir()
-							.map(|p| p.to_string_lossy().to_string()),
-						movies: None,
-						videos: None,
-					};
-
-					let video_dir_path = user_dirs
-						.video_dir()
-						.map(|p| p.to_string_lossy().to_string());
-
-					locations.movies = if cfg!(target_os = "macos") {
-						video_dir_path.clone()
-					} else {
-						None
-					};
-
-					locations.videos = if cfg!(not(target_os = "macos")) {
-						video_dir_path.clone()
-					} else {
-						None
-					};
-
-					return Ok(locations);
-				}
-
-				Err(rspc::Error::new(
-					ErrorCode::NotFound,
-					"Didn't find any system locations".to_string(),
-				))
+				UserDirs::new().map(SystemLocations::from).ok_or_else(|| {
+					rspc::Error::new(
+						ErrorCode::NotFound,
+						"Didn't find any system locations".to_string(),
+					)
+				})
 			})
 		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
@@ -526,23 +510,4 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
-	// .procedure("createDirectory", {
-	// 	#[derive(Type, Deserialize)]
-	// 	struct CreateDirectoryArgs {
-	// 		location_id: location::id::Type,
-	// 		subpath: String,
-	// 	}
-	// 	R.with2(library())
-	// 		.query(|(_, library), args: CreateDirectoryArgs| async move {
-	// 			let location = find_location(&library, args.location_id)
-	// 				.exec()
-	// 				.await?
-	// 				.ok_or(LocationError::IdNotFound(args.location_id))?;
-
-	// 			let mut path = Path::new(&location.path.unwrap_or_default());
-	// 			path.push(args.subpath);
-
-	// 			Ok(())
-	// 		})
-	// })
 }

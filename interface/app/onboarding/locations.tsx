@@ -91,10 +91,11 @@ export default function OnboardingLocations() {
 								if (typeof value !== 'boolean') return;
 
 								form.reset({
-									locations: Object.values(systemLocations ?? {}).reduce(
-										(paths, path) =>
-											path ? { ...paths, [path]: value } : paths,
-										{} as Record<string, boolean>
+									locations: Object.fromEntries(
+										Object.entries(systemLocations).map(([key, value]) => [
+											key,
+											Boolean(value)
+										])
 									)
 								});
 							}}
@@ -110,7 +111,7 @@ export default function OnboardingLocations() {
 										<Controller
 											key={location}
 											control={form.control}
-											name={`locations.${systemLocations[location]}`}
+											name={`locations.${location}`}
 											render={({ field }) => (
 												<label
 													htmlFor={field.name}
@@ -150,7 +151,7 @@ export default function OnboardingLocations() {
 						</div>
 					</div>
 				)}
-
+				{/* TODO: Form error handling */}
 				<Button type="submit" className="text-center" variant="accent" size="sm">
 					Continue
 				</Button>

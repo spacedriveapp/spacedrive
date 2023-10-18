@@ -146,9 +146,11 @@ export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName; locations?: string[] }
+export type CreateLibraryArgs = { name: LibraryName; default_locations?: DefaultLocations }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
+export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; movies: boolean; videos: boolean }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 

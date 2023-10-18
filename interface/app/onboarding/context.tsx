@@ -53,7 +53,15 @@ const schemas = {
 		name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 	}),
 	'locations': z.object({
-		locations: z.record(z.boolean())
+		locations: z.object({
+			desktop: z.coerce.boolean(),
+			documents: z.coerce.boolean(),
+			downloads: z.coerce.boolean(),
+			pictures: z.coerce.boolean(),
+			music: z.coerce.boolean(),
+			movies: z.coerce.boolean(),
+			videos: z.coerce.boolean()
+		})
 	}),
 	'privacy': z.object({
 		shareTelemetry: shareTelemetry.schema
@@ -100,9 +108,7 @@ const useFormState = () => {
 				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data['new-library'].name,
-						locations: Object.keys(data.locations.locations).filter(
-							(key) => data.locations.locations[key]
-						)
+						default_locations: data.locations.locations
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
