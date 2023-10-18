@@ -1,4 +1,4 @@
-use sd_p2p::Keypair;
+use sd_p2p::{Keypair, ManagerConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
@@ -24,20 +24,19 @@ pub struct NodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	/// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
-	pub p2p_port: Option<u32>,
 	/// core level notifications
 	#[serde(default)]
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	pub keypair: Keypair,
+	/// P2P config
+	#[serde(default)]
+	pub p2p: ManagerConfig,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
-	// TODO: These will probs be replaced by your Spacedrive account in the near future.
-	pub p2p_email: Option<String>,
-	pub p2p_img_url: Option<String>,
+	/// Authentication for Spacedrive Accounts
 	pub auth_token: Option<OAuthToken>,
 }
 
@@ -58,11 +57,9 @@ impl Migrate for NodeConfig {
 					"my-spacedrive".into()
 				}
 			},
-			p2p_port: None,
 			keypair: Keypair::generate(),
+			p2p: Default::default(),
 			features: vec![],
-			p2p_email: None,
-			p2p_img_url: None,
 			notifications: vec![],
 			auth_token: None,
 		})
@@ -92,11 +89,9 @@ impl Default for NodeConfig {
 					"my-spacedrive".into()
 				}
 			},
-			p2p_port: None,
-			features: vec![],
 			keypair: Keypair::generate(),
-			p2p_email: None,
-			p2p_img_url: None,
+			p2p: Default::default(),
+			features: vec![],
 			notifications: vec![],
 			auth_token: None,
 		}

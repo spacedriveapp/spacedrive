@@ -1,12 +1,15 @@
 import { Laptop } from '@sd/assets/icons';
+import { useWatch } from 'react-hook-form';
 import {
 	getDebugState,
 	useBridgeMutation,
 	useBridgeQuery,
+	useConnectedPeers,
 	useDebugState,
+	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Switch, tw, z } from '@sd/ui';
+import { Button, Card, Input, InputField, Switch, SwitchField, tw, z } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -17,28 +20,42 @@ import { SpacedriveAccount } from './SpacedriveAccount';
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
+// https://doc.rust-lang.org/std/u16/index.html
+const u16 = z.number().min(0).max(65_535);
+
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
+	const p2pSettingsEnabled = useFeatureFlag('p2pSettings');
+	const connectedPeers = useConnectedPeers();
 
 	const form = useZodForm({
 		schema: z.object({
-			name: z.string().min(1)
+			name: z.string().min(1).optional(),
+			p2p_enabled: z.boolean().optional(),
+			p2p_port: u16.optional().nullish()
 		}),
 		defaultValues: {
-			name: node.data?.name || ''
+			name: node.data?.name,
+			p2p_enabled: node.data?.p2p_enabled,
+			p2p_port: node.data?.p2p_port
 		}
 	});
 
 	useDebouncedFormWatch(form, async (value) => {
 		await editNode.mutateAsync({
-			name: value.name || null
+			name: value.name || null,
+			p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
+			// @ts-expect-error: Specta can't properly express this type. - https://github.com/oscartbeaumont/specta/issues/157
+			p2p_port: value.p2p_port
 		});
 
 		node.refetch();
 	});
+
+	console.log(node.data); // TODO: remove
 
 	return (
 		<>
@@ -50,10 +67,14 @@ export const Component = () => {
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
-						<span className="font-semibold">Connected Node</span>
+						<span className="font-semibold">Local Node</span>
 						<div className="flex flex-row space-x-1">
-							<NodePill>0 Peers</NodePill>
-							<NodePill className="!bg-accent text-white">Running</NodePill>
+							<NodePill>{connectedPeers.size} Peers</NodePill>
+							{node.data?.p2p_enabled === true ? (
+								<NodePill className="!bg-accent text-white">Running</NodePill>
+							) : (
+								<NodePill className="text-white">Disabled</NodePill>
+							)}
 						</div>
 					</div>
 
@@ -68,16 +89,6 @@ export const Component = () => {
 								defaultValue={node.data?.name}
 							/>
 						</div>
-						{/* <div className="flex flex-col">
-							<NodeSettingLabel>Node Port</NodeSettingLabel>
-							<Input
-								contentEditable={false}
-								value={node.data?.p2p_port || 5795}
-								onChange={() => {
-									alert('TODO');
-								}}
-							/>
-						</div> */}
 					</div>
 
 					<div className="mt-6 gap-2">
@@ -149,6 +160,46 @@ export const Component = () => {
 					onClick={() => (getDebugState().enabled = !debugState.enabled)}
 				/>
 			</Setting>
+			{p2pSettingsEnabled && (
+				<div className="flex flex-col gap-4">
+					<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
+
+					<Setting
+						mini
+						title="Enable Networking"
+						description={
+							<>
+								<p className="text-sm text-gray-400">
+									Allow your node to communicate with other Spacedrive nodes
+									around you
+								</p>
+								<p className="mb-2 text-sm text-gray-400">
+									<span className="font-bold">Required</span> for library sync or
+									Spacedrop!
+								</p>
+							</>
+						}
+					>
+						{/* TODO: Switch doesn't handle optional fields correctly */}
+						<Switch
+							size="md"
+							checked={form.watch('p2p_enabled') || false}
+							onClick={() =>
+								form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))
+							}
+						/>
+					</Setting>
+					{/* TODO: Input field doesn't handle optional or nullable correctly */}
+					{/* TODO: How should we express `Option<u16>`. Maybe a dropdown with a "Default" and input field in it? */}
+					{/* <Setting
+						mini
+						title="Networking Port"
+						description="The port for Spacedrive's Peer-to-peer networking to communicate on\nYou should leave this disabled unless you have a restictive firewall.\nDo not expose to the internet! "
+					>
+						<InputField {...form.register('p2p_port')} />
+					</Setting> */}
+				</div>
+			)}
 		</>
 	);
 };
