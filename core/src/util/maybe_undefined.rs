@@ -27,9 +27,9 @@ impl<T> MaybeUndefined<T> {
 	}
 }
 
-impl<T> Into<Option<Option<T>>> for MaybeUndefined<T> {
-	fn into(self) -> Option<Option<T>> {
-		match self {
+impl<T> From<MaybeUndefined<T>> for Option<Option<T>> {
+	fn from(v: MaybeUndefined<T>) -> Option<Option<T>> {
+		match v {
 			MaybeUndefined::Undefined => None,
 			MaybeUndefined::Null => Some(None),
 			MaybeUndefined::Value(v) => Some(Some(v)),

@@ -94,7 +94,7 @@ impl<TMetadata: Metadata> ManagerStream<TMetadata> {
 		if state.config.enabled {
 			let port = state.config.port.unwrap_or(0);
 
-			if let None = state.ipv4_listener_id {
+			if state.ipv4_listener_id.is_none() {
 				{
 					let listener_id = swarm
 		               .listen_on(format!("/ip4/0.0.0.0/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
@@ -104,7 +104,7 @@ impl<TMetadata: Metadata> ManagerStream<TMetadata> {
 				}
 			}
 
-			if let None = state.ipv6_listener_id {
+			if state.ipv6_listener_id.is_none() {
 				{
 					let listener_id = swarm
 		               .listen_on(format!("/ip6/::/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
