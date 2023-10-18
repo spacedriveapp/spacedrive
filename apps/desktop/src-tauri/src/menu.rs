@@ -39,12 +39,7 @@ fn custom_menu_bar() -> Menu {
 				.website_label("Spacedrive.com"),
 		))
 		.add_native_item(MenuItem::Separator)
-		.add_item(
-			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
-		)
-		.add_item(
-			CustomMenuItem::new("open_settings", "Settings...").accelerator("CmdOrCtrl+Comma"),
-		)
+		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Services)
 		.add_native_item(MenuItem::Separator)
@@ -65,17 +60,36 @@ fn custom_menu_bar() -> Menu {
 				.accelerator("CmdOrCtrl+D")
 				.disabled(), // TODO(brxken128): add keybind handling here
 		)
-		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
 		.add_item(CustomMenuItem::new("add_location", "Add Location").disabled()); // TODO(brxken128): add keybind handling here;
 
 	let edit_menu = Menu::new()
+		.add_item(
+			CustomMenuItem::new("undo", "Undo")
+				.accelerator("CmdOrCtrl+Z")
+				.disabled(),
+		)
+		.add_item(
+			CustomMenuItem::new("redo", "Redo")
+				.accelerator("CmdOrCtrl+Shift+Z")
+				.disabled(),
+		)
+		.add_native_item(MenuItem::Separator)
 		.add_item(CustomMenuItem::new("copy", "Copy").accelerator("CmdOrCtrl+C"))
 		.add_item(CustomMenuItem::new("paste", "Paste").accelerator("CmdOrCtrl+V"))
 		.add_item(CustomMenuItem::new("select_all", "Select all").accelerator("CmdOrCtrl+A"));
 
 	let view_menu = Menu::new()
-		.add_item(CustomMenuItem::new("open_search", "Search...").accelerator("CmdOrCtrl+F"))
-		.add_item(CustomMenuItem::new("layout", "Layout").disabled());
+		.add_item(CustomMenuItem::new("open_search", "Search").accelerator("CmdOrCtrl+F"))
+		.add_item(CustomMenuItem::new("open_settings", "Settings").accelerator("CmdOrCtrl+Comma"))
+		.add_item(
+			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
+		)
+		.add_submenu(Submenu::new(
+			"Layout",
+			Menu::new()
+				.add_item(CustomMenuItem::new("layout_grid", "Grid (Default)").disabled())
+				.add_item(CustomMenuItem::new("layout_list", "List").disabled()),
+		));
 	// .add_item(
 	// 	CustomMenuItem::new("command_pallete", "Command Pallete")
 	// 		.accelerator("CmdOrCtrl+P"),
@@ -89,6 +103,7 @@ fn custom_menu_bar() -> Menu {
 
 	let window_menu = Menu::new()
 		.add_native_item(MenuItem::EnterFullScreen)
+		.add_native_item(MenuItem::Services)
 		.add_item(
 			CustomMenuItem::new("new_window", "New Window")
 				.accelerator("CmdOrCtrl+Shift+N")
