@@ -15,19 +15,35 @@ pub(crate) fn get_menu() -> Menu {
 
 // update this whenever you add something which requires a valid library to use
 #[cfg(target_os = "macos")]
-const LIBRARY_LOCKED_MENU_IDS: [&str; 7] = ["open_settings", "new_window", "open_search", "layout"];
+const LIBRARY_LOCKED_MENU_IDS: [&str; 8] = [
+	"open_settings",
+	"new_window",
+	"open_search",
+	"layout",
+	"new_file",
+	"new_file",
+	"new_library,",
+	"add_location",
+];
 
 #[cfg(target_os = "macos")]
 fn custom_menu_bar() -> Menu {
 	let app_menu = Menu::new()
 		.add_native_item(MenuItem::About(
 			"Spacedrive".to_string(),
-			AboutMetadata::new(),
-		)) // TODO: fill out about metadata
+			AboutMetadata::new()
+				.authors(vec!["Spacedrive Technology Inc.".to_string()])
+				.license("AGPL-3.0-only")
+				.version(env!("CARGO_PKG_VERSION"))
+				.website("https://spacedrive.com/")
+				.website_label("Spacedrive.com"),
+		))
 		.add_native_item(MenuItem::Separator)
 		.add_item(
-			CustomMenuItem::new("open_settings".to_string(), "Settings...")
-				.accelerator("CmdOrCtrl+Comma"),
+			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
+		)
+		.add_item(
+			CustomMenuItem::new("open_settings", "Settings...").accelerator("CmdOrCtrl+Comma"),
 		)
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Services)
@@ -40,46 +56,50 @@ fn custom_menu_bar() -> Menu {
 
 	let file_menu = Menu::new()
 		.add_item(
-			CustomMenuItem::new("new_window".to_string(), "New Window")
+			CustomMenuItem::new("new_file", "New File")
 				.accelerator("CmdOrCtrl+N")
-				.disabled(),
+				.disabled(), // TODO(brxken128): add keybind handling here
 		)
 		.add_item(
-			CustomMenuItem::new("close".to_string(), "Close Window").accelerator("CmdOrCtrl+W"),
-		);
+			CustomMenuItem::new("new_directory", "New Directory")
+				.accelerator("CmdOrCtrl+D")
+				.disabled(), // TODO(brxken128): add keybind handling here
+		)
+		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
+		.add_item(CustomMenuItem::new("add_location", "Add Location").disabled()); // TODO(brxken128): add keybind handling here;
 
 	let edit_menu = Menu::new()
-		.add_item(CustomMenuItem::new("copy".to_string(), "Copy").accelerator("CmdOrCtrl+C"))
-		.add_item(CustomMenuItem::new("paste".to_string(), "Paste").accelerator("CmdOrCtrl+V"))
-		.add_item(
-			CustomMenuItem::new("select_all".to_string(), "Select all").accelerator("CmdOrCtrl+A"),
-		);
+		.add_item(CustomMenuItem::new("copy", "Copy").accelerator("CmdOrCtrl+C"))
+		.add_item(CustomMenuItem::new("paste", "Paste").accelerator("CmdOrCtrl+V"))
+		.add_item(CustomMenuItem::new("select_all", "Select all").accelerator("CmdOrCtrl+A"));
 
 	let view_menu = Menu::new()
-		.add_item(
-			CustomMenuItem::new("open_search".to_string(), "Search...").accelerator("CmdOrCtrl+F"),
-		)
-		// .add_item(
-		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
-		// 		.accelerator("CmdOrCtrl+P"),
-		// )
-		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
-
-	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
+		.add_item(CustomMenuItem::new("open_search", "Search...").accelerator("CmdOrCtrl+F"))
+		.add_item(CustomMenuItem::new("layout", "Layout").disabled());
+	// .add_item(
+	// 	CustomMenuItem::new("command_pallete", "Command Pallete")
+	// 		.accelerator("CmdOrCtrl+P"),
+	// )
 
 	#[cfg(debug_assertions)]
-	let view_menu = {
-		let view_menu = view_menu.add_native_item(MenuItem::Separator);
+	let view_menu = view_menu.add_native_item(MenuItem::Separator).add_item(
+		CustomMenuItem::new("toggle_devtools", "Toggle Developer Tools")
+			.accelerator("CmdOrCtrl+Shift+Alt+I"),
+	);
 
-		let view_menu = view_menu.add_item(
-			CustomMenuItem::new("reload_app".to_string(), "Reload").accelerator("CmdOrCtrl+R"),
-		);
-
-		view_menu.add_item(
-			CustomMenuItem::new("toggle_devtools".to_string(), "Toggle Developer Tools")
-				.accelerator("CmdOrCtrl+Alt+I"),
+	let window_menu = Menu::new()
+		.add_native_item(MenuItem::EnterFullScreen)
+		.add_item(
+			CustomMenuItem::new("new_window", "New Window")
+				.accelerator("CmdOrCtrl+Shift+N")
+				.disabled(),
 		)
-	};
+		.add_item(CustomMenuItem::new("close_window", "Close Window").accelerator("CmdOrCtrl+W"))
+		.add_native_item(MenuItem::Separator)
+		.add_item(
+			CustomMenuItem::new("reload_app", "Reload Webview")
+				.accelerator("CmdOrCtrl+Shift+Alt+R"),
+		);
 
 	Menu::new()
 		.add_submenu(Submenu::new("Spacedrive", app_menu))
@@ -95,6 +115,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			let app = event.window().app_handle();
 			app.exit(0);
 		}
+		"reload_explorer" => event.window().emit("keybind", "reload_explorer").unwrap(),
 		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
 		"close" => {
 			let window = event.window();
