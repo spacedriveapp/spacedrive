@@ -135,6 +135,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		}
 		"reload_explorer" => event.window().emit("keybind", "reload_explorer").unwrap(),
 		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
+		"open_overview" => event.window().emit("keybind", "open_overview").unwrap(),
 		"close" => {
 			let window = event.window();
 

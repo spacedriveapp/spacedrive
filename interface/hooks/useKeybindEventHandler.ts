@@ -12,6 +12,10 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				libraryId && navigate(`/${libraryId}/settings/client/general`);
 				e.preventDefault();
 				return;
+			} else if (e.detail.action === 'open_overview') {
+				libraryId && navigate(`/${libraryId}/overview`);
+				e.preventDefault();
+				return;
 			}
 		};
 
