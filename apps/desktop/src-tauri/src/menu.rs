@@ -41,8 +41,6 @@ fn custom_menu_bar() -> Menu {
 		.add_native_item(MenuItem::Separator)
 		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
 		.add_native_item(MenuItem::Separator)
-		.add_native_item(MenuItem::Services)
-		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Hide)
 		.add_native_item(MenuItem::HideOthers)
 		.add_native_item(MenuItem::ShowAll)
@@ -102,8 +100,8 @@ fn custom_menu_bar() -> Menu {
 	);
 
 	let window_menu = Menu::new()
-		.add_native_item(MenuItem::EnterFullScreen)
-		.add_native_item(MenuItem::Services)
+		.add_native_item(MenuItem::Minimize)
+		.add_native_item(MenuItem::Zoom)
 		.add_item(
 			CustomMenuItem::new("new_window", "New Window")
 				.accelerator("CmdOrCtrl+Shift+N")
