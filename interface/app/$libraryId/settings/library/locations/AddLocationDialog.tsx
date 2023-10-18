@@ -217,7 +217,6 @@ export const AddLocationDialog = ({
 					: ''
 			}
 		>
-			{' '}
 			<div className="flex flex-col">
 				<ErrorMessage
 					name={REMOTE_ERROR_FORM_FIELD}
