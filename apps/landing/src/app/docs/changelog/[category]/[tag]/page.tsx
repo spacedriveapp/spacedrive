@@ -30,6 +30,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function Page({ params }: Props) {
+	console.log(params);
 	const release = await githubFetch(getRelease(params.tag));
 
 	const { code } = await bundleMDX({ source: processComments(release.body ?? '') });
