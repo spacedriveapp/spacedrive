@@ -111,6 +111,9 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 					.expect("Failed to inject updater JS");
 			}
 		})
-		.js_init_script(String::new())
+		.js_init_script(format!(
+			r#"window.__SD_DESKTOP_VERSION__ = "{}";"#,
+			env!("CARGO_PKG_VERSION")
+		))
 		.build()
 }

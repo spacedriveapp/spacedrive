@@ -34,14 +34,27 @@ export function getDoc(params: string[]) {
 	};
 }
 
-export const navigationMeta = navigation.map((section) => ({
+export interface SectionMeta {
+	slug: string;
+	categories: Array<{
+		title: string;
+		slug: string;
+		docs: Array<{
+			url: string;
+			slug: string;
+			title: string;
+		}>;
+	}>;
+}
+
+export const navigationMeta: Array<SectionMeta> = navigation.map((section) => ({
 	slug: section.slug,
 	categories: section.categories.map((category) => ({
 		...category,
 		docs: category.docs.map((doc) => ({
 			url: doc.url,
 			slug: doc.slug,
-			title: doc.title
+			title: doc.title!
 		}))
 	}))
 }));

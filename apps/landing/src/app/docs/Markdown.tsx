@@ -8,7 +8,7 @@ interface MarkdownPageProps {
 
 export function Markdown(props: PropsWithChildren<MarkdownPageProps>) {
 	return (
-		<div className={clsx('mb-10 p-4', props.classNames)}>
+		<div className={clsx('mb-10 px-8 py-4', props.classNames)}>
 			<article
 				id="content"
 				className={clsx(

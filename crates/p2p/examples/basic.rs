@@ -48,9 +48,10 @@ async fn main() {
 		name: "TODO".to_string(),
 	});
 
-	let (manager, mut stream) = Manager::new("p2p-demo", &keypair, metadata_manager)
-		.await
-		.unwrap();
+	let (manager, mut stream) =
+		Manager::new("p2p-demo", &keypair, Default::default(), metadata_manager)
+			.await
+			.unwrap();
 
 	info!(
 		"Node '{}' is now online listening at addresses: {:?}",

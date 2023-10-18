@@ -23,8 +23,7 @@ runs:
       uses: Swatinem/rust-cache@v2
       with:
         save-if: ${{ inputs.save-cache }}
-        prefix-key: 'v0-rust-deps'
-        shared-key: ${{ inputs.target }}
+        shared-key: stable-cache
 
     - name: Cargo config.toml
       shell: bash
@@ -34,7 +33,7 @@ runs:
       id: cache-prisma-restore
       uses: actions/cache/restore@v3
       with:
-        key: prisma-1-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './crates/sync-generator/*', './Cargo.toml') }}
+        key: prisma-1-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './crates/sync-generator/*', './Cargo.*') }}
         path: crates/prisma/src/**/*.rs
 
     - name: Generate Prisma client
