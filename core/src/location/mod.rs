@@ -39,7 +39,7 @@ mod error;
 pub mod file_path_helper;
 pub mod indexer;
 mod manager;
-mod metadata;
+pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
