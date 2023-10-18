@@ -59,7 +59,6 @@ const schemas = {
 			downloads: z.coerce.boolean(),
 			pictures: z.coerce.boolean(),
 			music: z.coerce.boolean(),
-			movies: z.coerce.boolean(),
 			videos: z.coerce.boolean()
 		})
 	}),

@@ -150,7 +150,7 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations?: Default
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
-export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; movies: boolean; videos: boolean }
+export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -406,7 +406,7 @@ export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
-export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; movies: string | null; videos: string | null }
+export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 

@@ -120,7 +120,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				downloads: bool,
 				pictures: bool,
 				music: bool,
-				movies: bool,
 				videos: bool,
 			}
 
@@ -138,18 +137,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					downloads,
 					pictures,
 					music,
-					movies,
 					videos,
 				}: DefaultLocations,
 				node: Arc<Node>,
 				library: Arc<Library>,
 			) -> Result<(), rspc::Error> {
 				// If all of them are false, we skip
-				if [
-					!desktop, !documents, !downloads, !pictures, !music, !movies, !videos,
-				]
-				.into_iter()
-				.all(identity)
+				if [!desktop, !documents, !downloads, !pictures, !music, !videos]
+					.into_iter()
+					.all(identity)
 				{
 					return Ok(());
 				}
@@ -187,9 +183,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					(downloads, default_locations_paths.download_dir()),
 					(pictures, default_locations_paths.picture_dir()),
 					(music, default_locations_paths.audio_dir()),
-					#[cfg(target_os = "macos")]
-					(movies, default_locations_paths.video_dir()),
-					#[cfg(not(target_os = "macos"))]
 					(videos, default_locations_paths.video_dir()),
 				]
 				.into_iter()

@@ -65,7 +65,6 @@ pub struct SystemLocations {
 	downloads: Option<PathBuf>,
 	pictures: Option<PathBuf>,
 	music: Option<PathBuf>,
-	movies: Option<PathBuf>,
 	videos: Option<PathBuf>,
 }
 
@@ -77,16 +76,7 @@ impl From<UserDirs> for SystemLocations {
 			downloads: value.download_dir().map(Path::to_path_buf),
 			pictures: value.picture_dir().map(Path::to_path_buf),
 			music: value.audio_dir().map(Path::to_path_buf),
-			movies: if cfg!(target_os = "macos") {
-				value.video_dir().map(Path::to_path_buf)
-			} else {
-				None
-			},
-			videos: if cfg!(not(target_os = "macos")) {
-				value.video_dir().map(Path::to_path_buf)
-			} else {
-				None
-			},
+			videos: value.video_dir().map(Path::to_path_buf),
 		}
 	}
 }
