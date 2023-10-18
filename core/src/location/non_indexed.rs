@@ -31,7 +31,7 @@ use tokio::{fs, io};
 use tracing::{error, warn};
 
 use super::{
-	file_path_helper::MetadataExt,
+	file_path_helper::{path_is_hidden, MetadataExt},
 	indexer::rules::{
 		seed::{no_hidden, no_os_protected},
 		IndexerRule, RuleKind,
@@ -88,6 +88,7 @@ pub struct NonIndexedPathItem {
 	pub date_created: DateTime<Utc>,
 	pub date_modified: DateTime<Utc>,
 	pub size_in_bytes_bytes: Vec<u8>,
+	pub hidden: bool,
 }
 
 pub async fn walk(
@@ -213,6 +214,7 @@ pub async fn walk(
 				has_local_thumbnail: thumbnail_key.is_some(),
 				thumbnail_key,
 				item: NonIndexedPathItem {
+					hidden: path_is_hidden(Path::new(&entry_path), &metadata),
 					path: entry_path,
 					name,
 					extension,
@@ -268,6 +270,7 @@ pub async fn walk(
 				has_local_thumbnail: false,
 				thumbnail_key: None,
 				item: NonIndexedPathItem {
+					hidden: path_is_hidden(Path::new(&directory), &metadata),
 					path: directory,
 					name,
 					extension: String::new(),
