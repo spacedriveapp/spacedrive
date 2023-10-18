@@ -111,6 +111,21 @@ export default () => {
 						</div>
 					</Setting>
 				)}
+				{platform.reloadWebview && (
+					<Setting mini title="Reload webview" description="Reload the window's webview">
+						<div className="mt-2">
+							<Button
+								size="sm"
+								variant="gray"
+								onClick={() => {
+									platform.reloadWebview && platform.reloadWebview();
+								}}
+							>
+								Reload
+							</Button>
+						</div>
+					</Setting>
+				)}
 				<Setting
 					mini
 					title="React Query Devtools"

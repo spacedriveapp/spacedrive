@@ -26,6 +26,10 @@ export function refreshMenuBar() {
     return invoke()<null>("refresh_menu_bar")
 }
 
+export function reloadWebview() {
+    return invoke()<null>("reload_webview")
+}
+
 export function openFilePaths(library: string, ids: number[]) {
     return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
 }

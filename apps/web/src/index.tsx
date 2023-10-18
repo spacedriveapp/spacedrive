@@ -2,7 +2,7 @@
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import '@sd/ui/style';
+import '@sd/ui/style/style.scss';
 import '~/patches';
 
 import App from './App';

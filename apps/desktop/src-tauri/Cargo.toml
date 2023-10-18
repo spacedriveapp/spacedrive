@@ -43,19 +43,20 @@ rand = "0.8.5"
 
 prisma-client-rust = { workspace = true }
 sd-prisma = { path = "../../../crates/prisma" }
-dotenv = "0.15.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }
+webkit2gtk = { version = "0.18.2", features = ["v2_2"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sd-desktop-macos = { path = "../crates/macos" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 sd-desktop-windows = { path = "../crates/windows" }
+webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = { version = "1.5.0", features = [] }
+tauri-build = "1.5.0"
 
 [features]
 default = ["custom-protocol"]

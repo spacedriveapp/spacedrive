@@ -1,7 +1,8 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeybind, useKeyMatcher } from '~/hooks';
+import { useKeysMatcher, useOperatingSystem } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -26,8 +27,10 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const metaCtrlKey = useKeyMatcher('Meta').key;
-	const optionAltKey = useKeyMatcher('Alt').key;
+	const shortcuts = useKeysMatcher(['Meta', 'Shift', 'Alt']);
+	const os = useOperatingSystem();
+	const hiddenFilesShortcut =
+		os === 'macOS' ? [shortcuts.Meta.key, 'Shift', '.'] : [shortcuts.Meta.key, 'KeyH'];
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -44,9 +47,14 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeybind([optionAltKey, metaCtrlKey, 'p'], (e) => {
+	useKeys([shortcuts.Alt.key, shortcuts.Meta.key, 'KeyP'], (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
+	});
+
+	useKeys(hiddenFilesShortcut, (e) => {
+		e.stopPropagation();
+		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
 
 	return (
@@ -55,7 +63,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				<div className="flex-1 overflow-hidden">
 					<div
 						ref={explorer.scrollRef}
-						className="h-screen overflow-x-hidden custom-scroll explorer-scroll"
+						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
 						style={
 							{
 								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,

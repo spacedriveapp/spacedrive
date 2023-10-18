@@ -1,3 +1,5 @@
+'use client';
+
 import { CheckCircle, Icon, Info, Warning, WarningCircle, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { CSSProperties, ForwardedRef, forwardRef, ReactNode, useEffect, useState } from 'react';

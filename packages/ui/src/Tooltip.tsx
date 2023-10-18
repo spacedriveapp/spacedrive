@@ -1,3 +1,5 @@
+'use client';
+
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import clsx from 'clsx';
 import { PropsWithChildren, ReactNode } from 'react';

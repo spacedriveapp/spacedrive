@@ -1,18 +1,23 @@
+'use client';
+
 import { PointMaterial, Points, Trail } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
-import { useRef, useState, type FunctionComponent } from 'react';
+import { useRef, useState } from 'react';
 import { Color, type Mesh } from 'three';
+import { hasWebGLContext } from '~/utils/util';
 
 const Stars = (props: any) => {
 	const ref = useRef<Mesh>();
 	const [sphere] = useState(() => randomInSphere(new Float32Array(35000), { radius: 1 }));
+
 	useFrame((_, delta) => {
 		if (ref.current) {
 			ref.current.rotation.x -= delta / 300;
 			ref.current.rotation.y -= delta / 300;
 		}
 	});
+
 	return (
 		<group rotation={[0, 0, Math.PI / 4]}>
 			<Points ref={ref} positions={sphere} stride={3} frustumCulled={false} {...props}>
@@ -30,6 +35,7 @@ const Stars = (props: any) => {
 
 function ShootingStar() {
 	const ref = useRef<any>();
+
 	useFrame((state) => {
 		const t = state.clock.getElapsedTime() * 0.5;
 		if (ref.current) {
@@ -40,6 +46,7 @@ function ShootingStar() {
 			);
 		}
 	});
+
 	return (
 		<Trail width={0.05} length={8} color={new Color(2, 1, 10)} attenuation={(t) => t * t}>
 			<mesh ref={ref}>
@@ -50,9 +57,9 @@ function ShootingStar() {
 	);
 }
 
-export const Space: FunctionComponent = () => {
+export default function Space() {
 	return (
-		<div className="absolute z-0 h-screen w-screen bg-black opacity-50">
+		<div className="absolute left-0 top-0 z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
 				<ShootingStar />
 				<ShootingStar />
@@ -60,4 +67,4 @@ export const Space: FunctionComponent = () => {
 			</Canvas>
 		</div>
 	);
-};
+}

@@ -1,3 +1,5 @@
+'use client';
+
 import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
 import React, {
