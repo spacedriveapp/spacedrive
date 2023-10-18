@@ -4,6 +4,7 @@
 
 mod identity_or_remote_identity;
 pub mod operations;
+mod p2p_events;
 mod p2p_manager;
 mod pairing;
 mod peer_metadata;
@@ -11,6 +12,7 @@ mod protocol;
 pub mod sync;
 
 pub use identity_or_remote_identity::*;
+pub use p2p_events::*;
 pub use p2p_manager::*;
 pub use pairing::*;
 pub use peer_metadata::*;

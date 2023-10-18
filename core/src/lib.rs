@@ -4,7 +4,6 @@ use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
 	object::media::thumbnail::actor::Thumbnailer,
-	p2p::sync::NetworkedLibraries,
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};

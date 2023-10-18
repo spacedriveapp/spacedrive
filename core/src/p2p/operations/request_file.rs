@@ -8,12 +8,9 @@ use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::debug;
 use uuid::Uuid;
 
-use crate::{
-	library::Library,
-	p2p::{Header, P2PManager},
-};
+use crate::{library::Library, p2p::Header};
 
-/// Reqyest a file from the remote machine over P2P.
+/// Request a file from the remote machine over P2P. This is used for preview media and quick preview.
 ///
 /// DO NOT USE THIS WITHOUT `node.files_over_p2p_flag == true`
 pub async fn request_file(

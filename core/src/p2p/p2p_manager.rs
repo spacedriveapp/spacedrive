@@ -1,27 +1,22 @@
 use std::{
-	borrow::Cow,
 	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc, PoisonError, RwLock,
 	},
-	time::{Duration, Instant},
 };
 
-use futures::future::join_all;
 use sd_p2p::{
-	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
+	spaceblock::{BlockSize, SpaceblockRequest, SpaceblockRequests, Transfer},
 	spacetunnel::{RemoteIdentity, Tunnel},
 	DiscoveredPeer, Event, Manager, ManagerError, ManagerStream, MetadataManager, PeerId,
 	PeerStatus, Service,
 };
 use sd_prisma::prisma::file_path;
-use serde::Serialize;
-use specta::Type;
 use tokio::{
 	fs::{create_dir_all, File},
-	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter},
+	io::{AsyncWriteExt, BufReader, BufWriter},
 	sync::{broadcast, oneshot, Mutex},
 	time::sleep,
 };
@@ -29,69 +24,15 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
-	library::Library,
 	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
 	node::config::{self, NodeConfig},
-	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{operations::SPACEDROP_TIMEOUT, OperatingSystem, SPACEDRIVE_APP_ID},
 	Node,
 };
 
-use super::{
-	sync::{NetworkedLibraries, SyncMessage},
-	Header, PairingManager, PairingStatus, PeerMetadata,
-};
+use super::{sync::SyncMessage, Header, P2PEvent, PairingManager, PeerMetadata};
 
-/// The amount of time to wait for a Spacedrop request to be accepted or rejected before it's automatically rejected
-const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
-
-// TODO: Split into another file
-/// TODO: P2P event for the frontend
-#[derive(Debug, Clone, Type, Serialize)]
-#[serde(tag = "type")]
-pub enum P2PEvent {
-	DiscoveredPeer {
-		peer_id: PeerId,
-		metadata: PeerMetadata,
-	},
-	ExpiredPeer {
-		peer_id: PeerId,
-	},
-	ConnectedPeer {
-		peer_id: PeerId,
-	},
-	DisconnectedPeer {
-		peer_id: PeerId,
-	},
-	SpacedropRequest {
-		id: Uuid,
-		peer_id: PeerId,
-		peer_name: String,
-		files: Vec<String>,
-	},
-	SpacedropProgress {
-		id: Uuid,
-		percent: u8,
-	},
-	SpacedropTimedout {
-		id: Uuid,
-	},
-	SpacedropRejected {
-		id: Uuid,
-	},
-	// Pairing was reuqest has come in.
-	// This will fire on the responder only.
-	PairingRequest {
-		id: u16,
-		name: String,
-		os: OperatingSystem,
-	},
-	PairingProgress {
-		id: u16,
-		status: PairingStatus,
-	}, // TODO: Expire peer + connection/disconnect
-}
-
-type Libraries = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
+pub(super) type Libraries = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
 
 pub struct P2PManager {
 	pub(crate) node: Service<PeerMetadata>,
@@ -101,8 +42,8 @@ pub struct P2PManager {
 	// TODO: Following stuff still needs cleanup
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager<PeerMetadata>>,
-	spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
-	spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
+	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
+	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	pub pairing: Arc<PairingManager>,
 	node_config_manager: Arc<config::Manager>,
@@ -509,7 +450,11 @@ impl P2PManager {
 	}
 
 	// TODO: Can this be merged with `peer_connected`???
-	pub fn peer_connected2(libraries: &Libraries, instance_id: RemoteIdentity, peer_id: PeerId) {
+	pub(super) fn peer_connected2(
+		libraries: &Libraries,
+		instance_id: RemoteIdentity,
+		peer_id: PeerId,
+	) {
 		for lib in libraries
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
@@ -522,7 +467,7 @@ impl P2PManager {
 		}
 	}
 
-	pub async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
+	pub(super) async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
 		let mut should_connect = false;
 		for lib in self
 			.libraries
@@ -551,7 +496,7 @@ impl P2PManager {
 		}
 	}
 
-	pub fn peer_expired(&self, id: PeerId) {
+	pub(super) fn peer_expired(&self, id: PeerId) {
 		for lib in self
 			.libraries
 			.write()
@@ -568,7 +513,7 @@ impl P2PManager {
 		}
 	}
 
-	pub fn peer_connected(&self, peer_id: PeerId) {
+	pub(super) fn peer_connected(&self, peer_id: PeerId) {
 		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
 		// TODO: Hence part of the need for `Self::peer_connected2`
 		for lib in self
@@ -588,7 +533,7 @@ impl P2PManager {
 		}
 	}
 
-	pub fn peer_disconnected(&self, peer_id: PeerId) {
+	pub(super) fn peer_disconnected(&self, peer_id: PeerId) {
 		for lib in self
 			.libraries
 			.write()
@@ -605,229 +550,8 @@ impl P2PManager {
 			}
 		}
 	}
-
-	pub async fn resync(
-		libraries: &Libraries,
-		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
-		peer_id: PeerId,
-		instances: Vec<RemoteIdentity>,
-	) {
-		// TODO: Make this encrypted using node to node auth so it can't be messed with in transport
-
-		stream
-			.write_all(&Header::Connected(instances).to_bytes())
-			.await
-			.unwrap();
-
-		let Header::Connected(identities) = Header::from_stream(stream).await.unwrap() else {
-			panic!("unreachable but error handling")
-		};
-
-		for identity in identities {
-			Self::peer_connected2(libraries, identity, peer_id);
-		}
-	}
-
-	pub async fn resync_handler(
-		libraries: &Libraries,
-		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
-		peer_id: PeerId,
-		local_identities: Vec<RemoteIdentity>,
-		remote_identities: Vec<RemoteIdentity>,
-	) {
-		for identity in remote_identities {
-			Self::peer_connected2(libraries, identity, peer_id);
-		}
-
-		stream
-			.write_all(&Header::Connected(local_identities).to_bytes())
-			.await
-			.unwrap();
-	}
-
-	// TODO: Using tunnel for security - Right now all sync events here are unencrypted
-	pub async fn resync_part2(
-		libraries: &Libraries,
-		node: Arc<Node>,
-		connected_with_peer_id: &PeerId,
-	) {
-		let data = libraries
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.iter()
-			.map(|(k, v)| (k.clone(), v.clone()))
-			.collect::<Vec<_>>();
-
-		for (library_id, data) in data {
-			let mut library = None;
-
-			for (_, data) in data._get() {
-				let PeerStatus::Connected(instance_peer_id) = data else {
-					continue;
-				};
-
-				if *instance_peer_id != *connected_with_peer_id {
-					continue;
-				};
-
-				let library = match library.clone() {
-					Some(library) => library,
-					None => match node.libraries.get_library(&library_id).await {
-						Some(new_library) => {
-							library = Some(new_library.clone());
-
-							new_library
-						}
-						None => continue,
-					},
-				};
-
-				// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-				super::sync::originator(library_id, &library.sync, &node.p2p).await;
-			}
-		}
-	}
-
-	pub async fn accept_spacedrop(&self, id: Uuid, path: String) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
-			chan.send(Some(path)).unwrap(); // TODO: will fail if timed out
-		}
-	}
-
-	pub async fn reject_spacedrop(&self, id: Uuid) {
-		if let Some(chan) = self.spacedrop_pairing_reqs.lock().await.remove(&id) {
-			chan.send(None).unwrap();
-		}
-	}
-
-	pub async fn cancel_spacedrop(&self, id: Uuid) {
-		if let Some(cancelled) = self.spacedrop_cancelations.lock().await.remove(&id) {
-			cancelled.store(true, Ordering::Relaxed);
-		}
-	}
-
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
-	}
-
-	pub async fn ping(&self) {
-		self.manager.broadcast(Header::Ping.to_bytes()).await;
-	}
-
-	// TODO: Replacing `PeerId` with `ConnectedPeer2`
-
-	// TODO: Proper error handling
-	pub async fn spacedrop(
-		self: Arc<Self>,
-		peer_id: PeerId,
-		paths: Vec<PathBuf>,
-	) -> Result<Uuid, ()> {
-		if paths.is_empty() {
-			return Err(());
-		}
-
-		let (files, requests): (Vec<_>, Vec<_>) =
-			join_all(paths.into_iter().map(|path| async move {
-				let file = File::open(&path).await?;
-				let metadata = file.metadata().await?;
-				let name = path
-					.file_name()
-					.map(|v| v.to_string_lossy())
-					.unwrap_or(Cow::Borrowed(""))
-					.to_string();
-
-				Ok((
-					(path, file),
-					SpaceblockRequest {
-						name,
-						size: metadata.len(),
-						range: Range::Full,
-					},
-				))
-			}))
-			.await
-			.into_iter()
-			.collect::<Result<Vec<_>, std::io::Error>>()
-			.map_err(|_| ())? // TODO: Error handling
-			.into_iter()
-			.unzip();
-
-		let total_length: u64 = requests.iter().map(|req| req.size).sum();
-
-		let id = Uuid::new_v4();
-		debug!("({id}): starting Spacedrop with peer '{peer_id}");
-		let mut stream = self.manager.stream(peer_id).await.map_err(|err| {
-			debug!("({id}): failed to connect: {err:?}");
-			// TODO: Proper error
-		})?;
-
-		tokio::spawn(async move {
-			debug!("({id}): connected, sending header");
-			let header = Header::Spacedrop(SpaceblockRequests {
-				id,
-				block_size: BlockSize::from_size(total_length),
-				requests,
-			});
-			if let Err(err) = stream.write_all(&header.to_bytes()).await {
-				debug!("({id}): failed to send header: {err}");
-				return;
-			}
-			let Header::Spacedrop(requests) = header else {
-				unreachable!();
-			};
-
-			debug!("({id}): waiting for response");
-			let result = tokio::select! {
-			  result = stream.read_u8() => result,
-			  // Add 5 seconds incase the user responded on the deadline and slow network
-			   _ = sleep(SPACEDROP_TIMEOUT + Duration::from_secs(5)) => {
-					debug!("({id}): timed out, cancelling");
-					self.events.0.send(P2PEvent::SpacedropTimedout { id }).ok();
-					return;
-				},
-			};
-
-			match result {
-				Ok(0) => {
-					debug!("({id}): Spacedrop was rejected from peer '{peer_id}'");
-					self.events.0.send(P2PEvent::SpacedropRejected { id }).ok();
-					return;
-				}
-				Ok(1) => {}        // Okay
-				Ok(_) => todo!(),  // TODO: Proper error
-				Err(_) => todo!(), // TODO: Proper error
-			}
-
-			let cancelled = Arc::new(AtomicBool::new(false));
-			self.spacedrop_cancelations
-				.lock()
-				.await
-				.insert(id, cancelled.clone());
-
-			debug!("({id}): starting transfer");
-			let i = Instant::now();
-
-			let mut transfer = Transfer::new(
-				&requests,
-				|percent| {
-					self.events
-						.0
-						.send(P2PEvent::SpacedropProgress { id, percent })
-						.ok();
-				},
-				&cancelled,
-			);
-
-			for (file_id, (path, file)) in files.into_iter().enumerate() {
-				debug!("({id}): transmitting '{file_id}' from '{path:?}'");
-				let file = BufReader::new(file);
-				transfer.send(&mut stream, file).await;
-			}
-
-			debug!("({id}): finished; took '{:?}", i.elapsed());
-		});
-
-		Ok(id)
 	}
 
 	pub async fn shutdown(&self) {

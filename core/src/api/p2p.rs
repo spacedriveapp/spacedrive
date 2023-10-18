@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::p2p::{P2PEvent, PairingDecision};
+use crate::p2p::{operations, P2PEvent, PairingDecision};
 
 use super::{Ctx, R};
 
@@ -56,19 +56,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.mutation(|node, args: SpacedropArgs| async move {
-				node.p2p
-					.clone()
-					.spacedrop(
-						args.peer_id,
-						args.file_path
-							.into_iter()
-							.map(PathBuf::from)
-							.collect::<Vec<_>>(),
-					)
-					.await
-					.map_err(|_err| {
-						rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
-					})
+				operations::spacedrop(
+					node.p2p.clone(),
+					args.peer_id,
+					args.file_path
+						.into_iter()
+						.map(PathBuf::from)
+						.collect::<Vec<_>>(),
+				)
+				.await
+				.map_err(|_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				})
 			})
 		})
 		.procedure("acceptSpacedrop", {

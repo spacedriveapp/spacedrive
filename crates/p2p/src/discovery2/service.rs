@@ -33,7 +33,6 @@ pub struct Service<TMeta> {
 impl<TMeta: Metadata> Service<TMeta> {
 	pub fn new(name: impl Into<String>, identity: Identity) -> Result<Self, ()> {
 		let name = name.into();
-
 		// TODO: Deal with duplicate `name`
 
 		// Ok(Self { meta: None })
