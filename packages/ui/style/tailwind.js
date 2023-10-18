@@ -165,12 +165,11 @@ module.exports = function (app, options) {
 			require('@tailwindcss/forms'),
 			require('tailwindcss-animate'),
 			require('@headlessui/tailwindcss'),
-			require('tailwindcss-radix')()
+			require('tailwindcss-radix')(),
+			require('@tailwindcss/typography')
 		]
 	};
-	if (app === 'landing') {
-		config.plugins.push(require('@tailwindcss/typography'));
-	}
+
 	return config;
 };
 
