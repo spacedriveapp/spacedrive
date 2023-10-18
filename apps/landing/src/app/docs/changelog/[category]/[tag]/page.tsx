@@ -14,6 +14,8 @@ interface Props {
 export async function generateStaticParams(): Promise<Array<Props['params']>> {
 	const categories = await getReleasesCategories();
 
+	console.log(JSON.stringify(categories));
+
 	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
 }
 
