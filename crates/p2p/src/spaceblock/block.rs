@@ -14,6 +14,7 @@ impl<'a> Block<'a> {
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut buf = Vec::new();
 		buf.extend_from_slice(&self.offset.to_le_bytes());
+		debug_assert_eq!(self.data.len(), self.size as usize); // TODO: Should `self.size` be inferred instead?
 		buf.extend_from_slice(&self.size.to_le_bytes());
 		buf.extend_from_slice(self.data);
 		buf
@@ -33,6 +34,10 @@ impl<'a> Block<'a> {
 
 		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
 
+		if size as usize > data_buf.len() {
+			return Err(());
+		}
+
 		stream
 			.read_exact(&mut data_buf[..size as usize])
 			.await
@@ -46,4 +51,46 @@ impl<'a> Block<'a> {
 	}
 }
 
-// TODO: Unit test `Block`
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use crate::spaceblock::BlockSize;
+
+	use super::*;
+
+	#[tokio::test]
+	async fn test_block() {
+		let mut req = Block {
+			offset: 420,
+			size: 10, // Matches length of string on next line
+			data: b"Spacedrive".as_ref(),
+		};
+		let bytes = req.to_bytes();
+		let mut data2 = vec![0; req.data.len()];
+		let req2 = Block::from_stream(&mut Cursor::new(bytes), &mut data2)
+			.await
+			.unwrap();
+		let data = std::mem::take(&mut req.data);
+		assert_eq!(req, req2);
+		assert_eq!(data, data2);
+	}
+
+	#[tokio::test]
+	#[should_panic] // TODO: This currently panics but long term it should have proper error handling
+	async fn test_block_data_buf_overflow() {
+		let mut req = Block {
+			offset: 420,
+			size: 10, // Matches length of string on next line
+			data: b"Spacedrive".as_ref(),
+		};
+		let bytes = req.to_bytes();
+		let mut data2 = vec![0; 5]; // Length smaller than `req.data.len()`
+		let req2 = Block::from_stream(&mut Cursor::new(bytes), &mut data2)
+			.await
+			.unwrap();
+		let data = std::mem::take(&mut req.data);
+		assert_eq!(req, req2);
+		assert_eq!(data, data2);
+	}
+}

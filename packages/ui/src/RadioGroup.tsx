@@ -1,3 +1,5 @@
+'use client';
+
 /* eslint-disable tailwindcss/migration-from-tailwind-2 */
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import clsx from 'clsx';

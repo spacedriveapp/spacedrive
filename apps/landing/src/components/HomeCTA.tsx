@@ -1,8 +1,8 @@
 import { IconProps } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { Button, ButtonBaseProps } from '@sd/ui';
+import { Button, LinkButtonProps } from '@sd/ui';
 
-interface Props extends ButtonBaseProps {
+interface Props extends LinkButtonProps {
 	className?: string;
 	text: string;
 	icon?: IconProps;

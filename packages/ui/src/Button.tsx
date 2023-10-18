@@ -1,9 +1,11 @@
+'use client';
+
 import { cva, cx, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { ComponentProps, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 
-export interface ButtonBaseProps extends VariantProps<typeof styles> {}
+export interface ButtonBaseProps extends VariantProps<typeof buttonStyles> {}
 
 export type ButtonProps = ButtonBaseProps &
 	React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -22,7 +24,7 @@ type Button = {
 
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
-export const styles = cva(
+export const buttonStyles = cva(
 	[
 		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
@@ -80,7 +82,7 @@ export const Button = forwardRef<
 	HTMLButtonElement | HTMLAnchorElement,
 	ButtonProps | LinkButtonProps
 >(({ className, ...props }, ref) => {
-	className = cx(styles(props), className);
+	className = cx(buttonStyles(props), className);
 	return hasHref(props) ? (
 		<a {...props} ref={ref as any} className={cx(className, 'inline-block no-underline')} />
 	) : (
@@ -95,7 +97,7 @@ export const ButtonLink = forwardRef<
 	return (
 		<Link
 			ref={ref}
-			className={styles({
+			className={buttonStyles({
 				size,
 				variant,
 				className: clsx(

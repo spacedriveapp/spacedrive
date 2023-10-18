@@ -1,3 +1,5 @@
+'use client';
+
 import { Check } from '@phosphor-icons/react';
 import * as RS from '@radix-ui/react-select';
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';

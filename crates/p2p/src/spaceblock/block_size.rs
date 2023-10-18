@@ -32,3 +32,20 @@ impl BlockSize {
 		self.0
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use std::io::Cursor;
+
+	use super::*;
+
+	#[tokio::test]
+	async fn test_block_size() {
+		let req = BlockSize::dangerously_new(5);
+		let bytes = req.to_bytes();
+		let req2 = BlockSize::from_stream(&mut Cursor::new(bytes))
+			.await
+			.unwrap();
+		assert_eq!(req, req2);
+	}
+}

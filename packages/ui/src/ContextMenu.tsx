@@ -1,3 +1,5 @@
+'use client';
+
 import { CaretRight, Check, Icon, IconProps } from '@phosphor-icons/react';
 import * as RadixCM from '@radix-ui/react-context-menu';
 import { cva, VariantProps } from 'class-variance-authority';
