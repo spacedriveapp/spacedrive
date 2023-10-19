@@ -5,13 +5,16 @@ import { Tooltip } from '@sd/ui';
 
 interface Props {
 	title: string;
-	description?: string;
+	description?: string | JSX.Element;
 	mini?: boolean;
 	className?: string;
 	toolTipLabel?: string | boolean;
 }
 
 export default ({ mini, ...props }: PropsWithChildren<Props>) => {
+	if (typeof props.description === 'string')
+		props.description = <p className="mb-2 text-sm text-gray-400">{props.description}</p>;
+
 	return (
 		<div className="relative flex flex-row">
 			<div className={clsx('flex w-full flex-col', !mini && 'pb-6', props.className)}>
@@ -23,9 +26,7 @@ export default ({ mini, ...props }: PropsWithChildren<Props>) => {
 						</Tooltip>
 					)}
 				</div>
-				{!!props.description && (
-					<p className="mb-2 text-sm text-gray-400 ">{props.description}</p>
-				)}
+				{props.description}
 				{!mini && props.children}
 			</div>
 			{mini && props.children}

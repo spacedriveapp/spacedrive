@@ -5,17 +5,10 @@ name: Cache Factory
 
 on:
   push:
-    paths:
-      - 'Cargo.lock'
-      - './scripts/setup.sh'
-      - './scripts/setup.ps1'
-      - '.github/workflows/cache-factory.yaml'
-      - '.github/actions/**/*.yml'
-      - '.github/actions/**/*.yaml'
-      - '**/build.rs'
-      - 'core/prisma/**'
     branches:
       - main
+  schedule:
+    - cron: '0 0 * * *'
 
 # Cancel previous runs of the same workflow on the same branch.
 concurrency:

@@ -14,7 +14,9 @@ export const env = createEnv({
 		AWS_SES_REGION: z.string(),
 		MAILER_FROM: z.string().default('Spacedrive <no-reply@spacedrive.com>'),
 		GITHUB_ORG: z.string().default('spacedriveapp'),
-		GITHUB_REPO: z.string().default('spacedrive')
+		GITHUB_REPO: z.string().default('spacedrive'),
+		SLACK_SIGNING_SECRET: z.string(),
+		SLACK_RELEASES_CHANNEL: z.string()
 	},
 	client: {},
 	runtimeEnv: {
@@ -29,7 +31,9 @@ export const env = createEnv({
 		AWS_SES_REGION: process.env.AWS_SES_REGION,
 		MAILER_FROM: process.env.MAILER_FROM,
 		GITHUB_ORG: process.env.GITHUB_ORG,
-		GITHUB_REPO: process.env.GITHUB_REPO
+		GITHUB_REPO: process.env.GITHUB_REPO,
+		SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
+		SLACK_RELEASES_CHANNEL: process.env.SLACK_RELEASES_CHANNEL
 	},
 	// In dev or in eslint disable checking.
 	// Kinda sucks for in dev but you don't need the whole setup to change the docs.

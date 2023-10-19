@@ -48,8 +48,10 @@ export type Platform = {
 		useSnapshot: () => UpdateStore;
 		checkForUpdate(): Promise<Update | null>;
 		installUpdate(): Promise<any>;
+		runJustUpdatedCheck(onViewChangelog: () => void): Promise<void>;
 	};
 	auth: auth.ProviderConfig;
+	landingApiOrigin: string;
 };
 
 export type Update = { version: string; body: string | null };

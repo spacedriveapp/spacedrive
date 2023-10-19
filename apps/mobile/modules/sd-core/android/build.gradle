@@ -82,6 +82,11 @@ android {
       withSourcesJar()
     }
   }
+	sourceSets {
+		main {
+			jniLibs.srcDirs = ['../../../../../target/release']
+		}
+	}
 }
 
 repositories {

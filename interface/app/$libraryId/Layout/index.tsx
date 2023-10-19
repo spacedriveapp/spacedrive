@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate, useResolvedPath } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -63,6 +63,8 @@ const Layout = () => {
 	}, []);
 
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
+
+	useUpdater();
 
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
@@ -129,3 +131,19 @@ export const Component = () => {
 		</ClientContextProvider>
 	);
 };
+
+function useUpdater() {
+	const alreadyChecked = useRef(false);
+
+	const { updater } = usePlatform();
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		if (alreadyChecked.current || !updater) return;
+
+		updater.runJustUpdatedCheck(() => navigate('settings/resources/changelog'));
+
+		if (import.meta.env.PROD) updater.checkForUpdate();
+		alreadyChecked.current = true;
+	}, [updater, navigate]);
+}
