@@ -4,6 +4,7 @@ import CyclingImage from '~/components/CyclingImage';
 import { Background } from './Background';
 import { Downloads } from './Downloads';
 import { NewBanner } from './NewBanner';
+import { LatestVersion } from '~/components/LatestVersion';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
@@ -52,7 +53,7 @@ export default function Page() {
 						Designed for creators, hoarders and the painfully disorganized.
 					</span>
 				</p>
-				<Downloads />
+				<Downloads latestVersion={<LatestVersion />} />
 				<div className="pb-6 xs:pb-24">
 					<div
 						className="xl2:relative z-30 flex h-[255px] w-full px-6

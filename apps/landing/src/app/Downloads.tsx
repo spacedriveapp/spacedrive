@@ -4,7 +4,7 @@ import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/reac
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { ComponentProps, FunctionComponent, useEffect, useState } from 'react';
+import { ComponentProps, FunctionComponent, useEffect, useState, ReactNode } from 'react';
 import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
@@ -48,21 +48,13 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-export function Downloads() {
+interface DownloadPageProps {
+	latestVersion: ReactNode
+}
+
+export function Downloads({ latestVersion }: DownloadPageProps) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
-
-	const [latestSpacedriveVersion, setLatestSpacedriveVersion] = useState<string>("Alpha");
-
-	useEffect(() => {
-		const fetchLatestVersion = async () => {
-			const res = await fetch("/api/releases/latest");
-			const data = await res.json();
-			setLatestSpacedriveVersion("Alpha v" + data.version);
-		}
-
-		fetchLatestVersion();
-	}, [])
 
 	const formattedVersion = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
@@ -123,7 +115,7 @@ export function Downloads() {
 				</div>
 			)}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
-				{latestSpacedriveVersion}
+				{latestVersion}
 				{formattedVersion && (
 					<>
 						<span className="mx-2 opacity-50">|</span>
