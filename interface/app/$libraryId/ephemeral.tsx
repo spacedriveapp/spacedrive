@@ -76,7 +76,8 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 
 	const explorer = useExplorer({
 		items,
-		settings: explorerSettings
+		settings: explorerSettings,
+		layouts: { media: false }
 	});
 
 	return (
