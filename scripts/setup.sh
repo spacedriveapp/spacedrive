@@ -183,7 +183,7 @@ case "$(uname)" in
         gstreamer1-plugins-good gstreamer1-plugins-good-gtk \
         gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free \
         gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-devel \
-        streamer1-plugins-bad-free-extras
+        gstreamer1-plugins-bad-free-extras
 
       # Bindgen dependencies - it's used by a dependency of Spacedrive
       set -- "$@" clang clang-devel
