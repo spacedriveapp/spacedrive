@@ -2,13 +2,11 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
+import { getWindowState } from './useWindowState';
 
-export const useKeybindEventHandler = (props: {
-	libraryId?: string;
-	setIsWindowMaximized: (maximized: boolean) => void;
-}) => {
+export const useKeybindEventHandler = (libraryId?: string) => {
 	const navigate = useNavigate();
-	const { libraryId, setIsWindowMaximized } = props;
+	const windowState = getWindowState();
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
@@ -22,15 +20,15 @@ export const useKeybindEventHandler = (props: {
 					libraryId && navigate(`/${libraryId}/overview`);
 					break;
 				case 'window_maximized':
-					setIsWindowMaximized(true);
+					windowState.isMaximized = true;
 					break;
 				case 'window_not_maximized':
-					setIsWindowMaximized(false);
+					windowState.isMaximized = false;
 					break;
 			}
 		};
 
 		document.addEventListener('keybindexec', handler);
 		return () => document.removeEventListener('keybindexec', handler);
-	}, [navigate, libraryId, setIsWindowMaximized]);
+	}, [navigate, libraryId, windowState]);
 };

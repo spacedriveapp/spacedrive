@@ -19,6 +19,7 @@ import {
 	useShowControls,
 	useZodRouteParams
 } from '~/hooks';
+import { useWindowState } from '~/hooks/useWindowState';
 import { usePlatform } from '~/util/Platform';
 
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
@@ -30,10 +31,9 @@ const Layout = () => {
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
 	const platform = usePlatform();
+	const windowState = useWindowState();
 
-	const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
-
-	useKeybindEventHandler({ libraryId: library?.uuid, setIsWindowMaximized });
+	useKeybindEventHandler(library?.uuid);
 
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
@@ -81,13 +81,7 @@ const Layout = () => {
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
 					os === 'macOS' && 'has-blur-effects',
-
-					// essentially "if not fullscreen". the borders are still round without this, they just don't look smooth
-
-					// FIXME: if the window is fully maximized (with the green traffic light), only on macos, this needs disabling
-					// otherwise the corners are missing lol
-					os === 'macOS' && !isWindowMaximized && 'rounded-[10px]',
-
+					os === 'macOS' && !windowState.isMaximized && 'rounded-[10px]',
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
