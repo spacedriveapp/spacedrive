@@ -46,7 +46,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.4.11
-        version: 4.4.11(@types/node@18.17.19)
+        version: 4.4.11(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -618,7 +618,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.4.11
-        version: 4.4.11(@types/node@18.17.19)
+        version: 4.4.11(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.4.11)
@@ -655,6 +655,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.0.2
         version: 1.0.7(@types/react-dom@18.2.13)(@types/react@18.2.28)(react-dom@18.2.0)(react@18.2.0)
+      '@redux-devtools/extension':
+        specifier: ^3.2.5
+        version: 3.2.5(redux@4.2.1)
       '@remix-run/router':
         specifier: ^1.4.0
         version: 1.9.0
@@ -7221,6 +7224,16 @@ packages:
       zustand: 3.7.2(react@18.2.0)
     dev: false
 
+  /@redux-devtools/extension@3.2.5(redux@4.2.1):
+    resolution: {integrity: sha512-UhyDF7WmdnCrN1s++YC4sdQCo0z6YUnoB2eCh15nXDDq3QH1jDju1144UNRU6Nvi4inxhaIum4m9BXVYWVC1ng==}
+    peerDependencies:
+      redux: ^3.1.0 || ^4.0.0
+    dependencies:
+      '@babel/runtime': 7.23.2
+      immutable: 4.3.4
+      redux: 4.2.1
+    dev: false
+
   /@remix-run/router@1.4.0:
     resolution: {integrity: sha512-BJ9SxXux8zAg991UmT8slpwpsd31K1dHHbD3Ba4VzD+liLQ4WAMSxQp2d2ZPRPfN0jN2NPRowcSSoM7lCaF08Q==}
     engines: {node: '>=14'}
@@ -9934,7 +9947,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.2
       react-refresh: 0.14.0
-      vite: 4.4.11(sass@1.69.3)
+      vite: 4.4.11(@types/node@18.17.19)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -14800,7 +14813,6 @@ packages:
 
   /immutable@4.3.4:
     resolution: {integrity: sha512-fsXeu4J4i6WNWSikpI88v/PcVflZz+6kMhUfIwc5SY+poQRPnaf5V7qds6SUyUN3cVxEzuCab7QIoLOQ+DQ1wA==}
-    dev: true
 
   /import-fresh@2.0.0:
     resolution: {integrity: sha512-eZ5H8rcgYazHbKC3PG4ClHNykCSxtAhxSSEM+2mb+7evD2CKF5V7c0dNum7AdpDh0ZdICwZY9sRSn8f+KH96sg==}
@@ -23374,7 +23386,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.4.11(sass@1.69.3)
+      vite: 4.4.11(@types/node@18.17.19)
     transitivePeerDependencies:
       - rollup
       - supports-color

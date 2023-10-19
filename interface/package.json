@@ -17,6 +17,7 @@
 		"@radix-ui/react-slider": "^1.1.0",
 		"@radix-ui/react-toast": "^1.1.2",
 		"@radix-ui/react-tooltip": "^1.0.2",
+		"@redux-devtools/extension": "^3.2.5",
 		"@remix-run/router": "^1.4.0",
 		"@sd/assets": "workspace:*",
 		"@sd/client": "workspace:*",

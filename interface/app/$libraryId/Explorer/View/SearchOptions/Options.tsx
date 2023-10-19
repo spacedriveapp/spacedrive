@@ -1,39 +1,43 @@
-import { CircleDashed, Folder, Tag } from '@phosphor-icons/react';
 import { ObjectKind, useLibraryQuery } from '@sd/client';
-import { getSearchStore, useSearchOption, useSearchStore } from '~/hooks';
+import { getSearchStore, useSearchFilter, useSearchStore } from '~/hooks';
 
 import { FilterInput, SearchOptionItem, SearchOptionSubMenu, Separator } from '.';
+import { getIconComponent } from './util';
 
 export function LocationOptions() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const searchStore = useSearchStore();
 
-	const searchOption = useSearchOption({
-		name: 'In Location',
-		icon: Folder,
-		options:
+	const filterCategory = useSearchFilter({
+		name: 'Location',
+		icon: 'Folder',
+		filters:
 			locationsQuery.data?.map((location) => ({
-				key: `location-${location.id}`,
+				id: location.id,
+				icon: 'Folder',
 				name: location.name || ''
 			})) || []
 	});
 
 	return (
-		<SearchOptionSubMenu name={searchOption.name} icon={searchOption.icon}>
-			<FilterInput searchOption={searchOption} />
+		<SearchOptionSubMenu
+			name={filterCategory.name}
+			icon={getIconComponent(filterCategory.icon)}
+		>
+			<FilterInput />
 			<Separator />
-			{searchOption.options.map((option) => (
+			{filterCategory.filters.map((filter) => (
 				<SearchOptionItem
-					selected={!!searchStore.selectedFilters[option.key]}
+					selected={searchStore.selectedFilters.has(filter.key)}
 					setSelected={(value) =>
 						value
-							? getSearchStore().selectFilter(option.key, true)
-							: getSearchStore().deselectFilter(option.key)
+							? getSearchStore().selectFilter(filter.key, true)
+							: getSearchStore().deselectFilter(filter.key)
 					}
-					key={option.key}
+					key={filter.key}
 					icon="Folder"
 				>
-					{option.name}
+					{filter.name}
 				</SearchOptionItem>
 			))}
 		</SearchOptionSubMenu>
@@ -44,33 +48,36 @@ export function TagOptions() {
 	const searchStore = useSearchStore();
 	const tagsQuery = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
-	const searchOption = useSearchOption({
+	const filterCategory = useSearchFilter({
 		name: 'Tagged',
-		icon: CircleDashed,
-		options:
+		icon: 'CircleDashed',
+		filters:
 			tagsQuery.data?.map((tag) => ({
-				key: `tag-${tag.id}`,
+				id: tag.id,
 				name: tag.name || '',
 				icon: tag.color as any
 			})) || []
 	});
 
 	return (
-		<SearchOptionSubMenu name={searchOption.name} icon={searchOption.icon}>
-			<FilterInput searchOption={searchOption} />
+		<SearchOptionSubMenu
+			name={filterCategory.name}
+			icon={getIconComponent(filterCategory.icon)}
+		>
+			<FilterInput />
 			<Separator />
-			{searchOption.options.map((option) => (
+			{filterCategory.filters.map((filter) => (
 				<SearchOptionItem
-					selected={!!searchStore.selectedFilters[option.key]}
+					selected={searchStore.selectedFilters.has(filter.key)}
 					setSelected={(value) =>
 						value
-							? getSearchStore().selectFilter(option.key, true)
-							: getSearchStore().deselectFilter(option.key)
+							? getSearchStore().selectFilter(filter.key, true)
+							: getSearchStore().deselectFilter(filter.key)
 					}
-					key={option.key}
-					icon={option.icon}
+					key={filter.id}
+					icon={filter.icon}
 				>
-					{option.name}
+					{filter.name}
 				</SearchOptionItem>
 			))}
 		</SearchOptionSubMenu>
@@ -79,35 +86,38 @@ export function TagOptions() {
 export function KindOptions() {
 	const searchStore = useSearchStore();
 
-	const searchOption = useSearchOption({
+	const filterCategory = useSearchFilter({
 		name: 'Kind',
-		icon: CircleDashed,
-		options:
+		icon: 'CircleDashed',
+		filters:
 			Object.keys(ObjectKind)
 				.filter((key) => isNaN(Number(key)))
 				.map((kind) => ({
-					key: `kind-${kind}`,
-					name: kind || '',
+					id: kind,
+					name: kind,
 					icon: kind
 				})) || []
 	});
 
 	return (
-		<SearchOptionSubMenu name={searchOption.name} icon={searchOption.icon}>
-			<FilterInput searchOption={searchOption} />
+		<SearchOptionSubMenu
+			name={filterCategory.name}
+			icon={getIconComponent(filterCategory.icon)}
+		>
+			<FilterInput />
 			<Separator />
-			{searchOption.options.map((option) => (
+			{filterCategory.filters.map((filter) => (
 				<SearchOptionItem
-					selected={!!searchStore.selectedFilters[option.key]}
+					selected={searchStore.selectedFilters.has(filter.key)}
 					setSelected={(value) =>
 						value
-							? getSearchStore().selectFilter(option.key, true)
-							: getSearchStore().deselectFilter(option.key)
+							? getSearchStore().selectFilter(filter.key, true)
+							: getSearchStore().deselectFilter(filter.key)
 					}
-					key={option.key}
-					icon={option.icon}
+					key={filter.key}
+					icon={filter.icon}
 				>
-					{option.name}
+					{filter.name}
 				</SearchOptionItem>
 			))}
 		</SearchOptionSubMenu>

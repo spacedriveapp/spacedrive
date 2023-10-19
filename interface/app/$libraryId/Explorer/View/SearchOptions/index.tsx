@@ -13,7 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { useLibraryQuery } from '@sd/client';
 import {
 	Button,
@@ -26,8 +26,9 @@ import {
 	SelectOption,
 	tw
 } from '@sd/ui';
-import { getSearchStore, SearchOptionMenu, useKeybind, useSearchStore } from '~/hooks';
+import { getSearchStore, GroupedFilters, useKeybind, useSearchStore } from '~/hooks';
 
+import { AppliedOptions } from './AppliedFilters';
 import { KindOptions, LocationOptions, TagOptions } from './Options';
 import { RenderIcon } from './util';
 
@@ -44,7 +45,7 @@ type CustomFilterOptions = 'none' | 'created_date' | 'modified_date' | 'indexed_
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
 	setSelected?: (selected: boolean) => void;
-	icon?: Icon | IconTypes;
+	icon?: Icon | IconTypes | string;
 }
 const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 
@@ -91,7 +92,7 @@ export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: stri
 	);
 };
 
-export const FilterInput = (props: { searchOption: SearchOptionMenu }) => {
+export const FilterInput = () => {
 	// talk to store
 	return <Input autoFocus variant="transparent" placeholder="Filter..." />;
 };
@@ -99,6 +100,7 @@ export const FilterInput = (props: { searchOption: SearchOptionMenu }) => {
 export const Separator = () => <DropdownMenu.Separator className="!border-app-line" />;
 
 const SearchOptions = () => {
+	const searchStore = useSearchStore();
 	const [searchContext, setSearchContext] = useState<'paths' | 'objects'>('paths');
 
 	const handleMouseEnter = () => {
@@ -113,7 +115,6 @@ const SearchOptions = () => {
 		getSearchStore().isSearching = false;
 	});
 
-	const { searchScope } = useSearchStore();
 	return (
 		<div
 			onMouseEnter={handleMouseEnter}
@@ -145,7 +146,7 @@ const SearchOptions = () => {
 					size="sm"
 					className="w-[130px]"
 					onChange={(scope) => (getSearchStore().searchScope = scope)}
-					value={searchScope}
+					value={searchStore.searchScope}
 				>
 					<SelectOption value="directory">This Directory</SelectOption>
 					<SelectOption value="location">This Location</SelectOption>
@@ -186,22 +187,9 @@ const SearchOptions = () => {
 					<SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem>
 				</DropdownMenu.Root>
 			</OptionContainer>
+			<AppliedOptions />
+
 			<div className="flex-grow" />
-			{/* <OptionContainer>
-				<Button className="flex flex-row gap-1" size="xs" variant="dotted">
-					Save
-				</Button>
-			</OptionContainer>
-								<DropdownMenu.SubMenu>
-						<Input autoFocus variant="transparent" placeholder="Filter..." />
-						<DropdownMenu.Separator className={SEPARATOR_STYLES} />
-						<SearchOptionItem name="In Location" icon={Folder} />
-						<SearchOptionItem name="In Location" icon={Folder} />
-						<SearchOptionItem name="In Location" icon={Folder} />
-					</DropdownMenu.SubMenu>
-
-			*/}
-
 			<kbd
 				onClick={() => (getSearchStore().isSearching = false)}
 				className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"
@@ -213,55 +201,3 @@ const SearchOptions = () => {
 };
 
 export default SearchOptions;
-
-// const DateSearchFilter = () => {
-// 	const [dateOption, setDateOption] = useState<DateOption>('within_last');
-// 	const [primaryDate, setPrimaryDate] = useState<string>('');
-// 	const [withinLast, setWithinLast] = useState<number>(1);
-// 	const [customFilter, setCustomFilter] = useState<CustomFilter>('');
-// 	return (
-// 		<>
-// 			<OptionContainer className="gap-2">
-// 				<Label className="!m-0">Is:</Label>
-// 				<Select size="sm" onChange={(item) => setDateOption(item)} value={dateOption}>
-// 					<SelectOption value="within_last">Within Last</SelectOption>
-// 					<SelectOption value="before">Before</SelectOption>
-// 					<SelectOption value="after">After</SelectOption>
-// 					<SelectOption value="exactly">Exactly</SelectOption>
-// 					<SelectOption value="today">Today</SelectOption>
-// 					<SelectOption value="yesterday">Yesterday</SelectOption>
-// 					<SelectOption value="this_week">This Week</SelectOption>
-// 					<SelectOption value="this_month">This Month</SelectOption>
-// 					<SelectOption value="this_year">This Year</SelectOption>
-// 					<SelectOption value="last_year">Last Year</SelectOption>
-// 				</Select>
-// 				{['after', 'before', 'exactly'].includes(dateOption) && (
-// 					<Input
-// 						type="date"
-// 						size="xs"
-// 						onChange={(e) => setPrimaryDate(e.target.value)}
-// 						value={primaryDate}
-// 					/>
-// 				)}
-// 				{['within_last'].includes(dateOption) && (
-// 					<>
-// 						<Input
-// 							size="xs"
-// 							type="number"
-// 							className="w-12"
-// 							inputElementClassName="!pr-0.5"
-// 							onChange={(e) => setWithinLast(Number(e.target.value))}
-// 							value={withinLast}
-// 						/>
-// 						<Select size="sm" onChange={(item) => {}} value={'days'}>
-// 							<SelectOption value="days">Days</SelectOption>
-// 							<SelectOption value="weeks">Weeks</SelectOption>
-// 							<SelectOption value="months">Months</SelectOption>
-// 							<SelectOption value="years">Years</SelectOption>
-// 						</Select>
-// 					</>
-// 				)}
-// 			</OptionContainer>
-// 		</>
-// 	);
-// };

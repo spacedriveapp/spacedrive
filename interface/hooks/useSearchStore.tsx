@@ -1,18 +1,82 @@
 import { Icon } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { proxy, useSnapshot } from 'valtio';
+import { proxyMap } from 'valtio/utils';
 
 // import { ObjectKind } from '@sd/client';
 
-export type SearchType = 'paths' | 'objects' | 'tags';
+type SearchType = 'paths' | 'objects' | 'tags';
 
-export type SearchScope = 'directory' | 'location' | 'device' | 'library';
+type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
-export type SelectedFilter = {
+interface FilterCategory {
+	icon: string; // must be string
+	name: string;
+}
+
+/// Filters are stored in a map, so they can be accessed by key
+export interface Filter {
+	id: string | number;
+	icon: Icon | IconTypes | string;
+	name: string;
+}
+
+// Once a filter is registered, it is given a key and a category name
+export interface RegisteredFilter extends Filter {
+	categoryName: string; // used to link filters to category
+	key: string; // used to identify filters in the map
+}
+
+// Once a filter is selected, condition state is tracked
+export interface SetFilter extends RegisteredFilter {
 	condition: boolean;
-	key: string;
+	category?: FilterCategory;
+}
+
+interface Filters {
+	name: string;
+	icon: string;
+	filters: Filter[];
+}
+
+export type GroupedFilters = {
+	[categoryName: string]: SetFilter[];
 };
+
+export function useSearchFilter({ filters, name, icon }: Filters) {
+	const [registeredFilters, setRegisteredFilters] = useState<RegisteredFilter[]>([]);
+
+	useEffect(() => {
+		const newRegisteredFilters: RegisteredFilter[] = [];
+
+		searchStore.filterCategories.set(name, { name, icon });
+
+		filters.map((filter) => {
+			const key = `${filter.id}-${filter.name}`;
+			const registeredFilter = searchStore.registerFilter(key, filter, name);
+			newRegisteredFilters.push(registeredFilter);
+		});
+
+		setRegisteredFilters(newRegisteredFilters);
+
+		console.log(getSearchStore());
+
+		return () => {
+			filters.forEach((filter) => {
+				const key = `${filter.id}-${filter.name}`;
+				searchStore.unregisterFilter(key);
+			});
+			setRegisteredFilters([]); // or filter out the unregistered filters
+		};
+	}, []);
+
+	return {
+		name,
+		icon,
+		filters: registeredFilters // returning the registered filters with their keys
+	};
+}
 
 const searchStore = proxy({
 	isSearching: false,
@@ -24,66 +88,54 @@ const searchStore = proxy({
 	// tagged: null as string[] | null,
 	// dateRange: null as [Date, Date] | null
 
-	searchableFilterItems: {} as Record<string, SearchOptionMenu>, // You can replace `any` with the type of your items
-	selectedFilters: {} as Record<string, SelectedFilter>,
+	filters: proxyMap() as Map<string, RegisteredFilter>,
+	filterCategories: proxyMap() as Map<string, FilterCategory>,
+	selectedFilters: proxyMap() as Map<string, SetFilter>,
 
-	registerFilterItem: (itemKey: string, item: SearchOptionMenu) => {
-		searchStore.searchableFilterItems[itemKey] = item;
-		console.log(searchStore.searchableFilterItems);
+	registerFilter: (key: string, filter: Filter, categoryName: string) => {
+		searchStore.filters.set(key, { ...filter, key, categoryName });
+		return searchStore.filters.get(key)!;
 	},
 
-	unregisterFilterItem: (itemKey: string) => {
-		delete searchStore.searchableFilterItems[itemKey];
+	unregisterFilter: (key: string) => {
+		searchStore.filters.delete(key);
 	},
 
-	selectFilter: (itemKey: string, condition: boolean) => {
-		searchStore.selectedFilters[itemKey] = { key: itemKey, condition };
+	selectFilter: (key: string, condition: boolean) => {
+		searchStore.selectedFilters.set(key, { ...searchStore.filters.get(key)!, condition });
 	},
 
-	hasFilter: (itemKey: string) => {
-		return !!searchStore.selectedFilters[itemKey];
-	},
-
-	deselectFilter: (itemKey: string) => {
-		delete searchStore.selectedFilters[itemKey];
+	deselectFilter: (key: string) => {
+		searchStore.selectedFilters.delete(key);
 	},
 
 	clearSelectedFilters: () => {
-		searchStore.selectedFilters = {};
+		searchStore.selectedFilters.clear();
 	},
 
-	getSelectedFilters: () => {
-		return Object.values(searchStore.selectedFilters);
-	}
+	getSelectedFilters: (): GroupedFilters => {
+		return Array.from(searchStore.selectedFilters.values())
+			.map((filter) => ({
+				...filter,
+				category: searchStore.filterCategories.get(filter.categoryName)!
+			}))
+			.reduce((grouped, filter) => {
+				if (!grouped[filter.categoryName]) {
+					grouped[filter.categoryName] = [];
+				}
+				grouped[filter.categoryName]?.push(filter);
+				return grouped;
+			}, {} as GroupedFilters);
+	},
 
-	// filterItems: (query: string) => {
-	// 	if (!query) return searchStore.searchableFilterItems;
-	// 	return searchStore.searchableFilterItems.filter((item) =>
-	// 		item.name.toLowerCase().includes(query.toLowerCase())
-	// 	);
-	// }
+	searchFilters: (query: string) => {
+		if (!query) return searchStore.filters;
+		return Array.from(searchStore.filters.values()).filter((filter) =>
+			filter.name.toLowerCase().includes(query.toLowerCase())
+		);
+	}
 });
 
 export const useSearchStore = () => useSnapshot(searchStore);
 
 export const getSearchStore = () => searchStore;
-
-export interface SearchOptionItem {
-	key?: string;
-	name: string;
-	icon?: Icon | IconTypes;
-}
-
-export interface SearchOptionMenu extends SearchOptionItem {
-	options: SearchOptionItem[];
-}
-
-export function useSearchOption(item: SearchOptionMenu) {
-	useEffect(() => {
-		if (item.key) searchStore.registerFilterItem(item.key, item);
-		return () => {
-			if (item.key) searchStore.unregisterFilterItem(item.key);
-		};
-	}, []);
-	return item;
-}
