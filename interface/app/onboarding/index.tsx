@@ -4,7 +4,7 @@ import { getOnboardingStore } from '@sd/client';
 import Alpha from './alpha';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
-import Login from './login';
+import Locations from './locations';
 import NewLibrary from './new-library';
 import Privacy from './privacy';
 
@@ -31,6 +31,10 @@ export default [
 	{
 		element: <NewLibrary />,
 		path: 'new-library'
+	},
+	{
+		element: <Locations />,
+		path: 'locations'
 	},
 	{
 		element: <Privacy />,
