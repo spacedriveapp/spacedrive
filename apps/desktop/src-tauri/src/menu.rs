@@ -15,7 +15,7 @@ pub(super) fn get_menu() -> Menu {
 
 // update this whenever you add something which requires a valid library to use
 #[cfg(target_os = "macos")]
-const LIBRARY_LOCKED_MENU_IDS: [&str; 11] = [
+const LIBRARY_LOCKED_MENU_IDS: [&str; 12] = [
 	"new_window",
 	"open_overview",
 	"open_search",
@@ -23,6 +23,7 @@ const LIBRARY_LOCKED_MENU_IDS: [&str; 11] = [
 	"reload_explorer",
 	"layout_grid",
 	"layout_list",
+	"layout_media",
 	"new_file",
 	"new_directory",
 	"new_library",
@@ -84,13 +85,16 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("open_search", "Search").accelerator("CmdOrCtrl+F"))
 		.add_item(CustomMenuItem::new("open_settings", "Settings").accelerator("CmdOrCtrl+Comma"))
 		.add_item(
-			CustomMenuItem::new("reload_explorer", "Reload explorer").accelerator("CmdOrCtrl+R"),
+			CustomMenuItem::new("reload_explorer", "Reload explorer")
+				.accelerator("CmdOrCtrl+R")
+				.disabled(),
 		)
 		.add_submenu(Submenu::new(
 			"Layout",
 			Menu::new()
 				.add_item(CustomMenuItem::new("layout_grid", "Grid (Default)").disabled())
-				.add_item(CustomMenuItem::new("layout_list", "List").disabled()),
+				.add_item(CustomMenuItem::new("layout_list", "List").disabled())
+				.add_item(CustomMenuItem::new("layout_media", "Media").disabled()),
 		));
 	// .add_item(
 	// 	CustomMenuItem::new("command_pallete", "Command Pallete")
