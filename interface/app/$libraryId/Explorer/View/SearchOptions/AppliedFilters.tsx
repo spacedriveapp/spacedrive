@@ -60,7 +60,7 @@ export const AppliedOptions = () => {
 						{filters[0]?.name}
 					</InteractiveSection>
 					<div
-						// onClick={deselectFilters}
+						onClick={() => deselectFilters(filters)}
 						className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
 					>
 						<X weight="bold" className="opacity-50" />
