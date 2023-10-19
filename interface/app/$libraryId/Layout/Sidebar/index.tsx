@@ -36,15 +36,11 @@ export default () => {
 			)}
 		>
 			{showControls.isEnabled && <MacTrafficLights className="z-50 mb-1" />}
-			{/* {os === 'macOS' && !windowState.isMaximized && (
-				<div data-tauri-drag-region className="h-5 w-full" />
-			)} */}
 			{os === 'macOS' && (
 				<div
 					data-tauri-drag-region={!windowState.isMaximized}
 					id={`maximized-${windowState.isMaximized}`}
 					className="MacOSSidebarAdjust"
-					// className={clsx('MacOSSidebarAdjust w-full', !windowState.isMaximized && 'h-5')}
 				/>
 			)}
 			<LibrariesDropdown />
