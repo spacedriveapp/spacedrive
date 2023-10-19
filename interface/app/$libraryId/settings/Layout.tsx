@@ -1,17 +1,23 @@
 import { PropsWithChildren, ReactNode, Suspense } from 'react';
 import { Outlet } from 'react-router';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useWindowState } from '~/hooks/useWindowState';
 
 import DragRegion from '../../../components/DragRegion';
 import Sidebar from './Sidebar';
 
 export const Component = () => {
+	const os = useOperatingSystem();
+	const windowState = useWindowState();
+
 	return (
 		<div className="flex w-full flex-row bg-app">
 			<Sidebar />
 			<div className="relative w-full">
 				<Suspense>
-					<DragRegion className="absolute inset-x-0 top-0 z-50 h-8" />
+					{os === 'macOS' && !windowState.isMaximized && (
+						<DragRegion className="absolute inset-x-0 top-0 z-50 h-8" />
+					)}
 					<Outlet />
 				</Suspense>
 			</div>
