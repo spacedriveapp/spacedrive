@@ -7,14 +7,12 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{join_location_relative_path, IsolatedFilePathData},
 	prisma::{file_path, location},
-	util::{
-		db::{maybe_missing, MissingFieldError},
-		error::FileIOError,
-	},
+	util::{db::maybe_missing, error::FileIOError},
 };
 
 use std::{hash::Hash, path::PathBuf};
 
+use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -77,7 +75,7 @@ impl StatefulJob for FileCopierJobInit {
 		let steps = get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids)
 			.await?
 			.into_iter()
-			.flat_map(|file_data| {
+			.map(|file_data| async {
 				// add the currently viewed subdirectory to the location root
 				let mut full_target_path = join_location_relative_path(
 					&targets_location_path,
@@ -86,12 +84,19 @@ impl StatefulJob for FileCopierJobInit {
 
 				full_target_path.push(construct_target_filename(&file_data)?);
 
-				Ok::<_, MissingFieldError>(FileCopierJobStep {
+				if file_data.full_path == full_target_path {
+					full_target_path =
+						find_available_filename_for_duplicate(full_target_path).await?;
+				}
+
+				Ok::<_, FileSystemJobsError>(FileCopierJobStep {
 					source_file_data: file_data,
 					target_full_path: full_target_path,
 				})
 			})
-			.collect::<Vec<_>>();
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
 
 		*data = Some(FileCopierJobData {
 			sources_location_path,
