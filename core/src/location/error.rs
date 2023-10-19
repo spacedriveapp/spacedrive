@@ -1,9 +1,12 @@
 use crate::{
 	prisma::location,
-	util::{db::MissingFieldError, error::FileIOError},
+	util::{
+		db::MissingFieldError,
+		error::{FileIOError, NonUtf8PathError},
+	},
 };
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use rspc::{self, ErrorCode};
 use thiserror::Error;
@@ -18,7 +21,7 @@ use super::{
 pub enum LocationError {
 	// Not Found errors
 	#[error("location not found <path='{}'>", .0.display())]
-	PathNotFound(PathBuf),
+	PathNotFound(Box<Path>),
 	#[error("location not found <uuid='{0}'>")]
 	UuidNotFound(Uuid),
 	#[error("location not found <id='{0}'>")]
@@ -26,29 +29,31 @@ pub enum LocationError {
 
 	// User errors
 	#[error("location not a directory <path='{}'>", .0.display())]
-	NotDirectory(PathBuf),
+	NotDirectory(Box<Path>),
 	#[error("could not find directory in location <path='{}'>", .0.display())]
-	DirectoryNotFound(PathBuf),
+	DirectoryNotFound(Box<Path>),
 	#[error(
 		"library exists in the location metadata file, must relink <old_path='{}', new_path='{}'>",
 		.old_path.display(),
 		.new_path.display(),
 	)]
 	NeedRelink {
-		old_path: PathBuf,
-		new_path: PathBuf,
+		old_path: Box<Path>,
+		new_path: Box<Path>,
 	},
 	#[error(
 		"this location belongs to another library, must update .spacedrive file <path='{}'>",
 		.0.display()
 	)]
-	AddLibraryToMetadata(PathBuf),
+	AddLibraryToMetadata(Box<Path>),
 	#[error("location metadata file not found <path='{}'>", .0.display())]
-	MetadataNotFound(PathBuf),
+	MetadataNotFound(Box<Path>),
 	#[error("location already exists in database <path='{}'>", .0.display())]
-	LocationAlreadyExists(PathBuf),
+	LocationAlreadyExists(Box<Path>),
 	#[error("nested location currently not supported <path='{}'>", .0.display())]
-	NestedLocation(PathBuf),
+	NestedLocation(Box<Path>),
+	#[error(transparent)]
+	NonUtf8Path(#[from] NonUtf8PathError),
 
 	// Internal Errors
 	#[error(transparent)]
@@ -56,7 +61,7 @@ pub enum LocationError {
 	#[error("failed to read location path metadata info: {0}")]
 	LocationPathFilesystemMetadataAccess(FileIOError),
 	#[error("missing metadata file for location <path='{}'>", .0.display())]
-	MissingMetadataFile(PathBuf),
+	MissingMetadataFile(Box<Path>),
 	#[error("failed to open file from local OS: {0}")]
 	FileRead(FileIOError),
 	#[error("failed to read mounted volumes from local OS: {0}")]
