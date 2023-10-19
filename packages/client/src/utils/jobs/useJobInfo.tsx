@@ -75,7 +75,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 											completedTaskCount
 												? formatNumber(completedTaskCount || 0)
 												: formatNumber(output?.thumbnails_created)
-									  } of ${taskCount} ${plural(
+									  } of ${formatNumber(taskCount)} ${plural(
 											taskCount,
 											'media file'
 									  )} processed`
