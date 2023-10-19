@@ -40,21 +40,21 @@ pub struct PairingManager {
 	events_tx: broadcast::Sender<P2PEvent>,
 	pairing_response: RwLock<HashMap<u16, oneshot::Sender<PairingDecision>>>,
 	manager: Arc<Manager<PeerMetadata>>,
-	metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	// metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 }
 
 impl PairingManager {
 	pub fn new(
 		manager: Arc<Manager<PeerMetadata>>,
 		events_tx: broadcast::Sender<P2PEvent>,
-		metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+		// metadata_manager: Arc<MetadataManager<PeerMetadata>>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id: AtomicU16::new(0),
 			events_tx,
 			pairing_response: RwLock::new(HashMap::new()),
 			manager,
-			metadata_manager,
+			// metadata_manager,
 		})
 	}
 

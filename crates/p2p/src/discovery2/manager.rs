@@ -7,6 +7,8 @@ use crate::spacetunnel::RemoteIdentity;
 
 type ServiceName = String;
 
+// TODO: Hook back up to mDNS
+
 /// TODO
 pub struct DiscoveryManager {
 	/// A list of services the current node is advertising

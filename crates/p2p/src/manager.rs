@@ -1,5 +1,6 @@
 use std::{
 	collections::{HashMap, HashSet},
+	fmt,
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -20,8 +21,8 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns, Metadata,
-	MetadataManager, PeerId,
+	DiscoveryManager, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
+	Metadata, MetadataManager, PeerId,
 };
 
 // State of the manager that may infrequently change
@@ -34,14 +35,20 @@ pub(crate) struct DynamicManagerState {
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
-#[derive(Debug)]
 pub struct Manager<TMeta: Metadata> {
+	discovery_manager: Arc<DiscoveryManager>,
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
 	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMeta>>,
+}
+
+impl<TMeta: Metadata> fmt::Debug for Manager<TMeta> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("Debug").finish()
+	}
 }
 
 impl<TMeta: Metadata> Manager<TMeta> {
@@ -67,6 +74,7 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		// 	.unwrap();
 
 		let this = Arc::new(Self {
+			discovery_manager: DiscoveryManager::new(),
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
@@ -119,6 +127,10 @@ impl<TMeta: Metadata> Manager<TMeta> {
 
 	pub fn peer_id(&self) -> PeerId {
 		self.peer_id
+	}
+
+	pub fn discovery_manager(&self) -> &Arc<DiscoveryManager> {
+		&self.discovery_manager
 	}
 
 	#[deprecated]

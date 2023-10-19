@@ -28,12 +28,16 @@ pub struct Service<TMeta> {
 // TODO: Service per library or per application?
 
 impl<TMeta: Metadata> Service<TMeta> {
-	pub fn new(name: impl Into<String>, identity: Identity) -> Result<Self, ()> {
+	// TODO: ???? , identity: Identity
+	pub fn new(name: impl Into<String>, manager: Arc<DiscoveryManager>) -> Result<Self, ()> {
 		let name = name.into();
+
 		// TODO: Deal with duplicate `name`
 
-		// Ok(Self { meta: None })
-		todo!();
+		Ok(Self {
+			meta: None,
+			manager,
+		})
 	}
 
 	// TODO: Hook this up to rest of the app

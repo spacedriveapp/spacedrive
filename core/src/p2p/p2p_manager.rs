@@ -77,11 +77,11 @@ impl P2PManager {
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
-		let pairing = PairingManager::new(manager.clone(), tx.clone(), todo!());
+		let pairing = PairingManager::new(manager.clone(), tx.clone(), manager.discovery_manager().);
 
 		Ok((
 			Arc::new(Self {
-				node: Service::new("node", todo!()).unwrap(),
+				node: Service::new("node", manager.discovery_manager().clone()).unwrap(),
 				libraries: Default::default(), // TODO: Initially populate this
 				pairing,
 				events: (tx, rx),
