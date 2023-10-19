@@ -65,6 +65,36 @@ body {
 
 .TooltipContent[data-side='right'] {
 	animation-name: slideRight;
+	animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+
+}
+
+.MacOSSidebarAdjust[id='maximized-false'] {
+	// animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+	// animation-duration: 0.2s;
+	// animation: sidebar 0.2s ease-in;
+	animation: sidebar;
+}
+
+.MacOSSidebarAdjust[id='maximized-true'] {
+	// animation-duration: 0.2s;
+	animation: sidebar;
+}
+
+@keyframes sidebar {
+	0% {
+		// padding-top: 0.625rem; // tailwind's pt-2.5
+		transform: translateY(0.625rem);
+		height: 1.25rem;
+		width: max-content;
+	}
+	100% {
+		// padding-top: 8.5px;
+		transform: translateY(8.5px);
+		height: 0px;
+		width: 0px;
+		opacity: 0px;
+	}
 }
 
 @keyframes slideRight {
@@ -99,6 +129,8 @@ body {
 		transform: translateY(0);
 	}
 }
+
+
 
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */

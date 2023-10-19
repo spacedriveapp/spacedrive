@@ -29,15 +29,23 @@ export default () => {
 		<div
 			className={clsx(
 				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col gap-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2',
-				os === 'macOS' && windowState.isMaximized ? 'pt-[8.75px]' : 'pt-2.5',
+				// os === 'macOS' && 'MacOSSidebarAdjust',
 				os === 'macOS' || showControls.transparentBg
 					? 'bg-opacity-[0.65]'
 					: 'bg-opacity-[1]'
 			)}
 		>
 			{showControls.isEnabled && <MacTrafficLights className="z-50 mb-1" />}
-			{os === 'macOS' && !windowState.isMaximized && (
+			{/* {os === 'macOS' && !windowState.isMaximized && (
 				<div data-tauri-drag-region className="h-5 w-full" />
+			)} */}
+			{os === 'macOS' && (
+				<div
+					data-tauri-drag-region={!windowState.isMaximized}
+					id={`maximized-${windowState.isMaximized}`}
+					className="MacOSSidebarAdjust"
+					// className={clsx('MacOSSidebarAdjust w-full', !windowState.isMaximized && 'h-5')}
+				/>
 			)}
 			<LibrariesDropdown />
 			<Contents />
