@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@aws-sdk/client-ses": "^3.337.0",
+		"@octokit/webhooks": "^12.0.3",
 		"@phosphor-icons/react": "^2.1.3",
 		"@planetscale/database": "^1.7.0",
 		"@react-three/drei": "^9.78.1",
@@ -27,8 +28,10 @@
 		"katex": "^0.16.9",
 		"markdown-to-jsx": "^7.2.0",
 		"md5": "^2.3.0",
+		"mdx-loader": "^3.0.2",
 		"next": "13.5.4",
 		"next-contentlayer": "^0.3.4",
+		"octokit": "^3.1.1",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
@@ -54,6 +57,7 @@
 	},
 	"devDependencies": {
 		"@next/bundle-analyzer": "^13.5.4",
+		"@octokit/openapi-types": "^19.0.0",
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.1.0",
 		"@types/node": "~18.17.19",

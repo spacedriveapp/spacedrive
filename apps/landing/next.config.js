@@ -1,3 +1,4 @@
+// @ts-check
 const { withContentlayer } = require('next-contentlayer');
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
 	enabled: process.env.ANALYZE === 'true'
@@ -20,6 +21,25 @@ const nextConfig = {
 	experimental: {
 		optimizePackageImports: ['@sd/ui']
 	},
+	headers: async () => [
+		{
+			source: '/api/:path*',
+			headers: [
+				{
+					key: 'Access-Control-Allow-Origin',
+					value: '*'
+				},
+				{
+					key: 'Access-Control-Allow-Methods',
+					value: 'GET, HEAD, OPTIONS'
+				},
+				{
+					key: 'Access-Control-Allow-Headers',
+					value: 'Content-Type'
+				}
+			]
+		}
+	],
 	webpack(config) {
 		// Grab the existing rule that handles SVG imports
 		const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'));

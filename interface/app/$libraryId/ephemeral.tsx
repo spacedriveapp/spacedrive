@@ -175,7 +175,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 			'search.ephemeralPaths',
 			{
 				path: path ?? (os === 'windows' ? 'C:\\' : '/'),
-				withHiddenFiles: false,
+				withHiddenFiles: settingsSnapshot.showHiddenFiles,
 				order: settingsSnapshot.order
 			}
 		],
@@ -192,13 +192,6 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		const ret: ExplorerItem[] = [];
 
 		for (const item of query.data.entries) {
-			if (
-				!settingsSnapshot.showHiddenFiles &&
-				item.type === 'NonIndexedPath' &&
-				item.item.hidden
-			)
-				continue;
-
 			if (settingsSnapshot.layoutMode !== 'media') ret.push(item);
 			else {
 				const { kind } = getExplorerItemData(item);
