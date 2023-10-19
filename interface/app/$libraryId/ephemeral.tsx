@@ -34,7 +34,7 @@ import { TOP_BAR_HEIGHT } from './TopBar';
 import { TopBarPortal } from './TopBar/Portal';
 import TopBarButton from './TopBar/TopBarButton';
 
-const items: { icon: keyof typeof iconNames; name: string }[] = [
+const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	{
 		icon: 'Folder',
 		name: 'Documents'
@@ -61,23 +61,13 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 
 	return (
 		<Dialog.Root
-			open={true}
+			open={!dismissed}
 			onOpenChange={(open) => (getDismissibleNoticeStore().ephemeral = !open)}
 		>
 			<Dialog.Portal>
-				<Dialog.Overlay
-					className={clsx(
-						'fixed inset-0 z-50 bg-app/80 backdrop-blur-sm',
-						'radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-open:animate-in radix-state-open:fade-in-0'
-					)}
-					onContextMenu={(e) => e.preventDefault()}
-				/>
-
-				<Dialog.Content
-					className="fixed left-[50%] top-[50%] z-50 w-96 translate-x-[-50%] translate-y-[-50%] rounded-md border border-app-line bg-app p-2 shadow-lg outline-none duration-200 radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-closed:zoom-out-95 radix-state-closed:slide-out-to-left-1/2 radix-state-closed:slide-out-to-top-[48%] radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95 radix-state-open:slide-in-from-left-1/2 radix-state-open:slide-in-from-top-[48%]"
-					onContextMenu={(e) => e.preventDefault()}
-				>
-					<div className="relative flex aspect-video overflow-hidden rounded border border-app-line bg-app-darkBox pl-5 pt-5">
+				<Dialog.Overlay className="fixed inset-0 z-50 bg-app/80 backdrop-blur-sm radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-open:animate-in radix-state-open:fade-in-0" />
+				<Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-96 translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-md border border-app-line bg-app shadow-lg outline-none duration-200 radix-state-closed:animate-out radix-state-closed:fade-out-0 radix-state-closed:zoom-out-95 radix-state-closed:slide-out-to-left-1/2 radix-state-closed:slide-out-to-top-[48%] radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95 radix-state-open:slide-in-from-left-1/2 radix-state-open:slide-in-from-top-[48%]">
+					<div className="relative flex aspect-video overflow-hidden border-b border-app-line/50 bg-gradient-to-b from-app-darkBox to-app to-80% pl-5 pt-5">
 						<div
 							className={clsx(
 								'relative flex flex-1 flex-col overflow-hidden rounded-tl-lg border-l border-t border-app-line/75 bg-app shadow-lg',
@@ -88,7 +78,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 
 							<div
 								style={{ height: TOP_BAR_HEIGHT }}
-								className="flex items-center gap-3.5 border-b border-sidebar-divider bg-app/90 px-3.5"
+								className="flex items-center gap-3.5 border-b border-sidebar-divider px-3.5"
 							>
 								<div className="flex">
 									<TopBarButton rounding="left">
@@ -114,7 +104,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 
 							<div className="relative flex-1">
 								<div className="absolute inset-0 grid w-[115%] grid-cols-4 gap-3 pl-3 pt-3">
-									{items.map((item) => (
+									{NOTICE_ITEMS.map((item) => (
 										<div key={item.name} className="flex flex-col items-center">
 											<Icon name={item.icon} draggable={false} />
 											<span className="text-center text-xs font-medium text-ink">
@@ -125,31 +115,35 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 								</div>
 							</div>
 						</div>
+
+						<div className="absolute inset-x-0 bottom-0 z-50 h-4 bg-gradient-to-t from-app/70 to-transparent" />
 					</div>
 
-					<div className="mt-3 text-center">
-						<h2 className="font-semibold text-ink">Local Locations</h2>
-						<p className="text-sm text-ink-dull">
-							Browse your files and folders directly from your device.
-						</p>
-					</div>
+					<div className="p-3 pt-0">
+						<div className="py-4 text-center">
+							<h2 className="text-lg font-semibold text-ink">Local Locations</h2>
+							<p className="mt-px text-sm text-ink-dull">
+								Browse your files and folders directly from your device.
+							</p>
+						</div>
 
-					<div className="mt-3 flex items-center rounded-md border border-accent/25 bg-accent/10 px-3 py-2 text-sm text-ink-dull">
-						<Info size={36} className="mr-3 text-accent" />
-						<p className="text-ink">
-							Consider indexing your local locations for a faster and more efficient
-							exploration.
-						</p>
-					</div>
+						<div className="flex items-center rounded-md border border-app-line bg-app-box px-3 py-2 text-ink-faint">
+							<Info size={20} weight="light" className="mr-2.5 shrink-0" />
+							<p className="text-sm font-light">
+								Consider indexing your local locations for a faster and more
+								efficient exploration.
+							</p>
+						</div>
 
-					<Button
-						variant="accent"
-						className="mt-2 w-full !rounded"
-						size="md"
-						onClick={dismiss}
-					>
-						Got it
-					</Button>
+						<Button
+							variant="accent"
+							className="mt-3 w-full !rounded"
+							size="md"
+							onClick={dismiss}
+						>
+							Got it
+						</Button>
+					</div>
 				</Dialog.Content>
 			</Dialog.Portal>
 		</Dialog.Root>
