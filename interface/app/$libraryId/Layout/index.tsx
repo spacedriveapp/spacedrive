@@ -33,7 +33,7 @@ const Layout = () => {
 
 	const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
 
-	useKeybindEventHandler(setIsWindowMaximized, library?.uuid);
+	useKeybindEventHandler({ libraryId: library?.uuid, setIsWindowMaximized });
 
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);

@@ -3,30 +3,30 @@ import { useNavigate } from 'react-router';
 
 import { KeybindEvent } from '../util/keybind';
 
-export const useKeybindEventHandler = (
-	setIsWindowMaximized: (maximized: boolean) => void,
-	libraryId?: string
-) => {
+export const useKeybindEventHandler = (props: {
+	libraryId?: string;
+	setIsWindowMaximized: (maximized: boolean) => void;
+}) => {
 	const navigate = useNavigate();
+	const { libraryId, setIsWindowMaximized } = props;
 
 	useEffect(() => {
 		const handler = (e: KeybindEvent) => {
-			if (e.detail.action === 'open_settings') {
-				libraryId && navigate(`/${libraryId}/settings/client/general`);
-				e.preventDefault();
-				return;
-			} else if (e.detail.action === 'open_overview') {
-				libraryId && navigate(`/${libraryId}/overview`);
-				e.preventDefault();
-				return;
-			} else if (e.detail.action === 'window_maximized') {
-				setIsWindowMaximized(true);
-				e.preventDefault();
-				return;
-			} else if (e.detail.action === 'window_not_maximized') {
-				setIsWindowMaximized(false);
-				e.preventDefault();
-				return;
+			e.preventDefault();
+
+			switch (e.detail.action) {
+				case 'open_settings':
+					libraryId && navigate(`/${libraryId}/settings/client/general`);
+					break;
+				case 'open_overview':
+					libraryId && navigate(`/${libraryId}/overview`);
+					break;
+				case 'window_maximized':
+					setIsWindowMaximized(true);
+					break;
+				case 'window_not_maximized':
+					setIsWindowMaximized(false);
+					break;
 			}
 		};
 
