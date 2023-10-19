@@ -1,6 +1,6 @@
 import { Laptop } from '@sd/assets/icons';
 import { useMemo } from 'react';
-import { ExplorerItem, useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
@@ -38,7 +38,8 @@ export const Component = () => {
 			  }
 			: undefined,
 		settings: explorerSettings,
-		showPathBar: false
+		showPathBar: false,
+		layouts: { media: false }
 	});
 
 	return (

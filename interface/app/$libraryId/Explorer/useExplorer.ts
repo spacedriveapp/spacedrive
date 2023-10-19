@@ -3,6 +3,7 @@ import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
 import type {
 	ExplorerItem,
+	ExplorerLayout,
 	ExplorerSettings,
 	FilePath,
 	Location,
@@ -49,6 +50,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	 * @defaultValue `true`
 	 */
 	showPathBar?: boolean;
+	layouts?: Partial<Record<ExplorerLayout, boolean>>;
 }
 
 /**
@@ -57,6 +59,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
  */
 export function useExplorer<TOrder extends Ordering>({
 	settings,
+	layouts,
 	...props
 }: UseExplorerProps<TOrder>) {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -68,6 +71,12 @@ export function useExplorer<TOrder extends Ordering>({
 		scrollRef,
 		count: props.items?.length,
 		showPathBar: true,
+		layouts: {
+			grid: true,
+			list: true,
+			media: true,
+			...layouts
+		},
 		...settings,
 		// Provided values
 		...props,
