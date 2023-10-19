@@ -9,8 +9,6 @@ import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
 
-const RELEASE_VERSION = 'Alpha v0.1.1';
-
 interface Platform {
 	name: string;
 	os?: string;
@@ -53,6 +51,18 @@ const BASE_DL_LINK = '/api/releases/desktop/stable';
 export function Downloads() {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
+
+	const [latestSpacedriveVersion, setLatestSpacedriveVersion] = useState<string>("Alpha");
+
+	useEffect(() => {
+		const fetchLatestVersion = async () => {
+			const res = await fetch("/api/releases/latest");
+			const data = await res.json();
+			setLatestSpacedriveVersion("Alpha v" + data.version);
+		}
+
+		fetchLatestVersion();
+	}, [])
 
 	const formattedVersion = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
@@ -113,7 +123,7 @@ export function Downloads() {
 				</div>
 			)}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
-				{RELEASE_VERSION}
+				{latestSpacedriveVersion}
 				{formattedVersion && (
 					<>
 						<span className="mx-2 opacity-50">|</span>
