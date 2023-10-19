@@ -2,7 +2,7 @@ use tauri::{
 	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
 };
 
-pub(crate) fn get_menu() -> Menu {
+pub(super) fn get_menu() -> Menu {
 	#[cfg(target_os = "macos")]
 	{
 		custom_menu_bar()
@@ -176,7 +176,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 /// If any are explicitly marked with `.disabled()` in the `custom_menu_bar()` function, this won't have an effect.
 /// We include them in the locked menu IDs anyway for future-proofing, in-case someone forgets.
 #[cfg(target_os = "macos")]
-pub(crate) fn set_library_locked_menu_items_enabled(
+pub(super) fn set_library_locked_menu_items_enabled(
 	handle: tauri::window::MenuHandle,
 	enabled: bool,
 ) {

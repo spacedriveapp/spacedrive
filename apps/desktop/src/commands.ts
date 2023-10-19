@@ -30,6 +30,10 @@ export function reloadWebview() {
     return invoke()<null>("reload_webview")
 }
 
+export function setMenuBarItemState(id: string, enabled: boolean) {
+    return invoke()<null>("set_menu_bar_item_state", { id,enabled })
+}
+
 export function openFilePaths(library: string, ids: number[]) {
     return invoke()<OpenFilePathResult[]>("open_file_paths", { library,ids })
 }

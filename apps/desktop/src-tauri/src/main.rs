@@ -7,7 +7,10 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{Node, NodeError};
 
-use tauri::{api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager};
+use tauri::{
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
+	WindowEvent,
+};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tokio::time::sleep;
 use tracing::error;
@@ -26,6 +29,19 @@ async fn app_ready(app_handle: AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn set_menu_bar_item_state(window: tauri::Window, id: String, enabled: bool) {
+	#[cfg(target_os = "macos")]
+	{
+		window
+			.menu_handle()
+			.get_item(&id)
+			.set_enabled(enabled)
+			.expect("Unable to modify menu item")
+	}
 }
 
 #[tauri::command(async)]
@@ -251,6 +267,24 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
+		.on_window_event(|event| {
+			if let WindowEvent::Resized(_) = event.event() {
+				let command = if event
+					.window()
+					.is_maximized()
+					.expect("Can't get maximized state")
+				{
+					"window_maximized"
+				} else {
+					"window_not_maximized"
+				};
+
+				event
+					.window()
+					.emit("keybind", command)
+					.expect("Unable to emit window event");
+			}
+		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
 		.invoke_handler(tauri_handlers![
@@ -259,6 +293,7 @@ async fn main() -> tauri::Result<()> {
 			open_logs_dir,
 			refresh_menu_bar,
 			reload_webview,
+			set_menu_bar_item_state,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,

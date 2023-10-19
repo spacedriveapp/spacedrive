@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -29,7 +29,11 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
-	useKeybindEventHandler(library?.uuid);
+	const platform = usePlatform();
+
+	const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
+
+	useKeybindEventHandler(setIsWindowMaximized, library?.uuid);
 
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
@@ -37,7 +41,7 @@ const Layout = () => {
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
-		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web',
+		platformType: platform.platform === 'tauri' ? 'desktop' : 'web',
 		buildInfo: buildInfo?.data
 	});
 
@@ -80,7 +84,7 @@ const Layout = () => {
 
 					// FIXME: if the window is fully maximized (with the green traffic light), only on macos, this needs disabling
 					// otherwise the corners are missing lol
-					// os === 'macOS' && isfulymaximized && 'rounded-[10px]',
+					os === 'macOS' && !isWindowMaximized && 'rounded-[10px]',
 
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}

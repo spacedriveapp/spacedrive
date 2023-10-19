@@ -42,6 +42,7 @@ export type Platform = {
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	refreshMenuBar?(): Promise<unknown>;
+	setMenuBarItemState?(id: string, enabled: boolean): Promise<unknown>;
 	lockAppTheme?(themeType: 'Auto' | 'Light' | 'Dark'): any;
 	updater?: {
 		useSnapshot: () => UpdateStore;
