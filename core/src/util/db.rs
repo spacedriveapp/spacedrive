@@ -69,6 +69,13 @@ pub fn inode_to_db(inode: u64) -> Vec<u8> {
 #[error("Missing field {0}")]
 pub struct MissingFieldError(&'static str);
 
+impl MissingFieldError {
+	#[must_use]
+	pub const fn new(value: &'static str) -> Self {
+		Self(value)
+	}
+}
+
 impl From<MissingFieldError> for rspc::Error {
 	fn from(value: MissingFieldError) -> Self {
 		rspc::Error::with_cause(
