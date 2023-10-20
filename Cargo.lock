@@ -6907,7 +6907,6 @@ dependencies = [
  "specta",
  "thiserror",
  "tracing 0.2.0",
- "webp",
 ]
 
 [[package]]
