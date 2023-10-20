@@ -26,7 +26,7 @@ const LIBRARY_LOCKED_MENU_IDS: [&str; 12] = [
 	"layout_media",
 	"new_file",
 	"new_directory",
-	"new_library",
+	"new_library", // disabled because the first one should at least be done via onboarding
 	"add_location",
 ];
 
@@ -65,16 +65,8 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("add_location", "Add Location").disabled()); // TODO(brxken128): add keybind handling here;
 
 	let edit_menu = Menu::new()
-		.add_item(
-			CustomMenuItem::new("undo", "Undo")
-				.accelerator("CmdOrCtrl+Z")
-				.disabled(),
-		)
-		.add_item(
-			CustomMenuItem::new("redo", "Redo")
-				.accelerator("CmdOrCtrl+Shift+Z")
-				.disabled(),
-		)
+		.add_item(CustomMenuItem::new("undo", "Undo").accelerator("CmdOrCtrl+Z"))
+		.add_item(CustomMenuItem::new("redo", "Redo").accelerator("CmdOrCtrl+Shift+Z"))
 		.add_native_item(MenuItem::Separator)
 		.add_item(CustomMenuItem::new("copy", "Copy").accelerator("CmdOrCtrl+C"))
 		.add_item(CustomMenuItem::new("paste", "Paste").accelerator("CmdOrCtrl+V"))
