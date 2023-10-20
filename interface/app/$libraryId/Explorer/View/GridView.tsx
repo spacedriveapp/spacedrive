@@ -19,23 +19,23 @@ interface GridViewItemProps {
 
 const GridViewItem = memo(({ data, selected, cut, isRenaming }: GridViewItemProps) => {
 	const explorer = useExplorerContext();
-	const { showBytesInGridView, gridItemSize } = explorer.useSettingsSnapshot();
+	const { showBytesInGridView } = explorer.useSettingsSnapshot();
 
 	const filePathData = getItemFilePath(data);
 	const location = getItemLocation(data);
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
-	const isFolder = 'is_dir' in data.item ? data.item.is_dir || data.type === 'Location' : false;
-	const hidden = filePathData?.hidden ?? false;
+	const isFolder = filePathData?.is_dir;
+	const hidden = filePathData?.hidden;
 
 	const showSize =
 		showBytesInGridView &&
-		!isEphemeralLocation &&
-		!isFolder &&
 		!location &&
-		(!isRenaming || (isRenaming && !selected));
+		!isFolder &&
+		(!isEphemeralLocation || !isFolder) &&
+		(!isRenaming || !selected);
 
 	return (
-		<ViewItem data={data} className={clsx("h-full w-full", hidden && 'opacity-50')}>
+		<ViewItem data={data} className={clsx('h-full w-full', hidden && 'opacity-50')}>
 			<div
 				className={clsx('mb-1 aspect-square rounded-lg', selected && 'bg-app-selectedItem')}
 			>
