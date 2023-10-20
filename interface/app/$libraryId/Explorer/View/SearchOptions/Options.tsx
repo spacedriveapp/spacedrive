@@ -1,5 +1,5 @@
 import { ObjectKind, useLibraryQuery } from '@sd/client';
-import { getSearchStore, useSearchFilter, useSearchStore } from '~/hooks';
+import { getSearchStore, useCreateSearchFilter, useSearchStore } from '~/hooks';
 
 import { FilterInput, SearchOptionItem, SearchOptionSubMenu, Separator } from '.';
 import { getIconComponent } from './util';
@@ -8,7 +8,7 @@ export function LocationOptions() {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const searchStore = useSearchStore();
 
-	const filterCategory = useSearchFilter({
+	const filterCategory = useCreateSearchFilter({
 		name: 'Location',
 		icon: 'Folder',
 		filters:
@@ -48,7 +48,7 @@ export function TagOptions() {
 	const searchStore = useSearchStore();
 	const tagsQuery = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
-	const filterCategory = useSearchFilter({
+	const filterCategory = useCreateSearchFilter({
 		name: 'Tagged',
 		icon: 'CircleDashed',
 		filters:
@@ -86,17 +86,20 @@ export function TagOptions() {
 export function KindOptions() {
 	const searchStore = useSearchStore();
 
-	const filterCategory = useSearchFilter({
+	const filterCategory = useCreateSearchFilter({
 		name: 'Kind',
 		icon: 'CircleDashed',
 		filters:
 			Object.keys(ObjectKind)
-				.filter((key) => isNaN(Number(key)))
-				.map((kind) => ({
-					id: kind,
-					name: kind,
-					icon: kind
-				})) || []
+				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
+				.map((key) => {
+					const kind = ObjectKind[Number(key)];
+					return {
+						id: Number(key),
+						name: kind,
+						icon: kind || 'defaultIcon' // providing a default icon in case kind is undefined
+					};
+				}) || []
 	});
 
 	return (

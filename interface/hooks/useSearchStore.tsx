@@ -44,7 +44,7 @@ export type GroupedFilters = {
 	[categoryName: string]: SetFilter[];
 };
 
-export function useSearchFilter({ filters, name, icon }: Filters) {
+export function useCreateSearchFilter({ filters, name, icon }: Filters) {
 	const [registeredFilters, setRegisteredFilters] = useState<RegisteredFilter[]>([]);
 
 	useEffect(() => {
