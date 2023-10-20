@@ -41,7 +41,8 @@ const Network = memo((props: { args: PathParams }) => {
 				pub_id: []
 			}
 		})),
-		settings: explorerSettings
+		settings: explorerSettings,
+		layouts: { media: false }
 	});
 
 	return (

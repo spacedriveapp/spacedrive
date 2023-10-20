@@ -3,12 +3,10 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
-	DistanceFormat,
 	getOnboardingStore,
 	getUnitFormatStore,
 	resetOnboardingStore,
 	telemetryStore,
-	TemperatureFormat,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -55,6 +53,16 @@ const schemas = {
 	'new-library': z.object({
 		name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 	}),
+	'locations': z.object({
+		locations: z.object({
+			desktop: z.coerce.boolean(),
+			documents: z.coerce.boolean(),
+			downloads: z.coerce.boolean(),
+			pictures: z.coerce.boolean(),
+			music: z.coerce.boolean(),
+			videos: z.coerce.boolean()
+		})
+	}),
 	'privacy': z.object({
 		shareTelemetry: shareTelemetry.schema
 	})
@@ -68,11 +76,12 @@ const useFormState = () => {
 		schemas,
 		defaultValues: {
 			'new-library': obStore.data?.['new-library'] ?? undefined,
+			'locations': obStore.data?.locations ?? { locations: {} },
 			'privacy': obStore.data?.privacy ?? {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = data)
+		onData: (data) => (getOnboardingStore().data = { ...obStore.data, ...data })
 	});
 
 	const navigate = useNavigate();
@@ -99,7 +108,8 @@ const useFormState = () => {
 				// show creation screen for a bit for smoothness
 				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
-						name: data['new-library'].name
+						name: data['new-library'].name,
+						default_locations: data.locations.locations
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);

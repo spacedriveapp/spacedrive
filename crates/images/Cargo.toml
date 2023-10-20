@@ -14,7 +14,6 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 
 [dependencies]
 image = "0.24.7"
-webp = { version = "0.2.6", optional = true }
 thiserror = "1.0.49"
 resvg = "0.36.0"
 rspc = { workspace = true, optional = true } # error conversion

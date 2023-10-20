@@ -24,10 +24,11 @@ export const CheckBox = forwardRef<HTMLInputElement, CheckBoxProps>(
 
 export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root> {
 	label?: string;
+	labelClassName?: string;
 }
 
 // TODO: Replace above with this, requires refactor of usage
-export const RadixCheckbox = ({ className, ...props }: RadixCheckboxProps) => (
+export const RadixCheckbox = ({ className, labelClassName, ...props }: RadixCheckboxProps) => (
 	<div className={clsx('flex items-center', className)}>
 		<Checkbox.Root
 			className="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-md border border-app-line bg-app-button radix-state-checked:bg-accent"
@@ -39,7 +40,10 @@ export const RadixCheckbox = ({ className, ...props }: RadixCheckboxProps) => (
 			</Checkbox.Indicator>
 		</Checkbox.Root>
 		{props.label && (
-			<label className="ml-2 text-sm font-medium" htmlFor={props.name}>
+			<label
+				className={clsx('ml-2 text-sm font-medium', labelClassName)}
+				htmlFor={props.name}
+			>
 				{props.label}
 			</label>
 		)}
