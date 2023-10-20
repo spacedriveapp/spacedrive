@@ -67,7 +67,6 @@ export const Component = () => {
 		await editNode.mutateAsync({
 			name: value.name || null,
 			p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
-			// @ts-expect-error: Specta can't properly express this type. - https://github.com/oscartbeaumont/specta/issues/157
 			p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port)
 		});
 
