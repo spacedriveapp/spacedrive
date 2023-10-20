@@ -1,17 +1,15 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom';
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
-import { Dialogs, toast, Toaster } from '@sd/ui';
+import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
-import { useKeybindHandler, useTheme } from '~/hooks';
+import { useKeybindHandler, useShouldRedirect, useTheme } from '~/hooks';
 
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
 import { RootContext } from './RootContext';
 
 import './style.scss';
-
-import { usePlatform } from '..';
 
 const Index = () => {
 	const libraries = useCachedLibraries();
@@ -31,6 +29,7 @@ const Wrapper = () => {
 	useKeybindHandler();
 	useInvalidateQuery();
 	useTheme();
+	useShouldRedirect();
 
 	const rawPath = useRawRoutePath();
 

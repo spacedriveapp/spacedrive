@@ -23,3 +23,4 @@ export * from './useIsTextTruncated';
 export * from './useKeyMatcher';
 export * from './useKeyCopyCutPaste';
 export * from './useMouseNavigate';
+export * from './useShouldRedirect';
