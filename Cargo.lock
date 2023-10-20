@@ -4884,7 +4884,6 @@ version = "0.9.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db4d56a4c0478783083cfafcc42493dd4a981d41669da64b4572a2a089b51b1d"
 dependencies = [
- "bindgen",
  "cc",
  "libc",
  "openssl-src",

@@ -7,6 +7,7 @@ FFMPEG_DIR = { force = true, value = "{{{nativeDeps}}}" }
 {{/isLinux}}
 OPENSSL_STATIC = { force = true, value = "1" }
 OPENSSL_NO_VENDOR = { force = true, value = "0" }
+OPENSSL_RUST_USE_NASM = { force = true, value = "1" }
 
 {{#isMacOS}}
 [target.x86_64-apple-darwin]

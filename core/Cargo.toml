@@ -115,10 +115,10 @@ directories = "5.0.1"
 # Override features of transitive dependencies
 [dependencies.openssl]
 version = "=0.10.57"
-features = ["vendored", "bindgen"]
+features = ["vendored"]
 [dependencies.openssl-sys]
 version = "=0.9.93"
-features = ["vendored", "bindgen"]
+features = ["vendored"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
