@@ -533,8 +533,6 @@ pub async fn relink_location(
 	Library { db, id, sync, .. }: &Library,
 	location_path: impl AsRef<Path>,
 ) -> Result<i32, LocationError> {
-	let Library { db, id, sync, .. } = &**library;
-
 	let location_path = location_path.as_ref();
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -549,7 +547,7 @@ pub async fn relink_location(
 		.ok_or_else(|| NonUtf8PathError(location_path.into()))?;
 
 	sync.write_op(
-		db,
+		&db,
 		sync.shared_update(
 			prisma_sync::location::SyncId {
 				pub_id: pub_id.clone(),
