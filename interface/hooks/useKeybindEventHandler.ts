@@ -19,11 +19,14 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'open_overview':
 					libraryId && navigate(`/${libraryId}/overview`);
 					break;
-				case 'window_maximized':
-					windowState.isMaximized = true;
+				case 'open_search':
+					// somehow emit ctrl/cmd+f
 					break;
-				case 'window_not_maximized':
-					windowState.isMaximized = false;
+				case 'window_fullscreened':
+					windowState.isFullScreen = true;
+					break;
+				case 'window_not_fullscreened':
+					windowState.isFullScreen = false;
 					break;
 			}
 		};

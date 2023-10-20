@@ -15,7 +15,7 @@ export const Component = () => {
 			<Sidebar />
 			<div className="relative w-full">
 				<Suspense>
-					{os === 'macOS' && !windowState.isMaximized && (
+					{os === 'macOS' && !windowState.isFullScreen && (
 						<DragRegion className="absolute inset-x-0 top-0 z-50 h-8" />
 					)}
 					<Outlet />

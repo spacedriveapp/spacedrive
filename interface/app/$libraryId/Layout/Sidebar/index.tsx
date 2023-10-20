@@ -29,7 +29,7 @@ export default () => {
 		<div
 			className={clsx(
 				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col gap-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2 transition-[padding-top] ease-linear',
-				os === 'macOS' && windowState.isMaximized
+				os === 'macOS' && windowState.isFullScreen
 					? ' -mt-2 pt-[8.75px] duration-200'
 					: 'pt-2 duration-100',
 				os === 'macOS' || showControls.transparentBg
@@ -44,7 +44,7 @@ export default () => {
 					data-tauri-drag-region
 					className={clsx(
 						'w-full transition-[height] ease-linear',
-						windowState.isMaximized ? 'h-0 duration-200' : 'h-5 duration-100'
+						windowState.isFullScreen ? 'h-0 duration-200' : 'h-5 duration-100'
 					)}
 				/>
 			)}

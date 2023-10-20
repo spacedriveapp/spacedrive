@@ -271,12 +271,12 @@ async fn main() -> tauri::Result<()> {
 			if let WindowEvent::Resized(_) = event.event() {
 				let command = if event
 					.window()
-					.is_maximized()
-					.expect("Can't get maximized state")
+					.is_fullscreen()
+					.expect("Can't get fullscreen state")
 				{
-					"window_maximized"
+					"window_fullscreened"
 				} else {
-					"window_not_maximized"
+					"window_not_fullscreened"
 				};
 
 				event

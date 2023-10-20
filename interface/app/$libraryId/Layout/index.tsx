@@ -81,7 +81,7 @@ const Layout = () => {
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
 					os === 'macOS' && 'has-blur-effects',
-					os === 'macOS' && !windowState.isMaximized && 'rounded-[10px]',
+					os === 'macOS' && !windowState.isFullScreen && 'rounded-[10px]',
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
