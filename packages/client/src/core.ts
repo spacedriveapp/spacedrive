@@ -188,7 +188,7 @@ export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
 
 export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { sizeInBytes: SortOrder } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
 
-export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: string | null; createdAt?: OptionalRange<string>; path?: string | null; withDescendants?: boolean | null; object?: ObjectFilterArgs | null; hidden?: boolean | null }
+export type FilePathFilterArgs = { locationId?: number | null; search?: string | null; extension?: InOrNotIn<string> | null; createdAt?: OptionalRange<string>; path?: string | null; withDescendants?: boolean | null; object?: ObjectFilterArgs | null; hidden?: boolean | null }
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
@@ -217,6 +217,8 @@ export type Header = { id: string; timestamp: string; library_id: string; librar
 export type IdentifyUniqueFilesArgs = { id: number; path: string }
 
 export type ImageMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
+
+export type InOrNotIn<T> = { in: T[] } | { notIn: T[] }
 
 export type IndexerRule = { id: number; pub_id: number[]; name: string | null; default: boolean | null; rules_per_kind: number[] | null; date_created: string | null; date_modified: string | null }
 
@@ -324,7 +326,7 @@ export type Object = { id: number; pub_id: number[]; kind: number | null; key_id
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: number[]; tags?: number[]; category?: Category | null }
+export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: InOrNotIn<number> | null; tags?: InOrNotIn<number> | null; category?: InOrNotIn<Category> | null }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 

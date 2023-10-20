@@ -57,6 +57,7 @@ pub enum OrderAndPagination<TId, TOrder, TCursor> {
 }
 
 #[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
 pub enum InOrNotIn<T> {
 	In(Vec<T>),
 	NotIn(Vec<T>),
