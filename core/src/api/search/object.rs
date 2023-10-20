@@ -1,12 +1,10 @@
-use std::collections::BTreeSet;
-
 use chrono::{DateTime, FixedOffset};
-use prisma_client_rust::{operator, or, OrderByQuery, PaginatedQuery, WhereQuery};
+use prisma_client_rust::{or, OrderByQuery, PaginatedQuery, WhereQuery};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use sd_prisma::prisma::{self, media_data, object, tag, tag_on_object};
+use sd_prisma::prisma::{self, media_data, object, tag_on_object};
 
 use crate::library::Category;
 
@@ -93,11 +91,14 @@ pub struct ObjectFilterArgs {
 	#[specta(optional)]
 	date_accessed: Option<MaybeNot<Option<chrono::DateTime<FixedOffset>>>>,
 	#[serde(default)]
-	kind: BTreeSet<i32>,
-	#[serde(default)]
-	tags: Vec<i32>,
 	#[specta(optional)]
-	category: Option<Category>,
+	kind: Option<InOrNotIn<i32>>,
+	#[serde(default)]
+	#[specta(optional)]
+	tags: Option<InOrNotIn<i32>>,
+	#[serde(default)]
+	#[specta(optional)]
+	category: Option<InOrNotIn<Category>>,
 }
 
 impl ObjectFilterArgs {
@@ -111,14 +112,28 @@ impl ObjectFilterArgs {
 				self.favorite.map(Some).map(favorite::equals),
 				self.date_accessed
 					.map(|date| date.into_prisma(date_accessed::equals)),
-				(!self.kind.is_empty()).then(|| kind::in_vec(self.kind.into_iter().collect())),
-				(!self.tags.is_empty()).then(|| {
-					let tags = self.tags.into_iter().map(tag::id::equals).collect();
-					let tags_on_object = tag_on_object::tag::is(vec![operator::or(tags)]);
-
-					tags::some(vec![tags_on_object])
+				self.kind
+					.and_then(|v| v.to_param(kind::in_vec, kind::not_in_vec)),
+				self.tags.and_then(|v| {
+					v.to_param(
+						|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
+						|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
+					)
 				}),
-				self.category.map(Category::to_where_param),
+				self.category.and_then(|v| {
+					v.to_param(
+						|v| {
+							prisma_client_rust::operator::and(
+								v.into_iter().map(Category::to_where_param).collect(),
+							)
+						},
+						|v| {
+							prisma_client_rust::operator::not(
+								v.into_iter().map(Category::to_where_param).collect(),
+							)
+						},
+					)
+				}),
 			],
 		)
 	}

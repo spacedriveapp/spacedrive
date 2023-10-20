@@ -55,3 +55,31 @@ pub enum OrderAndPagination<TId, TOrder, TCursor> {
 	Offset { offset: i32, order: Option<TOrder> },
 	Cursor { id: TId, cursor: TCursor },
 }
+
+#[derive(Deserialize, Type, Debug)]
+pub enum InOrNotIn<T> {
+	In(Vec<T>),
+	NotIn(Vec<T>),
+}
+
+impl<T> InOrNotIn<T> {
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Self::In(v) => v.is_empty(),
+			Self::NotIn(v) => v.is_empty(),
+		}
+	}
+
+	pub fn to_param<TParam>(
+		self,
+		in_fn: fn(Vec<T>) -> TParam,
+		not_in_fn: fn(Vec<T>) -> TParam,
+	) -> Option<TParam> {
+		self.is_empty()
+			.then_some(None)
+			.unwrap_or_else(|| match self {
+				Self::In(v) => Some(in_fn(v)),
+				Self::NotIn(v) => Some(not_in_fn(v)),
+			})
+	}
+}

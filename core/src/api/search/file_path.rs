@@ -59,11 +59,11 @@ impl FilePathOrder {
 #[serde(rename_all = "camelCase")]
 pub struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<location::id::Type>,
+	location_id: Option<file_path::id::Type>,
 	#[specta(optional)]
 	search: Option<String>,
 	#[specta(optional)]
-	extension: Option<String>,
+	extension: Option<InOrNotIn<String>>,
 	#[serde(default)]
 	created_at: OptionalRange<DateTime<Utc>>,
 	#[specta(optional)]
@@ -122,7 +122,8 @@ impl FilePathFilterArgs {
 					.map(name::contains),
 				[
 					self.location_id.map(Some).map(location_id::equals),
-					self.extension.map(Some).map(extension::equals),
+					self.extension
+						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
 					self.created_at.from.map(|v| date_created::gte(v.into())),
 					self.created_at.to.map(|v| date_created::lte(v.into())),
 					self.hidden.map(Some).map(hidden::equals),
