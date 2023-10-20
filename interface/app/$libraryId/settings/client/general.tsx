@@ -1,5 +1,7 @@
 import { Laptop } from '@sd/assets/icons';
-import { useWatch } from 'react-hook-form';
+import clsx from 'clsx';
+import { useEffect } from 'react';
+import { Controller } from 'react-hook-form';
 import {
 	getDebugState,
 	useBridgeMutation,
@@ -9,7 +11,18 @@ import {
 	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, InputField, Switch, SwitchField, tw, z } from '@sd/ui';
+import {
+	Button,
+	Card,
+	Input,
+	InputField,
+	Select,
+	SelectOption,
+	Switch,
+	SwitchField,
+	tw,
+	z
+} from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -35,27 +48,39 @@ export const Component = () => {
 		schema: z.object({
 			name: z.string().min(1).optional(),
 			p2p_enabled: z.boolean().optional(),
-			p2p_port: u16.optional().nullish()
+			p2p_port: u16,
+			customOrDefault: z.enum(['Custom', 'Default'])
 		}),
+		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
 			p2p_enabled: node.data?.p2p_enabled,
-			p2p_port: node.data?.p2p_port
+			p2p_port: node.data?.p2p_port || 0,
+			customOrDefault: node.data?.p2p_port ? 'Custom' : 'Default'
 		}
 	});
+
+	const watchCustomOrDefault = form.watch('customOrDefault');
+	const watchP2pEnabled = form.watch('p2p_enabled');
 
 	useDebouncedFormWatch(form, async (value) => {
 		await editNode.mutateAsync({
 			name: value.name || null,
 			p2p_enabled: value.p2p_enabled === undefined ? null : value.p2p_enabled,
 			// @ts-expect-error: Specta can't properly express this type. - https://github.com/oscartbeaumont/specta/issues/157
-			p2p_port: value.p2p_port
+			p2p_port: value.customOrDefault === 'Default' ? 0 : Number(value.p2p_port)
 		});
 
 		node.refetch();
 	});
 
-	console.log(node.data); // TODO: remove
+	useEffect(() => {
+		form.watch((data) => {
+			if (Number(data.p2p_port) > 65535) {
+				form.setValue('p2p_port', 65535);
+			}
+		});
+	}, [form]);
 
 	return (
 		<>
@@ -78,7 +103,7 @@ export const Component = () => {
 						</div>
 					</div>
 
-					<hr className="mb-4 mt-2 flex  w-full border-app-line" />
+					<hr className="mb-4 mt-2 flex w-full border-app-line" />
 					<div className="flex w-full items-center gap-5">
 						<img src={Laptop} className="mt-2 h-14 w-14" />
 
@@ -100,7 +125,7 @@ export const Component = () => {
 							}}
 							className="text-sm font-medium text-ink-faint"
 						>
-							<b className="mr-2 inline truncate">
+							<b className="inline mr-2 truncate">
 								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Data Folder
 							</b>
 							<span className="select-text">{node.data?.data_path}</span>
@@ -140,7 +165,7 @@ export const Component = () => {
 							<Input value={node.data?.data_path + '/logs'} />
 						</div> */}
 					</div>
-					{/* <div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
+					{/* <div className="flex items-center mt-5 space-x-3 opacity-50 pointer-events-none">
 						<Switch size="sm" />
 						<span className="text-sm font-medium text-ink-dull">
 							Run Spacedrive in the background when app closed
@@ -183,21 +208,54 @@ export const Component = () => {
 						{/* TODO: Switch doesn't handle optional fields correctly */}
 						<Switch
 							size="md"
-							checked={form.watch('p2p_enabled') || false}
+							checked={watchP2pEnabled || false}
 							onClick={() =>
 								form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))
 							}
 						/>
 					</Setting>
-					{/* TODO: Input field doesn't handle optional or nullable correctly */}
-					{/* TODO: How should we express `Option<u16>`. Maybe a dropdown with a "Default" and input field in it? */}
-					{/* <Setting
+					<Setting
 						mini
 						title="Networking Port"
-						description="The port for Spacedrive's Peer-to-peer networking to communicate on\nYou should leave this disabled unless you have a restictive firewall.\nDo not expose to the internet! "
+						description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
 					>
-						<InputField {...form.register('p2p_port')} />
-					</Setting> */}
+						<div className="flex gap-2">
+							<Controller
+								control={form.control}
+								name="customOrDefault"
+								render={({ field }) => (
+									<Select
+										disabled={!watchP2pEnabled}
+										className={clsx(!watchP2pEnabled && 'opacity-50')}
+										{...field}
+										onChange={(e) => {
+											field.onChange(e);
+											form.setValue('p2p_port', 0);
+										}}
+									>
+										<SelectOption value="Default">Default</SelectOption>
+										<SelectOption value="Custom">Custom</SelectOption>
+									</Select>
+								)}
+							/>
+							<Input
+								className={clsx(
+									'w-[66px]',
+									watchCustomOrDefault === 'Default' || !watchP2pEnabled
+										? 'opacity-50'
+										: 'opacity-100'
+								)}
+								disabled={watchCustomOrDefault === 'Default' || !watchP2pEnabled}
+								{...form.register('p2p_port')}
+								onChange={(e) => {
+									form.setValue(
+										'p2p_port',
+										Number(e.target.value.replace(/[^0-9]/g, ''))
+									);
+								}}
+							/>
+						</div>
+					</Setting>
 				</div>
 			)}
 		</>
