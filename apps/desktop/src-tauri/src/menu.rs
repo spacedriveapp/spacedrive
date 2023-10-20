@@ -44,6 +44,12 @@ fn custom_menu_bar() -> Menu {
 		))
 		.add_native_item(MenuItem::Separator)
 		.add_item(CustomMenuItem::new("new_library", "New Library").disabled()) // TODO(brxken128): add keybind handling here
+		.add_submenu(Submenu::new(
+			"Library",
+			Menu::new()
+				.add_item(CustomMenuItem::new("library_<uuid>", "Library 1").disabled())
+				.add_item(CustomMenuItem::new("library_<uuid2>", "Library 2").disabled()), // TODO: enumerate libraries and make this a library selector
+		))
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Hide)
 		.add_native_item(MenuItem::HideOthers)
