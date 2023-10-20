@@ -14,12 +14,6 @@ sd-core = { path = "../../../../../core", features = [
 rspc = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-openssl = { version = "0.10.57", features = [
-	"vendored",
-] } # Override features of transitive dependencies
-openssl-sys = { version = "0.9.93", features = [
-	"vendored",
-] } # Override features of transitive dependencies to support IOS Simulator on M1
 futures = "0.3.28"
 tracing = { workspace = true }
 futures-channel = "0.3.28"

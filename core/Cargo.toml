@@ -28,7 +28,11 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"keymanager",
 ] }
 
-sd-images = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
+sd-images = { path = "../crates/images", features = [
+	"rspc",
+	"serde",
+	"specta",
+] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
@@ -107,6 +111,14 @@ pin-project-lite = "0.2.13"
 bytes = "1.5.0"
 reqwest = { version = "0.11.20", features = ["json"] }
 directories = "5.0.1"
+
+# Override features of transitive dependencies
+[dependencies.openssl]
+version = "=0.10.57"
+features = ["vendored", "bindgen"]
+[dependencies.openssl-sys]
+version = "=0.9.93"
+features = ["vendored", "bindgen"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

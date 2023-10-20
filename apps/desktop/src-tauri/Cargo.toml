@@ -19,6 +19,7 @@ tauri = { version = "1.5.2", features = [
   "shell-all",
   "updater",
   "window-all",
+	"native-tls-vendored"
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
