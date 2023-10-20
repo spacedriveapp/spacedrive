@@ -267,6 +267,8 @@ export type LibraryPreferences = { location?: { [key: string]: LocationSettings 
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
+export type ListenerStatus = { status: "Disabled" } | { status: "Listening" } | { status: "Error"; error: string }
+
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 
 /**
@@ -304,7 +306,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string; p2p: P2PStatus }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -355,6 +357,8 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
  * TODO: P2P event for the frontend
  */
 export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+
+export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
 
 export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
 

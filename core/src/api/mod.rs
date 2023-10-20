@@ -1,6 +1,7 @@
 use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
+use sd_p2p::P2PStatus;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::{atomic::Ordering, Arc};
@@ -90,11 +91,12 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, Type)]
+#[derive(Serialize, Debug, Type)]
 struct NodeState {
 	#[serde(flatten)]
 	config: SanitisedNodeConfig,
 	data_path: String,
+	p2p: P2PStatus,
 }
 
 pub(crate) fn mount() -> Arc<Router> {
@@ -123,6 +125,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
+					p2p: node.p2p.manager.status(),
 				})
 			})
 		})

@@ -94,38 +94,48 @@ impl<TMetadata: Metadata> ManagerStream<TMetadata> {
 		if state.config.enabled {
 			let port = state.config.port.unwrap_or(0);
 
-			if state.ipv4_listener_id.is_none() {
-				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
-					Ipv4Addr::UNSPECIFIED,
-					port,
-				)))) {
-					Ok(listener_id) => {
-						debug!("created ipv4 listener with id '{:?}'", listener_id);
-						state.ipv4_listener_id = Some(listener_id);
-					}
-					Err(err) => error!("failed to listener on '0.0.0.0:{port}': {err}"),
-				};
+			if state.ipv4_listener_id.is_none() || matches!(state.ipv6_listener_id, Some(Err(_))) {
+				state.ipv4_listener_id = Some(
+					swarm
+						.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+							Ipv4Addr::UNSPECIFIED,
+							port,
+						))))
+						.map(|id| {
+							debug!("registered ipv4 listener: {id:?}");
+							id
+						})
+						.map_err(|err| {
+							error!("failed to register ipv4 listener on port {port}: {err}");
+							err.to_string()
+						}),
+				);
 			}
 
-			if state.ipv6_listener_id.is_none() {
-				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
-					Ipv6Addr::UNSPECIFIED,
-					port,
-				)))) {
-					Ok(listener_id) => {
-						debug!("created ipv6 listener with id '{:?}'", listener_id);
-						state.ipv6_listener_id = Some(listener_id);
-					}
-					Err(err) => error!("failed to listener on '[::]:{port}': {err}"),
-				};
+			if state.ipv4_listener_id.is_none() || matches!(state.ipv6_listener_id, Some(Err(_))) {
+				state.ipv6_listener_id = Some(
+					swarm
+						.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+							Ipv6Addr::UNSPECIFIED,
+							port,
+						))))
+						.map(|id| {
+							debug!("registered ipv6 listener: {id:?}");
+							id
+						})
+						.map_err(|err| {
+							error!("failed to register ipv6 listener on port {port}: {err}");
+							err.to_string()
+						}),
+				);
 			}
 		} else {
-			if let Some(listener) = state.ipv4_listener_id.take() {
+			if let Some(Ok(listener)) = state.ipv4_listener_id.take() {
 				debug!("removing ipv4 listener with id '{:?}'", listener);
 				swarm.remove_listener(listener);
 			}
 
-			if let Some(listener) = state.ipv6_listener_id.take() {
+			if let Some(Ok(listener)) = state.ipv6_listener_id.take() {
 				debug!("removing ipv6 listener with id '{:?}'", listener);
 				swarm.remove_listener(listener);
 			}

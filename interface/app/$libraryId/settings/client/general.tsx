@@ -115,6 +115,21 @@ export const Component = () => {
 						</div>
 					</div>
 
+					{/* <div className="flex w-full items-center gap-5">
+						<div className="flex flex-col">
+							<NodeSettingLabel>
+								Listening on:{' '}
+								{node.data?.p2p.ipv4.status === 'Listening'
+									? `0.0.0.0:${node.data?.p2p_port || 0}`
+									: ''}
+							</NodeSettingLabel>
+							{/* <Input
+								{...form.register('name', { required: true })}
+								defaultValue={node.data?.name}
+							/> */}
+						</div>
+					</div> */}
+
 					<div className="mt-6 gap-2">
 						{/* <div
 							onClick={() => {

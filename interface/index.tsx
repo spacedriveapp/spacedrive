@@ -8,12 +8,13 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	NotificationContextProvider,
 	P2PContextProvider,
+	useBridgeQuery,
 	useDebugState,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
@@ -58,6 +59,15 @@ const Devtools = () => {
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	useLoadBackendFeatureFlags();
+
+	const nodeState = useBridgeQuery(['nodeState']);
+	useEffect(() => {
+		if (nodeState.data?.p2p_enabled && nodeState.data?.p2p.ipv4.status === 'Error')
+			console.error('TODO: Toast');
+
+		if (nodeState.data?.p2p_enabled && nodeState.data?.p2p.ipv6.status === 'Error')
+			console.error('TODO: Toast');
+	});
 
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>

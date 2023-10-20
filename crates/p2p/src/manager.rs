@@ -29,8 +29,8 @@ use crate::{
 #[derive(Debug)]
 pub(crate) struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
-	pub(crate) ipv4_listener_id: Option<ListenerId>,
-	pub(crate) ipv6_listener_id: Option<ListenerId>,
+	pub(crate) ipv4_listener_id: Option<Result<ListenerId, String>>,
+	pub(crate) ipv6_listener_id: Option<Result<ListenerId, String>>,
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
@@ -175,6 +175,22 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		self.emit(ManagerStreamAction::BroadcastData(data)).await;
 	}
 
+	pub fn status(&self) -> P2PStatus {
+		let status = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		P2PStatus {
+			ipv4: match status.ipv4_listener_id.clone() {
+				Some(Ok(_)) => ListenerStatus::Listening,
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+			ipv6: match status.ipv6_listener_id.clone() {
+				Some(Ok(_)) => ListenerStatus::Listening,
+				Some(Err(error)) => ListenerStatus::Error { error },
+				None => ListenerStatus::Disabled,
+			},
+		}
+	}
+
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
 		self.event_stream_tx
@@ -216,4 +232,18 @@ impl Default for ManagerConfig {
 			port: None,
 		}
 	}
+}
+
+#[derive(Serialize, Debug, Type)]
+pub struct P2PStatus {
+	ipv4: ListenerStatus,
+	ipv6: ListenerStatus,
+}
+
+#[derive(Serialize, Debug, Type)]
+#[serde(tag = "status")]
+pub enum ListenerStatus {
+	Disabled,
+	Listening,
+	Error { error: String },
 }
