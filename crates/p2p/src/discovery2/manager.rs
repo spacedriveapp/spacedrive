@@ -9,6 +9,8 @@ type ServiceName = String;
 
 // TODO: Hook back up to mDNS
 
+// TODO: Should this be public or hidden behind `Manager`?
+
 /// TODO
 pub struct DiscoveryManager {
 	/// A list of services the current node is advertising

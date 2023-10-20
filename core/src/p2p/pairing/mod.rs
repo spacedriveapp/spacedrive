@@ -10,7 +10,7 @@ use std::{
 
 use chrono::Utc;
 use futures::channel::oneshot;
-use sd_p2p::{spacetunnel::Identity, Manager, MetadataManager, PeerId};
+use sd_p2p::{spacetunnel::Identity, DiscoveryManager, Manager, MetadataManager, PeerId};
 
 use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
@@ -40,21 +40,21 @@ pub struct PairingManager {
 	events_tx: broadcast::Sender<P2PEvent>,
 	pairing_response: RwLock<HashMap<u16, oneshot::Sender<PairingDecision>>>,
 	manager: Arc<Manager<PeerMetadata>>,
-	// metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	discovery_manager: Arc<DiscoveryManager>,
 }
 
 impl PairingManager {
 	pub fn new(
 		manager: Arc<Manager<PeerMetadata>>,
 		events_tx: broadcast::Sender<P2PEvent>,
-		// metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+		discovery_manager: Arc<DiscoveryManager>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id: AtomicU16::new(0),
 			events_tx,
 			pairing_response: RwLock::new(HashMap::new()),
 			manager,
-			// metadata_manager,
+			discovery_manager,
 		})
 	}
 
