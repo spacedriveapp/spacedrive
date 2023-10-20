@@ -33,13 +33,13 @@ async fn app_ready(app_handle: AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn set_menu_bar_item_state(window: tauri::Window, id: String, enabled: bool) {
+async fn set_menu_bar_item_state(_window: tauri::Window, _id: String, _enabled: bool) {
 	#[cfg(target_os = "macos")]
 	{
-		window
+		_window
 			.menu_handle()
-			.get_item(&id)
-			.set_enabled(enabled)
+			.get_item(&_id)
+			.set_enabled(_enabled)
 			.expect("Unable to modify menu item")
 	}
 }

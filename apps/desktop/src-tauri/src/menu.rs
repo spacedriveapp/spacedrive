@@ -1,6 +1,7 @@
-use tauri::{
-	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
-};
+use tauri::{Manager, Menu, WindowMenuEvent, Wry};
+
+#[cfg(target_os = "macos")]
+use tauri::{AboutMetadata, CustomMenuItem, MenuItem, Submenu};
 
 pub(super) fn get_menu() -> Menu {
 	#[cfg(target_os = "macos")]
