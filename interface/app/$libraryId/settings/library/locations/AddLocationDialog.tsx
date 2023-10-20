@@ -123,10 +123,12 @@ export const AddLocationDialog = ({
 				default:
 					throw new Error('Unimplemented custom remote error handling');
 			}
-			getExplorerStore().jobsToRedirect = [
-				{ locationId: id },
-				...getExplorerStore().jobsToRedirect
-			];
+			if (shouldRedirect) {
+				getExplorerStore().jobsToRedirect = [
+					{ locationId: id },
+					...getExplorerStore().jobsToRedirect
+				];
+			}
 		},
 		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);
