@@ -4,7 +4,7 @@ import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/reac
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { ComponentProps, FunctionComponent, ReactNode, useEffect, useState } from 'react';
+import { ComponentProps, FunctionComponent, useEffect, useState } from 'react';
 import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
@@ -48,7 +48,7 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-interface PlatformProps {
+interface Props {
 	latestVersion: string;
 }
 

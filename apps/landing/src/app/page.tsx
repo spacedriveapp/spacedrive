@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import CyclingImage from '~/components/CyclingImage';
-import { LatestVersion } from '~/components/LatestVersion';
 import { toTitleCase } from '~/utils/util';
 
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
