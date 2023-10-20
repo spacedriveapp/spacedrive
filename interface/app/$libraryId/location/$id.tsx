@@ -19,7 +19,7 @@ import {
 import { Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { getSearchStore, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import { SearchFilterOptions, useSearchFilters } from '../../../hooks/useSearchFilter';
 import Explorer from '../Explorer';
@@ -39,6 +39,13 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
 	const rspc = useRspcLibraryContext();
+
+	useEffect(() => {
+		getSearchStore().reset();
+		return () => {
+			getSearchStore().reset();
+		};
+	}, [locationId]);
 
 	const onlineLocations = useOnlineLocations();
 
@@ -171,14 +178,10 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	// Here we are integrating the useSearchFilters hook
 	const searchFilterOptions: SearchFilterOptions = {
-		locationId: locationId // You can also include tags, objectKinds as needed
-		// tags: yourTagsHere,
-		// objectKinds: yourObjectKindsHere
+		locationId: locationId
 	};
 
-	// Incorporate useSearchFilters to obtain FilePathFilterArgs
 	const filterArgs = useSearchFilters(searchFilterOptions);
 
 	const filter: FilePathFilterArgs = {

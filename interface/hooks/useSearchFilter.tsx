@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FilePathFilterArgs, ObjectKindEnum } from '@sd/client';
+import { FilePathFilterArgs, ObjectKindEnum, useLibraryQuery } from '@sd/client';
 import { getSearchStore, SetFilter, useSearchStore } from '~/hooks';
 
 export interface SearchFilterOptions {
@@ -43,7 +43,7 @@ export const useSearchFilters = (options: SearchFilterOptions): FilePathFilterAr
 			// Initialize with options if no filters are selected yet
 			if (locationId) {
 				const filter = searchStore.registerFilter(
-					`${locationId}-Location`,
+					`${locationId}-${locationId}`,
 					{ id: locationId, name: '', icon: 'Folder' },
 					'Location'
 				);
@@ -74,7 +74,7 @@ export const useSearchFilters = (options: SearchFilterOptions): FilePathFilterAr
 		const selectedFiltersArray = Array.from(searchStore.selectedFilters.values());
 		const updatedFilePathArgs = filtersToFilePathArgs(selectedFiltersArray);
 		setFilePathArgs(updatedFilePathArgs);
-	}, [locationId, tags, objectKinds, searchStore.selectedFilters, searchStore.filters]);
+	}, [locationId, location, tags, objectKinds, searchStore.selectedFilters, searchStore.filters]);
 
 	return filePathArgs;
 };

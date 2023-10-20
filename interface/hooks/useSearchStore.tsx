@@ -133,6 +133,13 @@ const searchStore = proxy({
 		return Array.from(searchStore.filters.values()).filter((filter) =>
 			filter.name.toLowerCase().includes(query.toLowerCase())
 		);
+	},
+
+	reset() {
+		searchStore.searchScope = 'directory';
+		searchStore.filters.clear();
+		searchStore.filterCategories.clear();
+		searchStore.selectedFilters.clear();
 	}
 });
 
