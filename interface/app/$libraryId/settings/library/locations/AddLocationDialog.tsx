@@ -55,12 +55,12 @@ export const AddLocationDialog = ({
 }: AddLocationDialog) => {
 	const platform = usePlatform();
 	const submitPlausibleEvent = usePlausibleEvent();
-	const navigate = useNavigate();
 	const listLocations = useLibraryQuery(['locations.list']);
 	const createLocation = useLibraryMutation('locations.create');
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
+	const explorerStore = useExplorerStore();
 
 	// This is required because indexRules is undefined on first render
 	const indexerRulesIds = useMemo(
@@ -126,11 +126,11 @@ export const AddLocationDialog = ({
 			if (shouldRedirect) {
 				getExplorerStore().jobsToRedirect = [
 					{ locationId: id },
-					...getExplorerStore().jobsToRedirect
+					...explorerStore.jobsToRedirect
 				];
 			}
 		},
-		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
+		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent, explorerStore]
 	);
 
 	const handleAddError = useCallback(
