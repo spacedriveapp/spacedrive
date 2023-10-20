@@ -11,7 +11,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { CheckBox, Dialog, ErrorMessage, Label, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -123,10 +123,10 @@ export const AddLocationDialog = ({
 				default:
 					throw new Error('Unimplemented custom remote error handling');
 			}
-			getExplorerStore().shouldRedirectJob = {
-				redirect: shouldRedirect,
-				locationId: id
-			};
+			getExplorerStore().jobsToRedirect = [
+				{ locationId: id },
+				...getExplorerStore().jobsToRedirect
+			];
 		},
 		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);

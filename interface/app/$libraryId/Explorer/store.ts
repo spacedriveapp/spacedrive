@@ -122,7 +122,7 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	showMoreInfo: false,
-	shouldRedirectJob: {redirect: false, locationId: null} as {redirect: boolean, locationId: number | null},
+	jobsToRedirect: [] as {locationId: number | null}[],
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
