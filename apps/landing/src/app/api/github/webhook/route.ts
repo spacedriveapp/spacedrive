@@ -31,4 +31,5 @@ webhook.on('release', ({ payload }) => {
 
 	revalidatePath('/docs', 'layout');
 	revalidatePath(`/docs/alpha/${payload.release.tag_name}`, 'page');
+	revalidatePath(`/`, 'page');
 });
