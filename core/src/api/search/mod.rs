@@ -1,9 +1,9 @@
-mod file_path;
-mod media_data;
-mod object;
+pub mod file_path;
+pub mod media_data;
+pub mod object;
 mod utils;
 
-pub use self::{file_path::*, object::*, utils::*};
+pub use self::{object::*, utils::*};
 
 use crate::{
 	api::{
@@ -17,7 +17,6 @@ use crate::{
 
 use std::path::PathBuf;
 
-use prisma_client_rust::{or, WhereQuery};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_prisma::prisma;
 use serde::{Deserialize, Serialize};
@@ -107,11 +106,9 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				take: Option<u8>,
 				#[specta(optional)]
-				order_and_pagination: Option<
-					OrderAndPagination<prisma::file_path::id::Type, FilePathOrder, FilePathCursor>,
-				>,
+				order_and_pagination: Option<file_path::OrderAndPagination>,
 				#[serde(default)]
-				filter: FilePathFilterArgs,
+				filter: file_path::FilePathFilterArgs,
 				#[serde(default = "default_group_directories")]
 				group_directories: bool,
 			}
@@ -144,119 +141,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					// WARN: this order_by for sorting data MUST always come after the other order_by
 					if let Some(order_and_pagination) = order_and_pagination {
-						match order_and_pagination {
-							OrderAndPagination::OrderOnly(order) => {
-								query = query.order_by(order.into_param());
-							}
-							OrderAndPagination::Offset { offset, order } => {
-								query = query.skip(offset as i64);
-
-								if let Some(order) = order {
-									query = query.order_by(order.into_param())
-								}
-							}
-							OrderAndPagination::Cursor { id, cursor } => {
-								// This may seem dumb but it's vital!
-								// If we're grouping by directories + all directories have been fetched,
-								// we don't want to include them in the results.
-								// It's important to keep in mind that since the `order_by` for
-								// `group_directories` comes before all other orderings,
-								// all other orderings will be applied independently to directories and paths.
-								if group_directories && !cursor.is_dir {
-									query.add_where(prisma::file_path::is_dir::not(Some(true)))
-								}
-
-								macro_rules! arm {
-									($field:ident, $item:ident) => {{
-										let item = $item;
-
-										let data = item.data.clone();
-
-										query.add_where(or![
-											match item.order {
-												SortOrder::Asc =>
-													prisma::file_path::$field::gt(data),
-												SortOrder::Desc =>
-													prisma::file_path::$field::lt(data),
-											},
-											prisma_client_rust::and![
-												prisma::file_path::$field::equals(Some(item.data)),
-												match item.order {
-													SortOrder::Asc => prisma::file_path::id::gt(id),
-													SortOrder::Desc =>
-														prisma::file_path::id::lt(id),
-												}
-											]
-										]);
-
-										query = query.order_by(prisma::file_path::$field::order(
-											item.order.into(),
-										));
-									}};
-								}
-
-								match cursor.variant {
-									FilePathCursorVariant::None => {
-										query.add_where(prisma::file_path::id::gt(id));
-									}
-									FilePathCursorVariant::SizeInBytes(order) => {
-										query = query.order_by(
-											prisma::file_path::size_in_bytes_bytes::order(
-												order.into(),
-											),
-										);
-									}
-									FilePathCursorVariant::Name(item) => arm!(name, item),
-									FilePathCursorVariant::DateCreated(item) => {
-										arm!(date_created, item)
-									}
-									FilePathCursorVariant::DateModified(item) => {
-										arm!(date_modified, item)
-									}
-									FilePathCursorVariant::DateIndexed(item) => {
-										arm!(date_indexed, item)
-									}
-									FilePathCursorVariant::Object(obj) => {
-										macro_rules! arm {
-											($field:ident, $item:ident) => {{
-												let item = $item;
-
-												query.add_where(match item.order {
-													SortOrder::Asc => {
-														prisma::file_path::object::is(vec![
-															prisma::object::$field::gt(item.data),
-														])
-													}
-													SortOrder::Desc => {
-														prisma::file_path::object::is(vec![
-															prisma::object::$field::lt(item.data),
-														])
-													}
-												});
-
-												query = query.order_by(
-													prisma::file_path::object::order(vec![
-														prisma::object::$field::order(
-															item.order.into(),
-														),
-													]),
-												);
-											}};
-										}
-
-										match obj {
-											FilePathObjectCursor::Kind(item) => arm!(kind, item),
-											FilePathObjectCursor::DateAccessed(item) => {
-												arm!(date_accessed, item)
-											}
-										};
-									}
-								};
-
-								query = query
-									.order_by(prisma::file_path::id::order(prisma::SortOrder::Asc));
-							}
-						}
+						order_and_pagination.apply(&mut query, group_directories)
 					}
 
 					let file_paths = query
@@ -296,7 +181,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[specta(inline)]
 			struct Args {
 				#[serde(default)]
-				filter: FilePathFilterArgs,
+				filter: file_path::FilePathFilterArgs,
 			}
 
 			R.with2(library())
@@ -316,8 +201,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			struct ObjectSearchArgs {
 				take: u8,
 				#[specta(optional)]
-				order_and_pagination:
-					Option<OrderAndPagination<prisma::object::id::Type, ObjectOrder, ObjectCursor>>,
+				order_and_pagination: Option<object::OrderAndPagination>,
 				#[serde(default)]
 				filter: ObjectFilterArgs,
 			}
@@ -339,56 +223,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.take(take as i64);
 
 					if let Some(order_and_pagination) = order_and_pagination {
-						match order_and_pagination {
-							OrderAndPagination::OrderOnly(order) => {
-								query = query.order_by(order.into_param());
-							}
-							OrderAndPagination::Offset { offset, order } => {
-								query = query.skip(offset as i64);
-
-								if let Some(order) = order {
-									query = query.order_by(order.into_param())
-								}
-							}
-							OrderAndPagination::Cursor { id, cursor } => {
-								macro_rules! arm {
-									($field:ident, $item:ident) => {{
-										let item = $item;
-
-										let data = item.data.clone();
-
-										query.add_where(or![
-											match item.order {
-												SortOrder::Asc => prisma::object::$field::gt(data),
-												SortOrder::Desc => prisma::object::$field::lt(data),
-											},
-											prisma_client_rust::and![
-												prisma::object::$field::equals(Some(item.data)),
-												match item.order {
-													SortOrder::Asc => prisma::object::id::gt(id),
-													SortOrder::Desc => prisma::object::id::lt(id),
-												}
-											]
-										]);
-
-										query = query.order_by(prisma::object::$field::order(
-											item.order.into(),
-										));
-									}};
-								}
-
-								match cursor {
-									ObjectCursor::None => {
-										query.add_where(prisma::object::id::gt(id));
-									}
-									ObjectCursor::Kind(item) => arm!(kind, item),
-									ObjectCursor::DateAccessed(item) => arm!(date_accessed, item),
-								}
-
-								query = query
-									.order_by(prisma::object::pub_id::order(prisma::SortOrder::Asc))
-							}
-						}
+						order_and_pagination.apply(&mut query);
 					}
 
 					let (objects, cursor) = {

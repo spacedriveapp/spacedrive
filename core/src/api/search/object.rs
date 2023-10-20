@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
-use prisma_client_rust::{operator, or};
+use prisma_client_rust::{operator, or, OrderByQuery, PaginatedQuery, WhereQuery};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -11,7 +11,7 @@ use sd_prisma::prisma::{self, media_data, object, tag, tag_on_object};
 use crate::library::Category;
 
 use super::media_data::*;
-use super::utils::*;
+use super::utils::{self, *};
 
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -121,5 +121,60 @@ impl ObjectFilterArgs {
 				self.category.map(Category::to_where_param),
 			],
 		)
+	}
+}
+
+pub type OrderAndPagination =
+	utils::OrderAndPagination<prisma::object::id::Type, ObjectOrder, ObjectCursor>;
+
+impl OrderAndPagination {
+	pub fn apply(self, query: &mut object::FindManyQuery) {
+		match self {
+			Self::OrderOnly(order) => {
+				query.add_order_by(order.into_param());
+			}
+			Self::Offset { offset, order } => {
+				query.set_skip(offset as i64);
+
+				if let Some(order) = order {
+					query.add_order_by(order.into_param())
+				}
+			}
+			Self::Cursor { id, cursor } => {
+				macro_rules! arm {
+					($field:ident, $item:ident) => {{
+						let item = $item;
+
+						let data = item.data.clone();
+
+						query.add_where(or![
+							match item.order {
+								SortOrder::Asc => prisma::object::$field::gt(data),
+								SortOrder::Desc => prisma::object::$field::lt(data),
+							},
+							prisma_client_rust::and![
+								prisma::object::$field::equals(Some(item.data)),
+								match item.order {
+									SortOrder::Asc => prisma::object::id::gt(id),
+									SortOrder::Desc => prisma::object::id::lt(id),
+								}
+							]
+						]);
+
+						query.add_order_by(prisma::object::$field::order(item.order.into()));
+					}};
+				}
+
+				match cursor {
+					ObjectCursor::None => {
+						query.add_where(prisma::object::id::gt(id));
+					}
+					ObjectCursor::Kind(item) => arm!(kind, item),
+					ObjectCursor::DateAccessed(item) => arm!(date_accessed, item),
+				}
+
+				query.add_order_by(prisma::object::pub_id::order(prisma::SortOrder::Asc))
+			}
+		}
 	}
 }
