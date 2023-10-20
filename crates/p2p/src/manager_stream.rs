@@ -2,7 +2,7 @@ use std::{
 	collections::{HashMap, VecDeque},
 	fmt,
 	future::poll_fn,
-	net::SocketAddr,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc, PoisonError, RwLock,
@@ -97,23 +97,29 @@ impl<TMeta: Metadata> ManagerStream<TMeta> {
 			let port = state.config.port.unwrap_or(0);
 
 			if state.ipv4_listener_id.is_none() {
-				{
-					let listener_id = swarm
-		               .listen_on(format!("/ip4/0.0.0.0/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-		               .unwrap();
-					debug!("created ipv4 listener with id '{:?}'", listener_id);
-					state.ipv4_listener_id = Some(listener_id);
-				}
+				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+					Ipv4Addr::UNSPECIFIED,
+					port,
+				)))) {
+					Ok(listener_id) => {
+						debug!("created ipv4 listener with id '{:?}'", listener_id);
+						state.ipv4_listener_id = Some(listener_id);
+					}
+					Err(err) => error!("failed to listener on '0.0.0.0:{port}': {err}"),
+				};
 			}
 
 			if state.ipv6_listener_id.is_none() {
-				{
-					let listener_id = swarm
-		               .listen_on(format!("/ip6/::/udp/{port}/quic-v1").parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
-		               .unwrap();
-					debug!("created ipv6 listener with id '{:?}'", listener_id);
-					state.ipv6_listener_id = Some(listener_id);
-				}
+				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+					Ipv6Addr::UNSPECIFIED,
+					port,
+				)))) {
+					Ok(listener_id) => {
+						debug!("created ipv6 listener with id '{:?}'", listener_id);
+						state.ipv6_listener_id = Some(listener_id);
+					}
+					Err(err) => error!("failed to listener on '[::]:{port}': {err}"),
+				};
 			}
 		} else {
 			if let Some(listener) = state.ipv4_listener_id.take() {

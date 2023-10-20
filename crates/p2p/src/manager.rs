@@ -206,15 +206,10 @@ pub enum ManagerError {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ManagerConfig {
 	// Enable or disable the P2P layer
-	#[serde(default, skip_serializing_if = "is_true")]
 	pub enabled: bool,
 	// `None` will chose a random free port on startup
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub port: Option<u16>,
-}
-
-fn is_true(b: &bool) -> bool {
-	*b
 }
 
 impl Default for ManagerConfig {
