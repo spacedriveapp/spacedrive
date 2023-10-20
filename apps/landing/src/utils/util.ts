@@ -1,3 +1,5 @@
+import { WebGLRenderer } from 'three';
+
 /**
  * Accessor for the browser's `window` object, so that `window` is
  * not access during SSG.
@@ -27,7 +29,7 @@ export function hasWebGLContext(): boolean {
 	const { WebGLRenderingContext, WebGL2RenderingContext } = window;
 	if (WebGLRenderingContext == null) return false;
 
-	return webGLCtxNames
+	const webGLIsEnabled = webGLCtxNames
 		.map((ctxName) => {
 			try {
 				return canvas.getContext(ctxName);
@@ -42,4 +44,15 @@ export function hasWebGLContext(): boolean {
 					(WebGL2RenderingContext !== null && ctx instanceof WebGL2RenderingContext)) &&
 				ctx.getParameter(ctx.VERSION) !== null
 		);
+
+	if (!webGLIsEnabled) return false;
+
+	try {
+		new WebGLRenderer();
+	} catch (error) {
+		console.warn('WebGL is available, but renderer failed to be instantiated');
+		console.error(error);
+		return false;
+	}
+	return true;
 }
