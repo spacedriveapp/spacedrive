@@ -4,7 +4,7 @@ import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/reac
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { ComponentProps, FunctionComponent, useEffect, useState, ReactNode } from 'react';
+import { ComponentProps, FunctionComponent, ReactNode, useEffect, useState } from 'react';
 import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
@@ -48,11 +48,11 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-interface DownloadPageProps {
-	latestVersion: ReactNode
+interface PlatformProps {
+	latestVersion: string;
 }
 
-export function Downloads({ latestVersion }: DownloadPageProps) {
+export function Downloads({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
 
@@ -176,10 +176,10 @@ function useCurrentPlatform() {
 	return currentPlatform;
 }
 
-interface Props {
+interface PlatformProps {
 	platform: Platform;
 }
-function Platform({ platform, ...props }: ComponentProps<'a'> & Props) {
+function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
 	const { links } = platform;
 
 	const Outer = links

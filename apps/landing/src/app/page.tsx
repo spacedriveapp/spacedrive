@@ -1,10 +1,12 @@
 import Image from 'next/image';
 import CyclingImage from '~/components/CyclingImage';
+import { LatestVersion } from '~/components/LatestVersion';
+import { toTitleCase } from '~/utils/util';
 
+import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
 import { Background } from './Background';
 import { Downloads } from './Downloads';
 import { NewBanner } from './NewBanner';
-import { LatestVersion } from '~/components/LatestVersion';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
@@ -21,7 +23,10 @@ export const metadata = {
 	}
 };
 
-export default function Page() {
+export default async function Page() {
+	const release = await githubFetch(getLatestRelease);
+	const { frontmatter } = getReleaseFrontmatter(release);
+
 	return (
 		<>
 			<Background />
@@ -53,7 +58,11 @@ export default function Page() {
 						Designed for creators, hoarders and the painfully disorganized.
 					</span>
 				</p>
-				<Downloads latestVersion={<LatestVersion />} />
+				<Downloads
+					latestVersion={[toTitleCase(frontmatter.category), `v${release.tag_name}`]
+						.filter(Boolean)
+						.join(' ')}
+				/>
 				<div className="pb-6 xs:pb-24">
 					<div
 						className="xl2:relative z-30 flex h-[255px] w-full px-6
