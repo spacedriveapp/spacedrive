@@ -44,7 +44,7 @@ tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "29146
 tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for rolling log deletion
 
 rspc = { version = "0.1.4" }
-specta = { version = "1.0.4" }
+specta = { version = "1.0.5" }
 tauri-specta = { version = "1.0.2" }
 
 swift-rs = { version = "1.0.6" }
