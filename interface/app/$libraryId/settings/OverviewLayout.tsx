@@ -10,8 +10,10 @@ export const Component = () => {
 	return (
 		<div
 			className={clsx(
-				'custom-scroll page-scroll relative flex h-full max-h-screen w-full grow-0',
-				os === 'macOS' && windowState.isMaximized ? 'pt-1' : 'pt-8'
+				'custom-scroll page-scroll relative flex h-full max-h-screen w-full grow-0 transition-[padding-top] ease-linear',
+				os === 'macOS' && windowState.isMaximized
+					? 'pt-4 duration-200'
+					: 'pt-8 duration-100'
 			)}
 		>
 			<div className="flex w-full max-w-4xl flex-col space-y-6 px-12 pb-5 pt-2">
