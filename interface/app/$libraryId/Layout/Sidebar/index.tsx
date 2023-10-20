@@ -28,10 +28,11 @@ export default () => {
 	return (
 		<div
 			className={clsx(
-				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col gap-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2 transition-[padding-top] ease-linear',
+				'relative flex min-h-full w-44 shrink-0 grow-0 flex-col gap-2.5 border-r border-sidebar-divider bg-sidebar px-2.5 pb-2 transition-[padding-top] ease-linear motion-reduce:transition-none',
 				os === 'macOS' && windowState.isFullScreen
-					? ' -mt-2 pt-[8.75px] duration-200'
+					? '-mt-2 pt-[8.75px] duration-1000'
 					: 'pt-2 duration-100',
+
 				os === 'macOS' || showControls.transparentBg
 					? 'bg-opacity-[0.65]'
 					: 'bg-opacity-[1]'
@@ -43,8 +44,8 @@ export default () => {
 				<div
 					data-tauri-drag-region
 					className={clsx(
-						'w-full transition-[height] ease-linear',
-						windowState.isFullScreen ? 'h-0 duration-200' : 'h-5 duration-100'
+						'w-full transition-[height] ease-linear motion-reduce:transition-none',
+						windowState.isFullScreen ? 'h-0 duration-1000' : 'h-5 duration-100'
 					)}
 				/>
 			)}
