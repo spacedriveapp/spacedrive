@@ -232,6 +232,10 @@ async fn execute_indexer_update_step(
 					(date_modified::NAME, json!(entry.metadata.modified_at)),
 					date_modified::set(Some(entry.metadata.modified_at.into())),
 				),
+				(
+					(hidden::NAME, json!(entry.metadata.hidden)),
+					hidden::set(Some(entry.metadata.hidden)),
+				),
 			]
 			.into_iter()
 			.unzip();

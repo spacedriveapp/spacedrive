@@ -59,7 +59,7 @@ function ShootingStar() {
 
 export default function Space() {
 	return (
-		<div className="absolute z-0 h-screen w-screen bg-black opacity-50">
+		<div className="absolute left-0 top-0 z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
 				<ShootingStar />
 				<ShootingStar />

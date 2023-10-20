@@ -19,6 +19,7 @@ tauri = { version = "1.5.2", features = [
   "shell-all",
   "updater",
   "window-all",
+	"native-tls-vendored"
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
@@ -43,6 +44,7 @@ rand = "0.8.5"
 
 prisma-client-rust = { workspace = true }
 sd-prisma = { path = "../../../crates/prisma" }
+tauri-plugin-window-state = "0.1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sd-desktop-linux = { path = "../crates/linux" }

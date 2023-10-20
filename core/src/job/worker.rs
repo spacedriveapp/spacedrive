@@ -9,15 +9,20 @@ use std::{
 	time::Duration,
 };
 
+use async_channel as chan;
 use chrono::{DateTime, Utc};
+use futures::stream::{self, StreamExt};
+use futures_concurrency::stream::Merge;
 use serde::Serialize;
 use serde_json::json;
 use specta::Type;
 use tokio::{
-	select,
-	sync::{mpsc, oneshot, watch},
-	time::Instant,
+	spawn,
+	sync::{oneshot, watch},
+	task::JoinError,
+	time::{interval, timeout, Instant, MissedTickBehavior},
 };
+use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
@@ -25,6 +30,9 @@ use super::{
 	DynJob, JobError, JobIdentity, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput,
 	JobStatus, Jobs,
 };
+
+const FIVE_SECS: Duration = Duration::from_secs(5);
+const FIVE_MINUTES: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct JobProgressEvent {
@@ -40,6 +48,7 @@ pub struct JobProgressEvent {
 #[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
+	Paused,
 	Stop,
 }
 
@@ -51,12 +60,13 @@ pub enum WorkerCommand {
 	IdentifyYourself(oneshot::Sender<JobIdentity>),
 	Cancel(Instant, oneshot::Sender<()>),
 	Shutdown(Instant, oneshot::Sender<()>),
+	Timeout(Duration, oneshot::Sender<()>),
 }
 
 pub struct WorkerContext {
 	pub library: Arc<Library>,
 	pub node: Arc<Node>,
-	pub(super) events_tx: mpsc::UnboundedSender<WorkerEvent>,
+	pub(super) events_tx: chan::Sender<WorkerEvent>,
 }
 
 impl fmt::Debug for WorkerContext {
@@ -67,34 +77,41 @@ impl fmt::Debug for WorkerContext {
 
 impl Drop for WorkerContext {
 	fn drop(&mut self) {
-		self.events_tx
-			.send(WorkerEvent::Stop)
-			.map_err(|err| {
-				tracing::error!("Error sending worker context stop event: {}", err);
-			})
-			.ok();
+		// This send blocking is fine as this sender is unbounded
+		if !self.events_tx.is_closed() && self.events_tx.send_blocking(WorkerEvent::Stop).is_err() {
+			error!("Error sending worker context stop event");
+		}
 	}
 }
 impl WorkerContext {
+	pub fn pause(&self) {
+		if self.events_tx.send_blocking(WorkerEvent::Paused).is_err() {
+			error!("Error sending worker context pause event");
+		}
+	}
+
 	pub fn progress_msg(&self, msg: String) {
 		self.progress(vec![JobReportUpdate::Message(msg)]);
 	}
 
 	pub fn progress(&self, updates: Vec<JobReportUpdate>) {
-		self.events_tx
-			.send(WorkerEvent::Progressed(updates))
-			.map_err(|err| {
-				tracing::error!("Error sending worker context progress event: {}", err);
-			})
-			.ok();
+		if !self.events_tx.is_closed()
+			&& self
+				.events_tx
+				// This send blocking is fine as this sender is unbounded
+				.send_blocking(WorkerEvent::Progressed(updates))
+				.is_err()
+		{
+			error!("Error sending worker context progress event");
+		}
 	}
 }
 
-// a worker is a dedicated thread that runs a single job
+// a worker is a dedicated task that runs a single job
 // once the job is complete the worker will exit
 pub struct Worker {
 	pub(super) library_id: Uuid,
-	commands_tx: mpsc::Sender<WorkerCommand>,
+	commands_tx: chan::Sender<WorkerCommand>,
 	report_watch_tx: Arc<watch::Sender<JobReport>>,
 	report_watch_rx: watch::Receiver<JobReport>,
 	paused: AtomicBool,
@@ -109,7 +126,7 @@ impl Worker {
 		node: Arc<Node>,
 		job_manager: Arc<Jobs>,
 	) -> Result<Self, JobError> {
-		let (commands_tx, commands_rx) = mpsc::channel(8);
+		let (commands_tx, commands_rx) = chan::bounded(8);
 
 		let job_hash = job.hash();
 
@@ -137,7 +154,7 @@ impl Worker {
 		let library_id = library.id;
 
 		// spawn task to handle running the job
-		tokio::spawn(Self::do_work(
+		spawn(Self::do_work(
 			id,
 			JobWorkTable {
 				job,
@@ -147,7 +164,7 @@ impl Worker {
 			},
 			Arc::clone(&report_watch_tx),
 			start_time,
-			commands_rx,
+			(commands_tx.clone(), commands_rx),
 			library,
 			node,
 		));
@@ -320,82 +337,156 @@ impl Worker {
 		}: JobWorkTable,
 		report_watch_tx: Arc<watch::Sender<JobReport>>,
 		start_time: DateTime<Utc>,
-		commands_rx: mpsc::Receiver<WorkerCommand>,
+		(commands_tx, commands_rx): (chan::Sender<WorkerCommand>, chan::Receiver<WorkerCommand>),
 		library: Arc<Library>,
 		node: Arc<Node>,
 	) {
-		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+		let (events_tx, events_rx) = chan::unbounded();
 
-		let mut job_future = job.run(
-			WorkerContext {
-				library: library.clone(),
-				node: node.clone(),
-				events_tx,
-			},
-			commands_rx,
-		);
+		let mut timeout_checker = interval(FIVE_SECS);
+		timeout_checker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+		let mut last_update_received_at = Instant::now();
 
 		let mut last_reporter_watch_update = Instant::now();
 		invalidate_query!(library, "jobs.reports");
 
+		let mut finalized_events_rx = events_rx.clone();
+
+		let mut is_paused = false;
+
+		let mut run_task = {
+			let library = Arc::clone(&library);
+			spawn(async move {
+				let job_result = job
+					.run(
+						WorkerContext {
+							library,
+							node,
+							events_tx,
+						},
+						commands_rx,
+					)
+					.await;
+
+				(job, job_result)
+			})
+		};
+
+		type RunOutput = (Box<dyn DynJob>, Result<JobRunOutput, JobError>);
+
+		enum StreamMessage {
+			JobResult(Result<RunOutput, JoinError>),
+			NewEvent(WorkerEvent),
+			Tick,
+		}
+
+		let mut msg_stream = (
+			stream::once(&mut run_task).map(StreamMessage::JobResult),
+			events_rx.map(StreamMessage::NewEvent),
+			IntervalStream::new(timeout_checker).map(|_| StreamMessage::Tick),
+		)
+			.merge();
+
 		let mut events_ended = false;
-		let job_result = 'job: loop {
-			select! {
-				job_result = &mut job_future => {
+
+		while let Some(msg) = msg_stream.next().await {
+			match msg {
+				StreamMessage::JobResult(Err(join_error)) => {
+					error!("Worker<id='{worker_id}'> had a critical error: {join_error:#?}");
+					break;
+				}
+				StreamMessage::JobResult(Ok((job, job_result))) => {
 					if !events_ended {
+						finalized_events_rx.close();
 						// There are still some progress events to be processed so we postpone the job result
-						while let Some(event) = events_rx.recv().await {
-							match event {
-								WorkerEvent::Progressed(updates) => {
-									Self::track_progress(
-										&mut report,
-										&mut last_reporter_watch_update,
-										&report_watch_tx,
-										start_time,
-										updates,
-										&library
-									);
-								}
-								WorkerEvent::Stop => {
-									break 'job job_result;
-								},
-							}
-						}
-					} else {
-						break 'job job_result;
-					}
-				},
-				Some(event) = events_rx.recv() => {
-					match event {
-						WorkerEvent::Progressed(updates) => {
+						while let Some(WorkerEvent::Progressed(updates)) =
+							finalized_events_rx.next().await
+						{
 							Self::track_progress(
 								&mut report,
 								&mut last_reporter_watch_update,
 								&report_watch_tx,
 								start_time,
 								updates,
-								&library
-							)
+								&library,
+							);
 						}
-						WorkerEvent::Stop => {events_ended = true;},
+					}
+
+					let next_job =
+						Self::process_job_output(job, job_result, &mut report, &library).await;
+
+					report_watch_tx.send(report.clone()).ok();
+
+					debug!(
+						"Worker<id='{worker_id}'> completed Job<id='{}', name='{}'>",
+						report.id, report.name
+					);
+
+					return manager.complete(&library, worker_id, hash, next_job).await;
+				}
+				StreamMessage::NewEvent(WorkerEvent::Progressed(updates)) => {
+					is_paused = false;
+					last_update_received_at = Instant::now();
+					Self::track_progress(
+						&mut report,
+						&mut last_reporter_watch_update,
+						&report_watch_tx,
+						start_time,
+						updates,
+						&library,
+					);
+				}
+				StreamMessage::NewEvent(WorkerEvent::Paused) => {
+					is_paused = true;
+				}
+				StreamMessage::NewEvent(WorkerEvent::Stop) => {
+					events_ended = true;
+				}
+				StreamMessage::Tick => {
+					if !is_paused {
+						let elapsed = last_update_received_at.elapsed();
+						if elapsed > FIVE_MINUTES {
+							error!(
+							"Worker<id='{worker_id}'> has not received any updates for {elapsed:?}"
+						);
+
+							let (tx, rx) = oneshot::channel();
+							if commands_tx
+								.send(WorkerCommand::Timeout(elapsed, tx))
+								.await
+								.is_err()
+							{
+								error!("Worker<id='{worker_id}'> failed to send timeout step command to a running job");
+							} else if timeout(FIVE_SECS, rx).await.is_err() {
+								error!("Worker<id='{worker_id}'> failed to receive timeout step answer from a running job");
+							}
+
+							// As we already sent a timeout command, we can safely join as the job is over
+							let Ok((job, job_result)) = run_task.await.map_err(|join_error| {
+								error!("Worker<id='{worker_id}'> had a critical error: {join_error:#?}")
+							}) else {
+								break;
+							};
+
+							Self::process_job_output(job, job_result, &mut report, &library).await;
+
+							report_watch_tx.send(report.clone()).ok();
+
+							error!(
+								"Worker<id='{worker_id}'> timed out Job<id='{}', name='{}'>",
+								report.id, report.name
+							);
+
+							break;
+						}
 					}
 				}
 			}
-		};
+		}
 
-		// Need this drop here to sinalize to borrowchecker that we're done with our `&mut job` borrow for `run` method
-		drop(job_future);
-
-		let next_job = Self::process_job_output(job, job_result, &mut report, &library).await;
-
-		report_watch_tx.send(report.clone()).ok();
-
-		debug!(
-			"Worker completed Job<id='{}', name='{}'>",
-			report.id, report.name
-		);
-
-		manager.complete(&library, worker_id, hash, next_job).await;
+		manager.complete(&library, worker_id, hash, None).await
 	}
 
 	async fn process_job_output(

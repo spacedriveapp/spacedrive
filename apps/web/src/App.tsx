@@ -52,7 +52,8 @@ const platform: Platform = {
 		finish(win: Window | null) {
 			win?.close();
 		}
-	}
+	},
+	landingApiOrigin: 'https://spacedrive.com'
 };
 
 const queryClient = new QueryClient({

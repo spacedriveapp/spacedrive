@@ -2,7 +2,12 @@ import Link from 'next/link';
 
 import { Markdown } from './Markdown';
 
-export function Index() {
+export const metadata = {
+	title: 'Spacedrive Docs',
+	description: 'Learn more about Spacedrive'
+};
+
+export default function Page() {
 	return (
 		<Markdown>
 			<div className="mt-[105px]">

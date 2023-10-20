@@ -28,7 +28,7 @@ export function LoginButton({
 				}}
 				{...props}
 			>
-				{authState.status !== 'loggingIn' ? children || 'Log in' : 'Logging In...'}
+				{authState.status !== 'loggingIn' ? children || 'Log in' : 'Logging in...'}
 			</Button>
 			{authState.status === 'loggingIn' && (
 				<button

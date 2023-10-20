@@ -15,9 +15,10 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
+use directories::UserDirs;
 use rspc::{self, alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -56,6 +57,28 @@ pub enum ExplorerItem {
 		thumbnail_key: Option<Vec<String>>,
 		item: PeerMetadata,
 	},
+}
+#[derive(Serialize, Type, Debug)]
+pub struct SystemLocations {
+	desktop: Option<PathBuf>,
+	documents: Option<PathBuf>,
+	downloads: Option<PathBuf>,
+	pictures: Option<PathBuf>,
+	music: Option<PathBuf>,
+	videos: Option<PathBuf>,
+}
+
+impl From<UserDirs> for SystemLocations {
+	fn from(value: UserDirs) -> Self {
+		Self {
+			desktop: value.desktop_dir().map(Path::to_path_buf),
+			documents: value.document_dir().map(Path::to_path_buf),
+			downloads: value.download_dir().map(Path::to_path_buf),
+			pictures: value.picture_dir().map(Path::to_path_buf),
+			music: value.audio_dir().map(Path::to_path_buf),
+			videos: value.video_dir().map(Path::to_path_buf),
+		}
+	}
 }
 
 impl ExplorerItem {
@@ -371,6 +394,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}),
 		)
+		.procedure("systemLocations", {
+			R.query(|_, _: ()| async move {
+				UserDirs::new().map(SystemLocations::from).ok_or_else(|| {
+					rspc::Error::new(
+						ErrorCode::NotFound,
+						"Didn't find any system locations".to_string(),
+					)
+				})
+			})
+		})
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
@@ -472,23 +505,4 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
-	// .procedure("createDirectory", {
-	// 	#[derive(Type, Deserialize)]
-	// 	struct CreateDirectoryArgs {
-	// 		location_id: location::id::Type,
-	// 		subpath: String,
-	// 	}
-	// 	R.with2(library())
-	// 		.query(|(_, library), args: CreateDirectoryArgs| async move {
-	// 			let location = find_location(&library, args.location_id)
-	// 				.exec()
-	// 				.await?
-	// 				.ok_or(LocationError::IdNotFound(args.location_id))?;
-
-	// 			let mut path = Path::new(&location.path.unwrap_or_default());
-	// 			path.push(args.subpath);
-
-	// 			Ok(())
-	// 		})
-	// })
 }

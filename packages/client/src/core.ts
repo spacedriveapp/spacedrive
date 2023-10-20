@@ -23,6 +23,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "locations.systemLocations", input: never, result: SystemLocations } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
@@ -131,7 +132,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
  */
 export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash" | "Screenshots"
 
-export type ChangeNodeNameArgs = { name: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | null; p2p_port: MaybeUndefined<number> }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
@@ -139,15 +140,17 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf"
+export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName }
+export type CreateLibraryArgs = { name: LibraryName; default_locations?: DefaultLocations }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
+export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -301,7 +304,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -383,7 +386,7 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }
+export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -402,6 +405,8 @@ export type SortOrder = "Asc" | "Desc"
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 

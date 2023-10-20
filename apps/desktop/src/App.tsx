@@ -1,11 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { confirm } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { homeDir } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/api/shell';
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RspcProvider } from '@sd/client';
 import {
@@ -15,14 +15,15 @@ import {
 	Platform,
 	PlatformProvider,
 	routes,
-	SpacedriveInterface,
-	usePlatform
+	SpacedriveInterface
 } from '@sd/interface';
 import { getSpacedropState } from '@sd/interface/hooks/useSpacedropState';
 
 import '@sd/ui/style/style.scss';
 
 import * as commands from './commands';
+import { env } from './env';
+import { queryClient } from './query';
 import { createUpdater } from './updater';
 
 // TODO: Bring this back once upstream is fixed up.
@@ -87,21 +88,11 @@ const platform = {
 			open(url);
 		}
 	},
-	...commands
+	...commands,
+	landingApiOrigin: env.VITE_LANDING_ORIGIN
 } satisfies Platform;
 
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			networkMode: 'always'
-		},
-		mutations: {
-			networkMode: 'always'
-		}
-	}
-});
-
-const router = createBrowserRouter(routes);
+export const router = createBrowserRouter(routes);
 
 export default function App() {
 	useEffect(() => {
@@ -139,8 +130,6 @@ export default function App() {
 
 // This is required because `ErrorPage` uses the OS which comes from `PlatformProvider`
 function AppInner() {
-	useUpdater();
-
 	if (startupError) {
 		return (
 			<ErrorPage
@@ -151,15 +140,4 @@ function AppInner() {
 	}
 
 	return <SpacedriveInterface router={router} />;
-}
-
-function useUpdater() {
-	const alreadyChecked = useRef(false);
-
-	const { updater } = usePlatform();
-
-	useEffect(() => {
-		if (!alreadyChecked.current && import.meta.env.PROD) updater?.checkForUpdate();
-		alreadyChecked.current = true;
-	}, [updater]);
 }
