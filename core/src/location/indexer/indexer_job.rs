@@ -539,7 +539,7 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![ScanProgress::Message(format!(
-				"Scanning: {:?}; Found: {total_entries} entries",
+				"Found: {total_entries} entries; Scanning: {:?}",
 				path.file_name().unwrap_or(path.as_os_str())
 			))],
 		);
