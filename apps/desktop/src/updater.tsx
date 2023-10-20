@@ -8,6 +8,7 @@ import * as commands from './commands';
 declare global {
 	interface Window {
 		__SD_UPDATER__?: true;
+		__SD_DESKTOP_VERSION__: string;
 	}
 }
 
@@ -83,9 +84,38 @@ export function createUpdater() {
 		return promise;
 	}
 
+	const SD_VERSION_LOCALSTORAGE = 'sd-version';
+	async function runJustUpdatedCheck(onViewChangelog: () => void) {
+		const version = window.__SD_DESKTOP_VERSION__;
+		const lastVersion = localStorage.getItem(SD_VERSION_LOCALSTORAGE);
+
+		if (lastVersion !== version) {
+			localStorage.setItem(SD_VERSION_LOCALSTORAGE, version);
+
+			const { frontmatter } = await fetch(
+				`${import.meta.env.VITE_LANDING_ORIGIN}/api/releases/${version}`
+			).then((r) => r.json());
+
+			toast.success(
+				{
+					title: `Updated successfully, you're on version ${version}`,
+					body: frontmatter?.tagline
+				},
+				{
+					duration: 10 * 1000,
+					action: {
+						label: 'View Changes',
+						onClick: onViewChangelog
+					}
+				}
+			);
+		}
+	}
+
 	return {
 		useSnapshot: () => useSnapshot(updateStore),
 		checkForUpdate,
-		installUpdate
+		installUpdate,
+		runJustUpdatedCheck
 	};
 }

@@ -9,8 +9,6 @@ import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
 
-const RELEASE_VERSION = 'Alpha v0.1.1';
-
 interface Platform {
 	name: string;
 	os?: string;
@@ -50,7 +48,11 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-export function Downloads() {
+interface Props {
+	latestVersion: string;
+}
+
+export function Downloads({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
 
@@ -113,7 +115,7 @@ export function Downloads() {
 				</div>
 			)}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
-				{RELEASE_VERSION}
+				{latestVersion}
 				{formattedVersion && (
 					<>
 						<span className="mx-2 opacity-50">|</span>
@@ -174,10 +176,10 @@ function useCurrentPlatform() {
 	return currentPlatform;
 }
 
-interface Props {
+interface PlatformProps {
 	platform: Platform;
 }
-function Platform({ platform, ...props }: ComponentProps<'a'> & Props) {
+function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
 	const { links } = platform;
 
 	const Outer = links

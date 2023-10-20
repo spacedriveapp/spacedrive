@@ -296,7 +296,7 @@ where
 
 		indexed_paths.insert(WalkingEntry {
 			iso_file_path: iso_file_path_factory(root, true)?,
-			maybe_metadata: Some(FilePathMetadata::from_path(root, &metadata).await?),
+			maybe_metadata: Some(FilePathMetadata::from_path(&root, &metadata).await?),
 		});
 	}
 
@@ -378,7 +378,7 @@ where
 								// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
 								// instead of using != operator
 								|| DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
-									> Duration::milliseconds(1)
+									> Duration::milliseconds(1) || file_path.hidden.is_none() || metadata.hidden != file_path.hidden.unwrap_or_default()
 							)
 							// We ignore the size of directories because it is not reliable, we need to
 							// calculate it ourselves later
@@ -528,7 +528,7 @@ where
 		let Ok(metadata) = entry
 			.metadata()
 			.await
-			.map_err(|e| errors.push(FileIOError::from((entry.path(), e)).into()))
+			.map_err(|e| errors.push(FileIOError::from((&current_path, e)).into()))
 		else {
 			continue 'entries;
 		};
@@ -575,7 +575,7 @@ where
 			// Then we mark this directory the be walked in too
 			if let Some(ref mut to_walk) = maybe_to_walk {
 				to_walk.push_back(ToWalkEntry {
-					path: entry.path(),
+					path: current_path.clone(),
 					parent_dir_accepted_by_its_children: accept_by_children_dir,
 					maybe_parent: Some(path.clone()),
 				});
@@ -640,7 +640,7 @@ where
 						continue;
 					};
 
-					let Ok(metadata) = FilePathMetadata::from_path(ancestor, &metadata)
+					let Ok(metadata) = FilePathMetadata::from_path(&ancestor, &metadata)
 						.await
 						.map_err(|e| errors.push(e.into()))
 					else {

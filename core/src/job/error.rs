@@ -7,9 +7,12 @@ use crate::{
 	util::{db::MissingFieldError, error::FileIOError},
 };
 
+use sd_crypto::Error as CryptoError;
+
+use std::time::Duration;
+
 use prisma_client_rust::QueryError;
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
-use sd_crypto::Error as CryptoError;
 use thiserror::Error;
 use tokio::sync::oneshot;
 use uuid::Uuid;
@@ -47,8 +50,10 @@ pub enum JobError {
 	MissingField(#[from] MissingFieldError),
 	#[error("item of type '{0}' with id '{1}' is missing from the db")]
 	MissingFromDb(&'static str, String),
-	#[error("Thumbnail skipped")]
-	ThumbnailSkipped,
+	#[error("job timed out after {0:?} without updates")]
+	Timeout(Duration),
+	#[error("critical job error: {0}")]
+	Critical(&'static str),
 
 	// Specific job errors
 	#[error(transparent)]

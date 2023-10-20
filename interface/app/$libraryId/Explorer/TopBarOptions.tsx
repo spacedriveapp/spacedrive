@@ -1,6 +1,7 @@
 import {
 	ArrowClockwise,
 	FolderPlus,
+	Icon,
 	Key,
 	MonitorPlay,
 	Rows,
@@ -10,7 +11,9 @@ import {
 	Tag
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useLibraryMutation } from '@sd/client';
+import { useMemo } from 'react';
+import { useDocumentEventListener } from 'rooks';
+import { ExplorerLayout, useLibraryMutation } from '@sd/client';
 import { ModifierKeys, toast } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
@@ -21,6 +24,12 @@ import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';
 import { useExplorerSearchParams } from './util';
+
+const layoutIcons: Record<ExplorerLayout, Icon> = {
+	grid: SquaresFour,
+	list: Rows,
+	media: MonitorPlay
+};
 
 export const useExplorerTopBarOptions = () => {
 	const explorerStore = useExplorerStore();
@@ -41,39 +50,30 @@ export const useExplorerTopBarOptions = () => {
 		}
 	});
 
-	const viewOptions: ToolOption[] = [
-		{
-			toolTipLabel: 'Grid view',
-			icon: <SquaresFour className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlIcon, '1'],
-			topBarActive: settings.layoutMode === 'grid',
-			onClick: () => (explorer.settingsStore.layoutMode = 'grid'),
-			showAtResolution: 'sm:flex'
-		},
-		{
-			toolTipLabel: 'List view',
-			icon: <Rows className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlIcon, '2'],
-			topBarActive: settings.layoutMode === 'list',
-			onClick: () => (explorer.settingsStore.layoutMode = 'list'),
-			showAtResolution: 'sm:flex'
-		},
-		// {
-		// 	toolTipLabel: 'Columns view',
-		// 	icon: <Columns className={TOP_BAR_ICON_STYLE} />,
-		// 	topBarActive: explorerStore.layoutMode === 'columns',
-		// 	// onClick: () => (getExplorerStore().layoutMode = 'columns'),
-		// 	showAtResolution: 'sm:flex'
-		// },
-		{
-			toolTipLabel: 'Media view',
-			icon: <MonitorPlay className={TOP_BAR_ICON_STYLE} />,
-			keybinds: [controlIcon, '3'],
-			topBarActive: settings.layoutMode === 'media',
-			onClick: () => (explorer.settingsStore.layoutMode = 'media'),
-			showAtResolution: 'sm:flex'
-		}
-	];
+	const viewOptions = useMemo(
+		() =>
+			(Object.keys(explorer.layouts) as ExplorerLayout[]).reduce(
+				(layouts, layout, i) => {
+					if (!explorer.layouts[layout]) return layouts;
+
+					const Icon = layoutIcons[layout];
+
+					const option = {
+						layout,
+						toolTipLabel: `${layout} view`,
+						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
+						keybinds: [controlIcon, (i + 1).toString()],
+						topBarActive: settings.layoutMode === layout,
+						onClick: () => (explorer.settingsStore.layoutMode = layout),
+						showAtResolution: 'sm:flex'
+					} satisfies ToolOption & { layout: ExplorerLayout };
+
+					return [...layouts, option];
+				},
+				[] as (ToolOption & { layout: ExplorerLayout })[]
+			),
+		[controlIcon, explorer.layouts, explorer.settingsStore, settings.layoutMode]
+	);
 
 	const controlOptions: ToolOption[] = [
 		{
@@ -108,6 +108,17 @@ export const useExplorerTopBarOptions = () => {
 	const os = useOperatingSystem();
 
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
+
+	useDocumentEventListener('keydown', (e: KeyboardEvent) => {
+		const meta = e.metaKey || e.ctrlKey;
+		if (!meta) return;
+
+		const layout = viewOptions[Number(e.key) - 1]?.layout;
+		if (!layout) return;
+
+		e.stopPropagation();
+		explorer.settingsStore.layoutMode = layout;
+	});
 
 	const toolOptions = [
 		parent?.type === 'Location' && {

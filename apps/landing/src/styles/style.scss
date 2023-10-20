@@ -1,3 +1,5 @@
+@tailwind utilities;
+
 html {
 	@apply bg-black;
 	-ms-overflow-style: none; /* IE and Edge */
@@ -334,30 +336,32 @@ html {
 	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
 }
 
-.doc-sidebar-button:hover,
-.doc-sidebar-button.nav-active {
-	&.product {
-		color: #459ee8;
-		div {
-			background-color: #459ee8;
+@layer utilities {
+	.doc-sidebar-button:hover,
+	.nav-active {
+		&.product {
+			color: #459ee8;
+			div {
+				background-color: #459ee8;
+			}
 		}
-	}
-	&.developers {
-		color: #48bb78;
-		div {
-			background-color: #48bb78;
+		&.developers {
+			color: #48bb78;
+			div {
+				background-color: #48bb78;
+			}
 		}
-	}
-	&.company {
-		color: #bb9247;
-		div {
-			background-color: #bb9247;
+		&.company {
+			color: #bb9247;
+			div {
+				background-color: #bb9247;
+			}
 		}
-	}
-	&.changelog {
-		color: #8a47bb;
-		div {
-			background-color: #8a47bb;
+		&.changelog {
+			color: #8a47bb;
+			div {
+				background-color: #8a47bb;
+			}
 		}
 	}
 }

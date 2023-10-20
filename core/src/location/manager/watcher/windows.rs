@@ -131,11 +131,11 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					)
 					.await?;
 				} else {
-					let metadata = fs::metadata(&paths[0])
-						.await
-						.map_err(|e| FileIOError::from((&paths[0], e)))?;
-
 					let path = paths.remove(0);
+					let metadata = fs::metadata(&path)
+						.await
+						.map_err(|e| FileIOError::from((&path, e)))?;
+
 					if metadata.is_dir() {
 						// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
 						// a `scan_location_sub_path` function, which recalculates the size already

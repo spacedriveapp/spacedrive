@@ -25,7 +25,7 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../privacy', { replace: true });
+				navigate('../locations', { replace: true });
 			})}
 		>
 			<OnboardingContainer>

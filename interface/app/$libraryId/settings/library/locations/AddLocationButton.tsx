@@ -11,9 +11,10 @@ import { openDirectoryPickerDialog } from './openDirectoryPickerDialog';
 
 interface AddLocationButton extends ButtonProps {
 	path?: string;
+	onClick?: () => void;
 }
 
-export const AddLocationButton = ({ path, className, ...props }: AddLocationButton) => {
+export const AddLocationButton = ({ path, className, onClick, ...props }: AddLocationButton) => {
 	const platform = usePlatform();
 	const transition = {
 		type: 'keyframes',
@@ -50,6 +51,8 @@ export const AddLocationButton = ({ path, className, ...props }: AddLocationButt
 						dialogManager.create((dp) => (
 							<AddLocationDialog path={path ?? ''} {...dp} />
 						));
+
+					onClick?.();
 				}}
 				{...props}
 			>

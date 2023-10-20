@@ -5,7 +5,7 @@ use crate::{
 	},
 	prisma::{file_path, location, PrismaClient},
 	util::{
-		db::{maybe_missing, MissingFieldError},
+		db::maybe_missing,
 		error::{FileIOError, NonUtf8PathError},
 	},
 };
@@ -132,7 +132,7 @@ pub async fn fetch_source_and_target_location_paths(
 	}
 }
 
-fn construct_target_filename(source_file_data: &FileData) -> Result<String, MissingFieldError> {
+fn construct_target_filename(source_file_data: &FileData) -> Result<String, FileSystemJobsError> {
 	// extension wizardry for cloning and such
 	// if no suffix has been selected, just use the file name
 	// if a suffix is provided and it's a directory, use the directory name + suffix

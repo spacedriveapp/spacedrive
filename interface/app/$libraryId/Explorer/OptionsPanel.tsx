@@ -1,4 +1,3 @@
-import { useMatch } from 'react-router';
 import { RadixCheckbox, Select, SelectOption, Slider, tw, z } from '@sd/ui';
 import { getExplorerLayoutStore, useExplorerLayoutStore } from '~/../packages/client/src';
 import { SortOrderSchema } from '~/app/route-schemas';
@@ -20,8 +19,6 @@ export default () => {
 	const layoutStore = useExplorerLayoutStore();
 
 	const settings = explorer.useSettingsSnapshot();
-
-	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 
 	return (
 		<div className="flex w-80 flex-col gap-4 p-4">
@@ -135,7 +132,7 @@ export default () => {
 						}}
 					/>
 
-					{settings.layoutMode === 'grid' && !isEphemeralLocation && (
+					{settings.layoutMode === 'grid' && (
 						<RadixCheckbox
 							checked={settings.showBytesInGridView}
 							label="Show Object size"
