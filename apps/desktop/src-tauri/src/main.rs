@@ -164,6 +164,7 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.plugin(updater::plugin())
+		.plugin(tauri_plugin_window_state::Builder::default().build())
 		.setup(|app| {
 			let app = app.handle();
 
