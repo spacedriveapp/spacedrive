@@ -26,7 +26,7 @@ export default ({ mini, ...props }: PropsWithChildren<Props>) => {
 						</Tooltip>
 					)}
 				</div>
-				{props.description}
+				<div className="w-[85%]">{props.description}</div>
 				{!mini && props.children}
 			</div>
 			{mini && props.children}
