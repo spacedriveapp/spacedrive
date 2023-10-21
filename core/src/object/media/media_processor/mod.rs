@@ -19,11 +19,7 @@ use tracing::error;
 
 use super::{
 	media_data_extractor::{self, MediaDataError, MediaDataExtractorMetadata},
-	thumbnail::{
-		self,
-		actor::{BatchToProcess, GenerateThumbnailArgs},
-		ThumbnailerError,
-	},
+	thumbnail::{self, BatchToProcess, GenerateThumbnailArgs, ThumbnailerError},
 };
 
 mod job;
@@ -118,11 +114,14 @@ where
 			current_batch.append(&mut pdf_thumbs);
 
 			node.thumbnailer
-				.new_indexed_thumbnails_batch(BatchToProcess {
-					batch: current_batch,
-					should_regenerate,
-					in_background,
-				})
+				.new_indexed_thumbnails_batch(
+					BatchToProcess {
+						batch: current_batch,
+						should_regenerate,
+						in_background,
+					},
+					library.id,
+				)
 				.await;
 
 			// We moved our vec so we need a new
@@ -148,11 +147,14 @@ where
 	// Dispatching the last batch
 	if !current_batch.is_empty() {
 		node.thumbnailer
-			.new_indexed_thumbnails_batch(BatchToProcess {
-				batch: current_batch,
-				should_regenerate,
-				in_background,
-			})
+			.new_indexed_thumbnails_batch(
+				BatchToProcess {
+					batch: current_batch,
+					should_regenerate,
+					in_background,
+				},
+				library.id,
+			)
 			.await;
 	}
 
