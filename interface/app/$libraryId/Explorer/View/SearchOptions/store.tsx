@@ -1,7 +1,13 @@
 import { useEffect, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
-import { Category, FilePathFilterArgs, ObjectFilterArgs, ObjectKindEnum } from '@sd/client';
+import {
+	Category,
+	FilePathFilterArgs,
+	ObjectFilterArgs,
+	ObjectKindEnum,
+	valtioPersist
+} from '@sd/client';
 
 import { inOrNotIn } from './util';
 
@@ -41,6 +47,17 @@ export interface GroupedFilters {
 	type: FilterType;
 	filters: SetFilter[];
 }
+
+export const savedSearches = valtioPersist('sd-saved-searches', {
+	searches: {} as Record<
+		string,
+		{
+			searchType: SearchType;
+			searchQuery: string | null;
+			filters: SetFilter[];
+		}
+	>
+});
 
 const searchStore = proxy({
 	isSearching: false,
@@ -202,9 +219,45 @@ export const selectFilter = (filter: Filter, condition: boolean, canBeRemoved = 
 	});
 };
 
+export const saveSearch = (name: string) => {
+	savedSearches.searches[name] = {
+		searchType: searchStore.searchType,
+		searchQuery: searchStore.searchQuery,
+		filters: Array.from(searchStore.selectedFilters.values())
+	};
+};
+
+export const loadSearch = (name: string) => {
+	const search = savedSearches.searches[name];
+	if (search) {
+		searchStore.searchType = search.searchType;
+		searchStore.searchQuery = search.searchQuery;
+		searchStore.selectedFilters.clear();
+		search.filters.forEach((filter) => {
+			searchStore.selectedFilters.set(getKey(filter), filter);
+		});
+	}
+};
+
+export const removeSearch = (name: string) => {
+	delete savedSearches.searches[name];
+};
+
+export const useSavedSearches = () => {
+	const ss = useSnapshot(savedSearches);
+	return {
+		searches: ss.searches,
+		loadSearch: (name: string) => loadSearch(name),
+		removeSearch: (name: string) => removeSearch(name),
+		saveSearch: (name: string) => saveSearch(name),
+		isSearchSaved: (name: string) => !!savedSearches.searches[name]
+	};
+};
+
 export const deselectFilter = (filter: Filter) => {
 	const key = getKey(filter);
-	searchStore.selectedFilters.delete(key);
+	const setFilter = searchStore.selectedFilters.get(key);
+	if (setFilter?.canBeRemoved) searchStore.selectedFilters.delete(key);
 };
 
 export const resetSearchStore = () => {

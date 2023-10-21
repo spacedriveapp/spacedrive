@@ -1,56 +1,76 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
-import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { FilePathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
-import { SearchParamsSchema, type SearchParams } from '~/app/route-schemas';
+import { useEffect, useMemo } from 'react';
+import { FilePathFilterArgs, useLibraryContext } from '@sd/client';
+import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
-import {
-	createDefaultExplorerSettings,
-	filePathOrderingKeysSchema,
-	getExplorerStore
-} from './Explorer/store';
+import { usePathsInfiniteQuery } from './Explorer/queries';
+import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
 import { EmptyNotice } from './Explorer/View';
+import {
+	getSearchStore,
+	useSavedSearches,
+	useSearchFilters
+} from './Explorer/View/SearchOptions/store';
 import { TopBarPortal } from './TopBar/Portal';
 
-const SearchExplorer = memo((props: { args: SearchParams }) => {
-	const { search, ...args } = props.args;
-
-	const query = useLibraryQuery(['search.paths', { ...args, filter: { search } }], {
-		suspense: true,
-		enabled: !!search,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
-	});
-
+const useItems = (searchParams: SearchParams) => {
+	const { library } = useLibraryContext();
 	const explorerSettings = useExplorerSettings({
-		settings: useMemo(
-			() =>
-				createDefaultExplorerSettings<FilePathOrder>({
-					order: {
-						field: 'name',
-						value: 'Asc'
-					}
-				}),
-			[]
-		),
+		settings: createDefaultExplorerSettings({
+			order: {
+				field: 'name',
+				value: 'Asc'
+			}
+		}),
 		orderingKeys: filePathOrderingKeysSchema
 	});
 
-	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
+	const searchFilters = useSearchFilters('paths', []);
 
-	const items = useMemo(() => {
-		const items = query.data?.items ?? [];
+	const savedSearches = useSavedSearches();
 
-		if (settingsSnapshot.layoutMode !== 'media') return items;
+	useEffect(() => {
+		if (searchParams.savedSearchKey) {
+			getSearchStore().isSearching = true;
+			savedSearches.loadSearch(searchParams.savedSearchKey);
+		}
+	}, []);
 
-		return items?.filter((item) => {
-			const { kind } = getExplorerItemData(item);
-			return kind === 'Video' || kind === 'Image';
-		});
-	}, [query.data, settingsSnapshot.layoutMode]);
+	const filter: FilePathFilterArgs = {
+		search: searchParams.search,
+		...searchFilters
+	};
+
+	const take = 50; // Specify the number of items to fetch per query
+
+	const query = usePathsInfiniteQuery({
+		arg: { filter, take },
+		library,
+		settings: explorerSettings
+	});
+
+	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? [], [query.data]);
+
+	return { items, query };
+};
+
+const SearchExplorer = ({ args }: { args: SearchParams }) => {
+	const { items, query } = useItems(args);
+
+	const explorerSettings = useExplorerSettings({
+		settings: createDefaultExplorerSettings({
+			order: {
+				field: 'name',
+				value: 'Asc'
+			}
+		}),
+		orderingKeys: filePathOrderingKeysSchema
+	});
 
 	const explorer = useExplorer({
 		items,
@@ -64,7 +84,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 				emptyNotice={
 					<EmptyNotice
 						icon={
-							!search ? (
+							!args.search ? (
 								<MagnifyingGlass
 									size={110}
 									className="mb-5 text-ink-faint"
@@ -73,23 +93,19 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 							) : null
 						}
 						message={
-							search ? `No results found for "${search}"` : 'Search for files...'
+							args.search
+								? `No results found for "${args.search}"`
+								: 'Search for files...'
 						}
 					/>
 				}
 			/>
 		</ExplorerContextProvider>
 	);
-});
+};
 
 export const Component = () => {
 	const [searchParams] = useZodSearchParams(SearchParamsSchema);
 
-	const search = useDeferredValue(searchParams);
-
-	return (
-		<Suspense>
-			<SearchExplorer args={search} />
-		</Suspense>
-	);
+	return <SearchExplorer args={searchParams} />;
 };

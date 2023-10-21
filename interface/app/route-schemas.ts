@@ -29,7 +29,8 @@ export const SearchParamsSchema = PathParamsSchema.extend({
 			// z.object({ field: z.literal('sizeInBytes'), value: SortOrderSchema })
 		])
 		.optional(),
-	search: z.string().optional()
+	search: z.string().optional(),
+	savedSearchKey: z.string().optional()
 });
 export type SearchParams = z.infer<typeof SearchParamsSchema>;
 

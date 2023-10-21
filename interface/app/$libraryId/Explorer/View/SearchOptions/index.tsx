@@ -29,7 +29,7 @@ import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
 import { FilterComponent } from './Filters';
-import { FilterType, getSearchStore, useSearchStore } from './store';
+import { FilterType, getSearchStore, useSavedSearches, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
@@ -95,6 +95,8 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 const SearchOptions = () => {
 	const searchStore = useSearchStore();
 
+	const [newFilterName, setNewFilterName] = useState<string>('');
+
 	const handleMouseEnter = () => {
 		getSearchStore().interactingWithSearchOptions = true;
 	};
@@ -106,6 +108,8 @@ const SearchOptions = () => {
 	useKeybind(['Escape'], () => {
 		getSearchStore().isSearching = false;
 	});
+
+	const savedSearches = useSavedSearches();
 
 	return (
 		<div
@@ -181,10 +185,34 @@ const SearchOptions = () => {
 			<AppliedOptions />
 
 			{searchStore.selectedFilters.size > 0 && (
-				<Button className="flex flex-row gap-1" size="xs" variant="dotted">
-					<Plus weight="bold" />
-					Save
-				</Button>
+				<DropdownMenu.Root
+					className={MENU_STYLES}
+					trigger={
+						<Button className="flex flex-row gap-1" size="xs" variant="dotted">
+							<Plus weight="bold" />
+							Save Search
+						</Button>
+					}
+				>
+					<Input
+						value={newFilterName}
+						onChange={(e) => setNewFilterName(e.target.value)}
+						autoFocus
+						variant="transparent"
+						placeholder="Name"
+					/>
+					<Button
+						onClick={() => {
+							if (!newFilterName) return;
+							savedSearches.saveSearch(newFilterName);
+							setNewFilterName('');
+						}}
+						className="m-1 mt-2"
+						variant="accent"
+					>
+						Save
+					</Button>
+				</DropdownMenu.Root>
 			)}
 
 			<div className="grow" />
