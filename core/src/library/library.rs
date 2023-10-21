@@ -5,7 +5,7 @@ use crate::{
 	},
 	location::file_path_helper::{file_path_to_full_path, IsolatedFilePathData},
 	notifications,
-	object::{media::thumbnail::get_thumbnail_path, orphan_remover::OrphanRemoverActor},
+	object::{media::thumbnail::get_indexed_thumbnail_path, orphan_remover::OrphanRemoverActor},
 	prisma::{file_path, location, PrismaClient},
 	sync,
 	util::{db::maybe_missing, error::FileIOError},
@@ -120,7 +120,7 @@ impl Library {
 	}
 
 	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_thumbnail_path(node, cas_id);
+		let thumb_path = get_indexed_thumbnail_path(node, cas_id, self.id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
