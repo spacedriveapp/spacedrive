@@ -13,7 +13,7 @@ import {
 import { getIconComponent, RenderIcon } from './util';
 
 // const Section = tw.div`gap-2`;
-const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/30`;
+const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
 
 export const AppliedOptions = () => {
 	const searchStore = useSearchStore();
@@ -38,11 +38,11 @@ export const AppliedOptions = () => {
 							className="h-4 w-4"
 							icon={searchFilterTypeMeta[group.type]?.icon}
 						/>
-						<span className="mx-1 py-0.5 text-sm">
+						<span className="mx-1 py-0.5 text-sm text-ink-dull">
 							{searchFilterTypeMeta[group.type]?.name}
 						</span>
 					</div>
-					<InteractiveSection className="border-l bg-app-lightBox/20">
+					<InteractiveSection className="border-l ">
 						{group.filters.length > 1
 							? searchFilterTypeMeta[group.type]?.wording.plural
 							: searchFilterTypeMeta[group.type]?.wording.singular}
@@ -52,7 +52,7 @@ export const AppliedOptions = () => {
 						{group.filters.length > 1 && (
 							<div
 								className="relative"
-								style={{ width: `${group.filters.length * 13}px` }}
+								style={{ width: `${group.filters.length * 12}px` }}
 							>
 								{group.filters.map((filter, index) => (
 									<div
@@ -71,7 +71,11 @@ export const AppliedOptions = () => {
 						{group.filters.length === 1 && (
 							<RenderIcon className="h-4 w-4" icon={group.filters[0]?.icon} />
 						)}
-						{group.filters[0]?.name}
+						{group.filters.length > 1
+							? `${group.filters.length} ${pluralize(
+									searchFilterTypeMeta[group.type]?.name
+							  )}`
+							: group.filters[0]?.name}
 					</InteractiveSection>
 
 					<div
@@ -85,3 +89,8 @@ export const AppliedOptions = () => {
 		</div>
 	);
 };
+
+function pluralize(word: string) {
+	if (word.endsWith('s')) return word;
+	return `${word}s`;
+}

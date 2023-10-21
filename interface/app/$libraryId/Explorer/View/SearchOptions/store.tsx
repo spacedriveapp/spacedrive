@@ -86,6 +86,15 @@ export const useSearchFilters = <T extends SearchType>(
 		[store.selectedFilters]
 	);
 
+	useEffect(() => {
+		console.log(store.searchQuery);
+		if (store.searchQuery) {
+			filters.queryParams.search = store.searchQuery;
+		} else {
+			delete filters.queryParams.search;
+		}
+	}, [filters.queryParams, store.searchQuery]);
+
 	return searchType === 'objects' ? (filters.objectFilters as any) : (filters.queryParams as any);
 };
 

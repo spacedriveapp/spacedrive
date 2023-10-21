@@ -32,6 +32,7 @@ export default () => {
 	const [value, setValue] = useState(searchParams.search ?? '');
 
 	const updateParams = useDebouncedCallback((value: string) => {
+		getSearchStore().searchQuery = value;
 		startTransition(() =>
 			setSearchParams((p) => ({ ...p, search: value }), {
 				replace: true
@@ -42,7 +43,9 @@ export default () => {
 	const updateValue = useCallback(
 		(value: string) => {
 			setValue(value);
-			if (searchPath.pathname === location.pathname) updateParams(value);
+			// TODO: idk that looked important but uncommenting it fixed my bug
+			// if (searchPath.pathname === location.pathname)
+			updateParams(value);
 		},
 		[searchPath.pathname, location.pathname, updateParams]
 	);

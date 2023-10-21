@@ -97,7 +97,6 @@ export const Separator = () => <DropdownMenu.Separator className="!border-app-li
 
 const SearchOptions = () => {
 	const searchStore = useSearchStore();
-	const [searchContext, setSearchContext] = useState<'paths' | 'objects'>('paths');
 
 	const handleMouseEnter = () => {
 		getSearchStore().interactingWithSearchOptions = true;
@@ -120,17 +119,17 @@ const SearchOptions = () => {
 			<OptionContainer className="flex flex-row items-center">
 				<Label>Show:</Label>
 				<Button
-					onClick={() => setSearchContext('paths')}
+					onClick={() => (getSearchStore().searchType = 'paths')}
 					size="xs"
-					variant={searchContext === 'paths' ? 'accent' : 'gray'}
+					variant={searchStore.searchType === 'paths' ? 'accent' : 'gray'}
 					rounding="left"
 				>
 					Paths
 				</Button>
 				<Button
-					onClick={() => setSearchContext('objects')}
+					onClick={() => (getSearchStore().searchType = 'objects')}
 					size="xs"
-					variant={searchContext === 'objects' ? 'accent' : 'gray'}
+					variant={searchStore.searchType === 'objects' ? 'accent' : 'gray'}
 					rounding="right"
 				>
 					Objects
