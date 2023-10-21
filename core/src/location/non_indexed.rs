@@ -3,10 +3,7 @@ use crate::{
 	library::Library,
 	object::{
 		cas::generate_cas_id,
-		media::thumbnail::{
-			actor::{BatchToProcess, GenerateThumbnailArgs},
-			get_thumb_key,
-		},
+		media::thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
 	},
 	prisma::location,
 	util::error::FileIOError,
@@ -200,9 +197,7 @@ pub async fn walk(
 						));
 					}
 
-					let thumbnail_key = get_thumb_key(&cas_id);
-
-					Some(thumbnail_key)
+					Some(get_ephemeral_thumb_key(&cas_id))
 				} else {
 					None
 				}
