@@ -1,6 +1,6 @@
 import clsx from 'clsx';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate, useResolvedPath } from 'react-router-dom';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
 	initPlausible,
@@ -16,10 +16,11 @@ import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import {
 	useKeybindEventHandler,
 	useOperatingSystem,
+	useRedirectToNewLocation,
 	useShowControls,
+	useWindowState,
 	useZodRouteParams
 } from '~/hooks';
-import { useWindowState } from '~/hooks/useWindowState';
 import { usePlatform } from '~/util/Platform';
 
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
@@ -30,7 +31,7 @@ const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
 	const showControls = useShowControls();
-	const platform = usePlatform();
+	const { platform } = usePlatform();
 	const windowState = useWindowState();
 
 	useKeybindEventHandler(library?.uuid);
@@ -41,7 +42,7 @@ const Layout = () => {
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
-		platformType: platform.platform === 'tauri' ? 'desktop' : 'web',
+		platformType: platform === 'tauri' ? 'desktop' : 'web',
 		buildInfo: buildInfo?.data
 	});
 
@@ -49,6 +50,8 @@ const Layout = () => {
 
 	usePlausiblePageViewMonitor({ currentPath: rawPath });
 	usePlausiblePingMonitor({ currentPath: rawPath });
+
+	useRedirectToNewLocation();
 
 	useEffect(() => {
 		const interval = setInterval(() => {

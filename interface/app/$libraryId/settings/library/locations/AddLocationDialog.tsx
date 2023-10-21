@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { Controller, get } from 'react-hook-form';
-import { useNavigate } from 'react-router';
 import { useDebouncedCallback } from 'use-debounce';
 import {
 	extractInfoRSPCError,
@@ -11,7 +10,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { CheckBox, Dialog, ErrorMessage, Label, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
 import Accordion from '~/components/Accordion';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -60,7 +59,6 @@ export const AddLocationDialog = ({
 	const relinkLocation = useLibraryMutation('locations.relink');
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
 	const addLocationToLibrary = useLibraryMutation('locations.addLibrary');
-	const explorerStore = useExplorerStore();
 
 	// This is required because indexRules is undefined on first render
 	const indexerRulesIds = useMemo(
@@ -123,14 +121,10 @@ export const AddLocationDialog = ({
 				default:
 					throw new Error('Unimplemented custom remote error handling');
 			}
-			if (shouldRedirect) {
-				getExplorerStore().jobsToRedirect = [
-					{ locationId: id },
-					...explorerStore.jobsToRedirect
-				];
-			}
+
+			if (shouldRedirect) getExplorerStore().newLocationToRedirect = id;
 		},
-		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent, explorerStore]
+		[createLocation, relinkLocation, addLocationToLibrary, submitPlausibleEvent]
 	);
 
 	const handleAddError = useCallback(
