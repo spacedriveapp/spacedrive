@@ -76,6 +76,8 @@ const Layout = () => {
 		else return <Navigate to="/" replace />;
 	}
 
+	const macOSFullscreen = os === 'macOS' && windowState.isFullScreen;
+
 	return (
 		<LayoutContext.Provider value={ctxValue}>
 			<div
@@ -84,8 +86,11 @@ const Layout = () => {
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
 					os === 'macOS' && 'has-blur-effects',
-					os === 'macOS' && !windowState.isFullScreen && 'rounded-[10px]',
-					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
+					!macOSFullscreen && 'rounded-[10px]',
+					os !== 'browser' &&
+						os !== 'windows' &&
+						!macOSFullscreen &&
+						'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
 					// TODO: allow this on some UI text at least / disable default browser context menu
