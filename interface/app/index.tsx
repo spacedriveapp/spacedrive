@@ -3,7 +3,7 @@ import { Navigate, Outlet, useMatches, type RouteObject } from 'react-router-dom
 import { currentLibraryCache, useCachedLibraries, useInvalidateQuery } from '@sd/client';
 import { Dialogs, Toaster } from '@sd/ui';
 import { RouterErrorBoundary } from '~/ErrorFallback';
-import { useKeybindHandler, useShouldRedirect, useTheme } from '~/hooks';
+import { useShouldRedirect, useTheme } from '~/hooks';
 
 import libraryRoutes from './$libraryId';
 import onboardingRoutes from './onboarding';
@@ -26,7 +26,6 @@ const Index = () => {
 };
 
 const Wrapper = () => {
-	useKeybindHandler();
 	useInvalidateQuery();
 	useTheme();
 	useShouldRedirect();

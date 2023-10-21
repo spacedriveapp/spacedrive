@@ -9,7 +9,7 @@ export * from './useFocusState';
 export * from './useInputState';
 export * from './useIsDark';
 export * from './useKeyDeleteFile';
-export * from './useKeyboardHandler';
+export * from './useKeybindEventHandler';
 export * from './useKeybind';
 export * from './useOperatingSystem';
 export * from './useScrolled';

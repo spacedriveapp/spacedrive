@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate, useResolvedPath } from 'react-router-dom';
 import {
 	ClientContextProvider,
@@ -13,7 +13,13 @@ import {
 } from '@sd/client';
 import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
-import { useOperatingSystem, useShowControls, useZodRouteParams } from '~/hooks';
+import {
+	useKeybindEventHandler,
+	useOperatingSystem,
+	useShowControls,
+	useZodRouteParams
+} from '~/hooks';
+import { useWindowState } from '~/hooks/useWindowState';
 import { usePlatform } from '~/util/Platform';
 
 import { QuickPreviewContextProvider } from '../Explorer/QuickPreview/Context';
@@ -23,15 +29,19 @@ import Sidebar from './Sidebar';
 const Layout = () => {
 	const { libraries, library } = useClientContext();
 	const os = useOperatingSystem();
+	const showControls = useShowControls();
+	const platform = usePlatform();
+	const windowState = useWindowState();
 
-	const transparentBg = useShowControls().transparentBg;
+	useKeybindEventHandler(library?.uuid);
+
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	initPlausible({
-		platformType: usePlatform().platform === 'tauri' ? 'desktop' : 'web',
+		platformType: platform.platform === 'tauri' ? 'desktop' : 'web',
 		buildInfo: buildInfo?.data
 	});
 
@@ -70,7 +80,8 @@ const Layout = () => {
 				className={clsx(
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
-					os === 'macOS' && 'has-blur-effects rounded-[10px]',
+					os === 'macOS' && 'has-blur-effects',
+					os === 'macOS' && !windowState.isFullScreen && 'rounded-[10px]',
 					os !== 'browser' && os !== 'windows' && 'frame border border-transparent'
 				)}
 				onContextMenu={(e) => {
@@ -83,7 +94,7 @@ const Layout = () => {
 				<div
 					className={clsx(
 						'relative flex w-full overflow-hidden',
-						transparentBg ? 'bg-app/80' : 'bg-app'
+						showControls.transparentBg ? 'bg-app/80' : 'bg-app'
 					)}
 				>
 					{library ? (
