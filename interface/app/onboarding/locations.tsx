@@ -16,8 +16,8 @@ import { Button, Form, RadixCheckbox } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 import { useOnboardingContext } from './context';
-import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 
 type SystemLocation = keyof SystemLocations;
 
@@ -67,19 +67,21 @@ export default function OnboardingLocations() {
 			}),
 			{} as Record<SystemLocation, string>
 		);
-		if (Object.keys(locations).length > 0) return locations;
+		return Object.keys(locations).length > 0 ? locations : null;
 	}, [data]);
 
 	const form = useOnboardingContext().forms.useForm('locations');
 
 	const locations = useWatch({ control: form.control, name: 'locations' });
 
-	const toggled = useMemo(() => {
-		if (!systemLocations) return;
-		return (
-			Object.values(locations).filter(Boolean).length === Object.keys(systemLocations).length
-		);
-	}, [locations, systemLocations]);
+	const toggled = useMemo(
+		() =>
+			(systemLocations &&
+				Object.values(locations).filter(Boolean).length ===
+					Object.keys(systemLocations).length) ||
+			false,
+		[locations, systemLocations]
+	);
 
 	return (
 		<Form

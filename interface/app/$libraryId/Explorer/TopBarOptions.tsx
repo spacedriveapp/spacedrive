@@ -109,7 +109,9 @@ export const useExplorerTopBarOptions = () => {
 
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
 
-	useDocumentEventListener('keydown', (e: KeyboardEvent) => {
+	useDocumentEventListener('keydown', (e: unknown) => {
+		if (!(e instanceof KeyboardEvent)) return;
+
 		const meta = e.metaKey || e.ctrlKey;
 		if (!meta) return;
 

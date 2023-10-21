@@ -5,7 +5,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
 import { useRef, useState } from 'react';
 import { Color, type Mesh } from 'three';
-import { hasWebGLContext } from '~/utils/util';
 
 const Stars = (props: any) => {
 	const ref = useRef<Mesh>();

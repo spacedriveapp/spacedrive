@@ -1,18 +1,16 @@
 ARG REPO=spacedriveapp/spacedrive
 ARG REPO_REF=main
-ARG DEBIAN_FRONTEND=noninteractive
 
 #--
 
 FROM debian:bookworm as base
 
-ARG DEBIAN_FRONTEND
-
 ADD https://gist.githubusercontent.com/HeavenVolkoff/ff7b77b9087f956b8df944772e93c071/raw \
 	/etc/apt/apt.conf.d/99docker-apt-config
 
-RUN rm -f /etc/apt/apt.conf.d/docker-clean; \
-	echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get update && apt-get upgrade
@@ -20,8 +18,6 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 #--
 
 FROM base as build-base
-
-ARG DEBIAN_FRONTEND
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get install build-essential git sudo unzip wget

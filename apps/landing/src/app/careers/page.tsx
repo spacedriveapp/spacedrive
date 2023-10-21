@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function CareersPage() {
 	return (
-		<div className="prose prose-invert container relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
+		<div className="container prose prose-invert relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
 			<div
 				className="bloom subtle egg-bloom-two -top-60 right-[-400px]"
 				style={{ transform: 'scale(2)' }}

@@ -19,7 +19,6 @@ export interface TextViewerProps {
 export const TextViewer = memo(
 	({ src, className, onLoad, onError, codeExtension, isSidebarPreview }: TextViewerProps) => {
 		const [lines, setLines] = useState<string[]>([]);
-
 		const parentRef = useRef<HTMLPreElement>(null);
 		const rowVirtualizer = useVirtualizer({
 			count: lines.length,
@@ -30,21 +29,22 @@ export const TextViewer = memo(
 		useEffect(() => {
 			// Ignore empty urls
 			if (!src || src === '#') return;
-			if (lines.length) return;
 
 			const controller = new AbortController();
 			fetch(src, {
 				mode: 'cors',
 				signal: controller.signal
 			})
-				.then(async (response) => {
+				.then((response) => {
 					if (!response.ok) throw new Error(`Invalid response: ${response.statusText}`);
 					if (!response.body) return;
 					onLoad?.(new UIEvent('load', {}));
 
 					const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-					const ingestLines = async () => {
-						const { done, value } = await reader.read();
+					return reader.read().then(function ingestLines({
+						done,
+						value
+					}): void | Promise<void> {
 						if (done) return;
 
 						const chunks = value.split('\n');
@@ -52,9 +52,9 @@ export const TextViewer = memo(
 
 						if (isSidebarPreview) return;
 
-						await ingestLines();
-					};
-					ingestLines();
+						// Read some more, and call this function again
+						return reader.read().then(ingestLines);
+					});
 				})
 				.catch((error) => {
 					if (!controller.signal.aborted)

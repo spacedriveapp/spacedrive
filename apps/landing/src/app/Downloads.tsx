@@ -1,6 +1,6 @@
 'use client';
 
-import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react/dist/ssr';
+import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -80,7 +80,7 @@ export function Downloads({ latestVersion }: Props) {
 										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
 										: undefined
 								}
-								className={`z-5 plausible-event-name=download relative plausible-event-os=${currentPlatform.name}`}
+								className={`z-5 plausible-event-name=download plausible-event-os= relative${currentPlatform.name}`}
 								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
 								text={`Download for ${currentPlatform.name}`}
 								onClick={() => setSelectedPlatform(currentPlatform)}

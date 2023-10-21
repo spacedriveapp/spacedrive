@@ -2,4 +2,4 @@
 *
 # Except this file
 !.gitignore
-# This is done so that `include_dir` never complains that '../dist does not exist'
+# This is done so that Tauri never complains that '../dist does not exist'
