@@ -2,7 +2,7 @@ use sd_prisma::prisma;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Deserialize, Default, Type, Debug)]
+#[derive(Deserialize, Default, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionalRange<T> {
 	pub from: Option<T>,
@@ -25,7 +25,7 @@ impl From<SortOrder> for prisma::SortOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Debug)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(untagged)]
 pub enum MaybeNot<T> {
 	None(T),
@@ -56,7 +56,7 @@ pub enum OrderAndPagination<TId, TOrder, TCursor> {
 	Cursor { id: TId, cursor: TCursor },
 }
 
-#[derive(Deserialize, Type, Debug)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum InOrNotIn<T> {
 	In(Vec<T>),

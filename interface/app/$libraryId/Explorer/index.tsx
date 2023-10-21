@@ -3,7 +3,7 @@ import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { SlideDown } from 'react-slidedown';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeysMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
+import { useKeysMatcher, useOperatingSystem } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -17,6 +17,8 @@ import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 import SearchOptions from './View/SearchOptions';
 
 import 'react-slidedown/lib/slidedown.css';
+
+import { useSearchStore } from './View/SearchOptions/store';
 
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];

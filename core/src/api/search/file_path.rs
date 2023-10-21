@@ -59,7 +59,7 @@ impl FilePathOrder {
 #[serde(rename_all = "camelCase")]
 pub struct FilePathFilterArgs {
 	#[specta(optional)]
-	location_id: Option<file_path::id::Type>,
+	locations: Option<InOrNotIn<file_path::id::Type>>,
 	#[specta(optional)]
 	search: Option<String>,
 	#[specta(optional)]
@@ -81,22 +81,23 @@ impl FilePathFilterArgs {
 		self,
 		db: &prisma::PrismaClient,
 	) -> Result<Vec<file_path::WhereParam>, rspc::Error> {
-		let location = if let Some(location_id) = self.location_id {
-			Some(
-				db.location()
-					.find_unique(location::id::equals(location_id))
-					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(location_id))?,
+		let location_conditions = self.locations.clone().and_then(|v| {
+			v.to_param(
+				file_path::location_id::in_vec,
+				file_path::location_id::not_in_vec,
 			)
+		});
+
+		let first_location_id = if let Some(InOrNotIn::In(location_ids)) = &self.locations {
+			location_ids.first().copied()
 		} else {
 			None
 		};
 
-		let directory_materialized_path_str = match (self.path, location) {
-			(Some(path), Some(location)) if !path.is_empty() && path != "/" => {
+		let directory_materialized_path_str = match (self.path, first_location_id) {
+			(Some(path), Some(first_location_id)) if !path.is_empty() && path != "/" => {
 				let parent_iso_file_path =
-					IsolatedFilePathData::from_relative_str(location.id, &path);
+					IsolatedFilePathData::from_relative_str(first_location_id, &path);
 
 				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
 					return Err(rspc::Error::new(
@@ -121,7 +122,7 @@ impl FilePathFilterArgs {
 					.map(str::to_string)
 					.map(name::contains),
 				[
-					self.location_id.map(Some).map(location_id::equals),
+					location_conditions,
 					self.extension
 						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
 					self.created_at.from.map(|v| date_created::gte(v.into())),

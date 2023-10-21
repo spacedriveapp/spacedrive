@@ -2,23 +2,24 @@ import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
+import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
+import { useSearchStore } from '../Explorer/View/SearchOptions/store';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
 	const navigate = useNavigate();
-	const { isFocused } = useSearchStore();
+	const { isSearching } = useSearchStore();
 	const idx = history.state.idx as number;
 	const os = useOperatingSystem();
 	const { icon, key } = useKeyMatcher('Meta');
 
 	useKeybind([key, '['], () => {
-		if (idx === 0 || isFocused) return;
+		if (idx === 0 || isSearching) return;
 		navigate(-1);
 	});
 	useKeybind([key, ']'], () => {
-		if (idx === history.length - 1 || isFocused) return;
+		if (idx === history.length - 1 || isSearching) return;
 		navigate(1);
 	});
 
@@ -27,16 +28,16 @@ export const NavigationButtons = () => {
 		const onMouseDown = (e: MouseEvent) => {
 			e.stopPropagation();
 			if (e.buttons === 8) {
-				if (idx === 0 || isFocused) return;
+				if (idx === 0 || isSearching) return;
 				navigate(-1);
 			} else if (e.buttons === 16) {
-				if (idx === history.length - 1 || isFocused) return;
+				if (idx === history.length - 1 || isSearching) return;
 				navigate(1);
 			}
 		};
 		document.addEventListener('mousedown', onMouseDown);
 		return () => document.removeEventListener('mousedown', onMouseDown);
-	}, [navigate, idx, isFocused, os]);
+	}, [navigate, idx, isSearching, os]);
 
 	return (
 		<div data-tauri-drag-region={os === 'macOS'} className="flex">
@@ -45,7 +46,7 @@ export const NavigationButtons = () => {
 					rounding="left"
 					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(-1)}
-					disabled={isFocused || idx === 0}
+					disabled={isSearching || idx === 0}
 				>
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
@@ -55,7 +56,7 @@ export const NavigationButtons = () => {
 					rounding="right"
 					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(1)}
-					disabled={isFocused || idx === history.length - 1}
+					disabled={isSearching || idx === history.length - 1}
 				>
 					<ArrowRight size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>

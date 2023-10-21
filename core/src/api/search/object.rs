@@ -81,7 +81,7 @@ impl ObjectHiddenFilter {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default)]
+#[derive(Deserialize, Type, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFilterArgs {
 	#[specta(optional)]

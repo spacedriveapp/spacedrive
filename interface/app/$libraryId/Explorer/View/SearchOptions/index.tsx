@@ -2,7 +2,6 @@ import {
 	Clock,
 	Cube,
 	Devices,
-	FileDoc,
 	FilePlus,
 	FunnelSimple,
 	Icon,
@@ -13,12 +12,10 @@ import {
 } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { PropsWithChildren, useEffect, useState } from 'react';
-import { useLibraryQuery } from '@sd/client';
+import { PropsWithChildren, useState } from 'react';
 import {
 	Button,
 	ContextMenuDivItem,
-	cva,
 	DropdownMenu,
 	Input,
 	RadixCheckbox,
@@ -26,21 +23,20 @@ import {
 	SelectOption,
 	tw
 } from '@sd/ui';
-import { getSearchStore, GroupedFilters, useKeybind, useSearchStore } from '~/hooks';
+import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import { KindOptions, LocationOptions, TagOptions } from './Options';
+// import { KindFilter, LocationFilter, TagFilter } from './Filters';
+import { KindFilter, LocationFilter, TagFilter } from './Filters';
+import { getSearchStore, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
 const OptionContainer = tw.div`flex flex-row items-center`;
 
-// This defines alternate layouts for the search options
-// type CustomFilterType = 'none' | 'date' | 'contents';
+// type DateOption = 'before' | 'after' | 'exactly' | 'today' | 'within_last';
 
-type DateOption = 'before' | 'after' | 'exactly' | 'today' | 'within_last';
-
-type CustomFilterOptions = 'none' | 'created_date' | 'modified_date' | 'indexed_date';
+// type CustomFilterOptions = 'none' | 'created_date' | 'modified_date' | 'indexed_date';
 
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
@@ -168,11 +164,10 @@ const SearchOptions = () => {
 				>
 					<Input autoFocus variant="transparent" placeholder="Filter..." />
 					<Separator />
-					<LocationOptions />
-					<KindOptions />
+					<LocationFilter />
+					<KindFilter />
 					<SearchOptionItem icon={Cube}>Size</SearchOptionItem>
-					{/* <SearchOptionItem icon={CircleDashed}>Tagged</SearchOptionItem> */}
-					<TagOptions />
+					<TagFilter />
 					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
 					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
 					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
@@ -189,7 +184,7 @@ const SearchOptions = () => {
 			</OptionContainer>
 			<AppliedOptions />
 
-			<div className="flex-grow" />
+			<div className="grow" />
 			<kbd
 				onClick={() => (getSearchStore().isSearching = false)}
 				className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"

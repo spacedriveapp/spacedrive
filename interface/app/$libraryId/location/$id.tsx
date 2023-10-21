@@ -19,9 +19,8 @@ import {
 import { Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { getSearchStore, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
-import { SearchFilterOptions, useSearchFilters } from '../../../hooks/useSearchFilter';
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
 import { usePathsInfiniteQuery } from '../Explorer/queries';
@@ -31,6 +30,8 @@ import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explor
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import SearchOptions from '../Explorer/View/SearchOptions';
+import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
+import { inOrNotIn } from '../Explorer/View/SearchOptions/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
@@ -39,13 +40,6 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const location = useLibraryQuery(['locations.get', locationId]);
 	const rspc = useRspcLibraryContext();
-
-	useEffect(() => {
-		getSearchStore().reset();
-		return () => {
-			getSearchStore().reset();
-		};
-	}, [locationId]);
 
 	const onlineLocations = useOnlineLocations();
 
@@ -178,11 +172,11 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const searchFilterOptions: SearchFilterOptions = {
-		locationId: locationId
-	};
+	// const searchFilterOptions: SearchFilterOptions = {
+	// 	locationId: locationId
+	// };
 
-	const filterArgs = useSearchFilters(searchFilterOptions);
+	const filterArgs = useSearchFilters();
 
 	const filter: FilePathFilterArgs = {
 		...filterArgs,
@@ -190,8 +184,10 @@ const useItems = ({
 	};
 
 	if (explorerSettings.layoutMode === 'media') {
-		filter.object = filter.object || { kind: [] };
-		filter.object.kind!.push(ObjectKindEnum.Image, ObjectKindEnum.Video);
+		// TODO: we should add a non-removable search filter instead of modifying the filter directly
+		if (!filter.object) filter.object = { kind: null };
+		filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Video, true);
+		filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Image, true);
 
 		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
 	}
