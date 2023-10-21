@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 interface Props extends UseDialogProps {
 	libraryUuid: string;
@@ -9,6 +10,7 @@ interface Props extends UseDialogProps {
 export default function DeleteLibraryDialog(props: Props) {
 	const submitPlausibleEvent = usePlausibleEvent();
 	const queryClient = useQueryClient();
+	const platform = usePlatform();
 
 	const deleteLib = useBridgeMutation('library.delete');
 
@@ -19,6 +21,8 @@ export default function DeleteLibraryDialog(props: Props) {
 			await deleteLib.mutateAsync(props.libraryUuid);
 
 			queryClient.invalidateQueries(['library.list']);
+
+			platform.refreshMenuBar && platform.refreshMenuBar();
 
 			submitPlausibleEvent({
 				event: {
