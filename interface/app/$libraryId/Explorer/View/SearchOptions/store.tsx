@@ -27,9 +27,9 @@ export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
 export interface Filter {
 	type: FilterType; // used to group filters
-	value: string; // unique identifier or enum value
+	value: string | any; // unique identifier or enum value, any allows for enum values that coerce to string
 	name: string; // display name
-	icon: string; // "Folder" or "#efefef"
+	icon?: string; // "Folder" or "#efefef"
 }
 
 export interface SetFilter extends Filter {
@@ -59,14 +59,13 @@ export const useSearchFilters = <T extends SearchType>(
 
 	searchStore.searchType = searchType;
 
-	// reset the store only when the first filter changes
-	const firstFilter = fixedFilters?.[0];
 	useEffect(() => {
 		resetSearchStore();
 
 		if (fixedFilters) {
 			fixedFilters.forEach((filter) => {
 				if (filter.name) {
+					if (!filter.icon) filter.icon = filter.name;
 					searchStore.registeredFilters.set(filter.value, filter);
 					selectFilter(filter, true, false);
 				}
@@ -79,7 +78,7 @@ export const useSearchFilters = <T extends SearchType>(
 			resetSearchStore();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [firstFilter?.value]);
+	}, [JSON.stringify(fixedFilters)]);
 
 	const filters = useMemo(
 		() => mapFiltersToQueryParams(Array.from(store.selectedFilters.values())),

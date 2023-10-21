@@ -3,10 +3,12 @@ import {
 	Cube,
 	Devices,
 	FilePlus,
+	FloppyDisk,
 	FunnelSimple,
 	Icon,
 	Image,
 	Key,
+	Plus,
 	SelectionSlash,
 	User
 } from '@phosphor-icons/react';
@@ -26,17 +28,12 @@ import {
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-// import { KindFilter, LocationFilter, TagFilter } from './Filters';
-import { KindFilter, LocationFilter, TagFilter } from './Filters';
-import { getSearchStore, useSearchStore } from './store';
+import { FilterComponent } from './Filters';
+import { FilterType, getSearchStore, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
 const OptionContainer = tw.div`flex flex-row items-center`;
-
-// type DateOption = 'before' | 'after' | 'exactly' | 'today' | 'within_last';
-
-// type CustomFilterOptions = 'none' | 'created_date' | 'modified_date' | 'indexed_date';
 
 interface SearchOptionItemProps extends PropsWithChildren {
 	selected?: boolean;
@@ -163,10 +160,10 @@ const SearchOptions = () => {
 				>
 					<Input autoFocus variant="transparent" placeholder="Filter..." />
 					<Separator />
-					<LocationFilter />
-					<KindFilter />
+					<FilterComponent type={FilterType.Location} />
+					<FilterComponent type={FilterType.Kind} />
 					<SearchOptionItem icon={Cube}>Size</SearchOptionItem>
-					<TagFilter />
+					<FilterComponent type={FilterType.Tag} />
 					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
 					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
 					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
@@ -182,6 +179,13 @@ const SearchOptions = () => {
 				</DropdownMenu.Root>
 			</OptionContainer>
 			<AppliedOptions />
+
+			{searchStore.selectedFilters.size > 0 && (
+				<Button className="flex flex-row gap-1" size="xs" variant="dotted">
+					<Plus weight="bold" />
+					Save
+				</Button>
+			)}
 
 			<div className="grow" />
 			<kbd

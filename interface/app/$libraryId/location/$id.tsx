@@ -182,7 +182,21 @@ const useItems = ({
 			value: location?.id.toString() || '',
 			type: FilterType.Location,
 			icon: 'Folder'
-		}
+		},
+		...(explorerSettings.layoutMode === 'media'
+			? [
+					{
+						name: 'Image',
+						value: ObjectKindEnum.Image,
+						type: FilterType.Kind
+					},
+					{
+						name: 'Video',
+						value: ObjectKindEnum.Video,
+						type: FilterType.Kind
+					}
+			  ]
+			: [])
 	]);
 
 	const filter: FilePathFilterArgs = {
@@ -192,9 +206,9 @@ const useItems = ({
 
 	if (explorerSettings.layoutMode === 'media') {
 		// TODO: we should add a non-removable search filter instead of modifying the filter directly
-		if (!filter.object) filter.object = { kind: null };
-		filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Video, true);
-		filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Image, true);
+		// if (!filter.object) filter.object = { kind: null };
+		// filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Video, true);
+		// filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Image, true);
 
 		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
 	}

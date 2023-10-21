@@ -12,7 +12,7 @@ export const searchFilterTypeMeta: Record<
 	[FilterType.Location]: {
 		name: 'Location',
 		icon: Folder,
-		wording: { singular: 'is', plural: 'are any of' }
+		wording: { singular: 'is', plural: 'is any of' }
 	},
 	[FilterType.Tag]: {
 		name: 'Tags',
@@ -22,17 +22,17 @@ export const searchFilterTypeMeta: Record<
 	[FilterType.Kind]: {
 		name: 'Kind',
 		icon: CircleDashed,
-		wording: { singular: 'is', plural: 'are any of' }
+		wording: { singular: 'is', plural: 'is any of' }
 	},
 	[FilterType.Category]: {
 		name: 'Category',
 		icon: CircleDashed,
-		wording: { singular: 'is', plural: 'are any of' }
+		wording: { singular: 'is', plural: 'is any of' }
 	},
 	[FilterType.CreatedAt]: {
 		name: 'Created At',
 		icon: CircleDashed,
-		wording: { singular: 'is', plural: 'are any of' }
+		wording: { singular: 'is', plural: 'is between' }
 	},
 	[FilterType.Hidden]: {
 		name: 'Hidden',
@@ -45,7 +45,7 @@ type FilterProps = {
 	type: FilterType;
 };
 
-const FilterComponent: React.FC<FilterProps> = ({ type }) => {
+export const FilterComponent: React.FC<FilterProps> = ({ type }) => {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const tagsQuery = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const searchStore = useSearchStore();
@@ -114,15 +114,3 @@ const FilterComponent: React.FC<FilterProps> = ({ type }) => {
 		</SearchOptionSubMenu>
 	);
 };
-
-export function LocationFilter() {
-	return <FilterComponent type={FilterType.Location} />;
-}
-
-export function TagFilter() {
-	return <FilterComponent type={FilterType.Tag} />;
-}
-
-export function KindFilter() {
-	return <FilterComponent type={FilterType.Kind} />;
-}

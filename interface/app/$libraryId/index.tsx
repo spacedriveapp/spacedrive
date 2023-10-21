@@ -21,10 +21,10 @@ const pageRoutes: RouteObject = {
 // Routes that render the explorer and don't need padding and stuff
 // provided by PageLayout
 const explorerRoutes: RouteObject[] = [
+	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
-	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'network/:id', lazy: () => import('./network') },
 	{ path: 'search', lazy: () => import('./search') }
 ];
@@ -33,7 +33,7 @@ const explorerRoutes: RouteObject[] = [
 // 404 and settings
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
-	children: [pageRoutes, ...explorerRoutes]
+	children: [...explorerRoutes, pageRoutes]
 };
 
 export default [
