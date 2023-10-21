@@ -1,10 +1,8 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
-import { ExplorerLayout } from '~/../packages/client/src';
-import { useIsDark, useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useIsDark, useOperatingSystem } from '~/hooks';
 
-import { useExplorerContext } from '../Explorer/Context';
 import TopBarButton from './TopBarButton';
 import TopBarMobile from './TopBarMobile';
 
@@ -29,25 +27,10 @@ export const TOP_BAR_ICON_STYLE = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
-	const explorer = useExplorerContext();
 	const os = useOperatingSystem();
 	const toolsNotSmFlex = options
 		?.flatMap((group) => group)
 		.filter((t) => t.showAtResolution !== 'sm:flex');
-	const metaCtrlKey = useKeyMatcher('Meta').key;
-
-	const layoutKeybinds: Array<{ key: string; mode: ExplorerLayout }> = [
-		{ key: '1', mode: 'grid' },
-		{ key: '2', mode: 'list' },
-		{ key: '3', mode: 'media' }
-	];
-
-	layoutKeybinds.forEach(({ key, mode }) => {
-		useKeybind([metaCtrlKey, key], (e) => {
-			e.stopPropagation();
-			explorer.settingsStore.layoutMode = mode;
-		});
-	});
 
 	useLayoutEffect(() => {
 		const handleResize = () => {
@@ -141,7 +124,7 @@ function ToolGroup({
 							>
 								<Tooltip
 									keybinds={keybinds}
-									tooltipClassName={toolTipClassName}
+									tooltipClassName={clsx('capitalize', toolTipClassName)}
 									label={toolTipLabel}
 								>
 									{icon}
@@ -159,7 +142,7 @@ function ToolGroup({
 					>
 						<Tooltip
 							keybinds={keybinds}
-							tooltipClassName={toolTipClassName}
+							tooltipClassName={clsx('capitalize', toolTipClassName)}
 							label={toolTipLabel}
 						>
 							{icon}

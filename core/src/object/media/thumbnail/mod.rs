@@ -100,9 +100,12 @@ pub enum ThumbnailerError {
 	#[error(transparent)]
 	VersionManager(#[from] VersionManagerError),
 	#[error("failed to encode webp")]
-	Encoding,
-	#[error("error while converting the image: {0}")]
-	SdImages(#[from] sd_images::Error),
+	WebPEncoding { path: Box<Path>, reason: String },
+	#[error("error while converting the image")]
+	SdImages {
+		path: Box<Path>,
+		error: sd_images::Error,
+	},
 	#[error("failed to execute converting task: {0}")]
 	Task(#[from] task::JoinError),
 	#[cfg(feature = "ffmpeg")]
@@ -140,7 +143,10 @@ pub async fn generate_image_thumbnail(
 	let file_path = file_path.as_ref().to_path_buf();
 
 	let webp = task::spawn_blocking(move || -> Result<_, ThumbnailerError> {
-		let img = format_image(&file_path).map_err(|_| ThumbnailerError::Encoding)?;
+		let img = format_image(&file_path).map_err(|e| ThumbnailerError::SdImages {
+			path: file_path.clone().into_boxed_path(),
+			error: e,
+		})?;
 
 		let (w, h) = img.dimensions();
 		let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
@@ -155,14 +161,16 @@ pub async fn generate_image_thumbnail(
 
 		// this corrects the rotation/flip of the image based on the *available* exif data
 		// not all images have exif data, so we don't error
-		if let Some(orientation) = Orientation::from_path(file_path) {
+		if let Some(orientation) = Orientation::from_path(&file_path) {
 			img = orientation.correct_thumbnail(img);
 		}
 
 		// Create the WebP encoder for the above image
-		let Ok(encoder) = Encoder::from_image(&img) else {
-			return Err(ThumbnailerError::Encoding);
-		};
+		let encoder =
+			Encoder::from_image(&img).map_err(|reason| ThumbnailerError::WebPEncoding {
+				path: file_path.into_boxed_path(),
+				reason: reason.to_string(),
+			})?;
 
 		// Type WebPMemory is !Send, which makes the Future in this function !Send,
 		// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
@@ -178,7 +186,10 @@ pub async fn generate_image_thumbnail(
 			.await
 			.map_err(|e| FileIOError::from((shard_dir, e)))?;
 	} else {
-		return Err(ThumbnailerError::Encoding);
+		error!(
+			"Failed to get parent directory of '{}' for sharding parent directory",
+			output_path.display()
+		);
 	}
 
 	fs::write(output_path, &webp)

@@ -8,7 +8,8 @@ import {
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
-	type SortOrder
+	type SortOrder,
+	JobGroup
 } from '@sd/client';
 
 export enum ExplorerKind {
@@ -121,6 +122,7 @@ const state = {
 	tagAssignMode: false,
 	showInspector: false,
 	showMoreInfo: false,
+	jobsToRedirect: [] as {locationId: number | null}[],
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
