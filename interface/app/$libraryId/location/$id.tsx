@@ -8,6 +8,7 @@ import {
 	ExplorerSettings,
 	FilePathFilterArgs,
 	FilePathOrder,
+	Location,
 	ObjectKindEnum,
 	useLibraryContext,
 	useLibraryMutation,
@@ -30,7 +31,7 @@ import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explor
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import SearchOptions from '../Explorer/View/SearchOptions';
-import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
+import { FilterType, useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { inOrNotIn } from '../Explorer/View/SearchOptions/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
@@ -95,7 +96,10 @@ export const Component = () => {
 		location: location.data
 	});
 
-	const { items, count, loadMore, query } = useItems({ locationId, settings: explorerSettings });
+	const { items, count, loadMore, query } = useItems({
+		location: location.data,
+		settings: explorerSettings
+	});
 
 	const explorer = useExplorer({
 		items,
@@ -160,10 +164,10 @@ export const Component = () => {
 };
 
 const useItems = ({
-	locationId,
+	location,
 	settings
 }: {
-	locationId: number;
+	location: Location | undefined;
 	settings: UseExplorerSettings<FilePathOrder>;
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();
@@ -172,11 +176,14 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	// const searchFilterOptions: SearchFilterOptions = {
-	// 	locationId: locationId
-	// };
-
-	const filterArgs = useSearchFilters();
+	const filterArgs = useSearchFilters('paths', [
+		{
+			name: location?.name || '',
+			value: location?.id.toString() || '',
+			type: FilterType.Location,
+			icon: 'Folder'
+		}
+	]);
 
 	const filter: FilePathFilterArgs = {
 		...filterArgs,

@@ -1,6 +1,6 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useMemo } from 'react';
-import { ObjectFilterArgs, ObjectOrder, useLibraryContext, useLibraryQuery } from '@sd/client';
+import { ObjectFilterArgs, ObjectOrder, Tag, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
@@ -11,6 +11,7 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Expl
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
+import { FilterType, useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
@@ -28,7 +29,10 @@ export const Component = () => {
 		orderingKeys: objectOrderingKeysSchema
 	});
 
-	const { items, count, loadMore, query } = useItems({ tagId, settings: explorerSettings });
+	const { items, count, loadMore, query } = useItems({
+		tag: tag.data,
+		settings: explorerSettings
+	});
 
 	const explorer = useExplorer({
 		items,
@@ -57,22 +61,23 @@ export const Component = () => {
 	);
 };
 
-function useItems({
-	tagId,
-	settings
-}: {
-	tagId: number;
-	settings: UseExplorerSettings<ObjectOrder>;
-}) {
+function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<ObjectOrder> }) {
 	const { library } = useLibraryContext();
 
-	const filter: ObjectFilterArgs = { tags: [tagId] };
+	const filter = useSearchFilters('objects', [
+		{
+			name: tag.name || 's',
+			value: tag?.id?.toString() || 's',
+			type: FilterType.Tag,
+			icon: tag.color || 's'
+		}
+	]);
 
 	const count = useLibraryQuery(['search.objectsCount', { filter }]);
 
 	const query = useObjectsInfiniteQuery({
 		library,
-		arg: { take: 100, filter: { tags: [tagId] } },
+		arg: { take: 100, filter },
 		settings
 	});
 

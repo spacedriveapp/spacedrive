@@ -136,7 +136,7 @@ const SearchOptions = () => {
 					Objects
 				</Button>
 			</OptionContainer>
-			<OptionContainer>
+			{/* <OptionContainer>
 				<Label>In:</Label>
 				<Select
 					size="sm"
@@ -149,7 +149,7 @@ const SearchOptions = () => {
 					<SelectOption value="device">This Device</SelectOption>
 					<SelectOption value="library">Entire Library</SelectOption>
 				</Select>
-			</OptionContainer>
+			</OptionContainer> */}
 			<div className="mx-1 h-[15px] w-[1px] bg-app-line" />
 
 			<OptionContainer>

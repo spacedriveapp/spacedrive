@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { Category, FilePathFilterArgs, ObjectFilterArgs, ObjectKindEnum } from '@sd/client';
@@ -45,18 +45,48 @@ export interface GroupedFilters {
 const searchStore = proxy({
 	isSearching: false,
 	interactingWithSearchOptions: false,
-	searchQuery: null as string | null,
-	searchScope: 'directory' as SearchScope,
 	searchType: 'paths' as SearchType,
+	searchQuery: null as string | null,
 	registeredFilters: proxyMap() as Map<string, Filter>,
 	selectedFilters: proxyMap() as Map<string, SetFilter>
 });
 
-// TODO: take props for fixed filters
-export const useSearchFilters = () => {
+export const useSearchFilters = <T extends SearchType>(
+	searchType: T,
+	fixedFilters?: Filter[]
+): T extends 'objects' ? ObjectFilterArgs : FilePathFilterArgs => {
 	const store = useSearchStore();
 
-	return mapFiltersToQueryParams(Array.from(store.selectedFilters.values()));
+	searchStore.searchType = searchType;
+
+	// reset the store only when the first filter changes
+	const firstFilter = fixedFilters?.[0];
+	useEffect(() => {
+		resetSearchStore();
+
+		if (fixedFilters) {
+			fixedFilters.forEach((filter) => {
+				if (filter.name) {
+					searchStore.registeredFilters.set(filter.value, filter);
+					selectFilter(filter, true, false);
+				}
+				console.log(JSON.stringify(filter));
+				console.log(searchStore.selectedFilters.values());
+			});
+		}
+
+		return () => {
+			resetSearchStore();
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [firstFilter?.value]);
+
+	const filters = useMemo(
+		() => mapFiltersToQueryParams(Array.from(store.selectedFilters.values())),
+		[store.selectedFilters]
+	);
+
+	return searchType === 'objects' ? (filters.objectFilters as any) : (filters.queryParams as any);
 };
 
 export const useCreateFilter = (filters: Filter[]): (Filter & { key: string })[] => {
@@ -83,7 +113,9 @@ export const useCreateFilter = (filters: Filter[]): (Filter & { key: string })[]
 // this key is also handy for text filtering
 export const getKey = (filter: Filter) => `${filter.type}-${filter.name}-${filter.value}`;
 
-export const mapFiltersToQueryParams = (filters: SetFilter[]): FilePathFilterArgs => {
+export const mapFiltersToQueryParams = (
+	filters: SetFilter[]
+): { queryParams: FilePathFilterArgs; objectFilters: ObjectFilterArgs } => {
 	const queryParams: FilePathFilterArgs = {};
 	const objectFilters: ObjectFilterArgs = {};
 
@@ -122,11 +154,8 @@ export const mapFiltersToQueryParams = (filters: SetFilter[]): FilePathFilterArg
 				break;
 
 			case FilterType.Hidden:
-				queryParams.hidden = filter.condition;
+				queryParams.hidden = filter.value === 'true';
 				break;
-
-			default:
-				console.warn(`Unhandled filter type: ${filter.type}`);
 		}
 	});
 
@@ -134,7 +163,7 @@ export const mapFiltersToQueryParams = (filters: SetFilter[]): FilePathFilterArg
 		queryParams.object = objectFilters;
 	}
 
-	return queryParams;
+	return { queryParams, objectFilters };
 };
 
 // return selected filters grouped by their type
@@ -156,12 +185,12 @@ export const getSelectedFiltersGrouped = (): GroupedFilters[] => {
 	return groupedFilters;
 };
 
-export const selectFilter = (filter: Filter, condition: boolean) => {
+export const selectFilter = (filter: Filter, condition: boolean, canBeRemoved = true) => {
 	const key = getKey(filter);
 	searchStore.selectedFilters.set(key, {
-		...searchStore.registeredFilters.get(key)!,
+		...filter,
 		condition,
-		canBeRemoved: true
+		canBeRemoved
 	});
 };
 
@@ -172,8 +201,6 @@ export const deselectFilter = (filter: Filter) => {
 
 export const resetSearchStore = () => {
 	searchStore.searchQuery = null;
-	searchStore.searchScope = 'directory';
-	searchStore.searchType = 'paths';
 	searchStore.selectedFilters.clear();
 };
 

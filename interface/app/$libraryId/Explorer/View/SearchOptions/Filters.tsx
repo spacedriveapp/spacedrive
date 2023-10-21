@@ -1,9 +1,45 @@
-import { CircleDashed, Folder } from '@phosphor-icons/react';
+import { CircleDashed, Folder, Icon, Link, MagnifyingGlass } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { ObjectKind, useLibraryQuery } from '@sd/client';
 
 import { FilterInput, SearchOptionItem, SearchOptionSubMenu, Separator } from '.';
 import { deselectFilter, FilterType, selectFilter, useCreateFilter, useSearchStore } from './store';
+
+export const searchFilterTypeMeta: Record<
+	FilterType,
+	{ name: string; icon: Icon; wording: { singular: string; plural?: string } }
+> = {
+	[FilterType.Location]: {
+		name: 'Location',
+		icon: Folder,
+		wording: { singular: 'is', plural: 'are any of' }
+	},
+	[FilterType.Tag]: {
+		name: 'Tags',
+		icon: CircleDashed,
+		wording: { singular: 'has', plural: 'has any of' }
+	},
+	[FilterType.Kind]: {
+		name: 'Kind',
+		icon: CircleDashed,
+		wording: { singular: 'is', plural: 'are any of' }
+	},
+	[FilterType.Category]: {
+		name: 'Category',
+		icon: CircleDashed,
+		wording: { singular: 'is', plural: 'are any of' }
+	},
+	[FilterType.CreatedAt]: {
+		name: 'Created At',
+		icon: CircleDashed,
+		wording: { singular: 'is', plural: 'are any of' }
+	},
+	[FilterType.Hidden]: {
+		name: 'Hidden',
+		icon: CircleDashed,
+		wording: { singular: 'is' }
+	}
+};
 
 type FilterProps = {
 	type: FilterType;
@@ -56,9 +92,11 @@ const FilterComponent: React.FC<FilterProps> = ({ type }) => {
 	}
 
 	const createdFilters = useCreateFilter(filters);
-
 	return (
-		<SearchOptionSubMenu name={FilterType[type]} icon={CircleDashed}>
+		<SearchOptionSubMenu
+			name={searchFilterTypeMeta[type].name}
+			icon={searchFilterTypeMeta[type].icon}
+		>
 			<FilterInput />
 			<Separator />
 			{createdFilters.map((filter) => (

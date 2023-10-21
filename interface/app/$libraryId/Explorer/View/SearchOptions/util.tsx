@@ -5,6 +5,8 @@ import { InOrNotIn, MaybeNot } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
 import { useKeybind } from '~/hooks';
 
+import { FilterType } from './store';
+
 function isIn<T>(kind: InOrNotIn<T>): kind is { in: T[] } {
 	return 'in' in kind;
 }
@@ -78,3 +80,27 @@ export const getIconComponent = (iconName: string): Icon => {
 
 	return icons[iconName] as Icon;
 };
+
+// export const searchFilterTypeMeta: Record<FilterType, { name: string; icon: string }> = {
+// 	[FilterType.Location]: { name: 'Location', icon: 'Folder' },
+// 	[FilterType.Tag]: {
+// 		name: 'Tag',
+// 		icon: 'CircleDashed'
+// 	},
+// 	[FilterType.Kind]: {
+// 		name: 'Kind',
+// 		icon: ''
+// 	},
+// 	[FilterType.Category]: {
+// 		name: 'Category',
+// 		icon: ''
+// 	},
+// 	[FilterType.CreatedAt]: {
+// 		name: 'Created At',
+// 		icon: ''
+// 	},
+// 	[FilterType.Hidden]: {
+// 		name: 'Hidden',
+// 		icon: ''
+// 	}
+// };

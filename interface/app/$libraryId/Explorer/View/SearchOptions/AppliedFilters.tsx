@@ -2,6 +2,7 @@ import { X } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
 
+import { searchFilterTypeMeta } from './Filters';
 import {
 	deselectFilter,
 	getSelectedFiltersGrouped,
@@ -35,13 +36,18 @@ export const AppliedOptions = () => {
 					<div className="flex flex-row items-center pl-2 pr-1 text-sm">
 						<RenderIcon
 							className="h-4 w-4"
-							icon={getIconComponent(group.filters[0]?.icon || '')}
+							icon={searchFilterTypeMeta[group.type]?.icon}
 						/>
-						<span className="mx-1 py-0.5 text-sm">{group.type}</span>
+						<span className="mx-1 py-0.5 text-sm">
+							{searchFilterTypeMeta[group.type]?.name}
+						</span>
 					</div>
 					<InteractiveSection className="border-l bg-app-lightBox/20">
-						in
+						{group.filters.length > 1
+							? searchFilterTypeMeta[group.type]?.wording.plural
+							: searchFilterTypeMeta[group.type]?.wording.singular}
 					</InteractiveSection>
+
 					<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
 						{group.filters.length > 1 && (
 							<div
@@ -67,6 +73,7 @@ export const AppliedOptions = () => {
 						)}
 						{group.filters[0]?.name}
 					</InteractiveSection>
+
 					<div
 						onClick={() => deselectFilters(group.filters)}
 						className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
