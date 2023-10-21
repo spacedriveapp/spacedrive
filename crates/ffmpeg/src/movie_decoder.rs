@@ -1,5 +1,5 @@
 use crate::{
-	error::{FfmpegError, ThumbnailerError},
+	error::{Error, FfmpegError},
 	utils::from_path,
 	video_frame::{FfmpegFrame, FrameSource, VideoFrame},
 };
@@ -48,7 +48,7 @@ impl MovieDecoder {
 	pub(crate) fn new(
 		filename: impl AsRef<Path>,
 		prefer_embedded_metadata: bool,
-	) -> Result<Self, ThumbnailerError> {
+	) -> Result<Self, Error> {
 		let filename = filename.as_ref();
 
 		let input_file = if filename == Path::new("-") {
@@ -90,7 +90,7 @@ impl MovieDecoder {
 					)?;
 				}
 				e => {
-					return Err(ThumbnailerError::FfmpegWithReason(
+					return Err(Error::FfmpegWithReason(
 						FfmpegError::from(e),
 						"Failed to open input".to_string(),
 					))
@@ -102,7 +102,7 @@ impl MovieDecoder {
 			// This needs to remain at 100 or the app will force crash if it comes
 			// across a video with subtitles or any type of corruption.
 			if (*decoder.format_context).probe_score != AVPROBE_SCORE_MAX {
-				return Err(ThumbnailerError::CorruptVideo);
+				return Err(Error::CorruptVideo);
 			}
 		}
 
@@ -116,7 +116,7 @@ impl MovieDecoder {
 		Ok(decoder)
 	}
 
-	pub(crate) fn decode_video_frame(&mut self) -> Result<(), ThumbnailerError> {
+	pub(crate) fn decode_video_frame(&mut self) -> Result<(), Error> {
 		let mut frame_finished = false;
 
 		while !frame_finished && self.get_video_packet() {
@@ -124,7 +124,7 @@ impl MovieDecoder {
 		}
 
 		if !frame_finished {
-			return Err(ThumbnailerError::FrameDecodeError);
+			return Err(Error::FrameDecodeError);
 		}
 
 		Ok(())
@@ -134,7 +134,7 @@ impl MovieDecoder {
 		self.use_embedded_data
 	}
 
-	pub(crate) fn seek(&mut self, seconds: i64) -> Result<(), ThumbnailerError> {
+	pub(crate) fn seek(&mut self, seconds: i64) -> Result<(), Error> {
 		if !self.allow_seek {
 			return Ok(());
 		}
@@ -170,7 +170,7 @@ impl MovieDecoder {
 		}
 
 		if !got_frame {
-			return Err(ThumbnailerError::SeekError);
+			return Err(Error::SeekError);
 		}
 
 		Ok(())
@@ -181,7 +181,7 @@ impl MovieDecoder {
 		scaled_size: Option<ThumbnailSize>,
 		maintain_aspect_ratio: bool,
 		video_frame: &mut VideoFrame,
-	) -> Result<(), ThumbnailerError> {
+	) -> Result<(), Error> {
 		self.initialize_filter_graph(
 			unsafe {
 				&(*(*(*self.format_context)
@@ -211,7 +211,7 @@ impl MovieDecoder {
 			attempts += 1;
 		}
 		if ret < 0 {
-			return Err(ThumbnailerError::FfmpegWithReason(
+			return Err(Error::FfmpegWithReason(
 				FfmpegError::from(ret),
 				"Failed to get buffer from filter".to_string(),
 			));
@@ -266,7 +266,7 @@ impl MovieDecoder {
 		Duration::from_secs(unsafe { (*self.format_context).duration as u64 / AV_TIME_BASE as u64 })
 	}
 
-	fn initialize_video(&mut self, prefer_embedded_metadata: bool) -> Result<(), ThumbnailerError> {
+	fn initialize_video(&mut self, prefer_embedded_metadata: bool) -> Result<(), Error> {
 		self.find_preferred_video_stream(prefer_embedded_metadata)?;
 
 		self.video_stream = unsafe {
@@ -309,10 +309,7 @@ impl MovieDecoder {
 		)
 	}
 
-	fn find_preferred_video_stream(
-		&mut self,
-		prefer_embedded_metadata: bool,
-	) -> Result<(), ThumbnailerError> {
+	fn find_preferred_video_stream(&mut self, prefer_embedded_metadata: bool) -> Result<(), Error> {
 		let mut video_streams = vec![];
 		let mut embedded_data_streams = vec![];
 		let empty_cstring = CString::new("").unwrap();
@@ -404,7 +401,7 @@ impl MovieDecoder {
 		frame_decoded
 	}
 
-	fn decode_video_packet(&self) -> Result<bool, ThumbnailerError> {
+	fn decode_video_packet(&self) -> Result<bool, Error> {
 		if unsafe { (*self.packet).stream_index } != self.video_stream_index {
 			return Ok(false);
 		}
@@ -414,7 +411,7 @@ impl MovieDecoder {
 			if ret == AVERROR_EOF {
 				return Ok(false);
 			} else if ret < 0 {
-				return Err(ThumbnailerError::FfmpegWithReason(
+				return Err(Error::FfmpegWithReason(
 					FfmpegError::from(ret),
 					"Failed to send packet to decoder".to_string(),
 				));
@@ -423,7 +420,7 @@ impl MovieDecoder {
 
 		match unsafe { avcodec_receive_frame(self.video_codec_context, self.frame) } {
 			0 => Ok(true),
-			e if e != AVERROR(EAGAIN) => Err(ThumbnailerError::FfmpegWithReason(
+			e if e != AVERROR(EAGAIN) => Err(Error::FfmpegWithReason(
 				FfmpegError::from(e),
 				"Failed to receive frame from decoder".to_string(),
 			)),
@@ -437,7 +434,7 @@ impl MovieDecoder {
 		timebase: &AVRational,
 		scaled_size: Option<ThumbnailSize>,
 		maintain_aspect_ratio: bool,
-	) -> Result<(), ThumbnailerError> {
+	) -> Result<(), Error> {
 		unsafe { self.filter_graph = avfilter_graph_alloc() };
 		if self.filter_graph.is_null() {
 			return Err(FfmpegError::FilterGraphAllocation.into());
@@ -689,9 +686,9 @@ impl Drop for MovieDecoder {
 	}
 }
 
-fn check_error(return_code: i32, error_message: &str) -> Result<(), ThumbnailerError> {
+fn check_error(return_code: i32, error_message: &str) -> Result<(), Error> {
 	if return_code < 0 {
-		Err(ThumbnailerError::FfmpegWithReason(
+		Err(Error::FfmpegWithReason(
 			FfmpegError::from(return_code),
 			error_message.to_string(),
 		))
@@ -707,7 +704,7 @@ fn setup_filter(
 	args: &str,
 	graph_ctx: *mut AVFilterGraph,
 	error_message: &str,
-) -> Result<(), ThumbnailerError> {
+) -> Result<(), Error> {
 	let filter_name_cstr = CString::new(filter_name).expect("CString from str");
 	let filter_setup_name_cstr = CString::new(filter_setup_name).expect("CString from str");
 	let args_cstr = CString::new(args).expect("CString from str");
@@ -733,7 +730,7 @@ fn setup_filter_without_args(
 	filter_setup_name: &str,
 	graph_ctx: *mut AVFilterGraph,
 	error_message: &str,
-) -> Result<(), ThumbnailerError> {
+) -> Result<(), Error> {
 	let filter_name_cstr = CString::new(filter_name).unwrap();
 	let filter_setup_name_cstr = CString::new(filter_setup_name).unwrap();
 
