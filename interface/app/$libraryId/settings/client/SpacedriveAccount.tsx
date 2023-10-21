@@ -4,7 +4,7 @@ import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 
 export function SpacedriveAccount() {
 	return (
-		<Card>
+		<Card className="relative">
 			<AuthRequiredOverlay />
 			<Account />
 		</Card>
