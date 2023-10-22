@@ -75,7 +75,7 @@ if [ "${1:-}" = "mobile" ]; then
   fi
 
   if ! has rustup; then
-    err 'Rust was not found.' \
+    err 'Rustup was not found. It is required for cross-compiling rust to mobile targets.' \
       "Ensure the 'rustup' binary is in your \$PATH." \
       'https://rustup.rs'
   fi
