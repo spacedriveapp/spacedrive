@@ -1,8 +1,9 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
+import { getIcon, iconNames } from '@sd/assets/util';
+import { useDeferredValue, useEffect, useMemo } from 'react';
 import { FilePathFilterArgs, useLibraryContext } from '@sd/client';
-import { SearchParams, SearchParamsSchema } from '~/app/route-schemas';
-import { useZodSearchParams } from '~/hooks';
+import { SearchIdParamsSchema, SearchParams, SearchParamsSchema } from '~/app/route-schemas';
+import { useZodRouteParams, useZodSearchParams } from '~/hooks';
 
 import Explorer from './Explorer';
 import { ExplorerContextProvider } from './Explorer/Context';
@@ -18,7 +19,7 @@ import {
 } from './Explorer/View/SearchOptions/store';
 import { TopBarPortal } from './TopBar/Portal';
 
-const useItems = (searchParams: SearchParams) => {
+const useItems = (searchParams: SearchParams, id: number) => {
 	const { library } = useLibraryContext();
 	const explorerSettings = useExplorerSettings({
 		settings: createDefaultExplorerSettings({
@@ -35,11 +36,11 @@ const useItems = (searchParams: SearchParams) => {
 	const savedSearches = useSavedSearches();
 
 	useEffect(() => {
-		if (searchParams.savedSearchKey) {
+		if (id) {
 			getSearchStore().isSearching = true;
-			savedSearches.loadSearch(searchParams.savedSearchKey);
+			savedSearches.loadSearch(id);
 		}
-	}, []);
+	}, [id]);
 
 	const filter: FilePathFilterArgs = {
 		search: searchParams.search,
@@ -51,6 +52,7 @@ const useItems = (searchParams: SearchParams) => {
 	const query = usePathsInfiniteQuery({
 		arg: { filter, take },
 		library,
+		// @ts-ignore todo: fix
 		settings: explorerSettings
 	});
 
@@ -59,8 +61,8 @@ const useItems = (searchParams: SearchParams) => {
 	return { items, query };
 };
 
-const SearchExplorer = ({ args }: { args: SearchParams }) => {
-	const { items, query } = useItems(args);
+const SearchExplorer = ({ id, searchParams }: { id: number; searchParams: SearchParams }) => {
+	const { items, query } = useItems(searchParams, id);
 
 	const explorerSettings = useExplorerSettings({
 		settings: createDefaultExplorerSettings({
@@ -83,18 +85,10 @@ const SearchExplorer = ({ args }: { args: SearchParams }) => {
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
-						icon={
-							!args.search ? (
-								<MagnifyingGlass
-									size={110}
-									className="mb-5 text-ink-faint"
-									opacity={0.3}
-								/>
-							) : null
-						}
+						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
 						message={
-							args.search
-								? `No results found for "${args.search}"`
+							searchParams.search
+								? `No results found for "${searchParams.search}"`
 								: 'Search for files...'
 						}
 					/>
@@ -106,6 +100,6 @@ const SearchExplorer = ({ args }: { args: SearchParams }) => {
 
 export const Component = () => {
 	const [searchParams] = useZodSearchParams(SearchParamsSchema);
-
-	return <SearchExplorer args={searchParams} />;
+	const { id } = useZodRouteParams(SearchIdParamsSchema);
+	return <SearchExplorer id={id} searchParams={searchParams} />;
 };

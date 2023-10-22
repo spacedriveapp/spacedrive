@@ -94,7 +94,7 @@ export type Procedures = {
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "search.savedSearches.create", input: LibraryArgs<SavedSearchCreateArgs>, result: null } | 
-        { key: "search.savedSearches.delete", input: LibraryArgs<number>, result: SavedSearch } | 
+        { key: "search.savedSearches.delete", input: LibraryArgs<number>, result: null } | 
         { key: "search.savedSearches.update", input: LibraryArgs<SavedSearchUpdateArgs>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 

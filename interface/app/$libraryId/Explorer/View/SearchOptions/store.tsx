@@ -1,5 +1,5 @@
 import { Icon } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import {
@@ -232,16 +232,17 @@ export const resetSearchStore = () => {
 };
 
 export const useSavedSearches = () => {
-	// const ss = useSnapshot(savedSearches);
 	const savedSearches = useLibraryQuery(['search.savedSearches.list']);
 	const createSavedSearch = useLibraryMutation(['search.savedSearches.create']);
 	const removeSavedSearch = useLibraryMutation(['search.savedSearches.delete']);
 	const searches = savedSearches.data || [];
 
+	// const [selectedSavedSearch, setSelectedSavedSearch] = useState<number | null>(null);
+
 	return {
 		searches,
-		loadSearch: (name: string) => {
-			const search = searches?.find((search) => search.name === name);
+		loadSearch: (id: number) => {
+			const search = searches?.find((search) => search.id === id);
 			if (search) {
 				searchStore.selectedFilters.clear();
 				search.filters?.forEach(({ filter_type, name, value, icon }) => {

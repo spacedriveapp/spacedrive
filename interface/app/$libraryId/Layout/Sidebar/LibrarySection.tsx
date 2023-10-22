@@ -91,8 +91,8 @@ export const LibrarySection = () => {
 						items={savedSearches.searches}
 						renderItem={(search) => (
 							<SidebarLink
-								className="group relative w-full"
-								to={`search?savedSearchKey=${search.name}`}
+								className="group/button relative w-full"
+								to={`search/${search.id}`}
 								key={search.id}
 							>
 								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
@@ -100,12 +100,13 @@ export const LibrarySection = () => {
 								</div>
 
 								<span className="truncate">{search.name}</span>
-								{/* remove button */}
 								<Button
-									className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
+									className="absolute right-[2px] top-[2px] hidden rounded-full shadow group-hover/button:block"
+									size="icon"
+									variant="subtle"
 									onClick={() => savedSearches.removeSearch(search.id)}
 								>
-									<X />
+									<X weight="bold" className="text-ink-dull/50" />
 								</Button>
 							</SidebarLink>
 						)}
