@@ -8,7 +8,7 @@ fi
 
 err() {
   for _line in "$@"; do
-    echo "$@" >&2
+    echo "$_line" >&2
   done
   exit 1
 }
