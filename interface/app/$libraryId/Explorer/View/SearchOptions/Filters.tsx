@@ -10,7 +10,13 @@ import {
 import { ObjectKind, useLibraryQuery } from '@sd/client';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
-import { FilterTypeMeta, selectFilter, useSearchFilter, useSearchStore } from './store';
+import {
+	deselectFilter,
+	FilterTypeMeta,
+	selectFilter,
+	useSearchFilter,
+	useSearchStore
+} from './store';
 
 export enum FilterType {
 	Location,
@@ -53,7 +59,7 @@ export const LocationsFilter: React.FC = () => {
 			{filter.map((filter) => (
 				<SearchOptionItem
 					selected={store.selectedFilters.has(filter.key)}
-					setSelected={(value) => selectFilter(filter, value, true)}
+					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
 					key={filter.key}
 					icon={filter.icon}
 				>
@@ -85,7 +91,7 @@ export const TagsFilter: React.FC = () => {
 			{filter.map((filter) => (
 				<SearchOptionItem
 					selected={store.selectedFilters.has(filter.key)}
-					setSelected={(value) => selectFilter(filter, value, true)}
+					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
 					key={filter.key}
 					icon={filter.icon}
 				>
@@ -121,7 +127,7 @@ export const KindsFilter: React.FC = () => {
 			{filter.map((filter) => (
 				<SearchOptionItem
 					selected={store.selectedFilters.has(filter.key)}
-					setSelected={(value) => selectFilter(filter, value, true)}
+					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
 					key={filter.key}
 					icon={filter.icon}
 				>

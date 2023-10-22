@@ -216,13 +216,13 @@ const useItems = ({
 
 	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
 
-	const count = useLibraryQuery(['search.pathsCount', { filter }]);
-
 	const query = usePathsInfiniteQuery({
 		arg: { filter, take },
 		library,
 		settings
 	});
+
+	const count = useLibraryQuery(['search.pathsCount', { filter }], { enabled: query.isSuccess });
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
 

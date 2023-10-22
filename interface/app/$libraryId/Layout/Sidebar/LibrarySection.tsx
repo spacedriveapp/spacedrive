@@ -81,11 +81,11 @@ export const LibrarySection = () => {
 			{savedSearches.searches.length > 0 && (
 				<Section
 					name="Saved"
-					actionArea={
-						<Link to="settings/library/saved-searches">
-							<SubtleButton />
-						</Link>
-					}
+					// actionArea={
+					// 	<Link to="settings/library/saved-searches">
+					// 		<SubtleButton />
+					// 	</Link>
+					// }
 				>
 					<SeeMore
 						items={savedSearches.searches}

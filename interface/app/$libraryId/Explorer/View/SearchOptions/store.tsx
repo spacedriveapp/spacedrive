@@ -211,7 +211,7 @@ export const getSelectedFiltersGrouped = (): GroupedFilters[] => {
 	return groupedFilters;
 };
 
-export const selectFilter = (filter: Filter, condition: boolean, canBeRemoved = true) => {
+export const selectFilter = (filter: Filter, condition = true, canBeRemoved = true) => {
 	const key = getKey(filter);
 	searchStore.selectedFilters.set(key, {
 		...filter,
@@ -223,7 +223,7 @@ export const selectFilter = (filter: Filter, condition: boolean, canBeRemoved = 
 export const deselectFilter = (filter: Filter) => {
 	const key = getKey(filter);
 	const setFilter = searchStore.selectedFilters.get(key);
-	if (setFilter?.canBeRemoved) searchStore.selectedFilters.delete(key);
+	if (setFilter?.canBeRemoved !== false) searchStore.selectedFilters.delete(key);
 };
 
 export const resetSearchStore = () => {
@@ -254,7 +254,7 @@ export const useSavedSearches = () => {
 					};
 					const key = getKey(filter);
 					searchStore.registeredFilters.set(key, filter);
-					selectFilter(filter, true, false);
+					selectFilter(filter, true);
 				});
 			}
 		},
