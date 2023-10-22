@@ -86,9 +86,9 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					>
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-						<SlideDown className="search-options-slide sticky top-0 z-10 ">
+						<div className="search-options-slide sticky top-0 z-10 ">
 							{searchStore.isSearching && <SearchOptions />}
-						</SlideDown>
+						</div>
 
 						<View
 							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}

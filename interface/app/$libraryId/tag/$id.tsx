@@ -11,7 +11,8 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Expl
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
-import { FilterType, useSearchFilters } from '../Explorer/View/SearchOptions/store';
+import { FilterType } from '../Explorer/View/SearchOptions/Filters';
+import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {

@@ -1,35 +1,13 @@
-import {
-	Clock,
-	Cube,
-	Devices,
-	FilePlus,
-	FloppyDisk,
-	FunnelSimple,
-	Icon,
-	Image,
-	Key,
-	Plus,
-	SelectionSlash,
-	User
-} from '@phosphor-icons/react';
+import { Clock, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { PropsWithChildren, useState } from 'react';
-import {
-	Button,
-	ContextMenuDivItem,
-	DropdownMenu,
-	Input,
-	RadixCheckbox,
-	Select,
-	SelectOption,
-	tw
-} from '@sd/ui';
+import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import { FilterComponent } from './Filters';
-import { FilterType, getSearchStore, useSavedSearches, useSearchStore } from './store';
+import { KindsFilter, LocationsFilter, TagsFilter } from './Filters';
+import { getSearchStore, useSavedSearches, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
@@ -117,7 +95,7 @@ const SearchOptions = () => {
 			onMouseLeave={handleMouseLeave}
 			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
 		>
-			<OptionContainer className="flex flex-row items-center">
+			{/* <OptionContainer className="flex flex-row items-center">
 				<Label>Show:</Label>
 				<Button
 					onClick={() => (getSearchStore().searchType = 'paths')}
@@ -136,22 +114,7 @@ const SearchOptions = () => {
 					Objects
 				</Button>
 			</OptionContainer>
-			{/* <OptionContainer>
-				<Label>In:</Label>
-				<Select
-					size="sm"
-					className="w-[130px]"
-					onChange={(scope) => (getSearchStore().searchScope = scope)}
-					value={searchStore.searchScope}
-				>
-					<SelectOption value="directory">This Directory</SelectOption>
-					<SelectOption value="location">This Location</SelectOption>
-					<SelectOption value="device">This Device</SelectOption>
-					<SelectOption value="library">Entire Library</SelectOption>
-				</Select>
-			</OptionContainer> */}
-			<div className="mx-1 h-[15px] w-[1px] bg-app-line" />
-
+			<div className="mx-1 h-[15px] w-[1px] bg-app-line" /> */}
 			<OptionContainer>
 				<DropdownMenu.Root
 					className={MENU_STYLES}
@@ -164,22 +127,27 @@ const SearchOptions = () => {
 				>
 					<Input autoFocus variant="transparent" placeholder="Filter..." />
 					<Separator />
-					<FilterComponent type={FilterType.Location} />
+					<LocationsFilter />
+					<TagsFilter />
+					<KindsFilter />
+					{/* <FilterComponent type={FilterType.Tag} />
 					<FilterComponent type={FilterType.Kind} />
-					<SearchOptionItem icon={Cube}>Size</SearchOptionItem>
-					<FilterComponent type={FilterType.Tag} />
+					<FilterComponent type={FilterType.Extension} />
+					<FilterComponent type={FilterType.Size} /> */}
+					{/*
 					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
 					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
 					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
 					<SearchOptionItem icon={Key}>Encrypted with Key</SearchOptionItem>
-					<SearchOptionItem icon={User}>Shared by</SearchOptionItem>
+					<SearchOptionItem icon={User}>Shared by</SearchOptionItem> */}
 					<Separator />
-					<SearchOptionItem icon={Clock}>Created At</SearchOptionItem>
+					{/* <FilterComponent type={FilterType.CreatedAt} /> */}
 					<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
 					<Separator />
-					<SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem>
+					{/* <SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem> */}
+					{/* <FilterComponent type={FilterType.Hidden} /> */}
 				</DropdownMenu.Root>
 			</OptionContainer>
 			<AppliedOptions />

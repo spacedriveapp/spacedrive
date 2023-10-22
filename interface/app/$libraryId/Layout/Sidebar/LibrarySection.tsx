@@ -78,41 +78,40 @@ export const LibrarySection = () => {
 
 	return (
 		<>
-			<Section
-				name="Saved Searches"
-				actionArea={
-					<Link to="settings/library/saved-searches">
-						<SubtleButton />
-					</Link>
-				}
-			>
-				<SeeMore
-					items={Object.entries(savedSearches.searches).map(([key, value]) => ({
-						name: key,
-						search: value
-					}))}
-					renderItem={(search, index) => (
-						<SidebarLink
-							className="group relative w-full"
-							to={`search?savedSearchKey=${search.name}`}
-							key={index}
-						>
-							<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
-								<Folder size={18} />
-							</div>
-
-							<span className="truncate">{search.name}</span>
-							{/* remove button */}
-							<Button
-								className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-								onClick={() => savedSearches.removeSearch(search.name)}
+			{savedSearches.searches.length > 0 && (
+				<Section
+					name="Saved"
+					actionArea={
+						<Link to="settings/library/saved-searches">
+							<SubtleButton />
+						</Link>
+					}
+				>
+					<SeeMore
+						items={savedSearches.searches}
+						renderItem={(search) => (
+							<SidebarLink
+								className="group relative w-full"
+								to={`search?savedSearchKey=${search.name}`}
+								key={search.id}
 							>
-								<X />
-							</Button>
-						</SidebarLink>
-					)}
-				/>
-			</Section>
+								<div className="relative -mt-0.5 mr-1 shrink-0 grow-0">
+									<Folder size={18} />
+								</div>
+
+								<span className="truncate">{search.name}</span>
+								{/* remove button */}
+								<Button
+									className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
+									onClick={() => savedSearches.removeSearch(search.id)}
+								>
+									<X />
+								</Button>
+							</SidebarLink>
+						)}
+					/>
+				</Section>
+			)}
 			<Section
 				name="Devices"
 				actionArea={

@@ -2,7 +2,7 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef, useEffect, useState } from 'react';
 import { tw } from '@sd/ui';
 
-import { searchFilterTypeMeta } from './Filters';
+import { filterMeta } from './Filters';
 import {
 	deselectFilter,
 	getSearchStore,
@@ -11,14 +11,11 @@ import {
 	SetFilter,
 	useSearchStore
 } from './store';
-import { getIconComponent, RenderIcon } from './util';
+import { RenderIcon } from './util';
 
-// const Section = tw.div`gap-2`;
 const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
-
 const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden`;
 const FilterText = tw.span`mx-1 py-0.5 text-sm text-ink-dull`;
-
 const StaticSection = tw.div`flex flex-row items-center pl-2 pr-1 text-sm`;
 
 const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick }, ref) => {
@@ -28,7 +25,7 @@ const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick 
 			className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
 			onClick={onClick}
 		>
-			<RenderIcon className="h-4 w-4" icon={X} />
+			<RenderIcon className="h-3 w-3" icon={X} />
 		</div>
 	);
 });
@@ -59,21 +56,19 @@ export const AppliedOptions = () => {
 				</FilterContainer>
 			)}
 			{groupedFilters?.map((group) => {
-				// find if any filters have canBeRemoved = false
 				const showRemoveButton = group.filters.some((filter) => filter.canBeRemoved);
+				const meta = filterMeta[group.type];
+
 				return (
 					<FilterContainer key={group.type}>
 						<StaticSection>
-							<RenderIcon
-								className="h-4 w-4"
-								icon={searchFilterTypeMeta[group.type]?.icon}
-							/>
-							<FilterText>{searchFilterTypeMeta[group.type]?.name}</FilterText>
+							<RenderIcon className="h-4 w-4" icon={meta?.icon} />
+							<FilterText>{meta?.name}</FilterText>
 						</StaticSection>
 						<InteractiveSection className="border-l ">
 							{group.filters.length > 1
-								? searchFilterTypeMeta[group.type]?.wording.plural
-								: searchFilterTypeMeta[group.type]?.wording.singular}
+								? meta?.wording.plural
+								: meta?.wording.singular}
 						</InteractiveSection>
 
 						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
@@ -100,9 +95,7 @@ export const AppliedOptions = () => {
 								<RenderIcon className="h-4 w-4" icon={group.filters[0]?.icon} />
 							)}
 							{group.filters.length > 1
-								? `${group.filters.length} ${pluralize(
-										searchFilterTypeMeta[group.type]?.name
-								  )}`
+								? `${group.filters.length} ${pluralize(meta?.name)}`
 								: group.filters[0]?.name}
 						</InteractiveSection>
 
@@ -116,7 +109,7 @@ export const AppliedOptions = () => {
 	);
 };
 
-function pluralize(word: string) {
-	if (word.endsWith('s')) return word;
+function pluralize(word?: string) {
+	if (word?.endsWith('s')) return word;
 	return `${word}s`;
 }

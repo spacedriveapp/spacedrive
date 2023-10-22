@@ -1,6 +1,7 @@
 pub mod file_path;
 pub mod media_data;
 pub mod object;
+pub mod saved;
 mod utils;
 
 pub use self::{object::*, utils::*};
@@ -288,4 +289,5 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					Ok(db.object().count(filter.into_params()).exec().await? as u32)
 				})
 		})
+		.merge("savedSearches.", saved::mount())
 }

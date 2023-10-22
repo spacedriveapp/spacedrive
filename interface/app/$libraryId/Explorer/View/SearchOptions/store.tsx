@@ -1,3 +1,4 @@
+import { Icon } from '@phosphor-icons/react';
 import { useEffect, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
@@ -6,36 +7,26 @@ import {
 	FilePathFilterArgs,
 	ObjectFilterArgs,
 	ObjectKindEnum,
+	useLibraryMutation,
+	useLibraryQuery,
 	valtioPersist
 } from '@sd/client';
 
+import { FilterType } from './Filters';
 import { inOrNotIn } from './util';
-
-export enum FilterType {
-	Location,
-	Tag,
-	Kind,
-	Category,
-	// FileContents,
-	// Album,
-	// Device,
-	// Key,
-	// Contact,
-	CreatedAt,
-	// ModifiedAt,
-	// LastOpenedAt,
-	// TakenAt,
-	Hidden
-}
 
 export type SearchType = 'paths' | 'objects';
 export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
-export interface Filter {
-	type: FilterType; // used to group filters
-	value: string | any; // unique identifier or enum value, any allows for enum values that coerce to string
-	name: string; // display name
+export interface FilterArgs {
+	// unique identifier or enum value, any allows for enum values that coerce to string
+	value: string | any;
+	name: string;
 	icon?: string; // "Folder" or "#efefef"
+}
+
+export interface Filter extends FilterArgs {
+	type: FilterType;
 }
 
 export interface SetFilter extends Filter {
@@ -48,16 +39,16 @@ export interface GroupedFilters {
 	filters: SetFilter[];
 }
 
-export const savedSearches = valtioPersist('sd-saved-searches', {
-	searches: {} as Record<
-		string,
-		{
-			searchType: SearchType;
-			searchQuery: string | null;
-			filters: SetFilter[];
-		}
-	>
-});
+export interface FilterTypeMeta {
+	name: string;
+	icon: Icon;
+	wording: {
+		singular: string;
+		plural?: string;
+		singularNot: string;
+		pluralNot?: string;
+	};
+}
 
 const searchStore = proxy({
 	isSearching: false,
@@ -114,24 +105,34 @@ export const useSearchFilters = <T extends SearchType>(
 	return searchType === 'objects' ? (filters.objectFilters as any) : (filters.queryParams as any);
 };
 
-export const useCreateFilter = (filters: Filter[]): (Filter & { key: string })[] => {
-	const filtersWithKeys = filters.map((filter) => {
-		const key = getKey(filter);
-		return {
-			...filter,
-			key
-		};
-	});
+export const useSearchFilter = (
+	type: FilterType,
+	// meta: FilterTypeMeta,
+	filterArgs?: FilterArgs[]
+): (Filter & { key: string })[] => {
+	const filters = useMemo(
+		() =>
+			(filterArgs || []).map((filter) => ({
+				...filter,
+				type,
+				key: getKey({ ...filter, type })
+			})),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[filterArgs?.length]
+	);
 
-	useEffect(() => {
-		filtersWithKeys.forEach((filter) => {
-			if (!searchStore.registeredFilters.has(filter.key)) {
-				searchStore.registeredFilters.set(filter.key, filter);
-			}
-		});
-	}, [filtersWithKeys]);
+	useEffect(
+		() => {
+			filters.forEach((filter) => {
+				if (!searchStore.registeredFilters.has(filter.key)) {
+					searchStore.registeredFilters.set(filter.key, filter);
+				}
+			});
+		}, // eslint-disable-next-line react-hooks/exhaustive-deps
+		[filterArgs?.length]
+	);
 
-	return filtersWithKeys;
+	return filters;
 };
 
 // key doesn't have to be a particular format, just needs to be unique
@@ -219,41 +220,6 @@ export const selectFilter = (filter: Filter, condition: boolean, canBeRemoved = 
 	});
 };
 
-export const saveSearch = (name: string) => {
-	savedSearches.searches[name] = {
-		searchType: searchStore.searchType,
-		searchQuery: searchStore.searchQuery,
-		filters: Array.from(searchStore.selectedFilters.values())
-	};
-};
-
-export const loadSearch = (name: string) => {
-	const search = savedSearches.searches[name];
-	if (search) {
-		searchStore.searchType = search.searchType;
-		searchStore.searchQuery = search.searchQuery;
-		searchStore.selectedFilters.clear();
-		search.filters.forEach((filter) => {
-			searchStore.selectedFilters.set(getKey(filter), filter);
-		});
-	}
-};
-
-export const removeSearch = (name: string) => {
-	delete savedSearches.searches[name];
-};
-
-export const useSavedSearches = () => {
-	const ss = useSnapshot(savedSearches);
-	return {
-		searches: ss.searches,
-		loadSearch: (name: string) => loadSearch(name),
-		removeSearch: (name: string) => removeSearch(name),
-		saveSearch: (name: string) => saveSearch(name),
-		isSearchSaved: (name: string) => !!savedSearches.searches[name]
-	};
-};
-
 export const deselectFilter = (filter: Filter) => {
 	const key = getKey(filter);
 	const setFilter = searchStore.selectedFilters.get(key);
@@ -263,6 +229,52 @@ export const deselectFilter = (filter: Filter) => {
 export const resetSearchStore = () => {
 	searchStore.searchQuery = null;
 	searchStore.selectedFilters.clear();
+};
+
+export const useSavedSearches = () => {
+	// const ss = useSnapshot(savedSearches);
+	const savedSearches = useLibraryQuery(['search.savedSearches.list']);
+	const createSavedSearch = useLibraryMutation(['search.savedSearches.create']);
+	const removeSavedSearch = useLibraryMutation(['search.savedSearches.delete']);
+	const searches = savedSearches.data || [];
+
+	return {
+		searches,
+		loadSearch: (name: string) => {
+			const search = searches?.find((search) => search.name === name);
+			if (search) {
+				searchStore.selectedFilters.clear();
+				search.filters?.forEach(({ filter_type, name, value, icon }) => {
+					const filter: Filter = {
+						type: filter_type,
+						name,
+						value,
+						icon: icon || ''
+					};
+					const key = getKey(filter);
+					searchStore.registeredFilters.set(key, filter);
+					selectFilter(filter, true, false);
+				});
+			}
+		},
+		removeSearch: (id: number) => {
+			removeSavedSearch.mutate(id);
+		},
+		saveSearch: (name: string) => {
+			const filters = Array.from(searchStore.selectedFilters.values());
+			createSavedSearch.mutate({
+				name,
+				description: '',
+				icon: '',
+				filters: filters.map((filter) => ({
+					filter_type: filter.type,
+					name: filter.name,
+					value: filter.value,
+					icon: filter.icon || 'Folder'
+				}))
+			});
+		}
+	};
 };
 
 export const useSearchStore = () => useSnapshot(searchStore);

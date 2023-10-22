@@ -31,7 +31,8 @@ import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explor
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
 import SearchOptions from '../Explorer/View/SearchOptions';
-import { FilterType, useSearchFilters } from '../Explorer/View/SearchOptions/store';
+import { FilterType } from '../Explorer/View/SearchOptions/Filters';
+import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { inOrNotIn } from '../Explorer/View/SearchOptions/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';

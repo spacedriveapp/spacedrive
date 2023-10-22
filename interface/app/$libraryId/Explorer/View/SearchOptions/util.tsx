@@ -3,9 +3,6 @@ import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { InOrNotIn, MaybeNot } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
-import { useKeybind } from '~/hooks';
-
-import { FilterType } from './store';
 
 function isIn<T>(kind: InOrNotIn<T>): kind is { in: T[] } {
 	return 'in' in kind;
