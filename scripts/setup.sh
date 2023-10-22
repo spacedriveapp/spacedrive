@@ -52,7 +52,7 @@ if [ "${CI:-}" != "true" ]; then
       'https://pnpm.io/installation'
   fi
 
-  if ! has rustup rustc cargo; then
+  if ! has rustc cargo; then
     err 'Rust was not found.' \
       "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
       'https://rustup.rs'
@@ -72,6 +72,12 @@ if [ "${1:-}" = "mobile" ]; then
     err 'python3 was not found.' \
       'This is required for Android mobile development.' \
       "Ensure 'python3' is available in your \$PATH and try again."
+  fi
+
+  if ! has rustup; then
+    err 'Rust was not found.' \
+      "Ensure the 'rustup' binary is in your \$PATH." \
+      'https://rustup.rs'
   fi
 
   # Android targets
