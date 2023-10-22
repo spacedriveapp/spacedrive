@@ -83,6 +83,7 @@ const SearchExplorer = ({ id, searchParams }: { id: number; searchParams: Search
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
+				showFilterBar
 				emptyNotice={
 					<EmptyNotice
 						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}

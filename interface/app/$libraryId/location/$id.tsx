@@ -98,7 +98,7 @@ export const Component = () => {
 	});
 
 	const { items, count, loadMore, query } = useItems({
-		location: location.data,
+		location: location.data!,
 		settings: explorerSettings
 	});
 
@@ -152,6 +152,7 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 			<Explorer
+				showFilterBar
 				emptyNotice={
 					<EmptyNotice
 						loading={location.isFetching}
@@ -168,7 +169,7 @@ const useItems = ({
 	location,
 	settings
 }: {
-	location: Location | undefined;
+	location?: Location;
 	settings: UseExplorerSettings<FilePathOrder>;
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();

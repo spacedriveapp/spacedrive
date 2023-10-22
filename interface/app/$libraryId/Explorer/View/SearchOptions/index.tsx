@@ -145,7 +145,7 @@ const SearchOptions = () => {
 					<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
 					<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
-					<Separator />
+					{/* <Separator /> */}
 					{/* <SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem> */}
 					{/* <FilterComponent type={FilterType.Hidden} /> */}
 				</DropdownMenu.Root>
@@ -154,32 +154,35 @@ const SearchOptions = () => {
 
 			{searchStore.selectedFilters.size > 0 && (
 				<DropdownMenu.Root
-					className={MENU_STYLES}
+					className={clsx(MENU_STYLES)}
 					trigger={
-						<Button className="flex flex-row gap-1" size="xs" variant="dotted">
-							<Plus weight="bold" />
+						<Button className="flex flex-row" size="xs" variant="dotted">
+							<Plus weight="bold" className="mr-1" />
 							Save Search
 						</Button>
 					}
 				>
-					<Input
-						value={newFilterName}
-						onChange={(e) => setNewFilterName(e.target.value)}
-						autoFocus
-						variant="transparent"
-						placeholder="Name"
-					/>
-					<Button
-						onClick={() => {
-							if (!newFilterName) return;
-							savedSearches.saveSearch(newFilterName);
-							setNewFilterName('');
-						}}
-						className="m-1 mt-2"
-						variant="accent"
-					>
-						Save
-					</Button>
+					<div className="mx-1.5 my-1 flex flex-row items-center overflow-hidden">
+						<Input
+							value={newFilterName}
+							onChange={(e) => setNewFilterName(e.target.value)}
+							autoFocus
+							variant="default"
+							placeholder="Name"
+							className="w-[130px]"
+						/>
+						<Button
+							onClick={() => {
+								if (!newFilterName) return;
+								savedSearches.saveSearch(newFilterName);
+								setNewFilterName('');
+							}}
+							className="ml-2"
+							variant="accent"
+						>
+							Save
+						</Button>
+					</div>
 				</DropdownMenu.Root>
 			)}
 

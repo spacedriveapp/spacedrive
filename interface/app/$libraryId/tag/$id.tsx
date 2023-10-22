@@ -31,7 +31,7 @@ export const Component = () => {
 	});
 
 	const { items, count, loadMore, query } = useItems({
-		tag: tag.data,
+		tag: tag.data!,
 		settings: explorerSettings
 	});
 
@@ -50,6 +50,7 @@ export const Component = () => {
 		<ExplorerContextProvider explorer={explorer}>
 			<TopBarPortal right={<DefaultTopBarOptions />} />
 			<Explorer
+				showFilterBar
 				emptyNotice={
 					<EmptyNotice
 						loading={query.isFetching}

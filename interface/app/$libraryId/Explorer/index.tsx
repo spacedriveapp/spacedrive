@@ -23,6 +23,7 @@ import { useSearchStore } from './View/SearchOptions/store';
 interface Props {
 	emptyNotice?: ExplorerViewProps['emptyNotice'];
 	contextMenu?: () => ReactNode;
+	showFilterBar?: boolean;
 }
 
 /**
@@ -87,7 +88,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
 						<div className="search-options-slide sticky top-0 z-10 ">
-							{searchStore.isSearching && <SearchOptions />}
+							{searchStore.isSearching && props.showFilterBar && <SearchOptions />}
 						</div>
 
 						<View
