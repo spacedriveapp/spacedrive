@@ -21,8 +21,8 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveryManager, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Metadata,
-	PeerId,
+	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
+	ManagerStreamAction2, Metadata, PeerId,
 };
 
 // State of the manager that may infrequently change
@@ -36,11 +36,11 @@ pub(crate) struct DynamicManagerState {
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 pub struct Manager<TMeta: Metadata> {
-	discovery_manager: Arc<DiscoveryManager>,
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
+	discovery_state: Arc<RwLock<DiscoveryManagerState>>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
 	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMeta>>,
 }
@@ -68,13 +68,7 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
-		// TODO
-		// let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
-		// 	.await
-		// 	.unwrap();
-
 		let this = Arc::new(Self {
-			discovery_manager: DiscoveryManager::new(),
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
@@ -82,6 +76,7 @@ impl<TMeta: Metadata> Manager<TMeta> {
 				ipv4_listener_id: None,
 				ipv6_listener_id: None,
 			}),
+			discovery_state: Default::default(),
 			peer_id,
 			event_stream_tx,
 			event_stream_tx2,
@@ -106,11 +101,11 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		Ok((
 			this.clone(),
 			ManagerStream {
+				discovery_manager: DiscoveryManager::new(this.discovery_state.clone()),
 				manager: this,
 				event_stream_rx,
 				event_stream_rx2,
 				swarm,
-				// mdns: todo!(), // TODO: RwLock::new(Some(mdns)),
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),
@@ -129,18 +124,12 @@ impl<TMeta: Metadata> Manager<TMeta> {
 		self.peer_id
 	}
 
-	pub fn discovery_manager(&self) -> &Arc<DiscoveryManager> {
-		&self.discovery_manager
-	}
-
-	#[deprecated]
-	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		self.discovery_manager
-			.listen_addrs
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.clone()
-	}
+	// pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
+	// 	self.listen_addrs
+	// 		.read()
+	// 		.unwrap_or_else(PoisonError::into_inner)
+	// 		.clone()
+	// }
 
 	pub async fn update_config(&self, config: ManagerConfig) {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;

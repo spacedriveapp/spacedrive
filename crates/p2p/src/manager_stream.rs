@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt,
 	future::poll_fn,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -80,7 +80,7 @@ pub struct ManagerStream<TMeta: Metadata> {
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
 	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMeta>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMeta>>,
-	pub(crate) discovery_manager: Arc<DiscoveryManager>,
+	pub(crate) discovery_manager: DiscoveryManager,
 	pub(crate) queued_events: VecDeque<Event<TMeta>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
@@ -156,6 +156,10 @@ impl<TMeta> ManagerStream<TMeta>
 where
 	TMeta: Metadata,
 {
+	pub fn listen_addrs(&self) -> HashSet<SocketAddr> {
+		self.discovery_manager.listen_addrs.clone()
+	}
+
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
 	pub async fn next(&mut self) -> Option<Event<TMeta>> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.

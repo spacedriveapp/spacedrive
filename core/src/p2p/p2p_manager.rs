@@ -72,20 +72,16 @@ impl P2PManager {
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
 			manager.peer_id(),
-			manager.listen_addrs().await
+			stream.listen_addrs()
 		);
 
 		// need to keep 'rx' around so that the channel isn't dropped
 		let (tx, rx) = broadcast::channel(100);
-		let pairing = PairingManager::new(
-			manager.clone(),
-			tx.clone(),
-			manager.discovery_manager().clone(),
-		);
+		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
 		Ok((
 			Arc::new(Self {
-				node: Service::new("node", manager.discovery_manager().clone()).unwrap(),
+				node: Service::new("node", &manager).unwrap(),
 				libraries: Default::default(), // TODO: Initially populate this
 				pairing,
 				events: (tx, rx),
