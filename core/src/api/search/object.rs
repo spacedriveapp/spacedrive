@@ -1,10 +1,8 @@
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::{or, OrderByQuery, PaginatedQuery, WhereQuery};
-
+use sd_prisma::prisma::{self, object, tag_on_object};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use sd_prisma::prisma::{self, media_data, object, tag_on_object};
 
 use crate::library::Category;
 
@@ -19,12 +17,48 @@ pub enum ObjectCursor {
 	Kind(CursorOrderItem<i32>),
 }
 
+impl ObjectCursor {
+	fn apply(self, query: &mut object::FindManyQuery, id: i32) {
+		macro_rules! arm {
+			($field:ident, $item:ident) => {{
+				let item = $item;
+
+				let data = item.data.clone();
+
+				query.add_where(or![
+					match item.order {
+						SortOrder::Asc => prisma::object::$field::gt(data),
+						SortOrder::Desc => prisma::object::$field::lt(data),
+					},
+					prisma_client_rust::and![
+						prisma::object::$field::equals(Some(item.data)),
+						match item.order {
+							SortOrder::Asc => prisma::object::id::gt(id),
+							SortOrder::Desc => prisma::object::id::lt(id),
+						}
+					]
+				]);
+
+				query.add_order_by(prisma::object::$field::order(item.order.into()));
+			}};
+		}
+
+		match self {
+			Self::None => {
+				query.add_where(prisma::object::id::gt(id));
+			}
+			Self::Kind(item) => arm!(kind, item),
+			Self::DateAccessed(item) => arm!(date_accessed, item),
+		}
+	}
+}
+
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "field", content = "value")]
 pub enum ObjectOrder {
 	DateAccessed(SortOrder),
 	Kind(SortOrder),
-	DateImageTaken(SortOrder),
+	MediaData(Box<MediaDataOrder>),
 }
 
 impl ObjectOrder {
@@ -32,21 +66,9 @@ impl ObjectOrder {
 		(*match self {
 			Self::DateAccessed(v) => v,
 			Self::Kind(v) => v,
-			Self::DateImageTaken(v) => v,
+			Self::MediaData(v) => return v.get_sort_order(),
 		})
 		.into()
-	}
-
-	pub fn media_data(
-		&self,
-		param: MediaDataSortParameter,
-		dir: prisma::SortOrder,
-	) -> object::OrderByWithRelationParam {
-		let order = match param {
-			MediaDataSortParameter::DateImageTaken => media_data::epoch_time::order(dir),
-		};
-
-		object::media_data::order(vec![order])
 	}
 
 	pub fn into_param(self) -> object::OrderByWithRelationParam {
@@ -56,7 +78,7 @@ impl ObjectOrder {
 		match self {
 			Self::DateAccessed(_) => date_accessed::order(dir),
 			Self::Kind(_) => kind::order(dir),
-			Self::DateImageTaken(_) => self.media_data(MediaDataSortParameter::DateImageTaken, dir),
+			Self::MediaData(v) => media_data::order(vec![v.into_param()]),
 		}
 	}
 }
@@ -156,37 +178,7 @@ impl OrderAndPagination {
 				}
 			}
 			Self::Cursor { id, cursor } => {
-				macro_rules! arm {
-					($field:ident, $item:ident) => {{
-						let item = $item;
-
-						let data = item.data.clone();
-
-						query.add_where(or![
-							match item.order {
-								SortOrder::Asc => prisma::object::$field::gt(data),
-								SortOrder::Desc => prisma::object::$field::lt(data),
-							},
-							prisma_client_rust::and![
-								prisma::object::$field::equals(Some(item.data)),
-								match item.order {
-									SortOrder::Asc => prisma::object::id::gt(id),
-									SortOrder::Desc => prisma::object::id::lt(id),
-								}
-							]
-						]);
-
-						query.add_order_by(prisma::object::$field::order(item.order.into()));
-					}};
-				}
-
-				match cursor {
-					ObjectCursor::None => {
-						query.add_where(prisma::object::id::gt(id));
-					}
-					ObjectCursor::Kind(item) => arm!(kind, item),
-					ObjectCursor::DateAccessed(item) => arm!(date_accessed, item),
-				}
+				cursor.apply(query, id);
 
 				query.add_order_by(prisma::object::pub_id::order(prisma::SortOrder::Asc))
 			}

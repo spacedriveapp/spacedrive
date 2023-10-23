@@ -1,15 +1,14 @@
 use chrono::{DateTime, FixedOffset, Utc};
-use prisma_client_rust::OrderByQuery;
-use prisma_client_rust::PaginatedQuery;
-use prisma_client_rust::WhereQuery;
+use prisma_client_rust::{OrderByQuery, PaginatedQuery, WhereQuery};
 use rspc::ErrorCode;
-use sd_prisma::prisma::{self, file_path, location};
+use sd_prisma::prisma::{self, file_path};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::location::file_path_helper::check_file_path_exists;
-use crate::location::file_path_helper::IsolatedFilePathData;
-use crate::location::LocationError;
+use crate::location::{
+	file_path_helper::{check_file_path_exists, IsolatedFilePathData},
+	LocationError,
+};
 
 use super::object::*;
 use super::utils::{self, *};
@@ -23,7 +22,6 @@ pub enum FilePathOrder {
 	DateModified(SortOrder),
 	DateIndexed(SortOrder),
 	Object(Box<ObjectOrder>),
-	DateImageTaken(Box<ObjectOrder>),
 }
 
 impl FilePathOrder {
@@ -35,7 +33,6 @@ impl FilePathOrder {
 			Self::DateModified(v) => v,
 			Self::DateIndexed(v) => v,
 			Self::Object(v) => return v.get_sort_order(),
-			Self::DateImageTaken(v) => return v.get_sort_order(),
 		})
 		.into()
 	}
@@ -50,7 +47,6 @@ impl FilePathOrder {
 			Self::DateModified(_) => date_modified::order(dir),
 			Self::DateIndexed(_) => date_indexed::order(dir),
 			Self::Object(v) => object::order(vec![v.into_param()]),
-			Self::DateImageTaken(v) => object::order(vec![v.into_param()]),
 		}
 	}
 }
@@ -157,6 +153,36 @@ pub enum FilePathObjectCursor {
 	Kind(CursorOrderItem<i32>),
 }
 
+impl FilePathObjectCursor {
+	fn apply(self, query: &mut file_path::FindManyQuery) {
+		macro_rules! arm {
+			($field:ident, $item:ident) => {{
+				let item = $item;
+
+				query.add_where(match item.order {
+					SortOrder::Asc => {
+						prisma::file_path::object::is(vec![prisma::object::$field::gt(item.data)])
+					}
+					SortOrder::Desc => {
+						prisma::file_path::object::is(vec![prisma::object::$field::lt(item.data)])
+					}
+				});
+
+				query.add_order_by(prisma::file_path::object::order(vec![
+					prisma::object::$field::order(item.order.into()),
+				]));
+			}};
+		}
+
+		match self {
+			FilePathObjectCursor::Kind(item) => arm!(kind, item),
+			FilePathObjectCursor::DateAccessed(item) => {
+				arm!(date_accessed, item)
+			}
+		};
+	}
+}
+
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum FilePathCursorVariant {
@@ -167,6 +193,54 @@ pub enum FilePathCursorVariant {
 	DateModified(CursorOrderItem<DateTime<FixedOffset>>),
 	DateIndexed(CursorOrderItem<DateTime<FixedOffset>>),
 	Object(FilePathObjectCursor),
+}
+
+impl FilePathCursorVariant {
+	pub fn apply(self, query: &mut file_path::FindManyQuery, id: i32) {
+		macro_rules! arm {
+			($field:ident, $item:ident) => {{
+				let item = $item;
+
+				let data = item.data.clone();
+
+				query.add_where(prisma_client_rust::or![
+					match item.order {
+						SortOrder::Asc => prisma::file_path::$field::gt(data),
+						SortOrder::Desc => prisma::file_path::$field::lt(data),
+					},
+					prisma_client_rust::and![
+						prisma::file_path::$field::equals(Some(item.data)),
+						match item.order {
+							SortOrder::Asc => prisma::file_path::id::gt(id),
+							SortOrder::Desc => prisma::file_path::id::lt(id),
+						}
+					]
+				]);
+
+				query.add_order_by(prisma::file_path::$field::order(item.order.into()));
+			}};
+		}
+
+		match self {
+			Self::None => {
+				query.add_where(prisma::file_path::id::gt(id));
+			}
+			Self::SizeInBytes(order) => {
+				query.add_order_by(prisma::file_path::size_in_bytes_bytes::order(order.into()));
+			}
+			Self::Name(item) => arm!(name, item),
+			Self::DateCreated(item) => {
+				arm!(date_created, item)
+			}
+			Self::DateModified(item) => {
+				arm!(date_modified, item)
+			}
+			Self::DateIndexed(item) => {
+				arm!(date_indexed, item)
+			}
+			Self::Object(obj) => obj.apply(query),
+		};
+	}
 }
 
 #[derive(Deserialize, Type, Debug)]
@@ -203,77 +277,7 @@ impl OrderAndPagination {
 					query.add_where(prisma::file_path::is_dir::not(Some(true)))
 				}
 
-				macro_rules! arm {
-					($field:ident, $item:ident) => {{
-						let item = $item;
-
-						let data = item.data.clone();
-
-						query.add_where(prisma_client_rust::or![
-							match item.order {
-								SortOrder::Asc => prisma::file_path::$field::gt(data),
-								SortOrder::Desc => prisma::file_path::$field::lt(data),
-							},
-							prisma_client_rust::and![
-								prisma::file_path::$field::equals(Some(item.data)),
-								match item.order {
-									SortOrder::Asc => prisma::file_path::id::gt(id),
-									SortOrder::Desc => prisma::file_path::id::lt(id),
-								}
-							]
-						]);
-
-						query.add_order_by(prisma::file_path::$field::order(item.order.into()));
-					}};
-				}
-
-				match cursor.variant {
-					FilePathCursorVariant::None => {
-						query.add_where(prisma::file_path::id::gt(id));
-					}
-					FilePathCursorVariant::SizeInBytes(order) => {
-						query.add_order_by(prisma::file_path::size_in_bytes_bytes::order(
-							order.into(),
-						));
-					}
-					FilePathCursorVariant::Name(item) => arm!(name, item),
-					FilePathCursorVariant::DateCreated(item) => {
-						arm!(date_created, item)
-					}
-					FilePathCursorVariant::DateModified(item) => {
-						arm!(date_modified, item)
-					}
-					FilePathCursorVariant::DateIndexed(item) => {
-						arm!(date_indexed, item)
-					}
-					FilePathCursorVariant::Object(obj) => {
-						macro_rules! arm {
-							($field:ident, $item:ident) => {{
-								let item = $item;
-
-								query.add_where(match item.order {
-									SortOrder::Asc => prisma::file_path::object::is(vec![
-										prisma::object::$field::gt(item.data),
-									]),
-									SortOrder::Desc => prisma::file_path::object::is(vec![
-										prisma::object::$field::lt(item.data),
-									]),
-								});
-
-								query.add_order_by(prisma::file_path::object::order(vec![
-									prisma::object::$field::order(item.order.into()),
-								]));
-							}};
-						}
-
-						match obj {
-							FilePathObjectCursor::Kind(item) => arm!(kind, item),
-							FilePathObjectCursor::DateAccessed(item) => {
-								arm!(date_accessed, item)
-							}
-						};
-					}
-				};
+				cursor.variant.apply(query, id);
 
 				query.add_order_by(prisma::file_path::id::order(prisma::SortOrder::Asc));
 			}
