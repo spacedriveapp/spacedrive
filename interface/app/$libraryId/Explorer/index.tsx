@@ -3,6 +3,7 @@ import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 import { useKeysMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyRevealFinder } from '~/hooks/useKeyRevealFinder';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -56,6 +57,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
+
+	useKeyRevealFinder();
 
 	return (
 		<>
