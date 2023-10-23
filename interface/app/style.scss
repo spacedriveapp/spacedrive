@@ -65,6 +65,8 @@ body {
 
 .TooltipContent[data-side='right'] {
 	animation-name: slideRight;
+	animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+
 }
 
 @keyframes slideRight {
@@ -99,6 +101,8 @@ body {
 		transform: translateY(0);
 	}
 }
+
+
 
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */

@@ -73,13 +73,13 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
+        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 

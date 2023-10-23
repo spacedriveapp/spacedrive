@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useRspcLibraryContext } from '@sd/client';
+import { toast } from '@sd/ui';
 
 import { useExplorerContext } from '../app/$libraryId/Explorer/Context';
 import { useExplorerSearchParams } from '../app/$libraryId/Explorer/util';
-import { useOperatingSystem } from './useOperatingSystem';
 
 export const useQuickRescan = () => {
 	// subscription so that we can cancel it if in progress
@@ -11,11 +11,8 @@ export const useQuickRescan = () => {
 
 	// gotta clean up any rescan subscriptions if the exist
 	useEffect(() => () => quickRescanSubscription.current?.(), []);
-
 	const { client } = useRspcLibraryContext();
-
 	const { parent } = useExplorerContext();
-
 	const [{ path }] = useExplorerSearchParams();
 
 	const rescan = () => {
@@ -31,6 +28,10 @@ export const useQuickRescan = () => {
 				],
 				{ onData() {} }
 			);
+
+			toast.success({
+				title: `Quick rescan started`
+			});
 		}
 	};
 
