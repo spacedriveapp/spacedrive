@@ -56,7 +56,7 @@ impl P2PManager {
 
 			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
 			(
-				Self::config_to_metadata(&config, vec![]),
+				Self::config_to_metadata(&config),
 				config.keypair,
 				config.p2p.clone(),
 			)
@@ -424,21 +424,22 @@ impl P2PManager {
 		)
 	}
 
-	fn config_to_metadata(config: &NodeConfig, instances: Vec<RemoteIdentity>) -> PeerMetadata {
+	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
 		PeerMetadata {
 			name: config.name.clone(),
 			operating_system: Some(OperatingSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").to_string()),
-			instances,
 		}
 	}
 
 	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
-		// self.metadata_manager.update(Self::config_to_metadata(
+		// self.node.update(Self::config_to_metadata(
 		// 	&self.node_config_manager.get().await,
-		// 	instances,
-		// ));
+		// ))
+
+		// TODO: Do `instances` need to be reregistered???
+
 		todo!();
 	}
 
@@ -462,26 +463,27 @@ impl P2PManager {
 
 	pub(super) async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
 		let mut should_connect = false;
-		for lib in self
-			.libraries
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			if let Some((_pk, instance)) = lib
-				._get_mut()
-				.iter_mut()
-				.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
-			{
-				if !matches!(instance, PeerStatus::Connected(_)) {
-					should_connect = matches!(instance, PeerStatus::Unavailable);
+		// for lib in self
+		// 	.libraries
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.values_mut()
+		// {
+		// 	if let Some((_pk, instance)) = lib
+		// 		._get_mut()
+		// 		.iter_mut()
+		// 		.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
+		// 	{
+		// 		if !matches!(instance, PeerStatus::Connected(_)) {
+		// 			should_connect = matches!(instance, PeerStatus::Unavailable);
 
-					*instance = PeerStatus::Discovered(event.peer_id);
-				}
+		// 			*instance = PeerStatus::Discovered(event.peer_id);
+		// 		}
 
-				break; // PK can only exist once so we short circuit
-			}
-		}
+		// 		break; // PK can only exist once so we short circuit
+		// 	}
+		// }
+		todo!();
 
 		// We do this here not in the loop so the future can be `Send`
 		if should_connect {

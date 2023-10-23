@@ -24,7 +24,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	DynamicManagerState, Event, Manager, ManagerConfig, Metadata, PeerId,
+	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Metadata, PeerId,
 };
 
 /// TODO
@@ -80,7 +80,7 @@ pub struct ManagerStream<TMeta: Metadata> {
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
 	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMeta>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMeta>>,
-	// pub(crate) mdns: Option<Mdns<TMeta>>,
+	pub(crate) discovery_manager: Arc<DiscoveryManager>,
 	pub(crate) queued_events: VecDeque<Event<TMeta>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
@@ -226,8 +226,7 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address added: {}", addr);
-									// self.mdns.register_addr(addr).await;
-									todo!();
+									self.discovery_manager.register_addr(addr).await;
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -240,8 +239,7 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address expired: {}", addr);
-									// self.mdns.unregister_addr(&addr).await;
-									todo!();
+									self.discovery_manager.unregister_addr(&addr).await;
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -256,9 +254,7 @@ where
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										trace!("listen address closed: {}", addr);
-										// self.mdns.unregister_addr(&addr).await;
-										todo!();
-
+										self.discovery_manager.unregister_addr(&addr).await;
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
 									Err(err) => {
@@ -334,7 +330,7 @@ where
 					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
 
 					if !state.config.enabled {
-						// if let Some(mdns) = self.mdns.take() {
+						// if let Some(mdns) = self.discovery_manager.take() {
 						// 	drop(state);
 						// 	mdns.shutdown().await;
 						// }

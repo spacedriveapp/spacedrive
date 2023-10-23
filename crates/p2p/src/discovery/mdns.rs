@@ -25,7 +25,6 @@
 // pub struct MdnsState<TMetadata: Metadata> {
 // 	// TOOD: Avoiding locks???
 // 	pub discovered: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
-// 	pub listen_addrs: RwLock<HashSet<SocketAddr>>,
 // }
 
 // /// TODO

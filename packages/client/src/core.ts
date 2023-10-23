@@ -29,7 +29,6 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -235,8 +234,6 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
-export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
-
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
@@ -258,8 +255,6 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
-
-export type LibraryData = { instances: { [key: string]: InstanceState } }
 
 export type LibraryName = string
 
@@ -362,7 +357,7 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 
 export type PeerId = string
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null }
 
 export type PlusCode = string
 

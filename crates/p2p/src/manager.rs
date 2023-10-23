@@ -135,8 +135,11 @@ impl<TMeta: Metadata> Manager<TMeta> {
 
 	#[deprecated]
 	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		// self.mdns_state.listen_addrs.read().await.clone()
-		todo!();
+		self.discovery_manager
+			.listen_addrs
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.clone()
 	}
 
 	pub async fn update_config(&self, config: ManagerConfig) {
@@ -180,13 +183,18 @@ impl<TMeta: Metadata> Manager<TMeta> {
 
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
-		self.event_stream_tx
+		if self
+			.event_stream_tx
 			.send(ManagerStreamAction::Shutdown(tx))
 			.await
-			.unwrap();
-		rx.await.unwrap_or_else(|_| {
-			warn!("Error receiving shutdown signal to P2P Manager!");
-		}); // Await shutdown so we don't kill the app before the Mdns broadcast
+			.is_ok()
+		{
+			rx.await.unwrap_or_else(|_| {
+				warn!("Error receiving shutdown signal to P2P Manager!");
+			}); // Await shutdown so we don't kill the app before the Mdns broadcast
+		} else {
+			warn!("p2p was already shutdown, skipping...");
+		}
 	}
 }
 
