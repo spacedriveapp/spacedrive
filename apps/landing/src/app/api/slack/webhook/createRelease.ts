@@ -2,18 +2,7 @@ import { z } from 'zod';
 import { env } from '~/env';
 
 import * as github from './github';
-import { createViewSubmission, USER_REF } from './utils';
-
-function createSlashCommand<T extends string>(command: T) {
-	return z.object({
-		command: z.literal(command),
-		channel_id: z.string(),
-		text: z.string().transform((s) => s.split(' ')),
-		user_id: z.string(),
-		trigger_id: z.string(),
-		response_url: z.string()
-	});
-}
+import { createSlashCommand, createViewSubmission, USER_REF } from './utils';
 
 export const callbackId = 'createReleaseModal' as const;
 export const fields = {

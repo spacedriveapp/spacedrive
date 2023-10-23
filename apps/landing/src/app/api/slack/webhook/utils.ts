@@ -39,3 +39,14 @@ const VIEW_SUBMISSION_INNER = z.object({
 export function createViewSubmission() {
 	return createInteraction('view_submission', VIEW_SUBMISSION_INNER);
 }
+
+export function createSlashCommand<T extends string>(command: T) {
+	return z.object({
+		command: z.literal(command),
+		channel_id: z.string(),
+		text: z.string().transform((s) => s.split(' ')),
+		user_id: z.string(),
+		trigger_id: z.string(),
+		response_url: z.string()
+	});
+}
