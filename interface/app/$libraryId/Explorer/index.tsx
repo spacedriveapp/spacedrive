@@ -2,8 +2,8 @@ import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
+import { useKeyRevealFinder } from '~/app/$libraryId/Explorer/useKeyRevealFinder';
 import { useKeysMatcher, useOperatingSystem } from '~/hooks';
-import { useKeyRevealFinder } from '~/hooks/useKeyRevealFinder';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
