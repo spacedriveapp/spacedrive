@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use rspc::alpha::AlphaRouter;
+use sd_utils::chain_optional_iter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -42,27 +43,26 @@ impl SavedSearchCreateArgs {
 		let pub_id = Uuid::new_v4().as_bytes().to_vec();
 		let date_created: DateTime<FixedOffset> = Utc::now().into();
 
-		let mut params = vec![saved_search::date_created::set(Some(date_created))];
-
-		if let Some(name) = self.name {
-			params.push(saved_search::name::set(Some(name)));
-		}
-
-		if let Some(filters) = &self.filters {
-			let filters_as_string = serde_json::to_string(filters).unwrap();
-			let filters_as_bytes = filters_as_string.into_bytes();
-			params.push(saved_search::filters::set(Some(filters_as_bytes)));
-		}
-
-		if let Some(description) = self.description {
-			params.push(saved_search::description::set(Some(description)));
-		}
-
-		if let Some(icon) = self.icon {
-			params.push(saved_search::icon::set(Some(icon)));
-		}
-
-		db.saved_search().create(pub_id, params).exec().await
+		db.saved_search()
+			.create(
+				pub_id,
+				chain_optional_iter(
+					[saved_search::date_created::set(Some(date_created))],
+					[
+						self.name.map(Some).map(saved_search::name::set),
+						self.filters
+							.map(|f| serde_json::to_string(&f).unwrap().into_bytes())
+							.map(Some)
+							.map(saved_search::filters::set),
+						self.description
+							.map(Some)
+							.map(saved_search::description::set),
+						self.icon.map(Some).map(saved_search::icon::set),
+					],
+				),
+			)
+			.exec()
+			.await
 	}
 }
 
