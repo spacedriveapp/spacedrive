@@ -21,8 +21,8 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveryManager, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
-	Metadata, MetadataManager, PeerId,
+	DiscoveryManager, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Metadata,
+	PeerId,
 };
 
 // State of the manager that may infrequently change
@@ -110,7 +110,7 @@ impl<TMeta: Metadata> Manager<TMeta> {
 				event_stream_rx,
 				event_stream_rx2,
 				swarm,
-				mdns: todo!(), // TODO: RwLock::new(Some(mdns)),
+				// mdns: todo!(), // TODO: RwLock::new(Some(mdns)),
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),

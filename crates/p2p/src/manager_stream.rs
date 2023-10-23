@@ -24,7 +24,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	DynamicManagerState, Event, Manager, ManagerConfig, Mdns, MdnsState, Metadata, PeerId,
+	DynamicManagerState, Event, Manager, ManagerConfig, Metadata, PeerId,
 };
 
 /// TODO
@@ -80,7 +80,7 @@ pub struct ManagerStream<TMeta: Metadata> {
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
 	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMeta>>,
 	pub(crate) swarm: Swarm<SpaceTime<TMeta>>,
-	pub(crate) mdns: Option<Mdns<TMeta>>,
+	// pub(crate) mdns: Option<Mdns<TMeta>>,
 	pub(crate) queued_events: VecDeque<Event<TMeta>>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
@@ -170,15 +170,15 @@ where
 
 			tokio::select! {
 				event = async {
-					if let Some(mdns) = &mut self.mdns {
-						mdns.poll(&self.manager).await
-					} else {
-					   pending().await
-					}
+					// if let Some(mdns) = &mut self.mdns {
+					// 	mdns.poll(&self.manager).await
+					// } else {
+					//    pending().await
+					// }
 				} => {
-					if let Some(event) = event {
-						return Some(event);
-					}
+					// if let Some(event) = event {
+					// 	return Some(event);
+					// }
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -350,9 +350,9 @@ where
 				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
-					if let Some(mdns) = &self.mdns {
-						mdns.shutdown().await;
-					}
+					// if let Some(mdns) = &self.mdns {
+					// 	mdns.shutdown().await;
+					// }
 					tx.send(()).unwrap_or_else(|_| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
@@ -364,18 +364,19 @@ where
 				ManagerStreamAction2::Event(event) => return Some(event),
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
 					if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
-						let addresses = self
-							.mdns
-							.as_mut()
-							.unwrap() // TODO: Error handling
-							.state
-							.discovered
-							.read()
-							.await
-							.get(&peer_id)
-							.unwrap()
-							.addresses
-							.clone();
+						// let addresses = self
+						// 	.mdns
+						// 	.as_mut()
+						// 	.unwrap() // TODO: Error handling
+						// 	.state
+						// 	.discovered
+						// 	.read()
+						// 	.await
+						// 	.get(&peer_id)
+						// 	.unwrap()
+						// 	.addresses
+						// 	.clone();
+						let addresses: Vec<SocketAddr> = todo!();
 
 						match self.swarm.dial(
 							DialOpts::peer_id(peer_id.0)
