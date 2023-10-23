@@ -1,15 +1,17 @@
+import { z } from 'zod';
 import { env } from '~/env';
 
 export const runtime = 'edge';
 
-export async function POST(req: Request) {
-	const signature = req.headers.get('x-slack-signature');
-	if (!signature) return new Response('No signature', { status: 400 });
+async function isValidSlackRequest(
+	headers: Headers,
+	body: string
+): Promise<{ valid: true } | { valid: false; error: string }> {
+	const signature = headers.get('x-slack-signature');
+	if (!signature) return { valid: false, error: 'No signature' };
 
-	const timestamp = req.headers.get('x-slack-request-timestamp');
-	if (!timestamp) return new Response('No timestamp', { status: 400 });
-
-	const body = await req.text();
+	const timestamp = headers.get('x-slack-request-timestamp');
+	if (!timestamp) return { valid: false, error: 'No timestamp' };
 
 	// todo: prevent replay attack
 
@@ -28,32 +30,99 @@ export async function POST(req: Request) {
 		new TextEncoder().encode(`v0:${timestamp}:${body}`)
 	);
 
-	if (!valid) return new Response('Invalid signature', { status: 400 });
+	if (!valid) return { valid: false, error: 'Invalid signature' };
 
-	const parsedBody = Object.fromEntries([...new URLSearchParams(body)]);
+	return { valid: true };
+}
 
-	if (parsedBody.command) {
-		switch (parsedBody.command) {
+const BODY = z.union([
+	z.discriminatedUnion('command', [
+		z.object({
+			command: z.literal('/release'),
+			channel_id: z.string(),
+			text: z.string().transform((s) => s.split(' ')),
+			user_id: z.string()
+		})
+	]),
+	z.object({
+		payload: z
+			.string()
+			.transform((v) => JSON.parse(v))
+			.pipe(
+				z.object({
+					type: z.literal('block_actions'),
+					actions: z.tuple([
+						z.object({
+							action_id: z.literal('createRelease'),
+							value: z
+								.string()
+								.transform((v) => JSON.parse(v))
+								.pipe(z.object({ tag: z.string(), commit: z.string() }))
+						})
+					]),
+					user: z.object({
+						id: z.string()
+					}),
+					response_url: z.string()
+				})
+			)
+	})
+]);
+
+const GITHUB_API = `https://api.github.com`;
+const GITHUB_REPO_API = `${GITHUB_API}/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}`;
+const GITHUB_HEADERS = {
+	'Authorization': `Bearer ${env.GITHUB_PAT}`,
+	'Accept': 'application/vnd.github+json',
+	'Content-Type': 'application/json'
+};
+
+export async function POST(req: Request) {
+	const body = await req.text();
+
+	const isValid = await isValidSlackRequest(req.headers, body);
+	if (!isValid.valid) return new Response(isValid.error, { status: 400 });
+
+	const parsedBody = BODY.safeParse(Object.fromEntries([...new URLSearchParams(body)]));
+	if (!parsedBody.success) {
+		console.log(parsedBody.error);
+		return new Response('Unexpected request', { status: 400 });
+	}
+
+	if ('command' in parsedBody.data) {
+		const { command, text, channel_id, user_id } = parsedBody.data;
+		switch (command) {
 			case '/release': {
-				if (parsedBody.channel_id !== env.SLACK_RELEASES_CHANNEL) {
+				if (channel_id !== env.SLACK_RELEASES_CHANNEL) {
 					return Response.json({
 						response_type: 'ephemeral',
-						text: `\`${parsedBody.command}\` can only be used in <#${env.SLACK_RELEASES_CHANNEL}>`
+						text: `\`${command}\` can only be used in <#${env.SLACK_RELEASES_CHANNEL}>`
 					});
 				}
 
-				const [tag, commitSha] = parsedBody.text.split(' ');
+				const [tag, commitSha] = text;
+
+				const existingBranch = await fetch(`${GITHUB_REPO_API}/branches/${tag}`, {
+					headers: GITHUB_HEADERS
+				});
+
+				if (existingBranch.status !== 404)
+					return Response.json({
+						response_type: 'ephemeral',
+						blocks: [
+							{
+								type: 'section',
+								text: {
+									type: 'mrkdwn',
+									text: `<@${user_id}> A branch with the name \`${tag}\` already exists.`
+								}
+							}
+						]
+					});
 
 				const commitData = await fetch(
-					`https://api.github.com/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commits/${
-						commitSha ?? 'heads/main'
-					}`,
-					{
-						headers: {
-							Authorization: `Bearer ${env.GITHUB_PAT}`,
-							Accept: 'application/vnd.github+json'
-						}
-					}
+					`${GITHUB_REPO_API}/commits/${commitSha ?? 'heads/main'}`,
+					{ headers: GITHUB_HEADERS }
 				).then((r) => r.json());
 
 				return Response.json({
@@ -61,11 +130,10 @@ export async function POST(req: Request) {
 					blocks: [
 						{
 							type: 'section',
-							block_id: '0',
 							text: {
 								type: 'mrkdwn',
 								text: [
-									`<@${parsedBody.user_id}> Are you sure you want to create this release?`,
+									`<@${user_id}> Are you sure you want to create this release?`,
 									`*Make sure you've bumped the versions of sd-core and sd-desktop*`,
 									`*Version:* \`${tag}\``,
 									`*Commit:* \`${commitData.sha}\``,
@@ -99,8 +167,8 @@ export async function POST(req: Request) {
 				});
 			}
 		}
-	} else if (parsedBody.payload) {
-		const payload = JSON.parse(parsedBody.payload);
+	} else if (parsedBody.data.payload) {
+		const { payload } = parsedBody.data;
 
 		switch (payload.type) {
 			case 'block_actions': {
@@ -108,59 +176,40 @@ export async function POST(req: Request) {
 
 				switch (action.action_id) {
 					case 'createRelease': {
-						const value: { tag: string; commit: string } = JSON.parse(action.value);
+						const { value } = action;
 
-						await fetch(
-							`https://api.github.com/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/git/refs`,
-							{
-								method: 'POST',
-								body: JSON.stringify({
-									ref: `refs/tags/${value.tag}`,
-									sha: value.commit
-								}),
-								headers: {
-									'Authorization': `Bearer ${env.GITHUB_PAT}`,
-									'Accept': 'application/vnd.github+json',
-									'Content-Type': 'application/json'
-								}
-							}
-						).then((r) => r.json());
+						await fetch(`${GITHUB_REPO_API}/git/refs`, {
+							method: 'POST',
+							body: JSON.stringify({
+								ref: `refs/tags/${value.tag}`,
+								sha: value.commit
+							}),
+							headers: GITHUB_HEADERS
+						}).then((r) => r.json());
 
-						const releaseFetch = fetch(
-							`https://api.github.com/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`,
-							{
-								method: 'POST',
-								body: JSON.stringify({
-									tag_name: value.tag,
-									name: value.tag,
-									target_commitish: value.commit,
-									draft: true,
-									generate_release_notes: true
-								}),
-								headers: {
-									'Authorization': `Bearer ${env.GITHUB_PAT}`,
-									'Accept': 'application/vnd.github+json',
-									'Content-Type': 'application/json'
-								}
-							}
-						).then((r) => r.json());
+						const createRelease = fetch(`${GITHUB_REPO_API}/releases`, {
+							method: 'POST',
+							body: JSON.stringify({
+								tag_name: value.tag,
+								name: value.tag,
+								target_commitish: value.commit,
+								draft: true,
+								generate_release_notes: true
+							}),
+							headers: GITHUB_HEADERS
+						}).then((r) => r.json());
 
-						const workflowRunFetch = fetch(
-							`https://api.github.com/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/actions/workflows/release.yml/dispatches`,
+						const dispatchWorkflowRun = fetch(
+							`${GITHUB_REPO_API}/actions/workflows/release.yml/dispatches`,
 							{
 								method: 'POST',
 								body: JSON.stringify({
 									ref: value.tag
 								}),
-								headers: {
-									'Authorization': `Bearer ${env.GITHUB_PAT}`,
-									'Accept': 'application/vnd.github+json',
-									'Content-Type': 'application/json'
-								}
+								headers: GITHUB_HEADERS
 							}
 						);
-
-						const [release] = await Promise.all([releaseFetch, workflowRunFetch]);
+						const [release] = await Promise.all([createRelease, dispatchWorkflowRun]);
 
 						await fetch(payload.response_url, {
 							method: 'POST',
@@ -218,11 +267,7 @@ export async function POST(req: Request) {
 						return new Response();
 					}
 				}
-
-				break;
 			}
 		}
 	}
-
-	return new Response('Unexpected request', { status: 400 });
 }
