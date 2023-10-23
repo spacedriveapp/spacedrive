@@ -16,7 +16,8 @@ export const env = createEnv({
 		GITHUB_ORG: z.string().default('spacedriveapp'),
 		GITHUB_REPO: z.string().default('spacedrive'),
 		SLACK_SIGNING_SECRET: z.string(),
-		SLACK_RELEASES_CHANNEL: z.string()
+		SLACK_RELEASES_CHANNEL: z.string(),
+		SLACK_BOT_TOKEN: z.string()
 	},
 	client: {},
 	runtimeEnv: {
@@ -33,7 +34,8 @@ export const env = createEnv({
 		GITHUB_ORG: process.env.GITHUB_ORG,
 		GITHUB_REPO: process.env.GITHUB_REPO,
 		SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
-		SLACK_RELEASES_CHANNEL: process.env.SLACK_RELEASES_CHANNEL
+		SLACK_RELEASES_CHANNEL: process.env.SLACK_RELEASES_CHANNEL,
+		SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN
 	},
 	// In dev or in eslint disable checking.
 	// Kinda sucks for in dev but you don't need the whole setup to change the docs.
