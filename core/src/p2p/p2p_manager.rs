@@ -97,6 +97,8 @@ impl P2PManager {
 	pub fn start(self: Arc<Self>, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
 		// TODO: Relay `self.node` and `self.libraries` to `self.events` for P2PEvents frontend subscription
 
+		// self.libraries.read().unwrap()
+
 		tokio::spawn({
 			let this = self.clone();
 

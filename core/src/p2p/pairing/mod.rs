@@ -10,7 +10,7 @@ use std::{
 
 use chrono::Utc;
 use futures::channel::oneshot;
-use sd_p2p::{spacetunnel::Identity, DiscoveryManager, Manager, Metadata, PeerId};
+use sd_p2p::{spacetunnel::Identity, Manager, Metadata, PeerId};
 
 use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};

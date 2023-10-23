@@ -1,9 +1,8 @@
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_p2p::{spacetunnel::RemoteIdentity, PeerId};
+use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::p2p::{operations, P2PEvent, PairingDecision};
@@ -16,7 +15,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.subscription(|node, _: ()| async move {
 				let mut rx = node.p2p.subscribe();
 				async_stream::stream! {
-					// TODO: Account for library-services cause this doesn't & that will cuase issues
+					// TODO: Account for library-services cause this doesn't & that will cuase issues // TODO
 
 					// TODO: Don't block subscription start
 					for peer in node.p2p.node.get_discovered() {
