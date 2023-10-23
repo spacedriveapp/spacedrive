@@ -67,7 +67,10 @@ export async function createModal(
 						},
 						text: {
 							type: 'mrkdwn',
-							text: `> ${commitMessage}`
+							text: commitMessage
+								.split('\n')
+								.map((line) => `> ${line}`)
+								.join('\n')
 						}
 					},
 					{
