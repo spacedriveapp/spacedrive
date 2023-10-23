@@ -187,6 +187,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Reveal in Explorer/Finder',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'Y']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'Y']
+				}
+			}
+		},
+		{
 			action: 'Rename file or folder',
 			keys: {
 				windows: {
