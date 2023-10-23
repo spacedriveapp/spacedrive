@@ -36,6 +36,7 @@ async function isValidSlackRequest(
 }
 
 const BODY = z.union([
+	// https://api.slack.com/interactivity/slash-commands#app_command_handling
 	z.discriminatedUnion('command', [
 		z.object({
 			command: z.literal('/release'),
@@ -44,6 +45,7 @@ const BODY = z.union([
 			user_id: z.string()
 		})
 	]),
+	// https://api.slack.com/reference/interaction-payloads/block-actions
 	z.object({
 		payload: z
 			.string()
