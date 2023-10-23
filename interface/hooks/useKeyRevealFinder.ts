@@ -58,13 +58,9 @@ export const useKeyRevealFinder = () => {
 	useKeys([shortcuts.Meta.key, 'KeyY'], (e) => {
 		e.stopPropagation();
 		if (!revealItems) return;
-		if (explorer.selectedItems.size > 0) {
 			revealItems(
 				library.uuid,
 				items
 			);
-		}
 	});
-
-
 }
