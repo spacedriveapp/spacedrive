@@ -1,35 +1,54 @@
 use std::{
 	collections::HashMap,
+	net::SocketAddr,
 	sync::{Arc, RwLock},
 };
 
-use crate::spacetunnel::RemoteIdentity;
+use crate::{spacetunnel::RemoteIdentity, PeerId};
 
 type ServiceName = String;
 
-// TODO: Hook back up to mDNS
-
 // TODO: Should this be public or hidden behind `Manager`?
 
-/// TODO
+/// DiscoveryManager controls all user-defined [Service]'s and connects them with the network through mDNS and other discovery protocols
 pub struct DiscoveryManager {
-	/// A list of services the current node is advertising
-	services: RwLock<HashMap<ServiceName, HashMap<String, String>>>,
-	/// A map of discovered devices and their metadata for each registered service
-	discovered: HashMap<ServiceName, HashMap<RemoteIdentity, HashMap<String, String>>>,
-	/// A map of known peers which should be connected to if found
-	/// This is designed around the Relay/NAT hole punching service where we need to emit who we wanna discover
-	known: HashMap<ServiceName, Vec<RemoteIdentity>>,
+	pub(crate) state: RwLock<DiscoveryManagerState>,
 }
 
 impl DiscoveryManager {
 	pub(crate) fn new() -> Arc<Self> {
 		Arc::new(Self {
-			services: todo!(),
-			discovered: todo!(),
-			known: todo!(),
+			state: Default::default(),
 		})
 	}
 
-	// pub fn register_service() {}
+	/// rebroadcast is called on changes to `self.services` to make sure all providers update their records
+	pub(crate) fn rebroadcast(&self) {
+		todo!();
+	}
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct DiscoveryManagerState {
+	/// A list of services the current node is advertising
+	pub(crate) services: HashMap<ServiceName, HashMap<String, String>>,
+	/// A map of organically discovered peers
+	pub(crate) discovered: HashMap<ServiceName, HashMap<RemoteIdentity, RemotePeer>>,
+	/// A map of peers we know about. These may be connected or not avaiable.
+	/// This is designed around the Relay/NAT hole punching service where we need to emit who we wanna discover
+	pub(crate) known: HashMap<ServiceName, HashMap<RemoteIdentity, RemotePeer>>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RemotePeerCandidate {
+	pub(crate) peer_id: PeerId,
+	pub(crate) meta: HashMap<String, String>,
+	pub(crate) addresses: Vec<SocketAddr>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum RemotePeer {
+	Unavailable,
+	Discovered(RemotePeerCandidate),
+	Connected(RemotePeerCandidate),
 }

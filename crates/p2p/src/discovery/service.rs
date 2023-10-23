@@ -1,55 +1,77 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::HashMap,
+	marker::PhantomData,
+	sync::{Arc, PoisonError},
+};
+
+use thiserror::Error;
 
 use crate::{
-	spacetime::UnicastStream,
-	spacetunnel::{Identity, RemoteIdentity},
-	DiscoveredPeer, Manager, Metadata, PeerId,
+	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, Manager, Metadata,
+	PeerId,
 };
 
 use super::DiscoveryManager;
 
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum PeerStatus {
-	Unavailable,
-	Discovered(PeerId),
-	Connected(PeerId),
-}
-
-// TODO: Allow pushing expected devices into the Service. Like we will need for the relay to work.
-
-/// A Service represents a // TODO
+/// A Service represents a thing your application exposes to the network that can be discovered and connected to.
 pub struct Service<TMeta> {
-	meta: Option<TMeta>,
+	name: String,
 	manager: Arc<DiscoveryManager>,
+	phantom: PhantomData<fn() -> TMeta>,
 }
-
-// TODO: Service per library or per application?
 
 impl<TMeta: Metadata> Service<TMeta> {
-	// TODO: ???? , identity: Identity
-	pub fn new(name: impl Into<String>, manager: Arc<DiscoveryManager>) -> Result<Self, ()> {
+	pub fn new(
+		name: impl Into<String>,
+		manager: Arc<DiscoveryManager>,
+	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
-
-		// TODO: Deal with duplicate `name`
+		{
+			let mut state = manager
+				.state
+				.write()
+				.unwrap_or_else(PoisonError::into_inner);
+			if state.services.contains_key(&name) {
+				return Err(ErrDuplicateServiceName);
+			}
+			state.services.insert(name.clone(), Default::default());
+		}
 
 		Ok(Self {
-			meta: None,
+			name,
 			manager,
+			phantom: PhantomData,
 		})
 	}
 
-	// TODO: Hook this up to rest of the app
 	pub fn update(&mut self, meta: TMeta) {
-		self.meta = Some(meta);
+		self.manager
+			.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.services
+			.insert(self.name.clone(), meta.to_hashmap());
 
-		// self.manager.
-
-		todo!(); // TODO: Tell manager to rebroadcast
+		self.manager.rebroadcast();
 	}
 
 	pub fn get_state(&self) -> HashMap<RemoteIdentity, PeerStatus> {
+		// TODO: Connected peers won't show up
+
+		// let a = self
+		// 	.manager
+		// 	.state
+		// 	.write()
+		// 	.unwrap_or_else(PoisonError::into_inner)
+		// 	.discovered
+		// 	.entry(self.name.clone())
+		// 	.or_insert(Default::default())
+		// 	.into_iter()
+		// 	.map(|(i, p)| (i.clone(), p.clone().into()))
+		// 	.collect::<Vec<_>>();
+
+		// let b = self.manager
+
 		todo!();
 	}
 
@@ -101,5 +123,28 @@ impl<TMeta: Metadata> Service<TMeta> {
 impl<Meta> Drop for Service<Meta> {
 	fn drop(&mut self) {
 		// TODO: Remove from manager
+	}
+}
+
+#[derive(Debug, Error)]
+#[error("a service has already been mounted with this name")]
+pub struct ErrDuplicateServiceName;
+
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum PeerStatus {
+	Unavailable,
+	Discovered(PeerId),
+	Connected(PeerId),
+}
+
+impl From<super::RemotePeer> for PeerStatus {
+	fn from(value: super::RemotePeer) -> Self {
+		match value {
+			super::RemotePeer::Unavailable => Self::Unavailable,
+			super::RemotePeer::Discovered(c) => Self::Discovered(c.peer_id),
+			super::RemotePeer::Connected(c) => Self::Connected(c.peer_id),
+		}
 	}
 }

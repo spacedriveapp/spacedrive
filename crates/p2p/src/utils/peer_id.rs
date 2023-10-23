@@ -5,6 +5,7 @@ use std::{fmt::Display, str::FromStr};
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
+// #[deprecated] // TODO: Remove this
 pub struct PeerId(
 	#[cfg_attr(any(feature = "specta", feature = "serde"), specta(type = String))]
 	pub(crate)  libp2p::PeerId,
