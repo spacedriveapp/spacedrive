@@ -1,7 +1,7 @@
 import {useLibraryContext} from '@sd/client';
 import { usePlatform, type Platform } from '~/util/Platform';
 import { useMemo } from 'react';
-import { useKeysMatcher } from '../../../hooks/useKeyMatcher';
+import { useKeysMatcher } from '~/hooks';
 import { useKeys } from 'rooks';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
 

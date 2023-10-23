@@ -2,7 +2,6 @@ import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeyRevealFinder } from '~/app/$libraryId/Explorer/useKeyRevealFinder';
 import { useKeysMatcher, useOperatingSystem } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
@@ -12,6 +11,7 @@ import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { useExplorerStore } from './store';
+import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
