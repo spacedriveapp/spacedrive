@@ -40,7 +40,7 @@ pub struct Manager<TMeta: Metadata> {
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
-	discovery_state: Arc<RwLock<DiscoveryManagerState>>,
+	pub(crate) discovery_state: Arc<RwLock<DiscoveryManagerState>>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
 	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMeta>>,
 }

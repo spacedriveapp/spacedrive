@@ -5,7 +5,7 @@ use std::{
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc, PoisonError, RwLock,
+		Arc, PoisonError,
 	},
 	task::Poll,
 };

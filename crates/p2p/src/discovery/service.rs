@@ -1,14 +1,14 @@
 use std::{
 	collections::HashMap,
 	marker::PhantomData,
-	sync::{Arc, PoisonError},
+	sync::{Arc, PoisonError, RwLock},
 };
 
 use thiserror::Error;
 
 use crate::{
-	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, Manager, Metadata,
-	PeerId,
+	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
+	Manager, Metadata, PeerId,
 };
 
 use super::DiscoveryManager;
@@ -16,21 +16,19 @@ use super::DiscoveryManager;
 /// A Service represents a thing your application exposes to the network that can be discovered and connected to.
 pub struct Service<TMeta> {
 	name: String,
-	manager: Arc<DiscoveryManager>,
+	state: Arc<RwLock<DiscoveryManagerState>>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
 
 impl<TMeta: Metadata> Service<TMeta> {
-	pub fn new(
+	pub fn new<TMeta2: Metadata>(
 		name: impl Into<String>,
-		manager: Arc<DiscoveryManager>,
+		manager: Arc<Manager<TMeta2>>,
 	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
+		let state = manager.discovery_state.clone();
 		{
-			let mut state = manager
-				.state
-				.write()
-				.unwrap_or_else(PoisonError::into_inner);
+			let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 			if state.services.contains_key(&name) {
 				return Err(ErrDuplicateServiceName);
 			}
@@ -39,20 +37,19 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 		Ok(Self {
 			name,
-			manager,
+			state,
 			phantom: PhantomData,
 		})
 	}
 
 	pub fn update(&mut self, meta: TMeta) {
-		self.manager
-			.state
+		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.services
 			.insert(self.name.clone(), meta.to_hashmap());
 
-		self.manager.rebroadcast();
+		// self.manager.rebroadcast(); // TODO
 	}
 
 	pub fn get_state(&self) -> HashMap<RemoteIdentity, PeerStatus> {

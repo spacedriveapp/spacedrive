@@ -81,7 +81,7 @@ impl P2PManager {
 
 		Ok((
 			Arc::new(Self {
-				node: Service::new("node", &manager).unwrap(),
+				node: Service::new("node", manager.clone()).unwrap(),
 				libraries: Default::default(), // TODO: Initially populate this
 				pairing,
 				events: (tx, rx),
