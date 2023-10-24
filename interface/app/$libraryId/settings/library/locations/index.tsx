@@ -17,7 +17,7 @@ export const Component = () => {
 		() =>
 			locations.data?.filter(
 				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
-			),
+			) ?? [],
 		[debouncedSearch, locations.data]
 	);
 
@@ -38,7 +38,7 @@ export const Component = () => {
 				}
 			/>
 			<div className="grid space-y-2">
-				{filteredLocations?.map((location) => (
+				{filteredLocations.map((location) => (
 					<ListItem key={location.id} location={location} />
 				))}
 			</div>

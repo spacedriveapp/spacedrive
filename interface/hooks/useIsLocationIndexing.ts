@@ -6,21 +6,19 @@ import { useLibraryQuery } from '@sd/client';
 */
 
 export const useIsLocationIndexing = (locationId: number): boolean => {
-
 	const { data: jobGroups } = useLibraryQuery(['jobs.reports'], {
 		enabled: locationId != null,
 		refetchOnWindowFocus: false
 	});
 
-	const isLocationIndexing = jobGroups?.some(group =>
-		group.jobs.some(job => {
-			if (job.name === 'indexer' && job.metadata.location.id === locationId) {
-				return job.completed_task_count === 0
-			}
-		}
-		)
-	) || false;
+	const isLocationIndexing =
+		jobGroups?.some((group) =>
+			group.jobs.some((job) => {
+				if (job.name === 'indexer' && job.metadata.location.id === locationId) {
+					return job.completed_task_count === 0;
+				}
+			})
+		) || false;
 
 	return isLocationIndexing;
-}
-
+};

@@ -83,7 +83,7 @@ export const QuickPreview = () => {
 		[explorer.selectedItems, open]
 	);
 
-	const item = useMemo(() => items[itemIndex], [items, itemIndex]);
+	const item = useMemo(() => items[itemIndex] ?? null, [items, itemIndex]);
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
@@ -576,9 +576,9 @@ const IconButton = ({
 	return (
 		<button
 			className={clsx(
-				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none backdrop-blur-none',
-				'hover:opacity-100 hover:backdrop-blur',
-				'focus:opacity-100 focus:backdrop-blur',
+				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none',
+				'hover:opacity-100',
+				'focus:opacity-100',
 				'disabled:pointer-events-none disabled:opacity-40',
 				isDark || quickPreview.background
 					? quickPreview.background
@@ -586,7 +586,7 @@ const IconButton = ({
 						: 'hover:bg-app-box focus:bg-app-box'
 					: 'hover:bg-black/[.075] focus:bg-black/[.075]',
 				active && [
-					'!opacity-100 backdrop-blur',
+					'!opacity-100',
 					isDark || quickPreview.background
 						? quickPreview.background
 							? 'bg-white/[.15]'

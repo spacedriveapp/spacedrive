@@ -1,6 +1,6 @@
 import { Loader } from '@sd/ui';
 
-import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 
 export default function OnboardingCreatingLibrary() {
 	return (

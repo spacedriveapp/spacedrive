@@ -63,7 +63,7 @@ const Layout = () => {
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);
-	}, []);
+	}, [plausibleEvent]);
 
 	const ctxValue = useMemo(() => ({ ref: layoutRef }), [layoutRef]);
 
