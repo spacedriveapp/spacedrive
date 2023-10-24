@@ -54,7 +54,7 @@ const nextConfig = {
 			// Convert all other *.svg imports to React components so it's compatible with Vite's plugin.
 			{
 				test: /\.svg$/i,
-				issuer: /\.[jt]sx?$/,
+				issuer: { not: /\.(css|scss|sass)$/ },
 				resourceQuery: { not: /url/ }, // exclude if *.svg?url
 				use: [
 					{

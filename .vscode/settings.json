@@ -39,6 +39,7 @@
 	"rust-analyzer.diagnostics.experimental.enable": false,
 	"tailwindCSS.experimental.classRegex": [
 		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"], // cva(....)`...`
+		["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"], // clsx(....)`...`
 		"tw\\.[^`]+`([^`]*)`", // tw.xxx`...`
 		"tw\\(.*?\\).*?`([^`]*)", // tw(....)`...`
 		"tw`([^`]*)", // tw`...` (mobile)
@@ -46,12 +47,14 @@
 		["styled\\([^,)]+,([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"] // styled(....)`...` (mobile)
 	],
 	"search.exclude": {
+		"node_modules": true,
 		"**/node_modules": true,
 		"**/bower_components": true,
 		"**/*.code-search": true,
 		// Hiding these folders bcs they create a lot of noise in the search results
 		"**/*.contentlayer": true,
 		"**/*.next": true,
+		"**/dist": true,
 		"apps/mobile/ios/Pods": true,
 		"apps/mobile/android": true,
 		"apps/mobile/ios": true

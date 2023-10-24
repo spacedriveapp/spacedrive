@@ -1,4 +1,4 @@
-import { CaretRight, List, X } from '@phosphor-icons/react';
+import { CaretRight, List, X } from '@phosphor-icons/react/dist/ssr';
 import { PropsWithChildren, useState } from 'react';
 import { slide as Menu } from 'react-burger-menu';
 import { Button } from '@sd/ui';

@@ -1,4 +1,4 @@
-import { Download } from '@phosphor-icons/react';
+import { Download } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import { useInView } from 'framer-motion';
 import React, { useRef } from 'react';

@@ -4,11 +4,13 @@ import { env } from '~/env';
 type Release = components['schemas']['release'];
 
 const FETCH_META = {
-	headers: {
-		Authorization: `Bearer ${env.GITHUB_PAT}`,
-		Accept: 'application/vnd.github+json'
-	}
-} as RequestInit;
+	headers: new Headers({
+		'Accept': 'application/vnd.github+json',
+		'X-GitHub-Api-Version': '2022-11-28'
+	})
+};
+
+if (env.GITHUB_PAT) FETCH_META.headers.set('Authorization', `Bearer ${env.GITHUB_PAT}`);
 
 export const RELEASES_PATH = `/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}/releases`;
 
