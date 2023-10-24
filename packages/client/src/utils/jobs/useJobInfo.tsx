@@ -88,7 +88,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 								} of ${formatNumber(taskCount)} ${plural(
 									taskCount,
 									'thumbnail'
-								)} processed`
+								)} generated`
 							}
 						];
 					}
