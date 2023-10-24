@@ -104,7 +104,7 @@ export function useCategoryExplorer(category: Category) {
 	});
 
 	const objectsItems = useMemo(
-		() => objectsQuery.data?.pages?.flatMap((d) => d.items),
+		() => objectsQuery.data?.pages?.flatMap((d) => d.items) ?? [],
 		[objectsQuery.data]
 	);
 
@@ -122,7 +122,7 @@ export function useCategoryExplorer(category: Category) {
 	});
 
 	const pathsItems = useMemo(
-		() => pathsQuery.data?.pages?.flatMap((d) => d.items),
+		() => pathsQuery.data?.pages?.flatMap((d) => d.items) ?? [],
 		[pathsQuery.data]
 	);
 

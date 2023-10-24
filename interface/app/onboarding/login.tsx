@@ -4,7 +4,7 @@ import { auth, useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Loader } from '@sd/ui';
 import { LoginButton } from '~/components/LoginButton';
 
-import { OnboardingContainer } from './Layout';
+import { OnboardingContainer } from './components';
 
 export default function OnboardingLogin() {
 	const authState = auth.useStateSnapshot();

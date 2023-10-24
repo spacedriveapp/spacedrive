@@ -82,7 +82,7 @@ export function ErrorPage({
 			data-tauri-drag-region
 			role="alert"
 			className={
-				'flex h-screen w-screen flex-col items-center justify-center border border-app-divider p-4' +
+				'flex h-screen w-screen flex-col items-center justify-center border border-app-divider bg-app p-4' +
 				(isMacOS ? ' rounded-lg' : '')
 			}
 		>

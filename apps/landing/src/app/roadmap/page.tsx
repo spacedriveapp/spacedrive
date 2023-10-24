@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32">
+		<div className="lg:prose-xs container prose m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32 dark:prose-invert">
 			<section className="flex flex-col items-center">
 				<h1 className="fade-in-heading mb-0 text-center text-5xl leading-snug">
 					What's next for Spacedrive?
