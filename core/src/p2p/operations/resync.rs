@@ -6,14 +6,14 @@ use sd_p2p::{spacetunnel::RemoteIdentity, PeerId, PeerStatus};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use crate::{
-	p2p::{Header, Libraries, P2PManager},
+	p2p::{Header, LibraryServices, P2PManager},
 	Node,
 };
 
 // TODO: Break off `P2PManager`
 impl P2PManager {
 	pub async fn resync(
-		libraries: &Libraries,
+		libraries: &LibraryServices,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		instances: Vec<RemoteIdentity>,
@@ -35,7 +35,7 @@ impl P2PManager {
 	}
 
 	pub async fn resync_handler(
-		libraries: &Libraries,
+		libraries: &LibraryServices,
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		peer_id: PeerId,
 		local_identities: Vec<RemoteIdentity>,
@@ -53,7 +53,7 @@ impl P2PManager {
 
 	// TODO: Using tunnel for security - Right now all sync events here are unencrypted
 	pub async fn resync_part2(
-		libraries: &Libraries,
+		libraries: &LibraryServices,
 		node: Arc<Node>,
 		connected_with_peer_id: &PeerId,
 	) {

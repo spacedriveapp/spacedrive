@@ -41,7 +41,9 @@ impl DiscoveryManager {
 		self.rebroadcast();
 	}
 
-	pub(crate) fn poll(&mut self, cx: &mut Context<'_>) {}
+	pub(crate) fn poll(&mut self, cx: &mut Context<'_>) {
+		// TODO
+	}
 
 	pub(crate) fn shutdown(&self) {
 		// todo!();

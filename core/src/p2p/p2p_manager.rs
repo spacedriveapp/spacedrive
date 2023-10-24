@@ -34,13 +34,12 @@ use crate::{
 
 use super::{sync::SyncMessage, Header, P2PEvent, PairingManager, PeerMetadata};
 
-// TODO: Rename instances
-pub(super) type Libraries = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
+pub(super) type LibraryServices = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
 
 pub struct P2PManager {
 	// TODO: Remove `pub(crate)` from these
 	pub(crate) node: Service<PeerMetadata>,
-	pub(crate) libraries: Libraries,
+	pub(crate) libraries: LibraryServices,
 
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager>,
@@ -432,7 +431,7 @@ impl P2PManager {
 
 	// TODO: Can this be merged with `peer_connected`???
 	pub(super) fn peer_connected2(
-		libraries: &Libraries,
+		libraries: &LibraryServices,
 		instance_id: RemoteIdentity,
 		peer_id: PeerId,
 	) {
