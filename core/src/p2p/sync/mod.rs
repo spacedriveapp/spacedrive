@@ -37,12 +37,18 @@ pub(crate) async fn networked_libraries_v2(
 			let manager = manager.clone();
 			async move {
 				match msg {
-					LibraryManagerEvent::Load(library) => load_library(manager, &library).await,
-					LibraryManagerEvent::Edit(library) => edit_library(manager, &library).await,
-					LibraryManagerEvent::InstancesModified(library) => {
-						load_library(manager, &library).await
+					LibraryManagerEvent::Load(library) => {
+						manager.libraries.load_library(&library).await
 					}
-					LibraryManagerEvent::Delete(library) => delete_library(manager, &library).await,
+					LibraryManagerEvent::Edit(library) => {
+						manager.libraries.edit_library(&library).await
+					}
+					LibraryManagerEvent::InstancesModified(library) => {
+						manager.libraries.load_library(&library).await
+					}
+					LibraryManagerEvent::Delete(library) => {
+						manager.libraries.delete_library(&library).await
+					}
 				}
 			}
 		})
@@ -50,86 +56,6 @@ pub(crate) async fn networked_libraries_v2(
 	{
 		error!("Core may become unstable! `networked_libraries_v2` manager aborted with error: {err:?}");
 	}
-}
-
-async fn load_library(manager: Arc<P2PManager>, library: &Library) {
-	let (db_owned_instances, db_instances): (Vec<_>, Vec<_>) = library
-		.db
-		.instance()
-		.find_many(vec![])
-		.exec()
-		.await
-		.unwrap()
-		.into_iter()
-		.partition_map(
-			// TODO: Error handling
-			|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-				IdentityOrRemoteIdentity::Identity(identity) => Either::Left(identity),
-				IdentityOrRemoteIdentity::RemoteIdentity(identity) => Either::Right(identity),
-			},
-		);
-
-	// let mut libraries = manager
-	// 	.libraries
-	// 	.write()
-	// 	.unwrap_or_else(PoisonError::into_inner);
-
-	// // `self.owned_instances` exists so this call to `load_library` does override instances of other libraries.
-	// if db_owned_instances.len() != 1 {
-	// 	panic!(
-	// 		"Library has '{}' owned instance! Something has gone very wrong!",
-	// 		db_owned_instances.len()
-	// 	);
-	// }
-	// owned_instances.insert(library.id, db_owned_instances[0].to_remote_identity());
-
-	// TODO: Maintain old data.
-	// let mut old_data = libraries.remove(&library.id);
-	// libraries.insert(
-	// 	library.id,
-	// 	Service::new(),
-	// 	LibraryData {
-	// 		// We register all remote instances to track connection state(`IdentityOrRemoteIdentity::RemoteIdentity`'s only).
-	// 		instances: db_instances
-	// 			.into_iter()
-	// 			.map(|identity| {
-	// 				(
-	// 					identity.clone(),
-	// 					match old_data
-	// 						.as_mut()
-	// 						.and_then(|d| d.instances.remove(&identity))
-	// 					{
-	// 						Some(data) => data,
-	// 						None => InstanceState::Unavailable,
-	// 					},
-	// 				)
-	// 			})
-	// 			.collect(),
-	// 	},
-	// );
-
-	// self.p2p
-	// 	.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
-	// 	.await;
-}
-
-async fn edit_library(manager: Arc<P2PManager>, _library: &Library) {
-	// TODO: Send changes to all connected nodes!
-
-	// TODO: Update mdns
-}
-
-async fn delete_library(manager: Arc<P2PManager>, library: &Library) {
-	// // Lock them together to ensure changes to both become visible to readers at the same time
-	// let mut libraries = self.libraries.write().await;
-	// let mut owned_instances = self.owned_instances.write().await;
-
-	// // TODO: Do proper library delete/unpair procedure.
-	// libraries.remove(&library.id);
-	// owned_instances.remove(&library.id);
-	// self.p2p
-	// 	.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
-	// 	.await;
 }
 
 pub use originator::run as originator;

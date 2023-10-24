@@ -3,7 +3,7 @@ use std::{
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use sd_p2p::{spacetunnel::RemoteIdentity, DiscoveredPeer, Manager, ManagerError, Service};
+use sd_p2p::{Manager, ManagerError, Service};
 use tokio::sync::{broadcast, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
@@ -50,10 +50,10 @@ impl P2PManager {
 		let (tx, rx) = broadcast::channel(100);
 		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
-		let (ls_tx, ls_rx) = broadcast::channel(10);
+		let (ls_tx, _ls_rx) = broadcast::channel(10);
 		let this = Arc::new(Self {
 			node: Service::new("node", manager.clone()).unwrap(),
-			libraries: LibraryServices::new(ls_tx.clone()), // TODO: Initially populate this
+			libraries: LibraryServices::new(ls_tx.clone()),
 			pairing,
 			events: (tx, rx),
 			manager,
@@ -69,7 +69,6 @@ impl P2PManager {
 			P2PManagerActor {
 				manager: this,
 				stream,
-				// rx,
 			},
 		))
 	}
@@ -78,7 +77,7 @@ impl P2PManager {
 		Some(self.libraries.get(library_id)?)
 	}
 
-	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
+	pub async fn update_metadata(&self) {
 		self.node.update({
 			let config = self.node_config_manager.get().await;
 			PeerMetadata {
@@ -87,41 +86,6 @@ impl P2PManager {
 				version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			}
 		});
-
-		// TODO: Update the instance services
-		for instance in instances {
-			// self.libraries.
-		}
-	}
-
-	pub(super) async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
-		let mut should_connect = false;
-		// for lib in self
-		// 	.libraries
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.values_mut()
-		// {
-		// 	if let Some((_pk, instance)) = lib
-		// 		._get_mut()
-		// 		.iter_mut()
-		// 		.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
-		// 	{
-		// 		if !matches!(instance, PeerStatus::Connected(_)) {
-		// 			should_connect = matches!(instance, PeerStatus::Unavailable);
-
-		// 			*instance = PeerStatus::Discovered(event.peer_id);
-		// 		}
-
-		// 		break; // PK can only exist once so we short circuit
-		// 	}
-		// }
-		todo!();
-
-		// We do this here not in the loop so the future can be `Send`
-		if should_connect {
-			event.dial().await;
-		}
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
