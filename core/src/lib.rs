@@ -101,7 +101,7 @@ impl Node {
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
-		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
+		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
@@ -137,7 +137,7 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		node.p2p.clone().start(p2p_stream, node.clone());
+		p2p_actor.start(node.clone());
 
 		let router = api::mount();
 

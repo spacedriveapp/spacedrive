@@ -11,14 +11,16 @@ use std::{
 use futures::future::join_all;
 use sd_p2p::{
 	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	PeerId,
+	spacetime::UnicastStream,
+	PeerId, PeerMessageEvent,
 };
 use tokio::{
-	fs::File,
-	io::{AsyncReadExt, AsyncWriteExt, BufReader},
+	fs::{create_dir_all, File},
+	io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
+	sync::oneshot,
 	time::{sleep, Instant},
 };
-use tracing::debug;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::p2p::{Header, P2PEvent, P2PManager};
@@ -159,4 +161,111 @@ impl P2PManager {
 			cancelled.store(true, Ordering::Relaxed);
 		}
 	}
+}
+
+pub(crate) async fn reciever(
+	this: &Arc<P2PManager>,
+	req: SpaceblockRequests,
+	event: PeerMessageEvent<UnicastStream>,
+) {
+	let id = req.id;
+	let mut stream = event.stream;
+	let (tx, rx) = oneshot::channel();
+
+	info!(
+		"({id}): received '{}' files from peer '{}' with block size '{:?}'",
+		req.requests.len(),
+		event.peer_id,
+		req.block_size
+	);
+	this.spacedrop_pairing_reqs.lock().await.insert(id, tx);
+
+	if this
+		.events
+		.0
+		.send(P2PEvent::SpacedropRequest {
+			id,
+			peer_id: event.peer_id,
+			peer_name: "Unknown".into(),
+			// TODO: A better solution to this
+			// manager
+			// 	.get_discovered_peers()
+			// 	.await
+			// 	.into_iter()
+			// 	.find(|p| p.peer_id == event.peer_id)
+			// 	.map(|p| p.metadata.name)
+			// 	.unwrap_or_else(|| "Unknown".to_string()),
+			files: req
+				.requests
+				.iter()
+				.map(|req| req.name.clone())
+				.collect::<Vec<_>>(),
+		})
+		.is_err()
+	{
+		// No frontend's are active
+
+		todo!("Outright reject Spacedrop");
+	}
+
+	tokio::select! {
+		_ = sleep(SPACEDROP_TIMEOUT) => {
+			info!("({id}): timeout, rejecting!");
+
+			stream.write_all(&[0]).await.unwrap();
+			stream.flush().await.unwrap();
+		}
+		file_path = rx => {
+			match file_path {
+				Ok(Some(file_path)) => {
+					info!("({id}): accepted saving to '{:?}'", file_path);
+
+					let cancelled = Arc::new(AtomicBool::new(false));
+					this.spacedrop_cancelations
+						.lock()
+						.await
+						.insert(id, cancelled.clone());
+
+					stream.write_all(&[1]).await.unwrap();
+
+					let names = req.requests.iter().map(|req| req.name.clone()).collect::<Vec<_>>();
+					let mut transfer = Transfer::new(&req, |percent| {
+						this.events.0.send(P2PEvent::SpacedropProgress { id, percent }).ok();
+					}, &cancelled);
+
+					let file_path = PathBuf::from(file_path);
+					let names_len = names.len();
+					for file_name in names {
+						 // When transferring more than 1 file we wanna join the incoming file name to the directory provided by the user
+						 let mut path = file_path.clone();
+						 if names_len != 1 {
+							// We know the `file_path` will be a directory so we can just push the file name to it
+							path.push(&file_name);
+						}
+
+						debug!("({id}): accepting '{file_name}' and saving to '{:?}'", path);
+
+						if let Some(parent) = path.parent() {
+						 create_dir_all(parent).await.unwrap();
+						}
+
+						let f = File::create(path).await.unwrap();
+						let f = BufWriter::new(f);
+						transfer.receive(&mut stream, f).await;
+					}
+
+					info!("({id}): complete");
+				}
+				Ok(None) => {
+					info!("({id}): rejected");
+
+					stream.write_all(&[0]).await.unwrap();
+					stream.flush().await.unwrap();
+				}
+				Err(_) => {
+					info!("({id}): error with Spacedrop pairing request receiver!");
+				}
+			}
+		}
+	};
 }

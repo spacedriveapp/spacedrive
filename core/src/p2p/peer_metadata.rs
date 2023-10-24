@@ -26,7 +26,7 @@ impl Metadata for PeerMetadata {
 		map
 	}
 
-	fn from_hashmap(peer_id: &PeerId, data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{

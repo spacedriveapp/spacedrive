@@ -5,12 +5,11 @@ use std::{
 };
 
 use sd_p2p::{spacetunnel::RemoteIdentity, PeerId, PeerStatus, Service};
-use streamunordered::StreamUnordered;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::PeerMetadata;
 
-#[derive(Default)]
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>,
 	// TODO: Hook this up -> Maybe on it's own task
@@ -26,6 +25,10 @@ impl fmt::Debug for LibraryServices {
 }
 
 impl LibraryServices {
+	pub fn new(rx: mpsc::Receiver<()>) -> Self {
+		todo!();
+	}
+
 	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
 		self.services
 			.read()

@@ -1,6 +1,6 @@
 //! TODO: I wanna remove this and replace it with a system in the P2P library itself!!!!
 
-use std::sync::{Arc, PoisonError};
+use std::sync::Arc;
 
 use sd_p2p::{spacetunnel::RemoteIdentity, PeerId, PeerStatus};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};

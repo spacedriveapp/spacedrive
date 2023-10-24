@@ -8,6 +8,15 @@ use sd_p2p::{
 	spacetunnel::RemoteIdentity,
 };
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct HeaderFile {
+	// Request ID
+	pub(crate) id: Uuid,
+	pub(crate) library_id: Uuid,
+	pub(crate) file_path_id: Uuid,
+	pub(crate) range: Range,
+}
+
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub enum Header {
@@ -16,14 +25,7 @@ pub enum Header {
 	Spacedrop(SpaceblockRequests),
 	Pair,
 	Sync(Uuid),
-	File {
-		// Request ID
-		id: Uuid,
-		library_id: Uuid,
-		file_path_id: Uuid,
-		range: Range,
-	},
-
+	File(HeaderFile),
 	// TODO: Remove need for this
 	Connected(Vec<RemoteIdentity>),
 }
@@ -58,7 +60,7 @@ impl Header {
 					.await
 					.map_err(HeaderError::SyncRequest)?,
 			)),
-			4 => Ok(Self::File {
+			4 => Ok(Self::File(HeaderFile {
 				id: decode::uuid(stream).await.unwrap(),
 				library_id: decode::uuid(stream).await.unwrap(),
 				file_path_id: decode::uuid(stream).await.unwrap(),
@@ -71,7 +73,7 @@ impl Header {
 					}
 					_ => todo!(),
 				},
-			}),
+			})),
 			// TODO: Error handling
 			255 => Ok(Self::Connected({
 				let len = stream.read_u16_le().await.unwrap();
@@ -101,12 +103,12 @@ impl Header {
 				encode::uuid(&mut bytes, uuid);
 				bytes
 			}
-			Self::File {
+			Self::File(HeaderFile {
 				id,
 				library_id,
 				file_path_id,
 				range,
-			} => {
+			}) => {
 				let mut buf = vec![4];
 				encode::uuid(&mut buf, id);
 				encode::uuid(&mut buf, library_id);

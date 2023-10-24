@@ -1,22 +1,16 @@
-use std::{
-	collections::HashMap,
-	sync::{Arc, PoisonError},
-};
+use std::sync::Arc;
 
 use itertools::{Either, Itertools};
 use sd_p2p::{
 	proto::{decode, encode},
-	spacetunnel::{RemoteIdentity, Tunnel},
-	DiscoveredPeer, PeerId,
+	spacetunnel::Tunnel,
 };
 use sd_sync::CRDTOperation;
-use serde::Serialize;
-use specta::Type;
 use sync::GetOpsArgs;
 
 use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-	sync::RwLock,
+	sync::mpsc,
 };
 use tracing::*;
 use uuid::Uuid;
@@ -26,12 +20,16 @@ use crate::{
 	sync,
 };
 
-use super::{Header, IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
+use super::{Header, IdentityOrRemoteIdentity, P2PManager};
 
 mod proto;
 pub use proto::*;
 
-pub(crate) async fn networked_libraries_v2(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
+pub(crate) async fn networked_libraries_v2(
+	manager: Arc<P2PManager>,
+	libraries: Arc<Libraries>,
+	tx: mpsc::Sender<()>,
+) {
 	if let Err(err) = libraries
 		.rx
 		.clone()
