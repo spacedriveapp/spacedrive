@@ -5,6 +5,7 @@ use std::{
 };
 
 use thiserror::Error;
+use tokio::sync::{broadcast, mpsc};
 
 use crate::{
 	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
@@ -15,6 +16,7 @@ use crate::{
 pub struct Service<TMeta> {
 	name: String,
 	state: Arc<RwLock<DiscoveryManagerState>>,
+	chan: broadcast::Sender<()>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
 
@@ -25,17 +27,19 @@ impl<TMeta: Metadata> Service<TMeta> {
 	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
 		let state = manager.discovery_state.clone();
-		{
+		let chan = {
 			let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 			if state.services.contains_key(&name) {
 				return Err(ErrDuplicateServiceName);
 			}
 			state.services.insert(name.clone(), Default::default());
-		}
+			state.tx_chan.clone()
+		};
 
 		Ok(Self {
 			name,
 			state,
+			chan,
 			phantom: PhantomData,
 		})
 	}
@@ -95,6 +99,11 @@ impl<TMeta: Metadata> Service<TMeta> {
 		// TODO: Error handling
 		let stream = manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 		Ok(stream)
+	}
+
+	pub fn listen(&self) -> broadcast::Receiver<()> {
+		// TODO: Filtering of events -> Discover and expire events only???
+		self.chan.subscribe()
 	}
 }
 

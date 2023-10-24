@@ -9,13 +9,14 @@ use std::{
 
 use libp2p::futures::FutureExt;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use streamunordered::StreamUnordered;
 use tokio::{
 	sync::mpsc,
 	time::{sleep_until, Instant, Sleep},
 };
 use tracing::{trace, warn};
 
-use crate::{DiscoveryManager, Event, MultiFlume, PeerId};
+use crate::{DiscoveryManager, Event, PeerId};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -24,7 +25,7 @@ pub(crate) struct Mdns {
 	// used to ignore events from our own mdns advertisement
 	peer_id: PeerId,
 	mdns_daemon: ServiceDaemon,
-	services_rx: MultiFlume<ServiceEvent>,
+	services_rx: StreamUnordered<mpsc::Receiver<ServiceEvent>>,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 }
 

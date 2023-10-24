@@ -5,6 +5,8 @@ use std::{
 	task::Context,
 };
 
+use tokio::sync::broadcast;
+
 use crate::{spacetunnel::RemoteIdentity, Mdns, PeerId};
 
 type ServiceName = String;
@@ -50,7 +52,7 @@ impl DiscoveryManager {
 	}
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct DiscoveryManagerState {
 	/// A list of services the current node is advertising
 	pub(crate) services: HashMap<ServiceName, HashMap<String, String>>,
@@ -59,6 +61,20 @@ pub(crate) struct DiscoveryManagerState {
 	/// A map of peers we know about. These may be connected or not avaiable.
 	/// This is designed around the Relay/NAT hole punching service where we need to emit who we wanna discover
 	pub(crate) known: HashMap<ServiceName, HashMap<RemoteIdentity, RemotePeer>>,
+	/// The channel for communicating with between services and the discovery manager
+	/// You are intended to clone out of this instead of locking the whole struct's `RwLock` each time you wanna use it.
+	pub(crate) tx_chan: broadcast::Sender<()>,
+}
+
+impl Default for DiscoveryManagerState {
+	fn default() -> Self {
+		Self {
+			services: Default::default(),
+			discovered: Default::default(),
+			known: Default::default(),
+			tx_chan: broadcast::channel(10).0,
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -73,4 +89,10 @@ pub(crate) enum RemotePeer {
 	Unavailable,
 	Discovered(RemotePeerCandidate),
 	Connected(RemotePeerCandidate),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum Msg {
+	PeerDiscovered(()),
+	PeerExpired(()),
 }

@@ -6759,6 +6759,7 @@ dependencies = [
  "slotmap",
  "specta",
  "static_assertions",
+ "streamunordered",
  "strum",
  "strum_macros",
  "sysinfo",
@@ -6983,6 +6984,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "specta",
+ "streamunordered",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -7689,6 +7691,18 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "streamunordered"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b49452854e4b797cc320ffc3d88d88a08da8cd675f01958f650a14066f9a16"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "slab",
+]
 
 [[package]]
 name = "strict-num"

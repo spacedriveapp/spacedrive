@@ -71,10 +71,10 @@ async fn load_library(manager: Arc<P2PManager>, library: &Library) {
 			},
 		);
 
-	let mut libraries = manager
-		.libraries
-		.write()
-		.unwrap_or_else(PoisonError::into_inner);
+	// let mut libraries = manager
+	// 	.libraries
+	// 	.write()
+	// 	.unwrap_or_else(PoisonError::into_inner);
 
 	// // `self.owned_instances` exists so this call to `load_library` does override instances of other libraries.
 	// if db_owned_instances.len() != 1 {

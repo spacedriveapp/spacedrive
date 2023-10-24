@@ -32,14 +32,12 @@ use crate::{
 	Node,
 };
 
-use super::{sync::SyncMessage, Header, P2PEvent, PairingManager, PeerMetadata};
-
-pub(super) type LibraryServices = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
+use super::{sync::SyncMessage, Header, LibraryServices, P2PEvent, PairingManager, PeerMetadata};
 
 pub struct P2PManager {
 	// TODO: Remove `pub(crate)` from these
 	pub(crate) node: Service<PeerMetadata>,
-	pub(crate) libraries: LibraryServices,
+	libraries: LibraryServices,
 
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager>,
@@ -127,7 +125,7 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							this.peer_connected(event.peer_id);
+							this.libraries.peer_connected(event.peer_id);
 
 							let this = this.clone();
 							let node = node.clone();
@@ -156,7 +154,7 @@ impl P2PManager {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							this.peer_disconnected(peer_id);
+							this.libraries.peer_disconnected(peer_id);
 						}
 						Event::PeerMessage(event) => {
 							let this = this.clone();
@@ -404,13 +402,7 @@ impl P2PManager {
 	}
 
 	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
-		Some(
-			self.libraries
-				.read()
-				.unwrap_or_else(PoisonError::into_inner)
-				.get(library_id)?
-				.clone(),
-		)
+		Some(self.libraries.get(library_id)?)
 	}
 
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
@@ -426,24 +418,6 @@ impl P2PManager {
 		// TODO: Update the instance services
 		for instance in instances {
 			// self.libraries.
-		}
-	}
-
-	// TODO: Can this be merged with `peer_connected`???
-	pub(super) fn peer_connected2(
-		libraries: &LibraryServices,
-		instance_id: RemoteIdentity,
-		peer_id: PeerId,
-	) {
-		for lib in libraries
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			if let Some(instance) = lib._get_mut().get_mut(&instance_id) {
-				*instance = PeerStatus::Connected(peer_id);
-				return; // Will only exist once so we short circuit
-			}
 		}
 	}
 
@@ -477,60 +451,6 @@ impl P2PManager {
 		}
 	}
 
-	pub(super) fn peer_expired(&self, id: PeerId) {
-		for lib in self
-			.libraries
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Discovered(peer_id) = instance {
-					if *peer_id == id {
-						*instance = PeerStatus::Unavailable;
-					}
-				}
-			}
-		}
-	}
-
-	pub(super) fn peer_connected(&self, peer_id: PeerId) {
-		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
-		// TODO: Hence part of the need for `Self::peer_connected2`
-		for lib in self
-			.libraries
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Discovered(id) = instance {
-					if *id == peer_id {
-						*instance = PeerStatus::Connected(peer_id);
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
-	}
-
-	pub(super) fn peer_disconnected(&self, peer_id: PeerId) {
-		for lib in self
-			.libraries
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Connected(id) = instance {
-					if *id == peer_id {
-						*instance = PeerStatus::Unavailable;
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
-	}
 	pub fn subscribe(&self) -> broadcast::Receiver<P2PEvent> {
 		self.events.0.subscribe()
 	}

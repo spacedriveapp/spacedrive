@@ -39,6 +39,7 @@ ed25519-dalek = { version = "2.0.0", features = [] }
 rand_core = { version = "0.6.4" }
 uuid = "1.4.1"
 hex = "0.4.3"
+streamunordered = "0.5.3"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

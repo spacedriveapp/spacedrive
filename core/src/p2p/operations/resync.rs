@@ -30,7 +30,7 @@ impl P2PManager {
 		};
 
 		for identity in identities {
-			Self::peer_connected2(libraries, identity, peer_id);
+			LibraryServices::peer_connected2(libraries, identity, peer_id);
 		}
 	}
 
@@ -42,7 +42,7 @@ impl P2PManager {
 		remote_identities: Vec<RemoteIdentity>,
 	) {
 		for identity in remote_identities {
-			Self::peer_connected2(libraries, identity, peer_id);
+			LibraryServices::peer_connected2(libraries, identity, peer_id);
 		}
 
 		stream
@@ -57,12 +57,7 @@ impl P2PManager {
 		node: Arc<Node>,
 		connected_with_peer_id: &PeerId,
 	) {
-		let data = libraries
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.iter()
-			.map(|(k, v)| (k.clone(), v.clone()))
-			.collect::<Vec<_>>();
+		let data = libraries.libraries();
 
 		for (library_id, data) in data {
 			let mut library = None;
