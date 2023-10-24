@@ -3,6 +3,7 @@ use crate::{api::CoreEvent, util::error::FileIOError};
 use sd_file_ext::extensions::{DocumentExtension, ImageExtension};
 use sd_images::{format_image, scale_dimensions};
 use sd_media_metadata::image::Orientation;
+use sd_prisma::prisma::location;
 
 use std::{
 	collections::VecDeque,
@@ -10,6 +11,7 @@ use std::{
 	ops::Deref,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
 use async_channel as chan;
@@ -50,28 +52,50 @@ impl GenerateThumbnailArgs {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BatchToProcess {
-	pub batch: Vec<GenerateThumbnailArgs>,
-	pub should_regenerate: bool,
-	pub in_background: bool,
+	pub(super) batch: Vec<GenerateThumbnailArgs>,
+	pub(super) should_regenerate: bool,
+	pub(super) in_background: bool,
+	pub(super) location_id: Option<location::id::Type>,
+}
+
+impl BatchToProcess {
+	pub fn new(
+		batch: Vec<GenerateThumbnailArgs>,
+		should_regenerate: bool,
+		in_background: bool,
+	) -> Self {
+		Self {
+			batch,
+			should_regenerate,
+			in_background,
+			location_id: None,
+		}
+	}
 }
 
 pub(super) struct ProcessorControlChannels {
 	pub stop_rx: chan::Receiver<oneshot::Sender<()>>,
 	pub done_tx: oneshot::Sender<()>,
+	pub batch_report_progress_tx: chan::Sender<(location::id::Type, u32)>,
 }
 
 pub(super) async fn batch_processor(
-	thumbnails_directory: PathBuf,
+	thumbnails_directory: Arc<PathBuf>,
 	(
 		BatchToProcess {
 			batch,
 			should_regenerate,
 			in_background,
+			location_id,
 		},
 		kind,
 	): (BatchToProcess, ThumbnailKind),
 	generated_ephemeral_thumbs_file_names_tx: chan::Sender<Vec<OsString>>,
-	ProcessorControlChannels { stop_rx, done_tx }: ProcessorControlChannels,
+	ProcessorControlChannels {
+		stop_rx,
+		done_tx,
+		batch_report_progress_tx,
+	}: ProcessorControlChannels,
 	leftovers_tx: chan::Sender<(BatchToProcess, ThumbnailKind)>,
 	reporter: broadcast::Sender<CoreEvent>,
 	batch_size: usize,
@@ -95,9 +119,6 @@ pub(super) async fn batch_processor(
 		Stop(oneshot::Sender<()>),
 	}
 
-	// Need this borrow here to satisfy the async move below
-	let generated_ephemeral_thumbs_file_names_tx = &generated_ephemeral_thumbs_file_names_tx;
-
 	while !queue.is_empty() {
 		let chunk = (0..batch_size)
 			.filter_map(|_| queue.pop_front())
@@ -108,7 +129,7 @@ pub(super) async fn batch_processor(
 				     path,
 				 }| {
 					let reporter = reporter.clone();
-					let thumbnails_directory = thumbnails_directory.clone();
+					let thumbnails_directory = thumbnails_directory.as_ref().clone();
 					spawn(async move {
 						timeout(
 							THIRTY_SECS,
@@ -132,44 +153,61 @@ pub(super) async fn batch_processor(
 			)
 			.collect::<Vec<_>>();
 
-		if let RaceOutputs::Stop(tx) = (
-			async move {
-				let cas_ids = chunk
-					.join()
-					.await
-					.into_iter()
-					.filter_map(|join_result| {
-						join_result
-							.map_err(|e| error!("Failed to join thumbnail generation task: {e:#?}"))
-							.ok()
-					})
-					.filter_map(|result| {
-						result
-							.map_err(|e| {
-								error!(
-									"Failed to generate thumbnail for {} location: {e:#?}",
-									if let ThumbnailKind::Ephemeral = kind {
-										"ephemeral"
-									} else {
-										"indexed"
-									}
-								)
-							})
-							.ok()
-					})
-					.map(|cas_id| OsString::from(format!("{}.webp", cas_id)))
-					.collect();
+		let generated_ephemeral_thumbs_file_names_tx =
+			generated_ephemeral_thumbs_file_names_tx.clone();
+		let report_progress_tx = batch_report_progress_tx.clone();
+		let chunk_len = chunk.len() as u32;
 
-				if kind == ThumbnailKind::Ephemeral
-					&& generated_ephemeral_thumbs_file_names_tx
-						.send(cas_ids)
+		if let RaceOutputs::Stop(stopped_tx) = (
+			async move {
+				if let Err(e) = spawn(async move {
+					let cas_ids = chunk
+						.join()
 						.await
-						.is_err()
+						.into_iter()
+						.filter_map(|join_result| {
+							join_result
+								.map_err(|e| {
+									error!("Failed to join thumbnail generation task: {e:#?}")
+								})
+								.ok()
+						})
+						.filter_map(|result| {
+							result
+								.map_err(|e| {
+									error!(
+										"Failed to generate thumbnail for {} location: {e:#?}",
+										if let ThumbnailKind::Ephemeral = kind {
+											"ephemeral"
+										} else {
+											"indexed"
+										}
+									)
+								})
+								.ok()
+						})
+						.map(|cas_id| OsString::from(format!("{}.webp", cas_id)))
+						.collect();
+
+					if kind == ThumbnailKind::Ephemeral
+						&& generated_ephemeral_thumbs_file_names_tx
+							.send(cas_ids)
+							.await
+							.is_err()
+					{
+						error!("Thumbnail actor is dead: Failed to send generated cas ids")
+					}
+
+					if let Some(location_id) = location_id {
+						report_progress_tx.send((location_id, chunk_len)).await.ok();
+					}
+				})
+				.await
 				{
-					error!("Thumbnail actor is dead: Failed to send generated cas ids")
+					error!("Failed to join spawned task to process thumbnails chunk on a batch: {e:#?}");
 				}
 
-				trace!("Processed chunk of thumbnails");
+				trace!("Processed chunk with {chunk_len} thumbnails");
 				RaceOutputs::Processed
 			},
 			async {
@@ -198,6 +236,7 @@ pub(super) async fn batch_processor(
 							batch: leftovers,
 							should_regenerate,
 							in_background: true, // Leftovers should always be in background
+							location_id,
 						},
 						kind,
 					))
@@ -208,7 +247,7 @@ pub(super) async fn batch_processor(
 			}
 
 			done_tx.send(()).ok();
-			tx.send(()).ok();
+			stopped_tx.send(()).ok();
 
 			return;
 		}
