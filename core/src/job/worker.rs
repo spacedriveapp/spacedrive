@@ -40,6 +40,7 @@ pub struct JobProgressEvent {
 	pub library_id: Uuid,
 	pub task_count: i32,
 	pub completed_task_count: i32,
+	pub phase: String,
 	pub message: String,
 	pub estimated_completion: DateTime<Utc>,
 }
@@ -287,6 +288,14 @@ impl Worker {
 					trace!("job {} message: {}", report.id, message);
 					report.message = message;
 				}
+				JobReportUpdate::Phase(phase) => {
+					trace!(
+						"changing Job <id='{}'> phase: {} -> {phase}",
+						report.id,
+						report.phase
+					);
+					report.phase = phase;
+				}
 			}
 		}
 
@@ -323,6 +332,7 @@ impl Worker {
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,
+			phase: report.phase.clone(),
 			message: report.message.clone(),
 		}));
 	}
