@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use crate::{
 	spacetime::{BroadcastStream, UnicastStream},
-	ConnectedPeer, DiscoveredPeer, Manager, Metadata,
+	ConnectedPeer, Manager,
 };
 
 use super::PeerId;

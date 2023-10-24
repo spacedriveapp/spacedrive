@@ -24,7 +24,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Metadata, PeerId,
+	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, PeerId,
 };
 
 /// TODO

@@ -5,15 +5,14 @@ use std::{
 };
 
 use sd_p2p::{spacetunnel::RemoteIdentity, PeerId, PeerStatus, Service};
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use super::PeerMetadata;
 
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>,
-	// TODO: Hook this up -> Maybe on it's own task
-	// events: StreamUnordered<ServiceEvent>,
+	tx: broadcast::Sender<()>,
 }
 
 impl fmt::Debug for LibraryServices {
@@ -25,8 +24,11 @@ impl fmt::Debug for LibraryServices {
 }
 
 impl LibraryServices {
-	pub fn new(rx: mpsc::Receiver<()>) -> Self {
-		todo!();
+	pub fn new(tx: broadcast::Sender<()>) -> Self {
+		Self {
+			services: Default::default(),
+			tx,
+		}
 	}
 
 	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
@@ -35,14 +37,6 @@ impl LibraryServices {
 			.unwrap_or_else(PoisonError::into_inner)
 			.get(id)
 			.cloned()
-	}
-
-	pub fn add(&self) {
-		todo!();
-	}
-
-	pub fn remove(&self) {
-		todo!();
 	}
 
 	pub fn libraries(&self) -> Vec<(Uuid, Arc<Service<PeerMetadata>>)> {
@@ -68,6 +62,7 @@ impl LibraryServices {
 				if let PeerStatus::Discovered(id) = instance {
 					if *id == peer_id {
 						*instance = PeerStatus::Connected(peer_id);
+						self.tx.send(()).ok();
 						return; // Will only exist once so we short circuit
 					}
 				}
@@ -76,12 +71,8 @@ impl LibraryServices {
 	}
 
 	// // TODO: Can this be merged with `peer_connected`???
-	pub(super) fn peer_connected2(
-		libraries: &LibraryServices,
-		instance_id: RemoteIdentity,
-		peer_id: PeerId,
-	) {
-		for lib in libraries
+	pub(super) fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
+		for lib in self
 			.services
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
@@ -89,6 +80,7 @@ impl LibraryServices {
 		{
 			if let Some(instance) = lib._get_mut().get_mut(&instance_id) {
 				*instance = PeerStatus::Connected(peer_id);
+				self.tx.send(()).ok();
 				return; // Will only exist once so we short circuit
 			}
 		}
@@ -106,6 +98,7 @@ impl LibraryServices {
 				if let PeerStatus::Connected(id) = instance {
 					if *id == peer_id {
 						*instance = PeerStatus::Unavailable;
+						self.tx.send(()).ok();
 						return; // Will only exist once so we short circuit
 					}
 				}
@@ -125,6 +118,7 @@ impl LibraryServices {
 				if let PeerStatus::Discovered(peer_id) = instance {
 					if *peer_id == id {
 						*instance = PeerStatus::Unavailable;
+						self.tx.send(()).ok();
 					}
 				}
 			}

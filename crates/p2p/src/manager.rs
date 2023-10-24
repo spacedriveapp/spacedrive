@@ -1,7 +1,6 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	fmt,
-	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
 		Arc, PoisonError, RwLock,
@@ -22,7 +21,7 @@ use tracing::{error, warn};
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
 	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
-	ManagerStreamAction2, Metadata, PeerId,
+	ManagerStreamAction2, PeerId,
 };
 
 // State of the manager that may infrequently change

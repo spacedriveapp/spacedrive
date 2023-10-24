@@ -4,7 +4,7 @@ use std::{
 };
 
 use sd_p2p::{spacetunnel::RemoteIdentity, DiscoveredPeer, Manager, ManagerError, Service};
-use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
+use tokio::sync::{broadcast, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
 
@@ -50,10 +50,10 @@ impl P2PManager {
 		let (tx, rx) = broadcast::channel(100);
 		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
-		let (ls_tx, ls_rx) = mpsc::channel(10); // TODO: is this ok???
+		let (ls_tx, ls_rx) = broadcast::channel(10);
 		let this = Arc::new(Self {
 			node: Service::new("node", manager.clone()).unwrap(),
-			libraries: LibraryServices::new(ls_rx), // TODO: Initially populate this + take in intput
+			libraries: LibraryServices::new(ls_tx.clone()), // TODO: Initially populate this
 			pairing,
 			events: (tx, rx),
 			manager,

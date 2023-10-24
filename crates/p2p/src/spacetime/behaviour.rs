@@ -16,7 +16,7 @@ use libp2p::{
 use thiserror::Error;
 use tracing::debug;
 
-use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction2, Metadata, PeerId};
+use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction2, PeerId};
 
 use super::SpaceTimeConnection;
 

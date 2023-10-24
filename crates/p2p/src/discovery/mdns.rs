@@ -8,15 +8,14 @@ use std::{
 };
 
 use libp2p::futures::FutureExt;
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use mdns_sd::{ServiceDaemon, ServiceEvent};
 use streamunordered::StreamUnordered;
 use tokio::{
 	sync::mpsc,
 	time::{sleep_until, Instant, Sleep},
 };
-use tracing::{trace, warn};
 
-use crate::{DiscoveryManager, Event, PeerId};
+use crate::{DiscoveryManager, PeerId};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise

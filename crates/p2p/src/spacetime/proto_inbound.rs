@@ -11,7 +11,7 @@ use tracing::debug;
 
 use crate::{
 	spacetime::{BroadcastStream, UnicastStream},
-	Manager, ManagerStreamAction2, Metadata, PeerId, PeerMessageEvent,
+	Manager, ManagerStreamAction2, PeerId, PeerMessageEvent,
 };
 
 use super::SpaceTimeProtocolName;

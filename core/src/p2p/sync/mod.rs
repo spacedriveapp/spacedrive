@@ -10,7 +10,7 @@ use sync::GetOpsArgs;
 
 use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-	sync::mpsc,
+	sync::broadcast,
 };
 use tracing::*;
 use uuid::Uuid;
@@ -28,7 +28,7 @@ pub use proto::*;
 pub(crate) async fn networked_libraries_v2(
 	manager: Arc<P2PManager>,
 	libraries: Arc<Libraries>,
-	tx: mpsc::Sender<()>,
+	rx: broadcast::Sender<()>,
 ) {
 	if let Err(err) = libraries
 		.rx
