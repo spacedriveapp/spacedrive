@@ -11,7 +11,7 @@ use tracing::{debug, error};
 use super::{ThumbnailerError, EPHEMERAL_DIR, WEBP_EXTENSION};
 
 pub(super) async fn process_ephemeral_clean_up(
-	thumbnails_directory: PathBuf,
+	thumbnails_directory: Arc<PathBuf>,
 	existing_ephemeral_thumbs: HashSet<OsString>,
 ) {
 	let ephemeral_thumbs_dir = thumbnails_directory.join(EPHEMERAL_DIR);
@@ -83,7 +83,7 @@ pub(super) async fn process_ephemeral_clean_up(
 }
 
 pub(super) async fn process_indexed_clean_up(
-	thumbnails_directory: PathBuf,
+	thumbnails_directory: Arc<PathBuf>,
 	libraries_ids_and_databases: Vec<(LibraryId, Arc<PrismaClient>)>,
 ) {
 	libraries_ids_and_databases

@@ -21,7 +21,7 @@ use tokio::{
 	fs, io, spawn,
 	time::{sleep, timeout},
 };
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use super::{
 	get_shard_hex, ThumbnailerError, EPHEMERAL_DIR, THIRTY_SECS, THUMBNAIL_CACHE_DIR_NAME,
@@ -74,8 +74,9 @@ pub(super) async fn init_thumbnail_dir(
 			})
 			.await
 			else {
-				error!(
-					"Failed to get libraries after 30 seconds, thumbnailer migration will not work"
+				warn!(
+					"Failed to get libraries after 30 seconds, thumbnailer migration will not work; \
+					Ignore this warning if you don't created libraries yet."
 				);
 				return;
 			};

@@ -27,6 +27,8 @@ mod clean_up;
 mod directory;
 mod process;
 mod shard;
+mod state;
+mod worker;
 
 pub use process::{BatchToProcess, GenerateThumbnailArgs};
 pub use shard::get_shard_hex;
