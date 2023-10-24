@@ -16,17 +16,6 @@ pub enum Event {
 	AddListenAddr(SocketAddr),
 	/// remove a network interface from this node so that we don't listen to it
 	RemoveListenAddr(SocketAddr),
-
-	// // TODO: Removing `TMeta` is kinda required
-	// /// discovered peer on your local network
-	// PeerDiscovered(String, DiscoveredPeer<TMeta>),
-	// /// a discovered peer has disappeared from the network
-	// PeerExpired {
-	// 	service_name: String,
-	// 	id: PeerId,
-	// 	// Will be none if we receive the expire event without having ever seen a discover event.
-	// 	metadata: Option<TMeta>,
-	// },
 	/// communication was established with a peer.
 	/// Theere could actually be multiple connections under the hood but we smooth it over in this API.
 	PeerConnected(ConnectedPeer),

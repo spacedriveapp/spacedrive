@@ -123,13 +123,6 @@ impl Manager {
 		self.peer_id
 	}
 
-	// pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-	// 	self.listen_addrs
-	// 		.read()
-	// 		.unwrap_or_else(PoisonError::into_inner)
-	// 		.clone()
-	// }
-
 	pub async fn update_config(&self, config: ManagerConfig) {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
 	}
