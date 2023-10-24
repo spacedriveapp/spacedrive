@@ -226,11 +226,7 @@ pub async fn walk(
 	thumbnails_to_generate.extend(document_thumbnails_to_generate);
 
 	node.thumbnailer
-		.new_ephemeral_thumbnails_batch(BatchToProcess {
-			batch: thumbnails_to_generate,
-			should_regenerate: false,
-			in_background: false,
-		})
+		.new_ephemeral_thumbnails_batch(BatchToProcess::new(thumbnails_to_generate, false, false))
 		.await;
 
 	let mut locations = library
