@@ -40,7 +40,7 @@ pub struct P2PManager {
 
 	// TODO: Following stuff still needs cleanup
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
-	pub manager: Arc<Manager<PeerMetadata>>,
+	pub manager: Arc<Manager>,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancelations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub pairing: Arc<PairingManager>,
@@ -50,7 +50,7 @@ pub struct P2PManager {
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
-	) -> Result<(Arc<P2PManager>, ManagerStream<PeerMetadata>), ManagerError> {
+	) -> Result<(Arc<P2PManager>, ManagerStream), ManagerError> {
 		let (config, keypair, manager_config) = {
 			let config = node_config.get().await;
 
@@ -62,12 +62,8 @@ impl P2PManager {
 			)
 		};
 
-		// TODO: Delay building this until the libraries are loaded
-		// let metadata_manager = MetadataManager::new(config);
-
 		let (manager, stream) =
-			sd_p2p::Manager::<PeerMetadata>::new(SPACEDRIVE_APP_ID, &keypair, manager_config)
-				.await?;
+			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair, manager_config).await?;
 
 		info!(
 			"Node '{}' is now online listening at addresses: {:?}",
@@ -94,11 +90,7 @@ impl P2PManager {
 		))
 	}
 
-	pub fn start(self: Arc<Self>, mut stream: ManagerStream<PeerMetadata>, node: Arc<Node>) {
-		// TODO: Relay `self.node` and `self.libraries` to `self.events` for P2PEvents frontend subscription
-
-		// self.libraries.read().unwrap()
-
+	pub fn start(self: Arc<Self>, mut stream: ManagerStream, node: Arc<Node>) {
 		tokio::spawn({
 			let this = self.clone();
 
@@ -106,27 +98,28 @@ impl P2PManager {
 				let mut shutdown = false;
 				while let Some(event) = stream.next().await {
 					match event {
-						Event::PeerDiscovered(event) => {
-							this.events
-								.0
-								.send(P2PEvent::DiscoveredPeer {
-									peer_id: event.peer_id,
-									metadata: event.metadata.clone(),
-								})
-								.map_err(|_| error!("Failed to send event to p2p event stream!"))
-								.ok();
+						// TODO: Bring these back
+						// Event::PeerDiscovered(event) => {
+						// 	this.events
+						// 		.0
+						// 		.send(P2PEvent::DiscoveredPeer {
+						// 			peer_id: event.peer_id,
+						// 			metadata: event.metadata.clone(),
+						// 		})
+						// 		.map_err(|_| error!("Failed to send event to p2p event stream!"))
+						// 		.ok();
 
-							this.peer_discovered(event).await;
-						}
-						Event::PeerExpired { id, .. } => {
-							this.events
-								.0
-								.send(P2PEvent::ExpiredPeer { peer_id: id })
-								.map_err(|_| error!("Failed to send event to p2p event stream!"))
-								.ok();
+						// 	this.peer_discovered(event).await;
+						// }
+						// Event::PeerExpired { id, .. } => {
+						// 	this.events
+						// 		.0
+						// 		.send(P2PEvent::ExpiredPeer { peer_id: id })
+						// 		.map_err(|_| error!("Failed to send event to p2p event stream!"))
+						// 		.ok();
 
-							this.peer_expired(id);
-						}
+						// 	this.peer_expired(id);
+						// }
 						Event::PeerConnected(event) => {
 							this.events
 								.0
@@ -434,7 +427,7 @@ impl P2PManager {
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
 		// self.node.update(Self::config_to_metadata(
 		// 	&self.node_config_manager.get().await,
-		// ))
+		// ));
 
 		// TODO: Do `instances` need to be reregistered???
 

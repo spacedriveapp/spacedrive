@@ -2,6 +2,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	net::SocketAddr,
 	sync::{Arc, RwLock},
+	task::Context,
 };
 
 use crate::{spacetunnel::RemoteIdentity, Mdns, PeerId};
@@ -39,6 +40,8 @@ impl DiscoveryManager {
 		self.listen_addrs.remove(addr);
 		self.rebroadcast();
 	}
+
+	pub(crate) fn poll(&mut self, cx: &mut Context<'_>) {}
 
 	pub(crate) fn shutdown(&self) {
 		// todo!();

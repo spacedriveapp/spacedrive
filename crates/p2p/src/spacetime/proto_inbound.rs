@@ -16,12 +16,12 @@ use crate::{
 
 use super::SpaceTimeProtocolName;
 
-pub struct InboundProtocol<TMeta: Metadata> {
+pub struct InboundProtocol {
 	pub(crate) peer_id: PeerId,
-	pub(crate) manager: Arc<Manager<TMeta>>,
+	pub(crate) manager: Arc<Manager>,
 }
 
-impl<TMeta: Metadata> UpgradeInfo for InboundProtocol<TMeta> {
+impl UpgradeInfo for InboundProtocol {
 	type Info = SpaceTimeProtocolName;
 	type InfoIter = [Self::Info; 1];
 
@@ -30,8 +30,8 @@ impl<TMeta: Metadata> UpgradeInfo for InboundProtocol<TMeta> {
 	}
 }
 
-impl<TMeta: Metadata> InboundUpgrade<Stream> for InboundProtocol<TMeta> {
-	type Output = ManagerStreamAction2<TMeta>;
+impl InboundUpgrade<Stream> for InboundProtocol {
+	type Output = ManagerStreamAction2;
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 

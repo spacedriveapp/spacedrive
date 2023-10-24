@@ -39,15 +39,12 @@ pub struct PairingManager {
 	id: AtomicU16,
 	events_tx: broadcast::Sender<P2PEvent>,
 	pairing_response: RwLock<HashMap<u16, oneshot::Sender<PairingDecision>>>,
-	manager: Arc<Manager<PeerMetadata>>,
+	manager: Arc<Manager>,
 	// discovery_manager: Arc<DiscoveryManager>,
 }
 
 impl PairingManager {
-	pub fn new(
-		manager: Arc<Manager<PeerMetadata>>,
-		events_tx: broadcast::Sender<P2PEvent>,
-	) -> Arc<Self> {
+	pub fn new(manager: Arc<Manager>, events_tx: broadcast::Sender<P2PEvent>) -> Arc<Self> {
 		Arc::new(Self {
 			id: AtomicU16::new(0),
 			events_tx,

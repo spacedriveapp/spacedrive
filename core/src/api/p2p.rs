@@ -15,8 +15,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.subscription(|node, _: ()| async move {
 				let mut rx = node.p2p.subscribe();
 				async_stream::stream! {
-					// TODO: Account for library-services cause this doesn't & that will cuase issues // TODO
-
 					// TODO: Don't block subscription start
 					for peer in node.p2p.node.get_discovered() {
 						 yield P2PEvent::DiscoveredPeer {
@@ -39,14 +37,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			})
 		})
-		// TODO: Bring this back
-		// .procedure("state", {
-		// 	pub struct P2PState {
-		// 		nodes: Vec<RemoteIdentity, PeerId>,
-		// 		libs: Vec<
-		// 	}
-		// 	R.query(|node, _: ()| async move {})
-		// })
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {

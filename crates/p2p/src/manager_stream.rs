@@ -49,9 +49,9 @@ pub enum ManagerStreamAction {
 /// TODO: Get ride of this and merge into `ManagerStreamAction` without breaking rspc procedures
 ///
 /// This is `!Sync` so can't be used from within rspc.
-pub enum ManagerStreamAction2<TMeta: Metadata> {
+pub enum ManagerStreamAction2 {
 	/// Events are returned to the application via the `ManagerStream::next` method.
-	Event(Event<TMeta>),
+	Event(Event),
 	/// TODO
 	StartStream(PeerId, oneshot::Sender<UnicastStream>),
 }
@@ -62,37 +62,35 @@ impl fmt::Debug for ManagerStreamAction {
 	}
 }
 
-impl<TMeta: Metadata> fmt::Debug for ManagerStreamAction2<TMeta> {
+impl fmt::Debug for ManagerStreamAction2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.write_str("ManagerStreamAction2")
 	}
 }
 
-impl<TMeta: Metadata> From<Event<TMeta>> for ManagerStreamAction2<TMeta> {
-	fn from(event: Event<TMeta>) -> Self {
+impl From<Event> for ManagerStreamAction2 {
+	fn from(event: Event) -> Self {
 		Self::Event(event)
 	}
 }
 
 /// TODO
-pub struct ManagerStream<TMeta: Metadata> {
-	pub(crate) manager: Arc<Manager<TMeta>>,
+#[must_use = "streams do nothing unless polled"]
+pub struct ManagerStream {
+	pub(crate) manager: Arc<Manager>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
-	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMeta>>,
-	pub(crate) swarm: Swarm<SpaceTime<TMeta>>,
+	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2>,
+	pub(crate) swarm: Swarm<SpaceTime>,
 	pub(crate) discovery_manager: DiscoveryManager,
-	pub(crate) queued_events: VecDeque<Event<TMeta>>,
+	pub(crate) queued_events: VecDeque<Event>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
 }
 
-impl<TMeta: Metadata> ManagerStream<TMeta> {
+impl ManagerStream {
 	/// Setup the libp2p listeners based on the manager config.
 	/// This method will take care of removing old listeners if needed
-	pub(crate) fn refresh_listeners(
-		swarm: &mut Swarm<SpaceTime<TMeta>>,
-		state: &mut DynamicManagerState,
-	) {
+	pub(crate) fn refresh_listeners(swarm: &mut Swarm<SpaceTime>, state: &mut DynamicManagerState) {
 		if state.config.enabled {
 			let port = state.config.port.unwrap_or(0);
 
@@ -135,33 +133,30 @@ impl<TMeta: Metadata> ManagerStream<TMeta> {
 	}
 }
 
-enum EitherManagerStreamAction<TMeta: Metadata> {
+enum EitherManagerStreamAction {
 	A(ManagerStreamAction),
-	B(ManagerStreamAction2<TMeta>),
+	B(ManagerStreamAction2),
 }
 
-impl<TMeta: Metadata> From<ManagerStreamAction> for EitherManagerStreamAction<TMeta> {
+impl From<ManagerStreamAction> for EitherManagerStreamAction {
 	fn from(event: ManagerStreamAction) -> Self {
 		Self::A(event)
 	}
 }
 
-impl<TMeta: Metadata> From<ManagerStreamAction2<TMeta>> for EitherManagerStreamAction<TMeta> {
-	fn from(event: ManagerStreamAction2<TMeta>) -> Self {
+impl From<ManagerStreamAction2> for EitherManagerStreamAction {
+	fn from(event: ManagerStreamAction2) -> Self {
 		Self::B(event)
 	}
 }
 
-impl<TMeta> ManagerStream<TMeta>
-where
-	TMeta: Metadata,
-{
+impl ManagerStream {
 	pub fn listen_addrs(&self) -> HashSet<SocketAddr> {
 		self.discovery_manager.listen_addrs.clone()
 	}
 
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
-	pub async fn next(&mut self) -> Option<Event<TMeta>> {
+	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
 			if self.shutdown.load(Ordering::Relaxed) {
@@ -280,8 +275,8 @@ where
 
 	async fn handle_manager_stream_action(
 		&mut self,
-		event: EitherManagerStreamAction<TMeta>,
-	) -> Option<Event<TMeta>> {
+		event: EitherManagerStreamAction,
+	) -> Option<Event> {
 		match event {
 			EitherManagerStreamAction::A(event) => match event {
 				ManagerStreamAction::GetConnectedPeers(response) => {

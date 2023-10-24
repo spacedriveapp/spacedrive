@@ -67,7 +67,7 @@ impl P2PManager {
 		for (library_id, data) in data {
 			let mut library = None;
 
-			for (_, data) in data._get() {
+			for data in data._get().values() {
 				let PeerStatus::Connected(instance_peer_id) = data else {
 					continue;
 				};

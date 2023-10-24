@@ -11,8 +11,6 @@ use crate::{
 	Manager, Metadata, PeerId,
 };
 
-use super::DiscoveryManager;
-
 /// A Service represents a thing your application exposes to the network that can be discovered and connected to.
 pub struct Service<TMeta> {
 	name: String,
@@ -21,9 +19,9 @@ pub struct Service<TMeta> {
 }
 
 impl<TMeta: Metadata> Service<TMeta> {
-	pub fn new<TMeta2: Metadata>(
+	pub fn new(
 		name: impl Into<String>,
-		manager: Arc<Manager<TMeta2>>,
+		manager: Arc<Manager>,
 	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
 		let state = manager.discovery_state.clone();
@@ -40,6 +38,10 @@ impl<TMeta: Metadata> Service<TMeta> {
 			state,
 			phantom: PhantomData,
 		})
+	}
+
+	pub fn name(&self) -> &str {
+		&self.name
 	}
 
 	pub fn update(&mut self, meta: TMeta) {
@@ -83,7 +85,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 	pub async fn connect(
 		&self,
-		manager: Arc<Manager<TMeta>>,
+		manager: Arc<Manager>,
 		identity: &RemoteIdentity,
 	) -> Result<UnicastStream, ()> {
 		// TODO: Reject connecting to self or a peer not on this service
@@ -94,14 +96,6 @@ impl<TMeta: Metadata> Service<TMeta> {
 		let stream = manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 		Ok(stream)
 	}
-
-	pub fn subscribe(&self, handler: impl Fn(DiscoveredPeer<TMeta>)) {
-		let handler: Box<dyn Fn(_)> = Box::new(handler);
-
-		todo!();
-	}
-
-	// pub fn connect(&self) {}
 }
 
 // TODO: All theses methods are for incremental migration of `NetworkedLibraries`. They should be removed!

@@ -14,7 +14,7 @@ use std::{
 };
 use tracing::error;
 
-use crate::{Manager, ManagerStreamAction2, Metadata, PeerId};
+use crate::{Manager, ManagerStreamAction2, PeerId};
 
 use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRINK_THRESHOLD};
 
@@ -22,9 +22,9 @@ use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRI
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
 #[allow(clippy::type_complexity)]
-pub struct SpaceTimeConnection<TMeta: Metadata> {
+pub struct SpaceTimeConnection {
 	peer_id: PeerId,
-	manager: Arc<Manager<TMeta>>,
+	manager: Arc<Manager>,
 	pending_events: VecDeque<
 		ConnectionHandlerEvent<
 			OutboundProtocol,
@@ -35,8 +35,8 @@ pub struct SpaceTimeConnection<TMeta: Metadata> {
 	>,
 }
 
-impl<TMeta: Metadata> SpaceTimeConnection<TMeta> {
-	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager<TMeta>>) -> Self {
+impl SpaceTimeConnection {
+	pub(super) fn new(peer_id: PeerId, manager: Arc<Manager>) -> Self {
 		Self {
 			peer_id,
 			manager,
@@ -45,13 +45,11 @@ impl<TMeta: Metadata> SpaceTimeConnection<TMeta> {
 	}
 }
 
-// pub enum Connection
-
-impl<TMeta: Metadata> ConnectionHandler for SpaceTimeConnection<TMeta> {
+impl ConnectionHandler for SpaceTimeConnection {
 	type FromBehaviour = OutboundRequest;
-	type ToBehaviour = ManagerStreamAction2<TMeta>;
+	type ToBehaviour = ManagerStreamAction2;
 	type Error = StreamUpgradeError<io::Error>;
-	type InboundProtocol = InboundProtocol<TMeta>;
+	type InboundProtocol = InboundProtocol;
 	type OutboundProtocol = OutboundProtocol;
 	type OutboundOpenInfo = ();
 	type InboundOpenInfo = ();

@@ -35,29 +35,29 @@ pub(crate) struct DynamicManagerState {
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
-pub struct Manager<TMeta: Metadata> {
+pub struct Manager {
 	pub(crate) peer_id: PeerId,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
 	pub(crate) discovery_state: Arc<RwLock<DiscoveryManagerState>>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
-	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMeta>>,
+	event_stream_tx2: mpsc::Sender<ManagerStreamAction2>,
 }
 
-impl<TMeta: Metadata> fmt::Debug for Manager<TMeta> {
+impl fmt::Debug for Manager {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("Debug").finish()
 	}
 }
 
-impl<TMeta: Metadata> Manager<TMeta> {
+impl Manager {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
 	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
 		config: ManagerConfig,
-	) -> Result<(Arc<Self>, ManagerStream<TMeta>), ManagerError> {
+	) -> Result<(Arc<Self>, ManagerStream), ManagerError> {
 		application_name
 			.chars()
 			.all(|c| char::is_alphanumeric(c) || c == '-')
