@@ -81,14 +81,13 @@ export const useTable = () => {
 				id: 'sizeInBytes',
 				header: 'Size',
 				accessorFn: (file) => {
-					const isFolder =
-						isEphemeralLocation && 'is_dir' in file.item
-							? file.item.is_dir || file.type === 'Location'
-							: false;
-					const file_path = getItemFilePath(file);
-					if (!file_path || !file_path.size_in_bytes_bytes) return;
+					const filePath = getItemFilePath(file);
 
-					return isFolder ? '-' : byteSize(file_path.size_in_bytes_bytes);
+					return !filePath ||
+						!filePath.size_in_bytes_bytes ||
+						(filePath.is_dir && isEphemeralLocation)
+						? '-'
+						: byteSize(filePath.size_in_bytes_bytes);
 				}
 			},
 			{
@@ -140,7 +139,7 @@ export const useTable = () => {
 				}
 			}
 		],
-		[explorerStore.cutCopyState]
+		[explorerStore.cutCopyState, isEphemeralLocation]
 	);
 
 	const table = useReactTable({

@@ -23,6 +23,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "locations.systemLocations", input: never, result: SystemLocations } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
@@ -72,13 +73,13 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
+        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
@@ -139,15 +140,17 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf"
+export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName }
+export type CreateLibraryArgs = { name: LibraryName; default_locations?: DefaultLocations }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
+export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -402,6 +405,8 @@ export type SortOrder = "Asc" | "Desc"
 export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 

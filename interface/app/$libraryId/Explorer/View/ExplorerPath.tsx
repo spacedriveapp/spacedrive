@@ -59,12 +59,16 @@ export const ExplorerPath = memo(() => {
 		}
 	};
 
+	const pathNameLocationName =
+		explorerContext.parent?.type === 'Location' && explorerContext.parent?.location.name;
 	const formatPathData = useCallback(() => {
 		if (!pathInfo) return;
-		const pathNameLocationName = (explorerContext.parent?.type === 'Location' &&
-			explorerContext.parent?.location.name) as string;
 		const splitPaths = pathInfo.replaceAll('/', pathSlashOS).split(pathSlashOS); //replace all '/' with '\' for windows
-		const startIndex = isEphemeralLocation ? 1 : splitPaths.indexOf(pathNameLocationName);
+		const startIndex = isEphemeralLocation
+			? 1
+			: pathNameLocationName
+			? splitPaths.indexOf(pathNameLocationName)
+			: -1;
 		const updatedPathData = splitPaths.slice(startIndex);
 		const updatedData = updatedPathData.map((path) => ({
 			kind: 'Folder',
@@ -72,7 +76,7 @@ export const ExplorerPath = memo(() => {
 			name: path
 		}));
 		setData(updatedData);
-	}, [pathInfo, isEphemeralLocation]);
+	}, [pathInfo, pathSlashOS, isEphemeralLocation, pathNameLocationName]);
 
 	useEffect(() => {
 		formatPathData();

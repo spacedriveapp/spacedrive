@@ -1,7 +1,7 @@
 import { Button, Form, RadioGroupField } from '@sd/ui';
 
+import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 import { shareTelemetry, useOnboardingContext } from './context';
-import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './Layout';
 
 export default function OnboardingPrivacy() {
 	const { forms, submit } = useOnboardingContext();

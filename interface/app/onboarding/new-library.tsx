@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Form, InputField } from '@sd/ui';
 
-import { useOnboardingContext } from './context';
 import {
 	OnboardingContainer,
 	OnboardingDescription,
 	OnboardingImg,
 	OnboardingTitle
-} from './Layout';
+} from './components';
+import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
@@ -25,7 +25,7 @@ export default function OnboardingNewLibrary() {
 		<Form
 			form={form}
 			onSubmit={form.handleSubmit(() => {
-				navigate('../privacy', { replace: true });
+				navigate('../locations', { replace: true });
 			})}
 		>
 			<OnboardingContainer>

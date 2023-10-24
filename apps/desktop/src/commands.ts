@@ -22,8 +22,16 @@ export function openLogsDir() {
     return invoke()<null>("open_logs_dir")
 }
 
+export function refreshMenuBar() {
+    return invoke()<null>("refresh_menu_bar")
+}
+
 export function reloadWebview() {
     return invoke()<null>("reload_webview")
+}
+
+export function setMenuBarItemState(id: string, enabled: boolean) {
+    return invoke()<null>("set_menu_bar_item_state", { id,enabled })
 }
 
 export function openFilePaths(library: string, ids: number[]) {

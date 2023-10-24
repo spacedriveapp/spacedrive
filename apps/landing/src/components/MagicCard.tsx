@@ -1,7 +1,7 @@
 'use client';
 
 import clsx, { ClassValue } from 'clsx';
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from 'react';
+import { CSSProperties, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
@@ -47,33 +47,14 @@ const MagicContainer = ({ children, className, style }: MagicContainerProps) => 
 	const containerSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 	const [boxes, setBoxes] = useState<Array<HTMLElement>>([]);
 
-	useEffect(() => {
-		init();
-		containerRef.current &&
-			setBoxes(Array.from(containerRef.current.children).map((el) => el as HTMLElement));
-	}, []);
-
-	useEffect(() => {
-		init();
-		window.addEventListener('resize', init);
-
-		return () => {
-			window.removeEventListener('resize', init);
-		};
-	}, [setBoxes]);
-
-	useEffect(() => {
-		onMouseMove();
-	}, [mousePosition]);
-
-	const init = () => {
+	const init = useCallback(() => {
 		if (containerRef.current) {
 			containerSize.current.w = containerRef.current.offsetWidth;
 			containerSize.current.h = containerRef.current.offsetHeight;
 		}
-	};
+	}, []);
 
-	const onMouseMove = () => {
+	const onMouseMove = useCallback(() => {
 		if (containerRef.current) {
 			const rect = containerRef.current.getBoundingClientRect();
 			const { w, h } = containerSize.current;
@@ -96,7 +77,26 @@ const MagicContainer = ({ children, className, style }: MagicContainerProps) => 
 				}
 			});
 		}
-	};
+	}, [boxes, mousePosition]);
+
+	useEffect(() => {
+		init();
+		containerRef.current &&
+			setBoxes(Array.from(containerRef.current.children).map((el) => el as HTMLElement));
+	}, [init]);
+
+	useEffect(() => {
+		init();
+		window.addEventListener('resize', init);
+
+		return () => {
+			window.removeEventListener('resize', init);
+		};
+	}, [setBoxes, init]);
+
+	useEffect(() => {
+		onMouseMove();
+	}, [mousePosition, onMouseMove]);
 
 	return (
 		<div style={style} className={className} ref={containerRef}>

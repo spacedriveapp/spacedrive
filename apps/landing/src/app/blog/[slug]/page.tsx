@@ -43,7 +43,7 @@ export default function Page({ params }: Props) {
 	const MDXContent = useMDXComponent(post.body.code);
 
 	return (
-		<div className="lg:prose-xs prose dark:prose-invert container m-auto mb-20 max-w-4xl p-4 pt-14">
+		<div className="lg:prose-xs container prose m-auto mb-20 max-w-4xl p-4 pt-14 dark:prose-invert">
 			<>
 				<figure>
 					<Image

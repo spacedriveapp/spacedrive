@@ -11,9 +11,9 @@ pub const MAXIMUM_FILE_SIZE: u64 = MIB * 192;
 /// These are roughly all extensions supported by the `image` crate, as of `v0.24.7`.
 ///
 /// We only support images that have both good encoding and decoding support, without external C-based dependencies (e.g. `avif`)
-pub const GENERIC_EXTENSIONS: [&str; 16] = [
+pub const GENERIC_EXTENSIONS: [&str; 17] = [
 	"bmp", "dib", "ff", "gif", "ico", "jpg", "jpeg", "png", "pnm", "qoi", "tga", "icb", "vda",
-	"vst", "tiff", "tif",
+	"vst", "tiff", "tif", "webp",
 ];
 pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
@@ -67,6 +67,7 @@ pub enum ConvertableExtension {
 	Svg,
 	Svgz,
 	Pdf,
+	Webp,
 }
 
 impl Display for ConvertableExtension {
@@ -107,6 +108,7 @@ impl TryFrom<String> for ConvertableExtension {
 			"svg" => Ok(Self::Svg),
 			"svgz" => Ok(Self::Svgz),
 			"pdf" => Ok(Self::Pdf),
+			"webp" => Ok(Self::Webp),
 			_ => Err(crate::Error::Unsupported),
 		}
 	}

@@ -27,22 +27,24 @@ export function usePopover() {
 export const Popover = ({ popover, trigger, children, disabled, className, ...props }: Props) => {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 
+	const { setOpen } = popover;
+
 	useKeys(props.keybind ?? [], (e) => {
 		if (!props.keybind) return;
 		e.stopPropagation();
-		popover.setOpen((o) => !o);
+		setOpen((o) => !o);
 	});
 
 	useEffect(() => {
 		const onResize = () => {
-			if (triggerRef.current && triggerRef.current.offsetWidth === 0) popover.setOpen(false);
+			if (triggerRef.current && triggerRef.current.offsetWidth === 0) setOpen(false);
 		};
 
 		window.addEventListener('resize', onResize);
 		return () => {
 			window.removeEventListener('resize', onResize);
 		};
-	}, []);
+	}, [setOpen]);
 
 	return (
 		<Radix.Root open={popover.open} onOpenChange={popover.setOpen}>

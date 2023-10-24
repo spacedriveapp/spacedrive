@@ -45,9 +45,10 @@ export const ClientContextProvider = ({
 }: ClientContextProviderProps) => {
 	const libraries = useCachedLibraries();
 
-	const library = useMemo(() => {
-		if (libraries.data) return libraries.data.find((l) => l.uuid === currentLibraryId) ?? null;
-	}, [currentLibraryId, libraries]);
+	const library = useMemo(
+		() => (libraries.data && libraries.data.find((l) => l.uuid === currentLibraryId)) || null,
+		[currentLibraryId, libraries]
+	);
 
 	// Doesn't need to be in a useEffect
 	currentLibraryCache.id = currentLibraryId;

@@ -11,12 +11,11 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useKey, useKeys } from 'rooks';
-import { getItemObject, useLibraryContext, type Object } from '@sd/client';
+import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
@@ -95,6 +94,15 @@ export default memo(
 			} else setShowLoading(false);
 		}, [explorer.isFetchingNextPage]);
 
+		useEffect(() => {
+			if (explorer.layouts[layoutMode]) return;
+			// If the current layout mode is not available, switch to the first available layout mode
+			const layout = (Object.keys(explorer.layouts) as ExplorerLayout[]).find(
+				(key) => explorer.layouts[key]
+			);
+			explorer.settingsStore.layoutMode = layout ?? 'grid';
+		}, [layoutMode, explorer.layouts, explorer.settingsStore]);
+
 		useKey(['Enter'], (e) => {
 			e.stopPropagation();
 			if (os === 'windows' && !isRenaming) {
@@ -109,6 +117,8 @@ export default memo(
 		});
 
 		useKeyCopyCutPaste();
+
+		if (!explorer.layouts[layoutMode]) return null;
 
 		return (
 			<>
@@ -180,7 +190,7 @@ export const EmptyNotice = (props: {
 	if (props.loading) return null;
 
 	return (
-		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
@@ -198,8 +208,6 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	const explorer = useExplorerContext();
 
 	const os = useOperatingSystem();
-	const { library } = useLibraryContext();
-	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {

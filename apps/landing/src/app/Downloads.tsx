@@ -1,6 +1,6 @@
 'use client';
 
-import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react/dist/ssr';
+import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -8,8 +8,6 @@ import { ComponentProps, FunctionComponent, useEffect, useState } from 'react';
 import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
-
-const RELEASE_VERSION = 'Alpha v0.1.1';
 
 interface Platform {
 	name: string;
@@ -50,7 +48,11 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-export function Downloads() {
+interface Props {
+	latestVersion: string;
+}
+
+export function Downloads({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
 
@@ -78,7 +80,7 @@ export function Downloads() {
 										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
 										: undefined
 								}
-								className={`z-5 plausible-event-name=download relative plausible-event-os=${currentPlatform.name}`}
+								className={`z-5 plausible-event-name=download plausible-event-os= relative${currentPlatform.name}`}
 								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
 								text={`Download for ${currentPlatform.name}`}
 								onClick={() => setSelectedPlatform(currentPlatform)}
@@ -113,7 +115,7 @@ export function Downloads() {
 				</div>
 			)}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
-				{RELEASE_VERSION}
+				{latestVersion}
 				{formattedVersion && (
 					<>
 						<span className="mx-2 opacity-50">|</span>
@@ -174,10 +176,10 @@ function useCurrentPlatform() {
 	return currentPlatform;
 }
 
-interface Props {
+interface PlatformProps {
 	platform: Platform;
 }
-function Platform({ platform, ...props }: ComponentProps<'a'> & Props) {
+function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
 	const { links } = platform;
 
 	const Outer = links

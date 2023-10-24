@@ -1,4 +1,3 @@
-import { platform } from 'os';
 import clsx from 'clsx';
 import type { Ref } from 'react';
 import { useOperatingSystem, useShowControls } from '~/hooks';
@@ -17,7 +16,6 @@ interface Props {
 
 const TopBar = (props: Props) => {
 	const transparentBg = useShowControls().transparentBg;
-
 	const { isDragging } = useExplorerStore();
 	const os = useOperatingSystem();
 

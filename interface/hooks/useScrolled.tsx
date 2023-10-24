@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export const useScrolled = (
-	ref: React.RefObject<HTMLDivElement>,
-	y = 1,
-	onScrolledChange?: (scrolled: boolean) => void
-) => {
+export const useScrolled = (ref: React.RefObject<HTMLDivElement>, y = 1) => {
 	const [isScrolled, setIsScrolled] = useState(false);
 
 	useEffect(() => {
@@ -19,10 +15,6 @@ export const useScrolled = (
 		ref.current?.addEventListener('scroll', onScroll);
 		() => ref.current?.removeEventListener('scroll', onScroll);
 	}, [ref, y]);
-
-	useEffect(() => {
-		onScrolledChange?.(isScrolled);
-	}, [isScrolled]);
 
 	return { isScrolled };
 };

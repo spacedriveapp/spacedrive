@@ -75,7 +75,7 @@ function AppNavigation() {
 		}, 270 * 1000);
 
 		return () => clearInterval(interval);
-	}, []);
+	}, [plausibleEvent]);
 
 	if (library === null && libraries.data) {
 		currentLibraryStore.id = libraries.data[0]?.uuid ?? null;
