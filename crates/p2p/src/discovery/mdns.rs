@@ -15,7 +15,7 @@ use tokio::{
 };
 use tracing::{trace, warn};
 
-use crate::{DiscoveryManager, PeerId};
+use crate::{DiscoveryManager, Event, MultiFlume, PeerId};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -24,11 +24,8 @@ pub(crate) struct Mdns {
 	// used to ignore events from our own mdns advertisement
 	peer_id: PeerId,
 	mdns_daemon: ServiceDaemon,
-	// mdns_service_receiver: flume::Receiver<ServiceEvent>,
-	// service_name: String,
+	services_rx: MultiFlume<ServiceEvent>,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
-	// TODO: What is this for???
-	next_allowed_discovery_advertisement: Instant,
 }
 
 impl Mdns {
