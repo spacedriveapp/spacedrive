@@ -25,20 +25,23 @@ use uuid::Uuid;
 use crate::{
 	location::file_path_helper::{file_path_to_handle_p2p_serve_file, IsolatedFilePathData},
 	node::config::{self, NodeConfig},
-	p2p::{operations::SPACEDROP_TIMEOUT, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{
+		operations::SPACEDROP_TIMEOUT, sync::networked_libraries_v2, OperatingSystem,
+		SPACEDRIVE_APP_ID,
+	},
 	Node,
 };
 
 use super::{sync::SyncMessage, Header, P2PEvent, PairingManager, PeerMetadata};
 
+// TODO: Rename instances
 pub(super) type Libraries = RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>;
 
 pub struct P2PManager {
+	// TODO: Remove `pub(crate)` from these
 	pub(crate) node: Service<PeerMetadata>,
-	// TODO: Remove `pub(crate)` from this
 	pub(crate) libraries: Libraries,
 
-	// TODO: Following stuff still needs cleanup
 	pub events: (broadcast::Sender<P2PEvent>, broadcast::Receiver<P2PEvent>),
 	pub manager: Arc<Manager>,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
@@ -50,16 +53,11 @@ pub struct P2PManager {
 impl P2PManager {
 	pub async fn new(
 		node_config: Arc<config::Manager>,
+		libraries: Arc<crate::library::Libraries>,
 	) -> Result<(Arc<P2PManager>, ManagerStream), ManagerError> {
-		let (config, keypair, manager_config) = {
+		let (keypair, manager_config) = {
 			let config = node_config.get().await;
-
-			// TODO: The `vec![]` here is problematic but will be fixed with delayed `MetadataManager`
-			(
-				Self::config_to_metadata(&config),
-				config.keypair,
-				config.p2p.clone(),
-			)
+			(config.keypair, config.p2p.clone())
 		};
 
 		let (manager, stream) =
@@ -75,19 +73,20 @@ impl P2PManager {
 		let (tx, rx) = broadcast::channel(100);
 		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
-		Ok((
-			Arc::new(Self {
-				node: Service::new("node", manager.clone()).unwrap(),
-				libraries: Default::default(), // TODO: Initially populate this
-				pairing,
-				events: (tx, rx),
-				manager,
-				spacedrop_pairing_reqs: Default::default(),
-				spacedrop_cancelations: Default::default(),
-				node_config_manager: node_config,
-			}),
-			stream,
-		))
+		let this = Arc::new(Self {
+			node: Service::new("node", manager.clone()).unwrap(),
+			libraries: Default::default(), // TODO: Initially populate this
+			pairing,
+			events: (tx, rx),
+			manager,
+			spacedrop_pairing_reqs: Default::default(),
+			spacedrop_cancelations: Default::default(),
+			node_config_manager: node_config,
+		});
+
+		tokio::spawn(networked_libraries_v2(this.clone(), libraries));
+
+		Ok((this, stream))
 	}
 
 	pub fn start(self: Arc<Self>, mut stream: ManagerStream, node: Arc<Node>) {
@@ -415,23 +414,20 @@ impl P2PManager {
 		)
 	}
 
-	fn config_to_metadata(config: &NodeConfig) -> PeerMetadata {
-		PeerMetadata {
-			name: config.name.clone(),
-			operating_system: Some(OperatingSystem::get_os()),
-			version: Some(env!("CARGO_PKG_VERSION").to_string()),
-		}
-	}
-
-	// TODO: Remove this & move to `NetworkedLibraryManager`??? or make it private?
 	pub async fn update_metadata(&self, instances: Vec<RemoteIdentity>) {
-		// self.node.update(Self::config_to_metadata(
-		// 	&self.node_config_manager.get().await,
-		// ));
+		self.node.update({
+			let config = self.node_config_manager.get().await;
+			PeerMetadata {
+				name: config.name.clone(),
+				operating_system: Some(OperatingSystem::get_os()),
+				version: Some(env!("CARGO_PKG_VERSION").to_string()),
+			}
+		});
 
-		// TODO: Do `instances` need to be reregistered???
-
-		todo!();
+		// TODO: Update the instance services
+		for instance in instances {
+			// self.libraries.
+		}
 	}
 
 	// TODO: Can this be merged with `peer_connected`???

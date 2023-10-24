@@ -44,7 +44,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 		&self.name
 	}
 
-	pub fn update(&mut self, meta: TMeta) {
+	pub fn update(&self, meta: TMeta) {
 		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)

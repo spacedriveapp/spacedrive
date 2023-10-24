@@ -98,11 +98,10 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone()).await?;
-
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
