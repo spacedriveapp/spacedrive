@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.1.1"
+version = "0.1.2"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc."]
 default-run = "sd-desktop"
@@ -10,23 +10,23 @@ edition = { workspace = true }
 
 [dependencies]
 tauri = { version = "1.5.2", features = [
-  "dialog-all",
-  "linux-protocol-headers",
-  "macos-private-api",
-  "os-all",
-  "path-all",
-  "protocol-all",
-  "shell-all",
-  "updater",
-  "window-all",
-	"native-tls-vendored"
+	"dialog-all",
+	"linux-protocol-headers",
+	"macos-private-api",
+	"os-all",
+	"path-all",
+	"protocol-all",
+	"shell-all",
+	"updater",
+	"window-all",
+	"native-tls-vendored",
 ] }
 
 rspc = { workspace = true, features = ["tauri"] }
 sd-core = { path = "../../../core", features = [
-  "ffmpeg",
-  "location-watcher",
-  "heif",
+	"ffmpeg",
+	"location-watcher",
+	"heif",
 ] }
 tokio = { workspace = true, features = ["sync"] }
 window-shadows = "0.2.1"

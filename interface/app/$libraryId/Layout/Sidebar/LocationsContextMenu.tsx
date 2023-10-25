@@ -1,5 +1,6 @@
 import { Pencil, Plus, Trash } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
+import { useLibraryContext } from '@sd/client';
 import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
 import { AddLocationDialog } from '~/app/$libraryId/settings/library/locations/AddLocationDialog';
 import DeleteDialog from '~/app/$libraryId/settings/library/locations/DeleteDialog';
@@ -14,6 +15,8 @@ interface Props {
 export default ({ children, locationId }: Props) => {
 	const navigate = useNavigate();
 	const platform = usePlatform();
+	const libraryId = useLibraryContext().library.uuid;
+
 	return (
 		<CM.Root trigger={children}>
 			<CM.Item
@@ -22,7 +25,11 @@ export default ({ children, locationId }: Props) => {
 						const path = await openDirectoryPickerDialog(platform);
 						if (path !== '') {
 							dialogManager.create((dp) => (
-								<AddLocationDialog path={path ?? ''} {...dp} />
+								<AddLocationDialog
+									path={path ?? ''}
+									libraryId={libraryId}
+									{...dp}
+								/>
 							));
 						}
 					} catch (error) {

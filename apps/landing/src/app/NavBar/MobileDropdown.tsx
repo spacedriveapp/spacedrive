@@ -1,6 +1,6 @@
 'use client';
 
-import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react/dist/ssr';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from '@phosphor-icons/react';
 import { Academia, Discord, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';

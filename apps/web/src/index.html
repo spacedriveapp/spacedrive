@@ -5,6 +5,10 @@
 		<title>Spacedrive</title>
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<script>
+			// Some libs depend on webpack specific stuff
+			var global = globalThis || window;
+		</script>
 	</head>
 
 	<body style="overflow: hidden">

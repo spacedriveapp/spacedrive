@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { getLatestRelease, getRecentReleases, getRelease, githubFetch } from '~/app/api/github';
 
@@ -57,5 +58,5 @@ export async function GET(
 
 	if (!asset) return Response.json({ error: 'Asset not found' }, { status: 404 });
 
-	return Response.redirect(asset.browser_download_url);
+	return redirect(asset.browser_download_url);
 }

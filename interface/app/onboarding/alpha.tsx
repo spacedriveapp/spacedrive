@@ -4,7 +4,7 @@ import { Button, ButtonLink } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import { OnboardingContainer } from './Layout';
+import { OnboardingContainer } from './components';
 
 export default function OnboardingAlpha() {
 	const platform = usePlatform();

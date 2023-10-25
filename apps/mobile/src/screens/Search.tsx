@@ -42,10 +42,12 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 		// Mobile does not thave media layout
 		// if (explorerStore.layoutMode !== 'media') return items;
 
-		return items?.filter((item) => {
-			const { kind } = getExplorerItemData(item);
-			return kind === 'Video' || kind === 'Image';
-		});
+		return (
+			items?.filter((item) => {
+				const { kind } = getExplorerItemData(item);
+				return kind === 'Video' || kind === 'Image';
+			}) ?? []
+		);
 	}, [query.data]);
 
 	return (
