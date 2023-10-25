@@ -7,6 +7,8 @@ import '@sd/ui/style/style.scss';
 import '~/styles/prism.css';
 import '~/styles/style.scss';
 
+import PlausibleProvider from 'next-plausible';
+
 import { Providers } from './Providers';
 
 export const metadata = {
@@ -25,6 +27,14 @@ export const metadata = {
 export default function Layout({ children }: PropsWithChildren) {
 	return (
 		<html lang="en" className="dark scroll-smooth">
+			<head>
+				<PlausibleProvider
+					domain="spacedrive.com"
+					customDomain="spacedrive.com"
+					trackOutboundLinks
+					taggedEvents
+				/>
+			</head>
 			<body>
 				<Providers>
 					<div className="overflow-hidden dark:bg-[#030014]/60">
