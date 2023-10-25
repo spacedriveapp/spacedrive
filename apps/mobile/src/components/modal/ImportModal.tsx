@@ -1,11 +1,12 @@
 import { forwardRef, useCallback } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Text, View, Platform } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
+import * as RNFS from 'react-native-fs';
 
 // import RFS from 'react-native-fs';
 // import * as ML from 'expo-media-library';
@@ -44,11 +45,34 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			if (!response) return;
 
-			createLocation.mutate({
-				path: decodeURIComponent(response.uri.replace('file://', '')),
-				dry_run: false,
-				indexer_rules_ids: []
-			});
+			const uri = response.uri;
+
+			console.log('[Debug] Device OS: ', Platform.OS);
+			//This is dumb, but it works
+			if (Platform.OS === 'android') {
+				console.log('[Debug] URI: ', uri);
+				const dirName = decodeURIComponent(uri).split('/');
+				console.log('[Debug] Dir Name: ', dirName);
+				// Remove all elements before 'tree'
+				dirName.splice(0, dirName.indexOf('tree') + 1);
+				const parsedDirName = dirName.join('/').split(':')[1]
+				console.log('[Debug] Parsed Dir Name: ', parsedDirName);
+				const dirPath = RNFS.ExternalStorageDirectoryPath + '/' + parsedDirName;
+				console.log('[Debug] Dir Path: ', dirPath);
+				//Verify that the directory exists
+				const dirExists = await RNFS.exists(dirPath);
+				if (!dirExists) {
+					console.error('Directory does not exist'); //TODO: Make this a UI error
+					return;
+				}
+				createLocation.mutate({
+					path: dirPath,
+					dry_run: false,
+					indexer_rules_ids: []
+				});
+			} else {
+				//TODO: Implement for iOS
+			}
 		} catch (err) {
 			console.error(err);
 		}
