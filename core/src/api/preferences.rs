@@ -1,12 +1,10 @@
-use rspc::alpha::AlphaRouter;
-
-use super::{utils::library, Ctx, R};
+use super::{utils::library, RouterBuilder, R};
 use crate::preferences::LibraryPreferences;
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("update", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: LibraryPreferences| async move {
 					args.write(&library.db).await?;
 
@@ -14,7 +12,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("get", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
+			R.with(library()).query(|(_, library), _: ()| async move {
 				Ok(LibraryPreferences::read(&library.db).await?)
 			})
 		})

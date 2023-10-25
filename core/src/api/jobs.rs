@@ -17,23 +17,22 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::or;
-use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::time::Duration;
 use tracing::{info, trace};
 use uuid::Uuid;
 
-use super::{utils::library, CoreEvent, Ctx, R};
+use super::{utils::library, CoreEvent, RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("progress", {
 			// Listen for updates from the job manager
 			// - the client listens for events containing an updated JobReport
 			// - the client replaces its local copy of the JobReport using the index provided by the reports procedure
 			// - this should be used with the ephemeral sync engine
-			R.with2(library())
+			R.with(library())
 				.subscription(|(node, _), _: ()| async move {
 					let mut event_bus_rx = node.event_bus.0.subscribe();
 					// debounce per-job
@@ -78,7 +77,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				jobs: VecDeque<JobReport>,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.query(|(node, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
@@ -158,13 +157,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("isActive", {
-			R.with2(library())
+			R.with(library())
 				.query(|(node, library), _: ()| async move {
 					Ok(node.jobs.has_active_workers(library.id).await)
 				})
 		})
 		.procedure("clear", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), id: Uuid| async move {
 					library
 						.db
@@ -178,7 +177,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("clearAll", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), _: ()| async move {
 					info!("Clearing all jobs");
 					library
@@ -199,7 +198,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		// pause job
 		.procedure("pause", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), id: Uuid| async move {
 					let ret = Jobs::pause(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
@@ -207,7 +206,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("resume", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), id: Uuid| async move {
 					let ret = Jobs::resume(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
@@ -215,7 +214,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("cancel", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), id: Uuid| async move {
 					let ret = Jobs::cancel(&node.jobs, id).await.map_err(Into::into);
 					invalidate_query!(library, "jobs.reports");
@@ -231,7 +230,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub regenerate: bool,
 			}
 
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(node, library),
 				 GenerateThumbsForLocationArgs {
 				     id,
@@ -260,7 +259,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub path: PathBuf,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: ObjectValidatorArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
@@ -282,7 +281,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub path: PathBuf,
 			}
 
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(node, library), args: IdentifyUniqueFilesArgs| async move {
 					let Some(location) = find_location(&library, args.id).exec().await? else {
 						return Err(LocationError::IdNotFound(args.id).into());
@@ -299,7 +298,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("newThumbnail", {
-			R.with2(library())
+			R.with(library())
 				.subscription(|(node, _), _: ()| async move {
 					// TODO: Only return event for the library that was subscribed to
 

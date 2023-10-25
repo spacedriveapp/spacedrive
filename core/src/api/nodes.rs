@@ -1,5 +1,5 @@
 use crate::{invalidate_query, prisma::location, util::MaybeUndefined};
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 
 use sd_prisma::prisma::instance;
 use serde::Deserialize;
@@ -7,9 +7,9 @@ use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
-use super::{locations::ExplorerItem, utils::library, Ctx, R};
+use super::{locations::ExplorerItem, utils::library,  RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("edit", {
 			#[derive(Deserialize, Type)]
@@ -67,7 +67,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		// TODO: add pagination!! and maybe ordering etc
 		.procedure("listLocations", {
-			R.with2(library())
+			R.with(library())
 				// TODO: I don't like this. `node_id` should probs be a machine hash or something cause `node_id` is dynamic in the context of P2P and what does it mean for removable media to be owned by a node?
 				.query(|(_, library), node_id: Option<Uuid>| async move {
 					// Be aware multiple instances can exist on a single node. This is generally an edge case but it's possible.

@@ -9,7 +9,7 @@ use std::{
 
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use futures::executor::block_on;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::{Serialize, Serializer};
 use specta::Type;
 use tar::Archive;
@@ -25,9 +25,9 @@ use crate::{
 	Node,
 };
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("getAll", {
 			#[derive(Serialize, Type)]
@@ -97,7 +97,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("backup", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), _: ()| start_backup(node, library))
 		})
 		.procedure("restore", {

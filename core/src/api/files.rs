@@ -40,24 +40,24 @@ use std::{
 use chrono::Utc;
 use futures::future::join_all;
 use regex::Regex;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::Deserialize;
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
 
-use super::{Ctx, R};
+use super::{RouterBuilder, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("get", {
 			#[derive(Type, Deserialize)]
 			pub struct GetArgs {
 				pub id: i32,
 			}
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), args: GetArgs| async move {
 					Ok(library
 						.db
@@ -69,7 +69,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getMediaData", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), args: object::id::Type| async move {
 					library
 						.db
@@ -123,29 +123,28 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("getPath", {
-			R.with2(library())
-				.query(|(_, library), id: i32| async move {
-					let isolated_path = IsolatedFilePathData::try_from(
-						library
-							.db
-							.file_path()
-							.find_unique(file_path::id::equals(id))
-							.select(file_path_to_isolate::select())
-							.exec()
-							.await?
-							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
-					)
-					.map_err(LocationError::MissingField)?;
+			R.with(library()).query(|(_, library), id: i32| async move {
+				let isolated_path = IsolatedFilePathData::try_from(
+					library
+						.db
+						.file_path()
+						.find_unique(file_path::id::equals(id))
+						.select(file_path_to_isolate::select())
+						.exec()
+						.await?
+						.ok_or(LocationError::FilePath(FilePathError::IdNotFound(id)))?,
+				)
+				.map_err(LocationError::MissingField)?;
 
-					let location_id = isolated_path.location_id();
-					let location_path =
-						get_location_path_from_location_id(&library.db, location_id).await?;
+				let location_id = isolated_path.location_id();
+				let location_path =
+					get_location_path_from_location_id(&library.db, location_id).await?;
 
-					Ok(Path::new(&location_path)
-						.join(&isolated_path)
-						.to_str()
-						.map(|str| str.to_string()))
-				})
+				Ok(Path::new(&location_path)
+					.join(&isolated_path)
+					.to_str()
+					.map(|str| str.to_string()))
+			})
 		})
 		.procedure("setNote", {
 			#[derive(Type, Deserialize)]
@@ -154,7 +153,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub note: Option<String>,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: SetNoteArgs| async move {
 					library
 						.db
@@ -179,7 +178,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub favorite: bool,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: SetFavoriteArgs| async move {
 					library
 						.db
@@ -204,7 +203,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub sub_path: Option<PathBuf>,
 				pub name: Option<String>,
 			}
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(_, library),
 				 CreateFolderArgs {
 				     location_id,
@@ -235,7 +234,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub path: PathBuf,
 				pub name: Option<String>,
 			}
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(_, library),
 				 CreateEphemeralFolderArgs { mut path, name }: CreateEphemeralFolderArgs| async move {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
@@ -245,7 +244,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("updateAccessTime", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
 					library
 						.db
@@ -263,7 +262,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("removeAccessTime", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), object_ids: Vec<i32>| async move {
 					library
 						.db
@@ -281,19 +280,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		// .procedure("encryptFiles", {
-		// 	R.with2(library())
+		// 	R.with(library())
 		// 		.mutation(|(node, library), args: FileEncryptorJobInit| async move {
 		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		// .procedure("decryptFiles", {
-		// 	R.with2(library())
+		// 	R.with(library())
 		// 		.mutation(|(node, library), args: FileDecryptorJobInit| async move {
 		// 			Job::new(args).spawn(&node, &library).await.map_err(Into::into)
 		// 		})
 		// })
 		.procedure("deleteFiles", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: FileDeleterJobInit| async move {
 					match args.file_path_ids.len() {
 						0 => Ok(()),
@@ -373,7 +372,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				desired_extension: ConvertableExtension,
 				quality_percentage: Option<i32>, // 1% - 125%
 			}
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: ConvertImageArgs| async move {
 					// TODO:(fogodev) I think this will have to be a Job due to possibly being too much CPU Bound for rspc
 
@@ -501,7 +500,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: FileEraserJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
@@ -510,7 +509,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("duplicateFiles", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: FileCopierJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
@@ -519,7 +518,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("copyFiles", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: FileCopierJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
@@ -528,7 +527,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("cutFiles", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: FileCutterJobInit| async move {
 					Job::new(args)
 						.spawn(&node, &library)
@@ -724,7 +723,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 			}
 
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(_, library), RenameFileArgs { location_id, kind }: RenameFileArgs| async move {
 					let location_path =
 						get_location_path_from_location_id(&library.db, location_id).await?;

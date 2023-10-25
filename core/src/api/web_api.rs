@@ -1,12 +1,11 @@
-use rspc::alpha::AlphaRouter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::util::http::ensure_response;
 
-use super::{Ctx, R};
+use super::{RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router().procedure(
 		"sendFeedback",
 		R.mutation({

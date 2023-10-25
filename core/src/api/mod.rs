@@ -1,18 +1,37 @@
 use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
 use itertools::Itertools;
-use rspc::{alpha::Rspc, Config, ErrorCode};
+use rspc::{ErrorCode, Rspc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::{atomic::Ordering, Arc};
+use thiserror::Error;
 use uuid::Uuid;
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
+#[derive(Debug, Error, Serialize, Type)]
+pub enum SdError {
+	#[error("Internal database error: {0:?}")]
+	Prisma(
+		#[from]
+		#[serde(skip)]
+		prisma_client_rust::QueryError,
+	),
+
+	// TODO: Remove this variant
+	#[error("rspc error: {0:?}")]
+	Rspc(#[from] rspc::Error),
+	// TODO: Remove this variant
+	// #[error("rspc infallible")]
+	// RspcInfallible(#[from] rspc::Infallible),
+}
+
 #[allow(non_upper_case_globals)]
-pub(crate) const R: Rspc<Ctx> = Rspc::new();
+pub(crate) const R: Rspc<Ctx, SdError> = Rspc::new();
 
 pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
+pub type RouterBuilder = rspc::RouterBuilder<Ctx>;
 
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
 #[derive(Debug, Clone, Serialize, Type)]
@@ -107,10 +126,10 @@ pub(crate) fn mount() -> Arc<Router> {
 				commit: &'static str,
 			}
 
-			R.query(|_, _: ()| BuildInfo {
+			R.query(|_, _: ()| Ok(BuildInfo {
 				version: env!("CARGO_PKG_VERSION"),
 				commit: env!("GIT_HASH"),
-			})
+			}))
 		})
 		.procedure("nodeState", {
 			R.query(|node, _: ()| async move {
@@ -182,19 +201,20 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("backups.", backups::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.build(
-			#[allow(clippy::let_and_return)]
-			{
-				let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+			// #[allow(clippy::let_and_return)]
+			// {
+			// 	// let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
 
-				#[cfg(all(debug_assertions, not(feature = "mobile")))]
-				let config = config.export_ts_bindings(
-					std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-						.join("../packages/client/src/core.ts"),
-				);
+			// 	#[cfg(all(debug_assertions, not(feature = "mobile")))]
+			// 	let config = config.export_ts_bindings(
+			// 		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			// 			.join("../packages/client/src/core.ts"),
+			// 	);
 
-				config
-			},
+			// 	config
+			// },
 		)
+		.unwrap()
 		.arced();
 
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.

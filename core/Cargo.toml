@@ -40,14 +40,11 @@ sd-utils = { path = "../crates/utils" }
 sd-core-sync = { path = "./crates/sync" }
 
 rspc = { workspace = true, features = [
-	"uuid",
-	"chrono",
 	"tracing",
-	"alpha",
 	"unstable",
 ] }
 prisma-client-rust = { workspace = true }
-specta = { workspace = true }
+specta = { workspace = true, features = ["uuid", "chrono"] }
 tokio = { workspace = true, features = [
 	"sync",
 	"rt-multi-thread",

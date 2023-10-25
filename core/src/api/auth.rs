@@ -1,13 +1,12 @@
 use std::time::Duration;
 
 use reqwest::{Response, StatusCode};
-use rspc::alpha::AlphaRouter;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 
 use crate::{auth::DEVICE_CODE_URN, util::http::ensure_response};
 
-use super::{Ctx, R};
+use super::{RouterBuilder, R};
 
 async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
 	response.json().await.map_err(|_| {
@@ -18,7 +17,7 @@ async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, r
 	})
 }
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("loginSession", {
 			#[derive(Serialize, Type)]
@@ -51,17 +50,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							Ok(r) => r.json::<DeviceAuthorizationResponse>().await,
 							Err(e) => Err(e)
 						}) else {
-							yield Response::Error;
+							yield Ok(Response::Error);
 							return;
 						};
 
-					yield Response::Start {
+					yield Ok(Response::Start {
 						user_code: auth_response.user_code.clone(),
 						verification_url: auth_response.verification_url.clone(),
 						verification_url_complete: auth_response.verification_uri_complete.clone(),
-					};
+					});
 
-					yield loop {
+					yield Ok(loop {
 						tokio::time::sleep(Duration::from_secs(5)).await;
 
 						let Ok(token_resp) = node.http
@@ -112,14 +111,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								break Response::Error;
 							}
 						}
-					}
+					})
 				}
 			})
 		})
 		.procedure(
 			"logout",
 			R.mutation(|node, _: ()| async move {
-				node.config
+				Ok(node
+					.config
 					.write(|mut c| c.auth_token = None)
 					.await
 					.map(|_| ())
@@ -128,7 +128,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							rspc::ErrorCode::InternalServerError,
 							"Failed to write config".to_string(),
 						)
-					})
+					}))
 			}),
 		)
 		.procedure("me", {

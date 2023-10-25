@@ -51,8 +51,8 @@ impl Identity {
 		RemoteIdentity(self.0.verifying_key())
 	}
 }
-#[derive(Clone, PartialEq, Eq)]
-pub struct RemoteIdentity(ed25519_dalek::VerifyingKey);
+#[derive(Clone, PartialEq, Eq, Type)]
+pub struct RemoteIdentity(#[specta(type = String)] ed25519_dalek::VerifyingKey);
 
 impl Hash for RemoteIdentity {
 	fn hash<H: Hasher>(&self, state: &mut H) {
@@ -71,15 +71,6 @@ impl std::fmt::Debug for RemoteIdentity {
 impl Serialize for RemoteIdentity {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
 		serializer.serialize_str(&hex::encode(self.0.as_bytes()))
-	}
-}
-
-impl Type for RemoteIdentity {
-	fn inline(
-		_: specta::DefOpts,
-		_: &[specta::DataType],
-	) -> Result<specta::DataType, specta::ExportError> {
-		Ok(specta::DataType::Primitive(specta::PrimitiveType::String))
 	}
 }
 

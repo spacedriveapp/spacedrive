@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use chrono::Utc;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use sd_prisma::prisma_sync;
 use sd_sync::OperationFactory;
 use serde::Deserialize;
@@ -16,17 +16,17 @@ use crate::{
 	prisma::{object, tag, tag_on_object},
 };
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("list", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
+			R.with(library()).query(|(_, library), _: ()| async move {
 				Ok(library.db.tag().find_many(vec![]).exec().await?)
 			})
 		})
 		.procedure("getForObject", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), object_id: i32| async move {
 					Ok(library
 						.db
@@ -39,7 +39,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getWithObjects", {
-			R.with2(library()).query(
+			R.with(library()).query(
 				|(_, library), object_ids: Vec<object::id::Type>| async move {
 					let Library { db, .. } = library.as_ref();
 
@@ -75,7 +75,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("get", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), tag_id: i32| async move {
 					Ok(library
 						.db
@@ -86,7 +86,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("create", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: TagCreateArgs| async move {
 					let created_tag = args.exec(&library).await?;
 
@@ -103,7 +103,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub unassign: bool,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
 					let Library { db, sync, .. } = library.as_ref();
 
@@ -188,7 +188,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub color: Option<String>,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: TagUpdateArgs| async move {
 					let Library { sync, db, .. } = library.as_ref();
 
@@ -245,7 +245,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure(
 			"delete",
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), tag_id: i32| async move {
 					library
 						.db

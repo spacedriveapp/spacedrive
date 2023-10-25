@@ -2,14 +2,14 @@ use crate::library::Category;
 
 use std::{collections::BTreeMap, str::FromStr};
 
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use strum::VariantNames;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router().procedure("list", {
-		R.with2(library()).query(|(_, library), _: ()| async move {
+		R.with(library()).query(|(_, library), _: ()| async move {
 			let (categories, queries): (Vec<_>, Vec<_>) = Category::VARIANTS
 				.iter()
 				.map(|category| {

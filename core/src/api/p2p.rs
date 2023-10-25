@@ -1,4 +1,4 @@
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use sd_p2p::PeerId;
 use serde::Deserialize;
 use specta::Type;
@@ -7,9 +7,9 @@ use uuid::Uuid;
 
 use crate::p2p::{P2PEvent, PairingDecision};
 
-use super::{Ctx, R};
+use super::{RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("events", {
 			R.subscription(|node, _: ()| async move {

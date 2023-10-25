@@ -55,22 +55,22 @@
 // pub(crate) fn mount() -> AlphaRouter<Ctx> {
 // 	R.router()
 // 		.procedure("list", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.query(|(_, library), _: ()| async move { Ok(library.key_manager.dump_keystore()) })
 // 		})
 // 		// do not unlock the key manager until this route returns true
 // 		.procedure("isUnlocked", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				Ok(library.key_manager.is_unlocked().await)
 // 			})
 // 		})
 // 		.procedure("isSetup", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				Ok(!library.db.key().find_many(vec![]).exec().await?.is_empty())
 // 			})
 // 		})
 // 		.procedure("setup", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), config: OnboardingConfig| async move {
 // 					let root_key = library.key_manager.onboarding(config, library.id).await?;
 // 					write_storedkey_to_db(&library.db, &root_key).await?;
@@ -87,12 +87,12 @@
 // 		})
 // 		// this is so we can show the key as mounted in the UI
 // 		.procedure("listMounted", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				Ok(library.key_manager.get_mounted_uuids())
 // 			})
 // 		})
 // 		.procedure("getKey", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.query(|(_, library), key_uuid: Uuid| async move {
 // 					Ok(library
 // 						.key_manager
@@ -103,7 +103,7 @@
 // 				})
 // 		})
 // 		.procedure("mount", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), key_uuid: Uuid| async move {
 // 					library.key_manager.mount(key_uuid).await?;
 // 					// we also need to dispatch jobs that automatically decrypt preview media and metadata here
@@ -112,7 +112,7 @@
 // 				})
 // 		})
 // 		.procedure("getSecretKey", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				if library
 // 					.key_manager
 // 					.keyring_contains_valid_secret_key(library.id)
@@ -133,7 +133,7 @@
 // 			})
 // 		})
 // 		.procedure("unmount", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), key_uuid: Uuid| async move {
 // 					library.key_manager.unmount(key_uuid)?;
 // 					// we also need to delete all in-memory decrypted data associated with this key
@@ -142,7 +142,7 @@
 // 				})
 // 		})
 // 		.procedure("clearMasterPassword", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), _: ()| async move {
 // 					// This technically clears the root key, but it means the same thing to the frontend
 // 					library.key_manager.clear_root_key().await?;
@@ -152,7 +152,7 @@
 // 				})
 // 		})
 // 		.procedure("syncKeyToLibrary", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), key_uuid: Uuid| async move {
 // 					let key = library.key_manager.sync_to_database(key_uuid).await?;
 
@@ -164,7 +164,7 @@
 // 				})
 // 		})
 // 		.procedure("updateAutomountStatus", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), args: AutomountUpdateArgs| async move {
 // 					if !library.key_manager.is_memory_only(args.uuid).await? {
 // 						library
@@ -189,7 +189,7 @@
 // 				})
 // 		})
 // 		.procedure("deleteFromLibrary", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), key_uuid: Uuid| async move {
 // 					if !library.key_manager.is_memory_only(key_uuid).await? {
 // 						library
@@ -210,7 +210,7 @@
 // 				})
 // 		})
 // 		.procedure("unlockKeyManager", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), args: UnlockKeyManagerArgs| async move {
 // 					let secret_key =
 // 						(!args.secret_key.expose().is_empty()).then_some(args.secret_key);
@@ -247,7 +247,7 @@
 // 				})
 // 		})
 // 		.procedure("setDefault", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), key_uuid: Uuid| async move {
 // 					library.key_manager.set_default(key_uuid).await?;
 
@@ -276,17 +276,17 @@
 // 				})
 // 		})
 // 		.procedure("getDefault", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				library.key_manager.get_default().await.ok()
 // 			})
 // 		})
 // 		.procedure("isKeyManagerUnlocking", {
-// 			R.with2(library()).query(|(_, library), _: ()| async move {
+// 			R.with(library()).query(|(_, library), _: ()| async move {
 // 				library.key_manager.is_unlocking().await.ok()
 // 			})
 // 		})
 // 		.procedure("unmountAll", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), _: ()| async move {
 // 					library.key_manager.empty_keymount();
 // 					invalidate_query!(library, "keys.listMounted");
@@ -295,7 +295,7 @@
 // 		})
 // 		.procedure("add", {
 // 			// this also mounts the key
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), args: KeyAddArgs| async move {
 // 					// register the key with the keymanager
 // 					let uuid = library
@@ -338,7 +338,7 @@
 // 				})
 // 		})
 // 		.procedure("backupKeystore", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), path: PathBuf| async move {
 // 					// dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
 // 					let mut stored_keys = library.key_manager.dump_keystore();
@@ -360,7 +360,7 @@
 // 				})
 // 		})
 // 		.procedure("restoreKeystore", {
-// 			R.with2(library())
+// 			R.with(library())
 // 				.mutation(|(_, library), args: RestoreBackupArgs| async move {
 // 					let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
 
@@ -399,7 +399,7 @@
 // 			"changeMasterPassword",
 // 			#[allow(clippy::unwrap_used)] // TODO: Jake is fixing this in a Crypto PR
 // 			{
-// 				R.with2(library()).mutation(
+// 				R.with(library()).mutation(
 // 					|(_, library), args: MasterPasswordChangeArgs| async move {
 // 						let verification_key = library
 // 							.key_manager

@@ -16,12 +16,12 @@ use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::{operator, or, WhereQuery};
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use sd_prisma::prisma::media_data;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::{Ctx, R};
+use super::{RouterBuilder, R};
 
 const MAX_TAKE: u8 = 100;
 
@@ -359,7 +359,7 @@ impl ObjectFilterArgs {
 	}
 }
 
-pub fn mount() -> AlphaRouter<Ctx> {
+pub fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("ephemeralPaths", {
 			#[derive(Serialize, Deserialize, Type, Debug, Clone)]
@@ -380,7 +380,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				order: Option<EphemeralPathOrder>,
 			}
 
-			R.with2(library()).query(
+			R.with(library()).query(
 				|(node, library),
 				 EphemeralPathSearchArgs {
 				     path,
@@ -445,7 +445,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				true
 			}
 
-			R.with2(library()).query(
+			R.with(library()).query(
 				|(node, library),
 				 FilePathSearchArgs {
 				     take,
@@ -610,7 +610,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				filter: FilePathFilterArgs,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), Args { filter }| async move {
 					let Library { db, .. } = library.as_ref();
 
@@ -633,7 +633,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				filter: ObjectFilterArgs,
 			}
 
-			R.with2(library()).query(
+			R.with(library()).query(
 				|(node, library),
 				 ObjectSearchArgs {
 				     take,
@@ -756,7 +756,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				filter: ObjectFilterArgs,
 			}
 
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), Args { filter }| async move {
 					let Library { db, .. } = library.as_ref();
 

@@ -1,7 +1,6 @@
-use crate::api::{CoreEvent, Ctx, Router, R};
+use crate::api::{CoreEvent, Router, RouterBuilder, R};
 
 use async_stream::stream;
-use rspc::alpha::AlphaRouter;
 use serde::Serialize;
 use serde_hashkey::to_key;
 use serde_json::Value;
@@ -271,7 +270,7 @@ macro_rules! invalidate_query {
 	}};
 }
 
-pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
+pub(crate) fn mount_invalidate() -> RouterBuilder {
 	let (tx, _) = broadcast::channel(100);
 	let manager_thread_active = Arc::new(AtomicBool::new(false));
 
@@ -282,11 +281,11 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 		R.router()
 			.procedure(
 				"test-invalidate",
-				R.query(move |_, _: ()| count.fetch_add(1, Ordering::SeqCst)),
+				R.query(move |_, _: ()| Ok(count.fetch_add(1, Ordering::SeqCst))),
 			)
 			.procedure(
 				"test-invalidate-mutation",
-				R.with2(super::library()).mutation(|(_, library), _: ()| {
+				R.with(super::library()).mutation(|(_, library), _: ()| {
 					invalidate_query!(library, "invalidation.test-invalidate");
 					Ok(())
 				}),
@@ -366,7 +365,7 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 			let mut rx = tx.subscribe();
 			stream! {
 				while let Ok(msg) = rx.recv().await {
-					yield msg;
+					yield Ok(msg);
 				}
 			}
 		})

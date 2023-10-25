@@ -19,12 +19,12 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use directories::UserDirs;
-use rspc::{self, alpha::AlphaRouter, ErrorCode};
+use rspc::{self, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::error;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Ctx, RouterBuilder, R};
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -168,10 +168,10 @@ impl ExplorerItem {
 file_path::include!(file_path_with_object { object });
 object::include!(object_with_file_paths { file_paths });
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("list", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
+			R.with(library()).query(|(_, library), _: ()| async move {
 				Ok(library
 					.db
 					.location()
@@ -182,7 +182,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("get", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
@@ -193,7 +193,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("getWithRules", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), location_id: location::id::Type| async move {
 					Ok(library
 						.db
@@ -205,7 +205,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("create", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.create(&node, &library).await? {
 						let id = Some(location.id);
@@ -218,7 +218,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("update", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: LocationUpdateArgs| async move {
 					let ret = args.update(&node, &library).await.map_err(Into::into);
 					invalidate_query!(library, "locations.list");
@@ -226,7 +226,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(node, library), location_id: location::id::Type| async move {
 					delete_location(&node, &library, location_id).await?;
 					invalidate_query!(library, "locations.list");
@@ -235,7 +235,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			)
 		})
 		.procedure("relink", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), location_path: PathBuf| async move {
 					relink_location(&library, location_path)
 						.await
@@ -243,7 +243,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("addLibrary", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.add_library(&node, &library).await? {
 						let id = location.id;
@@ -262,7 +262,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub reidentify_objects: bool,
 			}
 
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(node, library),
 				 FullRescanArgs {
 				     location_id,
@@ -311,7 +311,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub sub_path: String,
 			}
 
-			R.with2(library()).mutation(
+			R.with(library()).mutation(
 				|(node, library),
 				 RescanArgs {
 				     location_id,
@@ -339,7 +339,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub sub_path: String,
 			}
 
-			R.with2(library()).subscription(
+			R.with(library()).subscription(
 				|(node, library),
 				 LightScanArgs {
 				     location_id,
@@ -407,10 +407,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
-fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
+fn mount_indexer_rule_routes() -> RouterBuilder {
 	R.router()
 		.procedure("create", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), args: IndexerRuleCreateArgs| async move {
 					if args.create(&library).await?.is_some() {
 						invalidate_query!(library, "locations.indexer_rules.list");
@@ -420,7 +420,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), indexer_rule_id: i32| async move {
 					let indexer_rule_db = library.db.indexer_rule();
 
@@ -463,7 +463,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("get", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), indexer_rule_id: i32| async move {
 					library
 						.db
@@ -480,7 +480,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("list", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
+			R.with(library()).query(|(_, library), _: ()| async move {
 				library
 					.db
 					.indexer_rule()
@@ -492,7 +492,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		})
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
-			R.with2(library())
+			R.with(library())
 				.query(|(_, library), location_id: location::id::Type| async move {
 					library
 						.db

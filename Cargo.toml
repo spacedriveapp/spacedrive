@@ -21,14 +21,14 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
-	"rspc",
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive-rspc-v1", features = [
+	"specta",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive", features = [
-	"rspc",
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", branch = "spacedrive-rspc-v1", features = [
+    "specta",
 	"sqlite-create-many",
 	"migrations",
 	"sqlite",
@@ -43,9 +43,11 @@ tracing-subscriber = { git = "https://github.com/tokio-rs/tracing", rev = "29146
 ] } # To work with tracing-appender
 tracing-appender = { git = "https://github.com/tokio-rs/tracing", rev = "29146260fb4615d271d2e899ad95a753bb42915e" } # Unreleased changes for rolling log deletion
 
-rspc = { version = "0.1.4" }
-specta = { version = "1.0.5" }
-tauri-specta = { version = "1.0.2" }
+rspc = { version = "=1.0.0-rc.5" }
+rspc-tauri = { version = "=1.0.0-rc.5" }
+rspc-httpz = { version = "=1.0.0-rc.5" }
+specta = { version = "=2.0.0-rc.6" }
+tauri-specta = { version = "2.0.0-rc.3" }
 
 swift-rs = { version = "1.0.6" }
 
@@ -58,7 +60,7 @@ serde_json = { version = "1.0" }
 # Proper IOS Support
 if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804ad9b2005e4e760732a708aa95b4bfb376ddf" }
 
-# Beta features
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4bc6e46fc8747cd8d8a07597c1fe13c52aa16a41" }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982dd251466d4144f4d57e92177" }
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
+# Await release
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "811877b50ea1bede36e31e1c81e44d994413bc6d" }
+rspc-tauri = { git = "https://github.com/oscartbeaumont/rspc", rev = "811877b50ea1bede36e31e1c81e44d994413bc6d" }
+rspc-httpz = { git = "https://github.com/oscartbeaumont/rspc", rev = "811877b50ea1bede36e31e1c81e44d994413bc6d" }

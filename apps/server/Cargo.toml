@@ -14,7 +14,7 @@ sd-core = { path = "../../core", features = [
 	"location-watcher",
 	"heif",
 ] }
-rspc = { workspace = true, features = ["axum"] }
+rspc-httpz = { workspace = true, features = ["axum"] }
 axum = "0.6.20"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = { workspace = true }

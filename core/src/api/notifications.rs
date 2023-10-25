@@ -1,13 +1,13 @@
 use async_stream::stream;
 use chrono::{DateTime, Utc};
 use futures::future::join_all;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use sd_prisma::prisma::notification;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::api::{Ctx, R};
+use crate::api::{RouterBuilder, R};
 
 use super::utils::library;
 
@@ -36,7 +36,7 @@ pub enum NotificationData {
 	Test,
 }
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("get", {
 			R.query(|node, _: ()| async move {
@@ -165,7 +165,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("testLibrary", {
-			R.with2(library())
+			R.with(library())
 				.mutation(|(_, library), _: ()| async move {
 					library
 						.emit_notification(NotificationData::Test, None)

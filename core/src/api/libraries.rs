@@ -14,7 +14,7 @@ use std::{convert::identity, sync::Arc};
 use chrono::Utc;
 use directories::UserDirs;
 use futures_concurrency::future::Join;
-use rspc::{alpha::AlphaRouter, ErrorCode};
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::spawn;
@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use super::{
 	utils::{get_size, library},
-	Ctx, R,
+	RouterBuilder, R,
 };
 
 // TODO(@Oscar): Replace with `specta::json`
@@ -35,7 +35,7 @@ pub struct LibraryConfigWrapped {
 	pub config: LibraryConfig,
 }
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("list", {
 			R.query(|node, _: ()| async move {
@@ -53,7 +53,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("statistics", {
-			R.with2(library())
+			R.with(library())
 				.query(|(node, library), _: ()| async move {
 					// TODO: get from database if library is offline
 					// let _statistics = library

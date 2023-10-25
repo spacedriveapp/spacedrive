@@ -1,12 +1,11 @@
-use rspc::alpha::AlphaRouter;
 use sd_core_sync::GetOpsArgs;
 
-use super::{utils::library, Ctx, R};
+use super::{utils::library, Ctx, RouterBuilder, R};
 
-pub(crate) fn mount() -> AlphaRouter<Ctx> {
+pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("newMessage", {
-			R.with2(library())
+			R.with(library())
 				.subscription(|(_, library), _: ()| async move {
 					async_stream::stream! {
 						let mut rx = library.sync.tx.subscribe();
@@ -15,13 +14,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							// 	SyncMessage::Ingested => (),
 							// 	SyncMessage::Created => op
 							// };
-							yield ();
+							yield Ok(());
 						}
 					}
 				})
 		})
 		.procedure("messages", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
+			R.with(library()).query(|(_, library), _: ()| async move {
 				Ok(library
 					.sync
 					.get_ops(GetOpsArgs {
