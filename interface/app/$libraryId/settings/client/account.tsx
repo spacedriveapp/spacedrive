@@ -95,16 +95,14 @@ const Usage = memo(() => {
 			{
 				icon: Folder,
 				title: 'Locations',
-				titleCount: locations.data?.length,
-				sub: 'indexed directories',
-				dataLength: locations.data?.length
+				titleCount: locations.data?.length ?? 0,
+				sub: 'indexed directories'
 			},
 			{
 				icon: Laptop,
-				title: discoveredPeers.size > 1 ? 'Devices' : 'Device',
-				titleCount: discoveredPeers.size,
-				sub: 'in your network',
-				dataLength: discoveredPeers.size
+				title: discoveredPeers.size >= 0 ? 'Devices' : 'Device',
+				titleCount: discoveredPeers.size ?? 0,
+				sub: 'in your network'
 			},
 			{
 				icon: Drive_Light,
@@ -167,13 +165,16 @@ const UsageCard = memo(
 		useEffect(() => {
 			if (!statsLoading) mounted = true;
 		});
+
 		return (
 			<Card className="h-[90px] w-full bg-app-input py-4">
 				<div className="flex w-full items-center justify-center gap-3">
 					<img src={icon} className="w-10" />
 					<div className="w-full max-w-[120px]">
 						<h1 className="text-lg font-medium">
-							{titleCount && <span className="mr-1 text-ink-dull">{sizeCount}</span>}
+							{typeof titleCount === 'number' && (
+								<span className="mr-1 text-ink-dull">{sizeCount}</span>
+							)}
 							{numberTitle && sizeCount}
 							{title}
 							{unit && (
