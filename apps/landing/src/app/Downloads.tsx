@@ -115,7 +115,7 @@ export function Downloads({ latestVersion }: Props) {
 							href={`${BASE_DL_LINK}/${selectedPlatform.os}/${arch}`}
 							onClick={() => {
 								plausible('download', {
-									props: { os: selectedPlatform.name + arch }
+									props: { os: selectedPlatform.name + ' ' + arch }
 								});
 							}}
 							className="z-5 relative !py-1 !text-sm"
