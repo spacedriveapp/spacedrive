@@ -12,7 +12,7 @@ export const TruncatedText = ({
 	const isTruncated = useIsTextTruncated(ref);
 
 	return (
-		<Tooltip label={isTruncated ? children : undefined} asChild>
+		<Tooltip tooltipClassName="max-w-fit" label={isTruncated ? children : undefined} asChild>
 			<div ref={ref} className={clsx('truncate', className)}>
 				{children}
 			</div>
