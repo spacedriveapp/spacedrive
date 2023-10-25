@@ -21,6 +21,7 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
+		'IPHONEOS_DEPLOYMENT_TARGET' => '16.0'
   }
 
 	s.script_phase = {
