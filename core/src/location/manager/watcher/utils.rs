@@ -21,7 +21,7 @@ use crate::{
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query,
-			thumbnail::get_thumbnail_path,
+			thumbnail::get_indexed_thumbnail_path,
 		},
 		validation::hash::file_checksum,
 	},
@@ -285,10 +285,11 @@ async fn inner_create_file(
 			let extension = extension.clone();
 			let path = path.to_path_buf();
 			let node = node.clone();
+			let library_id = library.id;
 			spawn(async move {
 				if let Err(e) = node
 					.thumbnailer
-					.generate_single_thumbnail(&extension, cas_id, path)
+					.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
 					.await
 				{
 					error!("Failed to generate thumbnail in the watcher: {e:#?}");
@@ -522,10 +523,13 @@ async fn inner_update_file(
 						if let Some(cas_id) = cas_id {
 							let node = node.clone();
 							let path = full_path.to_path_buf();
+							let library_id = library.id;
 							spawn(async move {
 								if let Err(e) = node
 									.thumbnailer
-									.generate_single_thumbnail(&ext, cas_id, path)
+									.generate_single_indexed_thumbnail(
+										&ext, cas_id, path, library_id,
+									)
 									.await
 								{
 									error!("Failed to generate thumbnail in the watcher: {e:#?}");
@@ -534,7 +538,7 @@ async fn inner_update_file(
 						}
 
 						// remove the old thumbnail as we're generating a new one
-						let thumb_path = get_thumbnail_path(node, old_cas_id);
+						let thumb_path = get_indexed_thumbnail_path(node, old_cas_id, library.id);
 						fs::remove_file(&thumb_path)
 							.await
 							.map_err(|e| FileIOError::from((thumb_path, e)))?;

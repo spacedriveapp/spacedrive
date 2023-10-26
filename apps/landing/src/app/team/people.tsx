@@ -78,7 +78,9 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'React Engineer & Designer',
 		imageUrl: '/images/team/vitor.jpg',
 		socials: {
-			github: 'https://github.com/HeavenVolkoff'
+			github: 'https://github.com/HeavenVolkoff',
+			gitlab: 'https://gitlab.com/VitorVasconcellos',
+			twitter: 'https://x.com/vasvas10'
 		}
 	},
 	{

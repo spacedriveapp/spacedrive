@@ -1,6 +1,6 @@
 'use client';
 
-import { SmileyXEyes } from '@phosphor-icons/react/dist/ssr';
+import { SmileyXEyes } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@sd/ui';
 import Markdown from '~/components/Markdown';

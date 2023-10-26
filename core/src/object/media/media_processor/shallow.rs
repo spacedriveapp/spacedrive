@@ -6,13 +6,14 @@ use crate::{
 		ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 		file_path_for_media_processor, IsolatedFilePathData,
 	},
+	object::media::thumbnail::GenerateThumbnailArgs,
 	prisma::{location, PrismaClient},
 	util::db::maybe_missing,
 	Node,
 };
 
 use std::{
-	future::Future,
+	cmp::Ordering,
 	path::{Path, PathBuf},
 };
 
@@ -22,8 +23,8 @@ use sd_file_ext::extensions::Extension;
 use tracing::{debug, error};
 
 use super::{
-	dispatch_thumbnails_for_processing,
 	media_data_extractor::{self, process},
+	thumbnail::{self, BatchToProcess},
 	MediaProcessorError, MediaProcessorMetadata,
 };
 
@@ -75,7 +76,6 @@ pub async fn shallow(
 		library,
 		node,
 		false,
-		get_files_by_extensions,
 	)
 	.await?;
 
@@ -132,43 +132,109 @@ async fn get_files_for_media_data_extraction(
 	.map_err(Into::into)
 }
 
-fn get_files_by_extensions<'d, 'p, 'e, 'ret>(
-	db: &'d PrismaClient,
-	parent_iso_file_path: &'p IsolatedFilePathData<'_>,
-	extensions: &'e [Extension],
-) -> impl Future<Output = Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError>> + 'ret
-where
-	'd: 'ret,
-	'p: 'ret,
-	'e: 'ret,
-{
-	async move {
-		// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-		// We have no data coming from the user, so this is sql injection safe
-		db._query_raw(raw!(
-			&format!(
-				"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+async fn dispatch_thumbnails_for_processing(
+	location_id: location::id::Type,
+	location_path: impl AsRef<Path>,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	library: &Library,
+	node: &Node,
+	should_regenerate: bool,
+) -> Result<(), MediaProcessorError> {
+	let Library { db, .. } = library;
+
+	let location_path = location_path.as_ref();
+
+	let file_paths = get_files_by_extensions(
+		db,
+		parent_iso_file_path,
+		&thumbnail::ALL_THUMBNAILABLE_EXTENSIONS,
+	)
+	.await?;
+
+	let current_batch = file_paths
+		.into_iter()
+		.filter_map(|file_path| {
+			if let Some(cas_id) = file_path.cas_id.as_ref() {
+				Some((cas_id.clone(), file_path))
+			} else {
+				error!("File path <id='{}'> has no cas_id, skipping", file_path.id);
+				None
+			}
+		})
+		.filter_map(|(cas_id, file_path)| {
+			let file_path_id = file_path.id;
+			IsolatedFilePathData::try_from((location_id, file_path))
+				.map_err(|e| {
+					error!("Failed to extract isolated file path data from file path <id='{file_path_id}'>: {e:#?}");
+				})
+				.ok()
+				.map(|iso_file_path| (cas_id, iso_file_path))
+		})
+		.map(|(cas_id, iso_file_path)| {
+			let full_path = location_path.join(&iso_file_path);
+
+			let extension = iso_file_path.extension().to_string();
+
+			(
+				GenerateThumbnailArgs::new(extension.clone(), cas_id, full_path),
+				extension,
+			)
+		})
+		.sorted_by(|(_, ext_a), (_, ext_b)|
+		// This will put PDF files by last as they're currently way slower to be processed
+		// FIXME(fogodev): Remove this sort when no longer needed
+			match (*ext_a == "pdf", *ext_b == "pdf") {
+				(true, true) => Ordering::Equal,
+				(false, true) => Ordering::Less,
+				(true, false) => Ordering::Greater,
+				(false, false) => Ordering::Equal,
+			})
+		.map(|(args, _)| args)
+		.collect::<Vec<_>>();
+
+	// Let's not send an empty batch lol
+	if !current_batch.is_empty() {
+		node.thumbnailer
+			.new_indexed_thumbnails_batch(
+				BatchToProcess::new(current_batch, should_regenerate, true),
+				library.id,
+			)
+			.await;
+	}
+
+	Ok(())
+}
+
+async fn get_files_by_extensions(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	extensions: &[Extension],
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	db._query_raw(raw!(
+		&format!(
+			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
 			FROM file_path
 			WHERE
 				location_id={{}}
 				AND cas_id IS NOT NULL
 				AND LOWER(extension) IN ({})
 				AND materialized_path = {{}}",
-				extensions
-					.iter()
-					.map(|ext| format!("LOWER('{ext}')"))
-					.collect::<Vec<_>>()
-					.join(",")
-			),
-			PrismaValue::Int(parent_iso_file_path.location_id() as i64),
-			PrismaValue::String(
-				parent_iso_file_path
-					.materialized_path_for_children()
-					.expect("sub path iso_file_path must be a directory")
-			)
-		))
-		.exec()
-		.await
-		.map_err(Into::into)
-	}
+			extensions
+				.iter()
+				.map(|ext| format!("LOWER('{ext}')"))
+				.collect::<Vec<_>>()
+				.join(",")
+		),
+		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::String(
+			parent_iso_file_path
+				.materialized_path_for_children()
+				.expect("sub path iso_file_path must be a directory")
+		)
+	))
+	.exec()
+	.await
+	.map_err(Into::into)
 }

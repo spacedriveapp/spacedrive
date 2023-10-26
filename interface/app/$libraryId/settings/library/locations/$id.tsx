@@ -1,10 +1,12 @@
 import { Archive, ArrowsClockwise, Info, Trash } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
+import { useNavigate } from 'react-router';
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import {
 	Button,
+	dialogManager,
 	Divider,
 	Form,
 	InfoText,
@@ -21,6 +23,7 @@ import ModalLayout from '~/app/$libraryId/settings/ModalLayout';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
+import DeleteDialog from './DeleteDialog';
 import IndexerRuleEditor from './IndexerRuleEditor';
 import { LocationPathInputField } from './PathInput';
 
@@ -47,7 +50,7 @@ export const Component = () => {
 
 const EditLocationForm = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	// const navigate = useNavigate();
+	const navigate = useNavigate();
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 	const queryClient = useQueryClient();
 
@@ -242,6 +245,16 @@ const EditLocationForm = () => {
 								size="sm"
 								variant="colored"
 								className="border-red-500 bg-red-500"
+								onClick={(e: { stopPropagation: () => void }) => {
+									e.stopPropagation();
+									dialogManager.create((dp) => (
+										<DeleteDialog
+											{...dp}
+											onSuccess={() => navigate(-1)}
+											locationId={locationId}
+										/>
+									));
+								}}
 							>
 								<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
 								Delete

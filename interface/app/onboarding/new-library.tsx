@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Form, InputField } from '@sd/ui';
 
-import { useOnboardingContext } from './context';
 import {
 	OnboardingContainer,
 	OnboardingDescription,
 	OnboardingImg,
 	OnboardingTitle
-} from './Layout';
+} from './components';
+import { useOnboardingContext } from './context';
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();

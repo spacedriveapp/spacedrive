@@ -25,3 +25,4 @@ export * from './useKeyCopyCutPaste';
 export * from './useMouseNavigate';
 export * from './useRedirectToNewLocation';
 export * from './useWindowState';
+export * from './useIsLocationIndexing';

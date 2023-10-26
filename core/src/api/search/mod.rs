@@ -13,7 +13,7 @@ use crate::{
 	},
 	library::Library,
 	location::{non_indexed, LocationError},
-	object::media::thumbnail::get_thumb_key,
+	object::media::thumbnail::get_indexed_thumb_key,
 };
 
 use std::path::PathBuf;
@@ -164,7 +164,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Path {
 							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: file_path.cas_id.as_ref().map(|i| get_thumb_key(i)),
+							thumbnail_key: file_path
+								.cas_id
+								.as_ref()
+								.map(|i| get_indexed_thumb_key(i, library.id)),
 							item: file_path,
 						})
 					}
@@ -264,7 +267,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Object {
 							has_local_thumbnail: thumbnail_exists_locally,
-							thumbnail_key: cas_id.map(|i| get_thumb_key(i)),
+							thumbnail_key: cas_id.map(|i| get_indexed_thumb_key(i, library.id)),
 							item: object,
 						});
 					}

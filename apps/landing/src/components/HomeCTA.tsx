@@ -1,4 +1,4 @@
-import { IconProps } from '@phosphor-icons/react';
+import { type IconProps } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Button, LinkButtonProps } from '@sd/ui';
 

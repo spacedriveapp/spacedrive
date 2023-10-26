@@ -17,10 +17,10 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Tooltip } from '@sd/ui';
+import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -66,6 +66,8 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
+
+	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
@@ -159,16 +161,25 @@ const LocationExplorer = ({ location, path }: { location: Location; path?: strin
 				}
 				right={<DefaultTopBarOptions />}
 			/>
-			<Explorer
-				showFilterBar
-				emptyNotice={
-					<EmptyNotice
-						// loading={location.isFetching}
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
-						message="No files found here"
-					/>
-				}
-			/>
+
+			{isLocationIndexing ? (
+				<div className="flex h-full w-full items-center justify-center">
+					<Loader />
+				</div>
+			) : (
+				<Explorer
+					showFilterBar
+					emptyNotice={
+						<EmptyNotice
+							// loading={location.isFetching}
+							icon={
+								<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />
+							}
+							message="No files found here"
+						/>
+					}
+				/>
+			)}
 		</ExplorerContextProvider>
 	);
 };

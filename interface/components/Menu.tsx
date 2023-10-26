@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { ContextMenu, DropdownMenu, useContextMenuContext, useDropdownMenuContext } from '@sd/ui';
 
-export const useMenu = (): typeof DropdownMenu | typeof ContextMenu | undefined => {
+export const useMenu = (): typeof DropdownMenu | typeof ContextMenu | null => {
 	const isDropdownMenu = useDropdownMenuContext();
 	const isContextMenu = useContextMenuContext();
 
 	const menu = useMemo(
-		() => (isDropdownMenu ? DropdownMenu : isContextMenu ? ContextMenu : undefined),
+		() => (isDropdownMenu ? DropdownMenu : isContextMenu ? ContextMenu : null),
 		[isDropdownMenu, isContextMenu]
 	);
 

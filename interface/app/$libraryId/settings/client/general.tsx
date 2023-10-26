@@ -11,24 +11,12 @@ import {
 	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import {
-	Button,
-	Card,
-	Input,
-	InputField,
-	Select,
-	SelectOption,
-	Switch,
-	SwitchField,
-	tw,
-	z
-} from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
-import { SpacedriveAccount } from './SpacedriveAccount';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -87,7 +75,6 @@ export const Component = () => {
 				title="General Settings"
 				description="General settings related to this client."
 			/>
-			<SpacedriveAccount />
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">

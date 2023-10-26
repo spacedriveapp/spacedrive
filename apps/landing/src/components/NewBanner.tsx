@@ -1,4 +1,4 @@
-import { Newspaper } from '@phosphor-icons/react';
+import { Newspaper } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
 

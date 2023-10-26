@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Divider, TextArea } from '@sd/ui';
@@ -13,8 +13,7 @@ interface Props {
 export default function Note(props: Props) {
 	const setNote = useLibraryMutation('files.setNote');
 
-	const explorerStore = useExplorerStore();
-
+	const flush = useRef<() => void>();
 	const debouncedSetNote = useDebouncedCallback((note: string) => {
 		setNote.mutate({
 			id: props.data.id,
@@ -22,8 +21,11 @@ export default function Note(props: Props) {
 		});
 	}, 500);
 
+	// Don't need to wrap in a arrow func because flush is not a method
+	flush.current = debouncedSetNote.flush;
+
 	// Force update when component unmounts
-	useEffect(() => () => debouncedSetNote.flush(), []);
+	useEffect(() => () => flush.current?.(), []);
 
 	const [cachedNote, setCachedNote] = useState(props.data.note);
 

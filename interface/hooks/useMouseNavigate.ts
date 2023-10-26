@@ -13,7 +13,7 @@ export const useMouseNavigate = () => {
 	const realOs = useOperatingSystem(true);
 
 	const handler = (e: MouseEvent) => {
-		if (os !== 'browser' || realOs !== 'macOS') return;
+		if (os === 'browser' || realOs !== 'macOS') return;
 		if (e.buttons === 8) {
 			if (idx === 0 || isSearching) return;
 			navigate(-1);
