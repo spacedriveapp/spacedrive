@@ -89,7 +89,14 @@ const useFormState = () => {
 				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
 						name: data.NewLibrary.name,
-						default_locations: undefined // TODO: Maybe add it for mobile too?
+						default_locations: {
+							desktop: false,
+							documents: false,
+							downloads: false,
+							music: false,
+							pictures: false,
+							videos: false
+						}
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
