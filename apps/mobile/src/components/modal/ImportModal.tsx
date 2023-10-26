@@ -1,11 +1,12 @@
 import { forwardRef, useCallback } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Text, View, Platform } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
+import * as RNFS from 'react-native-fs';
 
 // import RFS from 'react-native-fs';
 // import * as ML from 'expo-media-library';
@@ -44,11 +45,35 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			if (!response) return;
 
-			createLocation.mutate({
-				path: decodeURIComponent(response.uri.replace('file://', '')),
-				dry_run: false,
-				indexer_rules_ids: []
-			});
+			const uri = response.uri;
+
+			//This is dumb, but it works (Also, it's only needed for Android for some dumb reason...)
+			if (Platform.OS === 'android') {
+				// The following code turns this: content://com.android.externalstorage.documents/tree/[filePath] into this: /storage/emulated/0/[directoryName]
+				// Example: content://com.android.externalstorage.documents/tree/primary%3ADownload%2Ftest into /storage/emulated/0/Download/test
+				const dirName = decodeURIComponent(uri).split('/');
+				// Remove all elements before 'tree'
+				dirName.splice(0, dirName.indexOf('tree') + 1);
+				const parsedDirName = dirName.join('/').split(':')[1]
+				const dirPath = RNFS.ExternalStorageDirectoryPath + '/' + parsedDirName;
+				//Verify that the directory exists
+				const dirExists = await RNFS.exists(dirPath);
+				if (!dirExists) {
+					console.error('Directory does not exist'); //TODO: Make this a UI error
+					return;
+				}
+				createLocation.mutate({
+					path: dirPath,
+					dry_run: false,
+					indexer_rules_ids: []
+				});
+			} else {
+				createLocation.mutate({
+					path: decodeURIComponent(uri.replace('file://', '')),
+					dry_run: false,
+					indexer_rules_ids: []
+				});
+			}
 		} catch (err) {
 			console.error(err);
 		}

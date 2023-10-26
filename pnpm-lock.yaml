@@ -356,6 +356,9 @@ importers:
       expo-build-properties:
         specifier: ~0.8.3
         version: 0.8.3(expo@49.0.16)
+      expo-device:
+        specifier: ~5.4.0
+        version: 5.4.0(expo@49.0.16)
       expo-linking:
         specifier: ~5.0.2
         version: 5.0.2(expo@49.0.16)
@@ -11825,6 +11828,15 @@ packages:
       - supports-color
     dev: false
 
+  /expo-device@5.4.0(expo@49.0.16):
+    resolution: {integrity: sha512-TQxSVPrC6njCbzZ9Cqpc1lGLIjPmO1zBIbqW7CTqBPD1dOIMrgQvt7lZZhkHh3pWzoZznH283sSYqCvy3XcURw==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      expo: 49.0.16(@babel/core@7.23.2)
+      ua-parser-js: 0.7.36
+    dev: false
+
   /expo-file-system@15.4.4(expo@49.0.16):
     resolution: {integrity: sha512-F0xS88D85F7qVQ61r0qBnzh6VW/s6iIl+VaQEEi2nAIOQHw1JIEj4yCXPLTtbyn5VmArbe2dSL3KYz1V+BLkKA==}
     peerDependencies:
@@ -20081,6 +20093,10 @@ packages:
     resolution: {integrity: sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  /ua-parser-js@0.7.36:
+    resolution: {integrity: sha512-CPPLoCts2p7D8VbybttE3P2ylv0OBZEAy7a12DsulIEcAiMtWJy+PBgMXgWDI80D5UwqE8oQPHYnk13tm38M2Q==}
+    dev: false
 
   /ua-parser-js@1.0.36:
     resolution: {integrity: sha512-znuyCIXzl8ciS3+y3fHJI/2OhQIXbXw9MWC/o3qwyR+RGppjZHrM27CGFSKCJXi2Kctiz537iOu2KnXs1lMQhw==}
