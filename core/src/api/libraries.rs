@@ -126,8 +126,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: LibraryName,
-				#[specta(default)]
-				default_locations: DefaultLocations,
+				default_locations: Option<DefaultLocations>,
 			}
 
 			async fn create_default_locations_on_library_creation(
@@ -256,12 +255,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					debug!("Created library {}", library.id);
 
-					create_default_locations_on_library_creation(
-						default_locations,
-						node,
-						Arc::clone(&library),
-					)
-					.await?;
+					if let Some(locations) = default_locations {
+						create_default_locations_on_library_creation(
+							locations,
+							node,
+							Arc::clone(&library),
+						)
+						.await?;
+					}
 
 					Ok(LibraryConfigWrapped {
 						uuid: library.id,

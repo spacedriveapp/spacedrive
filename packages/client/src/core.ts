@@ -146,7 +146,7 @@ export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName; default_locations?: DefaultLocations }
+export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultLocations | null }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
