@@ -19,6 +19,7 @@ pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
+	Phase(String),
 }
 
 job::select!(job_without_data {
@@ -57,6 +58,7 @@ pub struct JobReport {
 	pub task_count: i32,
 	pub completed_task_count: i32,
 
+	pub phase: String,
 	pub message: String,
 	pub estimated_completion: DateTime<Utc>,
 }
@@ -102,6 +104,7 @@ impl TryFrom<job::Data> for JobReport {
 				.expect("corrupted database"),
 			task_count: data.task_count.unwrap_or(0),
 			completed_task_count: data.completed_task_count.unwrap_or(0),
+			phase: String::new(),
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
@@ -144,6 +147,7 @@ impl TryFrom<job_without_data::Data> for JobReport {
 			task_count: data.task_count.unwrap_or(0),
 			completed_task_count: data.completed_task_count.unwrap_or(0),
 
+			phase: String::new(),
 			message: String::new(),
 			estimated_completion: data
 				.date_estimated_completion
@@ -169,6 +173,7 @@ impl JobReport {
 			metadata: None,
 			parent_id: None,
 			completed_task_count: 0,
+			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),
 		}
@@ -319,6 +324,7 @@ impl JobReportBuilder {
 			metadata: self.metadata,
 			parent_id: self.parent_id,
 			completed_task_count: 0,
+			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),
 		}

@@ -1,3 +1,5 @@
+use crate::library::LibraryId;
+
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
@@ -10,10 +12,9 @@ use tokio::{fs, io};
 use tracing::error;
 use uuid::Uuid;
 
-static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
+use super::LocationPubId;
 
-pub(super) type LibraryId = Uuid;
-pub(super) type LocationPubId = Uuid;
+static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 struct LocationMetadata {
