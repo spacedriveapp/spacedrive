@@ -1,6 +1,13 @@
 import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useMemo } from 'react';
-import { ObjectFilterArgs, ObjectOrder, Tag, useLibraryContext, useLibraryQuery } from '@sd/client';
+import {
+	ObjectFilterArgs,
+	ObjectKindEnum,
+	ObjectOrder,
+	Tag,
+	useLibraryContext,
+	useLibraryQuery
+} from '@sd/client';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { useZodRouteParams } from '~/hooks';
 
@@ -48,7 +55,18 @@ export const Component = () => {
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<TopBarPortal right={<DefaultTopBarOptions />} />
+			<TopBarPortal
+				left={
+					<div className="flex flex-row items-center gap-2">
+						<div
+							className="h-[14px] w-[14px] shrink-0 rounded-full"
+							style={{ backgroundColor: tag?.data?.color || '#efefef' }}
+						/>
+						<span className="truncate text-sm font-medium">{tag?.data?.name}</span>
+					</div>
+				}
+				right={<DefaultTopBarOptions />}
+			/>
 			<Explorer
 				showFilterBar
 				emptyNotice={
@@ -66,13 +84,29 @@ export const Component = () => {
 function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<ObjectOrder> }) {
 	const { library } = useLibraryContext();
 
+	const explorerSettings = settings.useSettingsSnapshot();
+
 	const filter = useSearchFilters('objects', [
 		{
 			name: tag.name || 's',
 			value: tag?.id?.toString() || 's',
 			type: FilterType.Tag,
 			icon: tag.color || 's'
-		}
+		},
+		...(explorerSettings.layoutMode === 'media'
+			? [
+					{
+						name: 'Image',
+						value: ObjectKindEnum.Image,
+						type: FilterType.Kind
+					},
+					{
+						name: 'Video',
+						value: ObjectKindEnum.Video,
+						type: FilterType.Kind
+					}
+			  ]
+			: [])
 	]);
 
 	const count = useLibraryQuery(['search.objectsCount', { filter }]);

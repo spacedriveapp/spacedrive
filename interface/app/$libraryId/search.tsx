@@ -81,7 +81,15 @@ const SearchExplorer = ({ id, searchParams }: { id: number; searchParams: Search
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
-			<TopBarPortal right={<DefaultTopBarOptions />} />
+			<TopBarPortal
+				left={
+					<div className="flex flex-row items-center gap-2">
+						<MagnifyingGlass className="text-ink-dull" weight="bold" size={18} />
+						<span className="truncate text-sm font-medium">Search</span>
+					</div>
+				}
+				right={<DefaultTopBarOptions />}
+			/>
 			<Explorer
 				showFilterBar
 				emptyNotice={
