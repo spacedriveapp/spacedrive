@@ -10,7 +10,7 @@ use tracing::warn;
 
 use crate::{
 	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
-	Manager, Metadata, PeerId,
+	DynamicManagerState, Manager, Metadata, PeerId,
 };
 
 /// A Service represents a thing your application exposes to the network that can be discovered and connected to.
@@ -18,6 +18,7 @@ pub struct Service<TMeta> {
 	name: String,
 	state: Arc<RwLock<DiscoveryManagerState>>,
 	do_broadcast: Arc<Notify>,
+	manager: Arc<Manager>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
 
@@ -43,6 +44,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			name,
 			state,
 			do_broadcast,
+			manager,
 			phantom: PhantomData,
 		})
 	}
@@ -69,8 +71,18 @@ impl<TMeta: Metadata> Service<TMeta> {
 		}
 	}
 
+	// TODO: Exposing this over rspc query
 	pub fn get_state(&self) -> HashMap<RemoteIdentity, PeerStatus> {
 		// TODO: Connected peers won't show up
+
+		println!(
+			"{:?}",
+			self.manager
+				.state
+				.read()
+				.unwrap_or_else(PoisonError::into_inner)
+				.connected
+		);
 
 		// let a = self
 		// 	.manager

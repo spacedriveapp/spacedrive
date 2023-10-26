@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 
-use ed25519_dalek::{VerifyingKey, SECRET_KEY_LENGTH};
+use ed25519_dalek::{SigningKey, VerifyingKey, SECRET_KEY_LENGTH};
 use rand_core::OsRng;
 use serde::Serialize;
 use specta::Type;
@@ -107,9 +107,9 @@ impl RemoteIdentity {
 	}
 }
 
-impl From<Keypair> for RemoteIdentity {
-	fn from(value: Keypair) -> Self {
-		// RemoteIdentity(value.inner2().into())
-		todo!();
+impl From<&Keypair> for Identity {
+	fn from(value: &Keypair) -> Self {
+		// This depends on libp2p implementation details which isn't great
+		Identity(SigningKey::from_keypair_bytes(&value.inner2().to_bytes()).unwrap())
 	}
 }

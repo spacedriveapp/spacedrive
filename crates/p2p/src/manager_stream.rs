@@ -192,6 +192,12 @@ impl ManagerStream {
 							}
 						},
 						SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+							// TODO
+							// self.manager.state.write()
+							// 	.unwrap_or_else(PoisonError::into_inner)
+							// 	.connected
+							// 	.insert(peer_id, );
+
 							if let Some(streams) = self.on_establish_streams.remove(&peer_id) {
 								for event in streams {
 									self.swarm
@@ -205,7 +211,16 @@ impl ManagerStream {
 								}
 							}
 						},
-						SwarmEvent::ConnectionClosed { .. } => {},
+						SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
+							if num_established == 0 {
+								if self.manager.state.write()
+									.unwrap_or_else(PoisonError::into_inner)
+									.connected
+									.remove(&peer_id).is_none() {
+									   warn!("unable to remove unconnected client from connected map. This indicates a bug!");
+								}
+							}
+						},
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => warn!("error establishing connection with '{:?}': {}", peer_id, error),

@@ -1,7 +1,7 @@
 use std::{
 	future::Future,
 	pin::Pin,
-	sync::{atomic::Ordering, Arc},
+	sync::{atomic::Ordering, Arc, PoisonError},
 };
 
 use libp2p::{core::UpgradeInfo, InboundUpgrade, Stream};
@@ -61,13 +61,23 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 				}
 				crate::spacetime::UNICAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
+
+					let stream =
+						UnicastStream::new_inbound(self.manager.identity.clone(), io).await;
+
+					self.manager
+						.state
+						.write()
+						.unwrap_or_else(PoisonError::into_inner)
+						.connected
+						.insert(self.peer_id.0, stream.remote_identity().clone());
+
 					Ok(ManagerStreamAction2::Event(
 						PeerMessageEvent {
 							stream_id: id,
 							peer_id: self.peer_id,
 							manager: self.manager.clone(),
-							stream: UnicastStream::new_inbound(self.manager.identity.clone(), io)
-								.await,
+							stream,
 							_priv: (),
 						}
 						.into(),

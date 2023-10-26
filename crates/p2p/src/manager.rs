@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	fmt,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -32,6 +32,9 @@ pub(crate) struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
 	pub(crate) ipv4_listener_id: Option<ListenerId>,
 	pub(crate) ipv6_listener_id: Option<ListenerId>,
+	// A map of connected clients.
+	// This includes both inbound and outbound connections!
+	pub(crate) connected: HashMap<libp2p::PeerId, RemoteIdentity>,
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
@@ -72,12 +75,13 @@ impl Manager {
 		let config2 = config.clone();
 		let this = Arc::new(Self {
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
-			identity: todo!(), // TODO: RemoteIdentity::from_bytes(bytes),
+			identity: keypair.into(),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
 				config,
 				ipv4_listener_id: None,
 				ipv6_listener_id: None,
+				connected: Default::default(),
 			}),
 			discovery_state: Default::default(),
 			peer_id,
@@ -163,7 +167,7 @@ impl Manager {
 
 			()
 		})?;
-		Ok(stream.build().await)
+		Ok(stream.build(self, peer_id).await)
 	}
 
 	pub async fn broadcast(&self, data: Vec<u8>) {

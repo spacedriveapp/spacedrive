@@ -76,7 +76,7 @@ impl Mdns {
 					port,
 					Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
 				) {
-					Ok(service) => service.enable_addr_auto(), // TODO: using autoaddrs or not???
+					Ok(service) => service, // TODO: .enable_addr_auto(), // TODO: using autoaddrs or not???
 					Err(err) => {
 						warn!("error creating mdns service info: {}", err);
 						continue;

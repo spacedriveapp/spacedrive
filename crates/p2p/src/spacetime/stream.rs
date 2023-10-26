@@ -1,6 +1,7 @@
 use std::{
 	io::{self, ErrorKind},
 	pin::Pin,
+	sync::{Arc, PoisonError},
 	task::{Context, Poll},
 };
 
@@ -10,7 +11,10 @@ use tokio::io::{
 };
 use tokio_util::compat::Compat;
 
-use crate::spacetunnel::{Identity, RemoteIdentity, REMOTE_IDENTITY_LEN};
+use crate::{
+	spacetunnel::{Identity, RemoteIdentity, REMOTE_IDENTITY_LEN},
+	Manager, PeerId,
+};
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
 pub const UNICAST_DISCRIMINATOR: u8 = 1;
@@ -128,6 +132,10 @@ impl UnicastStream {
 		}
 	}
 
+	pub fn remote_identity(&self) -> &RemoteIdentity {
+		&self.remote
+	}
+
 	pub async fn close(self) -> Result<(), io::Error> {
 		self.io.into_inner().close().await
 	}
@@ -172,10 +180,19 @@ impl UnicastStreamBuilder {
 		Self { identity, io }
 	}
 
-	pub async fn build(mut self) -> UnicastStream {
+	pub async fn build(mut self, manager: &Manager, peer_id: PeerId) -> UnicastStream {
 		// TODO: Timeout if the peer doesn't accept the byte quick enough
 		self.io.write_all(&[UNICAST_DISCRIMINATOR]).await.unwrap();
 
-		UnicastStream::new_outbound(self.identity, self.io).await
+		let stream = UnicastStream::new_outbound(self.identity, self.io).await;
+
+		manager
+			.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.connected
+			.insert(peer_id.0, stream.remote_identity().clone());
+
+		stream
 	}
 }
