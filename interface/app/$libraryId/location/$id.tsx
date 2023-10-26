@@ -201,19 +201,18 @@ const useItems = ({
 			: [])
 	]);
 
+	// useEffect(() => {
+	// 	console.log({ filterArgs });
+	// }, [JSON.stringify(filterArgs)]);
+
 	const filter: FilePathFilterArgs = {
+		// locations: { in: [location?.id || 0] },
 		...filterArgs,
 		path: path ?? ''
 	};
 
-	if (explorerSettings.layoutMode === 'media') {
-		// TODO: we should add a non-removable search filter instead of modifying the filter directly
-		// if (!filter.object) filter.object = { kind: null };
-		// filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Video, true);
-		// filter.object.kind = inOrNotIn(filter.object.kind, ObjectKindEnum.Image, true);
-
-		if (explorerSettings.mediaViewWithDescendants) filter.withDescendants = true;
-	}
+	if (explorerSettings.layoutMode === 'media' && explorerSettings.mediaViewWithDescendants)
+		filter.withDescendants = true;
 
 	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
 

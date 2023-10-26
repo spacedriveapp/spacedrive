@@ -53,7 +53,13 @@ export const RenderIcon = ({
 			/>
 		);
 	} else if (typeof icon === 'string') {
-		return <SDIcon name={icon as any} size={20} className={clsx('text-ink-dull', className)} />;
+		return (
+			<SDIcon
+				name={icon as any}
+				size={20}
+				className={clsx('shrink-0 text-ink-dull', className)}
+			/>
+		);
 	} else {
 		const IconComponent = icon;
 		return (
@@ -61,7 +67,7 @@ export const RenderIcon = ({
 				<IconComponent
 					size={16}
 					weight="bold"
-					className={clsx('text-ink-dull group-hover:text-white', className)}
+					className={clsx('shrink-0 text-ink-dull group-hover:text-white', className)}
 				/>
 			)
 		);

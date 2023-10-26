@@ -1,13 +1,20 @@
-import { Clock, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { CaretRight, Clock, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useMemo, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import { KindsFilter, LocationsFilter, TagsFilter } from './Filters';
-import { getSearchStore, useSavedSearches, useSearchStore } from './store';
+import { filterMeta, FilterType, KindsFilter, LocationsFilter, TagsFilter } from './Filters';
+import {
+	deselectFilter,
+	getSearchStore,
+	searchRegisteredFilters,
+	selectFilter,
+	useSavedSearches,
+	useSearchStore
+} from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
@@ -74,6 +81,11 @@ const SearchOptions = () => {
 	const searchStore = useSearchStore();
 
 	const [newFilterName, setNewFilterName] = useState<string>('');
+	const [searchValue, setSearchValue] = useState<string>('');
+
+	const searchResults = useMemo(() => {
+		return searchRegisteredFilters(searchValue);
+	}, [searchValue]);
 
 	const handleMouseEnter = () => {
 		getSearchStore().interactingWithSearchOptions = true;
@@ -125,29 +137,67 @@ const SearchOptions = () => {
 						</Button>
 					}
 				>
-					<Input autoFocus variant="transparent" placeholder="Filter..." />
+					<Input
+						value={searchValue}
+						onChange={(e) => setSearchValue(e.target.value)}
+						autoFocus
+						variant="transparent"
+						placeholder="Filter..."
+					/>
 					<Separator />
-					<LocationsFilter />
-					<TagsFilter />
-					<KindsFilter />
-					{/* <FilterComponent type={FilterType.Tag} />
+					{searchValue ? (
+						<>
+							{searchResults.map((result) => {
+								const meta = filterMeta[result.type];
+								return (
+									<SearchOptionItem
+										selected={searchStore.selectedFilters.has(result.key)}
+										setSelected={(value) =>
+											value ? selectFilter(result) : deselectFilter(result)
+										}
+										key={result.key}
+									>
+										<div className="mr-4 flex flex-row items-center gap-1.5">
+											<RenderIcon icon={meta.icon} />
+											<span className="text-ink-dull">
+												{FilterType[result.type]}
+											</span>
+											<CaretRight
+												weight="bold"
+												className="text-ink-dull/70"
+											/>
+											<RenderIcon icon={result.icon} />
+											{result.name}
+										</div>
+									</SearchOptionItem>
+								);
+							})}
+						</>
+					) : (
+						<>
+							<LocationsFilter />
+							<TagsFilter />
+							<KindsFilter />
+							{/* <FilterComponent type={FilterType.Tag} />
 					<FilterComponent type={FilterType.Kind} />
 					<FilterComponent type={FilterType.Extension} />
-					<FilterComponent type={FilterType.Size} /> */}
-					{/*
+				<FilterComponent type={FilterType.Size} /> */}
+							{/*
 					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
 					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
 					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
 					<SearchOptionItem icon={Key}>Encrypted with Key</SearchOptionItem>
-					<SearchOptionItem icon={User}>Shared by</SearchOptionItem> */}
-					<Separator />
-					{/* <FilterComponent type={FilterType.CreatedAt} /> */}
-					<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
-					<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
-					<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
-					{/* <Separator /> */}
-					{/* <SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem> */}
-					{/* <FilterComponent type={FilterType.Hidden} /> */}
+				<SearchOptionItem icon={User}>Shared by</SearchOptionItem> */}
+							<Separator />
+							{/* <FilterComponent type={FilterType.CreatedAt} /> */}
+							<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
+							<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
+							<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
+							{/* <Separator /> */}
+							{/* <SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem> */}
+							{/* <FilterComponent type={FilterType.Hidden} /> */}
+						</>
+					)}
 				</DropdownMenu.Root>
 			</OptionContainer>
 			<AppliedOptions />

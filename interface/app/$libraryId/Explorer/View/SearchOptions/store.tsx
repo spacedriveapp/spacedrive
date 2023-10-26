@@ -64,37 +64,38 @@ export const useSearchFilters = <T extends SearchType>(
 	fixedFilters?: Filter[]
 ): T extends 'objects' ? ObjectFilterArgs : FilePathFilterArgs => {
 	const store = useSearchStore();
-
-	searchStore.searchType = searchType;
+	// Track the size of the selectedFilters Map
+	const mapSize = store.selectedFilters.size;
 
 	useEffect(() => {
-		resetSearchStore();
-
-		if (fixedFilters) {
-			fixedFilters.forEach((filter) => {
-				if (filter.name) {
-					if (!filter.icon) filter.icon = filter.name;
-					searchStore.registeredFilters.set(filter.value, filter);
-					selectFilter(filter, true, false);
-				}
-				console.log(JSON.stringify(filter));
-				console.log(searchStore.selectedFilters.values());
-			});
+		if (store.searchType !== searchType) {
+			searchStore.searchType = searchType;
 		}
 
 		return () => {
 			resetSearchStore();
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [JSON.stringify(fixedFilters)]);
+	}, [searchType, store.searchType]);
+
+	useEffect(() => {
+		if (fixedFilters) {
+			fixedFilters.forEach((filter) => {
+				if (filter.name && !store.registeredFilters.has(filter.value)) {
+					if (!filter.icon) filter.icon = filter.name;
+					searchStore.registeredFilters.set(filter.value, filter);
+					selectFilter(filter, true, false);
+				}
+			});
+		}
+	}, [fixedFilters, store.registeredFilters]);
 
 	const filters = useMemo(
 		() => mapFiltersToQueryParams(Array.from(store.selectedFilters.values())),
-		[store.selectedFilters]
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[mapSize] // to capture changes in the Map
 	);
 
 	useEffect(() => {
-		console.log(store.searchQuery);
 		if (store.searchQuery) {
 			filters.queryParams.search = store.searchQuery;
 		} else {
@@ -125,6 +126,7 @@ export const useSearchFilter = (
 		() => {
 			filters.forEach((filter) => {
 				if (!searchStore.registeredFilters.has(filter.key)) {
+					// console.log('registering filter', filter.key);
 					searchStore.registeredFilters.set(filter.key, filter);
 				}
 			});
@@ -137,7 +139,8 @@ export const useSearchFilter = (
 
 // key doesn't have to be a particular format, just needs to be unique
 // this key is also handy for text filtering
-export const getKey = (filter: Filter) => `${filter.type}-${filter.name}-${filter.value}`;
+export const getKey = (filter: Filter) =>
+	`${FilterType[filter.type]}-${filter.name}-${filter.value}`;
 
 export const mapFiltersToQueryParams = (
 	filters: SetFilter[]
@@ -224,6 +227,20 @@ export const deselectFilter = (filter: Filter) => {
 	const key = getKey(filter);
 	const setFilter = searchStore.selectedFilters.get(key);
 	if (setFilter?.canBeRemoved !== false) searchStore.selectedFilters.delete(key);
+};
+
+export const searchRegisteredFilters = (query: string) => {
+	if (!query) return [];
+	const keys = Array.from(searchStore.registeredFilters.keys()).filter(
+		(filter) => filter?.toLowerCase().includes(query.toLowerCase())
+	);
+	return keys.map((key) => {
+		const filter = searchStore.registeredFilters.get(key)!;
+		return {
+			...filter,
+			key
+		};
+	});
 };
 
 export const resetSearchStore = () => {

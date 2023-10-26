@@ -8,6 +8,7 @@ import {
 	SelectionSlash
 } from '@phosphor-icons/react';
 import { ObjectKind, useLibraryQuery } from '@sd/client';
+import { Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
 import {
@@ -27,10 +28,11 @@ export enum FilterType {
 	Name,
 	Extension,
 	CreatedAt,
+	WithDescendants,
+	Hidden
 	// ModifiedAt,
 	// LastOpenedAt,
 	// TakenAt,
-	Hidden
 	// FileContents,
 	// Album,
 	// Device,
@@ -138,14 +140,26 @@ export const KindsFilter: React.FC = () => {
 	);
 };
 
-// const tagsQuery = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+export const NameFilter: React.FC = () => {
+	const store = useSearchStore();
 
-// tagsQuery.data?.map((tag) => ({
-// 	name: tag.name!,
-// 	type,
-// 	value: String(tag.id),
-// 	icon: tag.color || 'CircleDashed'
-// }))
+	useSearchFilter(FilterType.Name, [
+		{
+			name: 'Name',
+			value: 'name',
+			icon: 'CircleDashed'
+		}
+	]);
+
+	return (
+		<SearchOptionSubMenu
+			name={filterMeta[FilterType.Kind].name}
+			icon={filterMeta[FilterType.Kind].icon}
+		>
+			<Input />
+		</SearchOptionSubMenu>
+	);
+};
 
 export const filterMeta: Record<FilterType, FilterTypeMeta> = {
 	[FilterType.Location]: {
@@ -170,7 +184,7 @@ export const filterMeta: Record<FilterType, FilterTypeMeta> = {
 	},
 	[FilterType.Kind]: {
 		name: 'Kind',
-		icon: Files,
+		icon: Cube,
 		wording: {
 			singular: 'is',
 			plural: 'is any of',
