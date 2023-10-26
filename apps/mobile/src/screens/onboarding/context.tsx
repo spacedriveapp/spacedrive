@@ -87,17 +87,7 @@ const useFormState = () => {
 			try {
 				// show creation screen for a bit for smoothness
 				const [library] = await Promise.all([
-					createLibrary.mutateAsync({
-						name: data.NewLibrary.name,
-						default_locations: {
-							desktop: false,
-							documents: false,
-							downloads: false,
-							music: false,
-							pictures: false,
-							videos: false
-						}
-					}),
+					createLibrary.mutateAsync({ name: data.NewLibrary.name }),
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
