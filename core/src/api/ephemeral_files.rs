@@ -107,21 +107,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("duplicateFiles", {
 			R.with2(library())
-				.mutation(
-					|(_, library), args: EphemeralFileSystemOps| async move { args.copy(&library).await },
-				)
+				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
+					args.copy(&library).await
+				})
 		})
 		.procedure("copyFiles", {
 			R.with2(library())
-				.mutation(
-					|(_, library), args: EphemeralFileSystemOps| async move { args.copy(&library).await },
-				)
+				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
+					args.copy(&library).await
+				})
 		})
 		.procedure("cutFiles", {
 			R.with2(library())
-				.mutation(
-					|(_, library), args: EphemeralFileSystemOps| async move { args.cut(&library).await },
-				)
+				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
+					args.cut(&library).await
+				})
 		})
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
@@ -289,8 +289,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library()).mutation(
 				|(_, library), EphemeralRenameFileArgs { kind }: EphemeralRenameFileArgs| async move {
 					let res = match kind {
-						EphemeralRenameKind::One(one) => EphemeralRenameFileArgs::rename_one(one).await,
-						EphemeralRenameKind::Many(many) => EphemeralRenameFileArgs::rename_many(many).await,
+						EphemeralRenameKind::One(one) => {
+							EphemeralRenameFileArgs::rename_one(one).await
+						}
+						EphemeralRenameKind::Many(many) => {
+							EphemeralRenameFileArgs::rename_many(many).await
+						}
 					};
 
 					if res.is_ok() {
