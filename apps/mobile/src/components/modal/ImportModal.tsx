@@ -47,18 +47,13 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			const uri = response.uri;
 
-			console.log('[Debug] Device OS: ', Platform.OS);
-			//This is dumb, but it works
+			//This is dumb, but it works (Also, it's only needed for Android for some dumb reason...)
 			if (Platform.OS === 'android') {
-				console.log('[Debug] URI: ', uri);
 				const dirName = decodeURIComponent(uri).split('/');
-				console.log('[Debug] Dir Name: ', dirName);
 				// Remove all elements before 'tree'
 				dirName.splice(0, dirName.indexOf('tree') + 1);
 				const parsedDirName = dirName.join('/').split(':')[1]
-				console.log('[Debug] Parsed Dir Name: ', parsedDirName);
 				const dirPath = RNFS.ExternalStorageDirectoryPath + '/' + parsedDirName;
-				console.log('[Debug] Dir Path: ', dirPath);
 				//Verify that the directory exists
 				const dirExists = await RNFS.exists(dirPath);
 				if (!dirExists) {
@@ -72,6 +67,11 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				});
 			} else {
 				//TODO: Implement for iOS
+				createLocation.mutate({
+					path: decodeURIComponent(uri.replace('file://', '')),
+					dry_run: false,
+					indexer_rules_ids: []
+				});
 			}
 		} catch (err) {
 			console.error(err);
