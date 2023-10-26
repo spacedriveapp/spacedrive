@@ -126,7 +126,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: LibraryName,
-				#[specta(default)]
+				#[specta(optional, default)]
 				default_locations: DefaultLocations,
 			}
 
