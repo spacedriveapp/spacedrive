@@ -49,6 +49,8 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 			//This is dumb, but it works (Also, it's only needed for Android for some dumb reason...)
 			if (Platform.OS === 'android') {
+				// The following code turns this: content://com.android.externalstorage.documents/tree/[filePath] into this: /storage/emulated/0/[directoryName]
+				// Example: content://com.android.externalstorage.documents/tree/primary%3ADownload%2Ftest into /storage/emulated/0/Download/test
 				const dirName = decodeURIComponent(uri).split('/');
 				// Remove all elements before 'tree'
 				dirName.splice(0, dirName.indexOf('tree') + 1);
@@ -66,7 +68,6 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					indexer_rules_ids: []
 				});
 			} else {
-				//TODO: Implement for iOS
 				createLocation.mutate({
 					path: decodeURIComponent(uri.replace('file://', '')),
 					dry_run: false,
