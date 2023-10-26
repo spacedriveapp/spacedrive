@@ -1,6 +1,6 @@
 import { Info } from '@phosphor-icons/react';
 import { getIcon, iconNames } from '@sd/assets/util';
-import { useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
 import {
@@ -40,16 +40,29 @@ import LocationOptions from './LocationOptions';
 export const Component = () => {
 	const [{ path }] = useExplorerSearchParams();
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
-	const location = useLibraryQuery(['locations.get', locationId]);
+	const location = useLibraryQuery(['locations.get', locationId], {
+		keepPreviousData: true,
+		suspense: true
+	});
+
+	return (
+		<Suspense>
+			<LocationExplorer path={path} location={location.data!} />)
+		</Suspense>
+	);
+};
+
+const LocationExplorer = ({ location, path }: { location: Location; path?: string }) => {
 	const rspc = useRspcLibraryContext();
 
 	const onlineLocations = useOnlineLocations();
 
 	const locationOnline = useMemo(() => {
-		const pub_id = location.data?.pub_id;
+		const pub_id = location?.pub_id;
 		if (!pub_id) return false;
 		return onlineLocations.some((l) => arraysEqual(pub_id, l));
-	}, [location.data?.pub_id, onlineLocations]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [location?.pub_id, onlineLocations]);
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
@@ -59,9 +72,9 @@ export const Component = () => {
 			order: { field: 'name', value: 'Asc' }
 		});
 
-		if (!location.data) return defaults;
+		if (!location) return defaults;
 
-		const pubId = stringify(location.data.pub_id);
+		const pubId = stringify(location.pub_id);
 
 		const settings = preferences.data?.location?.[pubId]?.explorer;
 
@@ -72,12 +85,11 @@ export const Component = () => {
 		}
 
 		return defaults;
-	}, [location.data, preferences.data?.location]);
+	}, [location, preferences.data?.location]);
 
 	const onSettingsChanged = useDebouncedCallback(
 		async (settings: ExplorerSettings<FilePathOrder>) => {
-			if (!location.data) return;
-			const pubId = stringify(location.data.pub_id);
+			const pubId = stringify(location.pub_id);
 			try {
 				await updatePreferences.mutateAsync({
 					location: { [pubId]: { explorer: settings } }
@@ -94,11 +106,11 @@ export const Component = () => {
 		settings,
 		onSettingsChanged,
 		orderingKeys: filePathOrderingKeysSchema,
-		location: location.data
+		location
 	});
 
 	const { items, count, loadMore, query } = useItems({
-		location: location.data!,
+		location,
 		settings: explorerSettings
 	});
 
@@ -108,13 +120,13 @@ export const Component = () => {
 		loadMore,
 		isFetchingNextPage: query.isFetchingNextPage,
 		settings: explorerSettings,
-		...(location.data && {
-			parent: { type: 'Location', location: location.data }
+		...(location && {
+			parent: { type: 'Location', location }
 		})
 	});
 
 	useLibrarySubscription(
-		['locations.quickRescan', { sub_path: path ?? '', location_id: locationId }],
+		['locations.quickRescan', { sub_path: path ?? '', location_id: location.id }],
 		{ onData() {} }
 	);
 
@@ -124,7 +136,7 @@ export const Component = () => {
 		explorer.resetSelectedItems.call(undefined);
 	}, [explorer.resetSelectedItems, path]);
 
-	useKeyDeleteFile(explorer.selectedItems, location.data?.id);
+	useKeyDeleteFile(explorer.selectedItems, location.id);
 
 	useEffect(() => explorer.scrollRef.current?.scrollTo({ top: 0 }), [explorer.scrollRef, path]);
 
@@ -135,18 +147,14 @@ export const Component = () => {
 					<div className="flex items-center gap-2">
 						<Folder size={22} className="mt-[-1px]" />
 						<span className="truncate text-sm font-medium">
-							{path && path?.length > 1
-								? getLastSectionOfPath(path)
-								: location.data?.name}
+							{path && path?.length > 1 ? getLastSectionOfPath(path) : location.name}
 						</span>
 						{!locationOnline && (
 							<Tooltip label="Location is offline, you can still browse and organize.">
 								<Info className="text-ink-faint" />
 							</Tooltip>
 						)}
-						{location.data && (
-							<LocationOptions location={location.data} path={path || ''} />
-						)}
+						<LocationOptions location={location} path={path || ''} />
 					</div>
 				}
 				right={<DefaultTopBarOptions />}
@@ -155,7 +163,7 @@ export const Component = () => {
 				showFilterBar
 				emptyNotice={
 					<EmptyNotice
-						loading={location.isFetching}
+						// loading={location.isFetching}
 						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
 						message="No files found here"
 					/>
@@ -169,7 +177,7 @@ const useItems = ({
 	location,
 	settings
 }: {
-	location?: Location;
+	location: Location;
 	settings: UseExplorerSettings<FilePathOrder>;
 }) => {
 	const [{ path, take }] = useExplorerSearchParams();
@@ -180,8 +188,8 @@ const useItems = ({
 
 	const filterArgs = useSearchFilters('paths', [
 		{
-			name: location?.name || '',
-			value: location?.id.toString() || '',
+			name: location.name || '',
+			value: location.id.toString(),
 			type: FilterType.Location,
 			icon: 'Folder'
 		},

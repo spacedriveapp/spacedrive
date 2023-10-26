@@ -6,10 +6,10 @@ import settingsRoutes from './settings';
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
-		{
-			path: 'overview',
-			lazy: () => import('./overview')
-		},
+		// {
+		// 	path: 'overview',
+		// 	lazy: () => import('./overview')
+		// },
 		{ path: 'people', lazy: () => import('./people') },
 		{ path: 'media', lazy: () => import('./media') },
 		{ path: 'spaces', lazy: () => import('./spaces') },

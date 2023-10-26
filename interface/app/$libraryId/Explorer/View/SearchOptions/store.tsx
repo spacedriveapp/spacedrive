@@ -59,49 +59,48 @@ const searchStore = proxy({
 	selectedFilters: proxyMap() as Map<string, SetFilter>
 });
 
+// This hook has two main purposes, firstly to register and set fixed filters (e.g. location or tag)
+// and secondly to return the search filters to be used in the query
+// It also resets the search store when unmounted
 export const useSearchFilters = <T extends SearchType>(
 	searchType: T,
 	fixedFilters?: Filter[]
 ): T extends 'objects' ? ObjectFilterArgs : FilePathFilterArgs => {
 	const store = useSearchStore();
-	// Track the size of the selectedFilters Map
-	const mapSize = store.selectedFilters.size;
+
+	// searchStore.searchType = searchType;
 
 	useEffect(() => {
-		if (store.searchType !== searchType) {
-			searchStore.searchType = searchType;
-		}
+		// console.log({ fixedFilters: JSON.stringify(fixedFilters) });
+		resetSearchStore();
 
-		return () => {
-			resetSearchStore();
-		};
-	}, [searchType, store.searchType]);
-
-	useEffect(() => {
 		if (fixedFilters) {
-			fixedFilters.forEach((filter) => {
-				if (filter.name && !store.registeredFilters.has(filter.value)) {
+			for (const filter of fixedFilters) {
+				if (filter.name) {
+					// to simplify syntax when defining fixed filters
 					if (!filter.icon) filter.icon = filter.name;
+					// register the filter as non-removable
 					searchStore.registeredFilters.set(filter.value, filter);
 					selectFilter(filter, true, false);
 				}
-			});
+			}
 		}
-	}, [fixedFilters, store.registeredFilters]);
+		// fixed filters will never be too large to stringify as they're hardcoded
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [JSON.stringify(fixedFilters)]);
 
 	const filters = useMemo(
 		() => mapFiltersToQueryParams(Array.from(store.selectedFilters.values())),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[mapSize] // to capture changes in the Map
+		[store.selectedFilters]
 	);
 
-	useEffect(() => {
-		if (store.searchQuery) {
-			filters.queryParams.search = store.searchQuery;
-		} else {
-			delete filters.queryParams.search;
-		}
-	}, [filters.queryParams, store.searchQuery]);
+	// useEffect(() => {
+	// 	if (store.searchQuery) {
+	// 		filters.queryParams.search = store.searchQuery;
+	// 	} else {
+	// 		delete filters.queryParams.search;
+	// 	}
+	// }, [filters.queryParams, store.searchQuery]);
 
 	return searchType === 'objects' ? (filters.objectFilters as any) : (filters.queryParams as any);
 };
@@ -124,12 +123,13 @@ export const useSearchFilter = (
 
 	useEffect(
 		() => {
-			filters.forEach((filter) => {
+			for (const filter of filters) {
+				// only register filters that haven't already been registered
 				if (!searchStore.registeredFilters.has(filter.key)) {
-					// console.log('registering filter', filter.key);
+					// console.log('registering filter', filter);
 					searchStore.registeredFilters.set(filter.key, filter);
 				}
-			});
+			}
 		}, // eslint-disable-next-line react-hooks/exhaustive-deps
 		[filterArgs?.length]
 	);
