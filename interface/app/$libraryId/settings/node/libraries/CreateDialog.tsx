@@ -26,7 +26,10 @@ export default (props: UseDialogProps) => {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
-			const library = await createLibrary.mutateAsync({ name: data.name });
+			const library = await createLibrary.mutateAsync({
+				name: data.name,
+				default_locations: null
+			});
 
 			queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
 				...(libraries || []),
