@@ -20,6 +20,7 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
+	spacetunnel::{Identity, RemoteIdentity},
 	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
 	ManagerStreamAction2, PeerId,
 };
@@ -36,6 +37,7 @@ pub(crate) struct DynamicManagerState {
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
 pub struct Manager {
 	pub(crate) peer_id: PeerId,
+	pub(crate) identity: Identity,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
@@ -67,8 +69,10 @@ impl Manager {
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
+		let config2 = config.clone();
 		let this = Arc::new(Self {
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
+			identity: todo!(), // TODO: RemoteIdentity::from_bytes(bytes),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
 				config,
@@ -100,7 +104,12 @@ impl Manager {
 		Ok((
 			this.clone(),
 			ManagerStream {
-				discovery_manager: DiscoveryManager::new(this.discovery_state.clone()),
+				discovery_manager: DiscoveryManager::new(
+					application_name,
+					peer_id,
+					&config2,
+					this.discovery_state.clone(),
+				)?,
 				manager: this,
 				event_stream_rx,
 				event_stream_rx2,
@@ -149,13 +158,12 @@ impl Manager {
 			Ok(_) => {}
 			Err(err) => warn!("error emitting event: {}", err),
 		}
-		let mut stream = rx.await.map_err(|_| {
+		let stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
 
 			()
 		})?;
-		stream.write_discriminator().await.unwrap(); // TODO: Error handling
-		Ok(stream)
+		Ok(stream.build().await)
 	}
 
 	pub async fn broadcast(&self, data: Vec<u8>) {

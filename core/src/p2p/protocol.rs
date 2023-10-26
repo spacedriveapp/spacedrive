@@ -124,7 +124,7 @@ impl Header {
 				}
 				bytes.extend((remote_identities.len() as u16).to_le_bytes());
 				for identity in remote_identities {
-					encode::buf(&mut bytes, &identity.to_bytes());
+					encode::buf(&mut bytes, &identity.get_bytes());
 				}
 				bytes
 			}

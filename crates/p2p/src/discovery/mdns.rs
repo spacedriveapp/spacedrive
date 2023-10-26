@@ -8,14 +8,11 @@ use std::{
 };
 
 use libp2p::futures::FutureExt;
-use mdns_sd::{ServiceDaemon, ServiceEvent};
-use streamunordered::StreamUnordered;
-use tokio::{
-	sync::mpsc,
-	time::{sleep_until, Instant, Sleep},
-};
+use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use tokio::time::{sleep_until, Instant, Sleep};
+use tracing::{trace, warn};
 
-use crate::{DiscoveryManager, PeerId};
+use crate::{ListenAddrs, PeerId, State};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
@@ -23,8 +20,10 @@ const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Ever
 pub(crate) struct Mdns {
 	// used to ignore events from our own mdns advertisement
 	peer_id: PeerId,
+	service_name: String,
+	advertised_services: Vec<String>,
 	mdns_daemon: ServiceDaemon,
-	services_rx: StreamUnordered<mpsc::Receiver<ServiceEvent>>,
+	mdns_rx: flume::Receiver<ServiceEvent>,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
 }
 
@@ -34,24 +33,25 @@ impl Mdns {
 		peer_id: PeerId,
 	) -> Result<Self, mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
-		// let service_name = format!("_{}._udp.local.", application_name);
-		// let mdns_service_receiver = mdns_daemon.browse(&service_name)?;
+		let service_name = format!("_{}._udp.local.", application_name);
+		let mdns_rx = mdns_daemon.browse(&service_name)?;
 
-		todo!();
-		// Ok(Self {
-		// 	peer_id,
-		// 	mdns_daemon,
-		// 	mdns_service_receiver,
-		// 	// service_name,
-		// 	next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
-		// 	next_allowed_discovery_advertisement: Instant::now(),
-		// })
+		Ok(Self {
+			peer_id,
+			service_name,
+			advertised_services: Vec::new(),
+			mdns_daemon,
+			mdns_rx,
+			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
+		})
 	}
 
 	/// Do an mdns advertisement to the network.
-	fn do_advertisement(&mut self, discovery: &DiscoveryManager) {
+	pub(super) fn do_advertisement(&mut self, listen_addrs: &ListenAddrs, state: &State) {
+		// TODO: Second stage rate-limit
+
 		let mut ports_to_service = HashMap::new();
-		for addr in &discovery.listen_addrs {
+		for addr in listen_addrs.iter() {
 			let addr = match addr {
 				SocketAddr::V4(addr) => addr,
 				// TODO: Our mdns library doesn't support Ipv6. This code has the infra to support it so once this issue is fixed upstream we can just flip it on.
@@ -65,12 +65,40 @@ impl Mdns {
 				.push(addr.ip());
 		}
 
-		let state = discovery
-			.state
-			.read()
-			.unwrap_or_else(PoisonError::into_inner);
+		let state = state.read().unwrap_or_else(PoisonError::into_inner);
+		for (port, ips) in ports_to_service.into_iter() {
+			for (service_name, (_, metadata)) in &state.services {
+				let service = match ServiceInfo::new(
+					&self.service_name,
+					&self.peer_id.to_string(),
+					&format!("{}.{}.", service_name, self.peer_id),
+					&*ips, // TODO: &[] as &[Ipv4Addr],
+					port,
+					Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
+				) {
+					Ok(service) => service.enable_addr_auto(), // TODO: using autoaddrs or not???
+					Err(err) => {
+						warn!("error creating mdns service info: {}", err);
+						continue;
+					}
+				};
+
+				// println!("{:?}", service.fullname().to_string());
+
+				// self.advertised_services
+				// 	.push(service.fullname().to_string());
+
+				// TODO: Do a proper diff and remove old services
+				trace!("advertising mdns service: {:?}", service);
+				match self.mdns_daemon.register(service) {
+					Ok(_) => {}
+					Err(err) => warn!("error registering mdns service: {}", err),
+				}
+			}
+		}
 
 		// TODO: Automatically unregister any services that are now missing
+		// self.mdns_daemon.unregister(fullname)
 
 		// for (port, ips) in ports_to_service.into_iter() {
 		// 	for (service_name, metadata) in &state.services {
@@ -104,28 +132,36 @@ impl Mdns {
 		}
 	}
 
-	pub(crate) fn poll(&mut self, cx: &mut Context<'_>, discovery: &DiscoveryManager) -> Poll<()> {
+	pub(crate) fn poll(
+		&mut self,
+		cx: &mut Context<'_>,
+		listen_addrs: &ListenAddrs,
+		state: &State,
+	) -> Poll<()> {
 		let mut is_pending = false;
 		while !is_pending {
 			match self.next_mdns_advertisement.poll_unpin(cx) {
-				Poll::Ready(()) => self.do_advertisement(&discovery),
+				Poll::Ready(()) => self.do_advertisement(&listen_addrs, &state),
 				Poll::Pending => is_pending = true,
 			}
 
-			// match self.mdns_service_receiver.recv_async().poll_unpin(cx) {
-			// 	Poll::Ready(Ok(event)) => {
-			// 		// TODO
-			// 	}
-			// 	Poll::Ready(Err(err)) => warn!("mDNS reciever error: {err:?}"),
-			// 	Poll::Pending => is_pending = true,
-			// }
-			todo!();
+			match self.mdns_rx.recv_async().poll_unpin(cx) {
+				Poll::Ready(Ok(event)) => {
+					// TODO
+					println!("{:?}", event);
+				}
+				Poll::Ready(Err(err)) => warn!("mDNS reciever error: {err:?}"),
+				Poll::Pending => is_pending = true,
+			}
 		}
 
 		Poll::Pending
 	}
 
 	pub(crate) fn shutdown(&self) {
+		// TODO: Deregister all services
+		// TODO: Shutdown Daemon
+
 		// self.mdns_daemon
 		// 	.unregister(&format!("{}.{}", self.peer_id, self.service_name))
 		// 	.unwrap();

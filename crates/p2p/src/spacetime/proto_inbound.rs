@@ -61,13 +61,13 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 				}
 				crate::spacetime::UNICAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
-
 					Ok(ManagerStreamAction2::Event(
 						PeerMessageEvent {
 							stream_id: id,
 							peer_id: self.peer_id,
 							manager: self.manager.clone(),
-							stream: UnicastStream::new(io),
+							stream: UnicastStream::new_inbound(self.manager.identity.clone(), io)
+								.await,
 							_priv: (),
 						}
 						.into(),

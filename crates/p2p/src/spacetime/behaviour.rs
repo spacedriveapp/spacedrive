@@ -36,7 +36,6 @@ pub struct SpaceTime {
 	pub(crate) manager: Arc<Manager>,
 	pub(crate) pending_events:
 		VecDeque<ToSwarm<<Self as NetworkBehaviour>::ToSwarm, THandlerInEvent<Self>>>,
-	// For future me's sake, DON't try and refactor this to use shared state (for the nth time), it doesn't fit into libp2p's synchronous trait and polling model!!!
 	// pub(crate) connected_peers: HashMap<PeerId, ConnectedPeer>,
 }
 

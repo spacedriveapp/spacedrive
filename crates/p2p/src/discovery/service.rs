@@ -5,7 +5,8 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, Notify};
+use tracing::warn;
 
 use crate::{
 	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
@@ -16,7 +17,7 @@ use crate::{
 pub struct Service<TMeta> {
 	name: String,
 	state: Arc<RwLock<DiscoveryManagerState>>,
-	chan: broadcast::Sender<()>,
+	do_broadcast: Arc<Notify>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
 
@@ -27,19 +28,21 @@ impl<TMeta: Metadata> Service<TMeta> {
 	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
 		let state = manager.discovery_state.clone();
-		let chan = {
+		let do_broadcast = {
 			let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 			if state.services.contains_key(&name) {
 				return Err(ErrDuplicateServiceName);
 			}
-			state.services.insert(name.clone(), Default::default());
-			state.tx_chan.clone()
+			state
+				.services
+				.insert(name.clone(), (broadcast::channel(20).0, Default::default()));
+			state.do_broadcast.clone()
 		};
 
 		Ok(Self {
 			name,
 			state,
-			chan,
+			do_broadcast,
 			phantom: PhantomData,
 		})
 	}
@@ -49,13 +52,21 @@ impl<TMeta: Metadata> Service<TMeta> {
 	}
 
 	pub fn update(&self, meta: TMeta) {
-		self.state
+		if let Some((_, services_meta)) = self
+			.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.services
-			.insert(self.name.clone(), meta.to_hashmap());
-
-		// self.manager.rebroadcast(); // TODO
+			.get_mut(&self.name)
+		{
+			*services_meta = meta.to_hashmap();
+			self.do_broadcast.notify_waiters();
+		} else {
+			warn!(
+				"Service::update called on non-existent service '{}'. This indicates a major bug in P2P!",
+				self.name
+			);
+		}
 	}
 
 	pub fn get_state(&self) -> HashMap<RemoteIdentity, PeerStatus> {
@@ -80,11 +91,21 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 	// TODO: Remove in favor of `get_state` maybe???
 	pub fn get_discovered(&self) -> Vec<DiscoveredPeer<TMeta>> {
-		// TODO: Get updates from manager
-
-		// TODO: Maybe helper for connecting to incoming peer???
-
-		todo!();
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.get(&self.name)
+			.cloned()
+			.unwrap_or_default()
+			.into_iter()
+			.map(|(i, p)| DiscoveredPeer {
+				identity: i,
+				peer_id: p.peer_id,
+				metadata: TMeta::from_hashmap(&p.meta).unwrap(),
+				addresses: p.addresses,
+			})
+			.collect::<Vec<_>>()
 	}
 
 	pub async fn connect(
@@ -103,7 +124,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 	pub fn listen(&self) -> broadcast::Receiver<()> {
 		// TODO: Filtering of events -> Discover and expire events only???
-		self.chan.subscribe()
+		// self.chan.subscribe()
+		todo!();
 	}
 }
 
@@ -122,7 +144,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 impl<Meta> Drop for Service<Meta> {
 	fn drop(&mut self) {
-		// TODO: Remove from manager
+		// TODO: Remove from manager + do rebroadcast
 	}
 }
 
@@ -137,14 +159,4 @@ pub enum PeerStatus {
 	Unavailable,
 	Discovered(PeerId),
 	Connected(PeerId),
-}
-
-impl From<super::RemotePeer> for PeerStatus {
-	fn from(value: super::RemotePeer) -> Self {
-		match value {
-			super::RemotePeer::Unavailable => Self::Unavailable,
-			super::RemotePeer::Discovered(c) => Self::Discovered(c.peer_id),
-			super::RemotePeer::Connected(c) => Self::Connected(c.peer_id),
-		}
-	}
 }

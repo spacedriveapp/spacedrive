@@ -25,6 +25,10 @@ impl Keypair {
 	pub fn inner(&self) -> libp2p::identity::Keypair {
 		self.0.clone().into()
 	}
+
+	pub fn inner2(&self) -> ed25519::Keypair {
+		self.0.clone()
+	}
 }
 
 impl Serialize for Keypair {

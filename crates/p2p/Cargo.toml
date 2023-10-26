@@ -40,6 +40,8 @@ rand_core = { version = "0.6.4" }
 uuid = "1.4.1"
 hex = "0.4.3"
 streamunordered = "0.5.3"
+# chacha20poly1305 = "0.10.1"
+# rand = "0.8.5"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }

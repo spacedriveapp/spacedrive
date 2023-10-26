@@ -1,10 +1,9 @@
 use std::{
 	fmt::{self, Formatter},
 	net::SocketAddr,
-	sync::Arc,
 };
 
-use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
+use crate::{spacetunnel::RemoteIdentity, Metadata, PeerId};
 
 /// Represents a discovered peer.
 /// This is held by [Manager] to keep track of discovered peers
@@ -12,9 +11,9 @@ use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiscoveredPeer<TMeta: Metadata> {
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	pub(crate) manager: Arc<Manager>,
-	/// get the peer id of the discovered peer
+	/// the public key of the discovered peer
+	pub identity: RemoteIdentity,
+	/// the libp2p peer id of the discovered peer
 	pub peer_id: PeerId,
 	/// get the metadata of the discovered peer
 	pub metadata: TMeta,
@@ -30,18 +29,6 @@ impl<TMeta: Metadata> fmt::Debug for DiscoveredPeer<TMeta> {
 			.field("metadata", &self.metadata)
 			.field("addresses", &self.addresses)
 			.finish()
-	}
-}
-
-impl<TMeta: Metadata> DiscoveredPeer<TMeta> {
-	/// dial will queue an event to start a connection with the peer
-	pub async fn dial(self) {
-		self.manager
-			.emit(ManagerStreamAction::Dial {
-				peer_id: self.peer_id,
-				addresses: self.addresses,
-			})
-			.await;
 	}
 }
 

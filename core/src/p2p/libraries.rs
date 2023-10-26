@@ -13,7 +13,7 @@ use crate::library::Library;
 use super::PeerMetadata;
 
 pub struct LibraryServices {
-	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>,
+	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>, // TODO: probs don't use `PeerMetadata` here
 	tx: broadcast::Sender<()>,
 }
 
@@ -46,119 +46,12 @@ impl LibraryServices {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.iter()
-			.map(|(k, v)| (k.clone(), v.clone()))
+			.map(|(k, v)| (*k, v.clone()))
 			.collect::<Vec<_>>()
 	}
 
 	pub(super) fn update(&self) {
 		todo!();
-	}
-
-	// TODO: `sd_p2p` should be able to handle this internally for us
-	pub(super) fn peer_connected(&self, peer_id: PeerId) {
-		// TODO: This is a very suboptimal way of doing this cause it assumes a discovery message will always come before discover which is false.
-		// TODO: Hence part of the need for `Self::peer_connected2`
-		for lib in self
-			.services
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Discovered(id) = instance {
-					if *id == peer_id {
-						*instance = PeerStatus::Connected(peer_id);
-						self.tx.send(()).ok();
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
-	}
-
-	// // TODO: Can this be merged with `peer_connected`???
-	pub(super) fn peer_connected2(&self, instance_id: RemoteIdentity, peer_id: PeerId) {
-		for lib in self
-			.services
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			if let Some(instance) = lib._get_mut().get_mut(&instance_id) {
-				*instance = PeerStatus::Connected(peer_id);
-				self.tx.send(()).ok();
-				return; // Will only exist once so we short circuit
-			}
-		}
-	}
-
-	// TODO: `sd_p2p` should be able to handle this internally for us
-	pub(super) fn peer_disconnected(&self, peer_id: PeerId) {
-		for lib in self
-			.services
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Connected(id) = instance {
-					if *id == peer_id {
-						*instance = PeerStatus::Unavailable;
-						self.tx.send(()).ok();
-						return; // Will only exist once so we short circuit
-					}
-				}
-			}
-		}
-	}
-
-	// TODO: `sd_p2p` should be able to handle this internally for us
-	pub(super) fn peer_expired(&self, id: PeerId) {
-		for lib in self
-			.services
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.values_mut()
-		{
-			for instance in lib._get_mut().values_mut() {
-				if let PeerStatus::Discovered(peer_id) = instance {
-					if *peer_id == id {
-						*instance = PeerStatus::Unavailable;
-						self.tx.send(()).ok();
-					}
-				}
-			}
-		}
-	}
-
-	pub(super) async fn peer_discovered(&self, event: DiscoveredPeer<PeerMetadata>) {
-		let mut should_connect = false;
-		// for lib in self
-		// 	.services
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.values_mut()
-		// {
-		// 	if let Some((_pk, instance)) = lib
-		// 		._get_mut()
-		// 		.iter_mut()
-		// 		.find(|(pk, _)| event.metadata.instances.iter().any(|pk2| *pk2 == **pk))
-		// 	{
-		// 		if !matches!(instance, PeerStatus::Connected(_)) {
-		// 			should_connect = matches!(instance, PeerStatus::Unavailable);
-
-		// 			*instance = PeerStatus::Discovered(event.peer_id);
-		// 		}
-
-		// 		break; // PK can only exist once so we short circuit
-		// 	}
-		// }
-		todo!();
-
-		// We do this here not in the loop so the future can be `Send`
-		if should_connect {
-			event.dial().await;
-		}
 	}
 
 	pub(crate) async fn load_library(&self, library: &Library) {

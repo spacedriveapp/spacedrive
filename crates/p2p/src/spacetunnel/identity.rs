@@ -6,6 +6,10 @@ use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
 
+use crate::Keypair;
+
+pub const REMOTE_IDENTITY_LEN: usize = 32;
+
 #[derive(Debug, Error)]
 #[error(transparent)]
 pub enum IdentityErr {
@@ -14,9 +18,10 @@ pub enum IdentityErr {
 	#[error("Invalid key length")]
 	InvalidKeyLength,
 }
+
 /// TODO
-#[derive(Debug)]
-pub struct Identity(ed25519_dalek::SigningKey);
+#[derive(Debug, Clone)]
+pub struct Identity(ed25519_dalek::SigningKey); // TODO: Zeroize on this type
 
 impl PartialEq for Identity {
 	fn eq(&self, other: &Self) -> bool {
@@ -51,6 +56,7 @@ impl Identity {
 		RemoteIdentity(self.0.verifying_key())
 	}
 }
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::VerifyingKey);
 
@@ -92,11 +98,18 @@ impl RemoteIdentity {
 		)?))
 	}
 
-	pub fn to_bytes(&self) -> [u8; 32] {
+	pub fn get_bytes(&self) -> [u8; REMOTE_IDENTITY_LEN] {
 		self.0.to_bytes()
 	}
 
 	pub fn verifying_key(&self) -> VerifyingKey {
 		self.0
+	}
+}
+
+impl From<Keypair> for RemoteIdentity {
+	fn from(value: Keypair) -> Self {
+		// RemoteIdentity(value.inner2().into())
+		todo!();
 	}
 }

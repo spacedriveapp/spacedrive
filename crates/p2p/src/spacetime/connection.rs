@@ -73,7 +73,11 @@ impl ConnectionHandler for SpaceTimeConnection {
 		self.pending_events
 			.push_back(ConnectionHandlerEvent::OutboundSubstreamRequest {
 				protocol: SubstreamProtocol::new(
-					OutboundProtocol(self.manager.application_name.clone(), req),
+					OutboundProtocol {
+						application_name: self.manager.application_name.clone(),
+						req,
+						identity: self.manager.identity.clone(),
+					},
 					(),
 				) // TODO: Use `info` here maybe to pass into about the client. Idk?
 				.with_timeout(SUBSTREAM_TIMEOUT),

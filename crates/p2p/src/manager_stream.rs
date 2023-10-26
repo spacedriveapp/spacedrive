@@ -1,13 +1,11 @@
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	fmt,
-	future::poll_fn,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc, PoisonError,
 	},
-	task::Poll,
 };
 
 use libp2p::{
@@ -23,8 +21,8 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
-	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, PeerId,
+	spacetime::{OutboundRequest, SpaceTime, UnicastStreamBuilder},
+	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Mdns, PeerId,
 };
 
 /// TODO
@@ -53,7 +51,7 @@ pub enum ManagerStreamAction2 {
 	/// Events are returned to the application via the `ManagerStream::next` method.
 	Event(Event),
 	/// TODO
-	StartStream(PeerId, oneshot::Sender<UnicastStream>),
+	StartStream(PeerId, oneshot::Sender<UnicastStreamBuilder>),
 }
 
 impl fmt::Debug for ManagerStreamAction {
@@ -166,18 +164,8 @@ impl ManagerStream {
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
-
 			tokio::select! {
-				event = async {
-					// if let Some(mdns) = &mut self.mdns {
-					// 	mdns.poll(&self.manager).await
-					// } else {
-					//    pending().await
-					// }
-				} => {
-					// if let Some(event) = event {
-					// 	return Some(event);
-					// }
+				_ = self.discovery_manager.poll() => {
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -225,7 +213,8 @@ impl ManagerStream {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address added: {}", addr);
-									self.discovery_manager.register_addr(addr).await;
+									self.discovery_manager.listen_addrs.insert(addr);
+									self.discovery_manager.do_advertisement();
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -238,7 +227,8 @@ impl ManagerStream {
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address expired: {}", addr);
-									self.discovery_manager.unregister_addr(&addr).await;
+									self.discovery_manager.listen_addrs.remove(&addr);
+									self.discovery_manager.do_advertisement();
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -253,7 +243,7 @@ impl ManagerStream {
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										trace!("listen address closed: {}", addr);
-										self.discovery_manager.unregister_addr(&addr).await;
+										self.discovery_manager.listen_addrs.remove(&addr);
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
 									Err(err) => {
@@ -329,25 +319,36 @@ impl ManagerStream {
 					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
 
 					if !state.config.enabled {
-						// if let Some(mdns) = self.discovery_manager.take() {
-						// 	drop(state);
-						// 	mdns.shutdown().await;
-						// }
+						if let Some(mdns) = self.discovery_manager.mdns.take() {
+							drop(state);
+							mdns.shutdown();
+						}
 					} else {
-						// if self.mdns.is_none() {
-						// 	let mdns = Mdns::new().await;
-						// 	self.mdns = Some(mdns);
-						// }
-						todo!();
+						if self.discovery_manager.mdns.is_none() {
+							match Mdns::new(
+								self.discovery_manager.application_name,
+								self.discovery_manager.peer_id,
+							) {
+								Ok(mdns) => {
+									self.discovery_manager.mdns = Some(mdns);
+									self.discovery_manager.do_advertisement()
+								}
+								Err(err) => {
+									error!("error starting mDNS service: {err:?}");
+									self.discovery_manager.mdns = None;
+
+									// state.config.enabled = false;
+									// TODO: Properly reset the UI state cause it will be outa sync
+								}
+							}
+						}
 					}
 
 					// drop(state);
 				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
-					// if let Some(mdns) = &self.mdns {
-					// 	mdns.shutdown().await;
-					// }
+					self.discovery_manager.shutdown();
 					tx.send(()).unwrap_or_else(|_| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
@@ -407,8 +408,4 @@ impl ManagerStream {
 
 		None
 	}
-}
-
-async fn pending() -> ! {
-	poll_fn(|_| Poll::Pending).await
 }
