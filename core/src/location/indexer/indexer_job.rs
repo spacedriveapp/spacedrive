@@ -225,11 +225,12 @@ impl StatefulJob for IndexerJobInit {
 
 		ctx.node
 			.thumbnailer
-			.remove_cas_ids(
+			.remove_indexed_cas_ids(
 				to_remove
 					.iter()
 					.filter_map(|file_path| file_path.cas_id.clone())
 					.collect::<Vec<_>>(),
+				ctx.library.id,
 			)
 			.await;
 

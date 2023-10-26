@@ -1,4 +1,9 @@
-use crate::{library::Library, prisma::location, util::db::maybe_missing, Node};
+use crate::{
+	library::{Library, LibraryId},
+	prisma::location,
+	util::db::maybe_missing,
+	Node,
+};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -13,7 +18,6 @@ use uuid::Uuid;
 
 use super::{watcher::LocationWatcher, LocationManagerError};
 
-type LibraryId = Uuid;
 type LocationAndLibraryKey = (location::id::Type, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
