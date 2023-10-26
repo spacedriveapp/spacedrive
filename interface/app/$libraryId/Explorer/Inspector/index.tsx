@@ -228,7 +228,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
-		['files.getEphemeralMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
+		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
 			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
 		}
