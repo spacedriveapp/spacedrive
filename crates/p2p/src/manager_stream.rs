@@ -369,19 +369,19 @@ impl ManagerStream {
 				ManagerStreamAction2::Event(event) => return Some(event),
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
 					if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
-						// let addresses = self
-						// 	.mdns
-						// 	.as_mut()
-						// 	.unwrap() // TODO: Error handling
-						// 	.state
-						// 	.discovered
-						// 	.read()
-						// 	.await
-						// 	.get(&peer_id)
-						// 	.unwrap()
-						// 	.addresses
-						// 	.clone();
-						let addresses: Vec<SocketAddr> = todo!();
+						let addresses = self
+							.discovery_manager
+							.state
+							.read()
+							.unwrap_or_else(PoisonError::into_inner)
+							.discovered
+							.iter()
+							.find_map(|(_, service)| {
+								service.iter().find_map(|(k, v)| {
+									(v.peer_id == peer_id).then(|| v.addresses.clone())
+								})
+							})
+							.unwrap(); // TODO: Error handling
 
 						match self.swarm.dial(
 							DialOpts::peer_id(peer_id.0)
