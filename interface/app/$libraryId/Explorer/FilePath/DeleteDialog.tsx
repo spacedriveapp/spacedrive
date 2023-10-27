@@ -2,9 +2,14 @@ import { useLibraryMutation, useZodForm } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 
 interface Props extends UseDialogProps {
-	locationId: number;
-	rescan?: () => void;
-	pathIds: number[];
+	indexedArgs?: {
+		locationId: number;
+		rescan?: () => void;
+		pathIds: number[];
+	};
+	ephemeralArgs?: {
+		paths: string[];
+	};
 	dirCount?: number;
 	fileCount?: number;
 }
@@ -38,9 +43,10 @@ function getWording(dirCount: number, fileCount: number) {
 
 export default (props: Props) => {
 	const deleteFile = useLibraryMutation('files.deleteFiles');
+	const deleteEphemeralFile = useLibraryMutation('ephemeralFiles.deleteFiles');
 
 	const form = useZodForm();
-	const { dirCount = 0, fileCount = 0 } = props;
+	const { dirCount = 0, fileCount = 0, indexedArgs, ephemeralArgs } = props;
 
 	const { type, prefix } = getWording(dirCount, fileCount);
 
@@ -50,12 +56,20 @@ export default (props: Props) => {
 		<Dialog
 			form={form}
 			onSubmit={form.handleSubmit(async () => {
-				await deleteFile.mutateAsync({
-					location_id: props.locationId,
-					file_path_ids: props.pathIds
-				});
+				if (indexedArgs != undefined) {
+					const { locationId, rescan, pathIds } = indexedArgs;
+					await deleteFile.mutateAsync({
+						location_id: locationId,
+						file_path_ids: pathIds
+					});
 
-				props.rescan?.();
+					rescan?.();
+				}
+
+				if (ephemeralArgs != undefined) {
+					const { paths } = ephemeralArgs;
+					await deleteEphemeralFile.mutateAsync(paths);
+				}
 			})}
 			dialog={useDialog(props)}
 			title={'Delete ' + prefix + ' ' + type}
