@@ -11,44 +11,12 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
 
-use crate::{
-	library::{Libraries, Library, LibraryManagerEvent},
-	sync,
-};
+use crate::{library::Library, sync};
 
 use super::{Header, P2PManager};
 
 mod proto;
 pub use proto::*;
-
-pub(crate) async fn networked_libraries_v2(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
-	if let Err(err) = libraries
-		.rx
-		.clone()
-		.subscribe(|msg| {
-			let manager = manager.clone();
-			async move {
-				match msg {
-					LibraryManagerEvent::Load(library) => {
-						manager.libraries.load_library(&library).await
-					}
-					LibraryManagerEvent::Edit(library) => {
-						manager.libraries.edit_library(&library).await
-					}
-					LibraryManagerEvent::InstancesModified(library) => {
-						manager.libraries.load_library(&library).await
-					}
-					LibraryManagerEvent::Delete(library) => {
-						manager.libraries.delete_library(&library).await
-					}
-				}
-			}
-		})
-		.await
-	{
-		error!("Core may become unstable! `networked_libraries_v2` manager aborted with error: {err:?}");
-	}
-}
 
 pub use originator::run as originator;
 mod originator {

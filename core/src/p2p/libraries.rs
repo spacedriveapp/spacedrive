@@ -4,13 +4,14 @@ use std::{
 	sync::{Arc, PoisonError, RwLock},
 };
 
-use sd_p2p::Service;
+use sd_p2p::{Manager, Service};
 use tokio::sync::broadcast;
+use tracing::error;
 use uuid::Uuid;
 
-use crate::library::Library;
+use crate::library::{Libraries, Library, LibraryManagerEvent};
 
-use super::PeerMetadata;
+use super::{P2PManager, PeerMetadata};
 
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>, // TODO: probs don't use `PeerMetadata` here
@@ -33,6 +34,35 @@ impl LibraryServices {
 		}
 	}
 
+	pub(crate) async fn start(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
+		if let Err(err) = libraries
+			.rx
+			.clone()
+			.subscribe(|msg| {
+				let manager = manager.clone();
+				async move {
+					match msg {
+						LibraryManagerEvent::Load(library) => {
+							manager.libraries.load_library(&library).await
+						}
+						LibraryManagerEvent::Edit(library) => {
+							manager.libraries.edit_library(&library).await
+						}
+						LibraryManagerEvent::InstancesModified(library) => {
+							manager.libraries.load_library(&library).await
+						}
+						LibraryManagerEvent::Delete(library) => {
+							manager.libraries.delete_library(&library).await
+						}
+					}
+				}
+			})
+			.await
+		{
+			error!("Core may become unstable! `networked_libraries_v2` manager aborted with error: {err:?}");
+		}
+	}
+
 	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
 		self.services
 			.read()
@@ -48,10 +78,6 @@ impl LibraryServices {
 			.iter()
 			.map(|(k, v)| (*k, v.clone()))
 			.collect::<Vec<_>>()
-	}
-
-	pub(super) fn update(&self) {
-		todo!();
 	}
 
 	pub(crate) async fn load_library(&self, library: &Library) {

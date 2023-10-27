@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
 	node::config,
-	p2p::{sync::networked_libraries_v2, OperatingSystem, SPACEDRIVE_APP_ID},
+	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
 use super::{LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata};
@@ -62,7 +62,7 @@ impl P2PManager {
 			node_config_manager: node_config,
 		});
 
-		tokio::spawn(networked_libraries_v2(this.clone(), libraries));
+		tokio::spawn(LibraryServices::start(this.clone(), libraries));
 
 		Ok((
 			this.clone(),
