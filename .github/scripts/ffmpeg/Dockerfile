@@ -314,7 +314,7 @@ RUN --mount=src=scripts/99-ffmpeg.sh,dst=/srv/stage.sh /srv/build.sh
 
 FROM layer-50 AS layer-99-heif
 
-RUN --mount=src=scripts/99-libheif.sh,dst=/srv/stage.sh /srv/build.sh
+RUN --mount=src=scripts/99-heif.sh,dst=/srv/stage.sh /srv/build.sh
 
 FROM layer-50 AS layer-99
 

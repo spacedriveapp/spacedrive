@@ -56,11 +56,11 @@ jobs:
         run: |
           set -euxo pipefail
           cd .github/scripts/ffmpeg
-          docker build --build-arg TARGET=${{ matrix.settings.target }} -o . .
+          docker build --no-cache --build-arg TARGET=${{ matrix.settings.target }} -o . .
 
-      - name: Publish ffmpeg x86_64
+      - name: Publish ffmpeg
         uses: actions/upload-artifact@v3
         with:
-          name: ffmpeg-6.0-x86_64
-          path: .github/scripts/ffmpeg-windows/dlls/*
+          name: ffmpeg-6.0-${{ matrix.settings.target }}
+          path: .github/scripts/ffmpeg/out/*
           if-no-files-found: error
