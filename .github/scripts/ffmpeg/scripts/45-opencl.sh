@@ -37,7 +37,7 @@ case "$TARGET" in
 esac
 
 mkdir -p "${PREFIX}/lib/pkgconfig"
-cat << EOF >"${PREFIX}/lib/pkgconfig/OpenCL.pc"
+cat <<EOF >"${PREFIX}/lib/pkgconfig/OpenCL.pc"
 prefix=$PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -51,4 +51,6 @@ Libs: -L\${libdir} $LIBS
 Libs.private: $LIBS_P
 EOF
 
-ln -s OpenCL.a "${PREFIX}/lib/libOpenCL.a"
+if [ -f "${PREFIX}/lib/OpenCL.a" ] && ! [ -f "${PREFIX}/lib/libOpenCL.a" ]; then
+  ln -s OpenCL.a "${PREFIX}/lib/libOpenCL.a"
+fi
