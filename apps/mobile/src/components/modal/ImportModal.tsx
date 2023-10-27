@@ -60,12 +60,36 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					return;
 				}
 
+				//Check if dir is read-only
+				try {
+					await RNFS.writeFile(dirPath + '/test.txt', 'test', 'utf8');
+				} catch (err) {
+					console.error('Directory is read-only'); //TODO: Make this a UI error
+					return;
+				}
+				// Delete test file if it exists
+				const testFileExists = await RNFS.exists(dirPath + '/test.txt');
+				if (testFileExists) await RNFS.unlink(dirPath + '/test.txt');
+
 				createLocation.mutate({
 					path: dirPath,
 					dry_run: false,
 					indexer_rules_ids: []
 				});
 			} else {
+				// iOS
+
+				// Check if dir is read-only
+				try {
+					await RNFS.writeFile(uri + '/test.txt', 'test', 'utf8');
+				} catch (err) {
+					console.error('Directory is read-only'); //TODO: Make this a UI error
+					return;
+				}
+				// Delete test file if it exists
+				const testFileExists = await RNFS.exists(uri + '/test.txt');
+				if (testFileExists) await RNFS.unlink(uri + '/test.txt');
+
 				createLocation.mutate({
 					path: decodeURIComponent(uri.replace('file://', '')),
 					dry_run: false,
