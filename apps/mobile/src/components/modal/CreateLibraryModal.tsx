@@ -65,7 +65,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				/>
 				<Button
 					variant="accent"
-					onPress={() => createLibrary({ name: libName })}
+					onPress={() => createLibrary({ name: libName, default_locations: null })}
 					style={tw`mt-4`}
 					disabled={libName.length === 0 || createLibLoading}
 				>

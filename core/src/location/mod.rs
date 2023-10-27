@@ -49,6 +49,8 @@ use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
 
+pub type LocationPubId = Uuid;
+
 // Location includes!
 location::include!(location_with_indexer_rules {
 	indexer_rules: select { indexer_rule }

@@ -25,6 +25,7 @@
 		"markdown-to-jsx": "^7.3.2",
 		"next": "13.5.6",
 		"next-contentlayer": "^0.3.4",
+		"next-plausible": "^3.11.2",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",

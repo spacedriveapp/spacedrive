@@ -3,6 +3,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	p2p::{operations, IdentityOrRemoteIdentity},
+	object::media::thumbnail::WEBP_EXTENSION,
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -160,7 +161,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 					// Prevent directory traversal attacks (Eg. requesting `../../../etc/passwd`)
 					// For now we only support `webp` thumbnails.
 					(path.starts_with(&thumbnail_path)
-						&& path.extension() == Some(OsStr::new("webp")))
+						&& path.extension() == Some(WEBP_EXTENSION.as_ref()))
 					.then_some(())
 					.ok_or_else(|| not_found(()))?;
 
