@@ -1,5 +1,6 @@
 use std::{
 	collections::HashMap,
+	iter,
 	marker::PhantomData,
 	sync::{Arc, PoisonError, RwLock},
 };
@@ -71,34 +72,35 @@ impl<TMeta: Metadata> Service<TMeta> {
 		}
 	}
 
-	// TODO: Exposing this over rspc query
 	pub fn get_state(&self) -> HashMap<RemoteIdentity, PeerStatus> {
-		// TODO: Connected peers won't show up
+		let connected = self
+			.manager
+			.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.connected
+			.iter()
+			.map(|(_, remote_identity)| (remote_identity.clone(), PeerStatus::Connected))
+			.collect::<Vec<_>>();
 
-		println!(
-			"{:?}",
-			self.manager
-				.state
-				.read()
-				.unwrap_or_else(PoisonError::into_inner)
-				.connected
-		);
-
-		// let a = self
-		// 	.manager
-		// 	.state
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner)
-		// 	.discovered
-		// 	.entry(self.name.clone())
-		// 	.or_insert(Default::default())
-		// 	.into_iter()
-		// 	.map(|(i, p)| (i.clone(), p.clone().into()))
-		// 	.collect::<Vec<_>>();
-
-		// let b = self.manager
-
-		todo!();
+		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		state
+			.known
+			.get(&self.name)
+			.into_iter()
+			.flatten()
+			.map(|remote_identity| (remote_identity.clone(), PeerStatus::Unavailable))
+			// We do these after the `Unavailable` to replace the keys that are in both
+			.chain(connected)
+			.chain(
+				state
+					.discovered
+					.get(&self.name)
+					.into_iter()
+					.flatten()
+					.map(|(remote_identity, _)| (remote_identity.clone(), PeerStatus::Discovered)),
+			)
+			.collect::<HashMap<RemoteIdentity, PeerStatus>>()
 	}
 
 	// TODO: Remove in favor of `get_state` maybe???
@@ -169,6 +171,6 @@ pub struct ErrDuplicateServiceName;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum PeerStatus {
 	Unavailable,
-	Discovered(PeerId),
-	Connected(PeerId),
+	Discovered,
+	Connected,
 }

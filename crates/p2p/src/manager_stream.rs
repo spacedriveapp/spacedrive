@@ -192,12 +192,6 @@ impl ManagerStream {
 							}
 						},
 						SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-							// TODO
-							// self.manager.state.write()
-							// 	.unwrap_or_else(PoisonError::into_inner)
-							// 	.connected
-							// 	.insert(peer_id, );
-
 							if let Some(streams) = self.on_establish_streams.remove(&peer_id) {
 								for event in streams {
 									self.swarm
