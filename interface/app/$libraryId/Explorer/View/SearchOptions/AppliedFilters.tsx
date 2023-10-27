@@ -67,8 +67,8 @@ export const AppliedOptions = () => {
 						</StaticSection>
 						<InteractiveSection className="border-l ">
 							{group.filters.length > 1
-								? meta?.wording.plural
-								: meta?.wording.singular}
+								? meta?.wording?.plural
+								: meta?.wording?.singular}
 						</InteractiveSection>
 
 						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">

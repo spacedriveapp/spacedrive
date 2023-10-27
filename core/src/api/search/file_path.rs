@@ -57,7 +57,9 @@ pub struct FilePathFilterArgs {
 	#[specta(optional)]
 	locations: Option<InOrNotIn<file_path::id::Type>>,
 	#[specta(optional)]
-	search: Option<String>,
+	search: Option<String>, // deprecated
+	#[specta(optional)]
+	name: Option<TextMatch>,
 	#[specta(optional)]
 	extension: Option<InOrNotIn<String>>,
 	#[serde(default)]
@@ -84,6 +86,7 @@ impl FilePathFilterArgs {
 			)
 		});
 
+		// TODO: we should use the location that matches the subpath if it exists, if in any way possible
 		let first_location_id = if let Some(InOrNotIn::In(location_ids)) = &self.locations {
 			location_ids.first().copied()
 		} else {
@@ -119,6 +122,9 @@ impl FilePathFilterArgs {
 					.map(name::contains),
 				[
 					location_conditions,
+					self.name.and_then(|v| {
+						v.to_param(name::contains, name::starts_with, name::ends_with)
+					}),
 					self.extension
 						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
 					self.created_at.from.map(|v| date_created::gte(v.into())),

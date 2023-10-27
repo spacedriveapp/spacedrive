@@ -4,7 +4,7 @@ use sd_prisma::prisma::{self, object, tag_on_object};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::library::Category;
+// use crate::library::Category;
 
 use super::media_data::*;
 use super::utils::{self, *};
@@ -118,9 +118,6 @@ pub struct ObjectFilterArgs {
 	#[serde(default)]
 	#[specta(optional)]
 	tags: Option<InOrNotIn<i32>>,
-	#[serde(default)]
-	#[specta(optional)]
-	category: Option<InOrNotIn<Category>>,
 }
 
 impl ObjectFilterArgs {
@@ -142,20 +139,20 @@ impl ObjectFilterArgs {
 						|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
 					)
 				}),
-				self.category.and_then(|v| {
-					v.to_param(
-						|v| {
-							prisma_client_rust::operator::and(
-								v.into_iter().map(Category::to_where_param).collect(),
-							)
-						},
-						|v| {
-							prisma_client_rust::operator::not(
-								v.into_iter().map(Category::to_where_param).collect(),
-							)
-						},
-					)
-				}),
+				// self.category.and_then(|v| {
+				// 	v.to_param(
+				// 		|v| {
+				// 			prisma_client_rust::operator::and(
+				// 				v.into_iter().map(Category::to_where_param).collect(),
+				// 			)
+				// 		},
+				// 		|v| {
+				// 			prisma_client_rust::operator::not(
+				// 				v.into_iter().map(Category::to_where_param).collect(),
+				// 			)
+				// 		},
+				// 	)
+				// }),
 			],
 		)
 	}

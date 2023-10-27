@@ -243,6 +243,14 @@ export const filterMeta: Record<FilterType, FilterTypeMeta> = {
 			singular: 'is',
 			singularNot: 'is not'
 		}
+	},
+	[FilterType.WithDescendants]: {
+		name: 'With Descendants',
+		icon: Files,
+		wording: {
+			singular: 'is',
+			singularNot: 'is not'
+		}
 	}
 };
 

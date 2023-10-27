@@ -6,7 +6,14 @@ import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } fr
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import { filterMeta, FilterType, KindsFilter, LocationsFilter, TagsFilter } from './Filters';
+import {
+	filterMeta,
+	FilterType,
+	KindsFilter,
+	LocationsFilter,
+	NameFilter,
+	TagsFilter
+} from './Filters';
 import {
 	deselectFilter,
 	getSearchStore,
@@ -178,6 +185,7 @@ const SearchOptions = () => {
 							<LocationsFilter />
 							<TagsFilter />
 							<KindsFilter />
+							<NameFilter />
 							{/* <FilterComponent type={FilterType.Tag} />
 					<FilterComponent type={FilterType.Kind} />
 					<FilterComponent type={FilterType.Extension} />

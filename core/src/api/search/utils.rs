@@ -84,3 +84,36 @@ impl<T> InOrNotIn<T> {
 			})
 	}
 }
+
+#[derive(Deserialize, Type, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum TextMatch {
+	Contains(String),
+	StartsWith(String),
+	EndsWith(String),
+}
+
+impl TextMatch {
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Self::Contains(v) => v.is_empty(),
+			Self::StartsWith(v) => v.is_empty(),
+			Self::EndsWith(v) => v.is_empty(),
+		}
+	}
+
+	pub fn to_param<TParam>(
+		self,
+		contains_fn: fn(String) -> TParam,
+		starts_with_fn: fn(String) -> TParam,
+		ends_with_fn: fn(String) -> TParam,
+	) -> Option<TParam> {
+		self.is_empty()
+			.then_some(None)
+			.unwrap_or_else(|| match self {
+				Self::Contains(v) => Some(contains_fn(v)),
+				Self::StartsWith(v) => Some(starts_with_fn(v)),
+				Self::EndsWith(v) => Some(ends_with_fn(v)),
+			})
+	}
+}
