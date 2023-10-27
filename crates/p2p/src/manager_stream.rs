@@ -296,10 +296,13 @@ impl ManagerStream {
 								let v = state.connected.get(&v);
 
 								if v.is_none() {
-									warn!("Error converting PeerId({v}) into RemoteIdentity. This is likely a bug in P2P.")
+									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
 								}
 
-								*v
+								match v {
+									Some(v) => Some(*v),
+									None => None,
+								}
 							})
 							.collect::<Vec<_>>()
 					};

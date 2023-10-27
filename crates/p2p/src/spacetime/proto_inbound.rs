@@ -13,8 +13,7 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, warn};
 
 use crate::{
-	spacetime::{BroadcastStream, UnicastStream},
-	ConnectedPeer, Event, Manager, ManagerStreamAction, ManagerStreamAction2, PeerMessageEvent,
+	spacetime::UnicastStream, ConnectedPeer, Event, Manager, ManagerStreamAction2, PeerMessageEvent,
 };
 
 use super::SpaceTimeProtocolName;

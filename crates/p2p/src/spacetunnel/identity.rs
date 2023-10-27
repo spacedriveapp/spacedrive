@@ -1,7 +1,6 @@
 use std::hash::{Hash, Hasher};
 
 use ed25519_dalek::{VerifyingKey, SECRET_KEY_LENGTH};
-use libp2p::PeerId;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use specta::Type;

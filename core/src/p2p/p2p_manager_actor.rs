@@ -56,43 +56,20 @@ impl P2PManagerActor {
 						Some(event) = stream.next() => {
 							match event {
 								Event::PeerConnected(event) => {
-									// this.events
-									// 	.0
-									// 	.send(P2PEvent::ConnectedPeer {
-									// 		peer_id: event.peer_id,
-									// 	})
-									// 	.map_err(|_| error!("Failed to send event to p2p event stream!"))
-									// 	.ok();
-									todo!();
-
-									// let node = node.clone();
-									// let this = this.clone();
-									// // let instances = this.metadata_manager.get().instances;
-									// tokio::spawn(async move {
-									// 	if event.establisher {
-									// 		let mut stream =
-									// 			this.manager.stream(event.peer_id).await.unwrap();
-
-									// 		// Self::resync(
-									// 		// 	&this.libraries,
-									// 		// 	&mut stream,
-									// 		// 	event.peer_id,
-									// 		// 	instances,
-									// 		// )
-									// 		// .await;
-									// 	}
-
-									// 	// P2PManager::resync_part2(&this.libraries, node, &event.peer_id)
-									// 	// 	.await;
-									// });
+									this.events
+										.0
+										.send(P2PEvent::ConnectedPeer {
+											identity: event.identity,
+										})
+										.map_err(|_| error!("Failed to send event to p2p event stream!"))
+										.ok();
 								}
-								Event::PeerDisconnected(peer_id) => {
-									// this.events
-									// 	.0
-									// 	.send(P2PEvent::DisconnectedPeer { peer_id })
-									// 	.map_err(|_| error!("Failed to send event to p2p event stream!"))
-									// 	.ok();
-									todo!();
+								Event::PeerDisconnected(identity) => {
+									this.events
+										.0
+										.send(P2PEvent::DisconnectedPeer { identity })
+										.map_err(|_| error!("Failed to send event to p2p event stream!"))
+										.ok();
 								}
 								Event::PeerMessage(mut event) => {
 									let this = this.clone();
