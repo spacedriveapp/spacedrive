@@ -8,9 +8,9 @@ use std::{
 };
 
 use libp2p::{
-	core::{muxing::StreamMuxerBox, transport::ListenerId},
+	core::{muxing::StreamMuxerBox, transport::ListenerId, ConnectedPoint},
 	swarm::SwarmBuilder,
-	Transport,
+	PeerId, Transport,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -22,7 +22,7 @@ use crate::{
 	spacetime::{SpaceTime, UnicastStream},
 	spacetunnel::{Identity, RemoteIdentity},
 	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
-	ManagerStreamAction2, PeerId,
+	ManagerStreamAction2,
 };
 
 // State of the manager that may infrequently change
@@ -35,6 +35,8 @@ pub(crate) struct DynamicManagerState {
 	// A map of connected clients.
 	// This includes both inbound and outbound connections!
 	pub(crate) connected: HashMap<libp2p::PeerId, RemoteIdentity>,
+	// TODO: Removing this would be nice. It's a hack to things working after removing the `PeerId` from public API.
+	pub(crate) connections: HashMap<libp2p::PeerId, (ConnectedPoint, usize)>,
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
@@ -68,7 +70,7 @@ impl Manager {
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
-		let peer_id = PeerId(keypair.raw_peer_id());
+		let peer_id = keypair.peer_id();
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
@@ -76,13 +78,14 @@ impl Manager {
 		let (discovery_state, service_shutdown_rx) = DiscoveryManagerState::new();
 		let this = Arc::new(Self {
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
-			identity: keypair.into(),
+			identity: keypair.to_identity(),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
 				config,
 				ipv4_listener_id: None,
 				ipv6_listener_id: None,
 				connected: Default::default(),
+				connections: Default::default(),
 			}),
 			discovery_state,
 			peer_id,
@@ -97,7 +100,7 @@ impl Manager {
 			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 			.boxed(),
 			SpaceTime::new(this.clone()),
-			keypair.raw_peer_id(),
+			keypair.peer_id(),
 		)
 		.build();
 
@@ -142,7 +145,7 @@ impl Manager {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
 	}
 
-	pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, ()> {
+	pub async fn get_connected_peers(&self) -> Result<Vec<RemoteIdentity>, ()> {
 		let (tx, rx) = oneshot::channel();
 		self.emit(ManagerStreamAction::GetConnectedPeers(tx)).await;
 		rx.await.map_err(|_| {
@@ -150,11 +153,28 @@ impl Manager {
 		})
 	}
 
+	// TODO: Maybe remove this?
+	pub async fn stream(&self, identity: RemoteIdentity) -> Result<UnicastStream, ()> {
+		let peer_id = {
+			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+
+			state
+				.connected
+				.iter()
+				.find(|(_, i)| **i == identity)
+				.ok_or_else(|| ())?
+				.0
+				.clone()
+		};
+
+		self.stream_inner(peer_id).await
+	}
+
 	// TODO: Should this be private now that connections can be done through the `Service`.
 	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
-	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
+	pub(crate) async fn stream_inner(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
 		match self

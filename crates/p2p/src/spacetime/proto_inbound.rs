@@ -4,14 +4,17 @@ use std::{
 	sync::{atomic::Ordering, Arc, PoisonError},
 };
 
-use libp2p::{core::UpgradeInfo, InboundUpgrade, Stream};
+use libp2p::{
+	core::{ConnectedPoint, UpgradeInfo},
+	InboundUpgrade, PeerId, Stream,
+};
 use tokio::io::AsyncReadExt;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
 	spacetime::{BroadcastStream, UnicastStream},
-	Manager, ManagerStreamAction2, PeerId, PeerMessageEvent,
+	ConnectedPeer, Event, Manager, ManagerStreamAction, ManagerStreamAction2, PeerMessageEvent,
 };
 
 use super::SpaceTimeProtocolName;
@@ -48,16 +51,17 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 			match discriminator {
 				crate::spacetime::BROADCAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): broadcast stream accepted", self.peer_id);
-					Ok(ManagerStreamAction2::Event(
-						PeerMessageEvent {
-							stream_id: id,
-							peer_id: self.peer_id,
-							manager: self.manager.clone(),
-							stream: BroadcastStream::new(io),
-							_priv: (),
-						}
-						.into(),
-					))
+					// Ok(ManagerStreamAction2::Event(
+					// 	PeerMessageEvent {
+					// 		stream_id: id,
+					// 		identity: self.identity,
+					// 		manager: self.manager.clone(),
+					// 		stream: BroadcastStream::new(io),
+					// 		_priv: (),
+					// 	}
+					// 	.into(),
+					// ))
+					todo!("Broadcast's are cringe!");
 				}
 				crate::spacetime::UNICAST_DISCRIMINATOR => {
 					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
@@ -65,23 +69,53 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 					let stream =
 						UnicastStream::new_inbound(self.manager.identity.clone(), io).await;
 
-					self.manager
-						.state
-						.write()
-						.unwrap_or_else(PoisonError::into_inner)
-						.connected
-						.insert(self.peer_id.0, stream.remote_identity().clone());
+					let establisher = {
+						let mut state = self
+							.manager
+							.state
+							.write()
+							.unwrap_or_else(PoisonError::into_inner);
 
-					Ok(ManagerStreamAction2::Event(
-						PeerMessageEvent {
-							stream_id: id,
-							peer_id: self.peer_id,
-							manager: self.manager.clone(),
-							stream,
-							_priv: (),
+						state
+							.connected
+							.insert(self.peer_id, stream.remote_identity().clone());
+
+						match state.connections.get(&self.peer_id) {
+							Some((endpoint, 0)) => Some(match endpoint {
+								ConnectedPoint::Dialer { .. } => true,
+								ConnectedPoint::Listener { .. } => false,
+							}),
+							None => {
+								warn!("Error getting PeerId({})'s connection state. This indicates a bug in P2P", self.peer_id);
+								None
+							}
+							_ => None,
 						}
-						.into(),
-					))
+					};
+
+					debug!(
+						"sending establishment request to peer '{}'",
+						stream.remote_identity()
+					);
+
+					let identity = stream.remote_identity();
+					let mut events = vec![PeerMessageEvent {
+						stream_id: id,
+						identity,
+						manager: self.manager.clone(),
+						stream,
+						_priv: (),
+					}
+					.into()];
+
+					if let Some(establisher) = establisher {
+						events.push(Event::PeerConnected(ConnectedPeer {
+							identity,
+							establisher,
+						}));
+					}
+
+					Ok(ManagerStreamAction2::Events(events))
 				}
 				_ => todo!(), // TODO: Error handling
 			}

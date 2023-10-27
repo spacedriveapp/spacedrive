@@ -10,7 +10,10 @@ use std::{
 
 use chrono::Utc;
 use futures::channel::oneshot;
-use sd_p2p::{spacetunnel::Identity, Manager, Metadata, PeerId};
+use sd_p2p::{
+	spacetunnel::{Identity, RemoteIdentity},
+	Manager, Metadata,
+};
 
 use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
@@ -66,16 +69,16 @@ impl PairingManager {
 
 	// TODO: Error handling
 
-	pub async fn originator(self: Arc<Self>, peer_id: PeerId, node: Arc<Node>) -> u16 {
+	pub async fn originator(self: Arc<Self>, identity: RemoteIdentity, node: Arc<Node>) -> u16 {
 		// TODO: Timeout for max number of pairings in a time period
 
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
-		info!("Beginning pairing '{pairing_id}' as originator to remote peer '{peer_id}'");
+		info!("Beginning pairing '{pairing_id}' as originator to remote peer '{identity}'");
 
 		tokio::spawn(async move {
-			let mut stream = self.manager.stream(peer_id).await.unwrap();
+			let mut stream = self.manager.stream(identity).await.unwrap();
 			stream.write_all(&Header::Pair.to_bytes()).await.unwrap();
 
 			// TODO: Ensure both clients are on a compatible version cause Prisma model changes will cause issues
@@ -226,7 +229,7 @@ impl PairingManager {
 
 	pub async fn responder(
 		self: Arc<Self>,
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
 		library_manager: &Libraries,
 		node: Arc<Node>,
@@ -234,7 +237,7 @@ impl PairingManager {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
-		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{peer_id}'");
+		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{identity}'");
 
 		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);

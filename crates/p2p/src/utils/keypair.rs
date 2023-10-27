@@ -1,5 +1,8 @@
+use ed25519_dalek::SigningKey;
 use libp2p::identity::ed25519::{self};
 use serde::{Deserialize, Serialize};
+
+use crate::spacetunnel::{Identity, RemoteIdentity};
 
 #[derive(Debug, Clone)]
 pub struct Keypair(ed25519::Keypair);
@@ -9,14 +12,19 @@ impl Keypair {
 		Self(ed25519::Keypair::generate())
 	}
 
-	pub fn peer_id(&self) -> crate::PeerId {
-		let pk: libp2p::identity::PublicKey = self.0.public().into();
-
-		crate::PeerId(libp2p::PeerId::from_public_key(&pk))
+	pub fn to_identity(&self) -> Identity {
+		// This depends on libp2p implementation details which isn't great
+		SigningKey::from_keypair_bytes(&self.0.to_bytes())
+			.unwrap()
+			.into()
 	}
 
-	// TODO: Maybe try and remove
-	pub fn raw_peer_id(&self) -> libp2p::PeerId {
+	pub fn to_remote_identity(&self) -> RemoteIdentity {
+		self.to_identity().to_remote_identity()
+	}
+
+	// TODO: Make this `pub(crate)`
+	pub fn peer_id(&self) -> libp2p::PeerId {
 		let pk: libp2p::identity::PublicKey = self.0.public().into();
 
 		libp2p::PeerId::from_public_key(&pk)
@@ -24,10 +32,6 @@ impl Keypair {
 
 	pub fn inner(&self) -> libp2p::identity::Keypair {
 		self.0.clone().into()
-	}
-
-	pub fn inner2(&self) -> ed25519::Keypair {
-		self.0.clone()
 	}
 }
 

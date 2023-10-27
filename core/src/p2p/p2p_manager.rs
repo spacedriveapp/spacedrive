@@ -4,7 +4,7 @@ use std::{
 };
 
 use sd_p2p::{Manager, ManagerError, Service};
-use tokio::sync::{broadcast, oneshot, Mutex};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
 
@@ -13,7 +13,9 @@ use crate::{
 	p2p::{OperatingSystem, SPACEDRIVE_APP_ID},
 };
 
-use super::{LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata};
+use super::{
+	LibraryMetadata, LibraryServices, P2PEvent, P2PManagerActor, PairingManager, PeerMetadata,
+};
 
 pub struct P2PManager {
 	pub(crate) node: Service<PeerMetadata>,
@@ -50,10 +52,10 @@ impl P2PManager {
 		let (tx, rx) = broadcast::channel(100);
 		let pairing = PairingManager::new(manager.clone(), tx.clone());
 
-		let (ls_tx, _ls_rx) = broadcast::channel(10);
+		let (register_service_tx, register_service_rx) = mpsc::channel(10);
 		let this = Arc::new(Self {
 			node: Service::new("node", manager.clone()).unwrap(),
-			libraries: LibraryServices::new(ls_tx.clone()),
+			libraries: LibraryServices::new(register_service_tx),
 			pairing,
 			events: (tx, rx),
 			manager,
@@ -69,11 +71,12 @@ impl P2PManager {
 			P2PManagerActor {
 				manager: this,
 				stream,
+				register_service_rx,
 			},
 		))
 	}
 
-	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
+	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
 		Some(self.libraries.get(library_id)?)
 	}
 

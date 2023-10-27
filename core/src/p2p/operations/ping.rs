@@ -11,5 +11,5 @@ pub async fn ping(p2p: Arc<P2PManager>) {
 }
 
 pub(crate) async fn reciever(event: PeerMessageEvent<UnicastStream>) {
-	debug!("Received ping from peer '{}'", event.peer_id);
+	debug!("Received ping from peer '{}'", event.identity);
 }

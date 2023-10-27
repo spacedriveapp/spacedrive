@@ -7,12 +7,12 @@ use std::{
 	time::Duration,
 };
 
-use libp2p::futures::FutureExt;
+use libp2p::{futures::FutureExt, PeerId};
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::time::{sleep_until, Instant, Sleep};
 use tracing::{trace, warn};
 
-use crate::{ListenAddrs, PeerId, State};
+use crate::{ListenAddrs, State};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise

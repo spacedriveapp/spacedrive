@@ -5,17 +5,17 @@ use std::{
 };
 
 use sd_p2p::Service;
-use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 use tracing::error;
 use uuid::Uuid;
 
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
-use super::{IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
+use super::{IdentityOrRemoteIdentity, LibraryMetadata, P2PManager};
 
 pub struct LibraryServices {
-	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>, // TODO: probs don't use `PeerMetadata` here
-	tx: broadcast::Sender<()>,
+	services: RwLock<HashMap<Uuid, Arc<Service<LibraryMetadata>>>>,
+	register_service_tx: mpsc::Sender<Arc<Service<LibraryMetadata>>>,
 }
 
 impl fmt::Debug for LibraryServices {
@@ -27,10 +27,10 @@ impl fmt::Debug for LibraryServices {
 }
 
 impl LibraryServices {
-	pub fn new(tx: broadcast::Sender<()>) -> Self {
+	pub fn new(register_service_tx: mpsc::Sender<Arc<Service<LibraryMetadata>>>) -> Self {
 		Self {
 			services: Default::default(),
-			tx,
+			register_service_tx,
 		}
 	}
 
@@ -42,14 +42,16 @@ impl LibraryServices {
 				let manager = manager.clone();
 				async move {
 					match msg {
-						LibraryManagerEvent::Load(library) => {
-							manager.libraries.load_library(&library).await
+						LibraryManagerEvent::InstancesModified(library)
+						| LibraryManagerEvent::Load(library) => {
+							manager
+								.clone()
+								.libraries
+								.load_library(manager, &library)
+								.await
 						}
 						LibraryManagerEvent::Edit(library) => {
 							manager.libraries.edit_library(&library).await
-						}
-						LibraryManagerEvent::InstancesModified(library) => {
-							manager.libraries.load_library(&library).await
 						}
 						LibraryManagerEvent::Delete(library) => {
 							manager.libraries.delete_library(&library).await
@@ -63,7 +65,7 @@ impl LibraryServices {
 		}
 	}
 
-	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<PeerMetadata>>> {
+	pub fn get(&self, id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
 		self.services
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
@@ -71,7 +73,7 @@ impl LibraryServices {
 			.cloned()
 	}
 
-	pub fn libraries(&self) -> Vec<(Uuid, Arc<Service<PeerMetadata>>)> {
+	pub fn libraries(&self) -> Vec<(Uuid, Arc<Service<LibraryMetadata>>)> {
 		self.services
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
@@ -80,7 +82,7 @@ impl LibraryServices {
 			.collect::<Vec<_>>()
 	}
 
-	pub(crate) async fn load_library(&self, library: &Library) {
+	pub(crate) async fn load_library(&self, manager: Arc<P2PManager>, library: &Library) {
 		let identities = library
 			.db
 			.instance()
@@ -98,12 +100,24 @@ impl LibraryServices {
 			)
 			.collect();
 
-		self.services
-			.write()
-			.unwrap_or_else(PoisonError::into_inner)
-			.get_mut(&library.id)
-			.unwrap()
-			.add_known(identities);
+		let mut inserted = false;
+
+		let service = {
+			let mut service = self
+				.services
+				.write()
+				.unwrap_or_else(PoisonError::into_inner);
+			let service = service.entry(library.id.clone()).or_insert_with(|| {
+				inserted = true;
+				Arc::new(Service::new(library.id.to_string(), manager.manager.clone()).unwrap())
+			});
+			service.add_known(identities);
+			service.clone()
+		};
+
+		if inserted {
+			self.register_service_tx.send(service).await.unwrap();
+		}
 	}
 
 	pub(crate) async fn edit_library(&self, _library: &Library) {

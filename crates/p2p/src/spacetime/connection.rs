@@ -1,9 +1,12 @@
-use libp2p::swarm::{
-	handler::{
-		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
-		KeepAlive,
+use libp2p::{
+	swarm::{
+		handler::{
+			ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, FullyNegotiatedInbound,
+			KeepAlive,
+		},
+		StreamUpgradeError, SubstreamProtocol,
 	},
-	StreamUpgradeError, SubstreamProtocol,
+	PeerId,
 };
 use std::{
 	collections::VecDeque,
@@ -14,7 +17,7 @@ use std::{
 };
 use tracing::error;
 
-use crate::{Manager, ManagerStreamAction2, PeerId};
+use crate::{Manager, ManagerStreamAction2};
 
 use super::{InboundProtocol, OutboundProtocol, OutboundRequest, EMPTY_QUEUE_SHRINK_THRESHOLD};
 

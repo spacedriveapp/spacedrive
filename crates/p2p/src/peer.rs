@@ -3,7 +3,9 @@ use std::{
 	net::SocketAddr,
 };
 
-use crate::{spacetunnel::RemoteIdentity, Metadata, PeerId};
+use libp2p::PeerId;
+
+use crate::{spacetunnel::RemoteIdentity, Metadata};
 
 /// Represents a discovered peer.
 /// This is held by [Manager] to keep track of discovered peers
@@ -14,6 +16,7 @@ pub struct DiscoveredPeer<TMeta: Metadata> {
 	/// the public key of the discovered peer
 	pub identity: RemoteIdentity,
 	/// the libp2p peer id of the discovered peer
+	#[serde(skip)]
 	pub peer_id: PeerId,
 	/// get the metadata of the discovered peer
 	pub metadata: TMeta,
@@ -38,8 +41,8 @@ impl<TMeta: Metadata> fmt::Debug for DiscoveredPeer<TMeta> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ConnectedPeer {
-	/// get the peer id of the discovered peer
-	pub peer_id: PeerId,
+	/// get the identity of the discovered peer
+	pub identity: RemoteIdentity,
 	/// Did I open the connection?
 	pub establisher: bool,
 }

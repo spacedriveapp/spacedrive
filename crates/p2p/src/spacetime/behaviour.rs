@@ -1,6 +1,6 @@
 use std::{
 	collections::VecDeque,
-	sync::Arc,
+	sync::{Arc, PoisonError},
 	task::{Context, Poll},
 };
 
@@ -14,9 +14,9 @@ use libp2p::{
 	Multiaddr,
 };
 use thiserror::Error;
-use tracing::debug;
+use tracing::{debug, trace};
 
-use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction2, PeerId};
+use crate::{ConnectedPeer, Event, Manager, ManagerStreamAction2};
 
 use super::SpaceTimeConnection;
 
@@ -36,7 +36,6 @@ pub struct SpaceTime {
 	pub(crate) manager: Arc<Manager>,
 	pub(crate) pending_events:
 		VecDeque<ToSwarm<<Self as NetworkBehaviour>::ToSwarm, THandlerInEvent<Self>>>,
-	// pub(crate) connected_peers: HashMap<PeerId, ConnectedPeer>,
 }
 
 impl SpaceTime {
@@ -45,7 +44,6 @@ impl SpaceTime {
 		Self {
 			manager,
 			pending_events: VecDeque::new(),
-			// connected_peers: HashMap::new(),
 		}
 	}
 }
@@ -61,10 +59,7 @@ impl NetworkBehaviour for SpaceTime {
 		_local_addr: &Multiaddr,
 		_remote_addr: &Multiaddr,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(SpaceTimeConnection::new(
-			PeerId(peer_id),
-			self.manager.clone(),
-		))
+		Ok(SpaceTimeConnection::new(peer_id, self.manager.clone()))
 	}
 
 	fn handle_pending_outbound_connection(
@@ -85,10 +80,7 @@ impl NetworkBehaviour for SpaceTime {
 		_addr: &Multiaddr,
 		_role_override: Endpoint,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		Ok(SpaceTimeConnection::new(
-			PeerId(peer_id),
-			self.manager.clone(),
-		))
+		Ok(SpaceTimeConnection::new(peer_id, self.manager.clone()))
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -103,40 +95,34 @@ impl NetworkBehaviour for SpaceTime {
 					ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
 					ConnectedPoint::Listener { .. } => None,
 				};
-				debug!(
-					"connection established with peer '{}' found at '{:?}'; peer has {} active connections",
+				trace!(
+					"connection establishing with peer '{}' found at '{:?}'; peer has {} active connections",
 					peer_id, address, other_established
 				);
-
-				let peer_id = PeerId(peer_id);
-
-				// TODO: Move this block onto into `connection.rs` -> will probs be required for the ConnectionEstablishmentPayload stuff
-				{
-					debug!("sending establishment request to peer '{}'", peer_id);
-					if other_established == 0 {
-						self.pending_events.push_back(ToSwarm::GenerateEvent(
-							Event::PeerConnected(ConnectedPeer {
-								peer_id,
-								establisher: match endpoint {
-									ConnectedPoint::Dialer { .. } => true,
-									ConnectedPoint::Listener { .. } => false,
-								},
-							})
-							.into(),
-						));
-					}
-				}
+				self.manager
+					.state
+					.write()
+					.unwrap_or_else(PoisonError::into_inner)
+					.connections
+					.insert(peer_id, (endpoint.clone(), other_established));
 			}
 			FromSwarm::ConnectionClosed(ConnectionClosed {
 				peer_id,
 				remaining_established,
+				handler,
 				..
 			}) => {
-				let peer_id = PeerId(peer_id);
 				if remaining_established == 0 {
 					debug!("Disconnected from peer '{}'", peer_id);
+					let mut state = self
+						.manager
+						.state
+						.write()
+						.unwrap_or_else(PoisonError::into_inner);
+
+					state.connections.remove(&peer_id);
 					self.pending_events.push_back(ToSwarm::GenerateEvent(
-						Event::PeerDisconnected(peer_id).into(),
+						Event::PeerDisconnected(state.connected.remove(&peer_id).unwrap()).into(),
 					));
 				}
 			}

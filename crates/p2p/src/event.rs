@@ -2,10 +2,9 @@ use std::{net::SocketAddr, sync::Arc};
 
 use crate::{
 	spacetime::{BroadcastStream, UnicastStream},
+	spacetunnel::RemoteIdentity,
 	ConnectedPeer, Manager,
 };
-
-use super::PeerId;
 
 /// represents an event coming from the network manager.
 /// This is useful for updating your UI when stuff changes on the backend.
@@ -20,7 +19,7 @@ pub enum Event {
 	/// Theere could actually be multiple connections under the hood but we smooth it over in this API.
 	PeerConnected(ConnectedPeer),
 	/// communication was lost with a peer.
-	PeerDisconnected(PeerId),
+	PeerDisconnected(RemoteIdentity),
 	/// the peer has opened a new unicast substream
 	PeerMessage(PeerMessageEvent<UnicastStream>),
 	/// the peer has opened a new brodcast substream
@@ -32,7 +31,7 @@ pub enum Event {
 #[derive(Debug)]
 pub struct PeerMessageEvent<S> {
 	pub stream_id: u64,
-	pub peer_id: PeerId,
+	pub identity: RemoteIdentity,
 	pub manager: Arc<Manager>,
 	pub stream: S,
 	// Prevent manual creation by end-user

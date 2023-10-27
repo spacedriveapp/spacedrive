@@ -12,7 +12,8 @@ use futures::future::join_all;
 use sd_p2p::{
 	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
 	spacetime::UnicastStream,
-	PeerId, PeerMessageEvent,
+	spacetunnel::RemoteIdentity,
+	PeerMessageEvent,
 };
 use tokio::{
 	fs::{create_dir_all, File},
@@ -32,7 +33,7 @@ pub(crate) const SPACEDROP_TIMEOUT: Duration = Duration::from_secs(60);
 pub async fn spacedrop(
 	p2p: Arc<P2PManager>,
 	// TODO: Stop using `PeerId`
-	peer_id: PeerId,
+	identity: RemoteIdentity,
 	paths: Vec<PathBuf>,
 ) -> Result<Uuid, ()> {
 	if paths.is_empty() {
@@ -67,8 +68,8 @@ pub async fn spacedrop(
 	let total_length: u64 = requests.iter().map(|req| req.size).sum();
 
 	let id = Uuid::new_v4();
-	debug!("({id}): starting Spacedrop with peer '{peer_id}");
-	let mut stream = p2p.manager.stream(peer_id).await.map_err(|err| {
+	debug!("({id}): starting Spacedrop with peer '{identity}");
+	let mut stream = p2p.manager.stream(identity).await.map_err(|err| {
 		debug!("({id}): failed to connect: {err:?}");
 		// TODO: Proper error
 	})?;
@@ -101,7 +102,7 @@ pub async fn spacedrop(
 
 		match result {
 			Ok(0) => {
-				debug!("({id}): Spacedrop was rejected from peer '{peer_id}'");
+				debug!("({id}): Spacedrop was rejected from peer '{identity}'");
 				p2p.events.0.send(P2PEvent::SpacedropRejected { id }).ok();
 				return;
 			}
@@ -175,7 +176,7 @@ pub(crate) async fn reciever(
 	info!(
 		"({id}): received '{}' files from peer '{}' with block size '{:?}'",
 		req.requests.len(),
-		event.peer_id,
+		event.identity,
 		req.block_size
 	);
 	this.spacedrop_pairing_reqs.lock().await.insert(id, tx);
@@ -185,7 +186,7 @@ pub(crate) async fn reciever(
 		.0
 		.send(P2PEvent::SpacedropRequest {
 			id,
-			peer_id: event.peer_id,
+			identity: event.identity,
 			peer_name: "Unknown".into(),
 			// TODO: A better solution to this
 			// manager

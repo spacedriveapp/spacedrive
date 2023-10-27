@@ -6,10 +6,11 @@ use std::{
 	task::Poll,
 };
 
+use libp2p::PeerId;
 use tokio::sync::{broadcast, mpsc, Notify};
 use tracing::trace;
 
-use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns, PeerId};
+use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns};
 
 type ServiceName = String;
 

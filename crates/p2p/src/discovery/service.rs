@@ -44,6 +44,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 			)
 		};
 
+		do_broadcast.notify_waiters();
+
 		Ok(Self {
 			name,
 			state,
@@ -154,7 +156,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			candidate.clone()
 		};
 
-		let stream = manager.stream(candidate.peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
+		let stream = manager.stream_inner(candidate.peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 		Ok(stream)
 	}
 

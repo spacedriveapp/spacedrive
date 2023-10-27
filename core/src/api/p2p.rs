@@ -1,5 +1,5 @@
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use sd_p2p::PeerId;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
@@ -18,16 +18,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					// TODO: Don't block subscription start
 					for peer in node.p2p.node.get_discovered() {
 						 yield P2PEvent::DiscoveredPeer {
-							peer_id: peer.peer_id,
+							identity: peer.identity,
 							metadata: peer.metadata,
 						};
 					}
 
 					// TODO: Don't block subscription start
 					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
-					for peer_id in node.p2p.manager.get_connected_peers().await.unwrap() {
+					for identity in node.p2p.manager.get_connected_peers().await.unwrap() {
 						yield P2PEvent::ConnectedPeer {
-							peer_id,
+							identity,
 						};
 					}
 
@@ -40,14 +40,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
-				peer_id: PeerId,
+				identity: RemoteIdentity,
 				file_path: Vec<String>,
 			}
 
 			R.mutation(|node, args: SpacedropArgs| async move {
 				operations::spacedrop(
 					node.p2p.clone(),
-					args.peer_id,
+					args.identity,
 					args.file_path
 						.into_iter()
 						.map(PathBuf::from)
@@ -71,7 +71,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
 		})
 		.procedure("pair", {
-			R.mutation(|node, id: PeerId| async move {
+			R.mutation(|node, id: RemoteIdentity| async move {
 				node.p2p.pairing.clone().originator(id, node).await
 			})
 		})

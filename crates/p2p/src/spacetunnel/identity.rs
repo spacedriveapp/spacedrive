@@ -1,12 +1,11 @@
 use std::hash::{Hash, Hasher};
 
-use ed25519_dalek::{SigningKey, VerifyingKey, SECRET_KEY_LENGTH};
+use ed25519_dalek::{VerifyingKey, SECRET_KEY_LENGTH};
+use libp2p::PeerId;
 use rand_core::OsRng;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
-
-use crate::Keypair;
 
 pub const REMOTE_IDENTITY_LEN: usize = 32;
 
@@ -57,7 +56,7 @@ impl Identity {
 	}
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct RemoteIdentity(ed25519_dalek::VerifyingKey);
 
 impl Hash for RemoteIdentity {
@@ -74,9 +73,33 @@ impl std::fmt::Debug for RemoteIdentity {
 	}
 }
 
+impl std::fmt::Display for RemoteIdentity {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&hex::encode(self.0.as_bytes()))
+	}
+}
+
 impl Serialize for RemoteIdentity {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
 		serializer.serialize_str(&hex::encode(self.0.as_bytes()))
+	}
+}
+
+impl<'de> Deserialize<'de> for RemoteIdentity {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let s = String::deserialize(deserializer)?;
+		let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
+		Ok(Self(
+			ed25519_dalek::VerifyingKey::from_bytes(
+				bytes[..SECRET_KEY_LENGTH]
+					.try_into()
+					.map_err(|_| serde::de::Error::custom("Invalid key length"))?,
+			)
+			.map_err(serde::de::Error::custom)?,
+		))
 	}
 }
 
@@ -107,9 +130,8 @@ impl RemoteIdentity {
 	}
 }
 
-impl From<&Keypair> for Identity {
-	fn from(value: &Keypair) -> Self {
-		// This depends on libp2p implementation details which isn't great
-		Identity(SigningKey::from_keypair_bytes(&value.inner2().to_bytes()).unwrap())
+impl From<ed25519_dalek::SigningKey> for Identity {
+	fn from(value: ed25519_dalek::SigningKey) -> Self {
+		Self(value)
 	}
 }

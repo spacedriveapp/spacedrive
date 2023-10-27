@@ -1,4 +1,4 @@
-use sd_p2p::PeerId;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use serde::Serialize;
 use specta::Type;
 use uuid::Uuid;
@@ -11,21 +11,21 @@ use super::{OperatingSystem, PairingStatus, PeerMetadata};
 #[serde(tag = "type")]
 pub enum P2PEvent {
 	DiscoveredPeer {
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 		metadata: PeerMetadata,
 	},
 	ExpiredPeer {
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 	},
 	ConnectedPeer {
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 	},
 	DisconnectedPeer {
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 	},
 	SpacedropRequest {
 		id: Uuid,
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 		peer_name: String,
 		files: Vec<String>,
 	},

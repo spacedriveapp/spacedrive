@@ -14,7 +14,7 @@ use libp2p::{
 		dial_opts::{DialOpts, PeerCondition},
 		NotifyHandler, SwarmEvent, ToSwarm,
 	},
-	Swarm,
+	PeerId, Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
@@ -22,7 +22,8 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
 	spacetime::{OutboundRequest, SpaceTime, UnicastStreamBuilder},
-	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Mdns, PeerId,
+	spacetunnel::RemoteIdentity,
+	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Mdns,
 };
 
 /// TODO
@@ -30,7 +31,7 @@ use crate::{
 /// This is `Sync` so it can be used from within rspc.
 pub enum ManagerStreamAction {
 	/// TODO
-	GetConnectedPeers(oneshot::Sender<Vec<PeerId>>),
+	GetConnectedPeers(oneshot::Sender<Vec<RemoteIdentity>>),
 	/// Tell the [`libp2p::Swarm`](libp2p::Swarm) to establish a new connection to a peer.
 	Dial {
 		peer_id: PeerId,
@@ -50,6 +51,8 @@ pub enum ManagerStreamAction {
 pub enum ManagerStreamAction2 {
 	/// Events are returned to the application via the `ManagerStream::next` method.
 	Event(Event),
+	/// Events are returned to the application via the `ManagerStream::next` method.
+	Events(Vec<Event>),
 	/// TODO
 	StartStream(PeerId, oneshot::Sender<UnicastStreamBuilder>),
 }
@@ -279,13 +282,30 @@ impl ManagerStream {
 		match event {
 			EitherManagerStreamAction::A(event) => match event {
 				ManagerStreamAction::GetConnectedPeers(response) => {
+					let result = {
+						let state = self
+							.manager
+							.state
+							.read()
+							.unwrap_or_else(PoisonError::into_inner);
+
+						// TODO: Throw warnings when filtering occurs c
+						self.swarm
+							.connected_peers()
+							.filter_map(|v| {
+								let v = state.connected.get(&v);
+
+								if v.is_none() {
+									warn!("Error converting PeerId({v}) into RemoteIdentity. This is likely a bug in P2P.")
+								}
+
+								*v
+							})
+							.collect::<Vec<_>>()
+					};
+
 					response
-						.send(
-							self.swarm
-								.connected_peers()
-								.map(|v| PeerId(*v))
-								.collect::<Vec<_>>(),
-						)
+						.send(result)
 						.map_err(|_| {
 							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")
 						})
@@ -293,7 +313,7 @@ impl ManagerStream {
 				}
 				ManagerStreamAction::Dial { peer_id, addresses } => {
 					match self.swarm.dial(
-						DialOpts::peer_id(peer_id.0)
+						DialOpts::peer_id(peer_id)
 							.condition(PeerCondition::Disconnected)
 							.addresses(addresses.iter().map(socketaddr_to_quic_multiaddr).collect())
 							.build(),
@@ -367,8 +387,17 @@ impl ManagerStream {
 			},
 			EitherManagerStreamAction::B(event) => match event {
 				ManagerStreamAction2::Event(event) => return Some(event),
+				ManagerStreamAction2::Events(mut events) => {
+					let first = events.pop();
+
+					for event in events {
+						self.queued_events.push_back(event);
+					}
+
+					return first;
+				}
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
-					if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
+					if !self.swarm.connected_peers().any(|v| *v == peer_id) {
 						let addresses = self
 							.discovery_manager
 							.state
@@ -384,7 +413,7 @@ impl ManagerStream {
 							.unwrap(); // TODO: Error handling
 
 						match self.swarm.dial(
-							DialOpts::peer_id(peer_id.0)
+							DialOpts::peer_id(peer_id)
 								.condition(PeerCondition::Disconnected)
 								.addresses(
 									addresses.iter().map(socketaddr_to_quic_multiaddr).collect(),
@@ -399,13 +428,13 @@ impl ManagerStream {
 						}
 
 						self.on_establish_streams
-							.entry(peer_id.0)
+							.entry(peer_id)
 							.or_default()
 							.push(OutboundRequest::Unicast(tx));
 					} else {
 						self.swarm.behaviour_mut().pending_events.push_back(
 							ToSwarm::NotifyHandler {
-								peer_id: peer_id.0,
+								peer_id,
 								handler: NotifyHandler::Any,
 								event: OutboundRequest::Unicast(tx),
 							},

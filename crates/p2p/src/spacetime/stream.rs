@@ -5,7 +5,7 @@ use std::{
 	task::{Context, Poll},
 };
 
-use libp2p::{futures::AsyncWriteExt, Stream};
+use libp2p::{futures::AsyncWriteExt, PeerId, Stream};
 use tokio::io::{
 	AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt as TokioAsyncWriteExt, ReadBuf,
 };
@@ -13,7 +13,7 @@ use tokio_util::compat::Compat;
 
 use crate::{
 	spacetunnel::{Identity, RemoteIdentity, REMOTE_IDENTITY_LEN},
-	Manager, PeerId,
+	Manager,
 };
 
 pub const BROADCAST_DISCRIMINATOR: u8 = 0;
@@ -132,8 +132,8 @@ impl UnicastStream {
 		}
 	}
 
-	pub fn remote_identity(&self) -> &RemoteIdentity {
-		&self.remote
+	pub fn remote_identity(&self) -> RemoteIdentity {
+		self.remote
 	}
 
 	pub async fn close(self) -> Result<(), io::Error> {
@@ -176,11 +176,11 @@ pub struct UnicastStreamBuilder {
 }
 
 impl UnicastStreamBuilder {
-	pub fn new(identity: Identity, io: Compat<Stream>) -> Self {
+	pub(crate) fn new(identity: Identity, io: Compat<Stream>) -> Self {
 		Self { identity, io }
 	}
 
-	pub async fn build(mut self, manager: &Manager, peer_id: PeerId) -> UnicastStream {
+	pub(crate) async fn build(mut self, manager: &Manager, peer_id: PeerId) -> UnicastStream {
 		// TODO: Timeout if the peer doesn't accept the byte quick enough
 		self.io.write_all(&[UNICAST_DISCRIMINATOR]).await.unwrap();
 
@@ -191,7 +191,7 @@ impl UnicastStreamBuilder {
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connected
-			.insert(peer_id.0, stream.remote_identity().clone());
+			.insert(peer_id, stream.remote_identity().clone());
 
 		stream
 	}
