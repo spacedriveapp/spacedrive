@@ -1,0 +1,76 @@
+diff --git a/meson.build b/meson.build
+index c2b4f82..7734834 100644
+--- a/meson.build
++++ b/meson.build
+@@ -72,7 +72,7 @@ tiff_dep = dependency('libtiff-4', required: get_option('tiff'))
+ if (
+   not cc.compiles(
+     '''
+-    #include <emmintrin.h>
++    #include <sse2neon.h>
+     int main() { __m128i n = _mm_set1_epi8(42); }
+   ''',
+     name: 'supports SSE2 intrinsics',
+diff --git a/plugins/fast_float/src/fast_8_matsh_sse.c b/plugins/fast_float/src/fast_8_matsh_sse.c
+index 3d5f88b..2dd5871 100644
+--- a/plugins/fast_float/src/fast_8_matsh_sse.c
++++ b/plugins/fast_float/src/fast_8_matsh_sse.c
+@@ -26,14 +26,7 @@
+
+ #ifndef CMS_DONT_USE_SSE2
+
+-#ifdef _MSC_VER
+-#include <intrin.h>
+-#else
+-#include <x86intrin.h>
+-#include <cpuid.h>
+-#endif
+-
+-#include <emmintrin.h>
++#include <sse2neon.h>
+
+
+ // This is the private data container used by this optimization
+@@ -297,30 +290,6 @@ void MatShaperXform8SSE(struct _cmstransform_struct *CMMcargo,
+ }
+
+
+-static
+-cmsBool IsSSE2Available(void)
+-{
+-#ifdef _MSC_VER
+-    int cpuinfo[4];
+-
+-    __cpuid(cpuinfo, 1);
+-    if (!(cpuinfo[3] & (1 << 26))) return FALSE;
+-    return TRUE;
+-
+-#else
+-  unsigned int level = 1u;
+-  unsigned int eax, ebx, ecx, edx;
+-  unsigned int bits = (1u << 26);
+-  unsigned int max = __get_cpuid_max(0, NULL);
+-  if (level > max) {
+-    return FALSE;
+-  }
+-  __cpuid_count(level, 0, eax, ebx, ecx, edx);
+-  return (edx & bits) == bits;
+-#endif
+-}
+-
+-
+ //  8 bits on input allows matrix-shaper boost up a little bit
+ cmsBool Optimize8MatrixShaperSSE(_cmsTransform2Fn* TransformFn,
+                                   void** UserData,
+@@ -338,10 +307,7 @@ cmsBool Optimize8MatrixShaperSSE(_cmsTransform2Fn* TransformFn,
+     cmsBool IdentityMat = FALSE;
+     cmsPipeline* Dest, *Src;
+     cmsContext ContextID;
+-    cmsUInt32Number nChans;
+-
+-    // Check for SSE2 support
+-    if (!(IsSSE2Available())) return FALSE;
++    cmsUInt32Number nChans;
+
+     // Only works on 3 to 3, probably RGB
+     if ( !( (T_CHANNELS(*InputFormat) == 3 && T_CHANNELS(*OutputFormat) == 3) ) ) return FALSE;

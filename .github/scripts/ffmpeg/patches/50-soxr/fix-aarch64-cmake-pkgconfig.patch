@@ -1,0 +1,268 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ee48f6c..0030b39 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,7 +3,6 @@
+
+ cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
+
+-project (soxr C)
+ set (DESCRIPTION_SUMMARY
+     "High quality, one-dimensional sample-rate conversion library")
+
+@@ -29,7 +28,11 @@ math (EXPR SO_VERSION_MAJOR "${SO_VERSION_CURRENT} - ${SO_VERSION_AGE}")
+ math (EXPR SO_VERSION_MINOR "${SO_VERSION_AGE}")
+ math (EXPR SO_VERSION_PATCH "${SO_VERSION_REVISION}")
+
++set (PROJECT_VERSION
++    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH})
++set (SO_VERSION ${SO_VERSION_MAJOR}.${SO_VERSION_MINOR}.${SO_VERSION_PATCH})
+
++project (soxr VERSION "${PROJECT_VERSION}" LANGUAGES C)
+
+ # Main options:
+
+@@ -41,6 +44,7 @@ if (NOT CMAKE_BUILD_TYPE)
+ endif ()
+
+ option (BUILD_TESTS "Build sanity-tests." ON)
++option (INSTALL_DOCS "Install docs." ON)
+ option (BUILD_EXAMPLES "Build examples." OFF)
+ option (WITH_OPENMP "Include OpenMP threading." ON)
+ option (WITH_LSR_BINDINGS "Include a `libsamplerate'-like interface." ON)
+@@ -101,7 +105,7 @@ if (NEED_LIBM)
+ endif ()
+
+ if (${BUILD_EXAMPLES})
+-  project (${PROJECT_NAME}) # Adds c++ compiler
++  project (${PROJECT_NAME} VERSION "${PROJECT_VERSION}") # Adds c++ compiler
+ endif ()
+
+ if (WITH_OPENMP)
+@@ -109,6 +113,8 @@ if (WITH_OPENMP)
+   if (OPENMP_FOUND)
+     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
++    set (LIBS ${LIBS} ${OpenMP_C_LIBRARIES})
++    set (PKGCONF_LIBS_PRIV ${PKGCONF_LIBS_PRIV} -lgomp)
+     if (MINGW) # Is this still needed?
+       set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_C_FLAGS}")
+       set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${OpenMP_C_FLAGS}")
+@@ -134,11 +140,14 @@ if (WITH_AVFFT)
+   endif ()
+ endif ()
+
+-if (WITH_AVFFT OR (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND SIMD32_FOUND AND WITH_CR32))
++if (WITH_AVFFT OR (SIMD32_FOUND AND WITH_CR32
++                   AND (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm"
++                        OR CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")))
+   find_package (LibAVUtil)
+   if (AVUTIL_FOUND)
+     include_directories (${AVUTIL_INCLUDE_DIRS})
+     set (LIBS ${LIBS} ${AVUTIL_LIBRARIES})
++    set (PKGCONF_LIBS_PRIV ${PKGCONF_LIBS_PRIV} -lavutil)
+   endif ()
+ endif ()
+
+@@ -253,10 +262,6 @@ endif ()
+
+ # Top-level:
+
+-set (PROJECT_VERSION
+-    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH})
+-set (SO_VERSION ${SO_VERSION_MAJOR}.${SO_VERSION_MINOR}.${SO_VERSION_PATCH})
+-
+ configure_file (
+   ${PROJECT_SOURCE_DIR}/${PROJECT_NAME}-config.h.in
+   ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.h)
+@@ -266,11 +271,13 @@ if (NOT CMAKE_CROSSCOMPILING AND (BUILD_TESTS OR BUILD_LSR_TESTS))
+   enable_testing ()
+ endif ()
+
+-install (FILES
++if (INSTALL_DOCS)
++  install (FILES
+     ${CMAKE_CURRENT_SOURCE_DIR}/README
+     ${CMAKE_CURRENT_SOURCE_DIR}/LICENCE
+     ${CMAKE_CURRENT_SOURCE_DIR}/NEWS
+     DESTINATION ${DOC_INSTALL_DIR})
++endif ()
+
+
+
+diff --git a/cmake/Modules/FindSIMD32.cmake b/cmake/Modules/FindSIMD32.cmake
+index 9e42373..b2cefc1 100644
+--- a/cmake/Modules/FindSIMD32.cmake
++++ b/cmake/Modules/FindSIMD32.cmake
+@@ -9,9 +9,11 @@
+
+ if (DEFINED SIMD32_C_FLAGS)
+   set (TRIAL_C_FLAGS)
+-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
++elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm"
++        OR CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+   set (TRIAL_C_FLAGS
+     # Gcc
++    "-mcpu=cortex-a53"
+     "-mfpu=neon-vfpv4    -mcpu=cortex-a7"
+     "-mfpu=neon          -mfloat-abi=hard"
+     "-mfpu=neon          -mfloat-abi=softfp"
+diff --git a/cmake/Modules/FindSIMD64.cmake b/cmake/Modules/FindSIMD64.cmake
+index d412644..9e47c29 100644
+--- a/cmake/Modules/FindSIMD64.cmake
++++ b/cmake/Modules/FindSIMD64.cmake
+@@ -7,7 +7,9 @@
+ #   SIMD64_C_FLAGS - flags to add to the C compiler for this package.
+ #   SIMD64_FOUND - true if support for this package is found.
+
+-if (DEFINED SIMD64_C_FLAGS OR CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
++if (DEFINED SIMD64_C_FLAGS
++    OR CMAKE_SYSTEM_PROCESSOR MATCHES "^arm"
++    OR CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+   set (TRIAL_C_FLAGS)
+ else ()
+   set (TRIAL_C_FLAGS
+diff --git a/cmake/Modules/SetSystemProcessor.cmake b/cmake/Modules/SetSystemProcessor.cmake
+index 8e2c292..49ad1c6 100644
+--- a/cmake/Modules/SetSystemProcessor.cmake
++++ b/cmake/Modules/SetSystemProcessor.cmake
+@@ -11,9 +11,10 @@ macro (set_system_processor)
+     if (NOT DEFINED CMAKE_SYSTEM_PROCESSOR)
+       include (CheckCSourceCompiles)
+       set (CPU_LINES
+-        "#if defined __x86_64__ || defined _M_X64  /*\;x86_64\;*/"
+-        "#if defined __i386__   || defined _M_IX86 /*\;x86_32\;*/"
+-        "#if defined __arm__    || defined _M_ARM  /*\;arm\;*/"
++        "#if defined (__x86_64__)  || defined _M_X64   /*\;x86_64\;*/"
++        "#if defined (__i386__)    || defined _M_IX86  /*\;x86_32\;*/"
++        "#if defined (__arm__)     || defined _M_ARM   /*\;arm\;*/"
++        "#if defined (__aarch64__) || defined _M_ARM64 /*\;arm64\;*/"
+         )
+       foreach (CPU_LINE ${CPU_LINES})
+         string (CONCAT CPU_SOURCE "${CPU_LINE}" "
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index bb01a0d..03b749d 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -88,7 +88,7 @@ if (BUILD_FRAMEWORK)
+   set_target_properties (${PROJECT_NAME} PROPERTIES FRAMEWORK TRUE)
+ elseif (NOT WIN32)
+   set (TARGET_PCS ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc)
+-  configure_file (${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pc.in ${TARGET_PCS})
++  configure_file (${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pc.in ${TARGET_PCS} @ONLY)
+   install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
+ endif ()
+
+@@ -112,7 +112,7 @@ if (WITH_LSR_BINDINGS)
+     set_target_properties (${LSR} PROPERTIES FRAMEWORK TRUE)
+   elseif (NOT WIN32)
+     set (TARGET_PCS "${TARGET_PCS} ${CMAKE_CURRENT_BINARY_DIR}/${LSR}.pc")
+-    configure_file (${CMAKE_CURRENT_SOURCE_DIR}/${LSR}.pc.in ${CMAKE_CURRENT_BINARY_DIR}/${LSR}.pc)
++    configure_file (${CMAKE_CURRENT_SOURCE_DIR}/${LSR}.pc.in ${CMAKE_CURRENT_BINARY_DIR}/${LSR}.pc @ONLY)
+     install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${LSR}.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
+   endif ()
+ endif ()
+diff --git a/src/cr-core.c b/src/cr-core.c
+index 159a5d9..44b175b 100644
+--- a/src/cr-core.c
++++ b/src/cr-core.c
+@@ -80,7 +80,7 @@ static void cubic_stage_fn(stage_t * p, fifo_t * output_fifo)
+   #define DEFINED_X86 0
+ #endif
+
+-#if defined __arm__
++#if defined (__arm__) || defined (__aarch64__)
+   #define DEFINED_ARM 1
+ #else
+   #define DEFINED_ARM 0
+diff --git a/src/dev32s.h b/src/dev32s.h
+index 7edae86..b804fff 100644
+--- a/src/dev32s.h
++++ b/src/dev32s.h
+@@ -31,7 +31,7 @@ SIMD_INLINE(void) vStorSum(float * a, v4_t b) {
+   v4_t t = vAdd(_mm_movehl_ps(b, b), b);
+   _mm_store_ss(a, vAdd(t, _mm_shuffle_ps(t,t,1)));}
+
+-#elif defined __arm__
++#elif defined (__arm__) || defined (__aarch64__)
+
+ #include <arm_neon.h>
+
+diff --git a/src/pffft-wrap.c b/src/pffft-wrap.c
+index c920f06..1641fc4 100644
+--- a/src/pffft-wrap.c
++++ b/src/pffft-wrap.c
+@@ -40,7 +40,7 @@ static void pffft_zconvolve(PFFFT_Setup *s, const float *a, const float *b, floa
+
+   float ar, ai, br, bi;
+
+-#ifdef __arm__
++#if defined(__arm__) || defined (__aarch64__)
+   __builtin_prefetch(va);
+   __builtin_prefetch(vb);
+   __builtin_prefetch(va+2);
+diff --git a/src/pffft.c b/src/pffft.c
+index 46c841e..8c775a9 100644
+--- a/src/pffft.c
++++ b/src/pffft.c
+@@ -157,7 +157,7 @@ typedef __m128 v4sf;
+ /*
+   ARM NEON support macros
+ */
+-#elif !defined(PFFFT_SIMD_DISABLE) && defined(__arm__)
++#elif !defined(PFFFT_SIMD_DISABLE) && (defined(__arm__) || defined (__aarch64__))
+ #  include <arm_neon.h>
+ typedef float32x4_t v4sf;
+ #  define SIMD_SZ 4
+@@ -1732,7 +1732,7 @@ void pffft_zconvolve_accumulate(PFFFT_Setup *s, const float *a, const float *b,
+   const v4sf * RESTRICT vb = (const v4sf*)b;
+   v4sf * RESTRICT vab = (v4sf*)ab;
+
+-#ifdef __arm__
++#if defined(__arm__) || defined (__aarch64__)
+   __builtin_prefetch(va);
+   __builtin_prefetch(vb);
+   __builtin_prefetch(vab);
+diff --git a/src/soxr-lsr.pc.in b/src/soxr-lsr.pc.in
+index 7b75757..899f44a 100644
+--- a/src/soxr-lsr.pc.in
++++ b/src/soxr-lsr.pc.in
+@@ -1,5 +1,10 @@
+-Name: ${LSR}
+-Description: ${DESCRIPTION_SUMMARY} (with libsamplerate-like bindings)
+-Version: ${PROJECT_VERSION}
+-Libs: -L${LIB_INSTALL_DIR} -l${LSR}
+-Cflags: -I${INCLUDE_INSTALL_DIR}
++prefix=@CMAKE_INSTALL_PREFIX@
++exec_prefix=@CMAKE_INSTALL_PREFIX@
++libdir=${exec_prefix}/lib
++includedir=${prefix}/include
++
++Name: @LSR@
++Description: @DESCRIPTION_SUMMARY@ (with libsamplerate-like bindings)
++Version: @PROJECT_VERSION@
++Libs: -L${libdir} -l@LSR@
++Cflags: -I${includedir}
+\ No newline at end of file
+diff --git a/src/soxr.pc.in b/src/soxr.pc.in
+index 69d225b..4f4ae9d 100644
+--- a/src/soxr.pc.in
++++ b/src/soxr.pc.in
+@@ -1,5 +1,11 @@
+-Name: ${PROJECT_NAME}
+-Description: ${DESCRIPTION_SUMMARY}
+-Version: ${PROJECT_VERSION}
+-Libs: -L${LIB_INSTALL_DIR} -l${PROJECT_NAME}
+-Cflags: -I${INCLUDE_INSTALL_DIR}
++prefix=@CMAKE_INSTALL_PREFIX@
++exec_prefix=@CMAKE_INSTALL_PREFIX@
++libdir=${exec_prefix}/lib
++includedir=${prefix}/include
++
++Name: @PROJECT_NAME@
++Description: @DESCRIPTION_SUMMARY@
++Version: @PROJECT_VERSION@
++Libs: -L${libdir} -l@PROJECT_NAME@
++Libs.private: ${PKGCONF_LIBS_PRIV}
++Cflags: -I${includedir}
+\ No newline at end of file

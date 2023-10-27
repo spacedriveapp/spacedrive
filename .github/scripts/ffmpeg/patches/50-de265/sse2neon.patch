@@ -1,0 +1,109 @@
+diff --git a/libde265/CMakeLists.txt b/libde265/CMakeLists.txt
+index 86d49ffd..76cd6ad6 100644
+--- a/libde265/CMakeLists.txt
++++ b/libde265/CMakeLists.txt
+@@ -95,15 +95,9 @@ add_definitions(-DLIBDE265_EXPORTS)
+ add_subdirectory (encoder)
+
+ if(NOT DISABLE_SSE)
+-  if (MSVC)
+   set(SUPPORTS_SSE2 1)
+   set(SUPPORTS_SSSE3 1)
+   set(SUPPORTS_SSE4_1 1)
+-  else (MSVC)
+-    check_c_compiler_flag(-msse2 SUPPORTS_SSE2)
+-    check_c_compiler_flag(-mssse3 SUPPORTS_SSSE3)
+-    check_c_compiler_flag(-msse4.1 SUPPORTS_SSE4_1)
+-  endif (MSVC)
+
+   if(SUPPORTS_SSE4_1)
+     add_definitions(-DHAVE_SSE4_1)
+diff --git a/libde265/x86/CMakeLists.txt b/libde265/x86/CMakeLists.txt
+index d6caf1d0..15243917 100644
+--- a/libde265/x86/CMakeLists.txt
++++ b/libde265/x86/CMakeLists.txt
+@@ -12,14 +12,6 @@ add_library(x86_sse OBJECT ${x86_sse_sources})
+
+ set(sse_flags "")
+
+-if(NOT MSVC)
+-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+-    set(sse_flags "${sse_flags} -msse4.1")
+-  else(CMAKE_SIZEOF_VOID_P EQUAL 8)
+-      set(sse_flags "${sse_flags} -msse2 -mssse3 -msse4.1")
+-  endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+-endif()
+-
+ set(X86_OBJECTS $<TARGET_OBJECTS:x86> $<TARGET_OBJECTS:x86_sse> PARENT_SCOPE)
+
+ SET_TARGET_PROPERTIES(x86_sse PROPERTIES COMPILE_FLAGS "${sse_flags}")
+diff --git a/libde265/x86/sse-dct.cc b/libde265/x86/sse-dct.cc
+index 3a9b7bab..ef4175a6 100644
+--- a/libde265/x86/sse-dct.cc
++++ b/libde265/x86/sse-dct.cc
+@@ -26,12 +26,7 @@
+ #include "config.h"
+ #endif
+
+-#include <emmintrin.h> // SSE2
+-#include <tmmintrin.h> // SSSE3
+-
+-#if HAVE_SSE4_1
+-#include <smmintrin.h> // SSE4.1
+-#endif
++#include "sse2neon.h"
+
+
+ ALIGNED_16(static const int16_t) transform4x4_luma[8][8] =
+diff --git a/libde265/x86/sse-motion.cc b/libde265/x86/sse-motion.cc
+index c8c7571d..fb3b2b6b 100644
+--- a/libde265/x86/sse-motion.cc
++++ b/libde265/x86/sse-motion.cc
+@@ -24,11 +24,7 @@
+ #endif
+
+ #include <stdio.h>
+-#include <emmintrin.h>
+-#include <tmmintrin.h> // SSSE3
+-#if HAVE_SSE4_1
+-#include <smmintrin.h>
+-#endif
++#include "sse2neon.h"
+
+ #include "sse-motion.h"
+ #include "libde265/util.h"
+diff --git a/libde265/x86/sse.cc b/libde265/x86/sse.cc
+index 2ee0f8f2..c8559634 100644
+--- a/libde265/x86/sse.cc
++++ b/libde265/x86/sse.cc
+@@ -30,10 +30,6 @@
+ #include "config.h"
+ #endif
+
+-#ifdef __GNUC__
+-#include <cpuid.h>
+-#endif
+-
+ void init_acceleration_functions_sse(struct acceleration_functions* accel)
+ {
+   uint32_t ecx=0,edx=0;
+@@ -47,15 +43,15 @@ void init_acceleration_functions_sse(struct acceleration_functions* accel)
+   ecx = regs[2];
+   edx = regs[3];
+ #else
+-  uint32_t eax,ebx;
+-  __get_cpuid(1, &eax,&ebx,&ecx,&edx);
++  // uint32_t eax,ebx;
++  // __get_cpuid(1, &eax,&ebx,&ecx,&edx);
+ #endif
+
+   // printf("CPUID EAX=1 -> ECX=%x EDX=%x\n", regs[2], regs[3]);
+
+   //int have_MMX    = !!(edx & (1<<23));
+-  int have_SSE    = !!(edx & (1<<25));
+-  int have_SSE4_1 = !!(ecx & (1<<19));
++  int have_SSE    = 1;
++  int have_SSE4_1 = 1;
+
+   // printf("MMX:%d SSE:%d SSE4_1:%d\n",have_MMX,have_SSE,have_SSE4_1);
+
