@@ -49,6 +49,16 @@ export const useExplorerTopBarOptions = () => {
 			rescan();
 		}
 	});
+	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
+		onError: (e) => {
+			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
+			console.error(e);
+		},
+		onSuccess: (folder) => {
+			toast.success({ title: `Created new folder "${folder}"` });
+			rescan();
+		}
+	});
 
 	const viewOptions = useMemo(
 		() =>
@@ -123,15 +133,22 @@ export const useExplorerTopBarOptions = () => {
 	});
 
 	const toolOptions = [
-		parent?.type === 'Location' && {
+		(parent?.type === 'Location' || parent?.type === 'Ephemeral') && {
 			toolTipLabel: 'New Folder',
 			icon: <FolderPlus className={TOP_BAR_ICON_STYLE} />,
 			onClick: () => {
-				createFolder.mutate({
-					location_id: parent.location.id,
-					sub_path: path || null,
-					name: null
-				});
+				if (parent?.type === 'Location') {
+					createFolder.mutate({
+						location_id: parent.location.id,
+						sub_path: path || null,
+						name: null
+					});
+				} else {
+					createEphemeralFolder.mutate({
+						path: parent?.path,
+						name: null
+					});
+				}
 			},
 			individual: true,
 			showAtResolution: 'xs:flex'
