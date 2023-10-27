@@ -457,15 +457,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
-		.procedure("duplicateFiles", {
-			R.with2(library())
-				.mutation(|(node, library), args: FileCopierJobInit| async move {
-					Job::new(args)
-						.spawn(&node, &library)
-						.await
-						.map_err(Into::into)
-				})
-		})
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(node, library), args: FileCopierJobInit| async move {
@@ -716,8 +707,6 @@ pub(super) async fn create_directory(
 	fs::create_dir(&target_path)
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
-
-	println!("Created directory: {}", target_path.display());
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");

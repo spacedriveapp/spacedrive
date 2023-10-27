@@ -105,12 +105,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("duplicateFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
-					args.copy(&library).await
-				})
-		})
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
