@@ -5,7 +5,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::sync::{broadcast, Notify};
+use tokio::sync::{broadcast, mpsc, Notify};
 use tracing::warn;
 
 use crate::{
@@ -18,6 +18,7 @@ pub struct Service<TMeta> {
 	name: String,
 	state: Arc<RwLock<DiscoveryManagerState>>,
 	do_broadcast: Arc<Notify>,
+	service_shutdown_tx: mpsc::Sender<String>,
 	manager: Arc<Manager>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
@@ -29,7 +30,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 	) -> Result<Self, ErrDuplicateServiceName> {
 		let name = name.into();
 		let state = manager.discovery_state.clone();
-		let do_broadcast = {
+		let (do_broadcast, service_shutdown_tx) = {
 			let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 			if state.services.contains_key(&name) {
 				return Err(ErrDuplicateServiceName);
@@ -37,13 +38,17 @@ impl<TMeta: Metadata> Service<TMeta> {
 			state
 				.services
 				.insert(name.clone(), (broadcast::channel(20).0, Default::default()));
-			state.do_broadcast.clone()
+			(
+				state.do_broadcast.clone(),
+				state.service_shutdown_tx.clone(),
+			)
 		};
 
 		Ok(Self {
 			name,
 			state,
 			do_broadcast,
+			service_shutdown_tx,
 			manager,
 			phantom: PhantomData,
 		})
@@ -150,7 +155,16 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 impl<Meta> Drop for Service<Meta> {
 	fn drop(&mut self) {
-		// TODO: Remove from manager + do rebroadcast
+		if self
+			.service_shutdown_tx
+			.try_send(self.name.clone())
+			.is_err()
+		{
+			warn!(
+				"Service::drop could not be called on '{}'. This indicates contention on the service shutdown channel and will result in out-of-date services being broadcasted.",
+				self.name
+			);
+		}
 	}
 }
 

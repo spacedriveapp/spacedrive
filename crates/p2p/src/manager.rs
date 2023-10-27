@@ -73,6 +73,7 @@ impl Manager {
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
 		let config2 = config.clone();
+		let (discovery_state, service_shutdown_rx) = DiscoveryManagerState::new();
 		let this = Arc::new(Self {
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
 			identity: keypair.into(),
@@ -83,7 +84,7 @@ impl Manager {
 				ipv6_listener_id: None,
 				connected: Default::default(),
 			}),
-			discovery_state: Default::default(),
+			discovery_state,
 			peer_id,
 			event_stream_tx,
 			event_stream_tx2,
@@ -113,6 +114,7 @@ impl Manager {
 					peer_id,
 					&config2,
 					this.discovery_state.clone(),
+					service_shutdown_rx,
 				)?,
 				manager: this,
 				event_stream_rx,

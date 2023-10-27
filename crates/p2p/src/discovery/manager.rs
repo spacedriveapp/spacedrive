@@ -6,7 +6,7 @@ use std::{
 	task::Poll,
 };
 
-use tokio::sync::{broadcast, Notify};
+use tokio::sync::{broadcast, mpsc, Notify};
 use tracing::trace;
 
 use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns, PeerId};
@@ -23,7 +23,9 @@ pub(crate) struct DiscoveryManager {
 	pub(crate) application_name: &'static str,
 	pub(crate) peer_id: PeerId,
 	pub(crate) mdns: Option<Mdns>,
+	// TODO: Split these off `DiscoveryManagerState` and parse around on their own struct???
 	pub(crate) do_broadcast: Arc<Notify>,
+	pub(crate) service_shutdown_rx: mpsc::Receiver<String>,
 }
 
 impl DiscoveryManager {
@@ -32,6 +34,7 @@ impl DiscoveryManager {
 		peer_id: PeerId,
 		config: &ManagerConfig,
 		state: State,
+		service_shutdown_rx: mpsc::Receiver<String>,
 	) -> Result<Self, mdns_sd::Error> {
 		let mut mdns = None;
 		if config.enabled {
@@ -51,6 +54,7 @@ impl DiscoveryManager {
 			peer_id,
 			mdns,
 			do_broadcast,
+			service_shutdown_rx,
 		})
 	}
 
@@ -66,6 +70,14 @@ impl DiscoveryManager {
 	pub(crate) async fn poll(&mut self) {
 		tokio::select! {
 			 _ = self.do_broadcast.notified() => self.do_advertisement(),
+			service_name = self.service_shutdown_rx.recv() => {
+				if let Some(service_name) = service_name {
+					let mut state = self.state.write().unwrap_or_else(PoisonError::into_inner);
+					state.services.remove(&service_name);
+					state.discovered.remove(&service_name);
+					state.known.remove(&service_name);
+				}
+			}
 			_ = poll_fn(|cx| {
 				if let Some(mdns) = &mut self.mdns {
 					return mdns.poll(cx, &self.listen_addrs, &self.state);
@@ -96,16 +108,25 @@ pub(crate) struct DiscoveryManagerState {
 	/// Used to trigger an rebroadcast. This should be called when mutating this struct.
 	/// You are intended to clone out of this instead of locking the whole struct's `RwLock` each time you wanna use it.
 	pub(crate) do_broadcast: Arc<Notify>,
+	/// Used to trigger the removal of a `Service`. This is used in the `impl Drop for Service`
+	/// You are intended to clone out of this instead of locking the whole struct's `RwLock` each time you wanna use it.
+	pub(crate) service_shutdown_tx: mpsc::Sender<String>,
 }
 
-impl Default for DiscoveryManagerState {
-	fn default() -> Self {
-		Self {
-			services: Default::default(),
-			discovered: Default::default(),
-			known: Default::default(),
-			do_broadcast: Default::default(),
-		}
+impl DiscoveryManagerState {
+	pub fn new() -> (Arc<RwLock<Self>>, mpsc::Receiver<String>) {
+		let (service_shutdown_tx, service_shutdown_rx) = mpsc::channel(10);
+
+		(
+			Arc::new(RwLock::new(Self {
+				services: Default::default(),
+				discovered: Default::default(),
+				known: Default::default(),
+				do_broadcast: Default::default(),
+				service_shutdown_tx,
+			})),
+			service_shutdown_rx,
+		)
 	}
 }
 
