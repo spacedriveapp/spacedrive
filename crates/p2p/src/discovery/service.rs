@@ -147,9 +147,14 @@ impl<TMeta: Metadata> Service<TMeta> {
 	}
 
 	pub fn listen(&self) -> broadcast::Receiver<()> {
-		// TODO: Filtering of events -> Discover and expire events only???
-		// self.chan.subscribe()
-		todo!();
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.services
+			.get(&self.name)
+			.unwrap() // TODO: Error handling
+			.0
+			.subscribe()
 	}
 }
 
