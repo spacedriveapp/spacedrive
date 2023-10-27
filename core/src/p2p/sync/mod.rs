@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use itertools::{Either, Itertools};
 use sd_p2p::{
 	proto::{decode, encode},
 	spacetunnel::Tunnel,
@@ -8,10 +7,7 @@ use sd_p2p::{
 use sd_sync::CRDTOperation;
 use sync::GetOpsArgs;
 
-use tokio::{
-	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-	sync::broadcast,
-};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
 use uuid::Uuid;
 
@@ -20,16 +16,12 @@ use crate::{
 	sync,
 };
 
-use super::{Header, IdentityOrRemoteIdentity, P2PManager};
+use super::{Header, P2PManager};
 
 mod proto;
 pub use proto::*;
 
-pub(crate) async fn networked_libraries_v2(
-	manager: Arc<P2PManager>,
-	libraries: Arc<Libraries>,
-	rx: broadcast::Sender<()>,
-) {
+pub(crate) async fn networked_libraries_v2(manager: Arc<P2PManager>, libraries: Arc<Libraries>) {
 	if let Err(err) = libraries
 		.rx
 		.clone()
@@ -92,23 +84,28 @@ mod originator {
 
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
-		let instances = p2p.get_library_service(&library_id).unwrap().get_state();
+		let service = p2p.get_library_service(&library_id).unwrap();
 
 		// TODO: Deduplicate any duplicate peer ids -> This is an edge case but still
-		for instance in instances.values() {
-			let PeerStatus::Connected(peer_id) = *instance else {
+		for (remote_identity, status) in service.get_state() {
+			let PeerStatus::Connected = status else {
 				continue;
 			};
 
 			let sync = sync.clone();
 			let p2p = p2p.clone();
+			let service = service.clone();
 
 			tokio::spawn(async move {
 				debug!(
-					"Alerting peer '{peer_id:?}' of new sync events for library '{library_id:?}'"
+					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
 				);
 
-				let mut stream = p2p.manager.stream(peer_id).await.map_err(|_| ()).unwrap(); // TODO: handle providing incorrect peer id
+				let mut stream = service
+					.connect(p2p.manager.clone(), &remote_identity)
+					.await
+					.map_err(|_| ())
+					.unwrap(); // TODO: handle providing incorrect peer id
 
 				stream
 					.write_all(&Header::Sync(library_id).to_bytes())

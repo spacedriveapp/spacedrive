@@ -5,7 +5,6 @@ use uuid::Uuid;
 use sd_p2p::{
 	proto::{decode, encode},
 	spaceblock::{Range, SpaceblockRequests, SpaceblockRequestsError},
-	spacetunnel::RemoteIdentity,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,8 +25,6 @@ pub enum Header {
 	Pair,
 	Sync(Uuid),
 	File(HeaderFile),
-	// TODO: Remove need for this
-	Connected(Vec<RemoteIdentity>),
 }
 
 #[derive(Debug, Error)]
@@ -74,17 +71,6 @@ impl Header {
 					_ => todo!(),
 				},
 			})),
-			// TODO: Error handling
-			255 => Ok(Self::Connected({
-				let len = stream.read_u16_le().await.unwrap();
-				let mut identities = Vec::with_capacity(len as usize);
-				for _ in 0..len {
-					identities.push(
-						RemoteIdentity::from_bytes(&decode::buf(stream).await.unwrap()).unwrap(),
-					);
-				}
-				identities
-			})),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -115,18 +101,6 @@ impl Header {
 				encode::uuid(&mut buf, file_path_id);
 				buf.extend_from_slice(&range.to_bytes());
 				buf
-			}
-
-			Self::Connected(remote_identities) => {
-				let mut bytes = vec![255];
-				if remote_identities.len() > u16::MAX as usize {
-					panic!("Buf is too long!"); // TODO: Chunk this so it will never error
-				}
-				bytes.extend((remote_identities.len() as u16).to_le_bytes());
-				for identity in remote_identities {
-					encode::buf(&mut bytes, &identity.get_bytes());
-				}
-				bytes
 			}
 		}
 	}

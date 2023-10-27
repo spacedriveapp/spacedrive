@@ -1,7 +1,7 @@
 use std::{
 	io::{self, ErrorKind},
 	pin::Pin,
-	sync::{Arc, PoisonError},
+	sync::PoisonError,
 	task::{Context, Poll},
 };
 

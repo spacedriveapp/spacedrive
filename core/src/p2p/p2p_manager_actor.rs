@@ -70,28 +70,26 @@ impl P2PManagerActor {
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
 
-							this.libraries.peer_connected(event.peer_id);
+							// let node = node.clone();
+							// let this = this.clone();
+							// // let instances = this.metadata_manager.get().instances;
+							// tokio::spawn(async move {
+							// 	if event.establisher {
+							// 		let mut stream =
+							// 			this.manager.stream(event.peer_id).await.unwrap();
 
-							let node = node.clone();
-							let this = this.clone();
-							// let instances = this.metadata_manager.get().instances;
-							tokio::spawn(async move {
-								if event.establisher {
-									let mut stream =
-										this.manager.stream(event.peer_id).await.unwrap();
-									// Self::resync(
-									// 	&this.libraries,
-									// 	&mut stream,
-									// 	event.peer_id,
-									// 	instances,
-									// )
-									// .await;
-									todo!();
-								}
+							// 		// Self::resync(
+							// 		// 	&this.libraries,
+							// 		// 	&mut stream,
+							// 		// 	event.peer_id,
+							// 		// 	instances,
+							// 		// )
+							// 		// .await;
+							// 	}
 
-								P2PManager::resync_part2(&this.libraries, node, &event.peer_id)
-									.await;
-							});
+							// 	// P2PManager::resync_part2(&this.libraries, node, &event.peer_id)
+							// 	// 	.await;
+							// });
 						}
 						Event::PeerDisconnected(peer_id) => {
 							this.events
@@ -99,8 +97,6 @@ impl P2PManagerActor {
 								.send(P2PEvent::DisconnectedPeer { peer_id })
 								.map_err(|_| error!("Failed to send event to p2p event stream!"))
 								.ok();
-
-							this.libraries.peer_disconnected(peer_id);
 						}
 						Event::PeerMessage(mut event) => {
 							let this = this.clone();
@@ -143,17 +139,6 @@ impl P2PManagerActor {
 									}
 									Header::File(req) => {
 										operations::request_file::reciever(&node, req, event).await
-									}
-									Header::Connected(identities) => {
-										// Self::resync_handler(
-										// 	&this.libraries,
-										// 	&mut stream,
-										// 	event.peer_id,
-										// 	this.metadata_manager.get().instances,
-										// 	identities,
-										// )
-										// .await;
-										todo!();
 									}
 								}
 							});

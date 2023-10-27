@@ -62,7 +62,7 @@ impl P2PManager {
 			node_config_manager: node_config,
 		});
 
-		tokio::spawn(networked_libraries_v2(this.clone(), libraries, ls_tx));
+		tokio::spawn(networked_libraries_v2(this.clone(), libraries));
 
 		Ok((
 			this.clone(),

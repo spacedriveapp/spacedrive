@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	fmt,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -148,6 +148,7 @@ impl Manager {
 		})
 	}
 
+	// TODO: Should this be private now that connections can be done through the `Service`.
 	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added

@@ -4,7 +4,7 @@ use std::{
 	sync::{Arc, PoisonError, RwLock},
 };
 
-use sd_p2p::{spacetunnel::RemoteIdentity, DiscoveredPeer, PeerId, PeerStatus, Service};
+use sd_p2p::Service;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 

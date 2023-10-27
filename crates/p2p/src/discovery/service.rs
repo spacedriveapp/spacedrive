@@ -1,6 +1,5 @@
 use std::{
 	collections::HashMap,
-	iter,
 	marker::PhantomData,
 	sync::{Arc, PoisonError, RwLock},
 };
@@ -11,7 +10,7 @@ use tracing::warn;
 
 use crate::{
 	spacetime::UnicastStream, spacetunnel::RemoteIdentity, DiscoveredPeer, DiscoveryManagerState,
-	DynamicManagerState, Manager, Metadata, PeerId,
+	Manager, Metadata,
 };
 
 /// A Service represents a thing your application exposes to the network that can be discovered and connected to.
@@ -110,14 +109,13 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.unwrap_or_else(PoisonError::into_inner)
 			.discovered
 			.get(&self.name)
-			.cloned()
-			.unwrap_or_default()
 			.into_iter()
+			.flatten()
 			.map(|(i, p)| DiscoveredPeer {
-				identity: i,
+				identity: i.clone(),
 				peer_id: p.peer_id,
 				metadata: TMeta::from_hashmap(&p.meta).unwrap(),
-				addresses: p.addresses,
+				addresses: p.addresses.clone(),
 			})
 			.collect::<Vec<_>>()
 	}
@@ -127,31 +125,25 @@ impl<TMeta: Metadata> Service<TMeta> {
 		manager: Arc<Manager>,
 		identity: &RemoteIdentity,
 	) -> Result<UnicastStream, ()> {
-		// TODO: Reject connecting to self or a peer not on this service
+		let candidate = {
+			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+			let (_, candidate) = state
+				.discovered
+				.get(&self.name)
+				.ok_or(())?
+				.into_iter()
+				.find(|(i, _)| *i == identity)
+				.ok_or(())?;
+			candidate.clone()
+		};
 
-		let peer_id = todo!();
-
-		// TODO: Error handling
-		let stream = manager.stream(peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
+		let stream = manager.stream(candidate.peer_id).await.unwrap(); // TODO: handle providing incorrect peer id
 		Ok(stream)
 	}
 
 	pub fn listen(&self) -> broadcast::Receiver<()> {
 		// TODO: Filtering of events -> Discover and expire events only???
 		// self.chan.subscribe()
-		todo!();
-	}
-}
-
-// TODO: All theses methods are for incremental migration of `NetworkedLibraries`. They should be removed!
-impl<TMeta: Metadata> Service<TMeta> {
-	// TODO: Mutex lock on the data???
-	pub fn _get(&self) -> &HashMap<RemoteIdentity, PeerStatus> {
-		todo!();
-	}
-
-	// TODO: Mutex lock on the data???
-	pub fn _get_mut(&self) -> &mut HashMap<RemoteIdentity, PeerStatus> {
 		todo!();
 	}
 }
