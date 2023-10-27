@@ -4,14 +4,14 @@ use std::{
 	sync::{Arc, PoisonError, RwLock},
 };
 
-use sd_p2p::{Manager, Service};
+use sd_p2p::Service;
 use tokio::sync::broadcast;
 use tracing::error;
 use uuid::Uuid;
 
 use crate::library::{Libraries, Library, LibraryManagerEvent};
 
-use super::{P2PManager, PeerMetadata};
+use super::{IdentityOrRemoteIdentity, P2PManager, PeerMetadata};
 
 pub struct LibraryServices {
 	services: RwLock<HashMap<Uuid, Arc<Service<PeerMetadata>>>>, // TODO: probs don't use `PeerMetadata` here
@@ -81,82 +81,42 @@ impl LibraryServices {
 	}
 
 	pub(crate) async fn load_library(&self, library: &Library) {
-		// let (db_owned_instances, db_instances): (Vec<_>, Vec<_>) = library
-		// 	.db
-		// 	.instance()
-		// 	.find_many(vec![])
-		// 	.exec()
-		// 	.await
-		// 	.unwrap()
-		// 	.into_iter()
-		// 	.partition_map(
-		// 		// TODO: Error handling
-		// 		|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
-		// 			IdentityOrRemoteIdentity::Identity(identity) => Either::Left(identity),
-		// 			IdentityOrRemoteIdentity::RemoteIdentity(identity) => Either::Right(identity),
-		// 		},
-		// 	);
+		let identities = library
+			.db
+			.instance()
+			.find_many(vec![])
+			.exec()
+			.await
+			.unwrap()
+			.into_iter()
+			.filter_map(
+				// TODO: Error handling
+				|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity).unwrap() {
+					IdentityOrRemoteIdentity::Identity(_) => None,
+					IdentityOrRemoteIdentity::RemoteIdentity(identity) => Some(identity),
+				},
+			)
+			.collect();
 
-		// let mut libraries = manager
-		// 	.libraries
-		// 	.write()
-		// 	.unwrap_or_else(PoisonError::into_inner);
-
-		// // `self.owned_instances` exists so this call to `load_library` does override instances of other libraries.
-		// if db_owned_instances.len() != 1 {
-		// 	panic!(
-		// 		"Library has '{}' owned instance! Something has gone very wrong!",
-		// 		db_owned_instances.len()
-		// 	);
-		// }
-		// owned_instances.insert(library.id, db_owned_instances[0].to_remote_identity());
-
-		// TODO: Maintain old data.
-		// let mut old_data = libraries.remove(&library.id);
-		// libraries.insert(
-		// 	library.id,
-		// 	Service::new(),
-		// 	LibraryData {
-		// 		// We register all remote instances to track connection state(`IdentityOrRemoteIdentity::RemoteIdentity`'s only).
-		// 		instances: db_instances
-		// 			.into_iter()
-		// 			.map(|identity| {
-		// 				(
-		// 					identity.clone(),
-		// 					match old_data
-		// 						.as_mut()
-		// 						.and_then(|d| d.instances.remove(&identity))
-		// 					{
-		// 						Some(data) => data,
-		// 						None => InstanceState::Unavailable,
-		// 					},
-		// 				)
-		// 			})
-		// 			.collect(),
-		// 	},
-		// );
-
-		// self.p2p
-		// 	.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
-		// 	.await;
+		self.services
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.get_mut(&library.id)
+			.unwrap()
+			.add_known(identities);
 	}
 
 	pub(crate) async fn edit_library(&self, _library: &Library) {
 		// TODO: Send changes to all connected nodes!
-
 		// TODO: Update mdns
 	}
 
 	pub(crate) async fn delete_library(&self, library: &Library) {
-		// // Lock them together to ensure changes to both become visible to readers at the same time
-		// let mut libraries = self.libraries.write().await;
-		// let mut owned_instances = self.owned_instances.write().await;
-
-		// // TODO: Do proper library delete/unpair procedure.
-		// libraries.remove(&library.id);
-		// owned_instances.remove(&library.id);
-		// self.p2p
-		// 	.update_metadata(owned_instances.values().cloned().collect::<Vec<_>>())
-		// 	.await;
+		drop(
+			self.services
+				.write()
+				.unwrap_or_else(PoisonError::into_inner)
+				.remove(&library.id),
+		);
 	}
 }

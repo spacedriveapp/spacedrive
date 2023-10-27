@@ -107,6 +107,18 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.collect::<HashMap<RemoteIdentity, PeerStatus>>()
 	}
 
+	pub fn add_known(&self, identity: Vec<RemoteIdentity>) {
+		self.state
+			.write()
+			.unwrap_or_else(PoisonError::into_inner)
+			.known
+			.entry(self.name.clone())
+			.or_default()
+			.extend(identity);
+
+		// TODO: Probally signal to discovery manager that we have new known peers -> This will be need for Relay but not for mDNS
+	}
+
 	// TODO: Remove in favor of `get_state` maybe???
 	pub fn get_discovered(&self) -> Vec<DiscoveredPeer<TMeta>> {
 		self.state
@@ -165,6 +177,8 @@ impl<Meta> Drop for Service<Meta> {
 			.try_send(self.name.clone())
 			.is_err()
 		{
+			// TODO: This will happen on shutdown due to the shutdown order. Try and fix that!
+			// Functionally all services are shutdown by the manager so this is a cosmetic fix.
 			warn!(
 				"Service::drop could not be called on '{}'. This indicates contention on the service shutdown channel and will result in out-of-date services being broadcasted.",
 				self.name
