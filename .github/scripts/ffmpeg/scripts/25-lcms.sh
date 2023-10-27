@@ -14,13 +14,13 @@ case "$TARGET" in
 esac
 
 # Some required patches for fixing meson and windows cross-compile issues
-for patches in \
+for patch in \
   https://github.com/mm2/Little-CMS/commit/4e55c55802e4aee5f65be120291f5f4785483d98.patch \
   https://github.com/mm2/Little-CMS/commit/8ddc2681c06948eb20909cea70c1bffa10393d47.patch \
   https://github.com/mm2/Little-CMS/commit/8769c0e85b0e57de3f55936344766873fa982350.patch \
   https://github.com/mm2/Little-CMS/commit/7984408c8fe800a27175e4a8bd6115663c553ec1.patch \
   https://github.com/mm2/Little-CMS/commit/b35e2718688508dfe2591808cfc74a77490849f6.patch; do
-  curl -LSs "$patches" | patch -F5 -lp1 -d lcms -t
+  curl -LSs "$patch" | patch -F5 -lp1 -d lcms -t
 done
 
 cd lcms/build

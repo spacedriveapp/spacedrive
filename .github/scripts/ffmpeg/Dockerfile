@@ -164,10 +164,6 @@ FROM layer-10 AS layer-20-bzip2
 
 RUN --mount=src=scripts/20-bzip2.sh,dst=/srv/stage.sh /srv/build.sh
 
-FROM layer-10 AS layer-20-xxhash
-
-RUN --mount=src=scripts/20-xxhash.sh,dst=/srv/stage.sh /srv/build.sh
-
 FROM layer-10 AS layer-20-zlib
 
 RUN --mount=src=scripts/20-zlib.sh,dst=/srv/stage.sh /srv/build.sh
@@ -176,7 +172,6 @@ FROM layer-10 AS layer-20
 
 COPY --from=layer-20-brotli $PREFIX/. $PREFIX
 COPY --from=layer-20-bzip2 $PREFIX/. $PREFIX
-COPY --from=layer-20-xxhash $PREFIX/. $PREFIX
 COPY --from=layer-20-zlib $PREFIX/. $PREFIX
 
 #--
