@@ -51,7 +51,7 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 			<h1 className="mx-auto mt-3 text-lg">
 				Welcome <span className="font-bold">{emailName},</span>
 			</h1>
-			<div className="mx-auto mt-4 flex w-full flex-col gap-2">
+			<div className="flex flex-col w-full gap-2 mx-auto mt-4">
 				<Card className="w-full items-center justify-start gap-1 bg-app-input !px-2">
 					<div className="w-[20px]">
 						<Envelope weight="fill" width={20} />
@@ -81,50 +81,52 @@ const Usage = memo(() => {
 	});
 	const discoveredPeers = useDiscoveredPeers();
 	const info = useMemo(() => {
-		const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
-		const library_db_size = byteSize(stats.data?.library_db_size);
-		const data: {
-			icon: string;
-			title?: string;
-			numberTitle?: number;
-			titleCount?: number;
-			unit?: string;
-			sub: string;
-			dataLength?: number;
-		}[] = [
-			{
-				icon: Folder,
-				title: 'Locations',
-				titleCount: locations.data?.length ?? 0,
-				sub: 'indexed directories'
-			},
-			{
-				icon: Laptop,
-				title: discoveredPeers.size >= 0 ? 'Devices' : 'Device',
-				titleCount: discoveredPeers.size ?? 0,
-				sub: 'in your network'
-			},
-			{
-				icon: Drive_Light,
-				numberTitle: tb_capacity.value,
-				sub: 'Total capacity',
-				unit: tb_capacity.unit
-			},
-			{
-				icon: Collection,
-				numberTitle: library_db_size.value,
-				sub: 'Library size',
-				unit: library_db_size.unit
-			}
-		];
-		return data;
+		if (locations.data && discoveredPeers) {
+			const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
+			const library_db_size = byteSize(stats.data?.library_db_size);
+			const data: {
+				icon: string;
+				title?: string;
+				numberTitle?: number;
+				titleCount?: number;
+				unit?: string;
+				sub: string;
+				dataLength?: number;
+			}[] = [
+				{
+					icon: Folder,
+					title: locations.data.length === 1 ? 'Location' : 'Locations',
+					titleCount: locations.data?.length ?? 0,
+					sub: 'indexed directories'
+				},
+				{
+					icon: Laptop,
+					title: discoveredPeers.size >= 0 ? 'Devices' : 'Device',
+					titleCount: discoveredPeers.size ?? 0,
+					sub: 'in your network'
+				},
+				{
+					icon: Drive_Light,
+					numberTitle: tb_capacity.value,
+					sub: 'Total capacity',
+					unit: tb_capacity.unit
+				},
+				{
+					icon: Collection,
+					numberTitle: library_db_size.value,
+					sub: 'Library size',
+					unit: library_db_size.unit
+				}
+			];
+			return data;
+		}
 	}, [locations, discoveredPeers, stats]);
 
 	return (
 		<Card className="flex w-full flex-col justify-center !p-6">
-			<h1 className="text-lg font-bold">Usage & Hardware</h1>
-			<div className="mt-5 grid grid-cols-1 justify-center gap-2 lg:grid-cols-2">
-				{info.map((i, index) => (
+			<h1 className="text-lg font-bold">Local usage & hardware</h1>
+			<div className="grid justify-center grid-cols-1 gap-2 mt-5 lg:grid-cols-2">
+				{info?.map((i, index) => (
 					<UsageCard
 						key={index}
 						icon={i.icon}
@@ -168,7 +170,7 @@ const UsageCard = memo(
 
 		return (
 			<Card className="h-[90px] w-full bg-app-input py-4">
-				<div className="flex w-full items-center justify-center gap-3">
+				<div className="flex items-center justify-center w-full gap-3">
 					<img src={icon} className="w-10" />
 					<div className="w-full max-w-[120px]">
 						<h1 className="text-lg font-medium">
