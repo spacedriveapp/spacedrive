@@ -159,6 +159,9 @@ case "$(uname)" in
 
       # Bindgen dependencies - it's used by a dependency of Spacedrive
       set -- "$@" clang
+      
+      # React dependencies
+      set -- "$@" libvips
 
       sudo pacman -Sy --needed "$@"
     elif has dnf; then
