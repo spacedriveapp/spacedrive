@@ -409,7 +409,7 @@ impl ManagerStream {
 							.discovered
 							.iter()
 							.find_map(|(_, service)| {
-								service.iter().find_map(|(k, v)| {
+								service.iter().find_map(|(_, v)| {
 									(v.peer_id == peer_id).then(|| v.addresses.clone())
 								})
 							})

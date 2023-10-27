@@ -3,7 +3,9 @@ use std::{
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use sd_p2p::{Manager, ManagerError, Service};
+use sd_p2p::{spacetunnel::RemoteIdentity, Manager, ManagerError, PeerStatus, Service};
+use serde::Serialize;
+use specta::Type;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::info;
 use uuid::Uuid;
@@ -95,7 +97,23 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
+	pub fn state(&self) -> P2PState {
+		P2PState {
+			libraries: self
+				.libraries
+				.libraries()
+				.into_iter()
+				.map(|(id, lib)| lib.get_state())
+				.collect(),
+		}
+	}
+
 	pub async fn shutdown(&self) {
 		self.manager.shutdown().await;
 	}
+}
+
+#[derive(Debug, Serialize, Type)]
+pub struct P2PState {
+	libraries: Vec<(Uuid, HashMap<RemoteIdentity, PeerStatus>)>,
 }
