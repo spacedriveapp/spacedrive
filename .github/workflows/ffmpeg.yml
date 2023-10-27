@@ -1,16 +1,16 @@
-name: Build ffmpeg windows
+name: Build ffmpeg
 
 on:
   push:
     paths:
-      - '.github/workflows/ffmpeg-windows.yml'
-      - '.github/scripts/ffmpeg-windows/**'
+      - '.github/workflows/ffmpeg.yml'
+      - '.github/scripts/ffmpeg/**'
     branches:
       - main
   pull_request:
     paths:
-      - '.github/workflows/ffmpeg-windows.yml'
-      - '.github/scripts/ffmpeg-windows/**'
+      - '.github/workflows/ffmpeg.yml'
+      - '.github/scripts/ffmpeg/**'
   workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
@@ -22,9 +22,20 @@ env:
   FFMPEG_VERSION: '6.0'
 
 jobs:
-  build-ffmpeg-windows:
-    name: Build ffmpeg for windows
-    runs-on: ubuntu-20.04
+  build-ffmpeg:
+    strategy:
+      matrix:
+        settings:
+          # - target: x86_64-macos-none
+          # - target: aarch64-macos-none
+          - target: x86_64-windows-gnu
+          - target: aarch64-windows-gnu
+          - target: x86_64-linux-gnu
+          - target: aarch64-linux-gnu
+          # - target: x86-linux-musl
+          # - target: aarch64-linux-musl
+    name: Build ffmpeg ${{ matrix.settings.target }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
@@ -44,12 +55,12 @@ jobs:
       - name: Build ffmpeg
         run: |
           set -euxo pipefail
-          cd .github/scripts/ffmpeg-windows
-          docker build --build-arg FFMPEG_VERSION=$FFMPEG_VERSION -o . .
+          cd .github/scripts/ffmpeg
+          docker build --build-arg TARGET=${{ matrix.settings.target }} -o . .
 
       - name: Publish ffmpeg x86_64
         uses: actions/upload-artifact@v3
         with:
-          name: ffmpeg-${{ env.FFMPEG_VERSION }}-x86_64
+          name: ffmpeg-6.0-x86_64
           path: .github/scripts/ffmpeg-windows/dlls/*
           if-no-files-found: error
