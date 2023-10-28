@@ -42,6 +42,10 @@ runs:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
 
+    - name: Install Nasm
+      if: ${{ runner.os == 'Windows' }}
+      uses: ilammy/setup-nasm@v1
+
     - name: Setup Rust and Dependencies
       uses: ./.github/actions/setup-rust
       with:
