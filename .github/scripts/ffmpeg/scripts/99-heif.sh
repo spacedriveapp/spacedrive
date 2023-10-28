@@ -4,7 +4,7 @@ echo "Download libheif..."
 mkdir -p libheif/build
 
 curl -LSs 'https://github.com/strukturag/libheif/releases/download/v1.17.1/libheif-1.17.1.tar.gz' \
-  | bsdtar -xf- --strip-compOnent 1 -C libheif
+  | bsdtar -xf- --strip-component 1 -C libheif
 
 cd libheif/build
 

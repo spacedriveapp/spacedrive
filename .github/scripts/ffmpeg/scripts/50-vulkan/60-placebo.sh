@@ -19,37 +19,24 @@ done
 # Fix spirv import
 sed -ie 's@spirv_cross_c.h@spirv_cross/spirv_cross_c.h@' placebo/src/d3d11/gpu.h
 
-# Configure required GL versions
-sed -i 's/--api=gl:core,gles2,egl/--api=gl:core=4.1,gles2=3.0,egl/' placebo/src/opengl/include/glad/meson.build
-
 # Thrid party deps
-curl -LSs 'https://github.com/Dav1dde/glad/archive/refs/tags/v2.0.4.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C placebo/3rdparty/glad
 curl -LSs 'https://github.com/pallets/jinja/archive/refs/tags/3.1.2.tar.gz' \
   | bsdtar -xf- --strip-component 1 -C placebo/3rdparty/jinja
-curl -LSs 'https://github.com/pallets/markupsafe/archive/refs/tags/2.1.1.tar.gz' \
+curl -LSs 'https://github.com/pallets/markupsafe/archive/refs/tags/2.1.3.tar.gz' \
   | bsdtar -xf- --strip-component 1 -C placebo/3rdparty/markupsafe
 
 cd placebo/build
 
 echo "Build placebo..."
 
-case "$TARGET" in
-  *linux*)
-    _dx11=disabled
-    ;;
-  *windows*)
-    _dx11=enabled
-    ;;
-esac
-
+# Only vulkan is supported by FFmpeg when using libplacebo
 meson \
   -Dlcms=enabled \
-  -Dopengl=enabled \
+  -Dopengl=disabled \
   -Dvulkan=enabled \
   -Dshaderc=enabled \
   -Dunwind=enabled \
-  -Dd3d11="${_dx11}" \
+  -Dd3d11=disabled \
   -Dvulkan-registry=/srv/vulkan/registry/vk.xml \
   -Dglslang=disabled \
   -Dgl-proc-addr=disabled \

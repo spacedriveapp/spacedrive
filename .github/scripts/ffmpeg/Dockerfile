@@ -37,6 +37,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	autoconf `
 	pkg-config `
 	ninja-build `
+	libc-devtools- `
 	libarchive-tools
 
 # Configure sysroot and prefix
@@ -52,7 +53,7 @@ RUN mkdir -p "/opt/out" "${PREFIX}/bin" "${PREFIX}/wrapper" "${SYSROOT}/bin"
 # Download and configure zig toolchain
 ARG TARGET ZIG_VERSION
 # Windows requires a newer zig due to resource compiler not being included in 0.11.0
-RUN case "$TARGET" in *windows-gnu) ZIG_VERSION='0.12.0-dev.1286+cc394431a' ;; esac `
+RUN case "$TARGET" in *windows-gnu) ZIG_VERSION='0.12.0-dev.1303+8f4853369' ;; esac `
 	&& curl -LSs "https://ziglang.org/builds/zig-linux-$(uname -m)-${ZIG_VERSION}.tar.xz" `
 	| bsdtar -xf- --strip-component 1 -C "$SYSROOT"
 RUN mv "${SYSROOT}/zig" "${SYSROOT}/bin/zig"

@@ -26,7 +26,7 @@ case "$TARGET" in
     export CXXFLAGS="$CFLAGS"
     ;;
   *windows*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -flto=auto"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -flto=auto -DWIN32_LEAN_AND_MEAN"
     export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -flto=auto"
     export CXXFLAGS="$CFLAGS"
 

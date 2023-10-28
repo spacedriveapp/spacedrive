@@ -13,9 +13,6 @@ sed -i 's/rc.exe/zig-rc/' compat/windows/mswindres
 
 echo "Build ffmpeg..."
 
-export CFLAGS="${CFLAGS:-} -Os"
-export CXXFLAGS="${CFLAGS}"
-
 env_specific_arg=()
 case "$TARGET" in
   aarch64-macos* | aarch64-windows*)
@@ -91,6 +88,7 @@ if ! ./configure \
   --disable-libwebp \
   --disable-sdl2 \
   --disable-metal \
+  --disable-opengl \
   --disable-network \
   --disable-openssl \
   --disable-schannel \
@@ -130,7 +128,6 @@ if ! ./configure \
   --enable-lto \
   --enable-lzma \
   --enable-opencl \
-  --enable-opengl \
   --enable-optimizations \
   --enable-pic \
   --enable-postproc \
@@ -144,6 +141,13 @@ if ! ./configure \
   cat ffbuild/config.log >&2
   exit 1
 fi
+
+case "$TARGET" in
+  *linux*)
+    # Replace incorrect identifyed sysctl as enabled on linux
+    sed -i 's/#define HAVE_SYSCTL 1/#define HAVE_SYSCTL 0/' config.h
+    ;;
+esac
 
 make -j"$(nproc)" V=1
 
