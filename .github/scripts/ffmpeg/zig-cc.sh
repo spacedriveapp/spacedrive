@@ -40,12 +40,17 @@ esac
 
 args_bak=("$@")
 
+if [ $is_linker -eq 0 ]; then
+  c_argv=('-target' "$TARGET")
+else
+  c_argv=()
+fi
+
 lto=''
 help=0
 argv=()
 stdin=0
 stdout=0
-c_argv=('-target' "$TARGET")
 sysroot=''
 assembler=0
 has_iphone=0
