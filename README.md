@@ -39,7 +39,7 @@ For independent creatives, hoarders and those that want to own their digital foo
     <img src="https://img.shields.io/discord/949090953497567312?label=Discord&color=5865F2" />
   </a>
   <a href="https://x.com/spacedriveapp">
-    <img src="https://img.shields.io/badge/Twitter-00acee?logo=twitter&logoColor=white" />
+    <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white" />
   </a>
   <a href="https://instagram.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white" />
