@@ -202,14 +202,6 @@ impl PairingManager {
 					// Called again so the new instances are picked up
 					node.libraries.update_instances(library.clone()).await;
 
-					// P2PManager::resync(
-					// 	&node.p2p.libraries,
-					// 	&mut stream,
-					// 	peer_id,
-					// 	self.manager.metadata_manager.get().instances,
-					// )
-					// .await;
-
 					// TODO: Done message to frontend
 					self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 					stream.flush().await.unwrap();
@@ -322,25 +314,6 @@ impl PairingManager {
 			.unwrap();
 
 		// TODO: Pairing confirmation + rollback
-
-		// Called again so the new instances are picked up
-		// node.re
-		// library_manager.node.nlm.load_library(&library).await;
-
-		// let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap()
-		// else {
-		// 	todo!("unreachable; todo error handling");
-		// };
-
-		// TODO
-		// P2PManager::resync_handler(
-		// 	&node.p2p.libraries,
-		// 	&mut stream,
-		// 	peer_id,
-		// 	self.metadata_manager.get().instances,
-		// 	remote_identities,
-		// )
-		// .await;
 
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 		stream.flush().await.unwrap();

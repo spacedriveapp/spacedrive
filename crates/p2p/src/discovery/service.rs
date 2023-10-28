@@ -1,11 +1,17 @@
 use std::{
 	collections::HashMap,
 	marker::PhantomData,
+	pin::Pin,
 	sync::{Arc, PoisonError, RwLock},
+	task::{Context, Poll},
 };
 
+use futures_core::Stream;
+use libp2p::futures::StreamExt;
+use pin_project_lite::pin_project;
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc, Notify};
+use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tracing::warn;
 
 use crate::{
@@ -160,15 +166,20 @@ impl<TMeta: Metadata> Service<TMeta> {
 		Ok(stream)
 	}
 
-	pub fn listen(&self) -> broadcast::Receiver<()> {
-		self.state
-			.read()
-			.unwrap_or_else(PoisonError::into_inner)
-			.services
-			.get(&self.name)
-			.unwrap() // TODO: Error handling
-			.0
-			.subscribe()
+	pub fn listen(&self) -> ServiceSubscription<TMeta> {
+		ServiceSubscription {
+			rx: BroadcastStream::new(
+				self.state
+					.read()
+					.unwrap_or_else(PoisonError::into_inner)
+					.services
+					.get(&self.name)
+					.unwrap() // TODO: Error handling
+					.0
+					.subscribe(),
+			),
+			phantom: PhantomData,
+		}
 	}
 }
 
@@ -200,4 +211,63 @@ pub enum PeerStatus {
 	Unavailable,
 	Discovered,
 	Connected,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ServiceEvent<TMeta> {
+	Discovered {
+		identity: RemoteIdentity,
+		metadata: TMeta,
+	},
+	Expired {
+		identity: RemoteIdentity,
+	},
+}
+
+// Type-erased version of [ServiceEvent].
+#[derive(Debug, Clone)]
+pub(crate) enum ServiceEventInternal {
+	Discovered {
+		identity: RemoteIdentity,
+		metadata: HashMap<String, String>,
+	},
+	Expired {
+		identity: RemoteIdentity,
+	},
+}
+
+impl<TMeta: Metadata> TryFrom<ServiceEventInternal> for ServiceEvent<TMeta> {
+	type Error = String;
+
+	fn try_from(value: ServiceEventInternal) -> Result<Self, Self::Error> {
+		Ok(match value {
+			ServiceEventInternal::Discovered { identity, metadata } => Self::Discovered {
+				identity,
+				metadata: TMeta::from_hashmap(&metadata)?,
+			},
+			ServiceEventInternal::Expired { identity } => todo!(),
+		})
+	}
+}
+
+pin_project! {
+	pub struct ServiceSubscription<TMeta> {
+		rx: BroadcastStream<ServiceEventInternal>,
+		phantom: PhantomData<TMeta>,
+	}
+}
+
+impl<TMeta: Metadata> Stream for ServiceSubscription<TMeta> {
+	type Item = Result<ServiceEvent<TMeta>, BroadcastStreamRecvError>;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+		match self.rx.poll_next_unpin(cx) {
+			Poll::Ready(Some(Ok(event))) => Poll::Ready(Some(Ok(event.try_into().unwrap()))),
+			Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(err))),
+			Poll::Ready(None) => Poll::Ready(None),
+			Poll::Pending => Poll::Pending,
+		}
+	}
 }

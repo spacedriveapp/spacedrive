@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use sd_p2p::{spacetunnel::Tunnel, Event, ManagerStream, Service};
-use streamunordered::StreamUnordered;
+use futures::StreamExt;
+use sd_p2p::{spacetunnel::Tunnel, Event, ManagerStream, Service, ServiceEvent};
 use tokio::sync::mpsc;
 use tracing::error;
 
@@ -24,35 +24,29 @@ impl P2PManagerActor {
 		} = self;
 
 		tokio::spawn({
-			// let service_events = StreamUnordered::new();
-
 			async move {
 				let mut shutdown = false;
-
-				// TODO: Hook this event back up
-				// Event::PeerExpired { id, .. } => {
-				// 	this.events
-				// 		.0
-				// 		.send(P2PEvent::ExpiredPeer { peer_id: id })
-				// 		.map_err(|_| error!("Failed to send event to p2p event stream!"))
-				// 		.ok();
-				// }
+				let mut node_rx = this.node.listen();
 
 				loop {
-					// TODO: Don't use `tokio::select`
 					tokio::select! {
-						// Some(service) = register_service_rx.recv() => {
-						//   service_events.insert(service.listen());
-						// }
-						// Some(service_event) = service_events => {
-						//   this.events.0
-						// 		.send(P2PEvent::DiscoveredPeer {
-						// 			identity: todo!(),
-						// 			metadata: todo!()
-						// 		})
-						// 		.map_err(|_| error!("Failed to send event to p2p event stream!"))
-						// 		.ok();
-						// }
+					   // TODO: We should subscribe to library-level events too but frontend isn't cut out for them right now.
+					   Some(Ok(event)) = node_rx.next() => {
+								this.events.0
+										.send(match event {
+											   ServiceEvent::Discovered { identity, metadata } =>
+														P2PEvent::DiscoveredPeer {
+															   identity,
+															   metadata,
+														},
+											   ServiceEvent::Expired { identity } =>
+														P2PEvent::ExpiredPeer {
+															   identity,
+														},
+										})
+										.map_err(|_| error!("Failed to send event to p2p event stream!"))
+										.ok();
+						}
 						Some(event) = stream.next() => {
 							match event {
 								Event::PeerConnected(event) => {

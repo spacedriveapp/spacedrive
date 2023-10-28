@@ -103,7 +103,7 @@ impl P2PManager {
 				.libraries
 				.libraries()
 				.into_iter()
-				.map(|(id, lib)| lib.get_state())
+				.map(|(id, lib)| (id, lib.get_state()))
 				.collect(),
 		}
 	}

@@ -10,7 +10,7 @@ use libp2p::PeerId;
 use tokio::sync::{broadcast, mpsc, Notify};
 use tracing::trace;
 
-use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns};
+use crate::{spacetunnel::RemoteIdentity, ManagerConfig, Mdns, ServiceEventInternal};
 
 type ServiceName = String;
 
@@ -99,7 +99,13 @@ impl DiscoveryManager {
 #[derive(Debug, Clone)]
 pub(crate) struct DiscoveryManagerState {
 	/// A list of services the current node is advertising w/ their metadata
-	pub(crate) services: HashMap<ServiceName, (broadcast::Sender<()>, HashMap<String, String>)>,
+	pub(crate) services: HashMap<
+		ServiceName,
+		(
+			broadcast::Sender<ServiceEventInternal>,
+			HashMap<String, String>,
+		),
+	>,
 	/// A map of organically discovered peers
 	pub(crate) discovered: HashMap<ServiceName, HashMap<RemoteIdentity, DiscoveredPeerCandidate>>,
 	/// A map of peers we know about. These may be connected or not avaiable.

@@ -210,10 +210,11 @@ impl ManagerStream {
 						},
 						SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
 							if num_established == 0 {
-								if self.manager.state.write()
-									.unwrap_or_else(PoisonError::into_inner)
+							let mut state = self.manager.state.write()
+								.unwrap_or_else(PoisonError::into_inner);
+								if state
 									.connected
-									.remove(&peer_id).is_none() {
+									.remove(&peer_id).is_none() || state.connections.remove(&peer_id).is_none() {
 									   warn!("unable to remove unconnected client from connected map. This indicates a bug!");
 								}
 							}
@@ -289,7 +290,6 @@ impl ManagerStream {
 							.read()
 							.unwrap_or_else(PoisonError::into_inner);
 
-						// TODO: Throw warnings when filtering occurs c
 						self.swarm
 							.connected_peers()
 							.filter_map(|v| {

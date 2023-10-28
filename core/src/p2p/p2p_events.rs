@@ -5,7 +5,6 @@ use uuid::Uuid;
 
 use super::{OperatingSystem, PairingStatus, PeerMetadata};
 
-// TODO: Split into another file
 /// TODO: P2P event for the frontend
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
