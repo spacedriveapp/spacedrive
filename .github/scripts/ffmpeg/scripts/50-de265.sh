@@ -13,6 +13,9 @@ case "$TARGET" in
     ;;
 esac
 
+# Remove licenses for unused components
+rm de265/{dec265/COPYING,enc265/COPYING,sherlock265/COPYING}
+
 cd de265/build
 
 echo "Build de265..."

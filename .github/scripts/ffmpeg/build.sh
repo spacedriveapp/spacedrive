@@ -26,7 +26,7 @@ case "$TARGET" in
     export CXXFLAGS="$CFLAGS"
     ;;
   *windows*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -flto=auto -DWIN32_LEAN_AND_MEAN"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -flto=auto"
     export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -flto=auto"
     export CXXFLAGS="$CFLAGS"
 
@@ -72,9 +72,10 @@ rm -rf "${PREFIX:?}"/{bin,etc,man,lib/*.{.la,.so*,.dll.a},share}
 
 # Copy licenses
 while IFS= read -r _license; do
-  case "$_license" in
-    # Ignore license for tests, examples, and contrib as we are not compiling nor running those
-    */test/* | */tests/* | */build/* | */utils/* | */contrib/* | */examples/* | */third_party/*)
+  case "${_license}" in
+    # Ignore license for tests, examples, contrib, ..., as we are not compiling, running or distributing those
+    *.sh | *.cfg | *.build | */test/* | */tests/* | */demos/* | */build/* | \
+      */utils/* | */contrib/* | */examples/* | */3rdparty/* | */third_party/*)
       continue
       ;;
   esac

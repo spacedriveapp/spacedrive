@@ -69,6 +69,8 @@ if ! ./configure \
   --ranlib=zig-ranlib \
   --host-cc=clang \
   --windres="$(pwd)/compat/windows/mswindres" \
+  --extra-cflags="-DWIN32_LEAN_AND_MEAN" \
+  --extra-cxxflags="-DWIN32_LEAN_AND_MEAN" \
   --x86asmexe=nasm \
   --pkg-config=pkg-config \
   --pkg-config-flags="--static" \

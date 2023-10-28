@@ -320,15 +320,17 @@ RUN --mount=src=scripts/99-heif.sh,dst=/srv/stage.sh /srv/build.sh
 FROM layer-50 AS layer-99
 
 COPY --from=layer-99-heif /opt/out /opt/out
+COPY --from=layer-99-heif $PREFIX/licenses /opt/out/licenses
 
 COPY --from=layer-99-ffmpeg /opt/out /opt/out
+COPY --from=layer-99-ffmpeg $PREFIX/licenses /opt/out/licenses
 
 RUN rm -rf /opt/out/bin /opt/out/share /opt/out/lib/pkgconfig /opt/out/lib/cmake
 
-RUN cd /opt/out/bin `
+RUN { cd /opt/out/bin || exit 0; } `
 	&& find . -name '*.lib' -exec install -Dt ../lib/ -m a-rwx,u+rw,g+r,o+r {} + `
 	&& find . -name '*.lib' -delete `
-	&& find . -name '*.dll' -exec x86_64-w64-mingw32-strip -s {} `;
+	&& find . -name '*.dll' -exec x86_64-w64-mingw32-strip -s {} \;
 
 RUN find /opt/out -type d -delete || true
 

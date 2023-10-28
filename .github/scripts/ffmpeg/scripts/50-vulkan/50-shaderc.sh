@@ -9,10 +9,15 @@ curl -LSs 'https://github.com/google/shaderc/archive/refs/tags/v2023.7.tar.gz' \
 # Thrid party deps
 curl -LSs 'https://github.com/KhronosGroup/glslang/archive/48f9ed8b08be974f4e463ef38136c8f23513b2cf.tar.gz' \
   | bsdtar -xf- --strip-component 1 -C shaderc/third_party/glslang
+cp shaderc/third_party/glslang/LICENSE.txt shaderc/LICENSE.glslang
+
 curl -LSs 'https://github.com/KhronosGroup/SPIRV-Headers/archive/4183b260f4cccae52a89efdfcdd43c4897989f42.tar.gz' \
   | bsdtar -xf- --strip-component 1 -C shaderc/third_party/spirv-headers
+cp shaderc/third_party/spirv-headers/LICENSE shaderc/LICENSE.spirv-headers
+
 curl -LSs 'https://github.com/KhronosGroup/SPIRV-Tools/archive/360d469b9eac54d6c6e20f609f9ec35e3a5380ad.tar.gz' \
   | bsdtar -xf- --strip-component 1 -C shaderc/third_party/spirv-tools
+cp shaderc/third_party/spirv-headers/LICENSE shaderc/LICENSE.spirv-tools
 
 cd shaderc/build
 
