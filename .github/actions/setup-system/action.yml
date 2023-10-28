@@ -43,7 +43,7 @@ runs:
         path: C:/Program Files/LLVM
 
     - name: Install Nasm
-      if: ${{ runner.os == 'Windows' }}
+      if: ${{ runner.os != 'Linux' }}
       uses: ilammy/setup-nasm@v1
 
     - name: Setup Rust and Dependencies
