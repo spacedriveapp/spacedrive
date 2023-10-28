@@ -25,7 +25,7 @@ const CloudStorage = () => {
 					<CloudStorageArt />
 				</div>
 				<Image
-					src="/images/cloudgradient.webp"
+					src="/images/cloud-providers/gradient.webp"
 					className="absolute inset-x-0 top-[-100px] mx-auto"
 					width={560}
 					height={200}
@@ -33,16 +33,28 @@ const CloudStorage = () => {
 				/>
 			</div>
 			<div className="mt-[60px] flex w-full flex-col flex-wrap items-center justify-center gap-5 md:flex-row">
-				<CloudCard title="Dropbox" logoUrl="/images/dropbox.svg" imageWidth={49} />
-				<CloudCard title="iCloud" logoUrl="/images/icloud.svg" />
+				<CloudCard
+					title="Dropbox"
+					logoUrl="/images/cloud-providers/icons/dropbox.svg"
+					imageWidth={49}
+				/>
+				<CloudCard title="iCloud" logoUrl="/images/cloud-providers/icons/icloud.svg" />
 				<CloudCard
 					title="Google drive"
-					logoUrl="/images/google-drive.svg"
+					logoUrl="/images/cloud-providers/icons/google-drive.svg"
 					imageWidth={53}
 				/>
 				<div className="flex w-full flex-col justify-center gap-5 md:flex-row">
-					<CloudCard imageWidth={45} title="Mega" logoUrl="/images/mega.svg" />
-					<CloudCard title="Amazon S3" logoUrl="/images/s3.svg" imageWidth={40} />
+					<CloudCard
+						imageWidth={45}
+						title="Mega"
+						logoUrl="/images/cloud-providers/icons/mega.svg"
+					/>
+					<CloudCard
+						title="Amazon S3"
+						logoUrl="/images/cloud-providers/icons/s3.svg"
+						imageWidth={40}
+					/>
 				</div>
 			</div>
 			<h1

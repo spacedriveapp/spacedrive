@@ -39,7 +39,7 @@ export function Footer() {
 				quality={100}
 				width={0}
 				height={0}
-				src="/images/footergradient.webp"
+				src="/images/misc/footer-gradient.webp"
 				style={{ width: '100%', height: '400px' }}
 				sizes="100vw"
 			/>
