@@ -3,8 +3,11 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	location::file_path_helper::IsolatedFilePathData,
-	object::media::media_data_extractor::{
-		can_extract_media_data_for_image, extract_media_data, MediaDataError,
+	object::{
+		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
+		media::media_data_extractor::{
+			can_extract_media_data_for_image, extract_media_data, MediaDataError,
+		},
 	},
 	util::error::FileIOError,
 };
@@ -308,7 +311,7 @@ struct EphemeralFileSystemOps {
 }
 
 impl EphemeralFileSystemOps {
-	async fn check_target(&self) -> Result<(), rspc::Error> {
+	async fn check_target_directory(&self) -> Result<(), rspc::Error> {
 		match fs::metadata(&self.target_dir).await {
 			Ok(metadata) => {
 				if !metadata.is_dir() {
@@ -352,7 +355,7 @@ impl EphemeralFileSystemOps {
 
 	async fn check(&self) -> Result<(), rspc::Error> {
 		self.check_sources()?;
-		self.check_target().await?;
+		self.check_target_directory().await?;
 
 		Ok(())
 	}
@@ -376,10 +379,28 @@ impl EphemeralFileSystemOps {
 					None
 				}
 			})
-			.map(|(source, target)| async move {
-				fs::copy(&source, target)
-					.await
-					.map_err(|e| FileIOError::from((source, e, "Failed to copy file")))
+			.map(|(source, mut target)| async move {
+				match fs::metadata(&target).await {
+					Ok(_) => target = find_available_filename_for_duplicate(&target).await?,
+					Err(e) if e.kind() == io::ErrorKind::NotFound => {
+						// Everything is awesome!
+					}
+					Err(e) => {
+						return Err(FileSystemJobsError::FileIO(FileIOError::from((
+							source,
+							e,
+							"Failed to get target file metadata",
+						))));
+					}
+				}
+
+				fs::copy(&source, target).await.map_err(|e| {
+					FileSystemJobsError::FileIO(FileIOError::from((
+						source,
+						e,
+						"Failed to copy file",
+					)))
+				})
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -410,9 +431,31 @@ impl EphemeralFileSystemOps {
 				}
 			})
 			.map(|(source, target)| async move {
-				fs::rename(&source, target)
-					.await
-					.map_err(|e| FileIOError::from((source, e, "Failed to move file")))
+				match fs::metadata(&target).await {
+					Ok(_) => {
+						return Err(FileSystemJobsError::WouldOverwrite(
+							target.into_boxed_path(),
+						));
+					}
+					Err(e) if e.kind() == io::ErrorKind::NotFound => {
+						// Everything is awesome!
+					}
+					Err(e) => {
+						return Err(FileSystemJobsError::FileIO(FileIOError::from((
+							source,
+							e,
+							"Failed to get target file metadata",
+						))));
+					}
+				}
+
+				fs::rename(&source, target).await.map_err(|e| {
+					FileSystemJobsError::FileIO(FileIOError::from((
+						source,
+						e,
+						"Failed to move file",
+					)))
+				})
 			})
 			.collect::<Vec<_>>()
 			.try_join()

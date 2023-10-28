@@ -113,8 +113,13 @@ type CutCopyState =
 	| {
 			type: 'Cut' | 'Copy';
 			sourceParentPath: string; // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
-			sourceLocationId: number;
-			sourcePathIds: number[];
+			indexedArgs?: {
+				sourceLocationId: number;
+				sourcePathIds: number[];
+			};
+			ephemeralArgs?: {
+				sourcePaths: string[];
+			};
 	  };
 
 const state = {
@@ -156,9 +161,24 @@ export function getExplorerStore() {
 }
 
 export function isCut(item: ExplorerItem, cutCopyState: ReadonlyDeep<CutCopyState>) {
-	return item.type === 'NonIndexedPath' || item.type === 'SpacedropPeer'
-		? false
-		: cutCopyState.type === 'Cut' && cutCopyState.sourcePathIds.includes(item.item.id);
+	switch (item.type) {
+		case 'NonIndexedPath':
+			return (
+				cutCopyState.type === 'Cut' &&
+				cutCopyState.ephemeralArgs != undefined &&
+				cutCopyState.ephemeralArgs.sourcePaths.includes(item.item.path)
+			);
+
+		case 'Path':
+			return (
+				cutCopyState.type === 'Cut' &&
+				cutCopyState.indexedArgs != undefined &&
+				cutCopyState.indexedArgs.sourcePathIds.includes(item.item.id)
+			);
+
+		default:
+			return false;
+	}
 }
 
 export const filePathOrderingKeysSchema = z.union([

@@ -16,6 +16,7 @@ import {
 	getDismissibleNoticeStore,
 	useDismissibleNoticeStore,
 	useIsDark,
+	useKeyDeleteFile,
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
@@ -209,6 +210,8 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		settings: explorerSettings,
 		layouts: { media: false }
 	});
+
+	useKeyDeleteFile(explorer.selectedItems, null);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>

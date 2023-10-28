@@ -74,16 +74,29 @@ export const Delete = new ConditionalItem({
 
 export const CopyAsPath = new ConditionalItem({
 	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths) || selectedFilePaths.length > 1) return null;
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
+		if (
+			!isNonEmpty(selectedFilePaths) ||
+			selectedFilePaths.length > 1 ||
+			!isNonEmpty(selectedEphemeralPaths) ||
+			selectedEphemeralPaths.length > 1 ||
+			(selectedFilePaths.length === 1 && selectedEphemeralPaths.length === 1) // should never happen
+		)
+			return null;
 
-		return { selectedFilePaths };
+		return { selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ selectedFilePaths }) => (
-		<CopyAsPathBase
-			getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
-		/>
-	)
+	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
+		if (selectedFilePaths.length === 1) {
+			return (
+				<CopyAsPathBase
+					getPath={() => libraryClient.query(['files.getPath', selectedFilePaths[0].id])}
+				/>
+			);
+		} else if (selectedEphemeralPaths.length === 1) {
+			return <CopyAsPathBase getPath={async () => selectedEphemeralPaths[0].path} />;
+		}
+	}
 });
 
 export const Compress = new ConditionalItem({

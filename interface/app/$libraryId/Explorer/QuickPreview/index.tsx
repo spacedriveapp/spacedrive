@@ -13,6 +13,7 @@ import {
 	useState
 } from 'react';
 import {
+	getEphemeralPath,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	ObjectKindKey,
@@ -204,17 +205,33 @@ export const QuickPreview = () => {
 
 		const path = getIndexedItemFilePath(item);
 
-		if (!path || path.location_id === null) return;
+		if (path != null && path.location_id !== null) {
+			return dialogManager.create((dp) => (
+				<DeleteDialog
+					{...dp}
+					indexedArgs={{
+						locationId: path.location_id!,
+						pathIds: [path.id]
+					}}
+					dirCount={path.is_dir ? 1 : 0}
+					fileCount={path.is_dir ? 0 : 1}
+				/>
+			));
+		}
 
-		dialogManager.create((dp) => (
-			<DeleteDialog
-				{...dp}
-				locationId={path.location_id!}
-				pathIds={[path.id]}
-				dirCount={path.is_dir ? 1 : 0}
-				fileCount={path.is_dir ? 0 : 1}
-			/>
-		));
+		const ephemeralFile = getEphemeralPath(item);
+		if (ephemeralFile != null) {
+			return dialogManager.create((dp) => (
+				<DeleteDialog
+					{...dp}
+					ephemeralArgs={{
+						paths: [ephemeralFile.path]
+					}}
+					dirCount={ephemeralFile.is_dir ? 1 : 0}
+					fileCount={ephemeralFile.is_dir ? 0 : 1}
+				/>
+			));
+		}
 	});
 
 	if (!item) return null;
