@@ -101,7 +101,7 @@ fi
 # Install system deps
 case "$(uname)" in
   "Darwin")
-    if [ "$(uname -m)" == 'x86_64' ]; then (
+    if [ "$(uname -m)" = 'x86_64' ]; then (
       if [ "${CI:-}" = "true" ]; then
         export NONINTERACTIVE=1
       fi
