@@ -8,7 +8,11 @@ export function AuthRequiredOverlay() {
 	if (authState.status !== 'loggedIn')
 		return (
 			<div className="absolute inset-0 z-50 flex items-center justify-center bg-app/75 backdrop-blur-sm">
-				{authState.status === 'loading' ? <Loader /> : <LoginButton />}
+				{authState.status === 'loading' || authState.status === 'loggingIn' ? (
+					<Loader />
+				) : (
+					<LoginButton />
+				)}
 			</div>
 		);
 
