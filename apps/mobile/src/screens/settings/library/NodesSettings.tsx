@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { isEnabled, useBridgeMutation, useDiscoveredPeers } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
+import { ArrowLeft } from 'phosphor-react-native';
 
 const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSettings'>) => {
 	const onlineNodes = useDiscoveredPeers();
@@ -13,6 +14,13 @@ const NodesSettingsScreen = ({ navigation }: SettingsStackScreenProps<'NodesSett
 		}
 	});
 
+	useEffect(() => {
+		navigation.setOptions({
+			headerBackImage: () => (
+				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+			)
+		});
+	})
 	return (
 		<View>
 			<Text style={tw`text-ink`}>Pairing</Text>

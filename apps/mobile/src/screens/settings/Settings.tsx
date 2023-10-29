@@ -1,4 +1,5 @@
 import {
+	ArrowLeft,
 	Books,
 	FlyingSaucer,
 	Gear,
@@ -12,7 +13,7 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
@@ -104,12 +105,12 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			},
 			...(debugState.enabled
 				? ([
-						{
-							icon: Gear,
-							navigateTo: 'Debug',
-							title: 'Debug'
-						}
-				  ] as const)
+					{
+						icon: Gear,
+						navigateTo: 'Debug',
+						title: 'Debug'
+					}
+				] as const)
 				: [])
 		]
 	}
@@ -130,6 +131,13 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Home'>) {
 	const debugState = useDebugState();
+	useEffect(() => {
+		navigation.setOptions({
+			headerBackImage: () => (
+				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+			)
+		});
+	});
 
 	return (
 		<View style={tw`flex-1`}>

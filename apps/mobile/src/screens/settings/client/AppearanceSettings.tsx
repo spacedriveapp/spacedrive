@@ -1,5 +1,5 @@
-import { CheckCircle } from 'phosphor-react-native';
-import React, { useState } from 'react';
+import { ArrowLeft, CheckCircle } from 'phosphor-react-native';
+import React, { useEffect, useState } from 'react';
 import { ColorValue, Pressable, ScrollView, Text, View, ViewStyle } from 'react-native';
 import { Themes, useThemeStore } from '@sd/client';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
@@ -121,6 +121,14 @@ const AppearanceSettingsScreen = ({
 	const [selectedTheme, setSelectedTheme] = useState<Theme['themeValue']>(
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
+
+	useEffect(() => {
+		navigation.setOptions({
+			headerBackImage: () => (
+				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+			)
+		})
+	});
 
 	// TODO: Hook this up to the theme store once light theme is fixed.
 

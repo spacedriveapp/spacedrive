@@ -1,4 +1,4 @@
-import { CaretRight, Pen, Repeat, Trash } from 'phosphor-react-native';
+import { ArrowLeft, CaretRight, Pen, Repeat, Trash } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -143,6 +143,9 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 				>
 					<Text style={tw`text-white`}>New</Text>
 				</AnimatedButton>
+			),
+			headerBackImage: () => (
+				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
 			)
 		});
 	}, [navigation]);

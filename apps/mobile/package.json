@@ -15,6 +15,7 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@expo/vector-icons": "^13.0.0",
 		"@gorhom/bottom-sheet": "^4.4.7",
 		"@hookform/resolvers": "^3.1.0",
 		"@react-native-async-storage/async-storage": "~1.18.2",
