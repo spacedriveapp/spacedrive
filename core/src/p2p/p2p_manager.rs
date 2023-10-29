@@ -153,6 +153,7 @@ impl P2PManager {
 }
 
 #[derive(Debug, Serialize, Type)]
+#[allow(clippy::type_complexity)]
 pub struct P2PState {
 	node: HashMap<RemoteIdentity, PeerStatus>,
 	libraries: Vec<(Uuid, HashMap<RemoteIdentity, PeerStatus>)>,
