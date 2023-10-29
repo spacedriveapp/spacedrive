@@ -208,6 +208,7 @@ impl Manager {
 	}
 
 	// TODO: Cleanup return type and this API in general
+	#[allow(clippy::type_complexity)]
 	pub fn get_debug_state(
 		&self,
 	) -> (
