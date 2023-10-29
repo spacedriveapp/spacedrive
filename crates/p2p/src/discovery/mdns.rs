@@ -65,6 +65,9 @@ impl Mdns {
 				.push(addr.ip());
 		}
 
+		// This method takes `&mut self` so we know we have exclusive access to `advertised_services`
+		let mut advertised_services_to_remove = self.advertised_services.clone();
+
 		let state = state.read().unwrap_or_else(PoisonError::into_inner);
 		for (port, ips) in ports_to_service.into_iter() {
 			for (service_name, (_, metadata)) in &state.services {
@@ -83,10 +86,10 @@ impl Mdns {
 					}
 				};
 
-				// println!("{:?}", service.fullname().to_string());
-
-				// self.advertised_services
-				// 	.push(service.fullname().to_string());
+				let service_name = service.get_fullname().to_string();
+				println!("{:?}", service_name); // TODO
+				advertised_services_to_remove.retain(|s| *s != service_name);
+				self.advertised_services.push(service_name);
 
 				// TODO: Do a proper diff and remove old services
 				trace!("advertising mdns service: {:?}", service);
@@ -97,33 +100,12 @@ impl Mdns {
 			}
 		}
 
-		// TODO: Automatically unregister any services that are now missing
-		// self.mdns_daemon.unregister(fullname)
+		for service in advertised_services_to_remove {
+			println!("REMOVING {service:?}");
 
-		// for (port, ips) in ports_to_service.into_iter() {
-		// 	for (service_name, metadata) in &state.services {
-		// 		let service = match ServiceInfo::new(
-		// 			&self.service_name,
-		// 			&self.peer_id.to_string(),
-		// 			&format!("{}.", self.peer_id),
-		// 			&*ips,
-		// 			port,
-		// 			Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
-		// 		) {
-		// 			Ok(service) => service,
-		// 			Err(err) => {
-		// 				warn!("error creating mdns service info: {}", err);
-		// 				continue;
-		// 			}
-		// 		};
-
-		// 		trace!("advertising mdns service: {:?}", service);
-		// 		match self.mdns_daemon.register(service) {
-		// 			Ok(_) => {}
-		// 			Err(err) => warn!("error registering mdns service: {}", err),
-		// 		}
-		// 	}
-		// }
+			// TODO
+			// self.mdns_daemon.unregister(fullname)
+		}
 
 		// If mDNS advertisement is not queued in future, queue one
 		if self.next_mdns_advertisement.is_elapsed() {

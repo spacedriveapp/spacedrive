@@ -20,7 +20,7 @@ impl P2PManagerActor {
 		let Self {
 			manager: this,
 			mut stream,
-			register_service_rx,
+			mut register_service_rx,
 		} = self;
 
 		tokio::spawn({
@@ -30,6 +30,8 @@ impl P2PManagerActor {
 
 				loop {
 					tokio::select! {
+					   // TODO: We ignore the response of this but I suspect it will be useful in the future so it stays for now.
+					   Some(_event) = register_service_rx.recv() => {},
 					   // TODO: We should subscribe to library-level events too but frontend isn't cut out for them right now.
 					   Some(Ok(event)) = node_rx.next() => {
 								this.events.0

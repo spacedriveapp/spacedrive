@@ -6,7 +6,7 @@ use std::{
 
 use sd_p2p::Service;
 use tokio::sync::mpsc;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::library::{Libraries, Library, LibraryManagerEvent};
@@ -116,7 +116,9 @@ impl LibraryServices {
 		};
 
 		if inserted {
-			self.register_service_tx.send(service).await.unwrap();
+			if self.register_service_tx.send(service).await.is_err() {
+				warn!("error sending on 'register_service_tx'. This indicates a bug!");
+			}
 		}
 	}
 
