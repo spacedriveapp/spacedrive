@@ -76,7 +76,7 @@ const Layout = () => {
 		else return <Navigate to="/" replace />;
 	}
 
-	const macOSFullscreen = os === 'macOS' && windowState.isFullScreen;
+	const macOSFullscreen = os === 'macOS' && !windowState.isFullScreen;
 
 	return (
 		<LayoutContext.Provider value={ctxValue}>
@@ -86,7 +86,7 @@ const Layout = () => {
 					// App level styles
 					'flex h-screen cursor-default select-none overflow-hidden text-ink',
 					os === 'macOS' && 'has-blur-effects',
-					!macOSFullscreen && 'rounded-[10px]',
+					macOSFullscreen && 'rounded-[10px]',
 					os !== 'browser' &&
 						os !== 'windows' &&
 						!macOSFullscreen &&
