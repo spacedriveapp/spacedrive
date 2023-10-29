@@ -154,9 +154,7 @@ export default ({ children }: { children: RenderItem }) => {
 			x: padding,
 			y: padding
 		},
-		gap:
-			explorerView.gap ||
-			(settings.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
+		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : undefined),
 		top: explorerView.top
 	});
 
