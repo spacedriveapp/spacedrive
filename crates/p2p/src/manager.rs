@@ -162,14 +162,19 @@ impl Manager {
 	// TODO: Maybe remove this?
 	pub async fn stream(&self, identity: RemoteIdentity) -> Result<UnicastStream, ()> {
 		let peer_id = {
-			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+			let state = self
+				.discovery_state
+				.read()
+				.unwrap_or_else(PoisonError::into_inner);
 
-			*state
-				.connected
+			// TODO: This should not depend on a `Service` existing. Either we should store discovered peers separatly for this or we should remove this method (prefered).
+			state
+				.discovered
 				.iter()
-				.find(|(_, i)| **i == identity)
+				.find_map(|(_, i)| i.iter().find(|(i, _)| **i == identity))
 				.ok_or(())?
-				.0
+				.1
+				.peer_id
 		};
 
 		self.stream_inner(peer_id).await

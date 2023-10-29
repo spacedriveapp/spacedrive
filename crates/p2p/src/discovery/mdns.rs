@@ -5,6 +5,7 @@ use std::{
 	str::FromStr,
 	sync::PoisonError,
 	task::{Context, Poll},
+	thread::sleep,
 	time::Duration,
 };
 
@@ -87,7 +88,8 @@ impl Mdns {
 				};
 
 				let service_domain =
-				    // TODO: `_{service_name}` is a hack because "Selective Instance Enumeration" is causing `TMeta` to get garbled.
+				    // TODO: Use "Selective Instance Enumeration" instead in future but right now it is causing `TMeta` to get garbled.
+					// format!("{service_name}._sub._{}", self.service_name)
 					format!("{service_name}._sub._{service_name}{}", self.service_name);
 
 				let mut meta = metadata.clone();
@@ -260,34 +262,43 @@ impl Mdns {
 					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
 				}
 			}
-			ServiceEvent::ServiceRemoved(todo, fullname) => {
-				println!("REMOVE {todo} {fullname}");
-				// let raw_remote_identity = fullname.replace(&format!(".{}", self.service_name), "");
+			ServiceEvent::ServiceRemoved(service_type, fullname) => {
+				let service_name = service_type.split("._sub.").next().unwrap();
+				let raw_remote_identity =
+					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
 
-				// match PeerId::from_str(&raw_peer_id) {
-				// 	Ok(peer_id) => {
-				// 		// Prevent discovery of the current peer.
-				// 		if peer_id == self.peer_id {
-				// 			return None;
-				// 		}
+				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+					warn!(
+						"resolved peer deadvertising itself with an invalid RemoteIdentity('{}')",
+						raw_remote_identity
+					);
+					return;
+				};
 
-				// 		{
-				// 			let mut discovered_peers = self.state.discovered.write().await;
-				// 			let peer = discovered_peers.remove(&peer_id);
+				// Prevent discovery of the current peer.
+				if identity == self.identity {
+					return;
+				}
 
-				// 			let metadata = peer.map(|p| p.metadata);
-				// 			debug!("Peer '{peer_id}' expired with metadata: {metadata:?}");
-				// 			return Some(Event::PeerExpired {
-				// 				id: peer_id,
-				// 				metadata,
-				// 			});
-				// 		}
-				// 	}
-				// 	Err(_) => warn!(
-				// 		"resolved peer de-advertising itself with an invalid peer_id '{}'",
-				// 		raw_peer_id
-				// 	),
-				// }
+				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+
+				if let Some((tx, _)) = state.services.get_mut(service_name) {
+					tx.send((
+						service_name.to_string(),
+						ServiceEventInternal::Expired { identity },
+					))
+					.unwrap();
+				} else {
+					warn!(
+						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+					);
+				}
+
+				if let Some(discovered) = state.discovered.get_mut(service_name) {
+					discovered.remove(&identity);
+				} else {
+					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				}
 			}
 			ServiceEvent::SearchStopped(_) => {}
 		}
@@ -302,6 +313,9 @@ impl Mdns {
 				})
 				.ok();
 		}
+
+		// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.
+		sleep(Duration::from_millis(100));
 
 		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
 			error!("error shutting down mdns daemon: {err}");
