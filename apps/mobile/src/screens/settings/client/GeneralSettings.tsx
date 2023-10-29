@@ -6,21 +6,9 @@ import { Divider } from '~/components/primitive/Divider';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
-import { useEffect } from 'react';
-import { ArrowLeft } from 'phosphor-react-native';
 
 const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {
 	const { data: node } = useBridgeQuery(['nodeState']);
-
-	// Setup Navigation
-	useEffect(() => {
-		navigation.setOptions({
-			title: 'General Settings',
-			headerBackImage: () => (
-				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-			)
-		});
-	}, [navigation]);
 
 	const debugState = useDebugState();
 

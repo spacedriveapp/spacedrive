@@ -131,13 +131,6 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Home'>) {
 	const debugState = useDebugState();
-	useEffect(() => {
-		navigation.setOptions({
-			headerBackImage: () => (
-				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-			)
-		});
-	});
 
 	return (
 		<View style={tw`flex-1`}>

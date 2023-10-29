@@ -3,8 +3,6 @@ import { useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
-import { tw } from '~/lib/tailwind';
-import { ArrowLeft } from 'phosphor-react-native';
 
 export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
 	const { id, path } = route.params;
@@ -35,9 +33,6 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 		} else {
 			navigation.setOptions({
 				title: location.data?.name ?? 'Location',
-				headerBackImage: () => (
-					<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-				)
 			});
 		}
 	}, [location.data?.name, navigation, path]);

@@ -1,22 +1,14 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Text, View } from 'react-native';
 import { getDebugState, toggleFeatureFlag, useDebugState, useFeatureFlags } from '@sd/client';
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
-import { ArrowLeft } from 'phosphor-react-native';
 
 const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const debugState = useDebugState();
 	const featureFlags = useFeatureFlags();
-	useEffect(() => {
-		navigation.setOptions({
-			headerBackImage: () => (
-				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-			)
-		});
-	});
 
 	return (
 		<View style={tw`flex-1 p-4`}>
