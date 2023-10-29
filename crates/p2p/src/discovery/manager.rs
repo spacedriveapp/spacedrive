@@ -2,6 +2,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	future::poll_fn,
 	net::SocketAddr,
+	pin::pin,
 	sync::{Arc, PoisonError, RwLock},
 	task::Poll,
 };
@@ -61,16 +62,26 @@ impl DiscoveryManager {
 
 	/// is called on changes to `self.services` to make sure all providers update their records
 	pub(crate) fn do_advertisement(&mut self) {
+		println!("C");
 		trace!("Broadcasting new service records");
 
 		if let Some(mdns) = &mut self.mdns {
+			println!("D");
 			mdns.do_advertisement(&self.listen_addrs, &self.state);
 		}
 	}
 
 	pub(crate) async fn poll(&mut self) {
+		println!("A");
+		let y = self.do_broadcast.clone();
+		let mut do_broadcast_notifier = pin!(y.notified());
+		do_broadcast_notifier.as_mut().enable();
+
 		tokio::select! {
-			 _ = self.do_broadcast.notified() => self.do_advertisement(),
+			 _ = do_broadcast_notifier => {
+				println!("B");
+				self.do_advertisement()
+			},
 			service_name = self.service_shutdown_rx.recv() => {
 				if let Some(service_name) = service_name {
 					let mut state = self.state.write().unwrap_or_else(PoisonError::into_inner);
@@ -78,6 +89,7 @@ impl DiscoveryManager {
 					state.discovered.remove(&service_name);
 					state.known.remove(&service_name);
 				}
+				self.do_advertisement();
 			}
 			_ = poll_fn(|cx| {
 				if let Some(mdns) = &mut self.mdns {
@@ -85,7 +97,7 @@ impl DiscoveryManager {
 				}
 
 				Poll::Pending
-			}) => self.do_advertisement(),
+			}) => {},
 		}
 	}
 

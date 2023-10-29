@@ -50,6 +50,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			)
 		};
 
+		println!("AAA");
 		do_broadcast.notify_waiters();
 
 		Ok(Self {

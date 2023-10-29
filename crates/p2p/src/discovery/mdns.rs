@@ -48,6 +48,7 @@ impl Mdns {
 
 	/// Do an mdns advertisement to the network.
 	pub(super) fn do_advertisement(&mut self, listen_addrs: &ListenAddrs, state: &State) {
+		trace!("doing mDNS advertisement!");
 		// TODO: Second stage rate-limit
 
 		let mut ports_to_service = HashMap::new();
