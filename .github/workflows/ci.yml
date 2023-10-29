@@ -125,6 +125,8 @@ jobs:
         with:
           filters: |
             changes:
+              - ${{ runner.os == 'Windows' && 'scripts/setup.ps1' || 'scripts/setup.sh' }}
+              - 'scripts/preprep.mjs'
               - 'apps/cli/*/**'
               - 'apps/desktop/crates/*/**'
               - 'apps/desktop/src-tauri/*/**'
