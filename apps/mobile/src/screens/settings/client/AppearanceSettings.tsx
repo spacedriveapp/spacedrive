@@ -122,14 +122,6 @@ const AppearanceSettingsScreen = ({
 		themeStore.syncThemeWithSystem === true ? 'system' : themeStore.theme
 	);
 
-	useEffect(() => {
-		navigation.setOptions({
-			headerBackImage: () => (
-				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-			)
-		})
-	});
-
 	// TODO: Hook this up to the theme store once light theme is fixed.
 
 	return (
