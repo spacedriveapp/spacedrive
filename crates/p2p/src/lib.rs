@@ -17,3 +17,9 @@ pub use manager::*;
 pub use manager_stream::*;
 pub use peer::*;
 pub use utils::*;
+
+// TODO: Remove this
+#[doc(hidden)]
+pub mod internal {
+	pub use libp2p::PeerId;
+}

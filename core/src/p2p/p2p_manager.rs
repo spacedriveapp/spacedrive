@@ -1,9 +1,12 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
+	net::SocketAddr,
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use sd_p2p::{spacetunnel::RemoteIdentity, Manager, ManagerError, PeerStatus, Service};
+use sd_p2p::{
+	spacetunnel::RemoteIdentity, Manager, ManagerConfig, ManagerError, PeerStatus, Service,
+};
 use serde::Serialize;
 use specta::Type;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
@@ -99,14 +102,48 @@ impl P2PManager {
 		self.events.0.subscribe()
 	}
 
+	// TODO: Replace this with a better system that is more built into `sd-p2p` crate
 	pub fn state(&self) -> P2PState {
+		let (
+			self_peer_id,
+			self_identity,
+			config,
+			manager_connected,
+			manager_connections,
+			dicovery_services,
+			discovery_discovered,
+			discovery_known,
+		) = self.manager.get_debug_state();
+
 		P2PState {
+			node: self.node.get_state(),
 			libraries: self
 				.libraries
 				.libraries()
 				.into_iter()
 				.map(|(id, lib)| (id, lib.get_state()))
 				.collect(),
+			self_peer_id: PeerId(self_peer_id),
+			self_identity,
+			config,
+			manager_connected: manager_connected
+				.into_iter()
+				.map(|(k, v)| (PeerId(k), v))
+				.collect(),
+			manager_connections: manager_connections.into_iter().map(PeerId).collect(),
+			dicovery_services,
+			discovery_discovered: discovery_discovered
+				.into_iter()
+				.map(|(k, v)| {
+					(
+						k,
+						v.into_iter()
+							.map(|(k, (k1, v, b))| (k, (PeerId(k1), v, b)))
+							.collect(),
+					)
+				})
+				.collect(),
+			discovery_known,
 		}
 	}
 
@@ -117,5 +154,21 @@ impl P2PManager {
 
 #[derive(Debug, Serialize, Type)]
 pub struct P2PState {
+	node: HashMap<RemoteIdentity, PeerStatus>,
 	libraries: Vec<(Uuid, HashMap<RemoteIdentity, PeerStatus>)>,
+	self_peer_id: PeerId,
+	self_identity: RemoteIdentity,
+	config: ManagerConfig,
+	manager_connected: HashMap<PeerId, RemoteIdentity>,
+	manager_connections: HashSet<PeerId>,
+	dicovery_services: HashMap<String, Option<HashMap<String, String>>>,
+	discovery_discovered: HashMap<
+		String,
+		HashMap<RemoteIdentity, (PeerId, HashMap<String, String>, Vec<SocketAddr>)>,
+	>,
+	discovery_known: HashMap<String, HashSet<RemoteIdentity>>,
 }
+
+// TODO: Get this back into `sd-p2p` but keep it private
+#[derive(Debug, Serialize, Type, Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub struct PeerId(#[specta(type = String)] sd_p2p::internal::PeerId);

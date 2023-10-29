@@ -27,6 +27,7 @@ pub const CHALLENGE_LENGTH: usize = 32;
 pub struct BroadcastStream(Option<Compat<Stream>>);
 
 impl BroadcastStream {
+	#[allow(unused)]
 	pub(crate) fn new(stream: Compat<Stream>) -> Self {
 		Self(Some(stream))
 	}
@@ -66,6 +67,7 @@ impl Drop for BroadcastStream {
 
 /// A unicast stream is a direct stream to a specific peer.
 #[derive(Debug)]
+#[allow(unused)] // TODO: Remove this lint override
 pub struct UnicastStream {
 	io: Compat<Stream>,
 	me: Identity,

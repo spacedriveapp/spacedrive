@@ -104,6 +104,7 @@ impl DiscoveryManager {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::type_complexity)]
 pub(crate) struct DiscoveryManagerState {
 	/// A list of services the current node is advertising w/ their metadata
 	pub(crate) services: HashMap<

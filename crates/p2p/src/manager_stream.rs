@@ -299,7 +299,7 @@ impl ManagerStream {
 									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
 								}
 
-								v.map(|v| *v)
+								v.copied()
 							})
 							.collect::<Vec<_>>()
 					};
@@ -352,24 +352,22 @@ impl ManagerStream {
 							drop(state);
 							mdns.shutdown();
 						}
-					} else {
-						if self.discovery_manager.mdns.is_none() {
-							match Mdns::new(
-								self.discovery_manager.application_name,
-								self.discovery_manager.identity,
-								self.discovery_manager.peer_id,
-							) {
-								Ok(mdns) => {
-									self.discovery_manager.mdns = Some(mdns);
-									self.discovery_manager.do_advertisement()
-								}
-								Err(err) => {
-									error!("error starting mDNS service: {err:?}");
-									self.discovery_manager.mdns = None;
+					} else if self.discovery_manager.mdns.is_none() {
+						match Mdns::new(
+							self.discovery_manager.application_name,
+							self.discovery_manager.identity,
+							self.discovery_manager.peer_id,
+						) {
+							Ok(mdns) => {
+								self.discovery_manager.mdns = Some(mdns);
+								self.discovery_manager.do_advertisement()
+							}
+							Err(err) => {
+								error!("error starting mDNS service: {err:?}");
+								self.discovery_manager.mdns = None;
 
-									// state.config.enabled = false;
-									// TODO: Properly reset the UI state cause it will be outa sync
-								}
+								// state.config.enabled = false;
+								// TODO: Properly reset the UI state cause it will be outa sync
 							}
 						}
 					}

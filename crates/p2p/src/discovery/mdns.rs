@@ -86,7 +86,9 @@ impl Mdns {
 					continue;
 				};
 
-				let service_domain = format!("{service_name}._sub.{}", self.service_name); // TODO: Account for sub services remoing services properly
+				let service_domain =
+				    // TODO: `_{service_name}` is a hack because "Selective Instance Enumeration" is causing `TMeta` to get garbled.
+					format!("{service_name}._sub._{service_name}{}", self.service_name);
 
 				let mut meta = metadata.clone();
 				meta.insert("__peer_id".into(), self.peer_id.to_string());
@@ -97,7 +99,7 @@ impl Mdns {
 					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
 					&*ips,                      // TODO: &[] as &[Ipv4Addr],
 					port,
-					Some(meta), // TODO: Prevent the user defining a value that overflows a DNS record
+					Some(meta.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
 				) {
 					Ok(service) => service, // TODO: .enable_addr_auto(), // TODO: using autoaddrs or not???
 					Err(err) => {
@@ -107,15 +109,13 @@ impl Mdns {
 				};
 
 				let service_name = service.get_fullname().to_string();
-
 				advertised_services_to_remove.retain(|s| *s != service_name);
 				self.advertised_services.push(service_name);
 
-				if self
+				if !self
 					.mdns_rx
 					.iter_with_token()
-					.find(|(s, _)| s.1 == service_domain)
-					.is_none()
+					.any(|(s, _)| s.1 == service_domain)
 				{
 					self.mdns_rx.insert(MdnsRecv(
 						self.mdns_daemon
@@ -189,10 +189,10 @@ impl Mdns {
 					return;
 				};
 
-				let service_name = subdomain.replace(&format!("._sub.{}", self.service_name), "");
+				let service_name = subdomain.split("._sub.").next().unwrap(); // TODO: .replace(&format!("._sub.{}", self.service_name), "");
 				let raw_remote_identity = info
 					.get_fullname()
-					.replace(&format!(".{}", self.service_name), "");
+					.replace(&format!("._{service_name}{}", self.service_name), "");
 
 				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
 					warn!(
@@ -228,9 +228,9 @@ impl Mdns {
 
 				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
-				if let Some((tx, _)) = state.services.get_mut(&service_name) {
+				if let Some((tx, _)) = state.services.get_mut(service_name) {
 					tx.send((
-						service_name.clone(),
+						service_name.to_string(),
 						ServiceEventInternal::Discovered {
 							identity,
 							metadata: meta.clone(),
@@ -243,7 +243,7 @@ impl Mdns {
 					);
 				}
 
-				if let Some(discovered) = state.discovered.get_mut(&service_name) {
+				if let Some(discovered) = state.discovered.get_mut(service_name) {
 					discovered.insert(
 						identity,
 						DiscoveredPeerCandidate {
@@ -296,7 +296,7 @@ impl Mdns {
 	pub(crate) fn shutdown(&self) {
 		for service in &self.advertised_services {
 			self.mdns_daemon
-				.unregister(&service)
+				.unregister(service)
 				.map_err(|err| {
 					error!("error removing mdns service '{service}': {err}");
 				})

@@ -110,7 +110,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.get(&self.name)
 			.into_iter()
 			.flatten()
-			.map(|remote_identity| (remote_identity.clone(), PeerStatus::Unavailable))
+			.map(|remote_identity| (*remote_identity, PeerStatus::Unavailable))
 			// We do these after the `Unavailable` to replace the keys that are in both
 			.chain(connected)
 			.chain(
@@ -281,7 +281,13 @@ impl<TMeta: Metadata> Stream for ServiceSubscription<TMeta> {
 						continue;
 					}
 
-					Poll::Ready(Some(Ok(event.try_into().unwrap())))
+					match event.try_into() {
+						Ok(result) => Poll::Ready(Some(Ok(result))),
+						Err(err) => {
+							warn!("error decoding into TMeta for service '{name}': {err}");
+							continue; // TODO: This could *technically* cause stravation. Should this error be thrown outta the stream instead?
+						}
+					}
 				}
 				Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(err))),
 				Poll::Ready(None) => Poll::Ready(None),
