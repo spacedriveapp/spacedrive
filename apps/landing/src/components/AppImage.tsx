@@ -18,7 +18,7 @@ const AppImage = () => {
 						<Image
 							className="rounded-lg"
 							alt="spacedrive"
-							src="/images/app.webp"
+							src="/images/app/1.webp"
 							loading="eager"
 							width={1278}
 							height={626}

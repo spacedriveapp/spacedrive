@@ -101,7 +101,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
     }
 
     # Check system winget version is greater or equal to v1.4.10052
-    $wingetVersion = [Version]((winget --version)  -replace '.*?(\d+)\.(\d+)\.(\d+).*', '$1.$2.$3')
+    $wingetVersion = [Version]((winget --version) -replace '.*?(\d+)\.(\d+)\.(\d+).*', '$1.$2.$3')
     $requiredVersion = [Version]'1.4.10052'
     if ($wingetVersion.CompareTo($requiredVersion) -lt 0) {
         $errorMessage = "You need to update your winget to version $requiredVersion or higher."
@@ -148,6 +148,15 @@ https://learn.microsoft.com/windows/package-manager/winget/
     winget install -e --accept-source-agreements --disable-interactivity --id Rustlang.Rustup
     if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
         Exit-WithError 'Failed to install Rust and Cargo'
+    } else {
+        $LASTEXITCODE = 0
+    }
+
+    Write-Host
+    Write-Host 'Installing Nasm...' -ForegroundColor Yellow
+    winget install -e --accept-source-agreements --disable-interactivity --id NASM.NASM
+    if (-not ($wingetValidExit -contains $LASTEXITCODE)) {
+        Exit-WithError 'Failed to install Nasm'
     } else {
         $LASTEXITCODE = 0
     }
