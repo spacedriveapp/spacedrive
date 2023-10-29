@@ -1,4 +1,4 @@
-import { ArrowLeft, CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -81,7 +81,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 				>
 					<Text style={tw`text-white`}>New</Text>
 				</AnimatedButton>
-			),
+			)
 		});
 	}, [navigation]);
 
