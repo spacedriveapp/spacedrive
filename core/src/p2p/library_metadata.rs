@@ -12,7 +12,7 @@ impl Metadata for LibraryMetadata {
 		HashMap::with_capacity(0)
 	}
 
-	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(_: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{

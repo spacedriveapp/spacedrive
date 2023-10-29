@@ -77,7 +77,7 @@ impl InboundUpgrade<Stream> for InboundProtocol {
 
 						state
 							.connected
-							.insert(self.peer_id, stream.remote_identity().clone());
+							.insert(self.peer_id, stream.remote_identity());
 
 						match state.connections.get(&self.peer_id) {
 							Some((endpoint, 0)) => Some(match endpoint {

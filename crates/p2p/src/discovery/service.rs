@@ -10,7 +10,7 @@ use futures_core::Stream;
 use libp2p::futures::StreamExt;
 use pin_project_lite::pin_project;
 use thiserror::Error;
-use tokio::sync::{broadcast, mpsc, Notify};
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tracing::warn;
 
@@ -23,13 +23,14 @@ use crate::{
 pub struct Service<TMeta> {
 	name: String,
 	state: Arc<RwLock<DiscoveryManagerState>>,
-	do_broadcast: Arc<Notify>,
+	do_broadcast: broadcast::Sender<()>,
 	service_shutdown_tx: mpsc::Sender<String>,
 	manager: Arc<Manager>,
 	phantom: PhantomData<fn() -> TMeta>,
 }
 
 impl<TMeta: Metadata> Service<TMeta> {
+	// Construct a new service. This will not cause an advertisement until [Self::update] is called!
 	pub fn new(
 		name: impl Into<String>,
 		manager: Arc<Manager>,
@@ -41,6 +42,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			if state.services.contains_key(&name) {
 				return Err(ErrDuplicateServiceName);
 			}
+			state.discovered.insert(name.clone(), Default::default());
 			state
 				.services
 				.insert(name.clone(), (broadcast::channel(20).0, Default::default()));
@@ -50,8 +52,9 @@ impl<TMeta: Metadata> Service<TMeta> {
 			)
 		};
 
-		println!("AAA");
-		do_broadcast.notify_waiters();
+		// TODO: We call this but it won't have metadata set so it won't actually expose it
+		// However, it must be called to properly setup the listener (at least right now)
+		do_broadcast.send(()).ok();
 
 		Ok(Self {
 			name,
@@ -75,8 +78,13 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.services
 			.get_mut(&self.name)
 		{
-			*services_meta = meta.to_hashmap();
-			self.do_broadcast.notify_waiters();
+			let meta = meta.to_hashmap();
+			let did_change = services_meta.as_ref().map(|v| *v == meta).unwrap_or(false);
+			*services_meta = Some(meta);
+
+			if did_change {
+				self.do_broadcast.send(()).ok();
+			}
 		} else {
 			warn!(
 				"Service::update called on non-existent service '{}'. This indicates a major bug in P2P!",
@@ -92,8 +100,8 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connected
-			.iter()
-			.map(|(_, remote_identity)| (remote_identity.clone(), PeerStatus::Connected))
+			.values()
+			.map(|remote_identity| (*remote_identity, PeerStatus::Connected))
 			.collect::<Vec<_>>();
 
 		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
@@ -111,7 +119,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 					.get(&self.name)
 					.into_iter()
 					.flatten()
-					.map(|(remote_identity, _)| (remote_identity.clone(), PeerStatus::Discovered)),
+					.map(|(remote_identity, _)| (*remote_identity, PeerStatus::Discovered)),
 			)
 			.collect::<HashMap<RemoteIdentity, PeerStatus>>()
 	}
@@ -138,7 +146,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 			.into_iter()
 			.flatten()
 			.map(|(i, p)| DiscoveredPeer {
-				identity: i.clone(),
+				identity: *i,
 				peer_id: p.peer_id,
 				metadata: TMeta::from_hashmap(&p.meta).unwrap(),
 				addresses: p.addresses.clone(),
@@ -157,7 +165,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 				.discovered
 				.get(&self.name)
 				.ok_or(())?
-				.into_iter()
+				.iter()
 				.find(|(i, _)| *i == identity)
 				.ok_or(())?;
 			candidate.clone()
@@ -169,6 +177,7 @@ impl<TMeta: Metadata> Service<TMeta> {
 
 	pub fn listen(&self) -> ServiceSubscription<TMeta> {
 		ServiceSubscription {
+			name: self.name.clone(),
 			rx: BroadcastStream::new(
 				self.state
 					.read()
@@ -248,14 +257,15 @@ impl<TMeta: Metadata> TryFrom<ServiceEventInternal> for ServiceEvent<TMeta> {
 				identity,
 				metadata: TMeta::from_hashmap(&metadata)?,
 			},
-			ServiceEventInternal::Expired { identity } => todo!(),
+			ServiceEventInternal::Expired { identity } => Self::Expired { identity },
 		})
 	}
 }
 
 pin_project! {
 	pub struct ServiceSubscription<TMeta> {
-		rx: BroadcastStream<ServiceEventInternal>,
+		name: String,
+		rx: BroadcastStream<(String, ServiceEventInternal)>,
 		phantom: PhantomData<TMeta>,
 	}
 }
@@ -264,11 +274,19 @@ impl<TMeta: Metadata> Stream for ServiceSubscription<TMeta> {
 	type Item = Result<ServiceEvent<TMeta>, BroadcastStreamRecvError>;
 
 	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-		match self.rx.poll_next_unpin(cx) {
-			Poll::Ready(Some(Ok(event))) => Poll::Ready(Some(Ok(event.try_into().unwrap()))),
-			Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(err))),
-			Poll::Ready(None) => Poll::Ready(None),
-			Poll::Pending => Poll::Pending,
+		loop {
+			return match self.rx.poll_next_unpin(cx) {
+				Poll::Ready(Some(Ok((name, event)))) => {
+					if name != self.name {
+						continue;
+					}
+
+					Poll::Ready(Some(Ok(event.try_into().unwrap())))
+				}
+				Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(err))),
+				Poll::Ready(None) => Poll::Ready(None),
+				Poll::Pending => Poll::Pending,
+			};
 		}
 	}
 }

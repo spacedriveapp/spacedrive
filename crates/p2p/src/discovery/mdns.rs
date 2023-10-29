@@ -1,54 +1,64 @@
 use std::{
 	collections::HashMap,
-	net::SocketAddr,
+	net::{IpAddr, SocketAddr},
 	pin::Pin,
+	str::FromStr,
 	sync::PoisonError,
 	task::{Context, Poll},
 	time::Duration,
 };
 
-use libp2p::{futures::FutureExt, PeerId};
+use futures_core::Stream;
+use libp2p::{
+	futures::{FutureExt, StreamExt},
+	PeerId,
+};
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use streamunordered::{StreamUnordered, StreamYield};
 use tokio::time::{sleep_until, Instant, Sleep};
-use tracing::{trace, warn};
+use tracing::{error, trace, warn};
 
-use crate::{ListenAddrs, State};
+use crate::{
+	spacetunnel::RemoteIdentity, DiscoveredPeerCandidate, ListenAddrs, ServiceEventInternal, State,
+};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
 
 pub(crate) struct Mdns {
-	// used to ignore events from our own mdns advertisement
+	identity: RemoteIdentity,
 	peer_id: PeerId,
 	service_name: String,
 	advertised_services: Vec<String>,
 	mdns_daemon: ServiceDaemon,
-	mdns_rx: flume::Receiver<ServiceEvent>,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
+	// This is an ugly workaround for: https://github.com/keepsimple1/mdns-sd/issues/145
+	mdns_rx: StreamUnordered<MdnsRecv>,
 }
 
 impl Mdns {
 	pub(crate) fn new(
 		application_name: &'static str,
+		identity: RemoteIdentity,
 		peer_id: PeerId,
 	) -> Result<Self, mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
-		let service_name = format!("_{}._udp.local.", application_name);
-		let mdns_rx = mdns_daemon.browse(&service_name)?;
 
 		Ok(Self {
+			identity,
 			peer_id,
-			service_name,
+			service_name: format!("_{}._udp.local.", application_name),
 			advertised_services: Vec::new(),
 			mdns_daemon,
-			mdns_rx,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
+			mdns_rx: StreamUnordered::new(),
 		})
 	}
 
 	/// Do an mdns advertisement to the network.
 	pub(super) fn do_advertisement(&mut self, listen_addrs: &ListenAddrs, state: &State) {
 		trace!("doing mDNS advertisement!");
+
 		// TODO: Second stage rate-limit
 
 		let mut ports_to_service = HashMap::new();
@@ -72,13 +82,22 @@ impl Mdns {
 		let state = state.read().unwrap_or_else(PoisonError::into_inner);
 		for (port, ips) in ports_to_service.into_iter() {
 			for (service_name, (_, metadata)) in &state.services {
+				let Some(metadata) = metadata else {
+					continue;
+				};
+
+				let service_domain = format!("{service_name}._sub.{}", self.service_name); // TODO: Account for sub services remoing services properly
+
+				let mut meta = metadata.clone();
+				meta.insert("__peer_id".into(), self.peer_id.to_string());
+
 				let service = match ServiceInfo::new(
-					&self.service_name,
-					&self.peer_id.to_string(),
-					&format!("{}.{}.", service_name, self.peer_id),
-					&*ips, // TODO: &[] as &[Ipv4Addr],
+					&service_domain,
+					&self.identity.to_string(), // TODO: This shows up in `fullname` without sub service. Is that a problem???
+					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
+					&*ips,                      // TODO: &[] as &[Ipv4Addr],
 					port,
-					Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
+					Some(meta), // TODO: Prevent the user defining a value that overflows a DNS record
 				) {
 					Ok(service) => service, // TODO: .enable_addr_auto(), // TODO: using autoaddrs or not???
 					Err(err) => {
@@ -88,9 +107,24 @@ impl Mdns {
 				};
 
 				let service_name = service.get_fullname().to_string();
-				println!("{:?}", service_name); // TODO
+
 				advertised_services_to_remove.retain(|s| *s != service_name);
 				self.advertised_services.push(service_name);
+
+				if self
+					.mdns_rx
+					.iter_with_token()
+					.find(|(s, _)| s.1 == service_domain)
+					.is_none()
+				{
+					self.mdns_rx.insert(MdnsRecv(
+						self.mdns_daemon
+							.browse(&service_domain)
+							.unwrap()
+							.into_stream(),
+						service_domain,
+					));
+				}
 
 				// TODO: Do a proper diff and remove old services
 				trace!("advertising mdns service: {:?}", service);
@@ -101,11 +135,15 @@ impl Mdns {
 			}
 		}
 
-		for service in advertised_services_to_remove {
-			println!("REMOVING {service:?}");
-
-			// TODO
-			// self.mdns_daemon.unregister(fullname)
+		for service_domain in advertised_services_to_remove {
+			if let Some((_, token)) = self
+				.mdns_rx
+				.iter_with_token()
+				.find(|(s, _)| s.1 == service_domain)
+			{
+				Pin::new(&mut self.mdns_rx).remove(token);
+			}
+			self.mdns_daemon.unregister(&service_domain).unwrap();
 		}
 
 		// If mDNS advertisement is not queued in future, queue one
@@ -124,16 +162,16 @@ impl Mdns {
 		let mut is_pending = false;
 		while !is_pending {
 			match self.next_mdns_advertisement.poll_unpin(cx) {
-				Poll::Ready(()) => self.do_advertisement(&listen_addrs, &state),
+				Poll::Ready(()) => self.do_advertisement(listen_addrs, state),
 				Poll::Pending => is_pending = true,
 			}
 
-			match self.mdns_rx.recv_async().poll_unpin(cx) {
-				Poll::Ready(Ok(event)) => {
-					// TODO
-					println!("{:?}", event);
-				}
-				Poll::Ready(Err(err)) => warn!("mDNS reciever error: {err:?}"),
+			match self.mdns_rx.poll_next_unpin(cx) {
+				Poll::Ready(Some((result, _))) => match result {
+					StreamYield::Item(event) => self.on_event(event, state),
+					StreamYield::Finished(_) => {}
+				},
+				Poll::Ready(None) => {}
 				Poll::Pending => is_pending = true,
 			}
 		}
@@ -141,33 +179,142 @@ impl Mdns {
 		Poll::Pending
 	}
 
+	fn on_event(&mut self, event: ServiceEvent, state: &State) {
+		match event {
+			ServiceEvent::SearchStarted(_) => {}
+			ServiceEvent::ServiceFound(_, _) => {}
+			ServiceEvent::ServiceResolved(info) => {
+				let Some(subdomain) = info.get_subtype() else {
+					warn!("resolved mDNS peer advertising itself with missing subservice");
+					return;
+				};
+
+				let service_name = subdomain.replace(&format!("._sub.{}", self.service_name), "");
+				let raw_remote_identity = info
+					.get_fullname()
+					.replace(&format!(".{}", self.service_name), "");
+
+				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+					warn!(
+						"resolved peer advertising itself with an invalid RemoteIdentity('{}')",
+						raw_remote_identity
+					);
+					return;
+				};
+
+				// Prevent discovery of the current peer.
+				if identity == self.identity {
+					return;
+				}
+
+				let mut meta = info
+					.get_properties()
+					.iter()
+					.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
+					.collect::<HashMap<_, _>>();
+
+				let Some(peer_id) = meta.remove("__peer_id") else {
+					warn!(
+						"resolved mDNS peer advertising itself with missing '__peer_id' metadata"
+					);
+					return;
+				};
+				let Ok(peer_id) = PeerId::from_str(&peer_id) else {
+					warn!(
+						"resolved mDNS peer advertising itself with invalid '__peer_id' metadata"
+					);
+					return;
+				};
+
+				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+
+				if let Some((tx, _)) = state.services.get_mut(&service_name) {
+					tx.send((
+						service_name.clone(),
+						ServiceEventInternal::Discovered {
+							identity,
+							metadata: meta.clone(),
+						},
+					))
+					.unwrap();
+				} else {
+					warn!(
+						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+					);
+				}
+
+				if let Some(discovered) = state.discovered.get_mut(&service_name) {
+					discovered.insert(
+						identity,
+						DiscoveredPeerCandidate {
+							peer_id,
+							meta,
+							addresses: info
+								.get_addresses()
+								.iter()
+								.map(|addr| SocketAddr::new(IpAddr::V4(*addr), info.get_port()))
+								.collect(),
+						},
+					);
+				} else {
+					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				}
+			}
+			ServiceEvent::ServiceRemoved(todo, fullname) => {
+				println!("REMOVE {todo} {fullname}");
+				// let raw_remote_identity = fullname.replace(&format!(".{}", self.service_name), "");
+
+				// match PeerId::from_str(&raw_peer_id) {
+				// 	Ok(peer_id) => {
+				// 		// Prevent discovery of the current peer.
+				// 		if peer_id == self.peer_id {
+				// 			return None;
+				// 		}
+
+				// 		{
+				// 			let mut discovered_peers = self.state.discovered.write().await;
+				// 			let peer = discovered_peers.remove(&peer_id);
+
+				// 			let metadata = peer.map(|p| p.metadata);
+				// 			debug!("Peer '{peer_id}' expired with metadata: {metadata:?}");
+				// 			return Some(Event::PeerExpired {
+				// 				id: peer_id,
+				// 				metadata,
+				// 			});
+				// 		}
+				// 	}
+				// 	Err(_) => warn!(
+				// 		"resolved peer de-advertising itself with an invalid peer_id '{}'",
+				// 		raw_peer_id
+				// 	),
+				// }
+			}
+			ServiceEvent::SearchStopped(_) => {}
+		}
+	}
+
 	pub(crate) fn shutdown(&self) {
-		// TODO: Deregister all services
-		// TODO: Shutdown Daemon
+		for service in &self.advertised_services {
+			self.mdns_daemon
+				.unregister(&service)
+				.map_err(|err| {
+					error!("error removing mdns service '{service}': {err}");
+				})
+				.ok();
+		}
 
-		// self.mdns_daemon
-		// 	.unregister(&format!("{}.{}", self.peer_id, self.service_name))
-		// 	.unwrap();
+		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
+			error!("error shutting down mdns daemon: {err}");
+		});
+	}
+}
 
-		// 		match self
-		// 			.mdns_daemon
-		// 			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
-		// 			.map(|chan| chan.recv())
-		// 		{
-		// 			Ok(Ok(_)) => {}
-		// 			Ok(Err(err)) => {
-		// 				warn!(
-		// 					"shutdown error recieving shutdown status from mdns service: {}",
-		// 					err
-		// 				);
-		// 			}
-		// 			Err(err) => {
-		// 				warn!("shutdown error unregistering mdns service: {}", err);
-		// 			}
-		// 		}
+struct MdnsRecv(flume::r#async::RecvStream<'static, ServiceEvent>, String);
 
-		// 		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
-		// 			error!("shutdown error shutting down mdns daemon: {}", err);
-		// 		});
+impl Stream for MdnsRecv {
+	type Item = ServiceEvent;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+		self.0.poll_next_unpin(cx)
 	}
 }

@@ -33,16 +33,16 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 			events.current.dispatchEvent(new CustomEvent('p2p-event', { detail: data }));
 
 			if (data.type === 'DiscoveredPeer') {
-				discoveredPeers.set(data.peer_id, data.metadata);
+				discoveredPeers.set(data.identity, data.metadata);
 				setDiscoveredPeer([discoveredPeers]);
 			} else if (data.type === 'ExpiredPeer') {
-				discoveredPeers.delete(data.peer_id);
+				discoveredPeers.delete(data.identity);
 				setDiscoveredPeer([discoveredPeers]);
 			} else if (data.type === 'ConnectedPeer') {
-				connectedPeers.set(data.peer_id, undefined);
+				connectedPeers.set(data.identity, undefined);
 				setConnectedPeers([connectedPeers]);
 			} else if (data.type === 'DisconnectedPeer') {
-				connectedPeers.delete(data.peer_id);
+				connectedPeers.delete(data.identity);
 				setConnectedPeers([connectedPeers]);
 			} else if (data.type === 'PairingProgress') {
 				setPairingStatus([pairingStatus.set(data.id, data.status)]);

@@ -109,7 +109,6 @@ impl NetworkBehaviour for SpaceTime {
 			FromSwarm::ConnectionClosed(ConnectionClosed {
 				peer_id,
 				remaining_established,
-				handler,
 				..
 			}) => {
 				if remaining_established == 0 {

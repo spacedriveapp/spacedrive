@@ -25,7 +25,6 @@ impl P2PManagerActor {
 
 		tokio::spawn({
 			async move {
-				let mut shutdown = false;
 				let mut node_rx = this.node.listen();
 
 				loop {
@@ -113,23 +112,18 @@ impl P2PManagerActor {
 									});
 								}
 								Event::PeerBroadcast(_event) => {
-									// todo!();
+									panic!("Broadcast's are cringe");
 								}
-								Event::Shutdown => {
-									shutdown = true;
-									break;
-								}
+								Event::Shutdown => break,
 								_ => {}
 							}
 						}
 					}
 				}
 
-				if !shutdown {
-					error!(
-						"Manager event stream closed! The core is unstable from this point forward!"
-					);
-				}
+				error!(
+					"Manager event stream closed! The core is unstable from this point forward!"
+				);
 			}
 		});
 	}

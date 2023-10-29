@@ -264,8 +264,7 @@ impl PairingManager {
 		// TODO: Rollback this on pairing failure
 		instance::Create {
 			pub_id: remote_instance.id.as_bytes().to_vec(),
-			identity: IdentityOrRemoteIdentity::RemoteIdentity(remote_instance.identity.clone())
-				.to_bytes(),
+			identity: IdentityOrRemoteIdentity::RemoteIdentity(remote_instance.identity).to_bytes(),
 			node_id: remote_instance.node_id.as_bytes().to_vec(),
 			node_name: remote_instance.node_name,
 			node_platform: remote_instance.node_platform as i32,

@@ -45,8 +45,9 @@ impl P2PManager {
 			sd_p2p::Manager::new(SPACEDRIVE_APP_ID, &keypair, manager_config).await?;
 
 		info!(
-			"Node '{}' is now online listening at addresses: {:?}",
-			manager.peer_id(),
+			"Node RemoteIdentity('{}') libp2p::PeerId('{}') is now online listening at addresses: {:?}",
+			manager.identity(),
+			manager.libp2p_peer_id(),
 			stream.listen_addrs()
 		);
 
@@ -65,6 +66,7 @@ impl P2PManager {
 			spacedrop_cancelations: Default::default(),
 			node_config_manager: node_config,
 		});
+		this.update_metadata().await;
 
 		tokio::spawn(LibraryServices::start(this.clone(), libraries));
 
@@ -79,7 +81,7 @@ impl P2PManager {
 	}
 
 	pub fn get_library_service(&self, library_id: &Uuid) -> Option<Arc<Service<LibraryMetadata>>> {
-		Some(self.libraries.get(library_id)?)
+		self.libraries.get(library_id)
 	}
 
 	pub async fn update_metadata(&self) {

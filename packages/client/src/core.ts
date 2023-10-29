@@ -29,7 +29,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.p2pState", input: never, result: P2PState } | 
+        { key: "p2p.state", input: never, result: P2PState } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 

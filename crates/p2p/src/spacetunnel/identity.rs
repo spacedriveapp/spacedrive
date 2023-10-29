@@ -1,5 +1,9 @@
-use std::hash::{Hash, Hasher};
+use std::{
+	hash::{Hash, Hasher},
+	str::FromStr,
+};
 
+use base64::{engine::general_purpose, Engine};
 use ed25519_dalek::{VerifyingKey, SECRET_KEY_LENGTH};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
@@ -67,20 +71,20 @@ impl Hash for RemoteIdentity {
 impl std::fmt::Debug for RemoteIdentity {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_tuple("RemoteIdentity")
-			.field(&hex::encode(self.0.as_bytes()))
+			.field(&general_purpose::STANDARD_NO_PAD.encode(self.0.as_bytes()))
 			.finish()
 	}
 }
 
 impl std::fmt::Display for RemoteIdentity {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(&hex::encode(self.0.as_bytes()))
+		f.write_str(&general_purpose::STANDARD_NO_PAD.encode(self.0.as_bytes()))
 	}
 }
 
 impl Serialize for RemoteIdentity {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&hex::encode(self.0.as_bytes()))
+		serializer.serialize_str(&general_purpose::STANDARD_NO_PAD.encode(self.0.as_bytes()))
 	}
 }
 
@@ -90,7 +94,9 @@ impl<'de> Deserialize<'de> for RemoteIdentity {
 		D: serde::Deserializer<'de>,
 	{
 		let s = String::deserialize(deserializer)?;
-		let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
+		let bytes = general_purpose::STANDARD_NO_PAD
+			.decode(s)
+			.map_err(serde::de::Error::custom)?;
 		Ok(Self(
 			ed25519_dalek::VerifyingKey::from_bytes(
 				bytes[..SECRET_KEY_LENGTH]
@@ -99,6 +105,36 @@ impl<'de> Deserialize<'de> for RemoteIdentity {
 			)
 			.map_err(serde::de::Error::custom)?,
 		))
+	}
+}
+
+impl TryFrom<String> for RemoteIdentity {
+	type Error = IdentityErr;
+
+	fn try_from(value: String) -> Result<Self, Self::Error> {
+		let bytes = general_purpose::STANDARD_NO_PAD
+			.decode(value)
+			.map_err(|_| IdentityErr::InvalidKeyLength)?;
+		Ok(Self(ed25519_dalek::VerifyingKey::from_bytes(
+			bytes[..SECRET_KEY_LENGTH]
+				.try_into()
+				.map_err(|_| IdentityErr::InvalidKeyLength)?,
+		)?))
+	}
+}
+
+impl FromStr for RemoteIdentity {
+	type Err = IdentityErr;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let bytes = general_purpose::STANDARD_NO_PAD
+			.decode(s)
+			.map_err(|_| IdentityErr::InvalidKeyLength)?;
+		Ok(Self(ed25519_dalek::VerifyingKey::from_bytes(
+			bytes[..SECRET_KEY_LENGTH]
+				.try_into()
+				.map_err(|_| IdentityErr::InvalidKeyLength)?,
+		)?))
 	}
 }
 

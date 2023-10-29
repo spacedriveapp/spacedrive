@@ -61,7 +61,7 @@ impl LibraryServices {
 			})
 			.await
 		{
-			error!("Core may become unstable! `networked_libraries_v2` manager aborted with error: {err:?}");
+			error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
 		}
 	}
 
@@ -107,7 +107,7 @@ impl LibraryServices {
 				.services
 				.write()
 				.unwrap_or_else(PoisonError::into_inner);
-			let service = service.entry(library.id.clone()).or_insert_with(|| {
+			let service = service.entry(library.id).or_insert_with(|| {
 				inserted = true;
 				Arc::new(Service::new(library.id.to_string(), manager.manager.clone()).unwrap())
 			});
@@ -116,6 +116,7 @@ impl LibraryServices {
 		};
 
 		if inserted {
+			service.update(LibraryMetadata {});
 			if self.register_service_tx.send(service).await.is_err() {
 				warn!("error sending on 'register_service_tx'. This indicates a bug!");
 			}

@@ -38,11 +38,11 @@ arc-swap = "1.6.0"
 ed25519-dalek = { version = "2.0.0", features = [] }
 rand_core = { version = "0.6.4" }
 uuid = "1.4.1"
-hex = "0.4.3"
 streamunordered = "0.5.3"
 futures-core = "0.3.29"
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 pin-project-lite = "0.2.13"
+base64 = "0.21.5"
 # chacha20poly1305 = "0.10.1"
 # rand = "0.8.5"
 

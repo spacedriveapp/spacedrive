@@ -114,7 +114,8 @@ impl Manager {
 			ManagerStream {
 				discovery_manager: DiscoveryManager::new(
 					application_name,
-					peer_id,
+					this.identity.to_remote_identity(),
+					this.peer_id,
 					&config2,
 					this.discovery_state.clone(),
 					service_shutdown_rx,
@@ -137,7 +138,11 @@ impl Manager {
 		}
 	}
 
-	pub fn peer_id(&self) -> PeerId {
+	pub fn identity(&self) -> RemoteIdentity {
+		self.identity.to_remote_identity()
+	}
+
+	pub fn libp2p_peer_id(&self) -> PeerId {
 		self.peer_id
 	}
 
@@ -158,13 +163,12 @@ impl Manager {
 		let peer_id = {
 			let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
 
-			state
+			*state
 				.connected
 				.iter()
 				.find(|(_, i)| **i == identity)
-				.ok_or_else(|| ())?
+				.ok_or(())?
 				.0
-				.clone()
 		};
 
 		self.stream_inner(peer_id).await

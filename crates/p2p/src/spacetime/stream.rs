@@ -191,7 +191,7 @@ impl UnicastStreamBuilder {
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connected
-			.insert(peer_id, stream.remote_identity().clone());
+			.insert(peer_id, stream.remote_identity());
 
 		stream
 	}

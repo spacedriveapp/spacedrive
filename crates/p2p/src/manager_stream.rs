@@ -293,16 +293,13 @@ impl ManagerStream {
 						self.swarm
 							.connected_peers()
 							.filter_map(|v| {
-								let v = state.connected.get(&v);
+								let v = state.connected.get(v);
 
 								if v.is_none() {
 									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
 								}
 
-								match v {
-									Some(v) => Some(*v),
-									None => None,
-								}
+								v.map(|v| *v)
 							})
 							.collect::<Vec<_>>()
 					};
@@ -359,6 +356,7 @@ impl ManagerStream {
 						if self.discovery_manager.mdns.is_none() {
 							match Mdns::new(
 								self.discovery_manager.application_name,
+								self.discovery_manager.identity,
 								self.discovery_manager.peer_id,
 							) {
 								Ok(mdns) => {

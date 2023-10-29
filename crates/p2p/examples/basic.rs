@@ -54,8 +54,8 @@ async fn main() {
 
 	info!(
 		"Node '{}' is now online listening at addresses: {:?}",
-		manager.peer_id(),
-		manager.listen_addrs().await
+		manager.identity(),
+		stream.listen_addrs().await
 	);
 
 	tokio::spawn(async move {
