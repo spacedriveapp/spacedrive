@@ -258,7 +258,7 @@ export function Dialog<S extends FieldValues>({
 								</div>
 								<div
 									className={clsx(
-										'flex justify-end space-x-2 border-t border-app-line bg-app-input/50 p-3'
+										'flex justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3'
 									)}
 								>
 									{form.formState.isSubmitting && <Loader />}
