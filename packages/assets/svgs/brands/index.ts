@@ -7,10 +7,16 @@ import { ReactComponent as Academia } from './Academia.svg';
 import { ReactComponent as Apple } from './Apple.svg';
 import { ReactComponent as Discord } from './Discord.svg';
 import { ReactComponent as Dribbble } from './Dribbble.svg';
+import { ReactComponent as Dropbox } from './Dropbox.svg';
 import { ReactComponent as Github } from './Github.svg';
 import { ReactComponent as Gitlab } from './Gitlab.svg';
+import { ReactComponent as GoogleDrive } from './GoogleDrive.svg';
+import { ReactComponent as Icloud } from './Icloud.svg';
 import { ReactComponent as Instagram } from './Instagram.svg';
+import { ReactComponent as Mega } from './Mega.svg';
 import { ReactComponent as Opencollective } from './Opencollective.svg';
+import { ReactComponent as Outlook } from './Outlook.svg';
+import { ReactComponent as S3 } from './S3.svg';
 import { ReactComponent as Twitch } from './Twitch.svg';
 import { ReactComponent as Twitter } from './Twitter.svg';
 
@@ -19,10 +25,16 @@ export {
 	Apple,
 	Discord,
 	Dribbble,
+	Dropbox,
 	Github,
 	Gitlab,
+	GoogleDrive,
+	Icloud,
 	Instagram,
+	Mega,
 	Opencollective,
+	Outlook,
+	S3,
 	Twitch,
 	Twitter
 };
