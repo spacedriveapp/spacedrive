@@ -2,6 +2,7 @@ import { RouteObject } from 'react-router';
 
 export default [
 	{ path: 'general', lazy: () => import('./general') },
+	{ path: 'account', lazy: () => import('./account') },
 	{ path: 'appearance', lazy: () => import('./appearance') },
 	{ path: 'keybindings', lazy: () => import('./keybindings') },
 	{ path: 'extensions', lazy: () => import('./extensions') },

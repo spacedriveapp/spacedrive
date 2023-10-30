@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.1.0"
+version = "0.1.2"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 rust-version = "1.70.0"
@@ -28,7 +28,11 @@ sd-crypto = { path = "../crates/crypto", features = [
 	"keymanager",
 ] }
 
-sd-images = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
+sd-images = { path = "../crates/images", features = [
+	"rspc",
+	"serde",
+	"specta",
+] }
 sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 sd-p2p = { path = "../crates/p2p", features = ["specta", "serde"] }
@@ -105,7 +109,17 @@ axum = "0.6.20"
 http-body = "0.4.5"
 pin-project-lite = "0.2.13"
 bytes = "1.5.0"
-reqwest = { version = "0.11.20", features = ["json"] }
+reqwest = { version = "0.11.20", features = ["json", "native-tls-vendored"] }
+directories = "5.0.1"
+streamunordered = "0.5.3"
+
+# Override features of transitive dependencies
+[dependencies.openssl]
+version = "=0.10.57"
+features = ["vendored"]
+[dependencies.openssl-sys]
+version = "=0.9.93"
+features = ["vendored"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

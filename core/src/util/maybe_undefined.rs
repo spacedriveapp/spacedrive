@@ -4,12 +4,37 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 
+// This exports an incorrect Typescript type. https://github.com/oscartbeaumont/specta/issues/157
 #[derive(Debug, Clone, Type)]
 #[specta(untagged)]
 pub enum MaybeUndefined<T> {
 	Undefined,
 	Null,
 	Value(T),
+}
+
+impl<T> MaybeUndefined<T> {
+	// `Null | Value(T)` will return `true` else `false`.
+	pub fn is_defined(&self) -> bool {
+		!matches!(self, Self::Undefined)
+	}
+
+	pub fn unwrap_or(self, t: T) -> T {
+		match self {
+			Self::Value(v) => v,
+			_ => t,
+		}
+	}
+}
+
+impl<T> From<MaybeUndefined<T>> for Option<Option<T>> {
+	fn from(v: MaybeUndefined<T>) -> Option<Option<T>> {
+		match v {
+			MaybeUndefined::Undefined => None,
+			MaybeUndefined::Null => Some(None),
+			MaybeUndefined::Value(v) => Some(Some(v)),
+		}
+	}
 }
 
 impl<T, E> MaybeUndefined<Result<T, E>> {

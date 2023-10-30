@@ -23,12 +23,13 @@ export type Procedures = {
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: IndexerRule[] } | 
         { key: "locations.indexer_rules.listForLocation", input: LibraryArgs<number>, result: IndexerRule[] } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Location[] } | 
+        { key: "locations.systemLocations", input: never, result: SystemLocations } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "nodes.listLocations", input: LibraryArgs<string | null>, result: ExplorerItem[] } | 
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
+        { key: "p2p.state", input: never, result: P2PState } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -72,13 +73,13 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
+        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
@@ -86,9 +87,9 @@ export type Procedures = {
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
-        { key: "p2p.pair", input: PeerId, result: number } | 
+        { key: "p2p.pair", input: string, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
-        { key: "p2p.spacedrop", input: SpacedropArgs, result: null } | 
+        { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -131,7 +132,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
  */
 export type Category = "Recents" | "Favorites" | "Albums" | "Photos" | "Videos" | "Movies" | "Music" | "Documents" | "Downloads" | "Encrypted" | "Projects" | "Applications" | "Archives" | "Databases" | "Games" | "Books" | "Contacts" | "Trash" | "Screenshots"
 
-export type ChangeNodeNameArgs = { name: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | null; p2p_port: MaybeUndefined<number> }
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
@@ -139,15 +140,17 @@ export type Composite = "Unknown" | "False" | "General" | "Live"
 
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertableExtension; quality_percentage: number | null }
 
-export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf"
+export type ConvertableExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName }
+export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultLocations | null }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
+
+export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -170,7 +173,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
 
@@ -232,15 +235,13 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
-export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
-
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
-export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key: string]: any } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
@@ -255,8 +256,6 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
-
-export type LibraryData = { instances: { [key: string]: InstanceState } }
 
 export type LibraryName = string
 
@@ -287,6 +286,13 @@ export type LocationUpdateArgs = { id: number; name: string | null; generate_pre
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
+/**
+ * The configuration for the P2P Manager
+ * DO NOT MAKE BREAKING CHANGES - This is embedded in the `node_config.json`
+ * For future me: `Keypair` is not on here cause hot reloading it hard.
+ */
+export type ManagerConfig = { enabled: boolean; port?: number | null }
+
 export type MaybeNot<T> = T | { not: T }
 
 export type MaybeUndefined<T> = null | null | T
@@ -301,7 +307,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }) & { data_path: string }
+export type NodeState = ({ id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }) & { data_path: string }
 
 export type NonIndexedFileSystemEntries = { entries: ExplorerItem[]; errors: Error[] }
 
@@ -351,7 +357,9 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; peer_name: string; file_name: string } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: string; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: string } | { type: "ConnectedPeer"; identity: string } | { type: "DisconnectedPeer"; identity: string } | { type: "SpacedropRequest"; id: string; identity: string; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+
+export type P2PState = { node: { [key: string]: PeerStatus }; libraries: ([string, { [key: string]: PeerStatus }])[]; self_peer_id: PeerId; self_identity: string; config: ManagerConfig; manager_connected: { [key: PeerId]: string }; manager_connections: PeerId[]; dicovery_services: { [key: string]: { [key: string]: string } | null }; discovery_discovered: { [key: string]: { [key: string]: [PeerId, { [key: string]: string }, string[]] } }; discovery_known: { [key: string]: string[] } }
 
 export type PairingDecision = { decision: "accept"; libraryId: string } | { decision: "reject" }
 
@@ -359,7 +367,9 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 
 export type PeerId = string
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null }
+
+export type PeerStatus = "Unavailable" | "Discovered" | "Connected"
 
 export type PlusCode = string
 
@@ -383,7 +393,7 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { id: string; name: string; p2p_port: number | null; features: BackendFeature[]; p2p_email: string | null; p2p_img_url: string | null }
+export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
@@ -399,9 +409,11 @@ export type SingleInvalidateOperationEvent = { key: string; arg: any; result: an
 
 export type SortOrder = "Asc" | "Desc"
 
-export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
+export type SpacedropArgs = { identity: string; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
+
+export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 

@@ -19,7 +19,7 @@ export default function PricingPage() {
 				width={1278}
 				height={626}
 				alt="l"
-				src="/images/headergradient.webp"
+				src="/images/misc/header-gradient.webp"
 			/>
 			<div className="z-5 relative mt-48">
 				<h1

@@ -7,7 +7,7 @@ use crate::{
 			check_file_path_exists, create_file_path, file_path_with_object,
 			filter_existing_file_path_params,
 			isolated_file_path_data::extract_normalized_materialized_path_str,
-			loose_find_existing_file_path_params, FilePathError, FilePathMetadata,
+			loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
 			IsolatedFilePathData, MetadataExt,
 		},
 		find_location,
@@ -21,7 +21,7 @@ use crate::{
 		media::{
 			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
 			media_data_image_to_query,
-			thumbnail::{generate_thumbnail, get_thumbnail_path},
+			thumbnail::get_indexed_thumbnail_path,
 		},
 		validation::hash::file_checksum,
 	},
@@ -59,6 +59,7 @@ use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
+	spawn,
 	time::Instant,
 };
 use tracing::{debug, error, trace, warn};
@@ -122,7 +123,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path,
 		None,
-		FilePathMetadata::from_path(path, metadata).await?,
+		FilePathMetadata::from_path(&path, metadata).await?,
 	)
 	.await?;
 
@@ -130,6 +131,7 @@ pub(super) async fn create_dir(
 	scan_location_sub_path(node, library, location, &children_materialized_path).await?;
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -174,7 +176,7 @@ async fn inner_create_file(
 	let iso_file_path = IsolatedFilePathData::new(location_id, location_path, path, false)?;
 	let extension = iso_file_path.extension.to_string();
 
-	let metadata = FilePathMetadata::from_path(path, metadata).await?;
+	let metadata = FilePathMetadata::from_path(&path, metadata).await?;
 
 	// First we check if already exist a file with this same inode number
 	// if it does, we just update it
@@ -278,13 +280,17 @@ async fn inner_create_file(
 
 	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-		let inner_path = path.to_path_buf();
-		let node = node.clone();
-		let inner_extension = extension.clone();
+
 		if let Some(cas_id) = cas_id {
-			tokio::spawn(async move {
-				if let Err(e) =
-					generate_thumbnail(&inner_extension, cas_id, inner_path, node, true).await
+			let extension = extension.clone();
+			let path = path.to_path_buf();
+			let node = node.clone();
+			let library_id = library.id;
+			spawn(async move {
+				if let Err(e) = node
+					.thumbnailer
+					.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
+					.await
 				{
 					error!("Failed to generate thumbnail in the watcher: {e:#?}");
 				}
@@ -315,6 +321,7 @@ async fn inner_create_file(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -361,7 +368,10 @@ pub(super) async fn update_file(
 		)
 		.await
 	}
-	.map(|_| invalidate_query!(library, "search.paths"))
+	.map(|_| {
+		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
+	})
 }
 
 async fn inner_update_file(
@@ -407,6 +417,7 @@ async fn inner_update_file(
 		}
 	};
 
+	let is_hidden = path_is_hidden(full_path, &fs_metadata);
 	if file_path.cas_id != cas_id {
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = {
 			use file_path::*;
@@ -461,6 +472,16 @@ async fn inner_update_file(
 						((inode::NAME, serde_json::Value::Null), None)
 					}
 				},
+				{
+					if is_hidden != file_path.hidden.unwrap_or_default() {
+						(
+							(hidden::NAME, json!(inode)),
+							Some(hidden::set(Some(is_hidden))),
+						)
+					} else {
+						((hidden::NAME, serde_json::Value::Null), None)
+					}
+				},
 			]
 			.into_iter()
 			.filter_map(|(sync_param, maybe_db_param)| {
@@ -499,13 +520,17 @@ async fn inner_update_file(
 				if library.thumbnail_exists(node, old_cas_id).await? {
 					if let Some(ext) = file_path.extension.clone() {
 						// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
-						let inner_path = full_path.to_path_buf();
-						let inner_node = node.clone();
 						if let Some(cas_id) = cas_id {
-							tokio::spawn(async move {
-								if let Err(e) =
-									generate_thumbnail(&ext, cas_id, inner_path, inner_node, true)
-										.await
+							let node = node.clone();
+							let path = full_path.to_path_buf();
+							let library_id = library.id;
+							spawn(async move {
+								if let Err(e) = node
+									.thumbnailer
+									.generate_single_indexed_thumbnail(
+										&ext, cas_id, path, library_id,
+									)
+									.await
 								{
 									error!("Failed to generate thumbnail in the watcher: {e:#?}");
 								}
@@ -513,7 +538,7 @@ async fn inner_update_file(
 						}
 
 						// remove the old thumbnail as we're generating a new one
-						let thumb_path = get_thumbnail_path(node, old_cas_id);
+						let thumb_path = get_indexed_thumbnail_path(node, old_cas_id, library.id);
 						fs::remove_file(&thumb_path)
 							.await
 							.map_err(|e| FileIOError::from((thumb_path, e)))?;
@@ -565,6 +590,27 @@ async fn inner_update_file(
 				}
 			}
 		}
+
+		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
+	} else if is_hidden != file_path.hidden.unwrap_or_default() {
+		sync.write_ops(
+			db,
+			(
+				vec![sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					},
+					file_path::hidden::NAME,
+					json!(is_hidden),
+				)],
+				db.file_path().update(
+					file_path::pub_id::equals(file_path.pub_id.clone()),
+					vec![file_path::hidden::set(Some(is_hidden))],
+				),
+			),
+		)
+		.await?;
 
 		invalidate_query!(library, "search.paths");
 	}
@@ -638,7 +684,7 @@ pub(super) async fn rename(
 			trace!("Updated {updated} file_paths");
 		}
 
-		let metadata = FilePathMetadata::from_path(new_path, &new_path_metadata).await?;
+		let is_hidden = path_is_hidden(new_path, &new_path_metadata);
 
 		library
 			.db
@@ -652,13 +698,14 @@ pub(super) async fn rename(
 					file_path::date_modified::set(Some(
 						DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into(),
 					)),
-					file_path::hidden::set(Some(metadata.hidden)),
+					file_path::hidden::set(Some(is_hidden)),
 				],
 			)
 			.exec()
 			.await?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	Ok(())
@@ -736,6 +783,7 @@ pub(super) async fn remove_by_file_path(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }
@@ -840,6 +888,7 @@ pub(super) async fn recalculate_directories_size(
 
 	if should_invalidate {
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	candidates.extend(buffer.drain(..));

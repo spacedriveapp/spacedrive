@@ -1,15 +1,13 @@
 'use client';
 
-import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react/dist/ssr';
+import { AndroidLogo, Globe, LinuxLogo, WindowsLogo } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
-import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { usePlausible } from 'next-plausible';
 import { ComponentProps, FunctionComponent, useEffect, useState } from 'react';
 import { Tooltip } from '@sd/ui';
 
 import HomeCTA from './HomeCTA';
-
-const RELEASE_VERSION = 'Alpha v0.1.0';
 
 interface Platform {
 	name: string;
@@ -50,9 +48,15 @@ const platforms = {
 
 const BASE_DL_LINK = '/api/releases/desktop/stable';
 
-export function Downloads() {
+interface Props {
+	latestVersion: string;
+}
+
+export function Downloads({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
+
+	const plausible = usePlausible();
 
 	const formattedVersion = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
@@ -78,10 +82,15 @@ export function Downloads() {
 										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
 										: undefined
 								}
-								className={`z-5 plausible-event-name=download relative plausible-event-os=${currentPlatform.name}`}
+								className={`z-5 relative`}
 								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
 								text={`Download for ${currentPlatform.name}`}
-								onClick={() => setSelectedPlatform(currentPlatform)}
+								onClick={() => {
+									plausible('download', {
+										props: { os: currentPlatform.name }
+									});
+									setSelectedPlatform(currentPlatform);
+								}}
 							/>
 						);
 					})()}
@@ -102,18 +111,20 @@ export function Downloads() {
 							key={name}
 							size="md"
 							text={name}
-							target="_blank"
+							rel="noopener"
 							href={`${BASE_DL_LINK}/${selectedPlatform.os}/${arch}`}
-							className={clsx(
-								'z-5 relative !py-1 !text-sm',
-								`plausible-event-name=download plausible-event-os=${selectedPlatform.name}+${arch}`
-							)}
+							onClick={() => {
+								plausible('download', {
+									props: { os: selectedPlatform.name + ' ' + arch }
+								});
+							}}
+							className="z-5 relative !py-1 !text-sm"
 						/>
 					))}
 				</div>
 			)}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
-				{RELEASE_VERSION}
+				{latestVersion}
 				{formattedVersion && (
 					<>
 						<span className="mx-2 opacity-50">|</span>
@@ -133,13 +144,15 @@ export function Downloads() {
 							<Platform
 								key={platform.name}
 								platform={platform}
-								className={clsx(
-									platform.links?.length == 1 &&
-										`plausible-event-name=download plausible-event-os=${platform.name}`
-								)}
 								onClick={() => {
-									if (platform.links && platform.links.length > 1)
+									if (platform.links && platform.links.length === 1) {
+										plausible('download', {
+											props: { os: platform.name }
+										});
+									}
+									if (platform.links && platform.links.length > 1) {
 										setSelectedPlatform(platform);
+									}
 								}}
 							/>
 						</motion.div>
@@ -174,10 +187,10 @@ function useCurrentPlatform() {
 	return currentPlatform;
 }
 
-interface Props {
+interface PlatformProps {
 	platform: Platform;
 }
-function Platform({ platform, ...props }: ComponentProps<'a'> & Props) {
+function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
 	const { links } = platform;
 
 	const Outer = links
@@ -185,7 +198,7 @@ function Platform({ platform, ...props }: ComponentProps<'a'> & Props) {
 			? (props: any) => (
 					<a
 						aria-label={platform.name}
-						target="_blank"
+						rel="noopener"
 						href={`${BASE_DL_LINK}/${platform.os}/${links[0].arch}`}
 						{...props}
 					/>

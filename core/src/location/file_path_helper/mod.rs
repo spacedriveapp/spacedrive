@@ -79,6 +79,7 @@ file_path::select!(file_path_walker {
 	date_modified
 	inode
 	size_in_bytes_bytes
+	hidden
 });
 file_path::select!(file_path_to_handle_custom_uri {
 	pub_id
@@ -128,12 +129,13 @@ pub struct FilePathMetadata {
 	pub hidden: bool,
 }
 
-pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
+pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 	#[cfg(target_family = "unix")]
 	{
 		use std::ffi::OsStr;
 		let _ = metadata; // just to avoid warnings on Linux
 		if path
+			.as_ref()
 			.file_name()
 			.and_then(OsStr::to_str)
 			.map(|s| s.starts_with('.'))
@@ -147,6 +149,7 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 	{
 		use std::os::macos::fs::MetadataExt;
 
+		// https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemDetails/FileSystemDetails.html#:~:text=UF_HIDDEN
 		const UF_HIDDEN: u32 = 0x8000;
 
 		if (metadata.st_flags() & UF_HIDDEN) == UF_HIDDEN {
@@ -171,7 +174,10 @@ pub fn path_is_hidden(path: &Path, metadata: &Metadata) -> bool {
 }
 
 impl FilePathMetadata {
-	pub async fn from_path(path: &Path, metadata: &Metadata) -> Result<Self, FilePathError> {
+	pub async fn from_path(
+		path: impl AsRef<Path>,
+		metadata: &Metadata,
+	) -> Result<Self, FilePathError> {
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
@@ -180,13 +186,13 @@ impl FilePathMetadata {
 
 			#[cfg(target_family = "windows")]
 			{
-				get_inode_from_path(&path).await?
+				get_inode_from_path(path.as_ref()).await?
 			}
 		};
 
 		Ok(Self {
 			inode,
-			hidden: path_is_hidden(path, metadata),
+			hidden: path_is_hidden(path.as_ref(), metadata),
 			size_in_bytes: metadata.len(),
 			created_at: metadata.created_or_now().into(),
 			modified_at: metadata.modified_or_now().into(),

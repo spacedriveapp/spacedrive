@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import CyclingImage from '~/components/CyclingImage';
+import { toTitleCase } from '~/utils/util';
 
+import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
 import { Background } from './Background';
 import { Downloads } from './Downloads';
 import { NewBanner } from './NewBanner';
@@ -20,7 +22,10 @@ export const metadata = {
 	}
 };
 
-export default function Page() {
+export default async function Page() {
+	const release = await githubFetch(getLatestRelease);
+	const { frontmatter } = getReleaseFrontmatter(release);
+
 	return (
 		<>
 			<Background />
@@ -30,7 +35,7 @@ export default function Page() {
 				width={1278}
 				height={626}
 				alt="l"
-				src="/images/headergradient.webp"
+				src="/images/misc/header-gradient.webp"
 			/>
 			<div className="flex w-full flex-col items-center px-4">
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
@@ -52,7 +57,11 @@ export default function Page() {
 						Designed for creators, hoarders and the painfully disorganized.
 					</span>
 				</p>
-				<Downloads />
+				<Downloads
+					latestVersion={[toTitleCase(frontmatter.category), `v${release.tag_name}`]
+						.filter(Boolean)
+						.join(' ')}
+				/>
 				<div className="pb-6 xs:pb-24">
 					<div
 						className="xl2:relative z-30 flex h-[255px] w-full px-6
@@ -64,7 +73,7 @@ export default function Page() {
 							width={1200}
 							height={626}
 							alt="l"
-							src="/images/appgradient.webp"
+							src="/images/app/gradient.webp"
 						/>
 						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] md:mt-0">
 							<div className="z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur">
@@ -93,7 +102,7 @@ export default function Page() {
 									width={2278}
 									height={626}
 									alt="l"
-									src="/images/appgradientoverlay.png"
+									src="/images/app/gradient-overlay.png"
 								/>
 							</div>
 						</div>

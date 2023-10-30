@@ -5,7 +5,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
 import { useRef, useState } from 'react';
 import { Color, type Mesh } from 'three';
-import { hasWebGLContext } from '~/utils/util';
 
 const Stars = (props: any) => {
 	const ref = useRef<Mesh>();
@@ -59,7 +58,7 @@ function ShootingStar() {
 
 export default function Space() {
 	return (
-		<div className="absolute z-0 h-screen w-screen bg-black opacity-50">
+		<div className="absolute left-0 top-0 z-0 h-screen w-screen bg-black opacity-50">
 			<Canvas camera={{ position: [0, 0, 0] }}>
 				<ShootingStar />
 				<ShootingStar />

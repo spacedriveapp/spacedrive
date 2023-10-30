@@ -1,10 +1,10 @@
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt,
-	net::SocketAddr,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, PoisonError,
 	},
 };
 
@@ -14,15 +14,16 @@ use libp2p::{
 		dial_opts::{DialOpts, PeerCondition},
 		NotifyHandler, SwarmEvent, ToSwarm,
 	},
-	Swarm,
+	PeerId, Swarm,
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::{
 	quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr,
-	spacetime::{OutboundRequest, SpaceTime, UnicastStream},
-	Event, Manager, Mdns, Metadata, PeerId,
+	spacetime::{OutboundRequest, SpaceTime, UnicastStreamBuilder},
+	spacetunnel::RemoteIdentity,
+	DiscoveryManager, DynamicManagerState, Event, Manager, ManagerConfig, Mdns,
 };
 
 /// TODO
@@ -30,7 +31,7 @@ use crate::{
 /// This is `Sync` so it can be used from within rspc.
 pub enum ManagerStreamAction {
 	/// TODO
-	GetConnectedPeers(oneshot::Sender<Vec<PeerId>>),
+	GetConnectedPeers(oneshot::Sender<Vec<RemoteIdentity>>),
 	/// Tell the [`libp2p::Swarm`](libp2p::Swarm) to establish a new connection to a peer.
 	Dial {
 		peer_id: PeerId,
@@ -38,6 +39,8 @@ pub enum ManagerStreamAction {
 	},
 	/// TODO
 	BroadcastData(Vec<u8>),
+	/// Update the config. This requires the `libp2p::Swarm`
+	UpdateConfig(ManagerConfig),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
 	Shutdown(oneshot::Sender<()>),
 }
@@ -45,11 +48,13 @@ pub enum ManagerStreamAction {
 /// TODO: Get ride of this and merge into `ManagerStreamAction` without breaking rspc procedures
 ///
 /// This is `!Sync` so can't be used from within rspc.
-pub enum ManagerStreamAction2<TMetadata: Metadata> {
+pub enum ManagerStreamAction2 {
 	/// Events are returned to the application via the `ManagerStream::next` method.
-	Event(Event<TMetadata>),
+	Event(Event),
+	/// Events are returned to the application via the `ManagerStream::next` method.
+	Events(Vec<Event>),
 	/// TODO
-	StartStream(PeerId, oneshot::Sender<UnicastStream>),
+	StartStream(PeerId, oneshot::Sender<UnicastStreamBuilder>),
 }
 
 impl fmt::Debug for ManagerStreamAction {
@@ -58,55 +63,101 @@ impl fmt::Debug for ManagerStreamAction {
 	}
 }
 
-impl<TMetadata: Metadata> fmt::Debug for ManagerStreamAction2<TMetadata> {
+impl fmt::Debug for ManagerStreamAction2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.write_str("ManagerStreamAction2")
 	}
 }
 
-impl<TMetadata: Metadata> From<Event<TMetadata>> for ManagerStreamAction2<TMetadata> {
-	fn from(event: Event<TMetadata>) -> Self {
+impl From<Event> for ManagerStreamAction2 {
+	fn from(event: Event) -> Self {
 		Self::Event(event)
 	}
 }
 
 /// TODO
-pub struct ManagerStream<TMetadata: Metadata> {
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+#[must_use = "streams do nothing unless polled"]
+pub struct ManagerStream {
+	pub(crate) manager: Arc<Manager>,
 	pub(crate) event_stream_rx: mpsc::Receiver<ManagerStreamAction>,
-	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2<TMetadata>>,
-	pub(crate) swarm: Swarm<SpaceTime<TMetadata>>,
-	pub(crate) mdns: Mdns<TMetadata>,
-	pub(crate) queued_events: VecDeque<Event<TMetadata>>,
+	pub(crate) event_stream_rx2: mpsc::Receiver<ManagerStreamAction2>,
+	pub(crate) swarm: Swarm<SpaceTime>,
+	pub(crate) discovery_manager: DiscoveryManager,
+	pub(crate) queued_events: VecDeque<Event>,
 	pub(crate) shutdown: AtomicBool,
 	pub(crate) on_establish_streams: HashMap<libp2p::PeerId, Vec<OutboundRequest>>,
 }
 
-enum EitherManagerStreamAction<TMetadata: Metadata> {
-	A(ManagerStreamAction),
-	B(ManagerStreamAction2<TMetadata>),
+impl ManagerStream {
+	/// Setup the libp2p listeners based on the manager config.
+	/// This method will take care of removing old listeners if needed
+	pub(crate) fn refresh_listeners(swarm: &mut Swarm<SpaceTime>, state: &mut DynamicManagerState) {
+		if state.config.enabled {
+			let port = state.config.port.unwrap_or(0);
+
+			if state.ipv4_listener_id.is_none() {
+				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+					Ipv4Addr::UNSPECIFIED,
+					port,
+				)))) {
+					Ok(listener_id) => {
+						debug!("created ipv4 listener with id '{:?}'", listener_id);
+						state.ipv4_listener_id = Some(listener_id);
+					}
+					Err(err) => error!("failed to listener on '0.0.0.0:{port}': {err}"),
+				};
+			}
+
+			if state.ipv6_listener_id.is_none() {
+				match swarm.listen_on(socketaddr_to_quic_multiaddr(&SocketAddr::from((
+					Ipv6Addr::UNSPECIFIED,
+					port,
+				)))) {
+					Ok(listener_id) => {
+						debug!("created ipv6 listener with id '{:?}'", listener_id);
+						state.ipv6_listener_id = Some(listener_id);
+					}
+					Err(err) => error!("failed to listener on '[::]:{port}': {err}"),
+				};
+			}
+		} else {
+			if let Some(listener) = state.ipv4_listener_id.take() {
+				debug!("removing ipv4 listener with id '{:?}'", listener);
+				swarm.remove_listener(listener);
+			}
+
+			if let Some(listener) = state.ipv6_listener_id.take() {
+				debug!("removing ipv6 listener with id '{:?}'", listener);
+				swarm.remove_listener(listener);
+			}
+		}
+	}
 }
 
-impl<TMetadata: Metadata> From<ManagerStreamAction> for EitherManagerStreamAction<TMetadata> {
+enum EitherManagerStreamAction {
+	A(ManagerStreamAction),
+	B(ManagerStreamAction2),
+}
+
+impl From<ManagerStreamAction> for EitherManagerStreamAction {
 	fn from(event: ManagerStreamAction) -> Self {
 		Self::A(event)
 	}
 }
 
-impl<TMetadata: Metadata> From<ManagerStreamAction2<TMetadata>>
-	for EitherManagerStreamAction<TMetadata>
-{
-	fn from(event: ManagerStreamAction2<TMetadata>) -> Self {
+impl From<ManagerStreamAction2> for EitherManagerStreamAction {
+	fn from(event: ManagerStreamAction2) -> Self {
 		Self::B(event)
 	}
 }
 
-impl<TMetadata> ManagerStream<TMetadata>
-where
-	TMetadata: Metadata,
-{
+impl ManagerStream {
+	pub fn listen_addrs(&self) -> HashSet<SocketAddr> {
+		self.discovery_manager.listen_addrs.clone()
+	}
+
 	// Your application should keep polling this until `None` is received or the P2P system will be halted.
-	pub async fn next(&mut self) -> Option<Event<TMetadata>> {
+	pub async fn next(&mut self) -> Option<Event> {
 		// We loop polling internal services until an event comes in that needs to be sent to the parent application.
 		loop {
 			if self.shutdown.load(Ordering::Relaxed) {
@@ -116,12 +167,8 @@ where
 			if let Some(event) = self.queued_events.pop_front() {
 				return Some(event);
 			}
-
 			tokio::select! {
-				event = self.mdns.poll(&self.manager) => {
-					if let Some(event) = event {
-						return Some(event);
-					}
+				_ = self.discovery_manager.poll() => {
 					continue;
 				},
 				event = self.event_stream_rx.recv() => {
@@ -161,7 +208,17 @@ where
 								}
 							}
 						},
-						SwarmEvent::ConnectionClosed { .. } => {},
+						SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
+							if num_established == 0 {
+							let mut state = self.manager.state.write()
+								.unwrap_or_else(PoisonError::into_inner);
+								if state
+									.connected
+									.remove(&peer_id).is_none() || state.connections.remove(&peer_id).is_none() {
+									   warn!("unable to remove unconnected client from connected map. This indicates a bug!");
+								}
+							}
+						},
 						SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
@@ -169,7 +226,8 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address added: {}", addr);
-									self.mdns.register_addr(addr).await;
+									self.discovery_manager.listen_addrs.insert(addr);
+									self.discovery_manager.do_advertisement();
 									return Some(Event::AddListenAddr(addr));
 								},
 								Err(err) => {
@@ -182,7 +240,8 @@ where
 							match quic_multiaddr_to_socketaddr(address) {
 								Ok(addr) => {
 									trace!("listen address expired: {}", addr);
-									self.mdns.unregister_addr(&addr).await;
+									self.discovery_manager.listen_addrs.remove(&addr);
+									self.discovery_manager.do_advertisement();
 									return Some(Event::RemoveListenAddr(addr));
 								},
 								Err(err) => {
@@ -197,8 +256,7 @@ where
 								match quic_multiaddr_to_socketaddr(address) {
 									Ok(addr) => {
 										trace!("listen address closed: {}", addr);
-										self.mdns.unregister_addr(&addr).await;
-
+										self.discovery_manager.listen_addrs.remove(&addr);
 										self.queued_events.push_back(Event::RemoveListenAddr(addr));
 									},
 									Err(err) => {
@@ -220,18 +278,34 @@ where
 
 	async fn handle_manager_stream_action(
 		&mut self,
-		event: EitherManagerStreamAction<TMetadata>,
-	) -> Option<Event<TMetadata>> {
+		event: EitherManagerStreamAction,
+	) -> Option<Event> {
 		match event {
 			EitherManagerStreamAction::A(event) => match event {
 				ManagerStreamAction::GetConnectedPeers(response) => {
+					let result = {
+						let state = self
+							.manager
+							.state
+							.read()
+							.unwrap_or_else(PoisonError::into_inner);
+
+						self.swarm
+							.connected_peers()
+							.filter_map(|v| {
+								let v = state.connected.get(v);
+
+								if v.is_none() {
+									warn!("Error converting PeerId({v:?}) into RemoteIdentity. This is likely a bug in P2P.")
+								}
+
+								v.copied()
+							})
+							.collect::<Vec<_>>()
+					};
+
 					response
-						.send(
-							self.swarm
-								.connected_peers()
-								.map(|v| PeerId(*v))
-								.collect::<Vec<_>>(),
-						)
+						.send(result)
 						.map_err(|_| {
 							error!("Error sending response to `GetConnectedPeers` request! Sending was dropped!")
 						})
@@ -239,7 +313,7 @@ where
 				}
 				ManagerStreamAction::Dial { peer_id, addresses } => {
 					match self.swarm.dial(
-						DialOpts::peer_id(peer_id.0)
+						DialOpts::peer_id(peer_id)
 							.condition(PeerCondition::Disconnected)
 							.addresses(addresses.iter().map(socketaddr_to_quic_multiaddr).collect())
 							.build(),
@@ -263,9 +337,46 @@ where
 						});
 					}
 				}
+				ManagerStreamAction::UpdateConfig(config) => {
+					let mut state = self
+						.manager
+						.state
+						.write()
+						.unwrap_or_else(PoisonError::into_inner);
+
+					state.config = config;
+					ManagerStream::refresh_listeners(&mut self.swarm, &mut state);
+
+					if !state.config.enabled {
+						if let Some(mdns) = self.discovery_manager.mdns.take() {
+							drop(state);
+							mdns.shutdown();
+						}
+					} else if self.discovery_manager.mdns.is_none() {
+						match Mdns::new(
+							self.discovery_manager.application_name,
+							self.discovery_manager.identity,
+							self.discovery_manager.peer_id,
+						) {
+							Ok(mdns) => {
+								self.discovery_manager.mdns = Some(mdns);
+								self.discovery_manager.do_advertisement()
+							}
+							Err(err) => {
+								error!("error starting mDNS service: {err:?}");
+								self.discovery_manager.mdns = None;
+
+								// state.config.enabled = false;
+								// TODO: Properly reset the UI state cause it will be outa sync
+							}
+						}
+					}
+
+					// drop(state);
+				}
 				ManagerStreamAction::Shutdown(tx) => {
 					info!("Shutting down P2P Manager...");
-					self.mdns.shutdown().await;
+					self.discovery_manager.shutdown();
 					tx.send(()).unwrap_or_else(|_| {
 						warn!("Error sending shutdown signal to P2P Manager!");
 					});
@@ -275,21 +386,33 @@ where
 			},
 			EitherManagerStreamAction::B(event) => match event {
 				ManagerStreamAction2::Event(event) => return Some(event),
+				ManagerStreamAction2::Events(mut events) => {
+					let first = events.pop();
+
+					for event in events {
+						self.queued_events.push_back(event);
+					}
+
+					return first;
+				}
 				ManagerStreamAction2::StartStream(peer_id, tx) => {
-					if !self.swarm.connected_peers().any(|v| *v == peer_id.0) {
+					if !self.swarm.connected_peers().any(|v| *v == peer_id) {
 						let addresses = self
-							.mdns
+							.discovery_manager
 							.state
-							.discovered
 							.read()
-							.await
-							.get(&peer_id)
-							.unwrap()
-							.addresses
-							.clone();
+							.unwrap_or_else(PoisonError::into_inner)
+							.discovered
+							.iter()
+							.find_map(|(_, service)| {
+								service.iter().find_map(|(_, v)| {
+									(v.peer_id == peer_id).then(|| v.addresses.clone())
+								})
+							})
+							.unwrap(); // TODO: Error handling
 
 						match self.swarm.dial(
-							DialOpts::peer_id(peer_id.0)
+							DialOpts::peer_id(peer_id)
 								.condition(PeerCondition::Disconnected)
 								.addresses(
 									addresses.iter().map(socketaddr_to_quic_multiaddr).collect(),
@@ -304,13 +427,13 @@ where
 						}
 
 						self.on_establish_streams
-							.entry(peer_id.0)
+							.entry(peer_id)
 							.or_default()
 							.push(OutboundRequest::Unicast(tx));
 					} else {
 						self.swarm.behaviour_mut().pending_events.push_back(
 							ToSwarm::NotifyHandler {
-								peer_id: peer_id.0,
+								peer_id,
 								handler: NotifyHandler::Any,
 								event: OutboundRequest::Unicast(tx),
 							},

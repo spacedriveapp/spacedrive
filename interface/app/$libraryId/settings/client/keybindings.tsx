@@ -132,6 +132,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Delete selected item(s)',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'Backspace']
+				},
+				windows: {
+					value: 'Del'
+				}
+			}
+		},
+		{
 			action: 'Open selected item',
 			keys: {
 				macOS: {
@@ -161,6 +172,28 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 				},
 				all: {
 					value: [modifierSymbols.Alt.Other, modifierSymbols.Control.Other, 'p']
+				}
+			}
+		},
+		{
+			action: 'Show hidden files',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, modifierSymbols.Shift.macOS, '.']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'h']
+				}
+			}
+		},
+		{
+			action: 'Reveal in Explorer/Finder',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'Y']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'Y']
 				}
 			}
 		},

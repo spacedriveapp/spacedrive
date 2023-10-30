@@ -30,9 +30,10 @@ export const Component = () => {
 		onData: () => messages.refetch()
 	});
 
-	const groups = useMemo(() => {
-		if (messages.data) return calculateGroups(messages.data);
-	}, [messages]);
+	const groups = useMemo(
+		() => (messages.data && calculateGroups(messages.data)) || [],
+		[messages]
+	);
 
 	return (
 		<ul className="space-y-4 p-4">

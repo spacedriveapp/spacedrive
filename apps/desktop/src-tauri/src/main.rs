@@ -7,7 +7,10 @@ use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use sd_core::{Node, NodeError};
 
-use tauri::{api::path, ipc::RemoteDomainAccessScope, AppHandle, Manager};
+use tauri::{
+	api::path, ipc::RemoteDomainAccessScope, window::PlatformWebview, AppHandle, Manager,
+	WindowEvent,
+};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tokio::time::sleep;
 use tracing::error;
@@ -30,6 +33,52 @@ async fn app_ready(app_handle: AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
+async fn set_menu_bar_item_state(_window: tauri::Window, _id: String, _enabled: bool) {
+	#[cfg(target_os = "macos")]
+	{
+		_window
+			.menu_handle()
+			.get_item(&_id)
+			.set_enabled(_enabled)
+			.expect("Unable to modify menu item")
+	}
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn reload_webview(app_handle: AppHandle) {
+	app_handle
+		.get_window("main")
+		.expect("Error getting window handle")
+		.with_webview(reload_webview_inner)
+		.expect("Error while reloading webview");
+}
+
+fn reload_webview_inner(webview: PlatformWebview) {
+	#[cfg(target_os = "macos")]
+	{
+		unsafe {
+			sd_desktop_macos::reload_webview(&(webview.inner() as _));
+		}
+	}
+	#[cfg(target_os = "linux")]
+	{
+		use webkit2gtk::traits::WebViewExt;
+
+		webview.inner().reload();
+	}
+	#[cfg(target_os = "windows")]
+	unsafe {
+		webview
+			.controller()
+			.CoreWebView2()
+			.expect("Unable to get handle on inner webview")
+			.Reload();
+	}
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 async fn reset_spacedrive(app_handle: AppHandle) {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
@@ -44,6 +93,30 @@ async fn reset_spacedrive(app_handle: AppHandle) {
 	// app_handle.restart();
 
 	app_handle.exit(0);
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+async fn refresh_menu_bar(
+	_node: tauri::State<'_, Arc<Node>>,
+	_app_handle: AppHandle,
+) -> Result<(), ()> {
+	#[cfg(target_os = "macos")]
+	{
+		let menu_handles: Vec<tauri::window::MenuHandle> = _app_handle
+			.windows()
+			.iter()
+			.map(|x| x.1.menu_handle())
+			.collect();
+
+		let has_library = !_node.libraries.get_all().await.is_empty();
+
+		for menu in menu_handles {
+			menu::set_library_locked_menu_items_enabled(menu, has_library);
+		}
+	}
+
+	Ok(())
 }
 
 #[tauri::command(async)]
@@ -76,9 +149,6 @@ const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
-	#[cfg(debug_assertions)]
-	dotenv::dotenv().ok();
-
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
@@ -106,19 +176,28 @@ async fn main() -> tauri::Result<()> {
 	};
 
 	let app = tauri::Builder::default();
-	let app = match result {
-		Ok((node, router)) => app
-			.plugin(rspc::integrations::tauri::plugin(router, {
-				let node = node.clone();
-				move || node.clone()
-			}))
-			.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
-			.manage(node),
+
+	let (node_router, app) = match result {
+		Ok((node, router)) => (Some((node, router)), app),
 		Err(err) => {
 			error!("Error starting up the node: {err:#?}");
-			app.plugin(sd_error_plugin(err))
+			(None, app.plugin(sd_error_plugin(err)))
 		}
 	};
+
+	let (node, router) = if let Some((node, router)) = node_router {
+		(node, router)
+	} else {
+		panic!("Unable to get the node or router");
+	};
+
+	let app = app
+		.plugin(rspc::integrations::tauri::plugin(router, {
+			let node = node.clone();
+			move || node.clone()
+		}))
+		.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
+		.manage(node.clone());
 
 	// macOS expected behavior is for the app to not exit when the main window is closed.
 	// Instead, the window is hidden and the dock icon remains so that on user click it should show the window again.
@@ -134,7 +213,8 @@ async fn main() -> tauri::Result<()> {
 
 	let app = app
 		.plugin(updater::plugin())
-		.setup(|app| {
+		.plugin(tauri_plugin_window_state::Builder::default().build())
+		.setup(move |app| {
 			let app = app.handle();
 
 			app.windows().iter().for_each(|(_, window)| {
@@ -159,10 +239,22 @@ async fn main() -> tauri::Result<()> {
 				{
 					use sd_desktop_macos::*;
 
-					let window = window.ns_window().unwrap();
+					let nswindow = window.ns_window().unwrap();
 
-					unsafe { set_titlebar_style(&window, true, true) };
-					unsafe { blur_window_background(&window) };
+					unsafe { set_titlebar_style(&nswindow, true) };
+					unsafe { blur_window_background(&nswindow) };
+
+					let menu_handle = window.menu_handle();
+
+					tokio::spawn({
+						let libraries = node.libraries.clone();
+						let menu_handle = menu_handle.clone();
+						async move {
+							if libraries.get_all().await.is_empty() {
+								menu::set_library_locked_menu_items_enabled(menu_handle, false);
+							}
+						}
+					});
 				}
 			});
 
@@ -176,12 +268,33 @@ async fn main() -> tauri::Result<()> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
+		.on_window_event(|event| {
+			if let WindowEvent::Resized(_) = event.event() {
+				let command = if event
+					.window()
+					.is_fullscreen()
+					.expect("Can't get fullscreen state")
+				{
+					"window_fullscreened"
+				} else {
+					"window_not_fullscreened"
+				};
+
+				event
+					.window()
+					.emit("keybind", command)
+					.expect("Unable to emit window event");
+			}
+		})
 		.menu(menu::get_menu())
 		.manage(updater::State::default())
 		.invoke_handler(tauri_handlers![
 			app_ready,
 			reset_spacedrive,
 			open_logs_dir,
+			refresh_menu_bar,
+			reload_webview,
+			set_menu_bar_item_state,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,

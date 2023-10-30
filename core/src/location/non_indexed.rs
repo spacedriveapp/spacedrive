@@ -3,7 +3,7 @@ use crate::{
 	library::Library,
 	object::{
 		cas::generate_cas_id,
-		media::thumbnail::{get_thumb_key, GenerateThumbnailArgs},
+		media::thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
 	},
 	prisma::location,
 	util::error::FileIOError,
@@ -107,6 +107,8 @@ pub async fn walk(
 	);
 
 	let mut thumbnails_to_generate = vec![];
+	// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
+	let mut document_thumbnails_to_generate = vec![];
 
 	while let Some(entry) = read_dir.next_entry().await.map_err(|e| (path, e))? {
 		let Ok((entry_path, name)) = normalize_path(entry.path())
@@ -161,24 +163,41 @@ pub async fn walk(
 				.map(Into::into)
 				.unwrap_or(ObjectKind::Unknown);
 
-			let thumbnail_key = if matches!(
-				kind,
-				ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
-			) {
+			let should_generate_thumbnail = {
+				#[cfg(feature = "ffmpeg")]
+				{
+					matches!(
+						kind,
+						ObjectKind::Image | ObjectKind::Video | ObjectKind::Document
+					)
+				}
+
+				#[cfg(not(feature = "ffmpeg"))]
+				{
+					matches!(kind, ObjectKind::Image | ObjectKind::Document)
+				}
+			};
+
+			let thumbnail_key = if should_generate_thumbnail {
 				if let Ok(cas_id) = generate_cas_id(&path, metadata.len())
 					.await
 					.map_err(|e| errors.push(NonIndexedLocationError::from((path, e)).into()))
 				{
-					thumbnails_to_generate.push(GenerateThumbnailArgs::new(
-						extension.clone(),
-						cas_id.clone(),
-						path.to_path_buf(),
-						Arc::clone(&node),
-					));
+					if kind == ObjectKind::Document {
+						document_thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+							extension.clone(),
+							cas_id.clone(),
+							path.to_path_buf(),
+						));
+					} else {
+						thumbnails_to_generate.push(GenerateThumbnailArgs::new(
+							extension.clone(),
+							cas_id.clone(),
+							path.to_path_buf(),
+						));
+					}
 
-					let thumbnail_key = get_thumb_key(&cas_id);
-
-					Some(thumbnail_key)
+					Some(get_ephemeral_thumb_key(&cas_id))
 				} else {
 					None
 				}
@@ -204,8 +223,10 @@ pub async fn walk(
 		}
 	}
 
+	thumbnails_to_generate.extend(document_thumbnails_to_generate);
+
 	node.thumbnailer
-		.new_non_indexed_thumbnails_batch(thumbnails_to_generate)
+		.new_ephemeral_thumbnails_batch(BatchToProcess::new(thumbnails_to_generate, false, false))
 		.await;
 
 	let mut locations = library

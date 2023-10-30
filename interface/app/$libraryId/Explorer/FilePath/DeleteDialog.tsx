@@ -5,12 +5,46 @@ interface Props extends UseDialogProps {
 	locationId: number;
 	rescan?: () => void;
 	pathIds: number[];
+	dirCount?: number;
+	fileCount?: number;
+}
+
+function getWording(dirCount: number, fileCount: number) {
+	let type = 'file';
+	let prefix = 'a';
+
+	if (dirCount == 1 && fileCount == 0) {
+		type = 'directory';
+		prefix = 'a';
+	}
+
+	if (dirCount > 1 && fileCount == 0) {
+		type = 'directories';
+		prefix = dirCount.toString();
+	}
+
+	if (fileCount > 1 && dirCount == 0) {
+		type = 'files';
+		prefix = fileCount.toString();
+	}
+
+	if (fileCount > 0 && dirCount > 0) {
+		type = 'items';
+		prefix = (fileCount + dirCount).toString();
+	}
+
+	return { type, prefix };
 }
 
 export default (props: Props) => {
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 
 	const form = useZodForm();
+	const { dirCount = 0, fileCount = 0 } = props;
+
+	const { type, prefix } = getWording(dirCount, fileCount);
+
+	const description = `Warning: This will delete your ${type} forever, we don't have a trash can yet...`;
 
 	return (
 		<Dialog
@@ -24,8 +58,8 @@ export default (props: Props) => {
 				props.rescan?.();
 			})}
 			dialog={useDialog(props)}
-			title="Delete a file"
-			description="Warning: This will delete your file forever, we don't have a trash can yet..."
+			title={'Delete ' + prefix + ' ' + type}
+			description={description}
 			loading={deleteFile.isLoading}
 			ctaLabel="Delete"
 			ctaDanger
@@ -34,7 +68,9 @@ export default (props: Props) => {
 			<Tooltip label="Coming soon">
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
-					<p className="text-sm text-ink-dull">Delete all matching files</p>
+					<p className="text-sm text-ink-dull">
+						Delete all matching {type.endsWith('s') ? type : type + 's'}
+					</p>
 				</div>
 			</Tooltip>
 		</Dialog>

@@ -1,14 +1,14 @@
-import { getExplorerStore, useExplorerStore } from "~/app/$libraryId/Explorer/store";
-import { useExplorerSearchParams } from "~/app/$libraryId/Explorer/util";
-import { useExplorerContext } from "~/app/$libraryId/Explorer/Context";
-import { useKeyMatcher } from "./useKeyMatcher";
-import { useKeys } from "rooks";
-import {useItemsAsFilePaths, useLibraryMutation} from '@sd/client';
-import {toast} from '@sd/ui';
+import { useKeys } from 'rooks';
+import { useItemsAsFilePaths, useLibraryMutation } from '@sd/client';
+import { toast } from '@sd/ui';
+import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
+import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
+import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 
+import { useKeyMatcher } from './useKeyMatcher';
 
-export const useKeyCopyPaste = () => {
-	const {cutCopyState} = useExplorerStore();
+export const useKeyCopyCutPaste = () => {
+	const { cutCopyState } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
 
 	const metaCtrlKey = useKeyMatcher('Meta').key;
@@ -19,7 +19,7 @@ export const useKeyCopyPaste = () => {
 
 	useKeys([metaCtrlKey, 'KeyC'], (e) => {
 		e.stopPropagation();
-;		if (explorer.parent?.type === 'Location') {
+		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
 				sourceParentPath: path ?? '/',
 				sourceLocationId: explorer.parent.location.id,
@@ -76,4 +76,4 @@ export const useKeyCopyPaste = () => {
 			}
 		}
 	});
-}
+};

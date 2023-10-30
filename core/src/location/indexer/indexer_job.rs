@@ -225,11 +225,12 @@ impl StatefulJob for IndexerJobInit {
 
 		ctx.node
 			.thumbnailer
-			.remove_cas_ids(
+			.remove_indexed_cas_ids(
 				to_remove
 					.iter()
 					.filter_map(|file_path| file_path.cas_id.clone())
 					.collect::<Vec<_>>(),
+				ctx.library.id,
 			)
 			.await;
 
@@ -539,7 +540,7 @@ fn update_notifier_fn(ctx: &WorkerContext) -> impl FnMut(&Path, usize) + '_ {
 		IndexerJobData::on_scan_progress(
 			ctx,
 			vec![ScanProgress::Message(format!(
-				"Scanning: {:?}; Found: {total_entries} entries",
+				"Found: {total_entries} entries; Scanning: {:?}",
 				path.file_name().unwrap_or(path.as_os_str())
 			))],
 		);

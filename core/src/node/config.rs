@@ -1,4 +1,4 @@
-use sd_p2p::Keypair;
+use sd_p2p::{Keypair, ManagerConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
@@ -24,26 +24,25 @@ pub struct NodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	/// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
-	pub p2p_port: Option<u32>,
 	/// core level notifications
 	#[serde(default)]
 	pub notifications: Vec<Notification>,
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	pub keypair: Keypair,
+	/// P2P config
+	#[serde(default)]
+	pub p2p: ManagerConfig,
 	/// Feature flags enabled on the node
 	#[serde(default)]
 	pub features: Vec<BackendFeature>,
-	// TODO: These will probs be replaced by your Spacedrive account in the near future.
-	pub p2p_email: Option<String>,
-	pub p2p_img_url: Option<String>,
+	/// Authentication for Spacedrive Accounts
 	pub auth_token: Option<OAuthToken>,
 }
 
 #[async_trait::async_trait]
 impl Migrate for NodeConfig {
-	const CURRENT_VERSION: u32 = 0;
+	const CURRENT_VERSION: u32 = 1;
 
 	type Ctx = ();
 
@@ -58,11 +57,9 @@ impl Migrate for NodeConfig {
 					"my-spacedrive".into()
 				}
 			},
-			p2p_port: None,
 			keypair: Keypair::generate(),
+			p2p: Default::default(),
 			features: vec![],
-			p2p_email: None,
-			p2p_img_url: None,
 			notifications: vec![],
 			auth_token: None,
 		})
@@ -70,11 +67,25 @@ impl Migrate for NodeConfig {
 
 	async fn migrate(
 		from_version: u32,
-		_config: &mut Map<String, Value>,
+		config: &mut Map<String, Value>,
 		_ctx: &Self::Ctx,
 	) -> Result<(), MigratorError> {
 		match from_version {
 			0 => Ok(()),
+			1 => {
+				// All where never hooked up to the UI
+				config.remove("p2p_email");
+				config.remove("p2p_img_url");
+				config.remove("p2p_port");
+
+				// In a recent PR I screwed up Serde `default` so P2P was disabled by default, prior it was always enabled.
+				// Given the config for it is behind a feature flag (so no one would have changed it) this fixes the default.
+				if let Some(Value::Object(obj)) = config.get_mut("p2p") {
+					obj.insert("enabled".into(), Value::Bool(true));
+				}
+
+				Ok(())
+			}
 			v => unreachable!("Missing migration for library version {}", v),
 		}
 	}
@@ -92,11 +103,9 @@ impl Default for NodeConfig {
 					"my-spacedrive".into()
 				}
 			},
-			p2p_port: None,
-			features: vec![],
 			keypair: Keypair::generate(),
-			p2p_email: None,
-			p2p_img_url: None,
+			p2p: Default::default(),
+			features: vec![],
 			notifications: vec![],
 			auth_token: None,
 		}

@@ -10,7 +10,7 @@ use sd_media_metadata::ImageMetadata;
 
 use std::{collections::HashSet, path::Path};
 
-use futures::future::join_all;
+use futures_concurrency::future::Join;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -65,13 +65,13 @@ pub async fn extract_media_data(path: impl AsRef<Path>) -> Result<ImageMetadata,
 }
 
 pub async fn process(
-	files_paths: impl IntoIterator<Item = &file_path_for_media_processor::Data>,
+	files_paths: &[file_path_for_media_processor::Data],
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
+	ctx_update_fn: &impl Fn(usize),
 ) -> Result<(MediaDataExtractorMetadata, JobRunErrors), MediaDataError> {
 	let mut run_metadata = MediaDataExtractorMetadata::default();
-	let files_paths = files_paths.into_iter().collect::<Vec<_>>();
 	if files_paths.is_empty() {
 		return Ok((run_metadata, JobRunErrors::default()));
 	}
@@ -104,26 +104,29 @@ pub async fn process(
 	run_metadata.skipped = objects_already_with_media_data.len() as u32;
 
 	let (media_datas, errors) = {
-		let maybe_media_data = join_all(
-			files_paths
-				.into_iter()
-				.filter_map(|file_path| {
-					file_path.object_id.and_then(|object_id| {
-						(!objects_already_with_media_data.contains(&object_id))
-							.then_some((file_path, object_id))
-					})
+		let maybe_media_data = files_paths
+			.iter()
+			.enumerate()
+			.filter_map(|(idx, file_path)| {
+				file_path.object_id.and_then(|object_id| {
+					(!objects_already_with_media_data.contains(&object_id))
+						.then_some((idx, file_path, object_id))
 				})
-				.filter_map(|(file_path, object_id)| {
-					IsolatedFilePathData::try_from((location_id, file_path))
-						.map_err(|e| error!("{e:#?}"))
-						.ok()
-						.map(|iso_file_path| (location_path.join(iso_file_path), object_id))
-				})
-				.map(|(path, object_id)| async move {
-					(extract_media_data(&path).await, path, object_id)
-				}),
-		)
-		.await;
+			})
+			.filter_map(|(idx, file_path, object_id)| {
+				IsolatedFilePathData::try_from((location_id, file_path))
+					.map_err(|e| error!("{e:#?}"))
+					.ok()
+					.map(|iso_file_path| (idx, location_path.join(iso_file_path), object_id))
+			})
+			.map(|(idx, path, object_id)| async move {
+				let res = extract_media_data(&path).await;
+				ctx_update_fn(idx + 1);
+				(res, path, object_id)
+			})
+			.collect::<Vec<_>>()
+			.join()
+			.await;
 
 		let total_media_data = maybe_media_data.len();
 

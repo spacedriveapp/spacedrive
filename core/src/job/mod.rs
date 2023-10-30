@@ -11,9 +11,15 @@ use std::{
 
 use sd_prisma::prisma::location;
 
+use async_channel as chan;
+use futures::stream::{self, StreamExt};
+use futures_concurrency::stream::Merge;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{select, sync::mpsc};
-use tracing::{debug, info, trace, warn};
+use tokio::{
+	spawn,
+	task::{JoinError, JoinHandle},
+};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 mod error;
@@ -132,7 +138,7 @@ pub trait DynJob: Send + Sync {
 	async fn run(
 		&mut self,
 		ctx: WorkerContext,
-		commands_rx: mpsc::Receiver<WorkerCommand>,
+		commands_rx: chan::Receiver<WorkerCommand>,
 	) -> Result<JobRunOutput, JobError>;
 	fn hash(&self) -> u64;
 	fn set_next_jobs(&mut self, next_jobs: VecDeque<Box<dyn DynJob>>);
@@ -456,7 +462,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 	async fn run(
 		&mut self,
 		ctx: WorkerContext,
-		mut commands_rx: mpsc::Receiver<WorkerCommand>,
+		commands_rx: chan::Receiver<WorkerCommand>,
 	) -> Result<JobRunOutput, JobError> {
 		let job_name = self.name();
 		let job_id = self.id;
@@ -476,460 +482,198 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		let target_location = init.target_location();
 
-		let stateful_job = Arc::new(init);
+		let mut stateful_job = Arc::new(init);
 
-		let ctx = Arc::new(ctx);
+		let mut ctx = Arc::new(ctx);
 
 		let mut job_should_run = true;
-		let job_time = Instant::now();
-
-		// Just for self identification purposes
-		let mut inner_status = JobStatus::Running;
+		let job_init_time = Instant::now();
 
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		let working_data = if let Some(data) = data {
 			Some(data)
 		} else {
 			// Job init phase
-			let inner_ctx = Arc::clone(&ctx);
-			let stateful_job = Arc::clone(&stateful_job);
-
 			let init_time = Instant::now();
+			let init_task = {
+				let ctx = Arc::clone(&ctx);
+				spawn(async move {
+					let mut new_data = None;
+					let res = stateful_job.init(&ctx, &mut new_data).await;
 
-			let mut init_handle = tokio::spawn(async move {
-				let mut new_data = None;
-				let res = stateful_job.init(&inner_ctx, &mut new_data).await;
-
-				if let Ok(res) = res.as_ref() {
-					if !<SJob as StatefulJob>::IS_BATCHED {
-						inner_ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
-					}
-				}
-
-				(new_data, res)
-			});
-
-			loop {
-				select! {
-					Some(command) = commands_rx.recv() => {
-						match command {
-							WorkerCommand::IdentifyYourself(tx) => {
-								if tx.send(
-									JobIdentity {
-										id: job_id,
-										name: job_name,
-										target_location,
-										status: inner_status
-									}
-								).is_err() {
-									warn!("Failed to send IdentifyYourself event reply");
-								}
-							}
-							WorkerCommand::Pause(when) => {
-								debug!(
-									"Pausing Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
-									when.elapsed()
-								);
-
-								inner_status = JobStatus::Paused;
-
-								// In case of a Pause command, we keep waiting for the next command
-								let paused_time = Instant::now();
-								while let Some(command) = commands_rx.recv().await {
-									match command {
-										WorkerCommand::IdentifyYourself(tx) => {
-											if tx.send(
-												JobIdentity {
-													id: job_id,
-													name: job_name,
-													target_location,
-													status: inner_status
-												}
-											).is_err() {
-												warn!("Failed to send IdentifyYourself event reply");
-											}
-										}
-										WorkerCommand::Resume(when) => {
-											debug!(
-												"Resuming Job at init phase <id='{job_id}', name='{job_name}'> took {:?}",
-												when.elapsed()
-											);
-											debug!(
-												"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
-												paused_time.elapsed()
-											);
-											inner_status = JobStatus::Running;
-
-											break;
-										}
-										// The job can also be shutdown or canceled while paused
-										WorkerCommand::Shutdown(when, signal_tx) => {
-											init_handle.abort();
-
-											debug!(
-												"Shuting down Job at init phase <id='{job_id}', name='{job_name}'> \
-												 took {:?} after running for {:?}",
-												when.elapsed(),
-												init_time.elapsed(),
-											);
-											debug!("Total paused time {:?}", paused_time.elapsed());
-
-											// Shutting down at init phase will abort the job
-											return Err(
-												JobError::Canceled(signal_tx)
-											);
-										}
-										WorkerCommand::Cancel(when, signal_tx) => {
-											init_handle.abort();
-											debug!(
-												"Canceling Job at init phase <id='{job_id}', name='{job_name}'> \
-												 took {:?} after running for {:?}",
-												when.elapsed(),
-												init_time.elapsed(),
-											);
-											debug!(
-												"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
-												paused_time.elapsed()
-											);
-											return Err(JobError::Canceled(signal_tx));
-										}
-										WorkerCommand::Pause(_) => {
-											// We continue paused lol
-										}
-									}
-								}
-							}
-
-							WorkerCommand::Resume(_) => {
-								// We're already running so we just ignore this command
-							}
-
-							WorkerCommand::Shutdown(when, signal_tx) => {
-								init_handle.abort();
-
-								debug!(
-									"Shuting down Job at init phase <id='{job_id}', name='{job_name}'> took {:?} \
-									 after running for {:?}",
-									when.elapsed(),
-									init_time.elapsed(),
-								);
-
-								// Shutting down at init phase will abort the job
-								return Err(
-									JobError::Canceled(signal_tx)
-								);
-							}
-							WorkerCommand::Cancel(when, signal_tx) => {
-								init_handle.abort();
-								debug!(
-									"Canceling Job at init phase <id='{job_id}', name='{job_name}'> took {:?} \
-									 after running for {:?}",
-									when.elapsed(),
-									init_time.elapsed()
-								);
-								return Err(JobError::Canceled(signal_tx));
-							}
+					if let Ok(res) = res.as_ref() {
+						if !<SJob as StatefulJob>::IS_BATCHED {
+							ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
 						}
 					}
-					init_res = &mut init_handle => {
-						let (new_data, res) = init_res?;
-						debug!("Init phase took {:?} Job <id='{job_id}', name='{job_name}'>", init_time.elapsed());
 
-						match res {
-							Ok(JobInitOutput {
-								run_metadata: new_run_metadata,
-								steps: new_steps,
-								errors: JobRunErrors(new_errors),
-							}) => {
-								steps = new_steps;
-								errors.extend(new_errors);
-								run_metadata.update(new_run_metadata);
-							}
+					(stateful_job, new_data, res)
+				})
+			};
 
-							Err(e) if matches!(e, JobError::EarlyFinish { .. }) => {
-								job_should_run = false;
-								info!("{e}");
-							}
-							Err(other) => return Err(other),
-						}
+			let InitPhaseOutput {
+				stateful_job: returned_stateful_job,
+				maybe_data,
+				output,
+			} = handle_init_phase::<SJob>(
+				JobRunWorkTable {
+					id: job_id,
+					name: job_name,
+					init_time,
+					target_location,
+				},
+				Arc::clone(&ctx),
+				init_task,
+				commands_rx.clone(),
+			)
+			.await?;
 
-						break new_data;
-					}
+			stateful_job = returned_stateful_job;
+
+			match output {
+				Ok(JobInitOutput {
+					run_metadata: new_run_metadata,
+					steps: new_steps,
+					errors: JobRunErrors(new_errors),
+				}) => {
+					steps = new_steps;
+					errors.extend(new_errors);
+					run_metadata.update(new_run_metadata);
 				}
+				Err(e @ JobError::EarlyFinish { .. }) => {
+					info!("{e}");
+					job_should_run = false;
+				}
+				Err(e) => return Err(e),
 			}
+
+			maybe_data
 		};
 
 		// Run the job until it's done or we get a command
 		let data = if let Some(working_data) = working_data {
-			let working_data_arc = Arc::new(working_data);
+			let mut working_data_arc = Arc::new(working_data);
 
 			// Job run phase
 			while job_should_run && !steps.is_empty() {
-				let steps_len = steps.len();
+				let steps_len: usize = steps.len();
 
-				let run_metadata_arc = Arc::new(run_metadata);
-				let step_arc =
-					Arc::new(steps.pop_front().expect("just checked that we have steps"));
+				let mut run_metadata_arc = Arc::new(run_metadata);
+				let step = Arc::new(steps.pop_front().expect("just checked that we have steps"));
 
-				// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
-				let inner_ctx = Arc::clone(&ctx);
-				let inner_run_metadata = Arc::clone(&run_metadata_arc);
-				let inner_working_data = Arc::clone(&working_data_arc);
-				let inner_step = Arc::clone(&step_arc);
-				let inner_stateful_job = Arc::clone(&stateful_job);
+				let init_time = Instant::now();
 
-				let step_time = Instant::now();
+				// JoinHandle<Result<JobStepOutput<SJob::Step, SJob::RunMetadata>, JobError>>
+				let step_task = {
+					// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
+					let ctx = Arc::clone(&ctx);
+					let run_metadata = Arc::clone(&run_metadata_arc);
+					let working_data = Arc::clone(&working_data_arc);
+					let step = Arc::clone(&step);
+					let stateful_job = Arc::clone(&stateful_job);
+					spawn(async move {
+						stateful_job
+							.execute_step(
+								&ctx,
+								CurrentStep {
+									step: &step,
+									step_number,
+								},
+								&working_data,
+								&run_metadata,
+							)
+							.await
+					})
+				};
 
-				let mut job_step_handle = tokio::spawn(async move {
-					inner_stateful_job
-						.execute_step(
-							&inner_ctx,
-							CurrentStep {
-								step: &inner_step,
-								step_number,
-							},
-							&inner_working_data,
-							&inner_run_metadata,
-						)
-						.await
-				});
+				let JobStepsPhaseOutput {
+					steps: returned_steps,
+					output,
+					step_arcs:
+						(
+							returned_ctx,
+							returned_run_metadata_arc,
+							returned_working_data_arc,
+							returned_stateful_job,
+						),
+				} = handle_single_step::<SJob>(
+					JobRunWorkTable {
+						id: job_id,
+						name: job_name,
+						init_time,
+						target_location,
+					},
+					&job_init_time,
+					(
+						// Must not hold extra references here; moving and getting back on function completion
+						ctx,
+						run_metadata_arc,
+						working_data_arc,
+						stateful_job,
+					),
+					JobStepDataWorkTable {
+						step_number,
+						steps,
+						step,
+						step_task,
+					},
+					commands_rx.clone(),
+				)
+				.await?;
 
-				loop {
-					select! {
-						// Here we have a channel that we use to receive commands from the worker
-						Some(command) = commands_rx.recv() => {
-							match command {
-								WorkerCommand::IdentifyYourself(tx) => {
-									if tx.send(
-										JobIdentity {
-											id: job_id,
-											name: job_name,
-											target_location,
-											status: inner_status
-										}
-									).is_err() {
-										warn!("Failed to send IdentifyYourself event reply");
-									}
-								}
-								WorkerCommand::Pause(when) => {
-									debug!(
-										"Pausing Job <id='{job_id}', name='{job_name}'> took {:?}",
-										when.elapsed()
-									);
+				steps = returned_steps;
+				ctx = returned_ctx;
+				run_metadata_arc = returned_run_metadata_arc;
+				working_data_arc = returned_working_data_arc;
+				stateful_job = returned_stateful_job;
 
-									inner_status = JobStatus::Paused;
+				run_metadata =
+					Arc::try_unwrap(run_metadata_arc).expect("step already ran, no more refs");
 
-									// In case of a Pause command, we keep waiting for the next command
-									let paused_time = Instant::now();
-									while let Some(command) = commands_rx.recv().await {
-										match command {
-											WorkerCommand::IdentifyYourself(tx) => {
-												if tx.send(
-													JobIdentity {
-														id: job_id,
-														name: job_name,
-														target_location,
-														status: inner_status
-													}
-												).is_err() {
-													warn!("Failed to send IdentifyYourself event reply");
-												}
-											}
-											WorkerCommand::Resume(when) => {
-												debug!(
-													"Resuming Job <id='{job_id}', name='{job_name}'> took {:?}",
-													when.elapsed(),
-												);
-												debug!(
-													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
-													paused_time.elapsed(),
-												);
-												inner_status = JobStatus::Running;
-												break;
-											}
-											// The job can also be shutdown or canceled while paused
-											WorkerCommand::Shutdown(when, signal_tx) => {
-												job_step_handle.abort();
-												let _ = job_step_handle.await;
+				match output {
+					Ok(JobStepOutput {
+						maybe_more_steps,
+						maybe_more_metadata,
+						errors: JobRunErrors(new_errors),
+					}) => {
+						let mut events = vec![JobReportUpdate::CompletedTaskCount(step_number + 1)];
 
-												debug!(
-													"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
-													 after running for {:?}",
-													when.elapsed(),
-													job_time.elapsed(),
-												);
-												debug!(
-													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
-													paused_time.elapsed(),
-												);
+						if let Some(more_steps) = maybe_more_steps {
+							events.push(JobReportUpdate::TaskCount(steps_len + more_steps.len()));
 
-												// Taking back the last step, so it can run to completion later
-												steps.push_front(
-													Arc::try_unwrap(step_arc)
-														.expect("step already ran, no more refs"),
-												);
-
-												return Err(
-													JobError::Paused(
-														rmp_serde::to_vec_named(
-															&JobState::<SJob> {
-																init: Arc::try_unwrap(stateful_job)
-																	.expect("handle abort already ran, no more refs"),
-																data: Some(
-																	Arc::try_unwrap(working_data_arc)
-																		.expect("handle abort already ran, no more refs"),
-																),
-																steps,
-																step_number,
-																run_metadata: Arc::try_unwrap(run_metadata_arc)
-																	.expect("handle abort already ran, no more refs"),
-															}
-														)?,
-														signal_tx
-													)
-												);
-											}
-											WorkerCommand::Cancel(when, signal_tx) => {
-												job_step_handle.abort();
-												let _ = job_step_handle.await;
-												debug!(
-													"Canceling Job <id='{job_id}', name='{job_name}'> \
-													 took {:?} after running for {:?}",
-													when.elapsed(),
-													job_time.elapsed(),
-												);
-												debug!(
-													"Total paused time {:?} Job <id='{job_id}', name='{job_name}'>",
-													paused_time.elapsed(),
-												);
-												return Err(JobError::Canceled(signal_tx));
-											}
-											WorkerCommand::Pause(_) => {
-												// We continue paused lol
-											}
-										}
-									}
-								}
-								WorkerCommand::Resume(_) => {
-									// We're already running so we just ignore this command
-								}
-
-								WorkerCommand::Shutdown(when, signal_tx) => {
-									job_step_handle.abort();
-									let _ = job_step_handle.await;
-
-									debug!(
-										"Shuting down Job <id='{job_id}', name='{job_name}'> took {:?} \
-										 after running for {:?}",
-										when.elapsed(),
-										job_time.elapsed(),
-									);
-
-									// Taking back the last step, so it can run to completion later
-									steps.push_front(
-										Arc::try_unwrap(step_arc)
-											.expect("handle abort already ran, no more refs"),
-									);
-
-									return Err(
-										JobError::Paused(
-											rmp_serde::to_vec_named(
-												&JobState::<SJob> {
-													init: Arc::try_unwrap(stateful_job)
-														.expect("handle abort already ran, no more refs"),
-													data: Some(
-														Arc::try_unwrap(working_data_arc)
-															.expect("handle abort already ran, no more refs"),
-													),
-													steps,
-													step_number,
-													run_metadata: Arc::try_unwrap(run_metadata_arc)
-														.expect("step already ran, no more refs"),
-												}
-											)?,
-											signal_tx
-										)
-									);
-								}
-								WorkerCommand::Cancel(when, signal_tx) => {
-									job_step_handle.abort();
-									let _ = job_step_handle.await;
-									debug!(
-										"Canceling Job <id='{job_id}', name='{job_name}'> took {:?} \
-										 after running for {:?}",
-										when.elapsed(),
-										job_time.elapsed(),
-									);
-									return Err(JobError::Canceled(signal_tx));
-								}
-							}
+							steps.extend(more_steps);
 						}
 
-						// Here we actually run the job, step by step
-						step_result = &mut job_step_handle => {
-							trace!(
-								"Step finished in {:?} Job <id='{job_id}', name='{job_name}'>",
-								step_time.elapsed(),
-							);
+						if let Some(more_metadata) = maybe_more_metadata {
+							run_metadata.update(more_metadata);
+						}
 
-							run_metadata = Arc::try_unwrap(run_metadata_arc)
-								.expect("step already ran, no more refs");
+						if !<SJob as StatefulJob>::IS_BATCHED {
+							ctx.progress(events);
+						}
 
-							match step_result? {
-								Ok(JobStepOutput {
-									maybe_more_steps,
-									maybe_more_metadata,
-									errors: JobRunErrors(new_errors)
-								}) => {
-									let mut events = vec![
-										JobReportUpdate::CompletedTaskCount(
-											step_number + 1,
-										)
-									];
+						if !new_errors.is_empty() {
+							warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
+							new_errors.iter().for_each(|err| {
+								warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
+							});
 
-									if let Some(more_steps) = maybe_more_steps {
-										events.push(JobReportUpdate::TaskCount(
-											steps_len + more_steps.len(),
-										));
-
-										steps.extend(more_steps);
-									}
-
-									if let Some(more_metadata) = maybe_more_metadata {
-										run_metadata.update(more_metadata);
-									}
-
-									if !<SJob as StatefulJob>::IS_BATCHED {
-										ctx.progress(events);
-									}
-
-									if !new_errors.is_empty() {
-										warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
-										new_errors.iter().for_each(|err| {
-											warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
-										});
-
-										errors.extend(new_errors);
-									}
-								}
-								Err(e) if matches!(e, JobError::EarlyFinish { .. }) => {
-									info!("{e}");
-									break;
-								}
-								Err(e) => return Err(e),
-							}
-							// remove the step from the queue
-							step_number += 1;
-
-							break;
+							errors.extend(new_errors);
 						}
 					}
+					Err(e @ JobError::EarlyFinish { .. }) => {
+						info!("{e}");
+						break;
+					}
+					Err(e) => return Err(e),
 				}
+				// remove the step from the queue
+				step_number += 1;
 			}
 
 			debug!(
 				"Total job run time {:?} Job <id='{job_id}', name='{job_name}'>",
-				job_time.elapsed()
+				job_init_time.elapsed()
 			);
 
 			Some(Arc::try_unwrap(working_data_arc).expect("job already ran, no more refs"))
@@ -1021,4 +765,490 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		Ok(())
 	}
+}
+
+struct InitPhaseOutput<SJob: StatefulJob> {
+	stateful_job: Arc<SJob>,
+	maybe_data: Option<SJob::Data>,
+	output: Result<JobInitOutput<SJob::RunMetadata, SJob::Step>, JobError>,
+}
+
+struct JobRunWorkTable {
+	id: Uuid,
+	name: &'static str,
+	init_time: Instant,
+	target_location: location::id::Type,
+}
+
+type InitTaskOutput<SJob> = (
+	Arc<SJob>,
+	Option<<SJob as StatefulJob>::Data>,
+	Result<
+		JobInitOutput<<SJob as StatefulJob>::RunMetadata, <SJob as StatefulJob>::Step>,
+		JobError,
+	>,
+);
+
+#[inline]
+async fn handle_init_phase<SJob: StatefulJob>(
+	JobRunWorkTable {
+		id,
+		name,
+		init_time,
+		target_location,
+	}: JobRunWorkTable,
+	worker_ctx: Arc<WorkerContext>,
+	init_task: JoinHandle<InitTaskOutput<SJob>>,
+	mut commands_rx: chan::Receiver<WorkerCommand>,
+) -> Result<InitPhaseOutput<SJob>, JobError> {
+	enum StreamMessage<SJob: StatefulJob> {
+		NewCommand(WorkerCommand),
+		InitResult(Result<InitTaskOutput<SJob>, JoinError>),
+	}
+
+	let mut status = JobStatus::Running;
+
+	let init_abort_handle = init_task.abort_handle();
+
+	let mut msg_stream = (
+		stream::once(init_task).map(StreamMessage::<SJob>::InitResult),
+		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
+	)
+		.merge();
+
+	'messages: while let Some(msg) = msg_stream.next().await {
+		match msg {
+			StreamMessage::InitResult(Err(join_error)) => {
+				error!(
+					"Job <id='{id}', name='{name}'> \
+							 failed to initialize due to an internal error: {join_error:#?}",
+				);
+				return Err(join_error.into());
+			}
+			StreamMessage::InitResult(Ok((stateful_job, maybe_data, output))) => {
+				debug!(
+					"Init phase took {:?} Job <id='{id}', name='{name}'>",
+					init_time.elapsed()
+				);
+
+				return Ok(InitPhaseOutput {
+					stateful_job,
+					maybe_data,
+					output,
+				});
+			}
+			StreamMessage::NewCommand(WorkerCommand::IdentifyYourself(tx)) => {
+				if tx
+					.send(JobIdentity {
+						id,
+						name,
+						target_location,
+						status,
+					})
+					.is_err()
+				{
+					warn!("Failed to send IdentifyYourself event reply");
+				}
+			}
+			StreamMessage::NewCommand(WorkerCommand::Pause(when)) => {
+				debug!(
+					"Pausing Job at init phase <id='{id}', name='{name}'> took {:?}",
+					when.elapsed()
+				);
+
+				// Notify the worker's work task that now we're paused
+				worker_ctx.pause();
+
+				status = JobStatus::Paused;
+
+				// In case of a Pause command, we keep waiting for the next command
+				let paused_time = Instant::now();
+				while let Some(command) = commands_rx.next().await {
+					match command {
+						WorkerCommand::IdentifyYourself(tx) => {
+							if tx
+								.send(JobIdentity {
+									id,
+									name,
+									target_location,
+									status,
+								})
+								.is_err()
+							{
+								warn!("Failed to send IdentifyYourself event reply");
+							}
+						}
+						WorkerCommand::Resume(when) => {
+							debug!(
+								"Resuming Job at init phase <id='{id}', name='{name}'> took {:?}",
+								when.elapsed()
+							);
+							debug!(
+								"Total paused time {:?} Job <id='{id}', name='{name}'>",
+								paused_time.elapsed()
+							);
+							status = JobStatus::Running;
+
+							continue 'messages;
+						}
+						// The job can also be shutdown or canceled while paused
+						WorkerCommand::Shutdown(when, signal_tx) => {
+							init_abort_handle.abort();
+
+							debug!(
+								"Shuting down Job at init phase <id='{id}', name='{name}'> \
+									took {:?} after running for {:?}",
+								when.elapsed(),
+								init_time.elapsed(),
+							);
+							debug!("Total paused time {:?}", paused_time.elapsed());
+
+							// Shutting down at init phase will abort the job
+							return Err(JobError::Canceled(signal_tx));
+						}
+						WorkerCommand::Cancel(when, signal_tx) => {
+							init_abort_handle.abort();
+							debug!(
+								"Canceling Job at init phase <id='{id}', name='{name}'> \
+									took {:?} after running for {:?}",
+								when.elapsed(),
+								init_time.elapsed(),
+							);
+							debug!(
+								"Total paused time {:?} Job <id='{id}', name='{name}'>",
+								paused_time.elapsed()
+							);
+							return Err(JobError::Canceled(signal_tx));
+						}
+						WorkerCommand::Pause(_) => {
+							// We continue paused lol
+						}
+						WorkerCommand::Timeout(elapsed, tx) => {
+							error!(
+								"Job <id='{id}', name='{name}'> \
+								timed out at init phase after {elapsed:?} without updates"
+							);
+							tx.send(()).ok();
+							return Err(JobError::Timeout(elapsed));
+						}
+					}
+				}
+
+				if commands_rx.is_closed() {
+					error!(
+						"Job <id='{id}', name='{name}'> \
+						closed the command channel while paused"
+					);
+					return Err(JobError::Critical(
+						"worker command channel closed while job was paused",
+					));
+				}
+			}
+			StreamMessage::NewCommand(WorkerCommand::Resume(_)) => {
+				// We're already running so we just ignore this command
+			}
+			StreamMessage::NewCommand(WorkerCommand::Shutdown(when, signal_tx)) => {
+				init_abort_handle.abort();
+
+				debug!(
+					"Shuting down at init phase Job <id='{id}', name='{name}'> took {:?} \
+					after running for {:?}",
+					when.elapsed(),
+					init_time.elapsed(),
+				);
+
+				// Shutting down at init phase will abort the job
+				return Err(JobError::Canceled(signal_tx));
+			}
+			StreamMessage::NewCommand(WorkerCommand::Cancel(when, signal_tx)) => {
+				init_abort_handle.abort();
+
+				debug!(
+					"Canceling at init phase Job <id='{id}', name='{name}'> took {:?} \
+					after running for {:?}",
+					when.elapsed(),
+					init_time.elapsed()
+				);
+
+				return Err(JobError::Canceled(signal_tx));
+			}
+			StreamMessage::NewCommand(WorkerCommand::Timeout(elapsed, tx)) => {
+				error!(
+					"Job <id='{id}', name='{name}'> \
+					timed out at init phase after {elapsed:?} without updates"
+				);
+				tx.send(()).ok();
+				return Err(JobError::Timeout(elapsed));
+			}
+		}
+	}
+
+	Err(JobError::Critical("unexpect job init end without result"))
+}
+
+type StepTaskOutput<SJob> = Result<
+	JobStepOutput<<SJob as StatefulJob>::Step, <SJob as StatefulJob>::RunMetadata>,
+	JobError,
+>;
+
+struct JobStepDataWorkTable<SJob: StatefulJob> {
+	step_number: usize,
+	steps: VecDeque<SJob::Step>,
+	step: Arc<SJob::Step>,
+	step_task: JoinHandle<StepTaskOutput<SJob>>,
+}
+
+struct JobStepsPhaseOutput<SJob: StatefulJob> {
+	steps: VecDeque<SJob::Step>,
+	output: StepTaskOutput<SJob>,
+	step_arcs: StepArcs<SJob>,
+}
+
+type StepArcs<SJob> = (
+	Arc<WorkerContext>,
+	Arc<<SJob as StatefulJob>::RunMetadata>,
+	Arc<<SJob as StatefulJob>::Data>,
+	Arc<SJob>,
+);
+
+#[inline]
+async fn handle_single_step<SJob: StatefulJob>(
+	JobRunWorkTable {
+		id,
+		name,
+		init_time,
+		target_location,
+	}: JobRunWorkTable,
+	job_init_time: &Instant,
+	(worker_ctx, run_metadata, working_data, stateful_job): StepArcs<SJob>,
+	JobStepDataWorkTable {
+		step_number,
+		mut steps,
+		step,
+		mut step_task,
+	}: JobStepDataWorkTable<SJob>,
+	mut commands_rx: chan::Receiver<WorkerCommand>,
+) -> Result<JobStepsPhaseOutput<SJob>, JobError> {
+	enum StreamMessage<SJob: StatefulJob> {
+		NewCommand(WorkerCommand),
+		StepResult(Result<StepTaskOutput<SJob>, JoinError>),
+	}
+
+	let mut status = JobStatus::Running;
+
+	let mut msg_stream = (
+		stream::once(&mut step_task).map(StreamMessage::<SJob>::StepResult),
+		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
+	)
+		.merge();
+
+	'messages: while let Some(msg) = msg_stream.next().await {
+		match msg {
+			StreamMessage::StepResult(Err(join_error)) => {
+				error!(
+					"Job <id='{id}', name='{name}'> \
+					failed to run step #{step_number} due to an internal error: {join_error:#?}",
+				);
+				return Err(join_error.into());
+			}
+			StreamMessage::StepResult(Ok(output)) => {
+				trace!(
+					"Step finished in {:?} Job <id='{id}', name='{name}'>",
+					init_time.elapsed(),
+				);
+
+				return Ok(JobStepsPhaseOutput {
+					steps,
+					output,
+					step_arcs: (worker_ctx, run_metadata, working_data, stateful_job),
+				});
+			}
+			StreamMessage::NewCommand(WorkerCommand::IdentifyYourself(tx)) => {
+				if tx
+					.send(JobIdentity {
+						id,
+						name,
+						target_location,
+						status,
+					})
+					.is_err()
+				{
+					warn!("Failed to send IdentifyYourself event reply");
+				}
+			}
+			StreamMessage::NewCommand(WorkerCommand::Pause(when)) => {
+				debug!(
+					"Pausing Job <id='{id}', name='{name}'> took {:?}",
+					when.elapsed()
+				);
+
+				worker_ctx.pause();
+
+				status = JobStatus::Paused;
+
+				// In case of a Pause command, we keep waiting for the next command
+				let paused_time = Instant::now();
+				while let Some(command) = commands_rx.next().await {
+					match command {
+						WorkerCommand::IdentifyYourself(tx) => {
+							if tx
+								.send(JobIdentity {
+									id,
+									name,
+									target_location,
+									status,
+								})
+								.is_err()
+							{
+								warn!("Failed to send IdentifyYourself event reply");
+							}
+						}
+						WorkerCommand::Resume(when) => {
+							debug!(
+								"Resuming Job <id='{id}', name='{name}'> took {:?}",
+								when.elapsed(),
+							);
+							debug!(
+								"Total paused time {:?} Job <id='{id}', name='{name}'>",
+								paused_time.elapsed(),
+							);
+							status = JobStatus::Running;
+
+							continue 'messages;
+						}
+						// The job can also be shutdown or canceled while paused
+						WorkerCommand::Shutdown(when, signal_tx) => {
+							step_task.abort();
+							let _ = step_task.await;
+
+							debug!(
+								"Shuting down Job <id='{id}', name='{name}'> took {:?} \
+								after running for {:?}",
+								when.elapsed(),
+								job_init_time.elapsed(),
+							);
+							debug!(
+								"Total paused time {:?} Job <id='{id}', name='{name}'>",
+								paused_time.elapsed(),
+							);
+
+							// Taking back the last step, so it can run to completion later
+							steps.push_front(
+								Arc::try_unwrap(step).expect("step already ran, no more refs"),
+							);
+
+							return Err(JobError::Paused(
+								rmp_serde::to_vec_named(&JobState::<SJob> {
+									init: Arc::try_unwrap(stateful_job)
+										.expect("handle abort already ran, no more refs"),
+									data: Some(
+										Arc::try_unwrap(working_data)
+											.expect("handle abort already ran, no more refs"),
+									),
+									steps,
+									step_number,
+									run_metadata: Arc::try_unwrap(run_metadata)
+										.expect("handle abort already ran, no more refs"),
+								})?,
+								signal_tx,
+							));
+						}
+						WorkerCommand::Cancel(when, signal_tx) => {
+							step_task.abort();
+							let _ = step_task.await;
+							debug!(
+								"Canceling Job <id='{id}', name='{name}'> \
+								took {:?} after running for {:?}",
+								when.elapsed(),
+								job_init_time.elapsed(),
+							);
+							debug!(
+								"Total paused time {:?} Job <id='{id}', name='{name}'>",
+								paused_time.elapsed(),
+							);
+							return Err(JobError::Canceled(signal_tx));
+						}
+						WorkerCommand::Pause(_) => {
+							// We continue paused lol
+						}
+
+						WorkerCommand::Timeout(elapsed, tx) => {
+							error!(
+								"Job <id='{id}', name='{name}'> \
+								timed out at step #{step_number} after {elapsed:?} without updates"
+							);
+							tx.send(()).ok();
+							return Err(JobError::Timeout(elapsed));
+						}
+					}
+				}
+
+				if commands_rx.is_closed() {
+					error!(
+						"Job <id='{id}', name='{name}'> \
+						closed the command channel while paused"
+					);
+					return Err(JobError::Critical(
+						"worker command channel closed while job was paused",
+					));
+				}
+			}
+			StreamMessage::NewCommand(WorkerCommand::Resume(_)) => {
+				// We're already running so we just ignore this command
+			}
+			StreamMessage::NewCommand(WorkerCommand::Shutdown(when, signal_tx)) => {
+				step_task.abort();
+				let _ = step_task.await;
+
+				debug!(
+					"Shuting down Job <id='{id}', name='{name}'> took {:?} \
+					after running for {:?}",
+					when.elapsed(),
+					job_init_time.elapsed(),
+				);
+
+				// Taking back the last step, so it can run to completion later
+				steps.push_front(
+					Arc::try_unwrap(step).expect("handle abort already ran, no more refs"),
+				);
+
+				return Err(JobError::Paused(
+					rmp_serde::to_vec_named(&JobState::<SJob> {
+						init: Arc::try_unwrap(stateful_job)
+							.expect("handle abort already ran, no more refs"),
+						data: Some(
+							Arc::try_unwrap(working_data)
+								.expect("handle abort already ran, no more refs"),
+						),
+						steps,
+						step_number,
+						run_metadata: Arc::try_unwrap(run_metadata)
+							.expect("step already ran, no more refs"),
+					})?,
+					signal_tx,
+				));
+			}
+			StreamMessage::NewCommand(WorkerCommand::Cancel(when, signal_tx)) => {
+				step_task.abort();
+				let _ = step_task.await;
+				debug!(
+					"Canceling Job <id='{id}', name='{name}'> took {:?} \
+										 after running for {:?}",
+					when.elapsed(),
+					job_init_time.elapsed(),
+				);
+				return Err(JobError::Canceled(signal_tx));
+			}
+			StreamMessage::NewCommand(WorkerCommand::Timeout(elapsed, tx)) => {
+				error!(
+					"Job <id='{id}', name='{name}'> \
+					timed out at step #{step_number} after {elapsed:?} without updates"
+				);
+				tx.send(()).ok();
+				return Err(JobError::Timeout(elapsed));
+			}
+		}
+	}
+
+	Err(JobError::Critical("unexpect job step end without result"))
 }

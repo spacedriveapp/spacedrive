@@ -114,6 +114,7 @@ pub async fn shallow(
 	}
 
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.objects");
 
 	Ok(())
 }

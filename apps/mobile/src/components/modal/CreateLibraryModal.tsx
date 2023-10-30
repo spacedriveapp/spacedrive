@@ -25,10 +25,12 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				setLibName('');
 
 				// We do this instead of invalidating the query because it triggers a full app re-render??
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries || []),
-					lib
-				]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => {
+					// The invalidation system beat us to it
+					if (libraries.find((l: any) => l.uuid === lib.uuid)) return libraries;
+
+					return [...(libraries || []), lib];
+				});
 
 				// Switch to the new library
 				currentLibraryStore.id = lib.uuid;
@@ -65,7 +67,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				/>
 				<Button
 					variant="accent"
-					onPress={() => createLibrary({ name: libName })}
+					onPress={() => createLibrary({ name: libName, default_locations: null })}
 					style={tw`mt-4`}
 					disabled={libName.length === 0 || createLibLoading}
 				>

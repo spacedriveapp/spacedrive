@@ -1,7 +1,10 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	invalidate_query,
-	location::indexer,
+	location::{
+		indexer,
+		metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
+	},
 	node::Platform,
 	object::tag,
 	p2p::{self, IdentityOrRemoteIdentity},
@@ -25,10 +28,11 @@ use std::{
 };
 
 use chrono::Utc;
+use futures_concurrency::future::{Join, TryJoin};
 use sd_core_sync::SyncMessage;
 use sd_p2p::spacetunnel::Identity;
 use sd_prisma::prisma::instance;
-use tokio::{fs, io, sync::RwLock, try_join};
+use tokio::{fs, io, sync::RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -276,10 +280,41 @@ impl Libraries {
 			.emit(LibraryManagerEvent::Delete(library.clone()))
 			.await;
 
+		if let Ok(location_paths) = library
+			.db
+			.location()
+			.find_many(vec![])
+			.select(location::select!({ path }))
+			.exec()
+			.await
+			.map(|locations| locations.into_iter().filter_map(|location| location.path))
+			.map_err(|e| error!("Failed to fetch locations for library deletion: {e:#?}"))
+		{
+			location_paths
+				.map(|location_path| async move {
+					if let Some(mut sd_metadata) =
+						SpacedriveLocationMetadataFile::try_load(location_path).await?
+					{
+						sd_metadata.remove_library(*id).await?;
+					}
+
+					Ok::<_, LocationMetadataError>(())
+				})
+				.collect::<Vec<_>>()
+				.join()
+				.await
+				.into_iter()
+				.for_each(|res| {
+					if let Err(e) = res {
+						error!("Failed to remove library from location metadata: {e:#?}");
+					}
+				});
+		}
+
 		let db_path = self.libraries_dir.join(format!("{}.db", library.id));
 		let sd_lib_path = self.libraries_dir.join(format!("{}.sdlibrary", library.id));
 
-		try_join!(
+		(
 			async {
 				fs::remove_file(&db_path)
 					.await
@@ -290,7 +325,9 @@ impl Libraries {
 					.await
 					.map_err(|e| LibraryManagerError::FileIO(FileIOError::from((sd_lib_path, e))))
 			},
-		)?;
+		)
+			.try_join()
+			.await?;
 
 		// We only remove here after files deletion
 		let library = libraries_write_guard
@@ -420,7 +457,7 @@ impl Libraries {
 							InvalidateOperationEvent::all(),
 						)),
 						SyncMessage::Created => {
-							p2p::sync::originator(id, &library.sync, &node.nlm, &node.p2p).await
+							p2p::sync::originator(id, &library.sync, &node.p2p).await
 						}
 					}
 				}

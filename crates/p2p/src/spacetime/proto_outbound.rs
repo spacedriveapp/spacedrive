@@ -12,22 +12,28 @@ use tokio::sync::oneshot;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::error;
 
-use super::{SpaceTimeProtocolName, UnicastStream, BROADCAST_DISCRIMINATOR};
+use crate::spacetunnel::Identity;
+
+use super::{SpaceTimeProtocolName, UnicastStreamBuilder, BROADCAST_DISCRIMINATOR};
 
 #[derive(Debug)]
 pub enum OutboundRequest {
 	Broadcast(Vec<u8>),
-	Unicast(oneshot::Sender<UnicastStream>),
+	Unicast(oneshot::Sender<UnicastStreamBuilder>),
 }
 
-pub struct OutboundProtocol(pub(crate) String, pub(crate) OutboundRequest);
+pub struct OutboundProtocol {
+	pub(crate) application_name: String,
+	pub(crate) req: OutboundRequest,
+	pub(crate) identity: Identity,
+}
 
 impl UpgradeInfo for OutboundProtocol {
 	type Info = SpaceTimeProtocolName;
 	type InfoIter = [Self::Info; 1];
 
 	fn protocol_info(&self) -> Self::InfoIter {
-		[SpaceTimeProtocolName(self.0.clone())]
+		[SpaceTimeProtocolName(self.application_name.clone())]
 	}
 }
 
@@ -37,7 +43,7 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 	type Future = Ready<Result<(), ()>>;
 
 	fn upgrade_outbound(self, mut io: Stream, _protocol: Self::Info) -> Self::Future {
-		match self.1 {
+		match self.req {
 			OutboundRequest::Broadcast(data) => {
 				tokio::spawn(async move {
 					io.write_all(&[BROADCAST_DISCRIMINATOR]).await.unwrap();
@@ -62,7 +68,12 @@ impl OutboundUpgrade<Stream> for OutboundProtocol {
 			}
 			OutboundRequest::Unicast(sender) => {
 				// We write the discriminator to the stream in the `Manager::stream` method before returning the stream to the user to make async a tad nicer.
-				sender.send(UnicastStream::new(io.compat())).unwrap();
+				sender
+					.send(UnicastStreamBuilder::new(
+						self.identity.clone(),
+						io.compat(),
+					))
+					.unwrap();
 			}
 		}
 

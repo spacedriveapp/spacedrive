@@ -1,5 +1,7 @@
+mod manager;
 mod mdns;
-mod metadata_manager;
+mod service;
 
-pub use mdns::*;
-pub use metadata_manager::*;
+pub(crate) use manager::*;
+pub(crate) use mdns::*;
+pub use service::*;

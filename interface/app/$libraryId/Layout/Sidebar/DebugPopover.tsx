@@ -1,4 +1,4 @@
-import { SiCheckmarx } from '@icons-pack/react-simple-icons';
+import { CheckSquare } from '@phosphor-icons/react';
 import {
 	backendFeatures,
 	features,
@@ -111,6 +111,21 @@ export default () => {
 						</div>
 					</Setting>
 				)}
+				{platform.reloadWebview && (
+					<Setting mini title="Reload webview" description="Reload the window's webview">
+						<div className="mt-2">
+							<Button
+								size="sm"
+								variant="gray"
+								onClick={() => {
+									platform.reloadWebview && platform.reloadWebview();
+								}}
+							>
+								Reload
+							</Button>
+						</div>
+					</Setting>
+				)}
 				<Setting
 					mini
 					title="React Query Devtools"
@@ -187,7 +202,7 @@ function FeatureFlagSelector() {
 					iconProps={{ weight: 'bold', size: 16 }}
 					onClick={() => toggleFeatureFlag(feat)}
 					className="font-medium text-white"
-					icon={isEnabled(feat) ? SiCheckmarx : undefined}
+					icon={isEnabled(feat) ? CheckSquare : undefined}
 				/>
 			))}
 		</DropdownMenu.Root>

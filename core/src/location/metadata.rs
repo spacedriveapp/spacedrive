@@ -1,3 +1,5 @@
+use crate::library::LibraryId;
+
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
@@ -10,10 +12,9 @@ use tokio::{fs, io};
 use tracing::error;
 use uuid::Uuid;
 
-static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
+use super::LocationPubId;
 
-pub(super) type LibraryId = Uuid;
-pub(super) type LocationPubId = Uuid;
+static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 struct LocationMetadata {
@@ -31,13 +32,13 @@ struct SpacedriveLocationMetadata {
 	updated_at: DateTime<Utc>,
 }
 
-pub(super) struct SpacedriveLocationMetadataFile {
+pub struct SpacedriveLocationMetadataFile {
 	path: PathBuf,
 	metadata: SpacedriveLocationMetadata,
 }
 
 impl SpacedriveLocationMetadataFile {
-	pub(super) async fn try_load(
+	pub async fn try_load(
 		location_path: impl AsRef<Path>,
 	) -> Result<Option<Self>, LocationMetadataError> {
 		let metadata_file_name = location_path
@@ -83,7 +84,7 @@ impl SpacedriveLocationMetadataFile {
 		}
 	}
 
-	pub(super) async fn create_and_save(
+	pub async fn create_and_save(
 		library_id: LibraryId,
 		location_pub_id: Uuid,
 		location_path: impl AsRef<Path>,
@@ -114,7 +115,7 @@ impl SpacedriveLocationMetadataFile {
 		.await
 	}
 
-	pub(super) async fn relink(
+	pub async fn relink(
 		&mut self,
 		library_id: LibraryId,
 		location_path: impl AsRef<Path>,
@@ -139,8 +140,7 @@ impl SpacedriveLocationMetadataFile {
 		self.write_metadata().await
 	}
 
-	#[allow(dead_code)]
-	pub(super) async fn update(
+	pub async fn update(
 		&mut self,
 		library_id: LibraryId,
 		location_name: String,
@@ -157,7 +157,7 @@ impl SpacedriveLocationMetadataFile {
 		self.write_metadata().await
 	}
 
-	pub(super) async fn add_library(
+	pub async fn add_library(
 		&mut self,
 		library_id: LibraryId,
 		location_pub_id: Uuid,
@@ -179,22 +179,22 @@ impl SpacedriveLocationMetadataFile {
 		self.write_metadata().await
 	}
 
-	pub(super) fn has_library(&self, library_id: LibraryId) -> bool {
+	pub fn has_library(&self, library_id: LibraryId) -> bool {
 		self.metadata.libraries.contains_key(&library_id)
 	}
 
-	pub(super) fn location_path(&self, library_id: LibraryId) -> Option<&Path> {
+	pub fn location_path(&self, library_id: LibraryId) -> Option<&Path> {
 		self.metadata
 			.libraries
 			.get(&library_id)
 			.map(|l| l.path.as_path())
 	}
 
-	pub(super) fn is_empty(&self) -> bool {
+	pub fn is_empty(&self) -> bool {
 		self.metadata.libraries.is_empty()
 	}
 
-	pub(super) async fn remove_library(
+	pub async fn remove_library(
 		&mut self,
 		library_id: LibraryId,
 	) -> Result<(), LocationMetadataError> {
@@ -214,7 +214,7 @@ impl SpacedriveLocationMetadataFile {
 		}
 	}
 
-	pub(super) async fn clean_stale_libraries(
+	pub async fn clean_stale_libraries(
 		&mut self,
 		existing_libraries_ids: &HashSet<LibraryId>,
 	) -> Result<(), LocationMetadataError> {
@@ -238,10 +238,7 @@ impl SpacedriveLocationMetadataFile {
 		}
 	}
 
-	pub(super) fn location_pub_id(
-		&self,
-		library_id: LibraryId,
-	) -> Result<Uuid, LocationMetadataError> {
+	pub fn location_pub_id(&self, library_id: LibraryId) -> Result<Uuid, LocationMetadataError> {
 		self.metadata
 			.libraries
 			.get(&library_id)

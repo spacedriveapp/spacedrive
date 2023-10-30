@@ -47,7 +47,6 @@ impl BackendFeature {
 	}
 }
 
-mod api;
 mod auth;
 mod backups;
 mod categories;
@@ -65,6 +64,7 @@ mod sync;
 mod tags;
 pub mod utils;
 pub mod volumes;
+mod web_api;
 
 // A version of [NodeConfig] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -73,12 +73,9 @@ pub struct SanitisedNodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
-	pub p2p_port: Option<u32>,
+	pub p2p_enabled: bool,
+	pub p2p_port: Option<u16>,
 	pub features: Vec<BackendFeature>,
-	// TODO: These will probs be replaced by your Spacedrive account in the near future.
-	pub p2p_email: Option<String>,
-	pub p2p_img_url: Option<String>,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -86,10 +83,9 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 		Self {
 			id: value.id,
 			name: value.name,
-			p2p_port: value.p2p_port,
+			p2p_enabled: value.p2p.enabled,
+			p2p_port: value.p2p.port,
 			features: value.features,
-			p2p_email: value.p2p_email,
-			p2p_img_url: value.p2p_img_url,
 		}
 	}
 }
@@ -167,7 +163,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(())
 			})
 		})
-		.merge("api.", api::mount())
+		.merge("api.", web_api::mount())
 		.merge("auth.", auth::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())

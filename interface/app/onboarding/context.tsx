@@ -3,12 +3,10 @@ import { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
 import {
 	currentLibraryCache,
-	DistanceFormat,
 	getOnboardingStore,
 	getUnitFormatStore,
 	resetOnboardingStore,
 	telemetryStore,
-	TemperatureFormat,
 	useBridgeMutation,
 	useCachedLibraries,
 	useMultiZodForm,
@@ -16,6 +14,7 @@ import {
 	usePlausibleEvent
 } from '@sd/client';
 import { RadioGroupField, z } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -54,6 +53,16 @@ const schemas = {
 	'new-library': z.object({
 		name: z.string().min(1, 'Name is required').regex(/[\S]/g).trim()
 	}),
+	'locations': z.object({
+		locations: z.object({
+			desktop: z.coerce.boolean(),
+			documents: z.coerce.boolean(),
+			downloads: z.coerce.boolean(),
+			pictures: z.coerce.boolean(),
+			music: z.coerce.boolean(),
+			videos: z.coerce.boolean()
+		})
+	}),
 	'privacy': z.object({
 		shareTelemetry: shareTelemetry.schema
 	})
@@ -61,16 +70,18 @@ const schemas = {
 
 const useFormState = () => {
 	const obStore = useOnboardingStore();
+	const platform = usePlatform();
 
 	const { handleSubmit, ...forms } = useMultiZodForm({
 		schemas,
 		defaultValues: {
 			'new-library': obStore.data?.['new-library'] ?? undefined,
+			'locations': obStore.data?.locations ?? { locations: {} },
 			'privacy': obStore.data?.privacy ?? {
 				shareTelemetry: 'share-telemetry'
 			}
 		},
-		onData: (data) => (getOnboardingStore().data = data)
+		onData: (data) => (getOnboardingStore().data = { ...obStore.data, ...data })
 	});
 
 	const navigate = useNavigate();
@@ -97,15 +108,20 @@ const useFormState = () => {
 				// show creation screen for a bit for smoothness
 				const [library] = await Promise.all([
 					createLibrary.mutateAsync({
-						name: data['new-library'].name
+						name: data['new-library'].name,
+						default_locations: data.locations.locations
 					}),
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries ?? []),
-					library
-				]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => {
+					// The invalidation system beat us to it
+					if (libraries.find((l: any) => l.uuid === library.uuid)) return libraries;
+
+					return [...(libraries || []), library];
+				});
+
+				platform.refreshMenuBar && platform.refreshMenuBar();
 
 				if (telemetryStore.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });

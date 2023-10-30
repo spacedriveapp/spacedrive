@@ -91,11 +91,12 @@ pub async fn shallow(
 	let to_remove_count = to_remove.len();
 
 	node.thumbnailer
-		.remove_cas_ids(
+		.remove_indexed_cas_ids(
 			to_remove
 				.iter()
 				.filter_map(|file_path| file_path.cas_id.clone())
 				.collect::<Vec<_>>(),
+			library.id,
 		)
 		.await;
 
@@ -186,6 +187,7 @@ pub async fn shallow(
 			.map_err(IndexerError::from)?;
 
 		invalidate_query!(library, "search.paths");
+		invalidate_query!(library, "search.objects");
 	}
 
 	library.orphan_remover.invoke().await;

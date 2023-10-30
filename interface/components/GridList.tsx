@@ -53,7 +53,7 @@ export const useGridList = <IdT extends ItemId = number, DataT extends ItemData 
 }: UseGridListProps<IdT, DataT>) => {
 	const { width } = useResizeObserver({ ref });
 
-	const count = props.totalCount ?? props.count;
+	const count = !props.totalCount ? props.count : Math.max(props.count, props.totalCount);
 
 	const gridPadding = useExplorerViewPadding(padding);
 
@@ -202,11 +202,10 @@ export const GridList = ({ grid, children, scrollRef }: GridListProps) => {
 	// Force recalculate range
 	// https://github.com/TanStack/virtual/issues/485
 	useMemo(() => {
-		// @ts-ignore
 		rowVirtualizer.calculateRange();
-		// @ts-ignore
 		columnVirtualizer.calculateRange();
 
+		return null;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [rowVirtualizer, columnVirtualizer, grid.columnCount, grid.rowCount]);
 
