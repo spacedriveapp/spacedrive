@@ -42,7 +42,7 @@ function IncorrectP2PPairingPane() {
 			console.log(data);
 		}
 	});
-	const nlmState = useBridgeQuery(['p2p.nlmState'], {
+	const nlmState = useBridgeQuery(['p2p.state'], {
 		refetchInterval: 1000
 	});
 	const libraries = useBridgeQuery(['library.list']);

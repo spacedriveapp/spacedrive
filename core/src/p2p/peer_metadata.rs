@@ -1,10 +1,8 @@
 use std::{collections::HashMap, env, str::FromStr};
 
-use itertools::Itertools;
-use sd_p2p::{spacetunnel::RemoteIdentity, Metadata, PeerId};
+use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::warn;
 
 use crate::node::Platform;
 
@@ -13,11 +11,6 @@ pub struct PeerMetadata {
 	pub(super) name: String,
 	pub(super) operating_system: Option<OperatingSystem>,
 	pub(super) version: Option<String>,
-	pub(super) email: Option<String>,
-	pub(super) img_url: Option<String>,
-	// TODO: Max vec length to prevent it being used to spam??
-	#[serde(skip)]
-	pub(super) instances: Vec<RemoteIdentity>,
 }
 
 impl Metadata for PeerMetadata {
@@ -30,32 +23,10 @@ impl Metadata for PeerMetadata {
 		if let Some(version) = self.version {
 			map.insert("version".to_owned(), version);
 		}
-		if let Some(email) = self.email {
-			map.insert("email".to_owned(), email);
-		}
-		if let Some(img_url) = self.img_url {
-			map.insert("img_url".to_owned(), img_url);
-		}
-
-		// This is not pretty but a DNS record has a max of 255 characters so we use multiple records. Be aware the MDNS library adds `i_{i}=` to the start so it counts towards the 255 length.
-		self.instances
-			.into_iter()
-			.map(|i| hex::encode(i.to_bytes()))
-			.collect::<Vec<_>>()
-			.join(",")
-			.chars()
-			.chunks(249 /* 3 (`i_=`) + 3 (`100`) */)
-			.into_iter()
-			.map(|c| c.collect::<String>())
-			.enumerate()
-			.for_each(|(i, s)| {
-				map.insert(format!("i_{}", i), s);
-			});
-
 		map
 	}
 
-	fn from_hashmap(peer_id: &PeerId, data: &HashMap<String, String>) -> Result<Self, String>
+	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
 	where
 		Self: Sized,
 	{
@@ -72,42 +43,6 @@ impl Metadata for PeerMetadata {
 				.map(|os| os.parse().map_err(|_| "Unable to parse 'OperationSystem'!"))
 				.transpose()?,
 			version: data.get("version").map(|v| v.to_owned()),
-			email: data.get("email").map(|v| v.to_owned()),
-			img_url: data.get("img_url").map(|v| v.to_owned()),
-			instances: {
-				let mut i = 0;
-				let mut instances = String::new();
-				while let Some(s) = data.get(&format!("i_{}", i)) {
-					instances.push_str(s);
-					i += 1;
-				}
-
-				instances
-					.split(',')
-					.filter_map(|s| {
-						// "".split(",").collect::<Vec<_>>() == [""]
-						if s.is_empty() {
-							return None;
-						}
-
-						RemoteIdentity::from_bytes(
-							&hex::decode(s)
-								.map_err(|e| {
-									warn!(
-										"Unable to parse instance from peer '{peer_id}'s metadata!"
-									);
-									e
-								})
-								.ok()?,
-						)
-						.map_err(|e| {
-							warn!("Unable to parse instance from peer '{peer_id}'s metadata!");
-							e
-						})
-						.ok()
-					})
-					.collect::<Vec<_>>()
-			},
 		})
 	}
 }
