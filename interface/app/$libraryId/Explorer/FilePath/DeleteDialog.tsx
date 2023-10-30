@@ -1,5 +1,6 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
+import { Icon } from '~/components';
 
 interface Props extends UseDialogProps {
 	locationId: number;
@@ -58,8 +59,7 @@ export default (props: Props) => {
 
 				props.rescan?.();
 			})}
-			icon={icon}
-			iconTheme="light"
+			icon={<Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
 			title={'Delete ' + prefix + ' ' + type}
 			description={description}

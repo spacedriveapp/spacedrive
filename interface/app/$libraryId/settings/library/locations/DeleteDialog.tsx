@@ -1,5 +1,6 @@
 import { useLibraryMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
+import { Icon } from '~/components';
 
 interface Props extends UseDialogProps {
 	onSuccess: () => void;
@@ -24,7 +25,7 @@ export default (props: Props) => {
 			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
 			dialog={useDialog(props)}
 			title="Delete Location"
-			icon="DeleteLocation"
+			icon={<Icon name="DeleteLocation" size={28} />}
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 			ctaDanger
 			ctaLabel="Delete"

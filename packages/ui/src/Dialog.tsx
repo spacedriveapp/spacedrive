@@ -10,7 +10,6 @@ import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
-import { Icon } from './Icon';
 
 export function createDialogState(open = false) {
 	return proxy({
@@ -132,8 +131,7 @@ export interface DialogProps<S extends FieldValues>
 	invertButtonFocus?: boolean; //this reverses the focus order of submit/cancel buttons
 	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 	formClassName?: string;
-	icon?: keyof typeof iconNames;
-	iconTheme?: 'light' | 'dark';
+	icon?: ReactNode;
 }
 
 export function Dialog<S extends FieldValues>({
@@ -238,13 +236,7 @@ export function Dialog<S extends FieldValues>({
 							>
 								<div className="p-5">
 									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
-										{props.icon && (
-											<Icon
-												theme={props.iconTheme}
-												name={props.icon}
-												size={28}
-											/>
-										)}
+										{props.icon && props.icon}
 										{props.title}
 									</RDialog.Title>
 
