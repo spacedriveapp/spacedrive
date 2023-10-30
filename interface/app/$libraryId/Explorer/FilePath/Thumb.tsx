@@ -351,7 +351,8 @@ const Thumbnail = memo(
 		...props
 	}: ThumbnailProps) => {
 		const ref = useRef<HTMLImageElement>(null);
-
+		const [zoomed, setZoomed] = useState(false);
+		const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 		const size = useSize(ref);
 
 		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
@@ -364,8 +365,21 @@ const Thumbnail = memo(
 					{...(crossOrigin ? { crossOrigin } : {})}
 					ref={ref}
 					draggable={false}
-					style={{ ...(blackBars ? blackBarsStyle : {}) }}
-					className={clsx(blackBars && size.width === 0 && 'invisible', className)}
+					onClick={() => setZoomed(!zoomed)}
+					onMouseMove={(e) => setMousePos({ x: e.pageX - ref.current!.offsetWidth, y: e.pageY - ref.current!.offsetHeight})}
+					style={{
+						...(blackBars ? blackBarsStyle : {}),
+						...(zoomed && !crossOrigin
+							? {
+									transform: `translate(${-(mousePos.x + size.width / 2)}px, ${-(mousePos.y  + size.height / 2) }px) scale(1.8)`
+							  }
+							: {})
+					}}
+					className={clsx(
+						blackBars && size.width === 0 && 'invisible',
+						className,
+						!crossOrigin && (zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
+					)}
 					{...props}
 				/>
 
