@@ -1,17 +1,15 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
-import { useIsDark } from '~/hooks';
+import { Icon, IconName } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 import SidebarLink from './Link';
 import Section from './Section';
 import SeeMore from './SeeMore';
 
-const SidebarIcon = tw.img`mr-1 h-5 w-5`;
 const Name = tw.span`truncate`;
 
 const EjectButton = ({ className }: { className?: string }) => (
@@ -20,8 +18,11 @@ const EjectButton = ({ className }: { className?: string }) => (
 	</Button>
 );
 
+const SidebarIcon = ({ name }: { name: IconName }) => {
+	return <Icon name={name} size={20} className="mr-1" />;
+};
+
 export const EphemeralSection = () => {
-	const isDark = useIsDark();
 	const [home, setHome] = useState<string | null>(null);
 	const platform = usePlatform();
 	platform.userHomeDir?.().then(setHome);
@@ -89,7 +90,7 @@ export const EphemeralSection = () => {
 									to={`network/34`}
 									key={index}
 								>
-									<SidebarIcon src={getIcon(iconNames.Globe, isDark)} />
+									<SidebarIcon name="Globe" />
 									<Name>Network</Name>
 								</SidebarLink>
 							);
@@ -102,7 +103,7 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 									key={index}
 								>
-									<SidebarIcon src={getIcon(iconNames.Home, isDark)} />
+									<SidebarIcon name="Home" />
 									<Name>Home</Name>
 								</SidebarLink>
 							);
@@ -129,14 +130,13 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 								>
 									<SidebarIcon
-										src={getIcon(
+										name={
 											item.volume.file_system === 'exfat'
-												? iconNames.SD
+												? 'SD'
 												: item.volume.name === 'Macintosh HD'
-												? iconNames.HDD
-												: iconNames.Drive,
-											isDark
-										)}
+												? 'HDD'
+												: 'Drive'
+										}
 									/>
 									<Name>{name}</Name>
 									{item.volume.disk_type === 'Removable' && <EjectButton />}

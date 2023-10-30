@@ -8,8 +8,7 @@ import {
 	ObjectKindEnum,
 	ObjectOrder,
 	useLibraryContext,
-	useLibraryQuery,
-	useRspcLibraryContext
+	useLibraryQuery
 } from '@sd/client';
 
 import { useObjectsInfiniteQuery, usePathsInfiniteQuery } from '../Explorer/queries';
