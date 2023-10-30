@@ -12,3 +12,4 @@ export * from './SubtleButton';
 export * from './TextViewer';
 export * from './TrafficLights';
 export * from './TruncatedText';
+export * from './Accordion';
