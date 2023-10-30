@@ -1,5 +1,6 @@
 use std::{
 	collections::{HashMap, HashSet},
+	fmt,
 	net::SocketAddr,
 	sync::{
 		atomic::{AtomicBool, AtomicU64},
@@ -8,9 +9,9 @@ use std::{
 };
 
 use libp2p::{
-	core::{muxing::StreamMuxerBox, transport::ListenerId},
+	core::{muxing::StreamMuxerBox, transport::ListenerId, ConnectedPoint},
 	swarm::SwarmBuilder,
-	Transport,
+	PeerId, Transport,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -20,8 +21,9 @@ use tracing::{error, warn};
 
 use crate::{
 	spacetime::{SpaceTime, UnicastStream},
-	DiscoveredPeer, Keypair, ManagerStream, ManagerStreamAction, ManagerStreamAction2, Mdns,
-	MdnsState, Metadata, MetadataManager, PeerId,
+	spacetunnel::{Identity, RemoteIdentity},
+	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
+	ManagerStreamAction2,
 };
 
 // State of the manager that may infrequently change
@@ -31,50 +33,62 @@ pub(crate) struct DynamicManagerState {
 	pub(crate) config: ManagerConfig,
 	pub(crate) ipv4_listener_id: Option<ListenerId>,
 	pub(crate) ipv6_listener_id: Option<ListenerId>,
+	// A map of connected clients.
+	// This includes both inbound and outbound connections!
+	pub(crate) connected: HashMap<libp2p::PeerId, RemoteIdentity>,
+	// TODO: Removing this would be nice. It's a hack to things working after removing the `PeerId` from public API.
+	pub(crate) connections: HashMap<libp2p::PeerId, (ConnectedPoint, usize)>,
 }
 
 /// Is the core component of the P2P system that holds the state and delegates actions to the other components
-#[derive(Debug)]
-pub struct Manager<TMetadata: Metadata> {
-	pub(crate) mdns_state: Arc<MdnsState<TMetadata>>,
+pub struct Manager {
 	pub(crate) peer_id: PeerId,
+	pub(crate) identity: Identity,
 	pub(crate) application_name: String,
 	pub(crate) stream_id: AtomicU64,
 	pub(crate) state: RwLock<DynamicManagerState>,
+	pub(crate) discovery_state: Arc<RwLock<DiscoveryManagerState>>,
 	event_stream_tx: mpsc::Sender<ManagerStreamAction>,
-	event_stream_tx2: mpsc::Sender<ManagerStreamAction2<TMetadata>>,
+	event_stream_tx2: mpsc::Sender<ManagerStreamAction2>,
 }
 
-impl<TMetadata: Metadata> Manager<TMetadata> {
+impl fmt::Debug for Manager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("Debug").finish()
+	}
+}
+
+impl Manager {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
 	pub async fn new(
 		application_name: &'static str,
 		keypair: &Keypair,
 		config: ManagerConfig,
-		metadata_manager: Arc<MetadataManager<TMetadata>>,
-	) -> Result<(Arc<Self>, ManagerStream<TMetadata>), ManagerError> {
+	) -> Result<(Arc<Self>, ManagerStream), ManagerError> {
 		application_name
 			.chars()
 			.all(|c| char::is_alphanumeric(c) || c == '-')
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
 
-		let peer_id = PeerId(keypair.raw_peer_id());
+		let peer_id = keypair.peer_id();
 		let (event_stream_tx, event_stream_rx) = mpsc::channel(128);
 		let (event_stream_tx2, event_stream_rx2) = mpsc::channel(128);
 
-		let (mdns, mdns_state) = Mdns::new(application_name, peer_id, metadata_manager)
-			.await
-			.unwrap();
+		let config2 = config.clone();
+		let (discovery_state, service_shutdown_rx) = DiscoveryManagerState::new();
 		let this = Arc::new(Self {
-			mdns_state,
 			application_name: format!("/{}/spacetime/1.0.0", application_name),
+			identity: keypair.to_identity(),
 			stream_id: AtomicU64::new(0),
 			state: RwLock::new(DynamicManagerState {
 				config,
 				ipv4_listener_id: None,
 				ipv6_listener_id: None,
+				connected: Default::default(),
+				connections: Default::default(),
 			}),
+			discovery_state,
 			peer_id,
 			event_stream_tx,
 			event_stream_tx2,
@@ -87,7 +101,7 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 			.boxed(),
 			SpaceTime::new(this.clone()),
-			keypair.raw_peer_id(),
+			keypair.peer_id(),
 		)
 		.build();
 
@@ -99,11 +113,18 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		Ok((
 			this.clone(),
 			ManagerStream {
+				discovery_manager: DiscoveryManager::new(
+					application_name,
+					this.identity.to_remote_identity(),
+					this.peer_id,
+					&config2,
+					this.discovery_state.clone(),
+					service_shutdown_rx,
+				)?,
 				manager: this,
 				event_stream_rx,
 				event_stream_rx2,
 				swarm,
-				mdns,
 				queued_events: Default::default(),
 				shutdown: AtomicBool::new(false),
 				on_establish_streams: HashMap::new(),
@@ -118,29 +139,19 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		}
 	}
 
-	pub fn peer_id(&self) -> PeerId {
-		self.peer_id
+	pub fn identity(&self) -> RemoteIdentity {
+		self.identity.to_remote_identity()
 	}
 
-	pub async fn listen_addrs(&self) -> HashSet<SocketAddr> {
-		self.mdns_state.listen_addrs.read().await.clone()
+	pub fn libp2p_peer_id(&self) -> PeerId {
+		self.peer_id
 	}
 
 	pub async fn update_config(&self, config: ManagerConfig) {
 		self.emit(ManagerStreamAction::UpdateConfig(config)).await;
 	}
 
-	pub async fn get_discovered_peers(&self) -> Vec<DiscoveredPeer<TMetadata>> {
-		self.mdns_state
-			.discovered
-			.read()
-			.await
-			.values()
-			.cloned()
-			.collect()
-	}
-
-	pub async fn get_connected_peers(&self) -> Result<Vec<PeerId>, ()> {
+	pub async fn get_connected_peers(&self) -> Result<Vec<RemoteIdentity>, ()> {
 		let (tx, rx) = oneshot::channel();
 		self.emit(ManagerStreamAction::GetConnectedPeers(tx)).await;
 		rx.await.map_err(|_| {
@@ -148,10 +159,32 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 		})
 	}
 
+	// TODO: Maybe remove this?
+	pub async fn stream(&self, identity: RemoteIdentity) -> Result<UnicastStream, ()> {
+		let peer_id = {
+			let state = self
+				.discovery_state
+				.read()
+				.unwrap_or_else(PoisonError::into_inner);
+
+			// TODO: This should not depend on a `Service` existing. Either we should store discovered peers separatly for this or we should remove this method (prefered).
+			state
+				.discovered
+				.iter()
+				.find_map(|(_, i)| i.iter().find(|(i, _)| **i == identity))
+				.ok_or(())?
+				.1
+				.peer_id
+		};
+
+		self.stream_inner(peer_id).await
+	}
+
+	// TODO: Should this be private now that connections can be done through the `Service`.
 	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
-	pub async fn stream(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
+	pub(crate) async fn stream_inner(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
 		match self
@@ -162,28 +195,83 @@ impl<TMetadata: Metadata> Manager<TMetadata> {
 			Ok(_) => {}
 			Err(err) => warn!("error emitting event: {}", err),
 		}
-		let mut stream = rx.await.map_err(|_| {
+		let stream = rx.await.map_err(|_| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
 
 			()
 		})?;
-		stream.write_discriminator().await.unwrap(); // TODO: Error handling
-		Ok(stream)
+		Ok(stream.build(self, peer_id).await)
 	}
 
 	pub async fn broadcast(&self, data: Vec<u8>) {
 		self.emit(ManagerStreamAction::BroadcastData(data)).await;
 	}
 
+	// TODO: Cleanup return type and this API in general
+	#[allow(clippy::type_complexity)]
+	pub fn get_debug_state(
+		&self,
+	) -> (
+		PeerId,
+		RemoteIdentity,
+		ManagerConfig,
+		HashMap<PeerId, RemoteIdentity>,
+		HashSet<PeerId>,
+		HashMap<String, Option<HashMap<String, String>>>,
+		HashMap<
+			String,
+			HashMap<RemoteIdentity, (PeerId, HashMap<String, String>, Vec<SocketAddr>)>,
+		>,
+		HashMap<String, HashSet<RemoteIdentity>>,
+	) {
+		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		let discovery_state = self
+			.discovery_state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner);
+
+		(
+			self.peer_id,
+			self.identity.to_remote_identity(),
+			state.config.clone(),
+			state.connected.clone(),
+			state.connections.keys().copied().collect(),
+			discovery_state
+				.services
+				.iter()
+				.map(|(k, v)| (k.clone(), v.1.clone()))
+				.collect(),
+			discovery_state
+				.discovered
+				.iter()
+				.map(|(k, v)| {
+					(
+						k.clone(),
+						v.clone()
+							.iter()
+							.map(|(k, v)| (*k, (v.peer_id, v.meta.clone(), v.addresses.clone())))
+							.collect::<HashMap<_, _>>(),
+					)
+				})
+				.collect(),
+			discovery_state.known.clone(),
+		)
+	}
+
 	pub async fn shutdown(&self) {
 		let (tx, rx) = oneshot::channel();
-		self.event_stream_tx
+		if self
+			.event_stream_tx
 			.send(ManagerStreamAction::Shutdown(tx))
 			.await
-			.unwrap();
-		rx.await.unwrap_or_else(|_| {
-			warn!("Error receiving shutdown signal to P2P Manager!");
-		}); // Await shutdown so we don't kill the app before the Mdns broadcast
+			.is_ok()
+		{
+			rx.await.unwrap_or_else(|_| {
+				warn!("Error receiving shutdown signal to P2P Manager!");
+			}); // Await shutdown so we don't kill the app before the Mdns broadcast
+		} else {
+			warn!("p2p was already shutdown, skipping...");
+		}
 	}
 }
 

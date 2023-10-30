@@ -35,7 +35,7 @@ export default async function Page() {
 				width={1278}
 				height={626}
 				alt="l"
-				src="/images/headergradient.webp"
+				src="/images/misc/header-gradient.webp"
 			/>
 			<div className="flex w-full flex-col items-center px-4">
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
@@ -73,7 +73,7 @@ export default async function Page() {
 							width={1200}
 							height={626}
 							alt="l"
-							src="/images/appgradient.webp"
+							src="/images/app/gradient.webp"
 						/>
 						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] md:mt-0">
 							<div className="z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur">
@@ -102,7 +102,7 @@ export default async function Page() {
 									width={2278}
 									height={626}
 									alt="l"
-									src="/images/appgradientoverlay.png"
+									src="/images/app/gradient-overlay.png"
 								/>
 							</div>
 						</div>

@@ -1,5 +1,6 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
+import { Icon } from '~/components';
 
 interface Props extends UseDialogProps {
 	indexedArgs?: {
@@ -51,6 +52,7 @@ export default (props: Props) => {
 	const { type, prefix } = getWording(dirCount, fileCount);
 
 	const description = `Warning: This will delete your ${type} forever, we don't have a trash can yet...`;
+	const icon = type === 'file' || type === 'files' ? 'Document' : 'Folder';
 
 	return (
 		<Dialog
@@ -71,6 +73,7 @@ export default (props: Props) => {
 					await deleteEphemeralFile.mutateAsync(paths);
 				}
 			})}
+			icon={<Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
 			title={'Delete ' + prefix + ' ' + type}
 			description={description}

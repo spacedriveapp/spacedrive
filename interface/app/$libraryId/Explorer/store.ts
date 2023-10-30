@@ -72,6 +72,7 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 		order: args?.order ?? null,
 		layoutMode: 'grid' as ExplorerLayout,
 		gridItemSize: 110 as number,
+		gridGap: 8 as number,
 		showBytesInGridView: true as boolean,
 		showHiddenFiles: false as boolean,
 		mediaColumns: 8 as number,
@@ -130,8 +131,7 @@ const state = {
 	mediaPlayerVolume: 0.7,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
-	isDragging: false,
-	gridGap: 8
+	isDragging: false
 };
 
 export function flattenThumbnailKey(thumbKey: string[]) {

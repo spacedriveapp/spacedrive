@@ -3,7 +3,7 @@ use crate::{
 	library::Library,
 	location::file_path_helper::{file_path_to_handle_custom_uri, IsolatedFilePathData},
 	object::media::thumbnail::WEBP_EXTENSION,
-	p2p::{sync::InstanceState, IdentityOrRemoteIdentity},
+	p2p::{operations, IdentityOrRemoteIdentity},
 	prisma::{file_path, location},
 	util::{db::*, InfallibleResponse},
 	Node,
@@ -240,36 +240,26 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							#[allow(clippy::unwrap_used)]
-							match *state
-								.node
-								.nlm
-								.state()
-								.await
-								.get(&library.id)
-								.unwrap()
-								.instances
-								.get(&identity)
-								.unwrap()
-							{
-								InstanceState::Discovered(_) | InstanceState::Unavailable => {
-									Ok(not_found(()))
-								}
-								InstanceState::Connected(peer_id) => {
+							#[allow(clippy::unwrap_used)] // TODO: Error handling needed
+							match state.node.p2p.get_library_service(&library.id) {
+								Some(service) => {
+									let stream = service
+										.connect(state.node.p2p.manager.clone(), &identity)
+										.await
+										.unwrap();
+
 									let (tx, mut rx) =
 										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
-									let node = state.node.clone();
 									tokio::spawn(async move {
-										node.p2p
-											.request_file(
-												peer_id,
-												&library,
-												file_path_pub_id,
-												Range::Full,
-												MpscToAsyncWrite::new(PollSender::new(tx)),
-											)
-											.await;
+										operations::request_file(
+											stream,
+											&library,
+											file_path_pub_id,
+											Range::Full,
+											MpscToAsyncWrite::new(PollSender::new(tx)),
+										)
+										.await;
 									});
 
 									// TODO: Content Type
@@ -281,6 +271,7 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 										})),
 									))
 								}
+								None => Ok(not_found(())),
 							}
 						}
 					}

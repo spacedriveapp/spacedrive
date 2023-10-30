@@ -22,7 +22,7 @@ impl IdentityOrRemoteIdentity {
 		match self {
 			Self::Identity(identity) => identity.to_remote_identity(),
 			Self::RemoteIdentity(identity) => {
-				RemoteIdentity::from_bytes(identity.to_bytes().as_slice()).expect("unreachable")
+				RemoteIdentity::from_bytes(identity.get_bytes().as_slice()).expect("unreachable")
 			}
 		}
 	}
@@ -42,7 +42,7 @@ impl IdentityOrRemoteIdentity {
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self {
 			Self::Identity(identity) => [&[b'I'], &*identity.to_bytes()].concat(),
-			Self::RemoteIdentity(identity) => [[b'R'].as_slice(), &identity.to_bytes()].concat(),
+			Self::RemoteIdentity(identity) => [[b'R'].as_slice(), &identity.get_bytes()].concat(),
 		}
 	}
 }
