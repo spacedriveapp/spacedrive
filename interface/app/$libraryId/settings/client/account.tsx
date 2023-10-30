@@ -1,9 +1,10 @@
 import { Cube, Envelope, User } from '@phosphor-icons/react';
-import { Collection, Drive_Light, Folder, Laptop } from '@sd/assets/icons';
+import { Collection, Drive_Light, Folder, HDD, Image, Laptop } from '@sd/assets/icons';
+import { iconNames } from '@sd/assets/util';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { auth, byteSize, useBridgeQuery, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
-import { TruncatedText } from '~/components';
+import { Icon, TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { useCounter } from '~/hooks';
 
@@ -33,6 +34,7 @@ export const Component = () => {
 				<Profile authStore={authStore} email={me.data?.email} />
 				<Usage />
 			</div>
+			<Cloud />
 		</>
 	);
 };
@@ -83,7 +85,9 @@ const Usage = memo(() => {
 	const info = useMemo(() => {
 		if (locations.data && discoveredPeers) {
 			const tb_capacity = byteSize(stats.data?.total_bytes_capacity);
+			const free_space = byteSize(stats.data?.total_bytes_free);
 			const library_db_size = byteSize(stats.data?.library_db_size);
+			const preview_media = byteSize(stats.data?.preview_media_bytes);
 			const data: {
 				icon: string;
 				title?: string;
@@ -112,10 +116,22 @@ const Usage = memo(() => {
 					unit: tb_capacity.unit
 				},
 				{
+					icon: HDD,
+					numberTitle: free_space.value,
+					sub: 'Free space',
+					unit: free_space.unit
+				},
+				{
 					icon: Collection,
 					numberTitle: library_db_size.value,
 					sub: 'Library size',
 					unit: library_db_size.unit
+				},
+				{
+					icon: Image,
+					numberTitle: preview_media.value,
+					sub: 'Preview media',
+					unit: preview_media.unit
 				}
 			];
 			return data;
@@ -123,7 +139,7 @@ const Usage = memo(() => {
 	}, [locations, discoveredPeers, stats]);
 
 	return (
-		<Card className="flex w-full flex-col justify-center !p-6">
+		<Card className="flex w-full flex-col justify-center !p-5">
 			<h1 className="text-lg font-bold">Local usage & hardware</h1>
 			<div className="grid justify-center grid-cols-1 gap-2 mt-5 lg:grid-cols-2">
 				{info?.map((i, index) => (
@@ -142,6 +158,39 @@ const Usage = memo(() => {
 		</Card>
 	);
 });
+
+const services: { service: string; icon: keyof typeof iconNames }[] = [
+	{ service: 'S3', icon: 'AmazonS3' },
+	{ service: 'Dropbox', icon: 'Dropbox' },
+	{ service: 'DAV', icon: 'DAV' },
+	{ service: 'Mega', icon: 'Mega' },
+	{ service: 'Onedrive', icon: 'OneDrive' },
+	{ service: 'Google Drive', icon: 'GoogleDrive' }
+];
+const Cloud = () => {
+	return (
+		<Card className="flex flex-col !p-6">
+			<h1 className="text-lg font-bold">Cloud services</h1>
+			<div className="grid grid-cols-1 gap-2 mt-5 lg:grid-cols-3">
+				{services.map((s, index) => (
+					<Card
+						key={index}
+						className="relative flex flex-col items-center justify-center gap-2 bg-app-input !p-4"
+					>
+						<div
+							className="z-5 absolute flex h-full w-full items-center justify-center rounded-md bg-app/50 backdrop-blur-[8px]"
+							key={index}
+						>
+							<p className="text-[15px] font-medium text-ink">Coming soon</p>
+						</div>
+						<Icon name={s.icon} size={50} />
+						<p className="text-[16px] font-medium text-ink">{s.service}</p>
+					</Card>
+				))}
+			</div>
+		</Card>
+	);
+};
 
 interface Props {
 	icon: string;
@@ -169,7 +218,7 @@ const UsageCard = memo(
 		});
 
 		return (
-			<Card className="h-[90px] w-full bg-app-input py-4">
+			<Card className="w-full py-4 h-fit bg-app-input">
 				<div className="flex items-center justify-center w-full gap-3">
 					<img src={icon} className="w-10" />
 					<div className="w-full max-w-[120px]">
