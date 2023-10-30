@@ -34,7 +34,6 @@ import Document_pdf from './Document_pdf.png';
 import Document_xls_Light from './Document_xls_Light.png';
 import Document_xls from './Document_xls.png';
 import Document from './Document.png';
-import Drive_Dark from './Drive_Dark.png';
 import Drive_Light from './Drive_Light.png';
 import DriveAmazonS3_Light from './Drive-AmazonS3_Light.png';
 import DriveAmazonS3 from './Drive-AmazonS3.png';
@@ -42,6 +41,7 @@ import DriveBackBlaze_Light from './Drive-BackBlaze_Light.png';
 import DriveBackBlaze from './Drive-BackBlaze.png';
 import Drivebox_Light from './Drive-box_Light.png';
 import DriveBox from './Drive-Box.png';
+import DriveDarker from './Drive-Darker.png';
 import DriveDAV_Light from './Drive-DAV_Light.png';
 import DriveDAV from './Drive-DAV.png';
 import DriveDropbox_Light from './Drive-Dropbox_Light.png';
@@ -177,6 +177,7 @@ export {
 	DriveBackBlaze_Light,
 	DriveBox,
 	Drivebox_Light,
+	DriveDarker,
 	DriveDAV,
 	DriveDAV_Light,
 	DriveDropbox,
@@ -192,7 +193,6 @@ export {
 	DrivePCloud,
 	DrivePCloud_Light,
 	Drive,
-	Drive_Dark,
 	Drive_Light,
 	Dropbox,
 	Encrypted,

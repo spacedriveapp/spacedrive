@@ -1,5 +1,4 @@
 import { Cube, Envelope, User } from '@phosphor-icons/react';
-import { Collection, Drive_Dark, Folder, HDD, Image, Laptop } from '@sd/assets/icons';
 import { iconNames } from '@sd/assets/util';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { auth, byteSize, useBridgeQuery, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
@@ -89,7 +88,7 @@ const Usage = memo(() => {
 			const library_db_size = byteSize(stats.data?.library_db_size);
 			const preview_media = byteSize(stats.data?.preview_media_bytes);
 			const data: {
-				icon: string;
+				icon: keyof typeof iconNames;
 				title?: string;
 				numberTitle?: number;
 				titleCount?: number;
@@ -98,37 +97,37 @@ const Usage = memo(() => {
 				dataLength?: number;
 			}[] = [
 				{
-					icon: Folder,
+					icon: 'Folder',
 					title: locations.data.length === 1 ? 'Location' : 'Locations',
 					titleCount: locations.data?.length ?? 0,
 					sub: 'indexed directories'
 				},
 				{
-					icon: Laptop,
+					icon: 'Laptop',
 					title: discoveredPeers.size >= 0 ? 'Devices' : 'Device',
 					titleCount: discoveredPeers.size ?? 0,
 					sub: 'in your network'
 				},
 				{
-					icon: Drive_Dark,
+					icon: 'DriveDarker',
 					numberTitle: tb_capacity.value,
 					sub: 'Total capacity',
 					unit: tb_capacity.unit
 				},
 				{
-					icon: HDD,
+					icon: 'HDD',
 					numberTitle: free_space.value,
 					sub: 'Free space',
 					unit: free_space.unit
 				},
 				{
-					icon: Collection,
+					icon: 'Collection',
 					numberTitle: library_db_size.value,
 					sub: 'Library size',
 					unit: library_db_size.unit
 				},
 				{
-					icon: Image,
+					icon: 'Image',
 					numberTitle: preview_media.value,
 					sub: 'Preview media',
 					unit: preview_media.unit
@@ -193,7 +192,7 @@ const Cloud = () => {
 };
 
 interface Props {
-	icon: string;
+	icon: keyof typeof iconNames;
 	title: string;
 	titleCount?: number;
 	numberTitle?: number;
@@ -220,7 +219,7 @@ const UsageCard = memo(
 		return (
 			<Card className="h-fit w-full bg-app-input py-4">
 				<div className="flex w-full items-center justify-center gap-3">
-					<img src={icon} className="w-10" />
+					<Icon name={icon} size={40} />
 					<div className="w-full max-w-[120px]">
 						<h1 className="text-lg font-medium">
 							{typeof titleCount === 'number' && (

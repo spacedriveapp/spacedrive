@@ -23,3 +23,4 @@ export * from './Shortcut';
 export * from './ProgressBar';
 export * from './keys';
 export * from './Toast';
+export * from './Icon';
