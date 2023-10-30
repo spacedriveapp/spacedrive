@@ -1,7 +1,7 @@
 import { Cube, Envelope, User } from '@phosphor-icons/react';
 import { Collection, Drive_Light, Folder, HDD, Image, Laptop } from '@sd/assets/icons';
 import { iconNames } from '@sd/assets/util';
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { auth, byteSize, useBridgeQuery, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { Icon, TruncatedText } from '~/components';
