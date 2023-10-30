@@ -67,11 +67,6 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				});
 			} else {
 				// iOS
-
-				// Delete test file if it exists
-				const testFileExists = await RNFS.exists(uri + '/test.txt');
-				if (testFileExists) await RNFS.unlink(uri + '/test.txt');
-
 				createLocation.mutate({
 					path: decodeURIComponent(uri.replace('file://', '')),
 					dry_run: false,
