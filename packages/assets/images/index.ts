@@ -25,6 +25,6 @@ export {
 	BloomTwo,
 	Dropbox,
 	GoogleDrive,
-	Mega,
-	iCloud
+	iCloud,
+	Mega
 };

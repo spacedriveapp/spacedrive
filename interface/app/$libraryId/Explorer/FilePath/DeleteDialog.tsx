@@ -57,6 +57,7 @@ export default (props: Props) => {
 
 				props.rescan?.();
 			})}
+			icon="Folder"
 			dialog={useDialog(props)}
 			title={'Delete ' + prefix + ' ' + type}
 			description={description}

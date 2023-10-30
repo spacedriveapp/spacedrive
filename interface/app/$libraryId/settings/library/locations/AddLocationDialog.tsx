@@ -11,7 +11,7 @@ import {
 } from '@sd/client';
 import { CheckBox, Dialog, ErrorMessage, Label, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 import { getExplorerStore } from '~/app/$libraryId/Explorer/store';
-import Accordion from '~/components/Accordion';
+import { Accordion } from '~/components';
 import { useCallbackToWatchForm } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -202,6 +202,7 @@ export const AddLocationDialog = ({
 			form={form}
 			title="New Location"
 			dialog={useDialog(dialogProps)}
+			icon="NewLocation"
 			onSubmit={onSubmit}
 			ctaLabel="Add"
 			formClassName="min-w-[375px]"

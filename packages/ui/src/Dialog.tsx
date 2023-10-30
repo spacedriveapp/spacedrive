@@ -2,6 +2,7 @@
 
 import * as RDialog from '@radix-ui/react-dialog';
 import { animated, useTransition } from '@react-spring/web';
+import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
@@ -9,6 +10,7 @@ import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
+import { Icon } from './Icon';
 
 export function createDialogState(open = false) {
 	return proxy({
@@ -130,6 +132,8 @@ export interface DialogProps<S extends FieldValues>
 	invertButtonFocus?: boolean; //this reverses the focus order of submit/cancel buttons
 	errorMessageException?: string; //this is to bypass a specific form error message if it starts with a specific string
 	formClassName?: string;
+	icon?: keyof typeof iconNames;
+	iconTheme?: 'light' | 'dark';
 }
 
 export function Dialog<S extends FieldValues>({
@@ -233,7 +237,14 @@ export function Dialog<S extends FieldValues>({
 								)}
 							>
 								<div className="p-5">
-									<RDialog.Title className="mb-2 font-bold">
+									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
+										{props.icon && (
+											<Icon
+												theme={props.iconTheme}
+												name={props.icon}
+												size={28}
+											/>
+										)}
 										{props.title}
 									</RDialog.Title>
 
@@ -247,7 +258,7 @@ export function Dialog<S extends FieldValues>({
 								</div>
 								<div
 									className={clsx(
-										'flex justify-end space-x-2 border-t border-app-line bg-app-selected p-3'
+										'flex justify-end space-x-2 border-t border-app-line bg-app-input/50 p-3'
 									)}
 								>
 									{form.formState.isSubmitting && <Loader />}

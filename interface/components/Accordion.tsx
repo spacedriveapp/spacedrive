@@ -24,7 +24,7 @@ const styles = {
 	}
 };
 
-const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
+export const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
 	const [toggle, setToggle] = useState(isOpen);
 	const variant = styles[props.variant ?? 'default'];
 	return (
@@ -49,5 +49,3 @@ const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>) => {
 		</div>
 	);
 };
-
-export default Accordion;

@@ -24,6 +24,7 @@ export default (props: Props) => {
 			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
 			dialog={useDialog(props)}
 			title="Delete Location"
+			icon="DeleteLocation"
 			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 			ctaDanger
 			ctaLabel="Delete"
