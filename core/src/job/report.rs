@@ -4,7 +4,10 @@ use crate::{
 	util::db::{maybe_missing, MissingFieldError},
 };
 
-use std::fmt::{Display, Formatter};
+use std::{
+	collections::HashMap,
+	fmt::{Display, Formatter},
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -44,6 +47,9 @@ pub struct JobReport {
 	pub name: String,
 	pub action: Option<String>,
 	pub data: Option<Vec<u8>>,
+	// In Typescript `any | null` is just `any` so we don't get prompted for null checks
+	// TODO(@Oscar): This will be fixed
+	#[specta(type = Option<HashMap<String, serde_json::Value>>)]
 	pub metadata: Option<serde_json::Value>,
 	pub is_background: bool,
 	pub errors_text: Vec<String>,
