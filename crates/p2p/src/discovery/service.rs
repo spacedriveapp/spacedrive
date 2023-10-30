@@ -52,10 +52,6 @@ impl<TMeta: Metadata> Service<TMeta> {
 			)
 		};
 
-		// TODO: We call this but it won't have metadata set so it won't actually expose it
-		// However, it must be called to properly setup the listener (at least right now)
-		do_broadcast.send(()).ok();
-
 		Ok(Self {
 			name,
 			state,

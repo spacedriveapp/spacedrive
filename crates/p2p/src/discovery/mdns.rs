@@ -1,6 +1,6 @@
 use std::{
 	collections::HashMap,
-	net::{IpAddr, SocketAddr},
+	net::SocketAddr,
 	pin::Pin,
 	str::FromStr,
 	sync::PoisonError,
@@ -15,7 +15,6 @@ use libp2p::{
 	PeerId,
 };
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use streamunordered::{StreamUnordered, StreamYield};
 use tokio::time::{sleep_until, Instant, Sleep};
 use tracing::{error, trace, warn};
 
@@ -33,8 +32,7 @@ pub(crate) struct Mdns {
 	advertised_services: Vec<String>,
 	mdns_daemon: ServiceDaemon,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
-	// This is an ugly workaround for: https://github.com/keepsimple1/mdns-sd/issues/145
-	mdns_rx: StreamUnordered<MdnsRecv>,
+	mdns_rx: flume::r#async::RecvStream<'static, ServiceEvent>,
 }
 
 impl Mdns {
@@ -44,15 +42,17 @@ impl Mdns {
 		peer_id: PeerId,
 	) -> Result<Self, mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
+		let service_name = format!("_{}._udp.local.", application_name);
+		let mdns_rx = mdns_daemon.browse(&service_name)?.into_stream();
 
 		Ok(Self {
 			identity,
 			peer_id,
-			service_name: format!("_{}._udp.local.", application_name),
+			service_name,
 			advertised_services: Vec::new(),
 			mdns_daemon,
 			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
-			mdns_rx: StreamUnordered::new(),
+			mdns_rx,
 		})
 	}
 
@@ -64,13 +64,6 @@ impl Mdns {
 
 		let mut ports_to_service = HashMap::new();
 		for addr in listen_addrs.iter() {
-			let addr = match addr {
-				SocketAddr::V4(addr) => addr,
-				// TODO: Our mdns library doesn't support Ipv6. This code has the infra to support it so once this issue is fixed upstream we can just flip it on.
-				// Refer to issue: https://github.com/keepsimple1/mdns-sd/issues/61
-				SocketAddr::V6(_) => continue,
-			};
-
 			ports_to_service
 				.entry(addr.port())
 				.or_insert_with(Vec::new)
@@ -114,20 +107,6 @@ impl Mdns {
 				advertised_services_to_remove.retain(|s| *s != service_name);
 				self.advertised_services.push(service_name);
 
-				if !self
-					.mdns_rx
-					.iter_with_token()
-					.any(|(s, _)| s.1 == service_domain)
-				{
-					self.mdns_rx.insert(MdnsRecv(
-						self.mdns_daemon
-							.browse(&service_domain)
-							.unwrap()
-							.into_stream(),
-						service_domain,
-					));
-				}
-
 				// TODO: Do a proper diff and remove old services
 				trace!("advertising mdns service: {:?}", service);
 				match self.mdns_daemon.register(service) {
@@ -138,13 +117,6 @@ impl Mdns {
 		}
 
 		for service_domain in advertised_services_to_remove {
-			if let Some((_, token)) = self
-				.mdns_rx
-				.iter_with_token()
-				.find(|(s, _)| s.1 == service_domain)
-			{
-				Pin::new(&mut self.mdns_rx).remove(token);
-			}
 			self.mdns_daemon.unregister(&service_domain).unwrap();
 		}
 
@@ -169,10 +141,7 @@ impl Mdns {
 			}
 
 			match self.mdns_rx.poll_next_unpin(cx) {
-				Poll::Ready(Some((result, _))) => match result {
-					StreamYield::Item(event) => self.on_event(event, state),
-					StreamYield::Finished(_) => {}
-				},
+				Poll::Ready(Some(event)) => self.on_event(event, state),
 				Poll::Ready(None) => {}
 				Poll::Pending => is_pending = true,
 			}
@@ -254,7 +223,7 @@ impl Mdns {
 							addresses: info
 								.get_addresses()
 								.iter()
-								.map(|addr| SocketAddr::new(IpAddr::V4(*addr), info.get_port()))
+								.map(|addr| SocketAddr::new(*addr, info.get_port()))
 								.collect(),
 						},
 					);
