@@ -45,6 +45,8 @@ impl Mdns {
 		let service_name = format!("_{}._udp.local.", application_name);
 		let mdns_rx = mdns_daemon.browse(&service_name)?.into_stream();
 
+		println!("BROWSE, {service_name}");
+
 		Ok(Self {
 			identity,
 			peer_id,
@@ -80,10 +82,7 @@ impl Mdns {
 					continue;
 				};
 
-				let service_domain =
-				    // TODO: Use "Selective Instance Enumeration" instead in future but right now it is causing `TMeta` to get garbled.
-					// format!("{service_name}._sub._{}", self.service_name)
-					format!("{service_name}._sub._{service_name}{}", self.service_name);
+				let service_domain = format!("{service_name}._sub.{}", self.service_name);
 
 				let mut meta = metadata.clone();
 				meta.insert("__peer_id".into(), self.peer_id.to_string());
@@ -102,6 +101,7 @@ impl Mdns {
 						continue;
 					}
 				};
+				println!("ADVERTISE {service:?}");
 
 				let service_name = service.get_fullname().to_string();
 				advertised_services_to_remove.retain(|s| *s != service_name);
@@ -155,6 +155,7 @@ impl Mdns {
 			ServiceEvent::SearchStarted(_) => {}
 			ServiceEvent::ServiceFound(_, _) => {}
 			ServiceEvent::ServiceResolved(info) => {
+				println!("{info:?}");
 				let Some(subdomain) = info.get_subtype() else {
 					warn!("resolved mDNS peer advertising itself with missing subservice");
 					return;
@@ -163,7 +164,7 @@ impl Mdns {
 				let service_name = subdomain.split("._sub.").next().unwrap(); // TODO: .replace(&format!("._sub.{}", self.service_name), "");
 				let raw_remote_identity = info
 					.get_fullname()
-					.replace(&format!("._{service_name}{}", self.service_name), "");
+					.replace(&format!(".{}", self.service_name), "");
 
 				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
 					warn!(
@@ -233,8 +234,7 @@ impl Mdns {
 			}
 			ServiceEvent::ServiceRemoved(service_type, fullname) => {
 				let service_name = service_type.split("._sub.").next().unwrap();
-				let raw_remote_identity =
-					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
+				let raw_remote_identity = fullname.replace(&format!(".{}", self.service_name), "");
 
 				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
 					warn!(

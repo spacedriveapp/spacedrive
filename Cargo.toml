@@ -64,4 +64,4 @@ rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "adebce542049b982
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "c964bef228a90a66effc18cefcba6859c45a8e08" }
 
 # https://github.com/keepsimple1/mdns-sd/pull/146
-mdns-sd = { git = "https://github.com/keepsimple1/mdns-sd.git", rev = "f1bbd4d60ce530f5297e89088923272d1ffdb4c0" }
+mdns-sd = { git = "https://github.com/keepsimple1/mdns-sd.git", rev = "1f7c247cbbf362a2654cbbcb533bf3abf1cbf0d0" }

@@ -4091,7 +4091,7 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 [[package]]
 name = "mdns-sd"
 version = "0.9.2"
-source = "git+https://github.com/keepsimple1/mdns-sd.git?rev=f1bbd4d60ce530f5297e89088923272d1ffdb4c0#f1bbd4d60ce530f5297e89088923272d1ffdb4c0"
+source = "git+https://github.com/keepsimple1/mdns-sd.git?rev=1f7c247cbbf362a2654cbbcb533bf3abf1cbf0d0#1f7c247cbbf362a2654cbbcb533bf3abf1cbf0d0"
 dependencies = [
  "flume",
  "if-addrs 0.10.1",
