@@ -1,3 +1,5 @@
+'use client';
+
 import { getIcon, iconNames } from '@sd/assets/util';
 import { HTMLAttributes } from 'react';
 
