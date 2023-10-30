@@ -158,15 +158,15 @@ const Usage = memo(() => {
 	);
 });
 
+const services: { service: string; icon: React.ReactNode }[] = [
+	{ service: 'S3', icon: <Icon name="AmazonS3" size={50} /> },
+	{ service: 'Dropbox', icon: <Icon name="Dropbox" size={50} /> },
+	{ service: 'DAV', icon: <Icon name="DAV" size={50} /> },
+	{ service: 'Mega', icon: <Icon name="Mega" size={50} /> },
+	{ service: 'Onedrive', icon: <Icon name="OneDrive" size={50} /> },
+	{ service: 'Google Drive', icon: <Icon name="GoogleDrive" size={50} /> }
+];
 const Cloud = () => {
-	const services: { service: string; icon: React.ReactNode }[] = [
-		{ service: 'S3', icon: <Icon name="AmazonS3" size={50} /> },
-		{ service: 'Dropbox', icon: <Icon name="Dropbox" size={50} /> },
-		{ service: 'DAV', icon: <Icon name="DAV" size={50} /> },
-		{ service: 'Mega', icon: <Icon name="Mega" size={50} /> },
-		{ service: 'Onedrive', icon: <Icon name="OneDrive" size={50} /> },
-		{ service: 'Google Drive', icon: <Icon name="GoogleDrive" size={50} /> }
-	];
 	return (
 		<Card className="flex flex-col !p-6">
 			<h1 className="text-lg font-bold">Cloud services</h1>
