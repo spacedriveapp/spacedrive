@@ -1,5 +1,4 @@
 import {
-	ArrowLeft,
 	Books,
 	FlyingSaucer,
 	Gear,
@@ -13,7 +12,7 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react-native';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
