@@ -1,5 +1,6 @@
 import { Cube, Envelope, User } from '@phosphor-icons/react';
 import { Collection, Drive_Light, Folder, HDD, Image, Laptop } from '@sd/assets/icons';
+import { iconNames } from '@sd/assets/util';
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import { auth, byteSize, useBridgeQuery, useDiscoveredPeers, useLibraryQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
@@ -158,13 +159,13 @@ const Usage = memo(() => {
 	);
 });
 
-const services: { service: string; icon: React.ReactNode }[] = [
-	{ service: 'S3', icon: <Icon name="AmazonS3" size={50} /> },
-	{ service: 'Dropbox', icon: <Icon name="Dropbox" size={50} /> },
-	{ service: 'DAV', icon: <Icon name="DAV" size={50} /> },
-	{ service: 'Mega', icon: <Icon name="Mega" size={50} /> },
-	{ service: 'Onedrive', icon: <Icon name="OneDrive" size={50} /> },
-	{ service: 'Google Drive', icon: <Icon name="GoogleDrive" size={50} /> }
+const services: { service: string; icon: keyof typeof iconNames }[] = [
+	{ service: 'S3', icon: 'AmazonS3' },
+	{ service: 'Dropbox', icon: 'Dropbox' },
+	{ service: 'DAV', icon: 'DAV' },
+	{ service: 'Mega', icon: 'Mega' },
+	{ service: 'Onedrive', icon: 'OneDrive' },
+	{ service: 'Google Drive', icon: 'GoogleDrive' }
 ];
 const Cloud = () => {
 	return (
@@ -182,7 +183,7 @@ const Cloud = () => {
 						>
 							<p className="text-[15px] font-medium text-ink">Coming soon</p>
 						</div>
-						{s.icon}
+						<Icon name={s.icon} size={50} />
 						<p className="text-[16px] font-medium text-ink">{s.service}</p>
 					</Card>
 				))}
