@@ -6,8 +6,10 @@ import { tw } from '~/lib/tailwind';
 import { Button } from '~/components/primitive/Button';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 import Svg, { Path, SvgProps } from "react-native-svg"
+import { useBridgeQuery } from '@sd/client';
 
 const AboutScreen = ({ navigation }: SettingsStackScreenProps<'About'>) => {
+	const buildInfo = useBridgeQuery(['buildInfo']);
 
 	return (
 		<View style={tw.style('flex-1 p-5')}>
@@ -25,7 +27,7 @@ const AboutScreen = ({ navigation }: SettingsStackScreenProps<'About'>) => {
 						The file manager from the future.
 					</Text>
 					<Text style={tw.style('mt-1 text-xs text-ink-faint/80')}>
-						v0.1.0 {/* Replace with Build Info at some point */}
+						v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 					</Text>
 				</View>
 			</View>
