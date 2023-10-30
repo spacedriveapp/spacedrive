@@ -27,6 +27,7 @@ mod originator {
 	pub mod tx {
 		use super::*;
 
+		#[derive(Debug, PartialEq)]
 		pub struct Operations(pub Vec<CRDTOperation>);
 
 		impl Operations {
@@ -46,6 +47,35 @@ mod originator {
 				// TODO: Error handling
 				encode::buf(&mut buf, &rmp_serde::to_vec_named(&args).unwrap());
 				buf
+			}
+		}
+
+		#[cfg(test)]
+		#[tokio::test]
+		async fn test() {
+			{
+				let original = Operations(vec![]);
+
+				let mut cursor = std::io::Cursor::new(original.to_bytes());
+				let result = Operations::from_stream(&mut cursor).await.unwrap();
+				assert_eq!(original, result);
+			}
+
+			{
+				let original = Operations(vec![CRDTOperation {
+					instance: Uuid::new_v4(),
+					timestamp: sync::NTP64(0),
+					id: Uuid::new_v4(),
+					typ: sd_sync::CRDTOperationType::Shared(sd_sync::SharedOperation {
+						record_id: serde_json::Value::Null,
+						model: "name".to_string(),
+						data: sd_sync::SharedOperationData::Create,
+					}),
+				}]);
+
+				let mut cursor = std::io::Cursor::new(original.to_bytes());
+				let result = Operations::from_stream(&mut cursor).await.unwrap();
+				assert_eq!(original, result);
 			}
 		}
 	}
@@ -114,7 +144,7 @@ mod responder {
 
 		use super::*;
 
-		#[derive(Serialize, Deserialize)]
+		#[derive(Serialize, Deserialize, PartialEq, Debug)]
 		pub enum MainRequest {
 			GetOperations(GetOpsArgs),
 			Done,
@@ -136,6 +166,29 @@ mod responder {
 				// TODO: Error handling
 				encode::buf(&mut buf, &rmp_serde::to_vec_named(&self).unwrap());
 				buf
+			}
+		}
+
+		#[cfg(test)]
+		#[tokio::test]
+		async fn test() {
+			{
+				let original = MainRequest::GetOperations(GetOpsArgs {
+					clocks: vec![],
+					count: 0,
+				});
+
+				let mut cursor = std::io::Cursor::new(original.to_bytes());
+				let result = MainRequest::from_stream(&mut cursor).await.unwrap();
+				assert_eq!(original, result);
+			}
+
+			{
+				let original = MainRequest::Done;
+
+				let mut cursor = std::io::Cursor::new(original.to_bytes());
+				let result = MainRequest::from_stream(&mut cursor).await.unwrap();
+				assert_eq!(original, result);
 			}
 		}
 	}
