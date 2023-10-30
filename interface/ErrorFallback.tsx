@@ -1,6 +1,11 @@
 import { captureException } from '@sentry/browser';
-import { FallbackProps } from 'react-error-boundary';
-import { useRouteError } from 'react-router';
+import { useEffect, useState } from 'react';
+import {
+	ErrorBoundary,
+	ErrorBoundaryPropsWithComponent,
+	FallbackProps
+} from 'react-error-boundary';
+import { Navigate, useRouteError } from 'react-router';
 import { useDebugState } from '@sd/client';
 import { Button, Dialogs } from '@sd/ui';
 
@@ -8,18 +13,24 @@ import { showAlertDialog } from './components';
 import { useOperatingSystem, useTheme } from './hooks';
 import { usePlatform } from './util/Platform';
 
+const RENDERING_ERROR_LOCAL_STORAGE_KEY = 'was-rendering-error';
+
 export function RouterErrorBoundary() {
 	const error = useRouteError();
+
+	const reloadBtn = () => {
+		location.reload();
+		localStorage.setItem(RENDERING_ERROR_LOCAL_STORAGE_KEY, 'true');
+	};
+
 	return (
 		<ErrorPage
 			message={(error as any).toString()}
 			sendReportBtn={() => {
 				captureException(error);
-				location.reload();
+				reloadBtn();
 			}}
-			reloadBtn={() => {
-				location.reload();
-			}}
+			reloadBtn={reloadBtn}
 		/>
 	);
 }
@@ -59,6 +70,23 @@ export function ErrorPage({
 	const os = useOperatingSystem();
 	const platform = usePlatform();
 	const isMacOS = os === 'macOS';
+	const [redirecting, _] = useState(() =>
+		localStorage.getItem(RENDERING_ERROR_LOCAL_STORAGE_KEY)
+	);
+
+	// If the user is on a page and the user presses "Reset" on the error boundary, it may crash in rendering causing the user to get stuck on the error page.
+	// If it crashes again, we redirect them instead of infinitely crashing.
+	useEffect(() => {
+		if (localStorage.getItem(RENDERING_ERROR_LOCAL_STORAGE_KEY) !== null) {
+			localStorage.removeItem(RENDERING_ERROR_LOCAL_STORAGE_KEY);
+			window.location.pathname = '/';
+			console.error(
+				'Hit error boundary after reloading. Redirecting to overview screen!',
+				redirecting
+			);
+		}
+	});
+	if (redirecting) return null; // To stop flash of error boundary after `localStorage` is reset in the first render and the check above starts being `false`
 
 	const resetHandler = () => {
 		showAlertDialog({
@@ -137,3 +165,24 @@ export function ErrorPage({
 		</div>
 	);
 }
+
+export const BetterErrorBoundary = ({
+	children,
+	FallbackComponent,
+	...props
+}: ErrorBoundaryPropsWithComponent) => {
+	useEffect(() => {
+		const id = setTimeout(
+			() => localStorage.removeItem(RENDERING_ERROR_LOCAL_STORAGE_KEY),
+			1000
+		);
+
+		return () => clearTimeout(id);
+	}, []);
+
+	return (
+		<ErrorBoundary FallbackComponent={FallbackComponent} {...props}>
+			{children}
+		</ErrorBoundary>
+	);
+};
