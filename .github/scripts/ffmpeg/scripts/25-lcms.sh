@@ -1,10 +1,9 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download lcms..."
-mkdir -p lcms/build
+mkdir -p lcms
 
-curl -LSs 'https://github.com/mm2/Little-CMS/releases/download/lcms2.15/lcms2-2.15.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C lcms
+curl_tar 'https://github.com/mm2/Little-CMS/releases/download/lcms2.15/lcms2-2.15.tar.gz' lcms 1
 
 case "$TARGET" in
   aarch64*)
@@ -23,6 +22,16 @@ for patch in \
   curl -LSs "$patch" | patch -F5 -lp1 -d lcms -t
 done
 
+sed -i "/subdir('utils')/d" lcms/meson.build
+sed -i "/subdir('testbed')/d" lcms/meson.build
+
+# Remove some superfluous files
+rm -rf lcms/{.github,configure.ac,install-sh,depcomp,Makefile.in,config.sub,aclocal.m4,config.guess,ltmain.sh,m4,utils,configure,Projects,doc,testbed}
+
+# Backup source
+bak_src 'lcms'
+
+mkdir -p lcms/build
 cd lcms/build
 
 echo "Build lcms..."

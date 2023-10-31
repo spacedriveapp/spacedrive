@@ -4,8 +4,13 @@ echo "Download x265..."
 mkdir -p x265
 
 # Need to use master, because the latest release doesn't support optmized aarch64 and it is from 2021
-curl -LSs 'https://bitbucket.org/multicoreware/x265_git/get/8ee01d45b05cdbc9da89b884815257807a514bc8.tar.bz2' \
-  | bsdtar -xf- --strip-component 1 -C x265
+curl_tar 'https://bitbucket.org/multicoreware/x265_git/get/8ee01d45b05cdbc9da89b884815257807a514bc8.tar.bz2' x265 1
+
+# Remove some superfluous files
+rm -rf x265/{doc,build}
+
+# Backup source
+bak_src 'x265'
 
 cd x265
 

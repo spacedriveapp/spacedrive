@@ -1,10 +1,9 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download de265..."
-mkdir -p de265/build
+mkdir -p de265
 
-curl -LSs 'https://github.com/strukturag/libde265/archive/refs/tags/v1.0.12.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C de265
+curl_tar 'https://github.com/strukturag/libde265/archive/refs/tags/v1.0.12.tar.gz' de265 1
 
 case "$TARGET" in
   aarch64*)
@@ -13,9 +12,13 @@ case "$TARGET" in
     ;;
 esac
 
-# Remove licenses for unused components
-rm de265/{dec265/COPYING,enc265/COPYING,sherlock265/COPYING}
+# Remove unused components
+rm -r de265/{.github,dec265,enc265,sherlock265}
 
+# Backup source
+bak_src 'de265'
+
+mkdir -p de265/build
 cd de265/build
 
 echo "Build de265..."

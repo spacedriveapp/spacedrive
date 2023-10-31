@@ -1,15 +1,21 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download soxr..."
-mkdir -p soxr/build
+mkdir -p soxr
 
-curl -LSs 'https://downloads.sourceforge.net/project/soxr/soxr-0.1.3-Source.tar.xz' \
-  | bsdtar -xf- --strip-component 1 -C soxr
+curl_tar 'https://downloads.sourceforge.net/project/soxr/soxr-0.1.3-Source.tar.xz' soxr 1
 
 for patch in "$PREFIX"/patches/*; do
   patch -F5 -lp1 -d soxr -t < "$patch"
 done
 
+# Remove some superfluous files
+rm -rf soxr/{examples,lsr-tests,msvc,tests}
+
+# Backup source
+bak_src 'soxr'
+
+mkdir -p soxr/build
 cd soxr/build
 
 echo "Build soxr..."

@@ -1,24 +1,28 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download opencl..."
+
+mkdir -p opencl
+
+curl_tar 'https://github.com/KhronosGroup/OpenCL-ICD-Loader/archive/refs/tags/v2023.04.17.tar.gz' opencl 1
+
+# Remove some superfluous files
+rm -rf opencl/{.github,test}
+
+# Backup source
+bak_src 'opencl'
+
 mkdir -p opencl/build
-
-curl -LSs 'https://github.com/KhronosGroup/OpenCL-Headers/archive/refs/tags/v2023.04.17.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C "${PREFIX}/include" OpenCL-Headers-2023.04.17/CL
-
-curl -LSs 'https://github.com/KhronosGroup/OpenCL-ICD-Loader/archive/refs/tags/v2023.04.17.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C opencl
-
 cd opencl/build
 
 echo "Build opencl..."
 cmake \
+  -DOPENCL_ICD_LOADER_PIC=On \
   -DOPENCL_ICD_LOADER_HEADERS_DIR="${PREFIX}/include" \
-  -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF \
-  -DOPENCL_ICD_LOADER_PIC=ON \
-  -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
+  -DBUILD_TESTING=Off \
   -DENABLE_OPENCL_LAYERINFO=Off \
-  -DBUILD_TESTING=OFF \
+  -DOPENCL_ICD_LOADER_BUILD_TESTING=Off \
+  -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=Off \
   ..
 
 ninja -j"$(nproc)"

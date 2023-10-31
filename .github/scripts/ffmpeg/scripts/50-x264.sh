@@ -3,15 +3,22 @@
 echo "Download x264..."
 mkdir -p x264
 
-curl -LSs 'https://code.videolan.org/videolan/x264/-/archive/9c3c71688226fbb23f4d36399fab08f018e760b0/x264-9c3c71688226fbb23f4d36399fab08f018e760b0.tar.bz2' \
-  | bsdtar -xf- --strip-component 1 -C x264
+# Using master due to aarch64 improvements
+curl_tar 'https://code.videolan.org/videolan/x264/-/archive/d46938de/x264.tar.bz2' x264 1
+
+# Remove some superfluous files
+rm -rf x264/doc
+
+# Backup source
+bak_src 'x264'
 
 cd x264
 
 echo "Build x264..."
 
+# x264 is only compatible with windres, so use compat script
 # shellcheck disable=SC2046
-./configure \
+env RC="$WINDRES" ./configure \
   --prefix="$PREFIX" \
   $(
     case "$TARGET" in

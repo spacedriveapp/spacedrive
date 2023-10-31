@@ -4,28 +4,24 @@ set -euo pipefail
 
 case "$TARGET" in
   *linux-gnu)
-    TARGET="${TARGET}.2.23"
+    # Set the glibc minimum version
+    # This is the lowest we can go at the moment
+    # https://github.com/ziglang/zig/issues/9412
+    TARGET="${TARGET}.2.18"
     ;;
 esac
 
+LD=''
 case "$TARGET" in
   *linux*)
     LD='ld.lld'
-    ;;
-  *macos*)
-    LD='ld64.lld'
     ;;
   *windows*)
     LD='lld-link'
     ;;
 esac
 
-is_linker=0
 case "$0" in
-  *-ld)
-    is_linker=1
-    CMD="$LD"
-    ;;
   *-cc)
     CMD='cc'
     ;;
@@ -40,17 +36,13 @@ esac
 
 args_bak=("$@")
 
-if [ $is_linker -eq 0 ]; then
-  c_argv=('-target' "$TARGET")
-else
-  c_argv=()
-fi
-
 lto=''
 help=0
 argv=()
 stdin=0
 stdout=0
+l_args=()
+c_argv=('-target' "$TARGET")
 sysroot=''
 assembler=0
 has_iphone=0
@@ -59,11 +51,19 @@ assembler_file=0
 should_add_libcharset=0
 has_undefined_dynamic_lookup=0
 while [ "$#" -gt 0 ]; do
+  # Grab linker args into a separate array
+  if (case "$1" in -Wl,*) exit 0 ;; *) exit 1 ;; esac) then
+    IFS=',' read -ra _args <<<"$1"
+    unset "_args[0]"
+    l_args+=("${_args[@]}")
+    shift
+    continue
+  fi
+
   if [ "$1" = '-o-' ] || [ "$1" = '-o=-' ]; then
     # -E redirect to stdout by default, -o - breaks it so we ignore it
     stdout=1
   elif [ "$1" = '-o' ] && [ "$2" = '-' ]; then
-    # -E redirect to stdou by default, -o - breaks it so we ignore it
     stdout=1
     shift 2
     continue
@@ -72,66 +72,38 @@ while [ "$#" -gt 0 ]; do
   elif [ "$1" = '-lgcc_s' ]; then
     # Replace libgcc_s with libunwind
     argv+=('-lunwind')
-  elif [ "$1" = '-Wl,--help' ]; then
-    exec zig "$LD" --help
+  elif [ "$1" == '-lgcc_eh' ]; then
+    # zig doesn't provide gcc_eh alternative
+    # https://github.com/ziglang/zig/issues/17268
+    # We use libc++ to replace it
+    argv+=('-lc++')
   elif [ "$1" = '-fno-lto' ]; then
+    # Zig dont respect -fno-lto when -flto is set, so keep track of it here and strip it if needed
     lto='-fno-lto'
   elif [ "$1" = '-flto' ]; then
     if [ -z "$lto" ]; then
       lto="-flto=auto"
     fi
-  # Zig behaves very oddly when passed the explicit assembler language option
+  elif (case "$1" in -flto=*) exit 0 ;; *) exit 1 ;; esac) then
+    if [ "$lto" != '-fno-lto' ]; then
+      lto="$1"
+    fi
   elif [ "$1" = '-xassembler' ] || [ "$1" = '--language=assembler' ]; then
+    # Zig behaves very oddly when passed the explicit assembler language option
+    # https://github.com/ziglang/zig/issues/10915
+    # https://github.com/ziglang/zig/pull/13544
     assembler=1
   elif { [ "$1" = '-x' ] || [ "$1" = '--language' ]; } && [ "${2:-}" = 'assembler' ]; then
     assembler=1
     shift 2
     continue
-  elif (case "$1" in -flto=*) exit 0 ;; *) exit 1 ;; esac) then
-    if [ "$lto" != '-fno-lto' ]; then
-      lto="$1"
-    fi
-  elif {
-    [ $is_linker -eq 1 ] && (case "$1" in -rpath-link,*) exit 0 ;; *) exit 1 ;; esac)
-  } || (case "$1" in -Wl,-rpath-link,*) exit 0 ;; *) exit 1 ;; esac) then
-    # zig doesn't support -rpath-link arg
-    # https://github.com/ziglang/zig/pull/10948
-    true
-  elif {
-    [ $is_linker -eq 1 ] && [ "$1" = '--no-undefined-version' ]
-  } || [ "$1" = '-Wl,--no-undefined-version' ]; then
-    # zig doesn't support --no-undefined-version
-    # https://github.com/ziglang/zig/issues/16855
-    true
   elif (case "$1" in -mcpu=* | -march=*) exit 0 ;; *) exit 1 ;; esac) then
     # Ignore -mcpu and -march flags, we set them ourselves
     true
   else
-    if (case "$TARGET" in *windows-gnu) exit 0 ;; *) exit 1 ;; esac) then
-      if [ "$1" == '-lgcc_eh' ]; then
-        # zig doesn't provide gcc_eh alternative
-        # https://github.com/ziglang/zig/issues/17268
-        # We use libc++ to replace it on windows gnu targets
-        argv+=('-lc++')
-      elif
-        { [ $is_linker -eq 1 ] && {
-          [ "$1" = '--large-address-aware' ] || [ "$1" = '--disable-auto-image-base' ]
-        }; } || [ "$1" = '-Wl,--large-address-aware' ] || [ "$1" = '-Wl,--disable-auto-image-base' ]
-      then
-        # zig doesn't support --large-address-aware and --disable-auto-image-base
-        true
-      else
-        argv+=("$1")
-      fi
-    elif (case "$TARGET" in *macos*) exit 0 ;; *) exit 1 ;; esac) then
+    if (case "$TARGET" in *macos*) exit 0 ;; *) exit 1 ;; esac) then
       if (case "$1" in -DTARGET_OS_IPHONE*) exit 0 ;; *) exit 1 ;; esac) then
         has_iphone=1
-      elif {
-        [ $is_linker -eq 1 ] && (case "$1" in -exported_symbols_list,*) exit 0 ;; *) exit 1 ;; esac)
-      } || (case "$1" in -Wl,-exported_symbols_list,*) exit 0 ;; *) exit 1 ;; esac) then
-        # zig doesn't support -exported_symbols_list arg
-        # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-exported_symbols_list
-        true
       else
         argv+=("$1")
 
@@ -155,10 +127,57 @@ while [ "$#" -gt 0 ]; do
     assembler_file=1
   elif [ "$1" = '-undefined' ] && [ "${2:-}" == 'dynamic_lookup' ]; then
     argv+=("$2")
-    shift
     has_undefined_dynamic_lookup=1
+    shift 2
+    continue
   elif (case "$1" in --sysroot=*) exit 0 ;; *) exit 1 ;; esac) then
     sysroot="$(echo "$1" | cut -d "=" -f 2-)"
+  fi
+
+  shift
+done
+
+# Ensure compiler informs linker about how to handle undefined symbols
+if [ $has_undefined_dynamic_lookup -eq 1 ]; then
+  l_args+=('-undefined=dynamic_lookup')
+fi
+
+# Set linker flags as global args to be parsed below
+set -- "${l_args[@]}"
+
+l_args=()
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = '-h' ] || [ "$1" = '-help' ] || [ "$1" = '--help' ] || [ "$1" = '/?' ]; then
+    if [ "$LD" == 'lld-link' ]; then
+      exec "$LD" -help
+    elif [ "$LD" == 'ld.lld' ]; then
+      exec "$LD" --help
+    else
+      exec zig cc "${c_argv[@]}" --help
+    fi
+  elif [ "$1" = '-rpath-link' ]; then
+    # zig doesn't support -rpath-link arg
+    # https://github.com/ziglang/zig/pull/10948
+    shift
+  elif [ "$1" = '-pie' ] \
+    || [ "$1" = '--pic-executable' ]; then
+    # zig cc doesn't support -Wl,-pie or -Wl,--pic-executable, so we add -fPIE instead
+    argv+=('-fPIE')
+  elif [ "$1" = '-dylib' ] \
+    || [ "$1" = '--large-address-aware' ] \
+    || [ "$1" = '--no-undefined-version' ] \
+    || [ "$1" = '--disable-auto-image-base' ]; then
+    # zig doesn't support -dylib, --no-undefined-version, --large-address-aware and --disable-auto-image-base
+    # https://github.com/ziglang/zig/issues/16855
+    true
+  elif [ "$1" = '-exported_symbols_list' ]; then
+    # zig doesn't support -exported_symbols_list arg
+    # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-exported_symbols_list
+    shift
+  elif (case "$1" in --exported_symbols_list*) exit 0 ;; *) exit 1 ;; esac) then
+    true
+  else
+    l_args+=("$1")
   fi
 
   shift
@@ -170,60 +189,44 @@ if [ $stdout -eq 1 ] && ! [ $preprocessor -eq 1 ]; then
 fi
 
 # Work-around Zig not respecting -fno-lto when -flto is set
-if [ -n "$lto" ] && [ "$lto" != '-fno-lto' ]; then
+if [ -n "$lto" ]; then
   argv+=("$lto")
 fi
 
-# Macos required -lcharset to be defined when using -liconv
+# Macos requires -lcharset to be defined when using -liconv
 if [ $should_add_libcharset -eq 1 ]; then
   argv+=('-lcharset')
 fi
 
-# Ensure compiler informs linker about how to handle undefined symbols
-if [ $has_undefined_dynamic_lookup -eq 1 ]; then
-  if [ $is_linker -eq 0 ]; then
-    argv+=('-Wl,-undefined=dynamic_lookup')
-  fi
-fi
-
 if [ "$help" -eq 0 ]; then
   # Compiler specific flags
-  if [ $is_linker -eq 0 ]; then
-    c_argv+=('-s')
-
-    case "${TARGET:-}" in
-      x86_64*)
-        c_argv+=(-march=x86_64_v2)
-        ;;
-      aarch64-macos*)
-        c_argv+=(-march=apple_m1)
-        ;;
-      aarch64*)
-        # Raspberry Pi 3
-        c_argv+=(-march=cortex_a53)
-        ;;
-    esac
-  fi
+  case "${TARGET:-}" in
+    x86_64*)
+      c_argv+=(-march=x86_64_v2)
+      ;;
+    aarch64-macos*)
+      c_argv+=(-march=apple_m1)
+      ;;
+    aarch64*)
+      # Raspberry Pi 3
+      c_argv+=(-march=cortex_a53)
+      ;;
+  esac
 
   # If a SDK is defined ensure it is set as sysroot if is not already set
   if [ -z "$sysroot" ] && [ -d "${SDKROOT:-}" ]; then
-    if [ $is_linker -eq 0 ]; then
-      c_argv+=("--sysroot=${SDKROOT}")
-    fi
-
+    c_argv+=("--sysroot=${SDKROOT}")
     sysroot="$SDKROOT"
   fi
 
   # Some macos specific flags
   if (case "$TARGET" in *macos*) exit 0 ;; *) exit 1 ;; esac) then
-    if [ $is_linker -eq 0 ]; then
-      if [ "$has_iphone" -eq 0 ]; then
-        c_argv+=('-DTARGET_OS_IPHONE=0')
-      fi
+    if [ "$has_iphone" -eq 0 ]; then
+      c_argv+=('-DTARGET_OS_IPHONE=0')
+    fi
 
-      if [ -n "$sysroot" ]; then
-        c_argv+=('-isystem' "${sysroot}/usr/include")
-      fi
+    if [ -n "$sysroot" ]; then
+      c_argv+=('-isystem' "${sysroot}/usr/include")
     fi
 
     if [ -n "$sysroot" ]; then
@@ -236,14 +239,12 @@ if [ "$help" -eq 0 ]; then
     if [ -n "$sysroot" ]; then
       crt="$(CDPATH='' cd -- "${sysroot}/.." && pwd -P)"
 
-      if [ $is_linker -eq 0 ]; then
-        c_argv+=(
-          '-isystem' "${crt}/include"
-          '-isystem' "${sysroot}/include/ucrt"
-          '-isystem' "${sysroot}/include/um"
-          '-isystem' "${sysroot}/include/shared"
-        )
-      fi
+      c_argv+=(
+        '-isystem' "${crt}/include"
+        '-isystem' "${sysroot}/include/ucrt"
+        '-isystem' "${sysroot}/include/um"
+        '-isystem' "${sysroot}/include/shared"
+      )
 
       case "${TARGET:-}" in
         x86_64*)
@@ -265,7 +266,13 @@ if [ "$help" -eq 0 ]; then
   fi
 fi
 
+# Add linker args back
+for arg in "${l_args[@]}"; do
+  c_argv+=("-Wl,$arg")
+done
+
 # Zig's behaves very oddly when stdin is used, so we use a temporary file instead
+# https://github.com/ziglang/zig/issues/10389
 if [ $stdin -eq 1 ]; then
   if [ $assembler -eq 1 ]; then
     _file=$(mktemp __zig_fix_stdin.XXXXXX.S)

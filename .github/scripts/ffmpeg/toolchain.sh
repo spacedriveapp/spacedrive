@@ -31,9 +31,13 @@ c = ['zig-cc']
 ar = ['zig', 'ar']
 cpp = ['zig-c++']
 lib = ['zig', 'lib']
+strip = ['llvm-strip-17']
 ranlib = ['zig', 'ranlib']
-windres = ['zig-rc']
+windres = ['rc']
 dlltool = ['zig', 'dlltool']
+objcopy = [ 'zig', 'objcopy' ]
+objdump = [ 'llvm-objdump-17' ]
+readelf = [ 'llvm-readelf-17' ]
 
 [properties]
 sys_root = '${SYSROOT}'
@@ -53,10 +57,7 @@ cat <<EOF >/srv/toolchain.cmake
 set(CMAKE_SYSTEM_NAME ${SYSTEM_NAME^})
 set(CMAKE_SYSTEM_PROCESSOR $SYSTEM_PROCESSOR)
 
-set(triple $TARGET)
-
 set(CMAKE_CROSSCOMPILING TRUE)
-set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS FALSE)
 
 # Do a no-op access on the CMAKE_TOOLCHAIN_FILE variable so that CMake will not
 # issue a warning on it being unused.
@@ -65,13 +66,16 @@ endif()
 
 set(CMAKE_C_COMPILER zig-cc)
 set(CMAKE_CXX_COMPILER zig-c++)
-set(CMAKE_RANLIB zig-ranlib)
-set(CMAKE_C_COMPILER_RANLIB zig-ranlib)
-set(CMAKE_CXX_COMPILER_RANLIB zig-ranlib)
-set(CMAKE_AR zig-ar)
-set(CMAKE_C_COMPILER_AR zig-ar)
-set(CMAKE_CXX_COMPILER_AR zig-ar)
-set(CMAKE_RC_COMPILER zig-rc)
+set(CMAKE_RANLIB ranlib)
+set(CMAKE_C_COMPILER_RANLIB ranlib)
+set(CMAKE_CXX_COMPILER_RANLIB ranlib)
+set(CMAKE_AR ar)
+set(CMAKE_OBJCOPY objcopy)
+set(CMAKE_OBJDUMP llvm-objdump-17)
+set(CMAKE_READELF llvm-readelf-17)
+set(CMAKE_C_COMPILER_AR ar)
+set(CMAKE_CXX_COMPILER_AR ar)
+set(CMAKE_RC_COMPILER rc)
 
 set(CMAKE_FIND_ROOT_PATH ${PREFIX} ${SYSROOT})
 set(CMAKE_SYSTEM_PREFIX_PATH /)
@@ -124,17 +128,22 @@ ln -s "unwind.pc" "${PREFIX}/lib/pkgconfig/libunwind.pc"
 ln -s "unwind.pc" "${PREFIX}/lib/pkgconfig/gcc_s.pc"
 ln -s "unwind.pc" "${PREFIX}/lib/pkgconfig/libgcc_s.pc"
 
-case "$TARGET" in
-  *windows*)
-    # zig doesn't provide libgcc_eh
-    # As an alternative use libc++ to replace it on windows gnu targets
-    cat <<EOF >"${PREFIX}/lib/pkgconfig/gcc_eh.pc"
+# zig doesn't provide libgcc_eh
+# As an alternative use libc++ to replace it on windows gnu targets
+cat <<EOF >"${PREFIX}/lib/pkgconfig/gcc_eh.pc"
 Name: libgcc_eh
 Description: Replace libgcc_eh with libc++
 Version: 9999
 Libs.private: -lc++
 EOF
 
-    ln -s "gcc_eh.pc.pc" "${PREFIX}/lib/pkgconfig/libgcc_eh.pc"
+ln -s "gcc_eh.pc.pc" "${PREFIX}/lib/pkgconfig/libgcc_eh.pc"
+
+case "$TARGET" in
+  *windows-gnu)
+    # Work around LTO bugs when compiling C++ for windows targets
+    # https://github.com/ziglang/zig/issues/15958#issuecomment-1764915440
+    sed -i '/_free_locale))(_locale_t)/s/^/__attribute__((used)) /' "${SYSROOT}/lib/libc/mingw/misc/_free_locale.c"
+    sed -i '/_create_locale))(int, const char \*)/s/^/__attribute__((used)) /' "${SYSROOT}/lib/libc/mingw/misc/_create_locale.c"
     ;;
 esac

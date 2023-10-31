@@ -1,11 +1,19 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download oneVPL..."
+mkdir -p oneVPL
+
+curl_tar 'https://github.com/oneapi-src/oneVPL/archive/refs/tags/v2023.3.1.tar.gz' oneVPL 1
+
+sed -i '/add_subdirectory(examples)/d' oneVPL/CMakeLists.txt
+
+# Remove unused components
+rm -rf oneVPL/{.github,.style.yapf,.pylintrc,assets,script,doc,tools,examples}
+
+# Backup source
+bak_src 'oneVPL'
+
 mkdir -p oneVPL/build
-
-curl -LSs 'https://github.com/oneapi-src/oneVPL/archive/refs/tags/v2023.3.1.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C oneVPL
-
 cd oneVPL/build
 
 echo "Build oneVPL..."

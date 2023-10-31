@@ -10,10 +10,19 @@ esac
 
 echo "Download sse2neon..."
 
-mkdir -p "${PREFIX}/include"
+mkdir -p sse2neon
 
-curl -LSs 'https://github.com/DLTcollab/sse2neon/archive/refs/tags/v1.6.0.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C "${PREFIX}/include" 'sse2neon-1.6.0/sse2neon.h'
+curl_tar 'https://github.com/DLTcollab/sse2neon/archive/refs/tags/v1.6.0.tar.gz' 'sse2neon' 1
 
 curl -LSs 'https://raw.githubusercontent.com/HandBrake/HandBrake/172cd5d/contrib/sse2neon/A01-types-fix.patch' \
-  | patch -F5 -lp1 -d "${PREFIX}/include" -t
+  | patch -F5 -lp1 -d "sse2neon" -t
+
+# Remove unused components
+rm -r sse2neon/{.ci,.github,tests}
+
+# Backup source
+bak_src 'sse2neon'
+
+# Install
+mkdir -p "${PREFIX}/include"
+mv sse2neon/sse2neon.h "${PREFIX}/include/"

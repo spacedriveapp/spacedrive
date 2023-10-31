@@ -1,12 +1,18 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download vpx..."
-mkdir -p vpx/build
+mkdir -p vpx
 
 # v1.13.1
-curl -LSs 'https://gitlab.freedesktop.org/gstreamer/meson-ports/libvpx/-/archive/b2bd418b6f3bc28eedd8f94681cac5c1e4e5eb00/libvpx-b2bd418b6f3bc28eedd8f94681cac5c1e4e5eb00.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C vpx
+curl_tar 'https://gitlab.freedesktop.org/gstreamer/meson-ports/libvpx/-/archive/b2bd418b/libvpx.tar.gz' vpx 1
 
+# Remove some superfluous files
+rm -rf vpx/{third_party/googletest,build_debug,test,tools,examples,examples.mk,configure,*.dox,.gitlab*}
+
+# Backup source
+bak_src 'vpx'
+
+mkdir -p vpx/build
 cd vpx/build
 
 echo "Build vpx..."

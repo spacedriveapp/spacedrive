@@ -1,10 +1,9 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download svt-av1..."
-mkdir -p svt-av1/build
+mkdir -p svt-av1
 
-curl -LSs 'https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v1.7.0/SVT-AV1-v1.7.0.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C svt-av1
+curl_tar 'https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v1.7.0/SVT-AV1-v1.7.0.tar.gz' svt-av1 1
 
 case "$TARGET" in
   x86_64*)
@@ -18,6 +17,13 @@ case "$TARGET" in
     ;;
 esac
 
+# Remove some superfluous files
+rm -rf svt-av1/{Docs,Config,test,ffmpeg_plugin,gstreamer-plugin,.gitlab*}
+
+# Backup source
+bak_src 'svt-av1'
+
+mkdir -p svt-av1/build
 cd svt-av1/build
 
 echo "Build svt-av1..."

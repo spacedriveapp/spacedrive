@@ -1,14 +1,20 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download zlib..."
-mkdir -p zlib/build
+mkdir -p zlib
 
-curl -LSs 'https://github.com/zlib-ng/zlib-ng/archive/refs/tags/2.1.4.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C zlib
+curl_tar 'https://github.com/zlib-ng/zlib-ng/archive/refs/tags/2.1.4.tar.gz' zlib 1
 
 # Patch cmake to disable armv6 assembly, it thinks we support it, but we don't
 sed -i 's/HAVE_ARMV6_INLINE_ASM OR HAVE_ARMV6_INTRIN/HAVE_ARMV6_INLINE_ASM AND HAVE_ARMV6_INTRIN/' zlib/CMakeLists.txt
 
+# Remove some superfluous files
+rm -rf zlib/{.github,doc,test}
+
+# Backup source
+bak_src 'zlib'
+
+mkdir -p zlib/build
 cd zlib/build
 
 echo "Build zlib..."

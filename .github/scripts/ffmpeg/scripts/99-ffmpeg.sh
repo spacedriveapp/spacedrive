@@ -3,42 +3,59 @@
 echo "Download ffmpeg..."
 mkdir -p ffmpeg
 
-curl -LSs 'https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n6.0.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C ffmpeg
+curl_tar 'https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n6.0.tar.gz' ffmpeg 1
+
+# Backup source
+bak_src 'ffmpeg'
 
 cd ffmpeg
 
-# Patch ffmpeg compat tool for rc.exe to use zig-rc
-sed -i 's/rc.exe/zig-rc/' compat/windows/mswindres
-
 echo "Build ffmpeg..."
 
+export CFLAGS="${CFLAGS:-} ${SHARED_FLAGS:-}"
+export CXXFLAGS="${CXXFLAGS:-} ${SHARED_FLAGS:-}"
+
 env_specific_arg=()
-case "$TARGET" in
-  aarch64-macos* | aarch64-windows*)
-    env_specific_arg+=(
-      --disable-cuda-llvm
-      --disable-ffnvcodec
-    )
-    ;;
-  *)
-    env_specific_arg+=(
-      --enable-cuda-llvm
-      --enable-ffnvcodec
-    )
-    ;;
-esac
+
+if [ "$(uname -m)" = "${TARGET%%-*}" ] && (case "$TARGET" in *linux* | x86_64-windows*) exit 0 ;; *) exit 1 ;; esac) then
+  # zig cc doesn't support compiling cuda code yet, so we use the host clang for it
+  # Unfortunatly that means we only suport cuda in the same architecture as the host system
+  # https://github.com/ziglang/zig/pull/10704#issuecomment-1023616464
+  env_specific_arg+=(
+    --nvcc="clang-17 -target ${TARGET}"
+    --enable-cuda-llvm
+    --enable-ffnvcodec
+    --disable-cuda-nvcc
+  )
+else
+  # There are no drivers for Nvidia GPU for macOS or Windows on ARM
+  env_specific_arg+=(
+    --nvcc=false
+    --disable-cuda-llvm
+    --disable-ffnvcodec
+  )
+fi
 
 case "$TARGET" in
-  *windows*)
-    # TODO: Add support for pthreads on Windows
+  *macos*)
     env_specific_arg+=(
-      --disable-pthreads
+      --enable-lto
+      --enable-pthreads
     )
     ;;
-  *)
+  *linux*)
     env_specific_arg+=(
+      --enable-lto
       --enable-pthreads
+    )
+    ;;
+  *windows*)
+    # TODO: Add support for pthreads on Windows (zig doesn't ship pthreads-w32 from mingw64)
+    # TODO: Add support for mediafoundation on Windows (zig doesn't seem to have the necessary bindings to it yet)
+    # TODO: LTO isn't work on Windows rn
+    env_specific_arg+=(
+      --disable-pthreads
+      --disable-mediafoundation
     )
     ;;
 esac
@@ -46,7 +63,7 @@ esac
 if ! ./configure \
   --cpu="${TARGET%%-*}" \
   --arch="${TARGET%%-*}" \
-  --prefix="/opt/out" \
+  --prefix="$OUT" \
   --target-os="$(
     case "$TARGET" in
       *linux*)
@@ -60,17 +77,14 @@ if ! ./configure \
         ;;
     esac
   )" \
-  --nm=false \
-  --ar=zig-ar \
-  --strip=true \
   --cc=zig-cc \
+  --nm=llvm-nm-17 \
+  --ar=ar \
   --cxx=zig-c++ \
-  --nvcc=clang \
-  --ranlib=zig-ranlib \
-  --host-cc=clang \
-  --windres="$(pwd)/compat/windows/mswindres" \
-  --extra-cflags="-DWIN32_LEAN_AND_MEAN" \
-  --extra-cxxflags="-DWIN32_LEAN_AND_MEAN" \
+  --strip=llvm-strip-17 \
+  --ranlib=ranlib \
+  --host-cc=clang-17 \
+  --windres="windres" \
   --x86asmexe=nasm \
   --pkg-config=pkg-config \
   --pkg-config-flags="--static" \
@@ -127,11 +141,9 @@ if ! ./configure \
   --enable-libx264 \
   --enable-libx265 \
   --enable-libzimg \
-  --enable-lto \
   --enable-lzma \
   --enable-opencl \
   --enable-optimizations \
-  --enable-pic \
   --enable-postproc \
   --enable-shared \
   --enable-small \
@@ -153,4 +165,4 @@ esac
 
 make -j"$(nproc)" V=1
 
-make PREFIX="/opt/out" install
+make PREFIX="$OUT" install

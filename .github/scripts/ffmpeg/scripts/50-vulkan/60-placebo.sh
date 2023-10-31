@@ -1,10 +1,9 @@
 #!/usr/bin/env -S bash -euo pipefail
 
 echo "Download placebo..."
-mkdir -p placebo/build
+mkdir -p placebo
 
-curl -LSs 'https://github.com/haasn/libplacebo/archive/refs/tags/v5.264.1.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C placebo
+curl_tar 'https://github.com/haasn/libplacebo/archive/refs/tags/v5.264.1.tar.gz' placebo 1
 
 # Some required patches for fixing log for windows
 for patch in \
@@ -20,11 +19,18 @@ done
 sed -ie 's@spirv_cross_c.h@spirv_cross/spirv_cross_c.h@' placebo/src/d3d11/gpu.h
 
 # Thrid party deps
-curl -LSs 'https://github.com/pallets/jinja/archive/refs/tags/3.1.2.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C placebo/3rdparty/jinja
-curl -LSs 'https://github.com/pallets/markupsafe/archive/refs/tags/2.1.3.tar.gz' \
-  | bsdtar -xf- --strip-component 1 -C placebo/3rdparty/markupsafe
+curl_tar 'https://github.com/pallets/jinja/archive/refs/tags/3.1.2.tar.gz' placebo/3rdparty/jinja 1
+curl_tar 'https://github.com/pallets/markupsafe/archive/refs/tags/2.1.3.tar.gz' placebo/3rdparty/markupsafe 1
 
+# Remove some superfluous files
+rm -rf placebo/{.github,docs,demos}
+rm -rf placebo/3rdparty/jinja/{.github,artwork,docs,examples,requirements,scripts,tests}
+rm -rf placebo/3rdparty/markupsafe/{.github,bench,docs,requirements,tests}
+
+# Backup source
+bak_src 'placebo'
+
+mkdir -p placebo/build
 cd placebo/build
 
 echo "Build placebo..."
@@ -37,7 +43,7 @@ meson \
   -Dshaderc=enabled \
   -Dunwind=enabled \
   -Dd3d11=disabled \
-  -Dvulkan-registry=/srv/vulkan/registry/vk.xml \
+  -Dvulkan-registry=/srv/vulkan-headers/registry/vk.xml \
   -Dglslang=disabled \
   -Dgl-proc-addr=disabled \
   -Dvk-proc-addr=disabled \

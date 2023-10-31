@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Shim Microsoft's native rc.exe help, so meson identifies us as such
+# Shim Microsoft's native llvm-rc help, so meson identifies us as such
 if [ "$#" -eq 1 ] && [ "$1" == '/?' ]; then
   echo "Microsoft Resource Compiler"
   exit 0

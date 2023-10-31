@@ -9,34 +9,53 @@ set -o allexport
 set +o allexport
 
 # COnfigure cross compiler environment variables
-export LD="zig-ld"
 export CC="zig-cc"
 export AR="zig ar"
+export RC="rc"
+export NM="llvm-nm-17"
 export CXX="zig-c++"
-export STRIP="true"
+export STRIP="llvm-strip-17"
 export RANLIB="zig ranlib"
+export WINDRES="windres"
 export DLLTOOL="zig dlltool"
+export OBJCOPY="zig objcopy"
+export OBJDUMP="llvm-objdump-17"
 export PKG_CONFIG="pkg-config"
 export PKG_CONFIG_LIBDIR="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig"
 
 case "$TARGET" in
   *linux*)
-    export CFLAGS="-I${PREFIX}/include -pipe -fPIC -DPIC -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -pthread -fvisibility=hidden -fno-semantic-interposition -flto=auto"
-    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -fstack-clash-protection -Wl,-z,relro,-z,now -pthread -lm -flto=auto"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -fvisibility=hidden"
+    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -fstack-clash-protection -Wl,-z,relro,-z,now"
     export CXXFLAGS="$CFLAGS"
+    export SHARED_FLAGS="${CFLAGS:-} -fno-semantic-interposition"
     ;;
   *windows*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -flto=auto"
-    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -flto=auto"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong"
+    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong"
     export CXXFLAGS="$CFLAGS"
-
-    case "$TARGET" in
-      *-gnu)
-        export WINAPI_NO_BUNDLED_LIBRARIES=1
-        ;;
-    esac
     ;;
 esac
+
+bak_src() {
+  if ! { [ "$#" -eq 1 ] && [ -d "$1" ]; }; then
+    echo "bak_src: <SRC_DIR>" >&2
+    exit 1
+  fi
+
+  set -- "$(CDPATH='' cd "$1" && pwd)"
+
+  case "$1" in
+    /srv/*) ;;
+    *)
+      echo "Soruce dir must be under /srv" >&2
+      exit 1
+      ;;
+  esac
+
+  mkdir -p "${PREFIX}/srv"
+  cp -at "${PREFIX}/srv" "$1"
+}
 
 cd /srv
 
@@ -47,7 +66,7 @@ cd /srv
   trap '_exit=$?; if [ "$UNSUPPORTED" -eq 1 ]; then echo "Stage ignored in current environment" >&2; _exit=0; fi; exit $_exit' EXIT
 
   # Add wrappers to PATH
-  export PATH="${PREFIX}/wrapper:${PATH}"
+  export PATH="${SYSROOT}/wrapper:${PATH}"
 
   set -x
 
