@@ -7,9 +7,17 @@ export type IconName = keyof typeof iconNames;
 interface Props extends ImgHTMLAttributes<HTMLImageElement> {
 	name: IconName;
 	size?: number;
+	theme?: 'dark' | 'light';
 }
 
-export const Icon = ({ name, size, ...props }: Props) => {
+export const Icon = ({ name, size, theme, ...props }: Props) => {
 	const isDark = useIsDark();
-	return <img src={getIcon(name, isDark)} width={size} height={size} {...props} />;
+	return (
+		<img
+			src={getIcon(name, theme ? theme === 'dark' : isDark)}
+			width={size}
+			height={size}
+			{...props}
+		/>
+	);
 };
