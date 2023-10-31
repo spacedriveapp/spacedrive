@@ -3,30 +3,37 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { useRef } from 'react';
 import {
-	Object,
+	ExplorerItem,
+	libraryClient,
 	useLibraryMutation,
 	useLibraryQuery,
-	usePlausibleEvent,
-	useRspcLibraryContext
+	usePlausibleEvent
 } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
-import CreateDialog from '~/app/$libraryId/settings/library/tags/CreateDialog';
+import CreateDialog, {
+	assignItemsToTag,
+	AssignTagItems
+} from '~/app/$libraryId/settings/library/tags/CreateDialog';
+import { Menu } from '~/components/Menu';
 import { useOperatingSystem } from '~/hooks';
 import { useScrolled } from '~/hooks/useScrolled';
 import { keybindForOs } from '~/util/keybinds';
 
-import { Menu } from './Menu';
-
-export default (props: { objects: Object[] }) => {
+export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>> }) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
 	const submitPlausibleEvent = usePlausibleEvent();
-	const rspc = useRspcLibraryContext();
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
+
 	// Map<tag::id, Vec<object::id>>
 	const tagsWithObjects = useLibraryQuery([
 		'tags.getWithObjects',
-		props.objects.map(({ id }) => id)
+		props.items
+			.map((item) => {
+				if (item.type === 'Path') return item.item.object?.id;
+				else if (item.type === 'Object') return item.item.id;
+			})
+			.filter((item): item is number => item !== undefined)
 	]);
 
 	const assignTag = useLibraryMutation('tags.assign', {
@@ -54,7 +61,7 @@ export default (props: { objects: Object[] }) => {
 				iconProps={{ size: 15 }}
 				keybind={keybind([ModifierKeys.Control], ['N'])}
 				onClick={() => {
-					dialogManager.create((dp) => <CreateDialog {...dp} objects={props.objects} />);
+					dialogManager.create((dp) => <CreateDialog {...dp} items={props.items} />);
 				}}
 			/>
 			<Menu.Separator className={clsx('mx-0 mb-0 transition', isScrolled && 'shadow')} />
@@ -79,46 +86,68 @@ export default (props: { objects: Object[] }) => {
 							const tag = tags.data[virtualRow.index];
 							if (!tag) return null;
 
-							const objectsWithTag = tagsWithObjects.data?.[tag?.id];
+							const objectsWithTag = new Set(tagsWithObjects.data?.[tag?.id]);
 
 							// only unassign if all objects have tag
 							// this is the same functionality as finder
-							const unassign = objectsWithTag?.length === props.objects.length;
+							const unassign = props.items.every((item) => {
+								if (item.type === 'Object') {
+									return objectsWithTag.has(item.item.id);
+								} else {
+									const { object } = item.item;
+
+									if (!object) return false;
+									return objectsWithTag.has(object.id);
+								}
+							});
 
 							// TODO: UI to differentiate tag assigning when some objects have tag when no objects have tag - ENG-965
 
 							return (
 								<Menu.Item
 									key={virtualRow.index}
+									className="absolute left-0 top-0 w-full"
 									style={{
-										position: 'absolute',
-										top: 0,
-										left: 0,
-										width: '100%',
 										height: `${virtualRow.size}px`,
 										transform: `translateY(${virtualRow.start}px)`
 									}}
 									onClick={async (e) => {
 										e.preventDefault();
 
-										await assignTag.mutateAsync({
-											unassign,
-											tag_id: tag.id,
-											object_ids: unassign
+										await assignItemsToTag(
+											libraryClient,
+											tag.id,
+											unassign
 												? // use objects that already have tag
-												  objectsWithTag
+												  props.items.flatMap((item) => {
+														if (
+															item.type === 'Object' ||
+															item.type === 'Path'
+														) {
+															return [item];
+														}
+
+														return [];
+												  })
 												: // use objects that don't have tag
-												  props.objects
-														.filter(
-															(o) =>
-																!objectsWithTag?.some(
-																	(ot) => ot === o.id
+												  props.items.flatMap<AssignTagItems[number]>(
+														(item) => {
+															if (item.type === 'Object') {
+																if (
+																	!objectsWithTag.has(
+																		item.item.id
+																	)
 																)
-														)
-														.map((o) => o.id)
-										});
-										if (unassign)
-											rspc.queryClient.invalidateQueries(['search.objects']);
+																	return [item];
+															} else if (item.type === 'Path') {
+																return [item];
+															}
+
+															return [];
+														}
+												  ),
+											unassign
+										);
 									}}
 								>
 									<div
@@ -126,7 +155,7 @@ export default (props: { objects: Object[] }) => {
 										style={{
 											backgroundColor:
 												objectsWithTag &&
-												objectsWithTag.length > 0 &&
+												objectsWithTag.size > 0 &&
 												tag.color
 													? tag.color
 													: 'transparent',
