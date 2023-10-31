@@ -87,7 +87,7 @@ pub(crate) async fn reciever(
 		file_path_id,
 		range,
 	}: HeaderFile,
-	event: PeerMessageEvent<UnicastStream>,
+	event: PeerMessageEvent,
 ) {
 	let mut stream = event.stream;
 	if !node.files_over_p2p_flag.load(Ordering::Relaxed) {

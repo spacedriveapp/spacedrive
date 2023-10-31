@@ -200,11 +200,8 @@ impl Manager {
 
 			()
 		})?;
-		Ok(stream.build(self, peer_id).await)
-	}
 
-	pub async fn broadcast(&self, data: Vec<u8>) {
-		self.emit(ManagerStreamAction::BroadcastData(data)).await;
+		stream.build(self, peer_id).await
 	}
 
 	// TODO: Cleanup return type and this API in general
