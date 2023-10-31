@@ -1,27 +1,28 @@
 use std::{
 	future::Future,
 	pin::Pin,
-	sync::{atomic::Ordering, Arc},
+	sync::{atomic::Ordering, Arc, PoisonError},
 };
 
-use libp2p::{core::UpgradeInfo, InboundUpgrade, Stream};
-use tokio::io::AsyncReadExt;
+use libp2p::{
+	core::{ConnectedPoint, UpgradeInfo},
+	InboundUpgrade, PeerId, Stream,
+};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
-	spacetime::{BroadcastStream, UnicastStream},
-	Manager, ManagerStreamAction2, Metadata, PeerId, PeerMessageEvent,
+	spacetime::UnicastStream, ConnectedPeer, Event, Manager, ManagerStreamAction2, PeerMessageEvent,
 };
 
 use super::SpaceTimeProtocolName;
 
-pub struct InboundProtocol<TMetadata: Metadata> {
+pub struct InboundProtocol {
 	pub(crate) peer_id: PeerId,
-	pub(crate) manager: Arc<Manager<TMetadata>>,
+	pub(crate) manager: Arc<Manager>,
 }
 
-impl<TMetadata: Metadata> UpgradeInfo for InboundProtocol<TMetadata> {
+impl UpgradeInfo for InboundProtocol {
 	type Info = SpaceTimeProtocolName;
 	type InfoIter = [Self::Info; 1];
 
@@ -30,8 +31,8 @@ impl<TMetadata: Metadata> UpgradeInfo for InboundProtocol<TMetadata> {
 	}
 }
 
-impl<TMetadata: Metadata> InboundUpgrade<Stream> for InboundProtocol<TMetadata> {
-	type Output = ManagerStreamAction2<TMetadata>;
+impl InboundUpgrade<Stream> for InboundProtocol {
+	type Output = ManagerStreamAction2;
 	type Error = ();
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send + 'static>>;
 
@@ -43,38 +44,58 @@ impl<TMetadata: Metadata> InboundUpgrade<Stream> for InboundProtocol<TMetadata> 
 				self.peer_id
 			);
 
-			let mut io = io.compat();
-			let discriminator = io.read_u8().await.unwrap(); // TODO: Timeout on this
-			match discriminator {
-				crate::spacetime::BROADCAST_DISCRIMINATOR => {
-					debug!("stream({}, {id}): broadcast stream accepted", self.peer_id);
-					Ok(ManagerStreamAction2::Event(
-						PeerMessageEvent {
-							stream_id: id,
-							peer_id: self.peer_id,
-							manager: self.manager.clone(),
-							stream: BroadcastStream::new(io),
-							_priv: (),
-						}
-						.into(),
-					))
-				}
-				crate::spacetime::UNICAST_DISCRIMINATOR => {
-					debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
+			let io = io.compat();
+			debug!("stream({}, {id}): unicast stream accepted", self.peer_id);
 
-					Ok(ManagerStreamAction2::Event(
-						PeerMessageEvent {
-							stream_id: id,
-							peer_id: self.peer_id,
-							manager: self.manager.clone(),
-							stream: UnicastStream::new(io),
-							_priv: (),
-						}
-						.into(),
-					))
+			let stream = UnicastStream::new_inbound(self.manager.identity.clone(), io).await;
+
+			let establisher = {
+				let mut state = self
+					.manager
+					.state
+					.write()
+					.unwrap_or_else(PoisonError::into_inner);
+
+				state
+					.connected
+					.insert(self.peer_id, stream.remote_identity());
+
+				match state.connections.get(&self.peer_id) {
+					Some((endpoint, 0)) => Some(match endpoint {
+						ConnectedPoint::Dialer { .. } => true,
+						ConnectedPoint::Listener { .. } => false,
+					}),
+					None => {
+						warn!("Error getting PeerId({})'s connection state. This indicates a bug in P2P", self.peer_id);
+						None
+					}
+					_ => None,
 				}
-				_ => todo!(), // TODO: Error handling
+			};
+
+			debug!(
+				"sending establishment request to peer '{}'",
+				stream.remote_identity()
+			);
+
+			let identity = stream.remote_identity();
+			let mut events = vec![PeerMessageEvent {
+				stream_id: id,
+				identity,
+				manager: self.manager.clone(),
+				stream,
+				_priv: (),
 			}
+			.into()];
+
+			if let Some(establisher) = establisher {
+				events.push(Event::PeerConnected(ConnectedPeer {
+					identity,
+					establisher,
+				}));
+			}
+
+			Ok(ManagerStreamAction2::Events(events))
 		})
 	}
 }
