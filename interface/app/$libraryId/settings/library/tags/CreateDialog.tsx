@@ -3,7 +3,6 @@ import {
 	libraryClient,
 	Object,
 	Target,
-	useLibraryContext,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useZodForm
@@ -61,14 +60,15 @@ export default (
 
 	const createTag = useLibraryMutation('tags.create');
 
+	const assignItemsToTag = useAssignItemsToTag();
+
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
 			const tag = await createTag.mutateAsync(data);
 
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 
-			if (props.items !== undefined)
-				await useAssignItemsToTag(libraryClient, tag.id, props.items, false);
+			if (props.items !== undefined) await assignItemsToTag(tag.id, props.items, false);
 		} catch (e) {
 			console.error('error', e);
 		}
