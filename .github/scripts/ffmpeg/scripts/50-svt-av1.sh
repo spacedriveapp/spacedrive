@@ -12,8 +12,7 @@ case "$TARGET" in
   aarch64*)
     ENABLE_NASM=Off
     # Patch to enable SSE in aarch64
-    curl -LSs 'https://raw.githubusercontent.com/HandBrake/HandBrake/621a6ff/contrib/svt-av1/A01-adds-neon-sse2neon-implementations-of-SVT-AV1_v15.patch' \
-      | patch -F5 -lp1 -d svt-av1 -t
+    curl -LSs 'https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2135.patch' | patch -F5 -lp1 -d svt-av1 -t
     ;;
 esac
 

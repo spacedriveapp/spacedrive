@@ -19,9 +19,6 @@ cd zimg
 
 echo "Build zimg..."
 
-export CFLAGS="${CFLAGS:-} -Oz"
-export CXXFLAGS="${CFLAGS}"
-
 ./autogen.sh
 
 ./configure \

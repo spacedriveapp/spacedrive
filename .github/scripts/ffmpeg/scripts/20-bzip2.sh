@@ -3,7 +3,7 @@
 echo "Download bzip2..."
 mkdir -p bzip2
 
-curl_tar 'https://gitlab.com/bzip2/bzip2/-/archive/66c46b8c9436613fd81bc5d03f63a61933a4dcc3/bzip2-66c46b8c9436613fd81bc5d03f63a61933a4dcc3.tar.gz' bzip2 1
+curl_tar 'https://gitlab.com/bzip2/bzip2/-/archive/66c46b8c/bzip2.tar.gz' bzip2 1
 
 sed -i '/add_subdirectory(man)/d' bzip2/CMakeLists.txt
 
@@ -15,6 +15,9 @@ bak_src 'bzip2'
 
 mkdir -p bzip2/build
 cd bzip2/build
+
+export CFLAGS="${CFLAGS:-} -DBZ_DEBUG=0"
+export CXXFLAGS="${CXXFLAGS:-} -DBZ_DEBUG=0"
 
 echo "Build bzip2..."
 cmake \

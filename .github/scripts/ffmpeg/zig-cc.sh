@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-case "$TARGET" in
+case "${TARGET:?TARGET envvar is required to be defined}" in
   *linux-gnu)
     # Set the glibc minimum version
     # This is the lowest we can go at the moment
@@ -19,6 +19,9 @@ case "$TARGET" in
   *windows*)
     LD='lld-link'
     ;;
+  # Mach-O (macOS) linker (ld64.lld) was dropped in favour of zig's internal linker
+  # https://github.com/ziglang/zig/commit/81bf05bf6c1249c39273b494d3e337d300b4ddd5
+  # https://github.com/ziglang/zig/commit/0e15205521b9a8c95db3c1714dffe3be1df5cda1
 esac
 
 case "$0" in
@@ -88,6 +91,12 @@ while [ "$#" -gt 0 ]; do
     if [ "$lto" != '-fno-lto' ]; then
       lto="$1"
     fi
+  elif (case "$1" in -O* | --optimize*) exit 0 ;; *) exit 1 ;; esac) then
+    # Drop optmize flags, we force -Os below
+    # This also misteriosly fix an aarch64 compiler bug in clang 16
+    # https://github.com/llvm/llvm-project/issues/47432
+    # https://github.com/llvm/llvm-project/issues/66912
+    true
   elif [ "$1" = '-xassembler' ] || [ "$1" = '--language=assembler' ]; then
     # Zig behaves very oddly when passed the explicit assembler language option
     # https://github.com/ziglang/zig/issues/10915
@@ -212,6 +221,9 @@ if [ "$help" -eq 0 ]; then
       c_argv+=(-march=cortex_a53)
       ;;
   esac
+
+  # Like -O2 with extra optimizations to reduce code size
+  c_argv+=(-Os)
 
   # If a SDK is defined ensure it is set as sysroot if is not already set
   if [ -z "$sysroot" ] && [ -d "${SDKROOT:-}" ]; then

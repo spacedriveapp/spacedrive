@@ -146,7 +146,6 @@ if ! ./configure \
   --enable-optimizations \
   --enable-postproc \
   --enable-shared \
-  --enable-small \
   --enable-swscale \
   --enable-version3 \
   --enable-vulkan \

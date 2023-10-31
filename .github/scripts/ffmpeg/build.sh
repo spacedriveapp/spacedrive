@@ -25,8 +25,20 @@ export PKG_CONFIG_LIBDIR="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig"
 
 case "$TARGET" in
   *linux*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -fvisibility=hidden"
-    export LDFLAGS="-L${PREFIX}/lib -pipe -fstack-protector-strong -fstack-clash-protection -Wl,-z,relro,-z,now"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=1 -fvisibility=hidden"
+    export LDFLAGS="-L${PREFIX}/lib -pipe -Wl,-z,relro,-z,now"
+
+    case "$TARGET" in
+      x86_64*)
+        export CFLAGS="${CFLAGS} -fstack-protector-strong -fstack-clash-protection"
+        export LDFLAGS="${LDFLAGS} -fstack-protector-strong -fstack-clash-protection"
+        ;;
+      aarch64*)
+        # https://github.com/ziglang/zig/issues/17430#issuecomment-1752592338
+        export CFLAGS="${CFLAGS} -fno-stack-protector -fno-stack-check"
+        export LDFLAGS="${LDFLAGS} -fno-stack-protector -fno-stack-check"
+    esac
+
     export CXXFLAGS="$CFLAGS"
     export SHARED_FLAGS="${CFLAGS:-} -fno-semantic-interposition"
     ;;
