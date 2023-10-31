@@ -1,4 +1,4 @@
-#![allow(dead_code, unused)] // TODO: Remove once sorted outs
+#![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
 use std::{
 	collections::HashMap,
@@ -12,7 +12,7 @@ use chrono::Utc;
 use futures::channel::oneshot;
 use sd_p2p::{
 	spacetunnel::{Identity, RemoteIdentity},
-	Manager, Metadata,
+	Manager,
 };
 
 use sd_prisma::prisma::instance;
@@ -22,7 +22,7 @@ use tokio::{
 	io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 	sync::broadcast,
 };
-use tracing::{error, info};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 mod proto;
@@ -31,12 +31,12 @@ use proto::*;
 
 use crate::{
 	library::{Libraries, LibraryName},
-	node::{self, config::NodeConfig, Platform},
-	p2p::{Header, IdentityOrRemoteIdentity, P2PManager},
+	node::Platform,
+	p2p::{Header, IdentityOrRemoteIdentity},
 	Node,
 };
 
-use super::{P2PEvent, PeerMetadata};
+use super::P2PEvent;
 
 pub struct PairingManager {
 	id: AtomicU16,
@@ -231,7 +231,17 @@ impl PairingManager {
 
 		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{identity}'");
 
-		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
+		let remote_instance = match PairingRequest::from_stream(&mut stream).await {
+			Ok(v) => v,
+			Err((field_name, err)) => {
+				warn!("Error reading field '{field_name}' of pairing request from remote: {err}");
+				self.emit_progress(pairing_id, PairingStatus::PairingRejected);
+
+				// TODO: Attempt to send error to remote and reset connection
+				return;
+			}
+		}
+		.0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);
 		self.events_tx
 			.send(P2PEvent::PairingRequest {
@@ -293,17 +303,29 @@ impl PairingManager {
 						.await
 						.unwrap()
 						.into_iter()
-						.map(|i| Instance {
-							id: Uuid::from_slice(&i.pub_id).unwrap(),
-							identity: IdentityOrRemoteIdentity::from_bytes(&i.identity)
-								.unwrap()
-								.remote_identity(),
-							node_id: Uuid::from_slice(&i.node_id).unwrap(),
-							node_name: i.node_name,
-							node_platform: Platform::try_from(i.node_platform as u8)
-								.unwrap_or(Platform::Unknown),
-							last_seen: i.last_seen.into(),
-							date_created: i.date_created.into(),
+						.filter_map(|i| {
+							let Ok(id) = Uuid::from_slice(&i.pub_id) else {
+								warn!("Invalid instance pub_id in database: {:?}", i.pub_id);
+								return None;
+							};
+
+							let Ok(node_id) = Uuid::from_slice(&i.node_id) else {
+								warn!("Invalid instance node_id in database: {:?}", i.node_id);
+								return None;
+							};
+
+							Some(Instance {
+								id,
+								identity: IdentityOrRemoteIdentity::from_bytes(&i.identity)
+									.unwrap()
+									.remote_identity(),
+								node_id,
+								node_name: i.node_name,
+								node_platform: Platform::try_from(i.node_platform as u8)
+									.unwrap_or(Platform::Unknown),
+								last_seen: i.last_seen.into(),
+								date_created: i.date_created.into(),
+							})
 						})
 						.collect(),
 				}
@@ -346,3 +368,17 @@ pub enum PairingStatus {
 }
 
 // TODO: Unit tests
+
+// // TODO: Relocate this somewhere else
+// #[macro_use]
+// macro_rules! throw {
+// 	($e:expr) => {
+// 		match $e {
+// 			Ok(v) => v,
+// 			Err(err) => {
+// 				// warn!(); // TODO
+// 				return;
+// 			}
+// 		}
+// 	};
+// }

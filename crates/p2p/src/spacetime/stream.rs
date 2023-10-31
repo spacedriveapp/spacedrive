@@ -184,7 +184,10 @@ impl UnicastStreamBuilder {
 
 	pub(crate) async fn build(mut self, manager: &Manager, peer_id: PeerId) -> UnicastStream {
 		// TODO: Timeout if the peer doesn't accept the byte quick enough
-		self.io.write_all(&[UNICAST_DISCRIMINATOR]).await.unwrap();
+		self.io
+			.write_all(&[UNICAST_DISCRIMINATOR])
+			.await
+			.expect("Is removed in another PR");
 
 		let stream = UnicastStream::new_outbound(self.identity, self.io).await;
 

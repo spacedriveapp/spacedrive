@@ -1,3 +1,5 @@
+#![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
+
 use std::sync::Arc;
 
 use sd_p2p::{

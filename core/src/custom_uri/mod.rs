@@ -240,13 +240,14 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 							}
 
 							// TODO: Support `Range` requests and `ETag` headers
-							#[allow(clippy::unwrap_used)] // TODO: Error handling needed
 							match state.node.p2p.get_library_service(&library.id) {
 								Some(service) => {
 									let stream = service
 										.connect(state.node.p2p.manager.clone(), &identity)
 										.await
-										.unwrap();
+										.map_err(|()| {
+											not_found("Error connecting to {identity}")
+										})?;
 
 									let (tx, mut rx) =
 										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
