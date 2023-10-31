@@ -200,7 +200,59 @@ impl Manager {
 
 			()
 		})?;
-		stream.build(self, peer_id).await
+
+		Ok(stream.build(self, peer_id).await)
+	}
+
+	// TODO: Cleanup return type and this API in general
+	#[allow(clippy::type_complexity)]
+	pub fn get_debug_state(
+		&self,
+	) -> (
+		PeerId,
+		RemoteIdentity,
+		ManagerConfig,
+		HashMap<PeerId, RemoteIdentity>,
+		HashSet<PeerId>,
+		HashMap<String, Option<HashMap<String, String>>>,
+		HashMap<
+			String,
+			HashMap<RemoteIdentity, (PeerId, HashMap<String, String>, Vec<SocketAddr>)>,
+		>,
+		HashMap<String, HashSet<RemoteIdentity>>,
+	) {
+		let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+		let discovery_state = self
+			.discovery_state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner);
+
+		(
+			self.peer_id,
+			self.identity.to_remote_identity(),
+			state.config.clone(),
+			state.connected.clone(),
+			state.connections.keys().copied().collect(),
+			discovery_state
+				.services
+				.iter()
+				.map(|(k, v)| (k.clone(), v.1.clone()))
+				.collect(),
+			discovery_state
+				.discovered
+				.iter()
+				.map(|(k, v)| {
+					(
+						k.clone(),
+						v.clone()
+							.iter()
+							.map(|(k, v)| (*k, (v.peer_id, v.meta.clone(), v.addresses.clone())))
+							.collect::<HashMap<_, _>>(),
+					)
+				})
+				.collect(),
+			discovery_state.known.clone(),
+		)
 	}
 
 	// TODO: Cleanup return type and this API in general

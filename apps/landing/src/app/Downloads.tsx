@@ -111,7 +111,7 @@ export function Downloads({ latestVersion }: Props) {
 							key={name}
 							size="md"
 							text={name}
-							target="_blank"
+							rel="noopener"
 							href={`${BASE_DL_LINK}/${selectedPlatform.os}/${arch}`}
 							onClick={() => {
 								plausible('download', {
@@ -198,7 +198,7 @@ function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
 			? (props: any) => (
 					<a
 						aria-label={platform.name}
-						target="_blank"
+						rel="noopener"
 						href={`${BASE_DL_LINK}/${platform.os}/${links[0].arch}`}
 						{...props}
 					/>

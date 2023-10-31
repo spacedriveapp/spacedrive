@@ -10,7 +10,7 @@ import {
 	MediaMetadata,
 	useUnitFormatStore
 } from '@sd/client';
-import Accordion from '~/components/Accordion';
+import { Accordion } from '~/components';
 import { Platform, usePlatform } from '~/util/Platform';
 
 import { getExplorerStore, useExplorerStore } from '../store';
