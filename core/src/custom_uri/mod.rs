@@ -253,14 +253,17 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 										tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 									// TODO: We only start a thread because of stupid `ManagerStreamAction2` and libp2p's `!Send/!Sync` bounds on a stream.
 									tokio::spawn(async move {
-										operations::request_file(
+										let Ok(()) = operations::request_file(
 											stream,
 											&library,
 											file_path_pub_id,
 											Range::Full,
 											MpscToAsyncWrite::new(PollSender::new(tx)),
 										)
-										.await;
+										.await
+										else {
+											return;
+										};
 									});
 
 									// TODO: Content Type
