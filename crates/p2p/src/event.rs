@@ -1,10 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{
-	spacetime::{BroadcastStream, UnicastStream},
-	spacetunnel::RemoteIdentity,
-	ConnectedPeer, Manager,
-};
+use crate::{spacetime::UnicastStream, spacetunnel::RemoteIdentity, ConnectedPeer, Manager};
 
 /// represents an event coming from the network manager.
 /// This is useful for updating your UI when stuff changes on the backend.
@@ -21,31 +17,23 @@ pub enum Event {
 	/// communication was lost with a peer.
 	PeerDisconnected(RemoteIdentity),
 	/// the peer has opened a new unicast substream
-	PeerMessage(PeerMessageEvent<UnicastStream>),
-	/// the peer has opened a new brodcast substream
-	PeerBroadcast(PeerMessageEvent<BroadcastStream>),
+	PeerMessage(PeerMessageEvent),
 	/// the node is shutting down
 	Shutdown,
 }
 
 #[derive(Debug)]
-pub struct PeerMessageEvent<S> {
+pub struct PeerMessageEvent {
 	pub stream_id: u64,
 	pub identity: RemoteIdentity,
 	pub manager: Arc<Manager>,
-	pub stream: S,
+	pub stream: UnicastStream,
 	// Prevent manual creation by end-user
 	pub(crate) _priv: (),
 }
 
-impl From<PeerMessageEvent<UnicastStream>> for Event {
-	fn from(event: PeerMessageEvent<UnicastStream>) -> Self {
+impl From<PeerMessageEvent> for Event {
+	fn from(event: PeerMessageEvent) -> Self {
 		Self::PeerMessage(event)
-	}
-}
-
-impl From<PeerMessageEvent<BroadcastStream>> for Event {
-	fn from(event: PeerMessageEvent<BroadcastStream>) -> Self {
-		Self::PeerBroadcast(event)
 	}
 }

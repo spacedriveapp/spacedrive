@@ -1,5 +1,5 @@
 use std::{
-	io::{self, ErrorKind},
+	io::{self},
 	pin::Pin,
 	sync::PoisonError,
 	task::{Context, Poll},
@@ -16,54 +16,7 @@ use crate::{
 	Manager,
 };
 
-pub const BROADCAST_DISCRIMINATOR: u8 = 0;
-pub const UNICAST_DISCRIMINATOR: u8 = 1;
-
 pub const CHALLENGE_LENGTH: usize = 32;
-
-/// A broadcast is a message sent to many peers in the network.
-/// Due to this it is not possible to respond to a broadcast.
-#[derive(Debug)]
-pub struct BroadcastStream(Option<Compat<Stream>>);
-
-impl BroadcastStream {
-	#[allow(unused)]
-	pub(crate) fn new(stream: Compat<Stream>) -> Self {
-		Self(Some(stream))
-	}
-
-	async fn close_inner(mut io: Compat<Stream>) -> Result<(), io::Error> {
-		io.write_all(&[b'D']).await?;
-		io.flush().await?;
-
-		match io.into_inner().close().await {
-			Ok(_) => Ok(()),
-			Err(err) if err.kind() == ErrorKind::ConnectionReset => Ok(()), // The other end shut the connection before us
-			Err(err) => Err(err),
-		}
-	}
-}
-
-impl AsyncRead for BroadcastStream {
-	fn poll_read(
-		self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &mut ReadBuf<'_>,
-	) -> Poll<io::Result<()>> {
-		Pin::new(&mut self.get_mut().0.as_mut().expect("'BroadcastStream' can only be 'None' if this method is called after 'Drop' which ain't happening!")).poll_read(cx, buf)
-	}
-}
-
-impl Drop for BroadcastStream {
-	fn drop(&mut self) {
-		// This may be `None` if the user manually called `Self::close`
-		if let Some(stream) = self.0.take() {
-			tokio::spawn(async move {
-				Self::close_inner(stream).await.unwrap();
-			});
-		}
-	}
-}
 
 /// A unicast stream is a direct stream to a specific peer.
 #[derive(Debug)]
@@ -182,10 +135,11 @@ impl UnicastStreamBuilder {
 		Self { identity, io }
 	}
 
-	pub(crate) async fn build(mut self, manager: &Manager, peer_id: PeerId) -> UnicastStream {
-		// TODO: Timeout if the peer doesn't accept the byte quick enough
-		self.io.write_all(&[UNICAST_DISCRIMINATOR]).await.unwrap();
-
+	pub(crate) async fn build(
+		self,
+		manager: &Manager,
+		peer_id: PeerId,
+	) -> Result<UnicastStream, ()> {
 		let stream = UnicastStream::new_outbound(self.identity, self.io).await;
 
 		manager
@@ -195,6 +149,6 @@ impl UnicastStreamBuilder {
 			.connected
 			.insert(peer_id, stream.remote_identity());
 
-		stream
+		Ok(stream)
 	}
 }

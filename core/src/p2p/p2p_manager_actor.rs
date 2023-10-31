@@ -111,9 +111,6 @@ impl P2PManagerActor {
 										}
 									});
 								}
-								Event::PeerBroadcast(_event) => {
-									panic!("Broadcast's are cringe");
-								}
 								Event::Shutdown => break,
 								_ => {}
 							}

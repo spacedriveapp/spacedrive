@@ -15,7 +15,7 @@ impl Keypair {
 	pub fn to_identity(&self) -> Identity {
 		// This depends on libp2p implementation details which isn't great
 		SigningKey::from_keypair_bytes(&self.0.to_bytes())
-			.unwrap()
+			.expect("error converting 'ed25519::Keypair' into 'SigningKey'!")
 			.into()
 	}
 

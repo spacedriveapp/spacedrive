@@ -37,8 +37,6 @@ pub enum ManagerStreamAction {
 		peer_id: PeerId,
 		addresses: Vec<SocketAddr>,
 	},
-	/// TODO
-	BroadcastData(Vec<u8>),
 	/// Update the config. This requires the `libp2p::Swarm`
 	UpdateConfig(ManagerConfig),
 	/// the node is shutting down. The `ManagerStream` should convert this into `Event::Shutdown`
@@ -323,18 +321,6 @@ impl ManagerStream {
 							"error dialing peer '{}' with addresses '{:?}': {}",
 							peer_id, addresses, err
 						),
-					}
-				}
-				ManagerStreamAction::BroadcastData(data) => {
-					let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();
-					let behaviour = self.swarm.behaviour_mut();
-					debug!("Broadcasting message to '{:?}'", connected_peers);
-					for peer_id in connected_peers {
-						behaviour.pending_events.push_back(ToSwarm::NotifyHandler {
-							peer_id,
-							handler: NotifyHandler::Any,
-							event: OutboundRequest::Broadcast(data.clone()),
-						});
 					}
 				}
 				ManagerStreamAction::UpdateConfig(config) => {
