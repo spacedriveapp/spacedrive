@@ -171,7 +171,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 			)}
 		>
 			{(() => {
-				if (!src) return 'BRUH';
+				if (!src) return;
 
 				const _childClassName =
 					typeof props.childClassName === 'function'
