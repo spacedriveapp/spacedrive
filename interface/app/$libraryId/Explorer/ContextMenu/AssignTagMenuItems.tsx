@@ -2,17 +2,11 @@ import { Plus } from '@phosphor-icons/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { useRef } from 'react';
-import {
-	ExplorerItem,
-	libraryClient,
-	useLibraryMutation,
-	useLibraryQuery,
-	usePlausibleEvent
-} from '@sd/client';
+import { ExplorerItem, useLibraryQuery } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import CreateDialog, {
-	assignItemsToTag,
-	AssignTagItems
+	AssignTagItems,
+	useAssignItemsToTag
 } from '~/app/$libraryId/settings/library/tags/CreateDialog';
 import { Menu } from '~/components/Menu';
 import { useOperatingSystem } from '~/hooks';
@@ -22,7 +16,6 @@ import { keybindForOs } from '~/util/keybinds';
 export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | 'Path' }>> }) => {
 	const os = useOperatingSystem();
 	const keybind = keybindForOs(os);
-	const submitPlausibleEvent = usePlausibleEvent();
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 
 	// Map<tag::id, Vec<object::id>>
@@ -36,12 +29,6 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 			.filter((item): item is number => item !== undefined)
 	]);
 
-	const assignTag = useLibraryMutation('tags.assign', {
-		onSuccess: () => {
-			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-		}
-	});
-
 	const parentRef = useRef<HTMLDivElement>(null);
 	const rowVirtualizer = useVirtualizer({
 		count: tags.data?.length || 0,
@@ -51,6 +38,8 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 	});
 
 	const { isScrolled } = useScrolled(parentRef, 10);
+
+	const assignItemsToTag = useAssignItemsToTag();
 
 	return (
 		<>
@@ -68,19 +57,12 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 			{tags.data && tags.data.length > 0 ? (
 				<div
 					ref={parentRef}
-					style={{
-						maxHeight: `400px`,
-						height: `100%`,
-						width: `100%`,
-						overflow: 'auto'
-					}}
+					className="h-full w-full overflow-auto"
+					style={{ maxHeight: `400px` }}
 				>
 					<div
-						style={{
-							height: `${rowVirtualizer.getTotalSize()}px`,
-							width: '100%',
-							position: 'relative'
-						}}
+						className="relative w-full"
+						style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 							const tag = tags.data[virtualRow.index];
@@ -115,7 +97,6 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 										e.preventDefault();
 
 										await assignItemsToTag(
-											libraryClient,
 											tag.id,
 											unassign
 												? // use objects that already have tag
@@ -148,6 +129,8 @@ export default (props: { items: Array<Extract<ExplorerItem, { type: 'Object' | '
 												  ),
 											unassign
 										);
+
+										tagsWithObjects.refetch();
 									}}
 								>
 									<div

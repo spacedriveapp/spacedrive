@@ -117,7 +117,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
-					dbg!(&args);
 					let Library { db, sync, .. } = library.as_ref();
 
 					let tag = db

@@ -1,9 +1,9 @@
 import {
-	ExplorerItem,
 	FilePath,
 	libraryClient,
 	Object,
 	Target,
+	useLibraryContext,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useZodForm
@@ -20,28 +20,30 @@ export type AssignTagItems = Array<
 	{ type: 'Object'; item: Object } | { type: 'Path'; item: FilePath }
 >;
 
-export async function assignItemsToTag(
-	client: typeof libraryClient,
-	tagId: number,
-	items: AssignTagItems,
-	unassign: boolean
-) {
-	const targets = items.map<Target>((item) => {
-		if (item.type === 'Object') {
-			return { Object: item.item.id };
-		} else {
-			return { FilePath: item.item.id };
+export function useAssignItemsToTag() {
+	const submitPlausibleEvent = usePlausibleEvent();
+
+	const mutation = useLibraryMutation(['tags.assign'], {
+		onSuccess: () => {
+			submitPlausibleEvent({ event: { type: 'tagAssign' } });
 		}
 	});
 
-	await client.mutation([
-		'tags.assign',
-		{
-			targets,
+	return (tagId: number, items: AssignTagItems, unassign: boolean) => {
+		const targets = items.map<Target>((item) => {
+			if (item.type === 'Object') {
+				return { Object: item.item.id };
+			} else {
+				return { FilePath: item.item.id };
+			}
+		});
+
+		return mutation.mutateAsync({
 			tag_id: tagId,
+			targets,
 			unassign
-		}
-	]);
+		});
+	};
 }
 
 export default (
@@ -66,7 +68,7 @@ export default (
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 
 			if (props.items !== undefined)
-				await assignItemsToTag(libraryClient, tag.id, props.items, false);
+				await useAssignItemsToTag(libraryClient, tag.id, props.items, false);
 		} catch (e) {
 			console.error('error', e);
 		}
