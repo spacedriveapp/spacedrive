@@ -118,16 +118,12 @@ impl P2PManagerActor {
 												};
 											}
 											Header::File(req) => {
-												operations::request_file::reciever(&node, req, event).await?;
+												operations::request_file::receiver(&node, req, event).await?;
 											}
 										}
 
 										Ok::<_, ()>(())
 									});
-								}
-								#[allow(clippy::panic)]
-								Event::PeerBroadcast(_event) => {
-									panic!("Broadcast's are cringe");
 								}
 								Event::Shutdown => break,
 								_ => {}

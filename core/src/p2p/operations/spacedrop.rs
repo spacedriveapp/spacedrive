@@ -11,7 +11,6 @@ use std::{
 use futures::future::join_all;
 use sd_p2p::{
 	spaceblock::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer},
-	spacetime::UnicastStream,
 	spacetunnel::RemoteIdentity,
 	PeerMessageEvent,
 };
@@ -175,7 +174,7 @@ impl P2PManager {
 pub(crate) async fn reciever(
 	this: &Arc<P2PManager>,
 	req: SpaceblockRequests,
-	event: PeerMessageEvent<UnicastStream>,
+	event: PeerMessageEvent,
 ) -> Result<(), ()> {
 	let id = req.id;
 	let mut stream = event.stream;
