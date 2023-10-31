@@ -25,6 +25,7 @@ import Collection from './Collection.png';
 import Database_Light from './Database_Light.png';
 import Database from './Database.png';
 import DAV from './DAV.png';
+import DeleteLocation from './DeleteLocation.png';
 import Document_doc_Light from './Document_doc_Light.png';
 import Document_doc from './Document_doc.png';
 import Document_Light from './Document_Light.png';
@@ -34,15 +35,26 @@ import Document_xls_Light from './Document_xls_Light.png';
 import Document_xls from './Document_xls.png';
 import Document from './Document.png';
 import Drive_Light from './Drive_Light.png';
+import DriveAmazonS3_Light from './Drive-AmazonS3_Light.png';
 import DriveAmazonS3 from './Drive-AmazonS3.png';
+import DriveBackBlaze_Light from './Drive-BackBlaze_Light.png';
 import DriveBackBlaze from './Drive-BackBlaze.png';
+import Drivebox_Light from './Drive-box_Light.png';
 import DriveBox from './Drive-Box.png';
+import DriveDarker from './Drive-Darker.png';
+import DriveDAV_Light from './Drive-DAV_Light.png';
 import DriveDAV from './Drive-DAV.png';
+import DriveDropbox_Light from './Drive-Dropbox_Light.png';
 import DriveDropbox from './Drive-Dropbox.png';
+import DriveGoogleDrive_Light from './Drive-GoogleDrive_Light.png';
 import DriveGoogleDrive from './Drive-GoogleDrive.png';
+import DriveMega_Light from './Drive-Mega_Light.png';
 import DriveMega from './Drive-Mega.png';
+import DriveOneDrive_Light from './Drive-OneDrive_Light.png';
 import DriveOneDrive from './Drive-OneDrive.png';
+import DriveOpenStack_Light from './Drive-OpenStack_Light.png';
 import DriveOpenStack from './Drive-OpenStack.png';
+import DrivePCloud_Light from './Drive-PCloud_Light.png';
 import DrivePCloud from './Drive-PCloud.png';
 import Drive from './Drive.png';
 import Dropbox from './Dropbox.png';
@@ -88,6 +100,7 @@ import Mobile_Light from './Mobile_Light.png';
 import Mobile from './Mobile.png';
 import Movie_Light from './Movie_Light.png';
 import Movie from './Movie.png';
+import NewLocation from './NewLocation.png';
 import Node_Light from './Node_Light.png';
 import Node from './Node.png';
 import OneDrive from './OneDrive.png';
@@ -146,27 +159,39 @@ export {
 	Box,
 	Collection,
 	Collection_Light,
-	DAV,
 	Database,
 	Database_Light,
+	DAV,
+	DeleteLocation,
 	Document,
-	Document_Light,
 	Document_doc,
 	Document_doc_Light,
+	Document_Light,
 	Document_pdf,
 	Document_pdf_Light,
 	Document_xls,
 	Document_xls_Light,
 	DriveAmazonS3,
+	DriveAmazonS3_Light,
 	DriveBackBlaze,
+	DriveBackBlaze_Light,
 	DriveBox,
+	Drivebox_Light,
+	DriveDarker,
 	DriveDAV,
+	DriveDAV_Light,
 	DriveDropbox,
+	DriveDropbox_Light,
 	DriveGoogleDrive,
+	DriveGoogleDrive_Light,
 	DriveMega,
+	DriveMega_Light,
 	DriveOneDrive,
+	DriveOneDrive_Light,
 	DriveOpenStack,
+	DriveOpenStack_Light,
 	DrivePCloud,
+	DrivePCloud_Light,
 	Drive,
 	Drive_Light,
 	Dropbox,
@@ -196,9 +221,9 @@ export {
 	Image,
 	Image_Light,
 	Key,
-	Key_Light,
 	Keys,
 	Keys_Light,
+	Key_Light,
 	Laptop,
 	Laptop_Light,
 	Link,
@@ -212,18 +237,19 @@ export {
 	Mobile_Light,
 	Movie,
 	Movie_Light,
+	NewLocation,
 	Node,
 	Node_Light,
 	OneDrive,
 	OpenStack,
-	PCloud,
 	Package,
 	Package_Light,
-	SD,
+	PCloud,
 	Scrapbook,
 	Scrapbook_Light,
 	Screenshot,
 	ScreenshotAlt,
+	SD,
 	Server,
 	Server_Light,
 	Spacedrop1,
@@ -237,10 +263,10 @@ export {
 	Text,
 	TextAlt,
 	TextAlt_Light,
-	Text_Light,
-	Text_txt,
 	TexturedMesh,
 	TexturedMesh_Light,
+	Text_Light,
+	Text_txt,
 	Trash,
 	Trash_Light,
 	Undefined,
