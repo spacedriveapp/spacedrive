@@ -88,7 +88,7 @@ pub(crate) async fn reciever(
 		range,
 	}: HeaderFile,
 	event: PeerMessageEvent<UnicastStream>,
-) {
+) -> Result<(), ()> {
 	let mut stream = event.stream;
 	if !node.files_over_p2p_flag.load(Ordering::Relaxed) {
 		panic!("Files over P2P is disabled!");
@@ -149,6 +149,8 @@ pub(crate) async fn reciever(
 	)
 	.send(&mut stream, file)
 	.await;
+
+	Ok(())
 }
 
 // TODO: Unit tests

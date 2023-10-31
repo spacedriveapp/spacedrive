@@ -71,12 +71,16 @@ impl P2PManagerActor {
 									let node = node.clone();
 
 									tokio::spawn(async move {
-										let header = Header::from_stream(&mut event.stream).await.unwrap();
+										let header = Header::from_stream(&mut event.stream)
+											.await
+											.map_err(|err| {
+												error!("Failed to read header from stream: {}", err);
+											})?;
 
 										match header {
 											Header::Ping => operations::ping::reciever(event).await,
 											Header::Spacedrop(req) => {
-												operations::spacedrop::reciever(&this, req, event).await
+												operations::spacedrop::reciever(&this, req, event).await?
 											}
 											Header::Pair => {
 												this.pairing
@@ -87,7 +91,7 @@ impl P2PManagerActor {
 														&node.libraries,
 														node.clone(),
 													)
-													.await;
+													.await?
 											}
 											Header::Sync(library_id) => {
 												let mut tunnel =
@@ -101,16 +105,19 @@ impl P2PManagerActor {
 
 												match msg {
 													SyncMessage::NewOperations => {
-														super::sync::responder(&mut tunnel, library).await;
+														super::sync::responder(&mut tunnel, library).await?;
 													}
 												};
 											}
 											Header::File(req) => {
-												operations::request_file::reciever(&node, req, event).await
+												operations::request_file::reciever(&node, req, event).await?;
 											}
 										}
+
+										return Ok::<_, ()>(());
 									});
 								}
+								#[allow(clippy::panic)]
 								Event::PeerBroadcast(_event) => {
 									panic!("Broadcast's are cringe");
 								}

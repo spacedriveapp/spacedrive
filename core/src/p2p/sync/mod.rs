@@ -195,7 +195,10 @@ mod responder {
 		}
 	}
 
-	pub async fn run(stream: &mut (impl AsyncRead + AsyncWrite + Unpin), library: Arc<Library>) {
+	pub async fn run(
+		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
+		library: Arc<Library>,
+	) -> Result<(), ()> {
 		let ingest = &library.sync.ingest;
 
 		async fn early_return(stream: &mut (impl AsyncRead + AsyncWrite + Unpin)) {
@@ -211,7 +214,8 @@ mod responder {
 		let Ok(mut rx) = ingest.req_rx.try_lock() else {
 			warn!("Rejected sync due to libraries lock being held!");
 
-			return early_return(stream).await;
+			early_return(stream).await;
+			return Ok(());
 		};
 
 		use sync::ingest::*;
@@ -261,5 +265,7 @@ mod responder {
 			.await
 			.unwrap();
 		stream.flush().await.unwrap();
+
+		Ok(())
 	}
 }

@@ -225,7 +225,7 @@ impl PairingManager {
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
 		library_manager: &Libraries,
 		node: Arc<Node>,
-	) {
+	) -> Result<(), ()> {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
@@ -238,7 +238,7 @@ impl PairingManager {
 				self.emit_progress(pairing_id, PairingStatus::PairingRejected);
 
 				// TODO: Attempt to send error to remote and reset connection
-				return;
+				return Ok(());
 			}
 		}
 		.0;
@@ -265,7 +265,7 @@ impl PairingManager {
 				.write_all(&PairingResponse::Rejected.to_bytes())
 				.await
 				.unwrap();
-			return;
+			return Ok(());
 		};
 		info!("The user accepted pairing '{pairing_id}' for library '{library_id}'!");
 
@@ -341,6 +341,8 @@ impl PairingManager {
 
 		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
 		super::sync::originator(library_id, &library.sync, &node.p2p).await;
+
+		Ok(())
 	}
 }
 
@@ -368,17 +370,3 @@ pub enum PairingStatus {
 }
 
 // TODO: Unit tests
-
-// // TODO: Relocate this somewhere else
-// #[macro_use]
-// macro_rules! throw {
-// 	($e:expr) => {
-// 		match $e {
-// 			Ok(v) => v,
-// 			Err(err) => {
-// 				// warn!(); // TODO
-// 				return;
-// 			}
-// 		}
-// 	};
-// }

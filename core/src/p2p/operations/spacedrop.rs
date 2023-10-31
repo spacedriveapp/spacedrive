@@ -168,7 +168,7 @@ pub(crate) async fn reciever(
 	this: &Arc<P2PManager>,
 	req: SpaceblockRequests,
 	event: PeerMessageEvent<UnicastStream>,
-) {
+) -> Result<(), ()> {
 	let id = req.id;
 	let mut stream = event.stream;
 	let (tx, rx) = oneshot::channel();
@@ -269,4 +269,6 @@ pub(crate) async fn reciever(
 			}
 		}
 	};
+
+	Ok(())
 }
