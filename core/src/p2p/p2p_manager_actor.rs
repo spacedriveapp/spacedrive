@@ -95,13 +95,21 @@ impl P2PManagerActor {
 											}
 											Header::Sync(library_id) => {
 												let mut tunnel =
-													Tunnel::responder(event.stream).await.unwrap();
+													Tunnel::responder(event.stream).await.map_err(|err| {
+														error!("Failed `Tunnel::responder`: {}", err);
+													})?;
 
 												let msg =
-													SyncMessage::from_stream(&mut tunnel).await.unwrap();
+													SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
+														error!("Failed `SyncMessage::from_stream`: {}", err);
+													})?;
 
 												let library =
-													node.libraries.get_library(&library_id).await.unwrap();
+													node.libraries.get_library(&library_id).await.ok_or_else(|| {
+														error!("Failed to get library '{library_id}'");
+
+														// TODO: Respond to remote client with warning!
+													})?;
 
 												match msg {
 													SyncMessage::NewOperations => {
@@ -114,7 +122,7 @@ impl P2PManagerActor {
 											}
 										}
 
-										return Ok::<_, ()>(());
+										Ok::<_, ()>(())
 									});
 								}
 								#[allow(clippy::panic)]

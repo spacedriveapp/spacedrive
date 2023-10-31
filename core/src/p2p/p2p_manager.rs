@@ -60,7 +60,8 @@ impl P2PManager {
 
 		let (register_service_tx, register_service_rx) = mpsc::channel(10);
 		let this = Arc::new(Self {
-			node: Service::new("node", manager.clone()).unwrap(),
+			node: Service::new("node", manager.clone())
+				.expect("Hardcoded service name will never be a duplicate!"),
 			libraries: LibraryServices::new(register_service_tx),
 			pairing,
 			events: (tx, rx),
