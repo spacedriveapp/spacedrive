@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useKeys } from 'rooks';
 import { useLibraryContext } from '@sd/client';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
-import { useKeysMatcher, useShortcut } from '~/hooks';
+import { useShortcut } from '~/hooks';
 import { usePlatform, type Platform } from '~/util/Platform';
 
 export const useKeyRevealFinder = () => {

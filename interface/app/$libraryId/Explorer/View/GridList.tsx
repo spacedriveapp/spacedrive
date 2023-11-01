@@ -12,7 +12,7 @@ import {
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
-import { useMouseNavigate, useOperatingSystem } from '~/hooks';
+import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -112,6 +112,7 @@ export default ({ children }: { children: RenderItem }) => {
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
 	const explorerView = useExplorerViewContext();
+	const shortcut = useShortcut();
 
 	const selecto = useRef<Selecto>(null);
 	const selectoUnSelected = useRef<Set<string>>(new Set());
@@ -244,7 +245,7 @@ export default ({ children }: { children: RenderItem }) => {
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
-	useKey(['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'Escape'], (e) => {
+	useKey(shortcut.explorerObjectsNav, (e) => {
 		if (!explorerView.selectable) return;
 
 		if (e.key === 'Escape') {

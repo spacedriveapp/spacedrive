@@ -21,16 +21,7 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import {
-	dialogManager,
-	DropdownMenu,
-	Form,
-	ModifierKeys,
-	toast,
-	ToastMessage,
-	Tooltip,
-	z
-} from '@sd/ui';
+import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
 import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -42,7 +33,6 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
@@ -62,11 +52,10 @@ const useQuickPreviewContext = () => {
 };
 
 export const QuickPreview = () => {
-	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
@@ -139,10 +128,8 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	// useKeybind('Escape', (e) => open && e.stopPropagation());
-
 	// Move between items
-	useKeybind([['left'], ['right']], (e) => {
+	useKeybind(shortcut.quickPreviewMoveBetweenItems, (e) => {
 		if (isContextMenuOpen || isRenaming) return;
 		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
@@ -151,7 +138,7 @@ export const QuickPreview = () => {
 	useKeybind(shortcut.toggleMetaData, () => setShowMetadata(!showMetadata));
 
 	// Open file
-	useKeybind(shortcut.openItem, () => {
+	useKeybind(shortcut.quickPreviewOpenNative, () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {

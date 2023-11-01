@@ -5,19 +5,20 @@ import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
 import { getExplorerStore, useExplorerStore } from '~/app/$libraryId/Explorer/store';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 
-import { useKeyMatcher } from './useKeyMatcher';
+import { useShortcut } from './useShortcut';
 
 export const useKeyCopyCutPaste = () => {
 	const { cutCopyState } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
+	const shortcut = useShortcut();
 
-	const metaCtrlKey = useKeyMatcher('Meta').key;
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
 	const explorer = useExplorerContext();
 	const selectedFilePaths = useItemsAsFilePaths(Array.from(explorer.selectedItems));
+	const parent = explorer.parent;
 
-	useKeys([metaCtrlKey, 'KeyC'], (e) => {
+	useKeys(shortcut.copyObject, (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
@@ -29,7 +30,7 @@ export const useKeyCopyCutPaste = () => {
 		}
 	});
 
-	useKeys([metaCtrlKey, 'KeyX'], (e) => {
+	useKeys(shortcut.cutObject, (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
@@ -41,9 +42,28 @@ export const useKeyCopyCutPaste = () => {
 		}
 	});
 
-	useKeys([metaCtrlKey, 'KeyV'], async (e) => {
+	useKeys(shortcut.duplicateObject, async (e) => {
 		e.stopPropagation();
-		const parent = explorer.parent;
+		if (parent?.type === 'Location') {
+			console.log('hello');
+			try {
+				await copyFiles.mutateAsync({
+					source_location_id: parent.location.id,
+					sources_file_path_ids: selectedFilePaths.map((p) => p.id),
+					target_location_id: parent.location.id,
+					target_location_relative_directory_path: path ?? '/'
+				});
+			} catch (error) {
+				toast.error({
+					title: 'Failed to duplicate file',
+					body: `Error: ${error}.`
+				});
+			}
+		}
+	});
+
+	useKeys(shortcut.pasteObject, async (e) => {
+		e.stopPropagation();
 		if (parent?.type === 'Location' && cutCopyState.type !== 'Idle' && path) {
 			const { type, sourcePathIds, sourceParentPath, sourceLocationId } = cutCopyState;
 

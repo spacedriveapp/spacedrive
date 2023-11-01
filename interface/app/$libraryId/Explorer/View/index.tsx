@@ -10,11 +10,11 @@ import {
 	type ReactNode
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useKey, useKeys } from 'rooks';
+import { useKeys } from 'rooks';
 import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
-import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { useKeyCopyCutPaste, useOperatingSystem, useShortcut } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
@@ -61,12 +61,10 @@ export default memo(
 		const explorer = useExplorerContext();
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
-		const os = useOperatingSystem();
 		const { doubleClick } = useViewItemDoubleClick();
+		const shortcut = useShortcut();
 
 		const { layoutMode } = explorer.useSettingsSnapshot();
-
-		const metaCtrlKey = useKeyMatcher('Meta').key;
 
 		const ref = useRef<HTMLDivElement>(null);
 
@@ -103,16 +101,9 @@ export default memo(
 			explorer.settingsStore.layoutMode = layout ?? 'grid';
 		}, [layoutMode, explorer.layouts, explorer.settingsStore]);
 
-		useKey(['Enter'], (e) => {
+		useKeys(shortcut.openObject, (e) => {
 			e.stopPropagation();
-			if (os === 'windows' && !isRenaming) {
-				doubleClick();
-			}
-		});
-
-		useKeys([metaCtrlKey, 'KeyO'], (e) => {
-			e.stopPropagation();
-			if (os === 'windows') return;
+			if (quickPreviewStore.open) return;
 			doubleClick();
 		});
 
@@ -190,7 +181,7 @@ export const EmptyNotice = (props: {
 	if (props.loading) return null;
 
 	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
+		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon

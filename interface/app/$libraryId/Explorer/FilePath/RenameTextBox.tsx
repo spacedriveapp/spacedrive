@@ -109,7 +109,6 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			return `...${name.slice(-8)}`;
 		}, [name]);
 
-		//rename shortcut
 		useKey(shortcut.renameObject, (e) => {
 			e.preventDefault();
 			if (allowRename) blur();

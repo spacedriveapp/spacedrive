@@ -31,8 +31,8 @@ const state = {
 	},
 	showPathBar: {
 		keys: {
-			macOS: ['Meta', 'KeyP'],
-			all: ['Control', 'KeyP']
+			macOS: ['Alt', 'Meta', 'KeyP'],
+			all: ['Alt', 'Control', 'KeyP']
 		}
 	},
 	showInspector: {
@@ -58,6 +58,11 @@ const state = {
 			all: ['Control', 'KeyI']
 		}
 	},
+	quickPreviewMoveBetweenItems: {
+		keys: {
+			all: ['ArrowLeft', 'ArrowRight']
+		}
+	},
 	revealNative: {
 		keys: {
 			macOS: ['Meta', 'KeyY'],
@@ -70,7 +75,43 @@ const state = {
 			all: ['F2']
 		}
 	},
-	openItem: {
+	rescan: {
+		keys: {
+			macOS: ['Meta', 'KeyR'],
+			all: ['Control', 'KeyR']
+		}
+	},
+	cutObject: {
+		keys: {
+			macOS: ['Meta', 'KeyX'],
+			all: ['Control', 'KeyX']
+		}
+	},
+	copyObject: {
+		keys: {
+			macOS: ['Meta', 'KeyC'],
+			all: ['Control', 'KeyC']
+		}
+	},
+	pasteObject: {
+		keys: {
+			macOS: ['Meta', 'KeyV'],
+			all: ['Control', 'KeyV']
+		}
+	},
+	duplicateObject: {
+		keys: {
+			macOS: ['Meta', 'KeyD'],
+			all: ['Control', 'KeyD']
+		}
+	},
+	openObject: {
+		keys: {
+			macOS: ['Meta', 'KeyO'],
+			all: ['Enter']
+		}
+	},
+	quickPreviewOpenNative: {
 		keys: {
 			macOS: ['Meta', 'KeyO'],
 			all: ['Enter']
@@ -80,6 +121,11 @@ const state = {
 		keys: {
 			macOS: ['Meta', 'Backspace'],
 			all: ['Delete']
+		}
+	},
+	explorerObjectsNav: {
+		keys: {
+			all: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
 		}
 	},
 	navBackwardHistory: {
@@ -120,9 +166,7 @@ const state = {
 	}
 >;
 
-const shortcutsStore = valtioPersist('sd-shortcuts', {
-	...state
-});
+const shortcutsStore = valtioPersist('sd-shortcuts', state);
 
 export function useShortcutsStore() {
 	return useSnapshot(shortcutsStore);
@@ -141,15 +185,11 @@ export const useShortcut = () => {
 	const shortcutsStore = getShortcutsStore();
 	const shortcutsForOs = {} as Record<keyofState, string[]>;
 
+	//loop through the shortcuts and return the correct one for the current OS
+	//otherwise return 'all'
 	for (const shortcut in shortcutsStore) {
-		const shortcutKeys = shortcutsStore[shortcut as keyofState].keys;
-
-		for (const keys in shortcutKeys) {
-			if (keys === os || keys === 'all') {
-				shortcutsForOs[shortcut as keyofState] =
-					shortcutKeys[keys as keyof typeof shortcutKeys];
-			}
-		}
+		const osKeys = shortcutsStore[shortcut as keyofState].keys;
+		shortcutsForOs[shortcut as keyofState] = osKeys[os as keyof typeof osKeys] || osKeys['all'];
 	}
 	return shortcutsForOs;
 };

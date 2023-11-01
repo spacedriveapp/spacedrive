@@ -14,8 +14,8 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useLibraryMutation } from '@sd/client';
-import { ModifierKeys, toast } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
+import { toast } from '@sd/ui';
+import { useKeybind, useKeyMatcher, useShortcut } from '~/hooks';
 
 import { useQuickRescan } from '../../../hooks/useQuickRescan';
 import { KeyManager } from '../KeyManager';
@@ -36,6 +36,7 @@ export const useExplorerTopBarOptions = () => {
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
 	const settings = explorer.useSettingsSnapshot();
+	const shortcut = useShortcut();
 
 	const rescan = useQuickRescan();
 
@@ -105,9 +106,7 @@ export const useExplorerTopBarOptions = () => {
 
 	const [{ path }] = useExplorerSearchParams();
 
-	const os = useOperatingSystem();
-
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
+	useKeybind(shortcut.rescan, () => rescan());
 
 	useDocumentEventListener('keydown', (e: unknown) => {
 		if (!(e instanceof KeyboardEvent)) return;
