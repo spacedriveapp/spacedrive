@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euxo pipefail
           cd .github/scripts/ffmpeg
-          docker build --no-cache --jobs 2 --build-arg TARGET=${{ matrix.settings.target }} -o . .
+          docker build --no-cache --build-arg TARGET=${{ matrix.settings.target }} -o . .
           mv out/srv.tar.xz ./
 
       - name: Publish ffmpeg
