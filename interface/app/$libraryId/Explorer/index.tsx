@@ -2,7 +2,7 @@ import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeysMatcher, useOperatingSystem } from '~/hooks';
+import { useShortcut } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -28,10 +28,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const shortcuts = useKeysMatcher(['Meta', 'Shift', 'Alt']);
-	const os = useOperatingSystem();
-	const hiddenFilesShortcut =
-		os === 'macOS' ? [shortcuts.Meta.key, 'Shift', '.'] : [shortcuts.Meta.key, 'KeyH'];
+	const shortcut = useShortcut();
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -48,12 +45,12 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeys([shortcuts.Alt.key, shortcuts.Meta.key, 'KeyP'], (e) => {
+	useKeys(shortcut.showPathBar, (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
-	useKeys(hiddenFilesShortcut, (e) => {
+	useKeys(shortcut.showHiddenFiles, (e) => {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});

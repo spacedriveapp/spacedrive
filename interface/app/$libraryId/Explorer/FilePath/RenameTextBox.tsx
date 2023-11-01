@@ -3,7 +3,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import TruncateMarkup from 'react-truncate-markup';
 import { useKey } from 'rooks';
 import { Tooltip } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -24,6 +24,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 
 		const renamable = useRef<boolean>(false);
 		const timeout = useRef<NodeJS.Timeout | null>(null);
+		const shortcut = useShortcut();
 
 		const ref = useRef<HTMLDivElement>(null);
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
@@ -108,9 +109,9 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			return `...${name.slice(-8)}`;
 		}, [name]);
 
-		useKey(['F2', 'Enter'], (e) => {
+		//rename shortcut
+		useKey(shortcut.renameObject, (e) => {
 			e.preventDefault();
-			if (os === 'windows' && e.key === 'Enter') return;
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);
 		});

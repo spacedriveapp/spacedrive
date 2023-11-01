@@ -31,7 +31,7 @@ import {
 	Tooltip,
 	z
 } from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
+import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -70,6 +70,7 @@ export const QuickPreview = () => {
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
+	const shortcut = useShortcut();
 
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
@@ -130,7 +131,7 @@ export const QuickPreview = () => {
 	}, [item, open]);
 
 	// Toggle quick preview
-	useKeybind(['space'], (e) => {
+	useKeybind(shortcut.toggleQuickPreview, (e) => {
 		if (isRenaming) return;
 
 		e.preventDefault();
@@ -138,7 +139,7 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	useKeybind('Escape', (e) => open && e.stopPropagation());
+	// useKeybind('Escape', (e) => open && e.stopPropagation());
 
 	// Move between items
 	useKeybind([['left'], ['right']], (e) => {
@@ -147,12 +148,10 @@ export const QuickPreview = () => {
 	});
 
 	// Toggle metadata
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
-		setShowMetadata(!showMetadata)
-	);
+	useKeybind(shortcut.toggleMetaData, () => setShowMetadata(!showMetadata));
 
 	// Open file
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+	useKeybind(shortcut.openItem, () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
@@ -171,50 +170,6 @@ export const QuickPreview = () => {
 				body: `Couldn't open file, due to an error: ${error}`
 			});
 		}
-	});
-
-	// Reveal in native explorer
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
-		if (!item || !revealItems) return;
-
-		try {
-			const toReveal = [];
-			if (item.type === 'Location') {
-				toReveal.push({ Location: { id: item.item.id } });
-			} else if (item.type === 'NonIndexedPath') {
-				toReveal.push({ Ephemeral: { path: item.item.path } });
-			} else {
-				const filePath = getIndexedItemFilePath(item);
-				if (!filePath) throw 'No file path found';
-				toReveal.push({ FilePath: { id: filePath.id } });
-			}
-
-			revealItems(library.uuid, toReveal);
-		} catch (error) {
-			toast.error({
-				title: 'Failed to reveal',
-				body: `Couldn't reveal file, due to an error: ${error}`
-			});
-		}
-	});
-
-	// Open delete dialog
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
-		if (!item) return;
-
-		const path = getIndexedItemFilePath(item);
-
-		if (!path || path.location_id === null) return;
-
-		dialogManager.create((dp) => (
-			<DeleteDialog
-				{...dp}
-				locationId={path.location_id!}
-				pathIds={[path.id]}
-				dirCount={path.is_dir ? 1 : 0}
-				fileCount={path.is_dir ? 0 : 1}
-			/>
-		));
 	});
 
 	if (!item) return null;
