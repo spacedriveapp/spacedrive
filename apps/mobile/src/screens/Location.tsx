@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLibraryQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
@@ -32,7 +32,7 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			});
 		} else {
 			navigation.setOptions({
-				title: location.data?.name ?? 'Location'
+				title: location.data?.name ?? 'Location',
 			});
 		}
 	}, [location.data?.name, navigation, path]);
