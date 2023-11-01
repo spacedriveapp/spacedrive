@@ -195,11 +195,11 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filterArgs = useSearchFilters('paths', [
+	const filter = useSearchFilters('paths', [
 		{
 			name: location.name || '',
 			value: location.id.toString(),
-			type: FilterType.Location,
+			type: 'Location',
 			icon: 'Folder'
 		},
 		...(explorerSettings.layoutMode === 'media'
@@ -207,31 +207,23 @@ const useItems = ({
 					{
 						name: 'Image',
 						value: ObjectKindEnum.Image,
-						type: FilterType.Kind
+						type: 'Kind' as FilterType
 					},
 					{
 						name: 'Video',
 						value: ObjectKindEnum.Video,
-						type: FilterType.Kind
+						type: 'Kind' as FilterType
 					}
 			  ]
 			: [])
 	]);
 
-	// useEffect(() => {
-	// 	console.log({ filterArgs });
-	// }, [JSON.stringify(filterArgs)]);
-
-	const filter: FilePathFilterArgs = {
-		// locations: { in: [location?.id || 0] },
-		...filterArgs,
-		path: path ?? ''
-	};
+	(filter.filePath ??= {}).path = [location.id, path ?? ''];
 
 	if (explorerSettings.layoutMode === 'media' && explorerSettings.mediaViewWithDescendants)
-		filter.withDescendants = true;
+		(filter.filePath ??= {}).withDescendants = true;
 
-	if (!explorerSettings.showHiddenFiles) filter.hidden = false;
+	if (!explorerSettings.showHiddenFiles) (filter.filePath ??= {}).hidden = false;
 
 	const query = usePathsInfiniteQuery({
 		arg: { filter, take },

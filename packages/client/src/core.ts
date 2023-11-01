@@ -32,11 +32,11 @@ export type Procedures = {
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
-        { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
+        { key: "search.objectsCount", input: LibraryArgs<{ filter?: SearchFilterArgs }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
-        { key: "search.pathsCount", input: LibraryArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
-        { key: "search.savedSearches.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
-        { key: "search.savedSearches.list", input: LibraryArgs<null>, result: SavedSearchResponse[] } | 
+        { key: "search.pathsCount", input: LibraryArgs<{ filter?: SearchFilterArgs }>, result: number } | 
+        { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
+        { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearchResponse[] } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
@@ -92,9 +92,9 @@ export type Procedures = {
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "search.savedSearches.create", input: LibraryArgs<SavedSearchCreateArgs>, result: null } | 
-        { key: "search.savedSearches.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "search.savedSearches.update", input: LibraryArgs<SavedSearchUpdateArgs>, result: null } | 
+        { key: "search.saved.create", input: LibraryArgs<SavedSearchCreateArgs>, result: null } | 
+        { key: "search.saved.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "search.saved.update", input: LibraryArgs<SavedSearchUpdateArgs>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
@@ -190,13 +190,13 @@ export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
 
 export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { sizeInBytes: SortOrder } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
 
-export type FilePathFilterArgs = { locations?: InOrNotIn<number> | null; search?: string | null; name?: TextMatch | null; extension?: InOrNotIn<string> | null; createdAt?: OptionalRange<string>; path?: string | null; withDescendants?: boolean | null; object?: ObjectFilterArgs | null; hidden?: boolean | null }
+export type FilePathFilterArgs = { locations?: InOrNotIn<number> | null; path?: [number, string] | null; search?: string | null; name?: TextMatch | null; extension?: InOrNotIn<string> | null; createdAt?: OptionalRange<string>; modifiedAt?: OptionalRange<string>; indexedAt?: OptionalRange<string>; withDescendants?: boolean | null; hidden?: boolean | null }
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
-export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: FilePathFilterArgs; groupDirectories?: boolean }
+export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: SearchFilterArgs; groupDirectories?: boolean }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
@@ -338,7 +338,7 @@ export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "mediaData"; value: MediaDataOrder }
 
-export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: ObjectFilterArgs }
+export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: SearchFilterArgs }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -403,6 +403,8 @@ export type SavedSearchUpdateArgs = { id: number; name: string | null; filters: 
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
+export type SearchFilterArgs = { filePath?: FilePathFilterArgs | null; object?: ObjectFilterArgs | null }
+
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 
 export type SetNoteArgs = { id: number; note: string | null }
@@ -429,7 +431,7 @@ export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
-export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string }
+export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
 export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 

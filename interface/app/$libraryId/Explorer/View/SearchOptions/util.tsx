@@ -1,7 +1,7 @@
 import { CircleDashed, Folder, Icon, Tag } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { InOrNotIn, MaybeNot } from '@sd/client';
+import { InOrNotIn, MaybeNot, OptionalRange, TextMatch } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
 
 function isIn<T>(kind: InOrNotIn<T>): kind is { in: T[] } {
@@ -33,6 +33,27 @@ export function inOrNotIn<T>(
 export const maybeNot = <T,>(value: T, condition: boolean): MaybeNot<T> => {
 	return condition ? value : { not: value };
 };
+
+export function textMatch(type: 'contains' | 'startsWith' | 'endsWith' | 'equals') {
+	return (value: string): TextMatch => {
+		switch (type) {
+			case 'contains':
+				return { contains: value };
+			case 'startsWith':
+				return { startsWith: value };
+			case 'endsWith':
+				return { endsWith: value };
+			case 'equals':
+				return { equals: value };
+			default:
+				throw new Error('Invalid TextMatch type.');
+		}
+	};
+}
+
+export function optionalRange<T>(from: T, to: T): OptionalRange<T> {
+	return { from, to };
+}
 
 // this could be handy elsewhere
 export const RenderIcon = ({
@@ -83,27 +104,3 @@ export const getIconComponent = (iconName: string): Icon => {
 
 	return icons[iconName] as Icon;
 };
-
-// export const searchFilterTypeMeta: Record<FilterType, { name: string; icon: string }> = {
-// 	[FilterType.Location]: { name: 'Location', icon: 'Folder' },
-// 	[FilterType.Tag]: {
-// 		name: 'Tag',
-// 		icon: 'CircleDashed'
-// 	},
-// 	[FilterType.Kind]: {
-// 		name: 'Kind',
-// 		icon: ''
-// 	},
-// 	[FilterType.Category]: {
-// 		name: 'Category',
-// 		icon: ''
-// 	},
-// 	[FilterType.CreatedAt]: {
-// 		name: 'Created At',
-// 		icon: ''
-// 	},
-// 	[FilterType.Hidden]: {
-// 		name: 'Hidden',
-// 		icon: ''
-// 	}
-// };

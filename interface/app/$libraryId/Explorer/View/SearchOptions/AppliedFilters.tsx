@@ -1,16 +1,9 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { tw } from '@sd/ui';
 
-import { filterMeta } from './Filters';
-import {
-	deselectFilter,
-	getSearchStore,
-	getSelectedFiltersGrouped,
-	GroupedFilters,
-	SetFilter,
-	useSearchStore
-} from './store';
+import { filterTypeRegistry } from './Filters';
+import { deselectFilter, getSearchStore, getSelectedFiltersGrouped, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
@@ -32,17 +25,13 @@ const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick 
 
 export const AppliedOptions = () => {
 	const searchStore = useSearchStore();
-	const [groupedFilters, setGroupedFilters] = useState<GroupedFilters[]>();
 
-	useEffect(() => {
-		setGroupedFilters(getSelectedFiltersGrouped());
-	}, [searchStore, searchStore.selectedFilters.size]);
-
-	function deselectFilters(filters: SetFilter[]) {
-		filters.forEach((filter) => {
-			if (filter.canBeRemoved) deselectFilter(filter);
-		});
-	}
+	// turn the above into use memo
+	const groupedFilters = useMemo(
+		() => getSelectedFiltersGrouped(),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[searchStore.selectedFilters.size]
+	);
 
 	return (
 		<div className="flex flex-row gap-2">
@@ -57,7 +46,7 @@ export const AppliedOptions = () => {
 			)}
 			{groupedFilters?.map((group) => {
 				const showRemoveButton = group.filters.some((filter) => filter.canBeRemoved);
-				const meta = filterMeta[group.type];
+				const meta = filterTypeRegistry.find((f) => f.name === group.type);
 
 				return (
 					<FilterContainer key={group.type}>
@@ -66,9 +55,7 @@ export const AppliedOptions = () => {
 							<FilterText>{meta?.name}</FilterText>
 						</StaticSection>
 						<InteractiveSection className="border-l ">
-							{group.filters.length > 1
-								? meta?.wording?.plural
-								: meta?.wording?.singular}
+							{/* {JSON.stringify(meta?.method)} */}
 						</InteractiveSection>
 
 						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
@@ -100,7 +87,15 @@ export const AppliedOptions = () => {
 						</InteractiveSection>
 
 						{showRemoveButton && (
-							<CloseTab onClick={() => deselectFilters(group.filters)} />
+							<CloseTab
+								onClick={() =>
+									group.filters.forEach((filter) => {
+										if (filter.canBeRemoved) {
+											deselectFilter(filter);
+										}
+									})
+								}
+							/>
 						)}
 					</FilterContainer>
 				);

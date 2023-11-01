@@ -6,20 +6,13 @@ import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } fr
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import {
-	filterMeta,
-	FilterType,
-	KindsFilter,
-	LocationsFilter,
-	NameFilter,
-	TagsFilter
-} from './Filters';
+import { filterTypeRegistry } from './Filters';
+import { useSavedSearches } from './SavedSearches';
 import {
 	deselectFilter,
 	getSearchStore,
 	searchRegisteredFilters,
 	selectFilter,
-	useSavedSearches,
 	useSearchStore
 } from './store';
 import { RenderIcon } from './util';
@@ -94,14 +87,6 @@ const SearchOptions = () => {
 		return searchRegisteredFilters(searchValue);
 	}, [searchValue]);
 
-	const handleMouseEnter = () => {
-		getSearchStore().interactingWithSearchOptions = true;
-	};
-
-	const handleMouseLeave = () => {
-		getSearchStore().interactingWithSearchOptions = false;
-	};
-
 	useKeybind(['Escape'], () => {
 		getSearchStore().isSearching = false;
 	});
@@ -110,8 +95,12 @@ const SearchOptions = () => {
 
 	return (
 		<div
-			onMouseEnter={handleMouseEnter}
-			onMouseLeave={handleMouseLeave}
+			onMouseEnter={() => {
+				getSearchStore().interactingWithSearchOptions = true;
+			}}
+			onMouseLeave={() => {
+				getSearchStore().interactingWithSearchOptions = false;
+			}}
 			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
@@ -154,7 +143,7 @@ const SearchOptions = () => {
 					<Separator />
 					{searchValue ? (
 						<>
-							{searchResults.map((result) => {
+							{/* {searchResults.map((result) => {
 								const meta = filterMeta[result.type];
 								return (
 									<SearchOptionItem
@@ -178,32 +167,13 @@ const SearchOptions = () => {
 										</div>
 									</SearchOptionItem>
 								);
-							})}
+							})} */}
 						</>
 					) : (
 						<>
-							<LocationsFilter />
-							<TagsFilter />
-							<KindsFilter />
-							<NameFilter />
-							{/* <FilterComponent type={FilterType.Tag} />
-					<FilterComponent type={FilterType.Kind} />
-					<FilterComponent type={FilterType.Extension} />
-				<FilterComponent type={FilterType.Size} /> */}
-							{/*
-					<SearchOptionItem icon={FilePlus}>In File Contents</SearchOptionItem>
-					<SearchOptionItem icon={Image}>In Album</SearchOptionItem>
-					<SearchOptionItem icon={Devices}>On Device</SearchOptionItem>
-					<SearchOptionItem icon={Key}>Encrypted with Key</SearchOptionItem>
-				<SearchOptionItem icon={User}>Shared by</SearchOptionItem> */}
-							<Separator />
-							{/* <FilterComponent type={FilterType.CreatedAt} /> */}
-							<SearchOptionItem icon={Clock}>Modified At</SearchOptionItem>
-							<SearchOptionItem icon={Clock}>Last Opened At</SearchOptionItem>
-							<SearchOptionItem icon={Clock}>Taken At</SearchOptionItem>
-							{/* <Separator /> */}
-							{/* <SearchOptionItem icon={SelectionSlash}>Hidden</SearchOptionItem> */}
-							{/* <FilterComponent type={FilterType.Hidden} /> */}
+							{filterTypeRegistry.map(({ Render, ...filter }) => {
+								<Render key={filter.name} filter={filter} />;
+							})}
 						</>
 					)}
 				</DropdownMenu.Root>

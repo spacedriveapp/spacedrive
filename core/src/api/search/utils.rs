@@ -91,6 +91,7 @@ pub enum TextMatch {
 	Contains(String),
 	StartsWith(String),
 	EndsWith(String),
+	Equals(String),
 }
 
 impl TextMatch {
@@ -99,14 +100,17 @@ impl TextMatch {
 			Self::Contains(v) => v.is_empty(),
 			Self::StartsWith(v) => v.is_empty(),
 			Self::EndsWith(v) => v.is_empty(),
+			Self::Equals(v) => v.is_empty(),
 		}
 	}
 
+	// 3. Update the to_param method of TextMatch
 	pub fn to_param<TParam>(
 		self,
 		contains_fn: fn(String) -> TParam,
 		starts_with_fn: fn(String) -> TParam,
 		ends_with_fn: fn(String) -> TParam,
+		equals_fn: fn(String) -> TParam,
 	) -> Option<TParam> {
 		self.is_empty()
 			.then_some(None)
@@ -114,6 +118,7 @@ impl TextMatch {
 				Self::Contains(v) => Some(contains_fn(v)),
 				Self::StartsWith(v) => Some(starts_with_fn(v)),
 				Self::EndsWith(v) => Some(ends_with_fn(v)),
+				Self::Equals(v) => Some(equals_fn(v)),
 			})
 	}
 }

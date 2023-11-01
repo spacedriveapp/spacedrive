@@ -18,7 +18,6 @@ import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Expl
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View';
-import { FilterType } from '../Explorer/View/SearchOptions/Filters';
 import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
 import { TopBarPortal } from '../TopBar/Portal';
 
@@ -90,22 +89,22 @@ function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<O
 		{
 			name: tag.name || 's',
 			value: tag?.id?.toString() || 's',
-			type: FilterType.Tag,
+			type: 'Tags',
 			icon: tag.color || 's'
 		},
 		...(explorerSettings.layoutMode === 'media'
-			? [
+			? ([
 					{
 						name: 'Image',
 						value: ObjectKindEnum.Image,
-						type: FilterType.Kind
+						type: 'Kind'
 					},
 					{
 						name: 'Video',
 						value: ObjectKindEnum.Video,
-						type: FilterType.Kind
+						type: 'Kind'
 					}
-			  ]
+			  ] as const)
 			: [])
 	]);
 

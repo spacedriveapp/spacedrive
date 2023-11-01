@@ -1,68 +1,25 @@
-import {
-	CircleDashed,
-	Clock,
-	Cube,
-	FileDoc,
-	Files,
-	Folder,
-	SelectionSlash
-} from '@phosphor-icons/react';
-import { ObjectKind, useLibraryQuery } from '@sd/client';
+import { CircleDashed, Cube, Folder, Icon, Textbox } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { ObjectKind, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
-import {
-	deselectFilter,
-	FilterTypeMeta,
-	selectFilter,
-	useSearchFilter,
-	useSearchStore
-} from './store';
+import { deselectFilter, FilterArgs, selectFilter, SetFilter, useSearchStore } from './store';
+import { inOrNotIn, textMatch } from './util';
 
-export enum FilterType {
-	Location,
-	Tag,
-	Kind,
-	Category,
-	Size,
-	Name,
-	Extension,
-	CreatedAt,
-	WithDescendants,
-	Hidden
-	// ModifiedAt,
-	// LastOpenedAt,
-	// TakenAt,
-	// FileContents,
-	// Album,
-	// Device,
-	// Key,
-	// Contact,
-}
-
-export const LocationsFilter: React.FC = () => {
+const FilterOptionList: React.FC<{ filter: SearchFilter; options?: FilterArgs[] }> = (props) => {
 	const store = useSearchStore();
-	const query = useLibraryQuery(['locations.list']);
-
-	const filter = useSearchFilter(
-		FilterType.Location,
-		query.data?.map((location) => ({
-			name: location.name!,
-			value: String(location.id),
-			icon: 'Folder'
-		}))
-	);
-
+	const options = props.options?.map((filter) => ({
+		...filter,
+		type: props.filter.name as FilterType
+	}));
 	return (
-		<SearchOptionSubMenu
-			name={filterMeta[FilterType.Location].name}
-			icon={filterMeta[FilterType.Location].icon}
-		>
-			{filter.map((filter) => (
+		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
+			{options?.map((filter) => (
 				<SearchOptionItem
-					selected={store.selectedFilters.has(filter.key)}
+					selected={store.selectedFilters.has(filter.value)}
 					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
-					key={filter.key}
+					key={filter.value}
 					icon={filter.icon}
 				>
 					{filter.name}
@@ -72,188 +29,154 @@ export const LocationsFilter: React.FC = () => {
 	);
 };
 
-export const TagsFilter: React.FC = () => {
-	const store = useSearchStore();
-	const query = useLibraryQuery(['tags.list']);
-
-	const filter = useSearchFilter(
-		FilterType.Tag,
-		query.data?.map((tag) => ({
-			name: tag.name!,
-			value: String(tag.id),
-			icon: tag.color || 'CircleDashed'
-		}))
-	);
-
+const FilterOptionText: React.FC<{ filter: SearchFilter }> = (props) => {
+	const [value, setValue] = useState('');
 	return (
-		<SearchOptionSubMenu
-			name={filterMeta[FilterType.Tag].name}
-			icon={filterMeta[FilterType.Tag].icon}
-		>
-			{filter.map((filter) => (
-				<SearchOptionItem
-					selected={store.selectedFilters.has(filter.key)}
-					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
-					key={filter.key}
-					icon={filter.icon}
-				>
-					{filter.name}
-				</SearchOptionItem>
-			))}
-		</SearchOptionSubMenu>
-	);
-};
-
-export const KindsFilter: React.FC = () => {
-	const store = useSearchStore();
-
-	const filter = useSearchFilter(
-		FilterType.Kind,
-		Object.keys(ObjectKind)
-			.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
-			.map((key) => {
-				const kind = ObjectKind[Number(key)];
-				return {
-					name: kind as string,
-					value: key,
-					icon: kind || 'CircleDashed'
-				};
-			})
-	);
-
-	return (
-		<SearchOptionSubMenu
-			name={filterMeta[FilterType.Kind].name}
-			icon={filterMeta[FilterType.Kind].icon}
-		>
-			{filter.map((filter) => (
-				<SearchOptionItem
-					selected={store.selectedFilters.has(filter.key)}
-					setSelected={(value) => (value ? selectFilter(filter) : deselectFilter(filter))}
-					key={filter.key}
-					icon={filter.icon}
-				>
-					{filter.name}
-				</SearchOptionItem>
-			))}
-		</SearchOptionSubMenu>
-	);
-};
-
-export const NameFilter: React.FC = () => {
-	const store = useSearchStore();
-
-	useSearchFilter(FilterType.Name, [
-		{
-			name: 'Name',
-			value: 'name',
-			icon: 'CircleDashed'
-		}
-	]);
-
-	return (
-		<SearchOptionSubMenu
-			name={filterMeta[FilterType.Kind].name}
-			icon={filterMeta[FilterType.Kind].icon}
-		>
+		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
 			<Input />
 		</SearchOptionSubMenu>
 	);
 };
 
-export const filterMeta: Record<FilterType, FilterTypeMeta> = {
-	[FilterType.Location]: {
-		name: 'Location',
-		icon: Folder,
-		wording: {
-			singular: 'is',
-			plural: 'is any of',
-			singularNot: 'is not',
-			pluralNot: 'is not any of'
-		}
-	},
-	[FilterType.Tag]: {
-		name: 'Tags',
-		icon: CircleDashed,
-		wording: {
-			singular: 'has',
-			plural: 'has any of',
-			singularNot: 'does not have',
-			pluralNot: 'does not have any of'
-		}
-	},
-	[FilterType.Kind]: {
-		name: 'Kind',
-		icon: Cube,
-		wording: {
-			singular: 'is',
-			plural: 'is any of',
-			singularNot: 'is not',
-			pluralNot: 'is not any of'
-		}
-	},
-	[FilterType.Category]: {
-		name: 'Category',
-		icon: CircleDashed,
-		wording: {
-			singular: 'is',
-			plural: 'is any of',
-			singularNot: 'is not',
-			pluralNot: 'is not any of'
-		}
-	},
-	[FilterType.CreatedAt]: {
-		name: 'Created At',
-		icon: Clock,
-		wording: {
-			singular: 'is',
-			plural: 'is between',
-			singularNot: 'is not',
-			pluralNot: 'is not between'
-		}
-	},
-	[FilterType.Hidden]: {
-		name: 'Hidden',
-		icon: SelectionSlash,
-		wording: {
-			singular: 'is',
-			singularNot: 'is not'
-		}
-	},
-	[FilterType.Size]: {
-		name: 'Size',
-		icon: Cube,
-		wording: {
-			singular: 'is',
-			singularNot: 'is not'
-		}
-	},
-	[FilterType.Name]: {
-		name: 'Name',
-		icon: CircleDashed,
-		wording: {
-			singular: 'is',
-			singularNot: 'is not'
-		}
-	},
-	[FilterType.Extension]: {
-		name: 'Extension',
-		icon: FileDoc,
-		wording: {
-			singular: 'is',
-			singularNot: 'is not'
-		}
-	},
-	[FilterType.WithDescendants]: {
-		name: 'With Descendants',
-		icon: Files,
-		wording: {
-			singular: 'is',
-			singularNot: 'is not'
-		}
-	}
+const FilterOptionBoolean: React.FC<{ filter: SearchFilter }> = (props) => {
+	// Todo
+	return (
+		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
+			<SearchOptionItem>True</SearchOptionItem>
+			<SearchOptionItem>False</SearchOptionItem>
+		</SearchOptionSubMenu>
+	);
 };
 
-// type FilterProps = {
-// 	type: FilterType;
-// };
+export interface SearchFilter {
+	name: string;
+	icon: Icon;
+}
+
+export interface RenderSearchFilter extends SearchFilter {
+	// Render is responsible for fetching the filter options and rendering them
+	Render: (props: { filter: SearchFilter }) => JSX.Element;
+	// Apply is responsible for applying the filter to the search args
+	apply: (filter: SetFilter, args: SearchFilterArgs) => void;
+}
+
+export const filterTypeRegistry = [
+	{
+		name: 'Location',
+		icon: Folder, // Phosphor folder icon
+		Render: ({ filter }) => {
+			const query = useLibraryQuery(['locations.list']);
+			return (
+				<FilterOptionList
+					filter={filter}
+					options={query.data?.map((location) => ({
+						name: location.name!,
+						value: location.id,
+						icon: 'Folder', // Spacedrive folder icon
+						type: filter.name
+					}))}
+				/>
+			);
+		},
+		apply: (filter, args) =>
+			((args.filePath ??= {}).locations = inOrNotIn(
+				args.filePath?.locations,
+				filter.value,
+				filter.condition
+			))
+	},
+	{
+		name: 'Tags',
+		icon: CircleDashed,
+		Render: ({ filter }) => {
+			const query = useLibraryQuery(['tags.list']);
+			return (
+				<FilterOptionList
+					filter={filter}
+					options={query.data?.map((tag) => ({
+						name: tag.name!,
+						value: String(tag.id),
+						icon: tag.color || 'CircleDashed',
+						type: filter.name
+					}))}
+				/>
+			);
+		},
+		apply: (filter, args) => {
+			(args.object ??= {}).tags = inOrNotIn(
+				args.object?.tags,
+				filter.value,
+				filter.condition
+			);
+		}
+	},
+	{
+		name: 'Kind',
+		icon: Cube,
+		Render: ({ filter }) => {
+			return (
+				<FilterOptionList
+					filter={filter}
+					options={Object.keys(ObjectKind)
+						.filter(
+							(key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined
+						)
+						.map((key) => {
+							const kind = ObjectKind[Number(key)];
+							return {
+								name: kind as string,
+								value: key,
+								icon: 'Cube',
+								type: filter.name
+							};
+						})}
+				/>
+			);
+		},
+		apply: (filter, args) => {
+			(args.object ??= {}).kind = inOrNotIn(
+				args.object?.kind,
+				filter.value,
+				filter.condition
+			);
+		}
+	},
+	{
+		name: 'Name',
+		icon: Textbox,
+		Render: ({ filter }) => {
+			return <FilterOptionText filter={filter} />;
+		},
+		apply: (filter, args) => {
+			(args.filePath ??= {}).name = textMatch('contains')(filter.value);
+		}
+	},
+	{
+		name: 'Extension',
+		icon: Textbox,
+		Render: ({ filter }) => {
+			return <FilterOptionText filter={filter} />;
+		},
+		apply: (filter, currentArgs) => ({
+			filePath: {
+				extension: inOrNotIn(
+					currentArgs.filePath?.extension,
+					filter.value,
+					filter.condition
+				)
+			}
+		})
+	},
+	{
+		name: 'Hidden',
+		icon: Textbox,
+		Render: ({ filter }) => {
+			return <FilterOptionBoolean filter={filter} />;
+		},
+		apply(filter, args) {
+			(args.filePath ??= {}).hidden = filter.condition;
+		}
+	}
+] as const satisfies ReadonlyArray<RenderSearchFilter>;
+
+export type FilterType = (typeof filterTypeRegistry)[number]['name'];

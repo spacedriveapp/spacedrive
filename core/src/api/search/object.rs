@@ -6,6 +6,7 @@ use specta::Type;
 
 // use crate::library::Category;
 
+use super::file_path::*;
 use super::media_data::*;
 use super::utils::{self, *};
 
@@ -139,6 +140,16 @@ impl ObjectFilterArgs {
 						|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
 					)
 				}),
+				// {
+				// 	match self.file_path {
+				// 		Some(fp) => {
+				// 			let params = fp.into_params(db).await?;
+
+				// 			(!params.is_empty()).then(|| file_paths::some(params))
+				// 		}
+				// 		None => None,
+				// 	}
+				// },
 				// self.category.and_then(|v| {
 				// 	v.to_param(
 				// 		|v| {

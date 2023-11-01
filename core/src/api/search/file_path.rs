@@ -51,11 +51,13 @@ impl FilePathOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Default, Debug)]
+#[derive(Deserialize, Type, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FilePathFilterArgs {
 	#[specta(optional)]
 	locations: Option<InOrNotIn<file_path::id::Type>>,
+	#[specta(optional)]
+	path: Option<(prisma::location::id::Type, String)>,
 	#[specta(optional)]
 	search: Option<String>, // deprecated
 	#[specta(optional)]
@@ -64,12 +66,12 @@ pub struct FilePathFilterArgs {
 	extension: Option<InOrNotIn<String>>,
 	#[serde(default)]
 	created_at: OptionalRange<DateTime<Utc>>,
-	#[specta(optional)]
-	path: Option<String>,
+	#[serde(default)]
+	modified_at: OptionalRange<DateTime<Utc>>,
+	#[serde(default)]
+	indexed_at: OptionalRange<DateTime<Utc>>,
 	#[specta(optional)]
 	with_descendants: Option<bool>,
-	#[specta(optional)]
-	object: Option<ObjectFilterArgs>,
 	#[specta(optional)]
 	hidden: Option<bool>,
 }
@@ -86,17 +88,10 @@ impl FilePathFilterArgs {
 			)
 		});
 
-		// TODO: we should use the location that matches the subpath if it exists, if in any way possible
-		let first_location_id = if let Some(InOrNotIn::In(location_ids)) = &self.locations {
-			location_ids.first().copied()
-		} else {
-			None
-		};
-
-		let directory_materialized_path_str = match (self.path, first_location_id) {
-			(Some(path), Some(first_location_id)) if !path.is_empty() && path != "/" => {
+		let directory_materialized_path_str = match self.path {
+			Some((location_id, path)) if !path.is_empty() && path != "/" => {
 				let parent_iso_file_path =
-					IsolatedFilePathData::from_relative_str(first_location_id, &path);
+					IsolatedFilePathData::from_relative_str(location_id, &path);
 
 				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
 					return Err(rspc::Error::new(
@@ -107,7 +102,7 @@ impl FilePathFilterArgs {
 
 				parent_iso_file_path.materialized_path_for_children()
 			}
-			(Some(_empty), _) => Some("/".into()),
+			Some(_empty) => Some("/".into()),
 			_ => None,
 		};
 
@@ -123,12 +118,18 @@ impl FilePathFilterArgs {
 				[
 					location_conditions,
 					self.name.and_then(|v| {
-						v.to_param(name::contains, name::starts_with, name::ends_with)
+						v.to_param(name::contains, name::starts_with, name::ends_with, |s| {
+							name::equals(Some(s))
+						})
 					}),
 					self.extension
 						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
 					self.created_at.from.map(|v| date_created::gte(v.into())),
 					self.created_at.to.map(|v| date_created::lte(v.into())),
+					// self.modified_at.from.map(|v| date_modified::gte(v.into())),
+					// self.modified_at.to.map(|v| date_modified::lte(v.into())),
+					// self.indexed_at.from.map(|v| date_indexed::gte(v.into())),
+					// self.indexed_at.to.map(|v| date_indexed::lte(v.into())),
 					self.hidden.map(Some).map(hidden::equals),
 					directory_materialized_path_str
 						.map(Some)
@@ -141,11 +142,6 @@ impl FilePathFilterArgs {
 								materialized_path::equals(materialized_path)
 							}
 						}),
-					self.object.and_then(|obj| {
-						let params = obj.into_params();
-
-						(!params.is_empty()).then(|| object::is(params))
-					}),
 				],
 			))
 		}
