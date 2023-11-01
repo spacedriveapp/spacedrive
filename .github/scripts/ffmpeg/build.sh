@@ -25,7 +25,7 @@ export PKG_CONFIG_LIBDIR="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig"
 
 case "$TARGET" in
   *linux*)
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=1 -fvisibility=hidden"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=1"
     export LDFLAGS="-L${PREFIX}/lib -pipe -Wl,-z,relro,-z,now"
 
     case "$TARGET" in
