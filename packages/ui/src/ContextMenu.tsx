@@ -130,9 +130,9 @@ const Item = ({
 }: ContextMenuItemProps) => {
 	return (
 		<RadixCM.Item
-			className={contextMenuItemClassNames}
-			onClick={(e) => !props.disabled && onClick?.(e)}
 			{...props}
+			className={clsx(contextMenuItemClassNames, props.className)}
+			onClick={(e) => !props.disabled && onClick?.(e)}
 		>
 			<ContextMenuDivItem {...{ icon, iconProps, label, keybind, variant, children }} />
 		</RadixCM.Item>
