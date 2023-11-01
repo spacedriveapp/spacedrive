@@ -1,4 +1,5 @@
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { ArrowLeft } from 'phosphor-react-native';
 import { tw } from '~/lib/tailwind';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
@@ -35,59 +36,114 @@ export default function SettingsNavigator() {
 			<SettingsStack.Screen
 				name="Home"
 				component={SettingsScreen}
-				options={{ headerTitle: 'Settings' }}
+				options={{
+					headerTitle: 'Settings',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			{/* Client */}
 			<SettingsStack.Screen
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
-				options={{ headerTitle: 'General Settings' }}
+				options={{
+					headerTitle: 'General Settings',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="LibrarySettings"
 				component={LibrarySettingsScreen}
-				options={{ headerTitle: 'Libraries' }}
+				options={{
+					headerTitle: 'Libraries',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="AppearanceSettings"
 				component={AppearanceSettingsScreen}
-				options={{ headerTitle: 'Appearance' }}
+				options={{
+					headerTitle: 'Appearance',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="PrivacySettings"
 				component={PrivacySettingsScreen}
-				options={{ headerTitle: 'Privacy' }}
+				options={{
+					headerTitle: 'Privacy',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="ExtensionsSettings"
 				component={ExtensionsSettingsScreen}
-				options={{ headerTitle: 'Extensions' }}
+				options={{
+					headerTitle: 'Extensions',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			{/* Library */}
 			<SettingsStack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
-				options={{ headerTitle: 'Library Settings' }}
+				options={{
+					headerTitle: 'Library Settings',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="LocationSettings"
 				component={LocationSettingsScreen}
-				options={{ headerTitle: 'Locations' }}
+				options={{
+					headerTitle: 'Locations',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="EditLocationSettings"
 				component={EditLocationSettingsScreen}
-				options={{ headerTitle: 'Edit Location' }}
+				options={{
+					headerTitle: 'Edit Location',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="NodesSettings"
 				component={NodesSettingsScreen}
-				options={{ headerTitle: 'Nodes' }}
+				options={{
+					headerTitle: 'Nodes',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="TagsSettings"
 				component={TagsSettingsScreen}
-				options={{ headerTitle: 'Tags' }}
+				options={{
+					headerTitle: 'Tags',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			{/* <SettingsStack.Screen
 				name="KeysSettings"
@@ -98,17 +154,32 @@ export default function SettingsNavigator() {
 			<SettingsStack.Screen
 				name="About"
 				component={AboutScreen}
-				options={{ headerTitle: 'About' }}
+				options={{
+					headerTitle: 'About',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="Support"
 				component={SupportScreen}
-				options={{ headerTitle: 'Support' }}
+				options={{
+					headerTitle: 'Support',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 			<SettingsStack.Screen
 				name="Debug"
 				component={DebugScreen}
-				options={{ headerTitle: 'Debug' }}
+				options={{
+					headerTitle: 'Debug',
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
 		</SettingsStack.Navigator>
 	);
