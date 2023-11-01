@@ -10,8 +10,6 @@ import {
 	FFMPEG_WORKFLOW,
 	getConst,
 	getSuffix,
-	LIBHEIF_SUFFIX,
-	LIBHEIF_WORKFLOW,
 	PDFIUM_SUFFIX,
 	PROTOC_SUFFIX,
 } from './consts.mjs'
