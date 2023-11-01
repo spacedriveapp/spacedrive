@@ -12,7 +12,7 @@ use crate::{
 use itertools::Itertools;
 use rspc::{ErrorCode, ExportConfig, Rspc};
 use serde::{Deserialize, Serialize};
-use specta::Type;
+use specta::{ts, Type};
 use std::sync::{atomic::Ordering, Arc};
 use thiserror::Error;
 use uuid::Uuid;
@@ -269,7 +269,8 @@ pub(crate) fn mount() -> Arc<Router> {
 			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 				.join("../packages/client/src/core.ts"),
 		)
-		.header("/* eslint-disable */"),
+		.header("/* eslint-disable */")
+		.formatter(ts::prettier),
 	)
 	.unwrap();
 
