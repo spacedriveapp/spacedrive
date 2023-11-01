@@ -1,10 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
-import { FilePathFilterArgs, ObjectFilterArgs, SearchFilterArgs } from '@sd/client';
+import { SearchFilterArgs } from '@sd/client';
 
-import { FilterType, filterTypeRegistry, RenderSearchFilter } from './Filters';
-import { inOrNotIn } from './util';
+import { FilterType, filterTypeRegistry } from './Filters';
 
 export type SearchType = 'paths' | 'objects';
 
@@ -35,7 +35,9 @@ const searchStore = proxy({
 	interactingWithSearchOptions: false,
 	searchType: 'paths' as SearchType,
 	searchQuery: null as string | null,
+	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, Filter>,
+	// selected filters are applied to the search args
 	selectedFilters: proxyMap() as Map<string, SetFilter>
 });
 
@@ -56,8 +58,6 @@ export const useSearchFilters = <T extends SearchType>(
 				}
 			}
 		}
-		//
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [JSON.stringify(fixedFilters)]);
 
 	const filters = useMemo(
@@ -68,8 +68,10 @@ export const useSearchFilters = <T extends SearchType>(
 	return filters;
 };
 
+// this makes the filter unique and easily searchable using .includes
 export const getKey = (filter: Filter) => `${filter.type}-${filter.name}-${filter.value}`;
 
+// this maps the filters to the search args
 export const mapFilterArgs = (filters: SetFilter[]): SearchFilterArgs => {
 	const args: SearchFilterArgs = {};
 
@@ -82,6 +84,27 @@ export const mapFilterArgs = (filters: SetFilter[]): SearchFilterArgs => {
 	return args;
 };
 
+// this hook allows us to register filters to the search store
+// and returns the filters with the correct type
+export const useRegisterSearchFilterOptions = (filterType: FilterType, filters?: FilterArgs[]) => {
+	return useMemo(() => {
+		if (!filters) return;
+		return filters.map((filterArgs) => {
+			const filter = {
+					...filterArgs,
+					type: filterType
+				},
+				key = getKey(filter);
+			if (searchStore.registeredFilters.has(key)) {
+				searchStore.registeredFilters.set(key, filter);
+			}
+			return filter;
+		});
+		// feel free to come up with a better dependency array, for now this works
+	}, [filters?.map((filter) => filter.name).join('')]);
+};
+
+// this is used to render the applied filters
 export const getSelectedFiltersGrouped = (): GroupedFilters[] => {
 	const groupedFilters: GroupedFilters[] = [];
 

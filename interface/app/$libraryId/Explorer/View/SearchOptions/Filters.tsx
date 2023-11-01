@@ -1,18 +1,35 @@
-import { CircleDashed, Cube, Folder, Icon, Textbox } from '@phosphor-icons/react';
+import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { ObjectKind, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
-import { deselectFilter, FilterArgs, selectFilter, SetFilter, useSearchStore } from './store';
+import {
+	deselectFilter,
+	FilterArgs,
+	selectFilter,
+	SetFilter,
+	useRegisterSearchFilterOptions,
+	useSearchStore
+} from './store';
 import { inOrNotIn, textMatch } from './util';
+
+export interface SearchFilter {
+	name: string;
+	icon: Icon;
+}
+
+export interface RenderSearchFilter extends SearchFilter {
+	// Render is responsible for fetching the filter options and rendering them
+	Render: (props: { filter: SearchFilter }) => JSX.Element;
+	// Apply is responsible for applying the filter to the search args
+	apply: (filter: SetFilter, args: SearchFilterArgs) => void;
+}
 
 const FilterOptionList: React.FC<{ filter: SearchFilter; options?: FilterArgs[] }> = (props) => {
 	const store = useSearchStore();
-	const options = props.options?.map((filter) => ({
-		...filter,
-		type: props.filter.name as FilterType
-	}));
+	const options = useRegisterSearchFilterOptions(props.filter.name as FilterType, props.options);
+
 	return (
 		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
 			{options?.map((filter) => (
@@ -39,33 +56,19 @@ const FilterOptionText: React.FC<{ filter: SearchFilter }> = (props) => {
 };
 
 const FilterOptionBoolean: React.FC<{ filter: SearchFilter }> = (props) => {
-	// Todo
 	return (
-		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
-			<SearchOptionItem>True</SearchOptionItem>
-			<SearchOptionItem>False</SearchOptionItem>
-		</SearchOptionSubMenu>
+		<SearchOptionItem icon={props.filter.icon} selected={false} setSelected={() => {}}>
+			{props.filter.name}
+		</SearchOptionItem>
 	);
 };
-
-export interface SearchFilter {
-	name: string;
-	icon: Icon;
-}
-
-export interface RenderSearchFilter extends SearchFilter {
-	// Render is responsible for fetching the filter options and rendering them
-	Render: (props: { filter: SearchFilter }) => JSX.Element;
-	// Apply is responsible for applying the filter to the search args
-	apply: (filter: SetFilter, args: SearchFilterArgs) => void;
-}
 
 export const filterTypeRegistry = [
 	{
 		name: 'Location',
 		icon: Folder, // Phosphor folder icon
 		Render: ({ filter }) => {
-			const query = useLibraryQuery(['locations.list']);
+			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 			return (
 				<FilterOptionList
 					filter={filter}
@@ -89,7 +92,7 @@ export const filterTypeRegistry = [
 		name: 'Tags',
 		icon: CircleDashed,
 		Render: ({ filter }) => {
-			const query = useLibraryQuery(['tags.list']);
+			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 			return (
 				<FilterOptionList
 					filter={filter}
@@ -169,12 +172,22 @@ export const filterTypeRegistry = [
 	},
 	{
 		name: 'Hidden',
-		icon: Textbox,
+		icon: SelectionSlash,
 		Render: ({ filter }) => {
 			return <FilterOptionBoolean filter={filter} />;
 		},
 		apply(filter, args) {
 			(args.filePath ??= {}).hidden = filter.condition;
+		}
+	},
+	{
+		name: 'WithDescendants',
+		icon: SelectionSlash,
+		Render: ({ filter }) => {
+			return <FilterOptionBoolean filter={filter} />;
+		},
+		apply(filter, args) {
+			(args.filePath ??= {}).withDescendants = filter.condition;
 		}
 	}
 ] as const satisfies ReadonlyArray<RenderSearchFilter>;

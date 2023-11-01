@@ -1,4 +1,4 @@
-lockfileVersion: '6.0'
+lockfileVersion: '6.1'
 
 settings:
   autoInstallPeers: true
@@ -46,7 +46,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -597,7 +597,7 @@ importers:
         version: 5.2.2
       vite:
         specifier: ^4.5.0
-        version: 4.5.0(@types/node@18.17.19)
+        version: 4.5.0(less@4.2.0)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.5.0)
@@ -8806,7 +8806,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.23.2)
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.0(sass@1.69.4)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -20883,7 +20883,7 @@ packages:
       html-minifier-terser: 6.1.0
       node-html-parser: 5.4.2
       pathe: 0.2.0
-      vite: 4.5.0(sass@1.69.4)
+      vite: 4.5.0(less@4.2.0)
     dev: true
 
   /vite-plugin-svgr@3.3.0(typescript@5.2.2)(vite@4.5.0):
@@ -20894,7 +20894,7 @@ packages:
       '@rollup/pluginutils': 5.0.5
       '@svgr/core': 8.1.0(typescript@5.2.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 4.5.0(sass@1.69.4)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20912,7 +20912,7 @@ packages:
       debug: 4.3.4
       globrex: 0.1.2
       tsconfck: 2.1.2(typescript@5.2.2)
-      vite: 4.5.0(sass@1.69.4)
+      vite: 4.5.0(less@4.2.0)
     transitivePeerDependencies:
       - supports-color
       - typescript

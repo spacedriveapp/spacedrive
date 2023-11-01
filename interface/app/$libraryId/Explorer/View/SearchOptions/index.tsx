@@ -1,4 +1,4 @@
-import { CaretRight, Clock, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { PropsWithChildren, useMemo, useState } from 'react';
@@ -8,13 +8,7 @@ import { useKeybind } from '~/hooks';
 import { AppliedOptions } from './AppliedFilters';
 import { filterTypeRegistry } from './Filters';
 import { useSavedSearches } from './SavedSearches';
-import {
-	deselectFilter,
-	getSearchStore,
-	searchRegisteredFilters,
-	selectFilter,
-	useSearchStore
-} from './store';
+import { getSearchStore, searchRegisteredFilters, useSearchStore } from './store';
 import { RenderIcon } from './util';
 
 const Label = tw.span`text-ink-dull mr-2 text-xs`;
@@ -141,6 +135,10 @@ const SearchOptions = () => {
 						placeholder="Filter..."
 					/>
 					<Separator />
+					{filterTypeRegistry.map(({ Render, ...filter }) => (
+						<Render key={filter.name} filter={filter} />
+					))}
+
 					{searchValue ? (
 						<>
 							{/* {searchResults.map((result) => {
@@ -170,11 +168,7 @@ const SearchOptions = () => {
 							})} */}
 						</>
 					) : (
-						<>
-							{filterTypeRegistry.map(({ Render, ...filter }) => {
-								<Render key={filter.name} filter={filter} />;
-							})}
-						</>
+						<></>
 					)}
 				</DropdownMenu.Root>
 			</OptionContainer>
