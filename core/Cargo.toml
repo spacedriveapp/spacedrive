@@ -108,6 +108,7 @@ pin-project-lite = "0.2.13"
 bytes = "1.5.0"
 reqwest = { version = "0.11.20", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
+streamunordered = "0.5.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]

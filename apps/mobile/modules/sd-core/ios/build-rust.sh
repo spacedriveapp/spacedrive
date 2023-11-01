@@ -25,10 +25,11 @@ if [ "${CONFIGURATION:-}" != "Debug" ]; then
   export CARGO_FLAGS
 fi
 
+# Required for CI and for everyone I guess?
+export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
+
 # TODO: Also do this for non-Apple Silicon Macs
 if [ "${SPACEDRIVE_CI:-}" = "1" ]; then
-  # Required for CI
-  export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 
   cargo build -p sd-mobile-ios --target x86_64-apple-ios
 

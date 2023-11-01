@@ -11,24 +11,12 @@ import {
 	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import {
-	Button,
-	Card,
-	Input,
-	InputField,
-	Select,
-	SelectOption,
-	Switch,
-	SwitchField,
-	tw,
-	z
-} from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
-import { SpacedriveAccount } from './SpacedriveAccount';
 
 const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
@@ -41,7 +29,6 @@ export const Component = () => {
 	const platform = usePlatform();
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
-	const p2pSettingsEnabled = useFeatureFlag('p2pSettings');
 	const connectedPeers = useConnectedPeers();
 
 	const form = useZodForm({
@@ -87,7 +74,6 @@ export const Component = () => {
 				title="General Settings"
 				description="General settings related to this client."
 			/>
-			<SpacedriveAccount />
 			<Card className="px-5">
 				<div className="my-2 flex w-full flex-col">
 					<div className="flex flex-row items-center justify-between">
@@ -184,79 +170,75 @@ export const Component = () => {
 					onClick={() => (getDebugState().enabled = !debugState.enabled)}
 				/>
 			</Setting>
-			{p2pSettingsEnabled && (
-				<div className="flex flex-col gap-4">
-					<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
 
-					<Setting
-						mini
-						title="Enable Networking"
-						description={
-							<>
-								<p className="text-sm text-gray-400">
-									Allow your node to communicate with other Spacedrive nodes
-									around you
-								</p>
-								<p className="mb-2 text-sm text-gray-400">
-									<span className="font-bold">Required</span> for library sync or
-									Spacedrop!
-								</p>
-							</>
-						}
-					>
-						{/* TODO: Switch doesn't handle optional fields correctly */}
-						<Switch
-							size="md"
-							checked={watchP2pEnabled || false}
-							onClick={() =>
-								form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))
-							}
+				<Setting
+					mini
+					title="Enable Networking"
+					description={
+						<>
+							<p className="text-sm text-gray-400">
+								Allow your node to communicate with other Spacedrive nodes around
+								you
+							</p>
+							<p className="mb-2 text-sm text-gray-400">
+								<span className="font-bold">Required</span> for library sync or
+								Spacedrop!
+							</p>
+						</>
+					}
+				>
+					{/* TODO: Switch doesn't handle optional fields correctly */}
+					<Switch
+						size="md"
+						checked={watchP2pEnabled || false}
+						onClick={() => form.setValue('p2p_enabled', !form.getValues('p2p_enabled'))}
+					/>
+				</Setting>
+				<Setting
+					mini
+					title="Networking Port"
+					description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
+				>
+					<div className="flex gap-2">
+						<Controller
+							control={form.control}
+							name="customOrDefault"
+							render={({ field }) => (
+								<Select
+									disabled={!watchP2pEnabled}
+									className={clsx(!watchP2pEnabled && 'opacity-50')}
+									{...field}
+									onChange={(e) => {
+										field.onChange(e);
+										form.setValue('p2p_port', 0);
+									}}
+								>
+									<SelectOption value="Default">Default</SelectOption>
+									<SelectOption value="Custom">Custom</SelectOption>
+								</Select>
+							)}
 						/>
-					</Setting>
-					<Setting
-						mini
-						title="Networking Port"
-						description="The port for Spacedrive's Peer-to-peer networking to communicate on. You should leave this disabled unless you have a restictive firewall. Do not expose to the internet!"
-					>
-						<div className="flex gap-2">
-							<Controller
-								control={form.control}
-								name="customOrDefault"
-								render={({ field }) => (
-									<Select
-										disabled={!watchP2pEnabled}
-										className={clsx(!watchP2pEnabled && 'opacity-50')}
-										{...field}
-										onChange={(e) => {
-											field.onChange(e);
-											form.setValue('p2p_port', 0);
-										}}
-									>
-										<SelectOption value="Default">Default</SelectOption>
-										<SelectOption value="Custom">Custom</SelectOption>
-									</Select>
-								)}
-							/>
-							<Input
-								className={clsx(
-									'w-[66px]',
-									watchCustomOrDefault === 'Default' || !watchP2pEnabled
-										? 'opacity-50'
-										: 'opacity-100'
-								)}
-								disabled={watchCustomOrDefault === 'Default' || !watchP2pEnabled}
-								{...form.register('p2p_port')}
-								onChange={(e) => {
-									form.setValue(
-										'p2p_port',
-										Number(e.target.value.replace(/[^0-9]/g, ''))
-									);
-								}}
-							/>
-						</div>
-					</Setting>
-				</div>
-			)}
+						<Input
+							className={clsx(
+								'w-[66px]',
+								watchCustomOrDefault === 'Default' || !watchP2pEnabled
+									? 'opacity-50'
+									: 'opacity-100'
+							)}
+							disabled={watchCustomOrDefault === 'Default' || !watchP2pEnabled}
+							{...form.register('p2p_port')}
+							onChange={(e) => {
+								form.setValue(
+									'p2p_port',
+									Number(e.target.value.replace(/[^0-9]/g, ''))
+								);
+							}}
+						/>
+					</div>
+				</Setting>
+			</div>
 		</>
 	);
 };

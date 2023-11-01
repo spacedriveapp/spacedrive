@@ -18,8 +18,6 @@ rspc-httpz = { workspace = true, features = ["axum"] }
 axum = "0.6.20"
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
 tracing = { workspace = true }
-ctrlc = "3.4.1"
 http = "0.2.9"
-tower-http = { version = "0.4.4", features = ["fs"] }
 include_dir = "0.7.3"
 mime_guess = "2.0.4"

@@ -19,7 +19,7 @@ html {
 .download-today-shadow-inset {
 	box-shadow: 50px 66px 78px -80px rgba(86, 159, 255, 0.328) inset;
 	border-radius: 15px;
-	background-image: url('/images/stars.webp');
+	background-image: url('/images/misc/stars.webp');
 	background-repeat: no-repeat;
 	background-position: center;
 	background-size: cover;
@@ -272,7 +272,7 @@ html {
 	&.bloom-one {
 		@apply left-0 -ml-[200px];
 		top: 100px;
-		background: url('/bloom-one.png') no-repeat center center;
+		background: url('/images/bloom/one.png') no-repeat center center;
 		filter: hue-rotate(8deg);
 		height: 900px;
 		background-size: contain;
@@ -281,30 +281,30 @@ html {
 	&.bloom-two {
 		@apply right-0 -mr-[300px];
 		top: 50px;
-		background: url('/bloom-two.png') no-repeat center center;
+		background: url('/images/bloom/two.png') no-repeat center center;
 		background-size: contain;
 		height: 900px;
 		animation-delay: 0ms;
 	}
 	&.bloom-three {
 		@apply invisible left-auto right-auto -mt-[250px] ml-24 md:visible;
-		background: url('/bloom-three.png') no-repeat center center;
+		background: url('/images/bloom/three.png') no-repeat center center;
 		background-size: contain;
 		height: 900px;
 		animation-delay: 800ms;
 	}
 	&.bloom-center {
 		@apply -mt-[550px];
-		background: url('/bloom-three.png') no-repeat center center;
+		background: url('/images/bloom/three.png') no-repeat center center;
 		background-size: contain;
 		animation-delay: 800ms;
 	}
 	&.egg-bloom-one {
-		background: url('/egg-bloom-one.png') no-repeat center center;
+		background: url('/images/bloom/egg-one.png') no-repeat center center;
 		background-size: contain;
 	}
 	&.egg-bloom-two {
-		background: url('/egg-bloom-two.png') no-repeat center center;
+		background: url('/images/bloom/egg-two.png') no-repeat center center;
 		background-size: contain;
 	}
 }

@@ -1,11 +1,11 @@
 use rspc::ErrorCode;
-use sd_p2p::PeerId;
+use sd_p2p::spacetunnel::RemoteIdentity;
 use serde::Deserialize;
 use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::p2p::{P2PEvent, PairingDecision};
+use crate::p2p::{operations, P2PEvent, PairingDecision};
 
 use super::{RouterBuilder, R};
 
@@ -16,19 +16,18 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut rx = node.p2p.subscribe();
 				async_stream::stream! {
 					// TODO: Don't block subscription start
-					for peer in node.p2p.manager.get_discovered_peers().await {
-						yield P2PEvent::DiscoveredPeer {
-							peer_id: peer.peer_id,
+					for peer in node.p2p.node.get_discovered() {
+						 yield P2PEvent::DiscoveredPeer {
+							identity: peer.identity,
 							metadata: peer.metadata,
 						};
 					}
 
-
 					// TODO: Don't block subscription start
 					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
-					for peer_id in node.p2p.manager.get_connected_peers().await.unwrap() {
+					for identity in node.p2p.manager.get_connected_peers().await.unwrap() {
 						yield P2PEvent::ConnectedPeer {
-							peer_id,
+							identity,
 						};
 					}
 
@@ -38,30 +37,29 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 			})
 		})
-		.procedure("nlmState", {
-			R.query(|node, _: ()| async move { node.nlm.state().await })
+		.procedure("state", {
+			R.query(|node, _: ()| async move { node.p2p.state() })
 		})
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
-				peer_id: PeerId,
+				identity: RemoteIdentity,
 				file_path: Vec<String>,
 			}
 
 			R.mutation(|node, args: SpacedropArgs| async move {
-				node.p2p
-					.clone()
-					.spacedrop(
-						args.peer_id,
-						args.file_path
-							.into_iter()
-							.map(PathBuf::from)
-							.collect::<Vec<_>>(),
-					)
-					.await
-					.map_err(|_err| {
-						rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
-					})
+				operations::spacedrop(
+					node.p2p.clone(),
+					args.identity,
+					args.file_path
+						.into_iter()
+						.map(PathBuf::from)
+						.collect::<Vec<_>>(),
+				)
+				.await
+				.map_err(|_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				})
 			})
 		})
 		.procedure("acceptSpacedrop", {
@@ -76,7 +74,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
 		})
 		.procedure("pair", {
-			R.mutation(|node, id: PeerId| async move {
+			R.mutation(|node, id: RemoteIdentity| async move {
 				node.p2p.pairing.clone().originator(id, node).await
 			})
 		})

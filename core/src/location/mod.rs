@@ -49,6 +49,8 @@ use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
 
+pub type LocationPubId = Uuid;
+
 // Location includes!
 location::include!(location_with_indexer_rules {
 	indexer_rules: select { indexer_rule }
@@ -547,7 +549,7 @@ pub async fn relink_location(
 		.ok_or_else(|| NonUtf8PathError(location_path.into()))?;
 
 	sync.write_op(
-		&db,
+		db,
 		sync.shared_update(
 			prisma_sync::location::SyncId {
 				pub_id: pub_id.clone(),

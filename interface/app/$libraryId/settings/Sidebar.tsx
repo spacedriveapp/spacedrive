@@ -11,7 +11,8 @@ import {
 	PuzzlePiece,
 	Receipt,
 	ShieldCheck,
-	TagSimple
+	TagSimple,
+	User
 } from '@phosphor-icons/react';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
@@ -48,6 +49,10 @@ export default () => {
 					<SidebarLink to="client/general">
 						<Icon component={GearSix} />
 						General
+					</SidebarLink>
+					<SidebarLink to="client/account">
+						<Icon component={User} />
+						Account
 					</SidebarLink>
 					<SidebarLink to="node/libraries">
 						<Icon component={Books} />

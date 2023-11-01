@@ -15,7 +15,7 @@ use ffmpeg_sys_next::{
 
 /// Error type for the library.
 #[derive(Error, Debug)]
-pub enum ThumbnailerError {
+pub enum Error {
 	#[error("I/O Error: {0}")]
 	Io(#[from] std::io::Error),
 	#[error("Path conversion error: Path: {0:#?}")]

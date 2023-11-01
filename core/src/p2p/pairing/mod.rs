@@ -10,7 +10,10 @@ use std::{
 
 use chrono::Utc;
 use futures::channel::oneshot;
-use sd_p2p::{spacetunnel::Identity, Manager, MetadataManager, PeerId};
+use sd_p2p::{
+	spacetunnel::{Identity, RemoteIdentity},
+	Manager, Metadata,
+};
 
 use sd_prisma::prisma::instance;
 use serde::{Deserialize, Serialize};
@@ -39,22 +42,16 @@ pub struct PairingManager {
 	id: AtomicU16,
 	events_tx: broadcast::Sender<P2PEvent>,
 	pairing_response: RwLock<HashMap<u16, oneshot::Sender<PairingDecision>>>,
-	manager: Arc<Manager<PeerMetadata>>,
-	metadata_manager: Arc<MetadataManager<PeerMetadata>>,
+	manager: Arc<Manager>,
 }
 
 impl PairingManager {
-	pub fn new(
-		manager: Arc<Manager<PeerMetadata>>,
-		events_tx: broadcast::Sender<P2PEvent>,
-		metadata_manager: Arc<MetadataManager<PeerMetadata>>,
-	) -> Arc<Self> {
+	pub fn new(manager: Arc<Manager>, events_tx: broadcast::Sender<P2PEvent>) -> Arc<Self> {
 		Arc::new(Self {
 			id: AtomicU16::new(0),
 			events_tx,
 			pairing_response: RwLock::new(HashMap::new()),
 			manager,
-			metadata_manager,
 		})
 	}
 
@@ -72,16 +69,16 @@ impl PairingManager {
 
 	// TODO: Error handling
 
-	pub async fn originator(self: Arc<Self>, peer_id: PeerId, node: Arc<Node>) -> u16 {
+	pub async fn originator(self: Arc<Self>, identity: RemoteIdentity, node: Arc<Node>) -> u16 {
 		// TODO: Timeout for max number of pairings in a time period
 
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
-		info!("Beginning pairing '{pairing_id}' as originator to remote peer '{peer_id}'");
+		info!("Beginning pairing '{pairing_id}' as originator to remote peer '{identity}'");
 
 		tokio::spawn(async move {
-			let mut stream = self.manager.stream(peer_id).await.unwrap();
+			let mut stream = self.manager.stream(identity).await.unwrap();
 			stream.write_all(&Header::Pair.to_bytes()).await.unwrap();
 
 			// TODO: Ensure both clients are on a compatible version cause Prisma model changes will cause issues
@@ -205,20 +202,12 @@ impl PairingManager {
 					// Called again so the new instances are picked up
 					node.libraries.update_instances(library.clone()).await;
 
-					P2PManager::resync(
-						node.nlm.clone(),
-						&mut stream,
-						peer_id,
-						self.metadata_manager.get().instances,
-					)
-					.await;
-
 					// TODO: Done message to frontend
 					self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 					stream.flush().await.unwrap();
 
 					// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-					super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+					super::sync::originator(library_id, &library.sync, &node.p2p).await;
 				}
 				PairingResponse::Rejected => {
 					info!("Pairing '{pairing_id}' rejected by remote");
@@ -232,7 +221,7 @@ impl PairingManager {
 
 	pub async fn responder(
 		self: Arc<Self>,
-		peer_id: PeerId,
+		identity: RemoteIdentity,
 		mut stream: impl AsyncRead + AsyncWrite + Unpin,
 		library_manager: &Libraries,
 		node: Arc<Node>,
@@ -240,7 +229,7 @@ impl PairingManager {
 		let pairing_id = self.id.fetch_add(1, Ordering::SeqCst);
 		self.emit_progress(pairing_id, PairingStatus::EstablishingConnection);
 
-		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{peer_id}'");
+		info!("Beginning pairing '{pairing_id}' as responder to remote peer '{identity}'");
 
 		let remote_instance = PairingRequest::from_stream(&mut stream).await.unwrap().0;
 		self.emit_progress(pairing_id, PairingStatus::PairingDecisionRequest);
@@ -275,8 +264,7 @@ impl PairingManager {
 		// TODO: Rollback this on pairing failure
 		instance::Create {
 			pub_id: remote_instance.id.as_bytes().to_vec(),
-			identity: IdentityOrRemoteIdentity::RemoteIdentity(remote_instance.identity.clone())
-				.to_bytes(),
+			identity: IdentityOrRemoteIdentity::RemoteIdentity(remote_instance.identity).to_bytes(),
 			node_id: remote_instance.node_id.as_bytes().to_vec(),
 			node_name: remote_instance.node_name,
 			node_platform: remote_instance.node_platform as i32,
@@ -326,29 +314,11 @@ impl PairingManager {
 
 		// TODO: Pairing confirmation + rollback
 
-		// Called again so the new instances are picked up
-		// node.re
-		// library_manager.node.nlm.load_library(&library).await;
-
-		let Header::Connected(remote_identities) = Header::from_stream(&mut stream).await.unwrap()
-		else {
-			todo!("unreachable; todo error handling");
-		};
-
-		P2PManager::resync_handler(
-			&node.nlm,
-			&mut stream,
-			peer_id,
-			self.metadata_manager.get().instances,
-			remote_identities,
-		)
-		.await;
-
 		self.emit_progress(pairing_id, PairingStatus::PairingComplete(library_id));
 		stream.flush().await.unwrap();
 
 		// Remember, originator creates a new stream internally so the handler for this doesn't have to do anything.
-		super::sync::originator(library_id, &library.sync, &node.nlm, &node.p2p).await;
+		super::sync::originator(library_id, &library.sync, &node.p2p).await;
 	}
 }
 

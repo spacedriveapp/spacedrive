@@ -23,6 +23,7 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 		indexedPath = job.metadata?.data?.location.path,
 		taskCount = realtimeUpdate?.task_count || job.task_count,
 		completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count,
+		phase = realtimeUpdate?.phase,
 		meta = job.metadata,
 		output = meta?.output?.run_metadata;
 
@@ -59,35 +60,75 @@ export function useJobInfo(job: JobReport, realtimeUpdate: JobProgressEvent | nu
 					]
 				]
 			};
-		case 'media_processor':
+		case 'media_processor': {
+			const generateTexts = () => {
+				switch (phase) {
+					case 'media_data': {
+						return [
+							{
+								text: `${
+									completedTaskCount
+										? formatNumber(completedTaskCount || 0)
+										: formatNumber(output?.media_data?.extracted)
+								} of ${formatNumber(taskCount)} ${plural(
+									taskCount,
+									'media file'
+								)} processed`
+							}
+						];
+					}
+
+					case 'thumbnails': {
+						return [
+							{
+								text: `${
+									completedTaskCount
+										? formatNumber(completedTaskCount || 0)
+										: formatNumber(output?.thumbs_processed)
+								} of ${formatNumber(taskCount)} ${plural(
+									taskCount,
+									'thumbnail'
+								)} generated`
+							}
+						];
+					}
+
+					default: {
+						// If we don't have a phase set, then we're done
+
+						const totalThumbs = output?.thumbs_processed || 0;
+						const totalMediaFiles =
+							output?.media_data?.extracted || 0 + output?.media_data?.skipped || 0;
+
+						return totalThumbs === 0 && totalMediaFiles === 0
+							? [{ text: 'None processed' }]
+							: [
+									{
+										text: `Extracted ${formatNumber(totalMediaFiles)} ${plural(
+											totalMediaFiles,
+											'media file'
+										)}`
+									},
+									{
+										text: `Generated ${formatNumber(totalThumbs)} ${plural(
+											totalThumbs,
+											'thumb'
+										)}`
+									}
+							  ];
+					}
+				}
+			};
+
 			return {
 				...data,
 				name: `${
 					isQueued ? 'Process' : isRunning ? 'Processing' : 'Processed'
 				} media files`,
-				textItems: [
-					[
-						{
-							text:
-								output?.thumbnails_created === 0
-									? 'None processed'
-									: `${
-											completedTaskCount
-												? formatNumber(completedTaskCount || 0)
-												: formatNumber(output?.thumbnails_created)
-									  } of ${formatNumber(taskCount)} ${plural(
-											taskCount,
-											'media file'
-									  )} processed`
-						},
-						{
-							text:
-								output?.thumbnails_skipped &&
-								`${output?.thumbnails_skipped} already exist`
-						}
-					]
-				]
+				textItems: [generateTexts()]
 			};
+		}
+
 		case 'file_identifier':
 			return {
 				...data,

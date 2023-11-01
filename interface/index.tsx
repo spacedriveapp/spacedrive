@@ -8,7 +8,6 @@ import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { ErrorBoundary } from 'react-error-boundary';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	NotificationContextProvider,
@@ -20,7 +19,7 @@ import { TooltipProvider } from '@sd/ui';
 
 import { P2P } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
-import ErrorFallback from './ErrorFallback';
+import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 
 export { ErrorPage } from './ErrorFallback';
 export * from './app';
@@ -59,7 +58,7 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 	useLoadBackendFeatureFlags();
 
 	return (
-		<ErrorBoundary FallbackComponent={ErrorFallback}>
+		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
 			<TooltipProvider>
 				<P2PContextProvider>
 					<NotificationContextProvider>
@@ -70,6 +69,6 @@ export const SpacedriveInterface = (props: { router: RouterProviderProps['router
 					</NotificationContextProvider>
 				</P2PContextProvider>
 			</TooltipProvider>
-		</ErrorBoundary>
+		</BetterErrorBoundary>
 	);
 };
