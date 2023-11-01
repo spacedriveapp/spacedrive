@@ -124,7 +124,17 @@ async fn identifier_job_step(
 							(metadata, file_path),
 						)
 					})
-					.map_err(|e| error!("Failed to extract file metadata: {e:#?}"))
+					.map_err(|e| {
+						if e.source
+							.raw_os_error()
+							.map(|code| code == 362)
+							.unwrap_or(false)
+						{
+							error!("Attempted to extract metadata from on-demand file: {e:#?}");
+						} else {
+							error!("Failed to extract file metadata: {e:#?}")
+						}
+					})
 					.ok()
 			}),
 	)
