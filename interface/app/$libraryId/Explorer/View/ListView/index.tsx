@@ -13,7 +13,7 @@ import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
+import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -51,7 +51,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem
 			data={props.row.original}
-			className="relative flex h-full items-center"
+			className="relative flex items-center h-full"
 			style={{ paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}
 		>
 			{props.row.getVisibleCells().map((cell) => (
@@ -101,6 +101,7 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
+	const shortcut = useShortcut();
 	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
@@ -608,7 +609,7 @@ export default () => {
 	}, [sized, isLeftMouseDown]);
 
 	// Handle key selection
-	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
+	useKey(shortcut.listObjectsNav, (e) => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
@@ -1002,7 +1003,7 @@ export default () => {
 								return (
 									<div
 										key={row.id}
-										className="absolute left-0 top-0 min-w-full"
+										className="absolute top-0 left-0 min-w-full"
 										style={{
 											height: virtualRow.size,
 											transform: `translateY(${
@@ -1033,7 +1034,7 @@ export default () => {
 											}}
 										>
 											{selectedPrior && (
-												<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+												<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
 											)}
 										</div>
 

@@ -123,9 +123,14 @@ const state = {
 			all: ['Delete']
 		}
 	},
-	explorerObjectsNav: {
+	gridObjectsNav: {
 		keys: {
 			all: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
+		}
+	},
+	listObjectsNav: {
+		keys: {
+			all: ['ArrowUp', 'ArrowDown', 'Escape']
 		}
 	},
 	navBackwardHistory: {

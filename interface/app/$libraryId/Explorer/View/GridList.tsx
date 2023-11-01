@@ -84,7 +84,7 @@ const GridListItem = (props: {
 
 	return (
 		<div
-			className="h-full w-full"
+			className="w-full h-full"
 			data-selectable=""
 			data-selectable-index={props.index}
 			data-selectable-id={itemId}
@@ -245,7 +245,7 @@ export default ({ children }: { children: RenderItem }) => {
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
 
-	useKey(shortcut.explorerObjectsNav, (e) => {
+	useKey(shortcut.gridObjectsNav, (e) => {
 		if (!explorerView.selectable) return;
 
 		if (e.key === 'Escape') {
