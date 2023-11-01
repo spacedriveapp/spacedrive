@@ -44,11 +44,11 @@ import {
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
-import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
+import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -190,7 +190,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			break;
 		}
 		case 'SpacedropPeer': {
-			objectData = item.item as unknown as Object;
+			// objectData = item.item as unknown as Object;
 			// filePathData = item.item.file_paths[0] ?? null;
 			break;
 		}
@@ -345,16 +345,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					</NavLink>
 				))}
 
-				{objectData && (
-					<DropdownMenu.Root
-						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-						side="left"
-						sideOffset={5}
-						alignOffset={-10}
-					>
-						<AssignTagMenuItems objects={[objectData]} />
-					</DropdownMenu.Root>
-				)}
+				{item.type === 'Object' ||
+					(item.type === 'Path' && (
+						<DropdownMenu.Root
+							trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+							side="left"
+							sideOffset={5}
+							alignOffset={-10}
+						>
+							<AssignTagMenuItems items={[item]} />
+						</DropdownMenu.Root>
+					))}
 			</MetaContainer>
 
 			{!isDir && objectData && (
@@ -518,7 +519,12 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 						sideOffset={5}
 						alignOffset={-10}
 					>
-						<AssignTagMenuItems objects={selectedObjects} />
+						<AssignTagMenuItems
+							items={items.flatMap((item) => {
+								if (item.type === 'Object' || item.type === 'Path') return [item];
+								else return [];
+							})}
+						/>
 					</DropdownMenu.Root>
 				)}
 			</MetaContainer>
