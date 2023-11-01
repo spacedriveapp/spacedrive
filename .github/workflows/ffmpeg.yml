@@ -56,7 +56,8 @@ jobs:
         run: |
           set -euxo pipefail
           cd .github/scripts/ffmpeg
-          docker build --no-cache --build-arg TARGET=${{ matrix.settings.target }} -o . .
+          docker build --no-cache --jobs 2 --build-arg TARGET=${{ matrix.settings.target }} -o . .
+          mv out/srv.tar.xz ./
 
       - name: Publish ffmpeg
         uses: actions/upload-artifact@v3
@@ -64,3 +65,10 @@ jobs:
           name: ffmpeg-6.0-${{ matrix.settings.target }}
           path: .github/scripts/ffmpeg/out/*
           if-no-files-found: error
+
+      - name: Publish built source
+        uses: actions/upload-artifact@v3
+        with:
+          name: ffmpeg-6.0-${{ matrix.settings.target }}-source
+          path: .github/scripts/ffmpeg/srv.tar.xz
+          if-no-files-found: warn

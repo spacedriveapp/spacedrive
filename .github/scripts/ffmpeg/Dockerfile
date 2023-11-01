@@ -5,6 +5,7 @@ ARG TARGET="x86_64-linux-gnu"
 ARG ZIG_VERSION="0.11.0"
 ARG MESON_VERSION="1.2.3"
 ARG CMAKE_VERSION="3.27.0"
+ARG PATCHELF_VERSION="0.18.0"
 
 #--
 
@@ -86,6 +87,11 @@ RUN cd /srv/meson `
 	&& patch -F5 -lp1 -d /srv/meson -t < 12293.patch `
 	&& packaging/create_zipapp.py --outfile "${SYSROOT}/bin/meson" --compress `
 	&& rm -rf /srv/meson
+
+# Download and install patchelf, used to do some light rpath ELF manipulation
+ARG PATCHELF_VERSION
+RUN --mount=type=cache,target=/root/.cache `
+	curl_tar "https://github.com/NixOS/patchelf/releases/download/${PATCHELF_VERSION:?}/patchelf-${PATCHELF_VERSION:?}-$(uname -m).tar.gz" "$SYSROOT" 1
 
 # Download and install gas-preprocessor, used by our zig wrapper to handle GNU flavored assembly files
 ADD --chmod=0750 'https://github.com/libav/gas-preprocessor/raw/master/gas-preprocessor.pl' "${SYSROOT}/bin/gas-preprocessor.pl"
@@ -208,6 +214,12 @@ RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=scripts/20-bzip2.sh,target=/srv/stage.sh `
 	/srv/build.sh
 
+FROM layer-10 AS layer-20-lzo
+
+RUN --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=scripts/20-lzo.sh,target=/srv/stage.sh `
+	/srv/build.sh
+
 FROM layer-10 AS layer-20-zlib
 
 RUN --mount=type=cache,target=/root/.cache `
@@ -218,6 +230,7 @@ FROM layer-10 AS layer-20
 
 COPY --from=layer-20-brotli "${PREFIX}/." $PREFIX
 COPY --from=layer-20-bzip2 "${PREFIX}/." $PREFIX
+COPY --from=layer-20-lzo "${PREFIX}/." $PREFIX
 COPY --from=layer-20-zlib "${PREFIX}/." $PREFIX
 
 #--
@@ -442,6 +455,12 @@ RUN { cd "${OUT}/bin" || exit 0; } `
 
 RUN find "$OUT" -type d -delete || true
 
+RUN cd "${OUT}/srv" && env XZ_OPT='-T0 -7' bsdtar -cJf ../srv.tar.xz *
+
+RUN rm -rf "${OUT}/srv"
+
+# Ensure all .so libs have the correct rpaths
+RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' \) -exec patchelf --set-rpath '$ORIGIN' {} \;
 # Strip debug symbols and ensure any .so, .dll, .dylib has the execution flag set
 RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' -o -name '*.dylib' \) -exec `
 	sh -euxc 'llvm-strip-17 -S "$@" && chmod +x "$@"' sh {} +

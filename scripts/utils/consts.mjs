@@ -37,35 +37,24 @@ export const PDFIUM_SUFFIX = {
 }
 
 export const FFMPEG_SUFFFIX = {
+	Linux: {
+		x86_64: 'x86_64',
+		aarch64: 'aarch64',
+	},
 	Darwin: {
 		x86_64: 'x86_64',
 		aarch64: 'arm64',
 	},
 	Windows_NT: {
 		x86_64: 'x86_64',
+		aarch64: 'aarch64',
 	},
 }
 
 export const FFMPEG_WORKFLOW = {
+	Linux: 'ffmpeg.yml',
 	Darwin: 'ffmpeg-macos.yml',
-	Windows_NT: 'ffmpeg-windows.yml',
-}
-
-export const LIBHEIF_SUFFIX = {
-	Linux: {
-		x86_64: {
-			musl: 'x86_64-linux-musl',
-			glibc: 'x86_64-linux-gnu',
-		},
-		aarch64: {
-			musl: 'aarch64-linux-musl',
-			glibc: 'aarch64-linux-gnu',
-		},
-	},
-}
-
-export const LIBHEIF_WORKFLOW = {
-	Linux: 'libheif-linux.yml',
+	Windows_NT: 'ffmpeg.yml',
 }
 
 /**

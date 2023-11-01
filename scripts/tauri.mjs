@@ -121,7 +121,10 @@ try {
 		)
 
 		console.warn(
-			`If you got an error related to FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``
+			`If you got an error related to libav*/FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``,
+			`If you got an error related to missing nasm you need to run ${
+				platform === 'win32' ? './scripts/setup.ps1' : './scripts/setup.sh'
+			}`
 		)
 
 		throw error

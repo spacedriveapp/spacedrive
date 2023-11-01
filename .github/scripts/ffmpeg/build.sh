@@ -8,7 +8,7 @@ set -o allexport
 . /etc/environment
 set +o allexport
 
-# COnfigure cross compiler environment variables
+# Configure cross compiler environment variables
 export CC="zig-cc"
 export AR="zig ar"
 export RC="rc"
@@ -37,6 +37,7 @@ case "$TARGET" in
         # https://github.com/ziglang/zig/issues/17430#issuecomment-1752592338
         export CFLAGS="${CFLAGS} -fno-stack-protector -fno-stack-check"
         export LDFLAGS="${LDFLAGS} -fno-stack-protector -fno-stack-check"
+        ;;
     esac
 
     export CXXFLAGS="$CFLAGS"

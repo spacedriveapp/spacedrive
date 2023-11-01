@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import * as _mustache from 'mustache'
 
-import { downloadFFMpeg, downloadLibHeif, downloadPDFium, downloadProtc } from './utils/deps.mjs'
+import { downloadFFMpeg, downloadPDFium, downloadProtc } from './utils/deps.mjs'
 import { getGitBranches } from './utils/git.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import {
@@ -84,10 +84,6 @@ await Promise.all([
 	}),
 	downloadFFMpeg(machineId, nativeDeps, branches).catch(e => {
 		console.error(`Failed to download ffmpeg. ${bugWarn}`)
-		throw e
-	}),
-	downloadLibHeif(machineId, nativeDeps, branches).catch(e => {
-		console.error(`Failed to download libheif. ${bugWarn}`)
 		throw e
 	}),
 ]).catch(e => {

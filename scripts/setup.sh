@@ -134,10 +134,6 @@ case "$(uname)" in
       set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev librsvg2-dev \
         libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
-      # FFmpeg dependencies
-      set -- "$@" ffmpeg libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
-        libavutil-dev libswscale-dev libswresample-dev
-
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-libav \
         gstreamer1.0-pipewire gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
@@ -156,9 +152,6 @@ case "$(uname)" in
 
       # Tauri dependencies
       set -- base-devel curl wget file patchelf openssl gtk3 librsvg webkit2gtk libayatana-appindicator
-
-      # FFmpeg dependencies
-      set -- "$@" ffmpeg
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-libav gst-plugins-bad gst-plugins-base gst-plugins-good gst-plugins-ugly \
@@ -203,13 +196,6 @@ case "$(uname)" in
       set -- "$@" clang clang-devel nasm
 
       sudo dnf install "$@"
-
-      # FFmpeg dependencies
-      if ! sudo dnf install ffmpeg ffmpeg-devel; then
-        err 'We were unable to install the FFmpeg and FFmpeg-devel packages.' \
-          'This is likely because the RPM Fusion free repository is not enabled.' \
-          'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
-      fi
     else
       if has lsb_release; then
         _distro="'$(lsb_release -s -d)' "
