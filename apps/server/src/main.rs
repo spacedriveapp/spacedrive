@@ -60,7 +60,10 @@ async fn main() {
 	let app = axum::Router::new()
 		.route("/health", get(|| async { "OK" }))
 		.nest("/spacedrive", custom_uri::router(node.clone()))
-		.nest("/rspc", router.endpoint(move || node.clone()).axum());
+		.nest(
+			"/rspc",
+			rspc_httpz::endpoint(router, move || node.clone()).axum(),
+		);
 
 	#[cfg(feature = "assets")]
 	let app = app

@@ -98,28 +98,33 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.procedure("backup", {
 			R.with(library())
-				.mutation(|(node, library), _: ()| start_backup(node, library))
+				.mutation(
+					|(node, library), _: ()| async move { Ok(start_backup(node, library).await) },
+				)
 		})
 		.procedure("restore", {
 			R
 				// TODO: Paths as strings is bad but here we want the flexibility of the frontend allowing any path
-				.mutation(|node, path: String| start_restore(node, path.into()))
+				.mutation(|node, path: String| Ok(start_restore(node, path.into())))
 		})
 		.procedure("delete", {
 			R
 				// TODO: Paths as strings is bad but here we want the flexibility of the frontend allowing any path
 				.mutation(|node, path: String| async move {
-					tokio::fs::remove_file(path)
+					if tokio::fs::remove_file(path)
 						.await
-						.map(|_| {
-							invalidate_query!(node; node, "backups.getAll");
-						})
 						.map_err(|_| {
 							rspc::Error::new(
 								ErrorCode::InternalServerError,
 								"Error deleting backup!".to_string(),
 							)
 						})
+						.is_ok()
+					{
+						invalidate_query!(node; node, "backups.getAll");
+					}
+
+					Ok(())
 				})
 		})
 }

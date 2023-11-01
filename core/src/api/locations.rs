@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::error;
 
-use super::{utils::library, Ctx, RouterBuilder, R};
+use super::{utils::library, RouterBuilder, R};
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -332,52 +332,57 @@ pub(crate) fn mount() -> RouterBuilder {
 				},
 			)
 		})
-		.procedure("quickRescan", {
-			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-			pub struct LightScanArgs {
-				pub location_id: location::id::Type,
-				pub sub_path: String,
-			}
-
-			R.with(library()).subscription(
-				|(node, library),
-				 LightScanArgs {
-				     location_id,
-				     sub_path,
-				 }: LightScanArgs| async move {
-					if node
-						.jobs
-						.has_job_running(|job_identity| {
-							job_identity.target_location == location_id
-								&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
-									|| job_identity.name
-										== <FileIdentifierJobInit as StatefulJob>::NAME)
-						})
-						.await
-					{
-						return Err(rspc::Error::new(
-							ErrorCode::Conflict,
-							"We're still indexing this location, pleases wait a bit...".to_string(),
-						));
-					}
-
-					let location = find_location(&library, location_id)
-						.include(location_with_indexer_rules::include())
-						.exec()
-						.await?
-						.ok_or(LocationError::IdNotFound(location_id))?;
-
-					let handle = tokio::spawn(async move {
-						if let Err(e) = light_scan_location(node, library, location, sub_path).await
-						{
-							error!("light scan error: {e:#?}");
-						}
-					});
-
-					Ok(AbortOnDrop(handle))
-				},
-			)
-		})
+		// .procedure("quickRescan", {
+		// 	#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+		// 	pub struct LightScanArgs {
+		// 		pub location_id: location::id::Type,
+		// 		pub sub_path: String,
+		// 	}
+		// 	R.with(library()).subscription(
+		// 		|(node, library),
+		// 		 LightScanArgs {
+		// 		     location_id,
+		// 		     sub_path,
+		// 		 }: LightScanArgs| async move {
+		// 			// node.jobs
+		// 			// 	.has_job_running(|job_identity| {
+		// 			// 		job_identity.target_location == location_id
+		// 			// 			&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
+		// 			// 				|| job_identity.name
+		// 			// 					== <FileIdentifierJobInit as StatefulJob>::NAME)
+		// 			// 	})
+		// 			// 	.await
+		// 			// 	.then(|| ())
+		// 			// 	.ok_or(|| {
+		// 			// 		rspc::Error::new(
+		// 			// 			ErrorCode::Conflict,
+		// 			// 			"We're still indexing this location, pleases wait a bit..."
+		// 			// 				.to_string(),
+		// 			// 		)
+		// 			// 	})?;
+		// 			// let location = find_location(&library, location_id)
+		// 			// 	.include(location_with_indexer_rules::include())
+		// 			// 	.exec()
+		// 			// 	.await
+		// 			// 	.map_err(|err| {
+		// 			// 		rspc::Error::with_cause(
+		// 			// 			rspc::ErrorCode::InternalServerError,
+		// 			// 			"Internal server error occurred while completing database operation!"
+		// 			// 				.into(),
+		// 			// 			err,
+		// 			// 		)
+		// 			// 	})?
+		// 			// 	.ok_or(LocationError::IdNotFound(location_id))?;
+		// 			// let handle = tokio::spawn(async move {
+		// 			// 	if let Err(e) = light_scan_location(node, library, location, sub_path).await
+		// 			// 	{
+		// 			// 		error!("light scan error: {e:#?}");
+		// 			// 	}
+		// 			// });
+		// 			Ok(todo!()) // TODO: AbortOnDrop(handle)
+		// 		},
+		// 	)
+		// })
 		.procedure(
 			"online",
 			R.subscription(|node, _: ()| async move {
@@ -386,25 +391,25 @@ pub(crate) fn mount() -> RouterBuilder {
 				async_stream::stream! {
 					let online = node.locations.get_online().await;
 
-					yield online;
+					yield Ok(online);
 
 					while let Ok(locations) = rx.recv().await {
-						yield locations;
+						yield Ok(locations);
 					}
 				}
 			}),
 		)
 		.procedure("systemLocations", {
 			R.query(|_, _: ()| async move {
-				UserDirs::new().map(SystemLocations::from).ok_or_else(|| {
+				Ok(UserDirs::new().map(SystemLocations::from).ok_or_else(|| {
 					rspc::Error::new(
 						ErrorCode::NotFound,
 						"Didn't find any system locations".to_string(),
 					)
-				})
+				})?)
 			})
 		})
-		.merge("indexer_rules.", mount_indexer_rule_routes())
+		.merge("indexer_rules", mount_indexer_rule_routes())
 }
 
 fn mount_indexer_rule_routes() -> RouterBuilder {
@@ -434,13 +439,13 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 							return Err(rspc::Error::new(
 								ErrorCode::Forbidden,
 								format!("Indexer rule <id={indexer_rule_id}> can't be deleted"),
-							));
+							))?;
 						}
 					} else {
 						return Err(rspc::Error::new(
 							ErrorCode::NotFound,
 							format!("Indexer rule <id={indexer_rule_id}> not found"),
-						));
+						))?;
 					}
 
 					library
@@ -465,7 +470,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 		.procedure("get", {
 			R.with(library())
 				.query(|(_, library), indexer_rule_id: i32| async move {
-					library
+					Ok(library
 						.db
 						.indexer_rule()
 						.find_unique(indexer_rule::id::equals(indexer_rule_id))
@@ -476,7 +481,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 								ErrorCode::NotFound,
 								format!("Indexer rule <id={indexer_rule_id}> not found"),
 							)
-						})
+						})?)
 				})
 		})
 		.procedure("list", {

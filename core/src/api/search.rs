@@ -142,7 +142,15 @@ impl FilePathFilterArgs {
 				db.location()
 					.find_unique(location::id::equals(location_id))
 					.exec()
-					.await?
+					.await
+					.map_err(|err| {
+						rspc::Error::with_cause(
+							rspc::ErrorCode::InternalServerError,
+							"Internal server error occurred while completing database operation!"
+								.into(),
+							err,
+						)
+					})?
 					.ok_or(LocationError::IdNotFound(location_id))?,
 			)
 		} else {
@@ -154,10 +162,10 @@ impl FilePathFilterArgs {
 				let parent_iso_file_path =
 					IsolatedFilePathData::from_relative_str(location.id, &path);
 				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
-					return Err(rspc::Error::new(
+					Err(rspc::Error::new(
 						ErrorCode::NotFound,
 						"Directory not found".into(),
-					));
+					))?;
 				}
 
 				parent_iso_file_path.materialized_path_for_children()

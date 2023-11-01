@@ -39,7 +39,8 @@ pub(crate) fn mount() -> RouterBuilder {
 	R.router()
 		.procedure("list", {
 			R.query(|node, _: ()| async move {
-				node.libraries
+				Ok(node
+					.libraries
 					.get_all()
 					.await
 					.into_iter()
@@ -49,7 +50,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						instance_public_key: lib.identity.to_remote_identity(),
 						config: lib.config(),
 					})
-					.collect::<Vec<_>>()
+					.collect::<Vec<_>>())
 			})
 		})
 		.procedure("statistics", {

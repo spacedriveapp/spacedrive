@@ -1,6 +1,16 @@
-use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
+use crate::{
+	invalidate_query,
+	job::{JobManagerError, JobProgressEvent},
+	library::LibraryManagerError,
+	location::{
+		indexer::rules::IndexerRuleError, non_indexed::NonIndexedLocationError, LocationError,
+	},
+	node::config::NodeConfig,
+	util::{db::MissingFieldError, error::FileIOError},
+	Node,
+};
 use itertools::Itertools;
-use rspc::{ErrorCode, Rspc};
+use rspc::{ErrorCode, ExportConfig, Rspc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::{atomic::Ordering, Arc};
@@ -21,9 +31,56 @@ pub enum SdError {
 	// TODO: Remove this variant
 	#[error("rspc error: {0:?}")]
 	Rspc(#[from] rspc::Error),
-	// TODO: Remove this variant
-	// #[error("rspc infallible")]
-	// RspcInfallible(#[from] rspc::Infallible),
+	#[error("location error: {0:?}")]
+	LocationError(
+		#[from]
+		#[serde(skip)]
+		LocationError,
+	),
+	#[error("non indexed location error: {0:?}")]
+	NonIndexedLocationError(
+		#[from]
+		#[serde(skip)]
+		NonIndexedLocationError,
+	),
+	#[error("library manager error: {0:?}")]
+	LibraryManagerError(
+		#[from]
+		#[serde(skip)]
+		LibraryManagerError,
+	),
+	#[error("job manager error: {0:?}")]
+	JobManagerError(
+		#[from]
+		#[serde(skip)]
+		JobManagerError,
+	),
+	#[error("job manager error: {0:?}")]
+	IndexerRuleError(
+		#[from]
+		#[serde(skip)]
+		IndexerRuleError,
+	),
+	#[error("file io error: {0:?}")]
+	FileIOError(
+		#[from]
+		#[serde(skip)]
+		FileIOError,
+	),
+	#[error("missing field error: {0:?}")]
+	MissingFieldError(
+		#[from]
+		#[serde(skip)]
+		MissingFieldError,
+	),
+	#[error("images error: {0:?}")]
+	SdImagesError(
+		#[from]
+		#[serde(skip)]
+		sd_images::Error,
+	),
+	#[error("rspc infallible")]
+	Infallible(#[from] rspc::Infallible),
 }
 
 #[allow(non_upper_case_globals)]
@@ -126,10 +183,12 @@ pub(crate) fn mount() -> Arc<Router> {
 				commit: &'static str,
 			}
 
-			R.query(|_, _: ()| Ok(BuildInfo {
-				version: env!("CARGO_PKG_VERSION"),
-				commit: env!("GIT_HASH"),
-			}))
+			R.query(|_, _: ()| {
+				Ok(BuildInfo {
+					version: env!("CARGO_PKG_VERSION"),
+					commit: env!("GIT_HASH"),
+				})
+			})
 		})
 		.procedure("nodeState", {
 			R.query(|node, _: ()| async move {
@@ -182,42 +241,39 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(())
 			})
 		})
-		.merge("api.", web_api::mount())
-		.merge("auth.", auth::mount())
-		.merge("search.", search::mount())
-		.merge("library.", libraries::mount())
-		.merge("volumes.", volumes::mount())
-		.merge("tags.", tags::mount())
-		.merge("categories.", categories::mount())
+		.merge("api", web_api::mount())
+		.merge("auth", auth::mount())
+		.merge("search", search::mount())
+		.merge("library", libraries::mount())
+		.merge("volumes", volumes::mount())
+		.merge("tags", tags::mount())
+		.merge("categories", categories::mount())
 		// .merge("keys.", keys::mount())
-		.merge("locations.", locations::mount())
-		.merge("files.", files::mount())
-		.merge("jobs.", jobs::mount())
-		.merge("p2p.", p2p::mount())
-		.merge("nodes.", nodes::mount())
-		.merge("sync.", sync::mount())
-		.merge("preferences.", preferences::mount())
-		.merge("notifications.", notifications::mount())
-		.merge("backups.", backups::mount())
-		.merge("invalidation.", utils::mount_invalidate())
-		.build(
-			// #[allow(clippy::let_and_return)]
-			// {
-			// 	// let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
-
-			// 	#[cfg(all(debug_assertions, not(feature = "mobile")))]
-			// 	let config = config.export_ts_bindings(
-			// 		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-			// 			.join("../packages/client/src/core.ts"),
-			// 	);
-
-			// 	config
-			// },
-		)
+		.merge("locations", locations::mount())
+		.merge("files", files::mount())
+		.merge("jobs", jobs::mount())
+		.merge("p2p", p2p::mount())
+		.merge("nodes", nodes::mount())
+		.merge("sync", sync::mount())
+		.merge("preferences", preferences::mount())
+		.merge("notifications", notifications::mount())
+		.merge("backups", backups::mount())
+		.merge("invalidation", utils::mount_invalidate())
+		.build()
 		.unwrap()
 		.arced();
 
-	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
+	#[cfg(all(debug_assertions, not(feature = "mobile")))]
+	r.export_ts(
+		ExportConfig::new(
+			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+				.join("../packages/client/src/core.ts"),
+		)
+		.header("/* eslint-disable */"),
+	)
+	.unwrap();
+
+	// InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
 	r
 }

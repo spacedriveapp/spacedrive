@@ -24,7 +24,7 @@ impl<T> Future for AbortOnDrop<T> {
 }
 
 impl<T> Stream for AbortOnDrop<T> {
-	type Item = ();
+	type Item = Result<(), rspc::Error>; // TODO: Use `rspc::Infallible` -> Right now inner and outer result must match in rspc which is cringe???
 
 	fn poll_next(
 		mut self: std::pin::Pin<&mut Self>,

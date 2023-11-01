@@ -89,7 +89,7 @@ impl InvalidRequests {
 			for req in &invalidate_requests.queries {
 				if let Some(query_ty) = queries.get(req.key) {
 					if let Some(arg) = &req.arg_ty {
-						if &query_ty.ty.input != arg {
+						if &query_ty.ty().input != arg {
 							panic!(
 								"Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
 								req.macro_src, req.key
@@ -98,7 +98,7 @@ impl InvalidRequests {
 					}
 
 					if let Some(result) = &req.result_ty {
-						if &query_ty.ty.result != result {
+						if &query_ty.ty().result != result {
 							panic!(
 								"Error at '{}': Attempted to invalid query '{}' but the data type does not match the type defined on the router.",
 								req.macro_src, req.key

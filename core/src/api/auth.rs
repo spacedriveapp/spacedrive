@@ -147,7 +147,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				.await
 				.and_then(ensure_response)
 				.map(parse_json_body::<Response>)?
-				.await
+				.await?;
+
+				Ok(())
 			})
 		})
 }

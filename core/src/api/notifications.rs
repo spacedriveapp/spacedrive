@@ -154,7 +154,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				stream! {
 					while let Ok(notification) = sub.recv().await {
-						yield notification;
+						yield Ok(notification);
 					}
 				}
 			})
@@ -162,6 +162,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.procedure("test", {
 			R.mutation(|node, _: ()| async move {
 				node.emit_notification(NotificationData::Test, None).await;
+				Ok(())
 			})
 		})
 		.procedure("testLibrary", {
@@ -170,6 +171,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					library
 						.emit_notification(NotificationData::Test, None)
 						.await;
+
+					Ok(())
 				})
 		})
 }

@@ -7,7 +7,7 @@ use specta::Type;
 use tracing::error;
 use uuid::Uuid;
 
-use super::{locations::ExplorerItem, utils::library,  RouterBuilder, R};
+use super::{locations::ExplorerItem, utils::library, RouterBuilder, R};
 
 pub(crate) fn mount() -> RouterBuilder {
 	R.router()
@@ -24,7 +24,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						return Err(rspc::Error::new(
 							ErrorCode::BadRequest,
 							"invalid node name".into(),
-						));
+						))?;
 					}
 				}
 

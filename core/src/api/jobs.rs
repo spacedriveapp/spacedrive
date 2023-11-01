@@ -54,7 +54,7 @@ pub(crate) fn mount() -> RouterBuilder {
 								continue;
 							}
 
-							yield progress_event;
+							yield Ok(progress_event);
 
 							*instant = Instant::now();
 						}
@@ -306,7 +306,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					async_stream::stream! {
 						while let Ok(event) = event_bus_rx.recv().await {
 							match event {
-								CoreEvent::NewThumbnail { thumb_key } => yield thumb_key,
+								CoreEvent::NewThumbnail { thumb_key } => yield Ok(thumb_key),
 								_ => {}
 							}
 						}

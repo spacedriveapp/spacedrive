@@ -71,7 +71,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.procedure("getMediaData", {
 			R.with(library())
 				.query(|(_, library), args: object::id::Type| async move {
-					library
+					Ok(library
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
@@ -90,7 +90,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						})
 						.ok_or_else(|| {
 							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
-						})
+						})?)
 				})
 		})
 		.procedure("getEphemeralMediaData", {
@@ -114,11 +114,13 @@ pub(crate) fn mount() -> RouterBuilder {
 					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
 						_,
 					))) => Ok(None),
-					Err(e) => Err(rspc::Error::with_cause(
-						ErrorCode::InternalServerError,
-						"Failed to extract media data".to_string(),
-						e,
-					)),
+					Err(e) => {
+						return Err(rspc::Error::with_cause(
+							ErrorCode::InternalServerError,
+							"Failed to extract media data".to_string(),
+							e,
+						))?;
+					}
 				}
 			})
 		})
@@ -224,7 +226,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 					dbg!(&path);
 
-					create_directory(path, &library).await
+					Ok(create_directory(path, &library).await?)
 				},
 			)
 		})
@@ -239,7 +241,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				 CreateEphemeralFolderArgs { mut path, name }: CreateEphemeralFolderArgs| async move {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
-					create_directory(path, &library).await
+					Ok(create_directory(path, &library).await?)
 				},
 			)
 		})
@@ -374,8 +376,6 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 			R.with(library())
 				.mutation(|(_, library), args: ConvertImageArgs| async move {
-					// TODO:(fogodev) I think this will have to be a Job due to possibly being too much CPU Bound for rspc
-
 					let location_path =
 						get_location_path_from_location_id(&library.db, args.location_id).await?;
 
@@ -398,15 +398,13 @@ pub(crate) fn mount() -> RouterBuilder {
 						if e.kind() == io::ErrorKind::NotFound {
 							return Err(LocationError::FilePath(FilePathError::NotFound(
 								path.into_boxed_path(),
-							))
-							.into());
+							)))?;
 						} else {
 							return Err(FileIOError::from((
 								path,
 								e,
 								"Got an error trying to read metadata from image to convert",
-							))
-							.into());
+							)))?;
 						}
 					}
 
@@ -459,11 +457,11 @@ pub(crate) fn mount() -> RouterBuilder {
 							)
 						)
 						})? {
-						return Err(rspc::Error::new(
+						Err(rspc::Error::new(
 							ErrorCode::Conflict,
 							"There is already a file with same name and extension in this directory"
 								.to_string(),
-						));
+						))?;
 					} else {
 						fs::write(&output_path, image.as_bytes())
 							.await
@@ -584,7 +582,15 @@ pub(crate) fn mount() -> RouterBuilder {
 							.find_unique(file_path::id::equals(from_file_path_id))
 							.select(file_path_to_isolate::select())
 							.exec()
-							.await?
+							.await
+							.map_err(|err| {
+								rspc::Error::with_cause(
+									rspc::ErrorCode::InternalServerError,
+									"Internal server error occurred while completing database operation!"
+										.into(),
+									err,
+								)
+							})?
 							.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
 								from_file_path_id,
 							)))?,
@@ -616,11 +622,11 @@ pub(crate) fn mount() -> RouterBuilder {
 
 						Err(e) => {
 							if e.kind() != std::io::ErrorKind::NotFound {
-								return Err(rspc::Error::with_cause(
+								Err(rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									"Failed to check if file exists".to_string(),
 									e,
-								));
+								))?;
 							}
 
 							fs::rename(location_path.join(&iso_file_path), new_file_full_path)
@@ -653,7 +659,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						return Err(rspc::Error::new(
 							rspc::ErrorCode::BadRequest,
 							"Invalid `from` regex pattern".into(),
-						));
+						))?;
 					};
 
 					let errors = join_all(
@@ -663,7 +669,15 @@ pub(crate) fn mount() -> RouterBuilder {
 							.find_many(vec![file_path::id::in_vec(from_file_path_ids)])
 							.select(file_path_to_isolate_with_id::select())
 							.exec()
-							.await?
+							.await
+							.map_err(|err| {
+								rspc::Error::with_cause(
+									rspc::ErrorCode::InternalServerError,
+									"Internal server error occurred while completing database operation!"
+										.into(),
+									err,
+								)
+							})?
 							.into_iter()
 							.flat_map(IsolatedFilePathData::try_from)
 							.map(|iso_file_path| {
@@ -709,14 +723,14 @@ pub(crate) fn mount() -> RouterBuilder {
 					.collect::<Vec<_>>();
 
 					if !errors.is_empty() {
-						return Err(rspc::Error::new(
+						Err(rspc::Error::new(
 							rspc::ErrorCode::Conflict,
 							errors
 								.into_iter()
 								.map(|e| e.to_string())
 								.collect::<Vec<_>>()
 								.join("\n"),
-						));
+						))?;
 					}
 
 					Ok(())
@@ -728,19 +742,19 @@ pub(crate) fn mount() -> RouterBuilder {
 					let location_path =
 						get_location_path_from_location_id(&library.db, location_id).await?;
 
-					let res = match kind {
+					match kind {
 						RenameKind::One(one) => {
 							RenameFileArgs::rename_one(one, location_path, &library).await
 						}
 						RenameKind::Many(many) => {
 							RenameFileArgs::rename_many(many, location_path, &library).await
 						}
-					};
+					}?;
 
 					invalidate_query!(library, "search.paths");
 					invalidate_query!(library, "search.objects");
 
-					res
+					Ok(())
 				},
 			)
 		})

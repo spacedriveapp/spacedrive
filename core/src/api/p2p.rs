@@ -17,29 +17,30 @@ pub(crate) fn mount() -> RouterBuilder {
 				async_stream::stream! {
 					// TODO: Don't block subscription start
 					for peer in node.p2p.node.get_discovered() {
-						 yield P2PEvent::DiscoveredPeer {
+						 yield Ok(P2PEvent::DiscoveredPeer {
 							identity: peer.identity,
 							metadata: peer.metadata,
-						};
+						});
 					}
 
 					// TODO: Don't block subscription start
 					#[allow(clippy::unwrap_used)] // TODO: P2P isn't stable yet lol
 					for identity in node.p2p.manager.get_connected_peers().await.unwrap() {
-						yield P2PEvent::ConnectedPeer {
+						yield Ok(P2PEvent::ConnectedPeer {
 							identity,
-						};
+						});
 					}
 
 					while let Ok(event) = rx.recv().await {
-						yield event;
+						yield Ok(event);
 					}
 				}
 			})
 		})
-		.procedure("state", {
-			R.query(|node, _: ()| async move { node.p2p.state() })
-		})
+		// TODO: non-string key for map issues
+		// .procedure("state", {
+		// 	R.query(|node, _: ()| async move { Ok(node.p2p.state()) })
+		// })
 		.procedure("spacedrop", {
 			#[derive(Type, Deserialize)]
 			pub struct SpacedropArgs {
@@ -48,7 +49,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			R.mutation(|node, args: SpacedropArgs| async move {
-				operations::spacedrop(
+				Ok(operations::spacedrop(
 					node.p2p.clone(),
 					args.identity,
 					args.file_path
@@ -59,28 +60,28 @@ pub(crate) fn mount() -> RouterBuilder {
 				.await
 				.map_err(|_err| {
 					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
-				})
+				})?)
 			})
 		})
 		.procedure("acceptSpacedrop", {
 			R.mutation(|node, (id, path): (Uuid, Option<String>)| async move {
-				match path {
+				Ok(match path {
 					Some(path) => node.p2p.accept_spacedrop(id, path).await,
 					None => node.p2p.reject_spacedrop(id).await,
-				}
+				})
 			})
 		})
 		.procedure("cancelSpacedrop", {
-			R.mutation(|node, id: Uuid| async move { node.p2p.cancel_spacedrop(id).await })
+			R.mutation(|node, id: Uuid| async move { Ok(node.p2p.cancel_spacedrop(id).await) })
 		})
 		.procedure("pair", {
 			R.mutation(|node, id: RemoteIdentity| async move {
-				node.p2p.pairing.clone().originator(id, node).await
+				Ok(node.p2p.pairing.clone().originator(id, node).await)
 			})
 		})
 		.procedure("pairingResponse", {
 			R.mutation(|node, (pairing_id, decision): (u16, PairingDecision)| {
-				node.p2p.pairing.decision(pairing_id, decision);
+				Ok(node.p2p.pairing.decision(pairing_id, decision))
 			})
 		})
 }
