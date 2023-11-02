@@ -22,7 +22,7 @@
 		"archive-wasm": "^1.5.3",
 		"mustache": "^4.2.0",
 		"semver": "^7.5.4",
-		"undici": "^5.26.4"
+		"undici": "^5.27.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.23.2",
@@ -30,8 +30,8 @@
 		"@babel/eslint-plugin": "^7.22.10",
 		"@types/mustache": "^4.2.4",
 		"@types/node": "~18.17.19",
-		"@typescript-eslint/eslint-plugin": "^6.8.0",
-		"@typescript-eslint/parser": "^6.8.0",
+		"@typescript-eslint/eslint-plugin": "^6.9.1",
+		"@typescript-eslint/parser": "^6.9.1",
 		"eslint": "^8.52.0",
 		"eslint-config-prettier": "^9.0.0",
 		"eslint-config-standard": "^17.1.0",

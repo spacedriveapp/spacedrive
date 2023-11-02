@@ -11,8 +11,8 @@
 		"lint": "eslint . --cache"
 	},
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^6.8.0",
-		"@typescript-eslint/parser": "^6.8.0",
+		"@typescript-eslint/eslint-plugin": "^6.9.1",
+		"@typescript-eslint/parser": "^6.9.1",
 		"eslint": "^8.52.0",
 		"eslint-config-next": "^13.5.6",
 		"eslint-config-prettier": "^9.0.0",

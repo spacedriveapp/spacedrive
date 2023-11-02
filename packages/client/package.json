@@ -11,21 +11,21 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@rspc/client": "=0.0.0-main-799eec5d",
-		"@rspc/react": "=0.0.0-main-799eec5d",
-		"@tanstack/react-query": "^4.36.1",
+		"@rspc/client": "0.0.0-main-5a753130",
+		"@rspc/react-query": "0.0.0-main-5a753130",
+		"@tanstack/react-query": "^5.4.3",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
 		"@zxcvbn-ts/language-en": "^3.0.2",
 		"plausible-tracker": "^0.3.8",
 		"react-hook-form": "^7.47.0",
-		"valtio": "^1.11.2",
+		"valtio": "^1.11.3",
 		"zod": "~3.22.4"
 	},
 	"devDependencies": {
-		"@types/react": "^18.2.31",
-		"typescript": "^5.2.2",
-		"@sd/config": "workspace:*"
+		"@sd/config": "workspace:*",
+		"@types/react": "^18.2.34",
+		"typescript": "^5.2.2"
 	},
 	"peerDependencies": {
 		"react": "^18.2"

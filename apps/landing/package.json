@@ -11,9 +11,9 @@
 	},
 	"dependencies": {
 		"@octokit/webhooks": "^12.0.3",
-		"@phosphor-icons/react": "^2.0.13",
-		"@react-three/drei": "^9.88.4",
-		"@react-three/fiber": "^8.15.0",
+		"@phosphor-icons/react": "^2.0.14",
+		"@react-three/drei": "^9.88.11",
+		"@react-three/fiber": "^8.15.9",
 		"@sd/assets": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@t3-oss/env-nextjs": "^0.7.1",
@@ -25,7 +25,7 @@
 		"markdown-to-jsx": "^7.3.2",
 		"next": "13.5.6",
 		"next-contentlayer": "^0.3.4",
-		"next-plausible": "^3.11.2",
+		"next-plausible": "^3.11.3",
 		"react": "18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
@@ -48,18 +48,18 @@
 	},
 	"devDependencies": {
 		"@next/bundle-analyzer": "^13.5.6",
-		"@octokit/openapi-types": "^19.0.0",
+		"@octokit/openapi-types": "^19.0.2",
 		"@sd/config": "workspace:*",
 		"@svgr/webpack": "^8.1.0",
 		"@types/node": "~18.17.19",
-		"@types/react": "^18.2.31",
+		"@types/react": "^18.2.34",
 		"@types/react-burger-menu": "^2.8.5",
 		"@types/react-dom": "^18.2.14",
 		"@types/three": "^0.157.2",
 		"autoprefixer": "^10.4.16",
 		"postcss": "^8.4.31",
 		"sharp": "^0.32.6",
-		"tailwindcss": "^3.3.3",
+		"tailwindcss": "^3.3.5",
 		"typescript": "^5.2.2"
 	}
 }
