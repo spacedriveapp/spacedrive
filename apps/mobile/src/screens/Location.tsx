@@ -32,7 +32,7 @@ export default function LocationScreen({ navigation, route }: SharedScreenProps<
 			});
 		} else {
 			navigation.setOptions({
-				title: location.data?.name ?? 'Location',
+				title: location.data?.name ?? 'Location'
 			});
 		}
 	}, [location.data?.name, navigation, path]);
