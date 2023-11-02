@@ -1,16 +1,15 @@
 import { EjectSimple } from '@phosphor-icons/react';
-import { Drive, Globe, HDD, Home, SD } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
+import { Icon, IconName } from '~/components';
 import { usePlatform } from '~/util/Platform';
 
 import SidebarLink from './Link';
 import Section from './Section';
 import SeeMore from './SeeMore';
 
-const SidebarIcon = tw.img`mr-1 h-5 w-5`;
 const Name = tw.span`truncate`;
 
 const EjectButton = ({ className }: { className?: string }) => (
@@ -18,6 +17,10 @@ const EjectButton = ({ className }: { className?: string }) => (
 		<EjectSimple weight="fill" size={18} className="h-3 w-3 opacity-70" />
 	</Button>
 );
+
+const SidebarIcon = ({ name }: { name: IconName }) => {
+	return <Icon name={name} size={20} className="mr-1" />;
+};
 
 export const EphemeralSection = () => {
 	const [home, setHome] = useState<string | null>(null);
@@ -87,7 +90,7 @@ export const EphemeralSection = () => {
 									to={`network/34`}
 									key={index}
 								>
-									<SidebarIcon src={Globe} />
+									<SidebarIcon name="Globe" />
 									<Name>Network</Name>
 								</SidebarLink>
 							);
@@ -100,7 +103,7 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 									key={index}
 								>
-									<SidebarIcon src={Home} />
+									<SidebarIcon name="Home" />
 									<Name>Home</Name>
 								</SidebarLink>
 							);
@@ -127,12 +130,12 @@ export const EphemeralSection = () => {
 									className="group relative w-full border border-transparent"
 								>
 									<SidebarIcon
-										src={
+										name={
 											item.volume.file_system === 'exfat'
-												? SD
+												? 'SD'
 												: item.volume.name === 'Macintosh HD'
-												? HDD
-												: Drive
+												? 'HDD'
+												: 'Drive'
 										}
 									/>
 									<Name>{name}</Name>

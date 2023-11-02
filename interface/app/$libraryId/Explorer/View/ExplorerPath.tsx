@@ -1,11 +1,11 @@
 import { CaretRight } from '@phosphor-icons/react';
-import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useMatch } from 'react-router';
 import { ExplorerItem } from '@sd/client';
 import { SearchParamsSchema } from '~/app/route-schemas';
-import { useIsDark, useOperatingSystem, useZodSearchParams } from '~/hooks';
+import { Icon } from '~/components';
+import { useOperatingSystem, useZodSearchParams } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
@@ -14,7 +14,6 @@ import { useExplorerSearchParams } from '../util';
 export const PATH_BAR_HEIGHT = 32;
 
 export const ExplorerPath = memo(() => {
-	const isDark = useIsDark();
 	const isEphemeralLocation = useMatch('/:libraryId/ephemeral/:ephemeralId');
 	const os = useOperatingSystem();
 	const realOs = useOperatingSystem(true);
@@ -101,7 +100,7 @@ export const ExplorerPath = memo(() => {
 							index !== data.length - 1 && ' cursor-pointer hover:brightness-125'
 						)}
 					>
-						<img src={getIcon('Folder', isDark)} alt="folder" className="h-4 w-4" />
+						<Icon name="Folder" size={16} alt="Folder" />
 						<span className="max-w-xs truncate">{p.name}</span>
 						{index !== (data?.length as number) - 1 && (
 							<CaretRight weight="bold" size={10} />

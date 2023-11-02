@@ -1,11 +1,11 @@
 import { ArrowBendUpRight, TagSimple } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
+import { ExplorerItem, ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
-import AssignTagMenuItems from '~/components/AssignTagMenuItems';
 import { Menu } from '~/components/Menu';
 import { isNonEmpty } from '~/util';
 
+import AssignTagMenuItems from '../AssignTagMenuItems';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 
@@ -43,14 +43,24 @@ export const RemoveFromRecents = new ConditionalItem({
 
 export const AssignTag = new ConditionalItem({
 	useCondition: () => {
-		const { selectedObjects } = useContextMenuContext();
-		if (!isNonEmpty(selectedObjects)) return null;
+		const { selectedItems } = useContextMenuContext();
 
-		return { selectedObjects };
+		const items = selectedItems
+			.map((item) => {
+				if (item.type === 'Object' || item.type === 'Path') return item;
+			})
+			.filter(
+				(item): item is Extract<ExplorerItem, { type: 'Object' | 'Path' }> =>
+					item !== undefined
+			);
+
+		if (!isNonEmpty(items)) return null;
+
+		return { items };
 	},
-	Component: ({ selectedObjects }) => (
+	Component: ({ items }) => (
 		<Menu.SubMenu label="Assign tag" icon={TagSimple}>
-			<AssignTagMenuItems objects={selectedObjects} />
+			<AssignTagMenuItems items={items} />
 		</Menu.SubMenu>
 	)
 });

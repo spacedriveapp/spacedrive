@@ -24,3 +24,6 @@ interface/components/TextViewer/prism.tsx
 
 .next/
 .contentlayer/
+
+# Stops from constant package.json changes showing up in commits
+package*.json

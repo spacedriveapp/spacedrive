@@ -94,7 +94,7 @@ export type Procedures = {
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
+        { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
@@ -430,11 +430,11 @@ export type SystemLocations = { desktop: string | null; documents: string | null
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 
-export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
-
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type Target = { Object: number } | { FilePath: number }
 
 export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 
