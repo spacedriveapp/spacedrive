@@ -149,11 +149,6 @@ const state = {
 			all: ['ArrowRight']
 		}
 	},
-	gridObjectsNav: {
-		keys: {
-			all: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
-		}
-	},
 	navBackwardHistory: {
 		keys: {
 			macOS: ['Meta', '['],
