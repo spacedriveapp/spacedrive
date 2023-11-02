@@ -87,10 +87,10 @@ function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<O
 
 	const filter = useSearchFilters('objects', [
 		{
-			name: tag.name || 's',
-			value: tag?.id?.toString() || 's',
+			name: tag.name || '',
+			value: tag?.id,
 			type: 'Tags',
-			icon: tag.color || 's'
+			icon: tag.color || ''
 		},
 		...(explorerSettings.layoutMode === 'media'
 			? ([

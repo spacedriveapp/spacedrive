@@ -98,7 +98,7 @@ export const filterTypeRegistry = [
 					filter={filter}
 					options={query.data?.map((tag) => ({
 						name: tag.name!,
-						value: String(tag.id),
+						value: tag.id,
 						icon: tag.color || 'CircleDashed',
 						type: filter.name
 					}))}
