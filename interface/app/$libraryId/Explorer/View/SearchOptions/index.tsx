@@ -1,4 +1,4 @@
-import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
+import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { PropsWithChildren, useMemo, useState } from 'react';
@@ -6,12 +6,19 @@ import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } fr
 import { useKeybind } from '~/hooks';
 
 import { AppliedOptions } from './AppliedFilters';
-import { filterTypeRegistry } from './Filters';
+import { filterRegistry } from './Filters';
 import { useSavedSearches } from './SavedSearches';
-import { getSearchStore, searchRegisteredFilters, useSearchStore } from './store';
+import {
+	deselectFilterOption,
+	getSearchStore,
+	searchRegisteredFilters,
+	selectFilterOption,
+	useRegisterSearchFilterOptions,
+	useSearchStore
+} from './store';
 import { RenderIcon } from './util';
 
-const Label = tw.span`text-ink-dull mr-2 text-xs`;
+// const Label = tw.span`text-ink-dull mr-2 text-xs`;
 const OptionContainer = tw.div`flex flex-row items-center`;
 
 interface SearchOptionItemProps extends PropsWithChildren {
@@ -64,18 +71,13 @@ export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: stri
 	);
 };
 
-export const FilterInput = () => {
-	// talk to store
-	return <Input autoFocus variant="transparent" placeholder="Filter..." />;
-};
-
 export const Separator = () => <DropdownMenu.Separator className="!border-app-line" />;
 
 const SearchOptions = () => {
 	const searchStore = useSearchStore();
 
-	const [newFilterName, setNewFilterName] = useState<string>('');
-	const [searchValue, setSearchValue] = useState<string>('');
+	const [newFilterName, setNewFilterName] = useState('');
+	const [searchValue, setSearchValue] = useState('');
 
 	const searchResults = useMemo(() => {
 		return searchRegisteredFilters(searchValue);
@@ -86,6 +88,17 @@ const SearchOptions = () => {
 	});
 
 	const savedSearches = useSavedSearches();
+
+	const filtersWithOptions = filterRegistry.map((filter) => {
+		const options = filter
+			.useOptions({ search: searchValue })
+			.map((o) => ({ ...o, type: filter.name }));
+
+		// eslint-disable-next-line react-hooks/rules-of-hooks
+		useRegisterSearchFilterOptions(options);
+
+		return [filter, options] as const;
+	});
 
 	return (
 		<div
@@ -98,27 +111,14 @@ const SearchOptions = () => {
 			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
-				<Label>Show:</Label>
-				<Button
-					onClick={() => (getSearchStore().searchType = 'paths')}
-					size="xs"
-					variant={searchStore.searchType === 'paths' ? 'accent' : 'gray'}
-					rounding="left"
-				>
-					Paths
-				</Button>
-				<Button
-					onClick={() => (getSearchStore().searchType = 'objects')}
-					size="xs"
-					variant={searchStore.searchType === 'objects' ? 'accent' : 'gray'}
-					rounding="right"
-				>
-					Objects
-				</Button>
-			</OptionContainer>
-			<div className="mx-1 h-[15px] w-[1px] bg-app-line" /> */}
+				<FilterContainer>
+					<InteractiveSection>Paths</InteractiveSection>
+				</FilterContainer>
+			</OptionContainer> */}
+			<AppliedOptions />
 			<OptionContainer>
 				<DropdownMenu.Root
+					onKeyDown={(e) => e.stopPropagation()}
 					className={MENU_STYLES}
 					trigger={
 						<Button className="flex flex-row gap-1" size="xs" variant="dotted">
@@ -131,31 +131,30 @@ const SearchOptions = () => {
 						value={searchValue}
 						onChange={(e) => setSearchValue(e.target.value)}
 						autoFocus
+						autoComplete="off"
+						autoCorrect="off"
 						variant="transparent"
 						placeholder="Filter..."
 					/>
 					<Separator />
-					{filterTypeRegistry.map(({ Render, ...filter }) => (
-						<Render key={filter.name} filter={filter} />
-					))}
+					{searchValue
+						? searchResults.map((result) => {
+								const filter = filterRegistry.find((f) => f.name === result.type);
+								if (!filter) return;
 
-					{searchValue ? (
-						<>
-							{/* {searchResults.map((result) => {
-								const meta = filterMeta[result.type];
 								return (
 									<SearchOptionItem
 										selected={searchStore.selectedFilters.has(result.key)}
 										setSelected={(value) =>
-											value ? selectFilter(result) : deselectFilter(result)
+											value
+												? selectFilterOption(result)
+												: deselectFilterOption(result)
 										}
 										key={result.key}
 									>
 										<div className="mr-4 flex flex-row items-center gap-1.5">
-											<RenderIcon icon={meta.icon} />
-											<span className="text-ink-dull">
-												{FilterType[result.type]}
-											</span>
+											<RenderIcon icon={filter.icon} />
+											<span className="text-ink-dull">{filter.name}</span>
 											<CaretRight
 												weight="bold"
 												className="text-ink-dull/70"
@@ -165,14 +164,17 @@ const SearchOptions = () => {
 										</div>
 									</SearchOptionItem>
 								);
-							})} */}
-						</>
-					) : (
-						<></>
-					)}
+						  })
+						: filtersWithOptions.map(([filter, options]) => (
+								<filter.Render
+									key={filter.name}
+									filter={filter}
+									options={options}
+								/>
+						  ))}
 				</DropdownMenu.Root>
 			</OptionContainer>
-			<AppliedOptions />
+			<div className="grow" />
 
 			{searchStore.selectedFilters.size > 0 && (
 				<DropdownMenu.Root
@@ -208,7 +210,6 @@ const SearchOptions = () => {
 				</DropdownMenu.Root>
 			)}
 
-			<div className="grow" />
 			<kbd
 				onClick={() => (getSearchStore().isSearching = false)}
 				className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow"

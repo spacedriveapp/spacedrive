@@ -1,10 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useMemo } from 'react';
-import { proxy, useSnapshot } from 'valtio';
+import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 
-import { FilterType, filterTypeRegistry } from './Filters';
+import { filterRegistry, FilterType } from './Filters';
+import { FilterTypeCondition } from './util';
 
 export type SearchType = 'paths' | 'objects';
 
@@ -20,8 +21,10 @@ export interface Filter extends FilterArgs {
 	type: FilterType;
 }
 
+export type AllKeys<T> = T extends any ? keyof T : never;
+
 export interface SetFilter extends Filter {
-	condition: boolean;
+	condition: AllKeys<FilterTypeCondition[keyof FilterTypeCondition]>;
 	canBeRemoved: boolean;
 }
 
@@ -35,6 +38,7 @@ const searchStore = proxy({
 	interactingWithSearchOptions: false,
 	searchType: 'paths' as SearchType,
 	searchQuery: null as string | null,
+	filterArgs: ref({} as SearchFilterArgs),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, Filter>,
 	// selected filters are applied to the search args
@@ -53,8 +57,8 @@ export const useSearchFilters = <T extends SearchType>(
 			for (const filter of fixedFilters) {
 				if (filter.name) {
 					if (!filter.icon) filter.icon = filter.name;
-					searchStore.registeredFilters.set(filter.value, filter);
-					selectFilter(filter, true, false);
+					searchStore.registeredFilters.set(getKey(filter), filter);
+					selectFilterOption(filter, true, false);
 				}
 			}
 		}
@@ -77,7 +81,7 @@ export const mapFilterArgs = (filters: SetFilter[]): SearchFilterArgs => {
 
 	filters.forEach((filter) => {
 		const type = filter.type;
-		const filterType = filterTypeRegistry.find((filter) => filter.name === type);
+		const filterType = filterRegistry.find((filter) => filter.name === type);
 		if (filterType) filterType.apply(filter, args);
 	});
 
@@ -86,22 +90,26 @@ export const mapFilterArgs = (filters: SetFilter[]): SearchFilterArgs => {
 
 // this hook allows us to register filters to the search store
 // and returns the filters with the correct type
-export const useRegisterSearchFilterOptions = (filterType: FilterType, filters?: FilterArgs[]) => {
-	return useMemo(() => {
-		if (!filters) return;
-		return filters.map((filterArgs) => {
-			const filter = {
-					...filterArgs,
-					type: filterType
-				},
-				key = getKey(filter);
-			if (searchStore.registeredFilters.has(key)) {
-				searchStore.registeredFilters.set(key, filter);
-			}
-			return filter;
-		});
-		// feel free to come up with a better dependency array, for now this works
-	}, [filters?.map((filter) => filter.name).join('')]);
+export const useRegisterSearchFilterOptions = (filters?: (FilterArgs & { type: FilterType })[]) => {
+	useEffect(
+		() => {
+			const keys = filters?.map((filter) => {
+				const key = getKey(filter);
+
+				if (!searchStore.registeredFilters.has(key)) {
+					searchStore.registeredFilters.set(key, filter);
+
+					return key;
+				}
+			});
+
+			return () =>
+				keys?.forEach((key) => {
+					if (key) searchStore.registeredFilters.delete(key);
+				});
+		},
+		filters?.map(getKey) ?? []
+	);
 };
 
 // this is used to render the applied filters
@@ -123,7 +131,7 @@ export const getSelectedFiltersGrouped = (): GroupedFilters[] => {
 	return groupedFilters;
 };
 
-export const selectFilter = (filter: Filter, condition = true, canBeRemoved = true) => {
+export const selectFilterOption = (filter: Filter, condition = true, canBeRemoved = true) => {
 	const key = getKey(filter);
 	searchStore.selectedFilters.set(key, {
 		...filter,
@@ -132,7 +140,7 @@ export const selectFilter = (filter: Filter, condition = true, canBeRemoved = tr
 	});
 };
 
-export const deselectFilter = (filter: Filter) => {
+export const deselectFilterOption = (filter: Filter) => {
 	const key = getKey(filter);
 	const setFilter = searchStore.selectedFilters.get(key);
 	if (setFilter?.canBeRemoved !== false) searchStore.selectedFilters.delete(key);
@@ -140,16 +148,12 @@ export const deselectFilter = (filter: Filter) => {
 
 export const searchRegisteredFilters = (query: string) => {
 	if (!query) return [];
-	const keys = Array.from(searchStore.registeredFilters.keys()).filter(
-		(filter) => filter?.toLowerCase().includes(query.toLowerCase())
-	);
-	return keys.map((key) => {
-		const filter = searchStore.registeredFilters.get(key)!;
-		return {
-			...filter,
-			key
-		};
-	});
+
+	return [...searchStore.registeredFilters.entries()]
+		.filter(([key, _]) => {
+			return key.toLowerCase().includes(query.toLowerCase());
+		})
+		.map(([key, filter]) => ({ ...filter, key }));
 };
 
 export const resetSearchStore = () => {

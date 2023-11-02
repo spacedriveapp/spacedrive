@@ -5,7 +5,9 @@ use specta::Type;
 #[derive(Deserialize, Default, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionalRange<T> {
+	#[specta(optional)]
 	pub from: Option<T>,
+	#[specta(optional)]
 	pub to: Option<T>,
 }
 

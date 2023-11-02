@@ -126,10 +126,10 @@ impl FilePathFilterArgs {
 						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
 					self.created_at.from.map(|v| date_created::gte(v.into())),
 					self.created_at.to.map(|v| date_created::lte(v.into())),
-					// self.modified_at.from.map(|v| date_modified::gte(v.into())),
-					// self.modified_at.to.map(|v| date_modified::lte(v.into())),
-					// self.indexed_at.from.map(|v| date_indexed::gte(v.into())),
-					// self.indexed_at.to.map(|v| date_indexed::lte(v.into())),
+					self.modified_at.from.map(|v| date_modified::gte(v.into())),
+					self.modified_at.to.map(|v| date_modified::lte(v.into())),
+					self.indexed_at.from.map(|v| date_indexed::gte(v.into())),
+					self.indexed_at.to.map(|v| date_indexed::lte(v.into())),
 					self.hidden.map(Some).map(hidden::equals),
 					directory_materialized_path_str
 						.map(Some)

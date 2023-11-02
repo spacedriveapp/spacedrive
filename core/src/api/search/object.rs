@@ -1,4 +1,5 @@
 use chrono::{DateTime, FixedOffset};
+use prisma_client_rust::not;
 use prisma_client_rust::{or, OrderByQuery, PaginatedQuery, WhereQuery};
 use sd_prisma::prisma::{self, object, tag_on_object};
 use serde::{Deserialize, Serialize};
@@ -112,7 +113,7 @@ pub struct ObjectFilterArgs {
 	#[serde(default)]
 	hidden: ObjectHiddenFilter,
 	#[specta(optional)]
-	date_accessed: Option<MaybeNot<Option<chrono::DateTime<FixedOffset>>>>,
+	date_accessed: Option<OptionalRange<chrono::DateTime<FixedOffset>>>,
 	#[serde(default)]
 	#[specta(optional)]
 	kind: Option<InOrNotIn<i32>>,
@@ -130,8 +131,6 @@ impl ObjectFilterArgs {
 			[
 				self.hidden.to_param(),
 				self.favorite.map(Some).map(favorite::equals),
-				self.date_accessed
-					.map(|date| date.into_prisma(date_accessed::equals)),
 				self.kind
 					.and_then(|v| v.to_param(kind::in_vec, kind::not_in_vec)),
 				self.tags.and_then(|v| {
@@ -140,31 +139,20 @@ impl ObjectFilterArgs {
 						|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
 					)
 				}),
-				// {
-				// 	match self.file_path {
-				// 		Some(fp) => {
-				// 			let params = fp.into_params(db).await?;
-
-				// 			(!params.is_empty()).then(|| file_paths::some(params))
-				// 		}
-				// 		None => None,
-				// 	}
-				// },
-				// self.category.and_then(|v| {
-				// 	v.to_param(
-				// 		|v| {
-				// 			prisma_client_rust::operator::and(
-				// 				v.into_iter().map(Category::to_where_param).collect(),
-				// 			)
-				// 		},
-				// 		|v| {
-				// 			prisma_client_rust::operator::not(
-				// 				v.into_iter().map(Category::to_where_param).collect(),
-				// 			)
-				// 		},
-				// 	)
-				// }),
-			],
+			]
+			.into_iter()
+			.chain(
+				self.date_accessed
+					.map(|value| {
+						[
+							value.from.map(|v| date_created::gte(v.into())),
+							value.to.map(|v| date_created::lte(v.into())),
+							Some(not![date_accessed::equals(None)]),
+						]
+					})
+					.into_iter()
+					.flatten(),
+			),
 		)
 	}
 }

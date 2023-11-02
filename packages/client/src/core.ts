@@ -293,8 +293,6 @@ export type LocationUpdateArgs = { id: number; name: string | null; generate_pre
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
 
-export type MaybeNot<T> = T | { not: T }
-
 export type MaybeUndefined<T> = null | null | T
 
 export type MediaDataOrder = { field: "epochTime"; value: SortOrder }
@@ -332,7 +330,7 @@ export type Object = { id: number; pub_id: number[]; kind: number | null; key_id
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: MaybeNot<string | null> | null; kind?: InOrNotIn<number> | null; tags?: InOrNotIn<number> | null }
+export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: OptionalRange<string> | null; kind?: InOrNotIn<number> | null; tags?: InOrNotIn<number> | null }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
@@ -350,7 +348,7 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
 
-export type OptionalRange<T> = { from: T | null; to: T | null }
+export type OptionalRange<T> = { from?: T | null; to?: T | null }
 
 export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 

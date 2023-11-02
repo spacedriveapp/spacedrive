@@ -1,6 +1,6 @@
 import { Filter, useLibraryMutation, useLibraryQuery } from '@sd/client';
 
-import { getKey, selectFilter, useSearchStore } from './store';
+import { getKey, selectFilterOption, useSearchStore } from './store';
 
 export const useSavedSearches = () => {
 	const searchStore = useSearchStore();

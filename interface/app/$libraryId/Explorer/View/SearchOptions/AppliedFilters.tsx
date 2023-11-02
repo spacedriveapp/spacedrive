@@ -2,14 +2,22 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef, useMemo } from 'react';
 import { tw } from '@sd/ui';
 
-import { filterTypeRegistry } from './Filters';
-import { deselectFilter, getSearchStore, getSelectedFiltersGrouped, useSearchStore } from './store';
+import { filterRegistry } from './Filters';
+import {
+	deselectFilterOption,
+	getSearchStore,
+	getSelectedFiltersGrouped,
+	useSearchStore
+} from './store';
 import { RenderIcon } from './util';
 
-const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
-const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden`;
+export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden`;
+
+export const InteractiveSection = tw.div`flex group flex-row items-center border-app-darkerBox/70 px-2 py-0.5 text-sm text-ink-dull hover:bg-app-lightBox/20`;
+
+export const StaticSection = tw.div`flex flex-row items-center pl-2 pr-1 text-sm`;
+
 const FilterText = tw.span`mx-1 py-0.5 text-sm text-ink-dull`;
-const StaticSection = tw.div`flex flex-row items-center pl-2 pr-1 text-sm`;
 
 const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick }, ref) => {
 	return (
@@ -46,7 +54,7 @@ export const AppliedOptions = () => {
 			)}
 			{groupedFilters?.map((group) => {
 				const showRemoveButton = group.filters.some((filter) => filter.canBeRemoved);
-				const meta = filterTypeRegistry.find((f) => f.name === group.type);
+				const meta = filterRegistry.find((f) => f.name === group.type);
 
 				return (
 					<FilterContainer key={group.type}>
@@ -54,9 +62,15 @@ export const AppliedOptions = () => {
 							<RenderIcon className="h-4 w-4" icon={meta?.icon} />
 							<FilterText>{meta?.name}</FilterText>
 						</StaticSection>
-						<InteractiveSection className="border-l ">
-							{/* {JSON.stringify(meta?.method)} */}
-						</InteractiveSection>
+						{meta?.conditions && (
+							<InteractiveSection className="border-l">
+								{/* {Object.values(meta.conditions).map((condition) => (
+									<div key={condition}>{condition}</div>
+								))} */}
+
+								is
+							</InteractiveSection>
+						)}
 
 						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
 							{group.filters.length > 1 && (
@@ -91,7 +105,7 @@ export const AppliedOptions = () => {
 								onClick={() =>
 									group.filters.forEach((filter) => {
 										if (filter.canBeRemoved) {
-											deselectFilter(filter);
+											deselectFilterOption(filter);
 										}
 									})
 								}
