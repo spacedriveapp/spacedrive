@@ -16,7 +16,7 @@
 		"solid-js": "^1.8.3"
 	},
 	"devDependencies": {
-		"@tanstack/react-query": "^5.4.3",
+		"@tanstack/react-query": "^4.36.1",
 		"@vitejs/plugin-react": "^4.1",
 		"typescript": "^5.2.2",
 		"vite": "^4.5.0",

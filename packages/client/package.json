@@ -13,7 +13,7 @@
 	"dependencies": {
 		"@rspc/client": "0.0.0-main-5a753130",
 		"@rspc/react-query": "0.0.0-main-5a753130",
-		"@tanstack/react-query": "^5.4.3",
+		"@tanstack/react-query": "^4.36.1",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
 		"@zxcvbn-ts/language-en": "^3.0.2",

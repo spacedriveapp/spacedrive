@@ -14,7 +14,7 @@
 		"@rspc/client": "0.0.0-main-5a753130",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^5.4.3",
+		"@tanstack/react-query": "^4.36.1",
 		"html-to-image": "^1.11.11",
 		"html2canvas": "^1.4.1",
 		"react": "^18.2.0",

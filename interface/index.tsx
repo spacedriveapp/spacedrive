@@ -42,16 +42,20 @@ const Devtools = () => {
 
 	// The `context={defaultContext}` part is required for this to work on Windows.
 	// Why, idk, don't question it
-	return debugState.reactQueryDevtools !== 'disabled' ? (
-		<ReactQueryDevtools
-			position="bottom-right"
-			context={defaultContext}
-			toggleButtonProps={{
-				tabIndex: -1,
-				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
-			}}
-		/>
-	) : null;
+	return debugState.reactQueryDevtools !== 'disabled'
+		? // <ReactQueryDevtools
+		  // 	// buttonPosition="bottom-right"
+		  // 	// position="right"
+		  // 	// client={queryClient}
+		  // 	position="bottom-right"
+		  // 	context={defaultContext}
+		  // 	toggleButtonProps={{
+		  // 		tabIndex: -1,
+		  // 		className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
+		  // 	}}
+		  // />
+		  null
+		: null;
 };
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
