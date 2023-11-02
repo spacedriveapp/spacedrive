@@ -10,7 +10,6 @@ import {
 	type ReactNode
 } from 'react';
 import Selecto from 'react-selecto';
-import { useKey, useKeys } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
 import { useMouseNavigate, useOperatingSystem, useShortcut } from '~/hooks';
 

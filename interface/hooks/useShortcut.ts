@@ -1,4 +1,4 @@
-import { useKey, useKeys } from 'rooks';
+import { useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
 
