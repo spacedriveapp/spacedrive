@@ -206,7 +206,5 @@ export const useShortcut = (shortcut: shortcutKeys, func: (e: KeyboardEvent) => 
 	const shortcutKeys =
 		shortcutsStore[shortcut].keys[os as osKeys] || shortcutsStore[shortcut].keys.all;
 
-	useKeys(shortcutKeys, (e) => {
-		func(e);
-	});
+	useKeys(shortcutKeys, func);
 };
