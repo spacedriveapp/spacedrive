@@ -1,6 +1,6 @@
 use crate::api::CoreEvent;
 
-use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, ffi::OsString, path::PathBuf, pin::pin, sync::Arc};
 
 use sd_prisma::prisma::location;
 
@@ -78,12 +78,12 @@ pub(super) async fn worker(
 	let (batch_report_progress_tx, batch_report_progress_rx) = chan::bounded(8);
 	let (stop_older_processing_tx, stop_older_processing_rx) = chan::bounded(1);
 
-	let mut shutdown_leftovers_rx = leftovers_rx.clone();
-	let mut shutdowm_batch_report_progress_rx = batch_report_progress_rx.clone();
+	let mut shutdown_leftovers_rx = pin!(leftovers_rx.clone());
+	let mut shutdowm_batch_report_progress_rx = pin!(batch_report_progress_rx.clone());
 
 	let mut current_batch_processing_rx: Option<oneshot::Receiver<()>> = None;
 
-	let mut msg_stream = (
+	let mut msg_stream = pin!((
 		IntervalStream::new(to_remove_interval).map(|_| StreamMessage::RemovalTick),
 		cas_ids_to_delete_rx.map(StreamMessage::ToDelete),
 		databases_rx.map(StreamMessage::Database),
@@ -95,7 +95,7 @@ pub(super) async fn worker(
 		cancel_rx.map(StreamMessage::Shutdown),
 		IntervalStream::new(idle_interval).map(|_| StreamMessage::IdleTick),
 	)
-		.merge();
+		.merge());
 
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
