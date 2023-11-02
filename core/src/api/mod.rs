@@ -269,7 +269,10 @@ pub(crate) fn mount() -> Arc<Router> {
 			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 				.join("../packages/client/src/core.ts"),
 		)
-		.header("/* eslint-disable */")
+		// TODO: We include some aliases for types that don't exist right now because Prisma Client Rust & Specta aren't playing nice.
+		.header(
+			"/* eslint-disable */\nexport type Object = NonNullable<FilePathWithObject['object']>;",
+		)
 		.formatter(ts::prettier),
 	)
 	.unwrap();

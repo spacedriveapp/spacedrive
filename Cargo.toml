@@ -61,6 +61,6 @@ serde_json = { version = "1.0" }
 if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "f804ad9b2005e4e760732a708aa95b4bfb376ddf" }
 
 # Await release
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "ff77894c15c0af573ceac3d4970bd10600596242" }
-rspc-tauri = { git = "https://github.com/oscartbeaumont/rspc", rev = "ff77894c15c0af573ceac3d4970bd10600596242" }
-rspc-httpz = { git = "https://github.com/oscartbeaumont/rspc", rev = "ff77894c15c0af573ceac3d4970bd10600596242" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "2504012d47ad0d82ca15d92541e04d04bf48d5a0" }
+rspc-tauri = { git = "https://github.com/oscartbeaumont/rspc", rev = "2504012d47ad0d82ca15d92541e04d04bf48d5a0" }
+rspc-httpz = { git = "https://github.com/oscartbeaumont/rspc", rev = "2504012d47ad0d82ca15d92541e04d04bf48d5a0" }

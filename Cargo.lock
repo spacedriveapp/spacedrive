@@ -6360,7 +6360,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "1.0.0-rc.5"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=ff77894c15c0af573ceac3d4970bd10600596242#ff77894c15c0af573ceac3d4970bd10600596242"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=2504012d47ad0d82ca15d92541e04d04bf48d5a0#2504012d47ad0d82ca15d92541e04d04bf48d5a0"
 dependencies = [
  "futures",
  "pin-project-lite",
@@ -6375,7 +6375,7 @@ dependencies = [
 [[package]]
 name = "rspc-core"
 version = "1.0.0-rc.5"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=ff77894c15c0af573ceac3d4970bd10600596242#ff77894c15c0af573ceac3d4970bd10600596242"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=2504012d47ad0d82ca15d92541e04d04bf48d5a0#2504012d47ad0d82ca15d92541e04d04bf48d5a0"
 dependencies = [
  "futures",
  "pin-project-lite",
@@ -6390,7 +6390,7 @@ dependencies = [
 [[package]]
 name = "rspc-httpz"
 version = "1.0.0-rc.5"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=ff77894c15c0af573ceac3d4970bd10600596242#ff77894c15c0af573ceac3d4970bd10600596242"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=2504012d47ad0d82ca15d92541e04d04bf48d5a0#2504012d47ad0d82ca15d92541e04d04bf48d5a0"
 dependencies = [
  "futures",
  "httpz",
@@ -6402,7 +6402,7 @@ dependencies = [
 [[package]]
 name = "rspc-tauri"
 version = "1.0.0-rc.5"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=ff77894c15c0af573ceac3d4970bd10600596242#ff77894c15c0af573ceac3d4970bd10600596242"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=2504012d47ad0d82ca15d92541e04d04bf48d5a0#2504012d47ad0d82ca15d92541e04d04bf48d5a0"
 dependencies = [
  "futures",
  "rspc-core",

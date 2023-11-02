@@ -1,7 +1,7 @@
-import { AlphaRSPCError, initRspc, ProcedureDef } from '@rspc/client';
-import { Context, createReactQueryHooks } from '@rspc/react-query';
-import { QueryClient } from '@tanstack/react-query';
-import { createContext, PropsWithChildren, useContext } from 'react';
+import { initRspc, ProcedureDef } from '@rspc/client';
+import { createReactQueryHooks } from '@rspc/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PropsWithChildren } from 'react';
 import { match, P } from 'ts-pattern';
 
 import { LibraryArgs, Procedures } from './core';
@@ -25,6 +25,7 @@ type StripLibraryArgsFromInput<
 				key: T['key'];
 				input: NeverOverNull extends true ? (E extends null ? never : E) : E;
 				result: T['result'];
+				error: T['error'];
 		  }
 		: never
 	: never;
@@ -41,10 +42,6 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-const context = createContext<Context<LibraryProceduresDef>>(undefined!);
-
-export const useRspcLibraryContext = () => useContext(context);
-
 export const rspc = initRspc<Procedures>({
 	links: globalThis.rspcLinks
 });
@@ -53,10 +50,8 @@ export const rspc2 = initRspc<Procedures>({
 }); // TODO: Removing this?
 
 export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
-// @ts-expect-error // TODO: Fix
-const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
-	// context // TODO: Shared context
-});
+
+const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>();
 
 export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
 	mapQueryKey: (keyAndInput) => {
@@ -66,10 +61,8 @@ export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProcedure
 		return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 	}
 });
-// @ts-expect-error // TODO: idk
-const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
-	context
-});
+
+const libraryHooks = createReactQueryHooks<LibraryProceduresDef>();
 
 // TODO: Allow both hooks to use a unified context -> Right now they override each others local state
 export function RspcProvider({
@@ -77,11 +70,13 @@ export function RspcProvider({
 	children
 }: PropsWithChildren<{ queryClient: QueryClient }>) {
 	return (
-		<libraryHooks.Provider client={libraryClient as any} queryClient={queryClient}>
-			<nonLibraryHooks.Provider client={nonLibraryClient as any} queryClient={queryClient}>
-				{children as any}
-			</nonLibraryHooks.Provider>
-		</libraryHooks.Provider>
+		<QueryClientProvider client={queryClient}>
+			<libraryHooks.Provider client={libraryClient} queryClient={queryClient}>
+				<nonLibraryHooks.Provider client={nonLibraryClient} queryClient={queryClient}>
+					{children as any}
+				</nonLibraryHooks.Provider>
+			</libraryHooks.Provider>
+		</QueryClientProvider>
 	);
 }
 
@@ -107,7 +102,9 @@ export function useInvalidateQuery() {
 						if (op.result !== null) {
 							context.queryClient.setQueryData(key, op.result);
 						} else {
-							context.queryClient.invalidateQueries(key);
+							context.queryClient.invalidateQueries({
+								queryKey: key
+							});
 						}
 					})
 					.with({ type: 'all' }, (op) => {
@@ -121,6 +118,8 @@ export function useInvalidateQuery() {
 
 // TODO: Remove/fix this when rspc typesafe errors are working
 export function extractInfoRSPCError(error: unknown) {
-	if (!(error instanceof AlphaRSPCError)) return null;
-	return error;
+	// if (!(error instanceof AlphaRSPCError)) return null;
+	// return error;
+
+	throw new Error('TODO');
 }

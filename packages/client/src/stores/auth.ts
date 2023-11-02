@@ -1,4 +1,3 @@
-import { RSPCError } from '@rspc/client';
 import { proxy, useSnapshot } from 'valtio';
 
 import { nonLibraryClient } from '../rspc';
@@ -27,9 +26,9 @@ nonLibraryClient
 	.query(['auth.me'])
 	.then(() => (store.state = { status: 'loggedIn' }))
 	.catch((e) => {
-		if (e instanceof RSPCError && e.code === 401) {
-			// TODO: handle error?
-		}
+		// if (e instanceof RSPCError && e.code === 401) {
+		// 	// TODO: handle error?
+		// }
 		store.state = { status: 'notLoggedIn' };
 	});
 

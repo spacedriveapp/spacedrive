@@ -1,4 +1,5 @@
-import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
 import { valtioPersist } from '../lib';
@@ -7,9 +8,9 @@ import { useBridgeQuery } from '../rspc';
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
 
-export const useCachedLibraries = () =>
-	useBridgeQuery(['library.list'], {
-		keepPreviousData: true,
+export const useCachedLibraries = () => {
+	const libraries = useBridgeQuery(['library.list'], {
+		placeholderData: keepPreviousData,
 		initialData: () => {
 			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
@@ -23,9 +24,17 @@ export const useCachedLibraries = () =>
 			}
 
 			return undefined;
-		},
-		onSuccess: (data) => localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data))
+		}
 	});
+
+	useEffect(() => {
+		if (libraries.status === 'success') {
+			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(libraries.data));
+		}
+	}, [libraries.data, libraries.status]);
+
+	return libraries;
+};
 
 export interface ClientContext {
 	currentLibraryId: string | null;

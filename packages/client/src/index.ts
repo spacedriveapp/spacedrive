@@ -1,10 +1,8 @@
-import { Link } from '@rspc/client/v2';
-
 declare global {
 	// eslint-disable-next-line
 	var isDev: boolean;
 	// eslint-disable-next-line
-	var rspcLinks: Link[];
+	var rspcLinks: any[];
 }
 
 if (
