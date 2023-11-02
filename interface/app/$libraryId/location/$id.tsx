@@ -6,7 +6,6 @@ import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	ExplorerSettings,
-	FilePathFilterArgs,
 	FilePathOrder,
 	Location,
 	ObjectKindEnum,
@@ -17,10 +16,10 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Loader, Tooltip } from '@sd/ui';
+import { Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder } from '~/components';
-import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -30,10 +29,8 @@ import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
 import { EmptyNotice } from '../Explorer/View';
-import SearchOptions from '../Explorer/View/SearchOptions';
 import { FilterType } from '../Explorer/View/SearchOptions/Filters';
 import { useSearchFilters } from '../Explorer/View/SearchOptions/store';
-import { inOrNotIn } from '../Explorer/View/SearchOptions/util';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 
@@ -198,7 +195,7 @@ const useItems = ({
 	const filter = useSearchFilters('paths', [
 		{
 			name: location.name || '',
-			value: location.id.toString(),
+			value: location.id,
 			type: 'Location',
 			icon: 'Folder'
 		},
