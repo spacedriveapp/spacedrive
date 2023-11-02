@@ -1,7 +1,7 @@
 import { CircleDashed, Folder, Icon, Tag } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { InOrNotIn, OptionalRange, TextMatch } from '@sd/client';
+import { InOrNotIn, Range, TextMatch } from '@sd/client';
 import { Icon as SDIcon } from '~/components';
 
 function isIn<T>(kind: InOrNotIn<T>): kind is { in: T[] } {
@@ -30,10 +30,6 @@ export function inOrNotIn<T>(
 	}
 }
 
-export const maybeNot = <T,>(value: T, condition: boolean): MaybeNot<T> => {
-	return condition ? value : { not: value };
-};
-
 export function textMatch(type: 'contains' | 'startsWith' | 'endsWith' | 'equals') {
 	return (value: string): TextMatch => {
 		switch (type) {
@@ -56,9 +52,6 @@ export const filterTypeCondition = {
 		in: 'is',
 		notIn: 'is not'
 	},
-	maybeNot: {
-		not: 'is not'
-	},
 	textMatch: {
 		contains: 'contains',
 		startsWith: 'starts with',
@@ -77,11 +70,6 @@ export const filterTypeCondition = {
 
 export type FilterTypeCondition = typeof filterTypeCondition;
 
-export function optionalRange<T>(from: T, to: T): OptionalRange<T> {
-	return { from, to };
-}
-
-// this could be handy elsewhere
 export const RenderIcon = ({
 	className,
 	icon

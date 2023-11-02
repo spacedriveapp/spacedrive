@@ -7,7 +7,6 @@ use specta::Type;
 
 // use crate::library::Category;
 
-use super::file_path::*;
 use super::media_data::*;
 use super::utils::{self, *};
 
@@ -105,55 +104,44 @@ impl ObjectHiddenFilter {
 	}
 }
 
-#[derive(Deserialize, Type, Debug, Default, Clone)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ObjectFilterArgs {
-	#[specta(optional)]
-	favorite: Option<bool>,
-	#[serde(default)]
-	hidden: ObjectHiddenFilter,
-	#[specta(optional)]
-	date_accessed: Option<OptionalRange<chrono::DateTime<FixedOffset>>>,
-	#[serde(default)]
-	#[specta(optional)]
-	kind: Option<InOrNotIn<i32>>,
-	#[serde(default)]
-	#[specta(optional)]
-	tags: Option<InOrNotIn<i32>>,
+pub enum ObjectFilterArgs {
+	Favorite(bool),
+	Hidden(ObjectHiddenFilter),
+	Kind(InOrNotIn<i32>),
+	Tags(InOrNotIn<i32>),
+	DateAccessed(Range<chrono::DateTime<FixedOffset>>),
 }
 
 impl ObjectFilterArgs {
 	pub fn into_params(self) -> Vec<object::WhereParam> {
 		use object::*;
 
-		sd_utils::chain_optional_iter(
-			[],
-			[
-				self.hidden.to_param(),
-				self.favorite.map(Some).map(favorite::equals),
-				self.kind
-					.and_then(|v| v.to_param(kind::in_vec, kind::not_in_vec)),
-				self.tags.and_then(|v| {
-					v.to_param(
-						|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
-						|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
-					)
-				}),
-			]
-			.into_iter()
-			.chain(
-				self.date_accessed
-					.map(|value| {
-						[
-							value.from.map(|v| date_created::gte(v.into())),
-							value.to.map(|v| date_created::lte(v.into())),
-							Some(not![date_accessed::equals(None)]),
-						]
-					})
-					.into_iter()
-					.flatten(),
-			),
-		)
+		match self {
+			Self::Favorite(v) => vec![favorite::equals(Some(v))],
+			Self::Hidden(v) => v.to_param().map(|v| vec![v]).unwrap_or_default(),
+			Self::Tags(v) => v
+				.to_param(
+					|v| tags::some(vec![tag_on_object::tag_id::in_vec(v)]),
+					|v| tags::none(vec![tag_on_object::tag_id::in_vec(v)]),
+				)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::Kind(v) => v
+				.to_param(kind::in_vec, kind::not_in_vec)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::DateAccessed(v) => {
+				vec![
+					not![date_accessed::equals(None)],
+					match v {
+						Range::From(v) => date_accessed::gte(v.into()),
+						Range::To(v) => date_accessed::lte(v.into()),
+					},
+				]
+			}
+		}
 	}
 }
 

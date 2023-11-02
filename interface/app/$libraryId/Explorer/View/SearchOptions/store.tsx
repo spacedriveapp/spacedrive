@@ -38,7 +38,7 @@ const searchStore = proxy({
 	interactingWithSearchOptions: false,
 	searchType: 'paths' as SearchType,
 	searchQuery: null as string | null,
-	filterArgs: ref({} as SearchFilterArgs),
+	filterArgs: ref([] as SearchFilterArgs[]),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, Filter>,
 	// selected filters are applied to the search args
@@ -74,19 +74,6 @@ export const useSearchFilters = <T extends SearchType>(
 
 // this makes the filter unique and easily searchable using .includes
 export const getKey = (filter: Filter) => `${filter.type}-${filter.name}-${filter.value}`;
-
-// this maps the filters to the search args
-export const mapFilterArgs = (filters: SetFilter[]): SearchFilterArgs => {
-	const args: SearchFilterArgs = {};
-
-	filters.forEach((filter) => {
-		const type = filter.type;
-		const filterType = filterRegistry.find((filter) => filter.name === type);
-		if (filterType) filterType.apply(filter, args);
-	});
-
-	return args;
-};
 
 // this hook allows us to register filters to the search store
 // and returns the filters with the correct type

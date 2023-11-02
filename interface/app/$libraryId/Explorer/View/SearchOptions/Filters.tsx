@@ -1,7 +1,7 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
 import { produce } from 'immer';
 import { useState } from 'react';
-import { ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
+import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
@@ -24,29 +24,37 @@ export interface SearchFilter<
 	conditions: TConditions;
 }
 
-export interface RenderSearchFilter<
-	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any
+interface SearchFilterCRUD<
+	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any,
+	T = any
 > extends SearchFilter<TConditions> {
+	getCondition: (args: T) => keyof TConditions | undefined;
+	setCondition: (args: T, condition: keyof TConditions) => void;
+	getOptionActive: (args: T, option: FilterArgs) => boolean;
+	applyAdd: (args: T, option: FilterArgs) => void;
+	applyRemove: (args: T, option: FilterArgs) => T | undefined;
+	find: (arg: SearchFilterArgs) => T | undefined;
+	create: () => SearchFilterArgs;
+}
+
+export interface RenderSearchFilter<
+	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any,
+	T = any
+> extends SearchFilterCRUD<TConditions, T> {
 	// Render is responsible for fetching the filter options and rendering them
 	Render: (props: {
-		filter: RenderSearchFilter<TConditions>;
+		filter: SearchFilterCRUD<TConditions>;
 		options: (FilterArgs & { type: string })[];
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
-	apply: (filter: SetFilter, args: SearchFilterArgs) => void;
 	useOptions: (props: { search: string }) => FilterArgs[];
-	setCondition: (args: SearchFilterArgs, condition: keyof TConditions) => void;
-	applyAdd: (args: SearchFilterArgs, option: FilterArgs) => void;
-	applyRemove: (args: SearchFilterArgs, option: FilterArgs) => void;
-	getCondition?: (args: SearchFilterArgs) => keyof TConditions | undefined;
-	getOptionActive?: (args: SearchFilterArgs, option: FilterArgs) => boolean;
 }
 
 const FilterOptionList = ({
 	filter,
 	options
 }: {
-	filter: RenderSearchFilter;
+	filter: SearchFilterCRUD;
 	options: FilterArgs[];
 }) => {
 	const store = useSearchStore();
@@ -96,70 +104,75 @@ const FilterOptionBoolean: React.FC<{ filter: SearchFilter }> = (props) => {
 	);
 };
 
-function createFilter<TConditions extends FilterTypeCondition[keyof FilterTypeCondition]>(
-	filter: RenderSearchFilter<TConditions>
+function createFilter<TConditions extends FilterTypeCondition[keyof FilterTypeCondition], T>(
+	filter: RenderSearchFilter<TConditions, T>
 ) {
 	return filter;
 }
 
-export const filterRegistry = [
-	createFilter({
-		name: 'Location',
-		icon: Folder, // Phosphor folder icon
+function createInOrNotInFilter<T>(
+	filter: Omit<
+		ReturnType<typeof createFilter<any, InOrNotIn<T>>>,
+		| 'conditions'
+		| 'getCondition'
+		| 'getOptionActive'
+		| 'setCondition'
+		| 'applyAdd'
+		| 'applyRemove'
+		| 'create'
+	> & {
+		create(value: InOrNotIn<T>): SearchFilterArgs;
+	}
+): ReturnType<typeof createFilter<(typeof filterTypeCondition)['inOrNotIn'], InOrNotIn<T>>> {
+	return {
+		...filter,
+		create: () => {
+			return filter.create({ in: [] });
+		},
 		conditions: filterTypeCondition.inOrNotIn,
-		getCondition: (args) => {
-			const locations = args.filePath?.locations;
-			if (!locations) return;
-
-			if ('in' in locations) return 'in';
+		getCondition: (data) => {
+			if ('in' in data) return 'in';
 			else return 'notIn';
 		},
-		getOptionActive: (args, option) => {
-			const locations = args.filePath?.locations;
-			if (!locations) return false;
+		setCondition: (data, condition) => {
+			const contents = 'in' in data ? data.in : data.notIn;
 
-			if ('in' in locations) return locations.in.includes(option.value);
-			else return locations.notIn.includes(option.value);
+			return condition === 'in' ? { in: contents } : { notIn: contents };
 		},
-		setCondition: (args, condition) => {
-			const filePath = (args.filePath ??= {});
-
-			if (!filePath.locations)
-				filePath.locations = condition === 'in' ? { in: [] } : { notIn: [] };
-			else {
-				let contents: number[];
-
-				if ('in' in filePath.locations) contents = filePath.locations.in;
-				else contents = filePath.locations.notIn;
-
-				filePath.locations = condition === 'in' ? { in: contents } : { notIn: contents };
-			}
+		getOptionActive: (data, option) => {
+			if ('in' in data) return data.in.includes(option.value);
+			else return data.notIn.includes(option.value);
 		},
-		applyAdd: (args, option) => {
-			const locations = args.filePath?.locations;
-			if (!locations) return;
+		applyAdd: (data, option) => {
+			if ('in' in data) data.in.push(option.value);
+			else data.notIn.push(option.value);
 
-			if ('in' in locations) locations.in.push(option.value);
-			else locations.notIn.push(option.value);
+			return data;
 		},
-		applyRemove: (args, option) => {
-			const filePath = args.filePath;
-			if (!filePath?.locations) return;
+		applyRemove: (data, option) => {
+			if ('in' in data) {
+				data.in = data.in.filter((id) => id !== option.value);
 
-			if ('in' in filePath.locations) {
-				filePath.locations = {
-					in: filePath.locations.in.filter((id) => id !== option.value)
-				};
-
-				if (filePath.locations.in.length === 0) delete filePath.locations;
+				if (data.in.length === 0) return;
 			} else {
-				filePath.locations = {
-					notIn: filePath.locations.notIn.filter((id) => id !== option.value)
-				};
+				data.notIn = data.notIn.filter((id) => id !== option.value);
 
-				if (filePath.locations.notIn.length === 0) delete filePath.locations;
+				if (data.notIn.length === 0) return;
 			}
+
+			return data;
+		}
+	};
+}
+
+export const filterRegistry = [
+	createInOrNotInFilter({
+		name: 'Location',
+		icon: Folder, // Phosphor folder icon
+		find: (arg) => {
+			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
 		},
+		create: (locations) => ({ filePath: { locations } }),
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 
@@ -171,66 +184,15 @@ export const filterRegistry = [
 		},
 		Render: ({ filter, options }) => {
 			return <FilterOptionList filter={filter} options={options} />;
-		},
-		apply: (filter, args) =>
-			((args.filePath ??= {}).locations = inOrNotIn(
-				args.filePath?.locations,
-				filter.value,
-				filter.condition
-			))
+		}
 	}),
-	createFilter({
+	createInOrNotInFilter({
 		name: 'Tags',
 		icon: CircleDashed,
-		conditions: filterTypeCondition.inOrNotIn,
-		getCondition: (args) => {
-			const tags = args.object?.tags;
-			if (!tags) return;
-
-			if ('in' in tags) return 'in';
-			else return 'notIn';
+		find: (arg) => {
+			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
 		},
-		getOptionActive: (args, option) => {
-			const tags = args.object?.tags;
-			if (!tags) return false;
-
-			if ('in' in tags) return tags.in.includes(option.value);
-			else return tags.notIn.includes(option.value);
-		},
-		setCondition: (args, condition: 'in' | 'notIn') => {
-			const object = (args.object ??= {});
-
-			if (!object.tags) object.tags = condition === 'in' ? { in: [] } : { notIn: [] };
-			else {
-				let contents: number[];
-
-				if ('in' in object.tags) contents = object.tags.in;
-				else contents = object.tags.notIn;
-
-				object.tags = condition === 'in' ? { in: contents } : { notIn: contents };
-			}
-		},
-		applyAdd: (args, option) => {
-			const tags = args.object?.tags;
-			if (!tags) return;
-
-			if ('in' in tags) tags.in.push(option.value);
-			else tags.notIn.push(option.value);
-		},
-		applyRemove: (args, option) => {
-			const object = args.object;
-			if (!object?.tags) return;
-
-			if ('in' in object.tags) {
-				object.tags = { in: object.tags.in.filter((id) => id !== option.value) };
-
-				if (object.tags.in.length === 0) delete object.tags;
-			} else {
-				object.tags = { notIn: object.tags.notIn.filter((id) => id !== option.value) };
-
-				if (object.tags.notIn.length === 0) delete object.tags;
-			}
-		},
+		create: (tags) => ({ object: { tags } }),
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
@@ -242,49 +204,15 @@ export const filterRegistry = [
 		},
 		Render: ({ filter, options }) => {
 			return <FilterOptionList filter={filter} options={options} />;
-		},
-		apply: (filter, args) => {
-			(args.object ??= {}).tags = inOrNotIn(
-				args.object?.tags,
-				filter.value,
-				filter.condition
-			);
 		}
 	}),
-	createFilter({
+	createInOrNotInFilter({
 		name: 'Kind',
 		icon: Cube,
-		conditions: filterTypeCondition.inOrNotIn,
-		setCondition: (args, condition: 'in' | 'notIn') => {
-			const object = (args.object ??= {});
-
-			if (!object.kind) object.kind = condition === 'in' ? { in: [] } : { notIn: [] };
-			else {
-				let contents: number[];
-
-				if ('in' in object.kind) contents = object.kind.in;
-				else contents = object.kind.notIn;
-
-				object.kind = condition === 'in' ? { in: contents } : { notIn: contents };
-			}
+		find: (arg) => {
+			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
 		},
-		applyAdd: (args, option) => {
-			const kind = args.object?.kind;
-			if (!kind) return;
-
-			if ('in' in kind) kind.in.push(option.value);
-			else kind.notIn.push(option.value);
-		},
-		applyRemove: (args, option: FilterArgs) => {
-			const object = args.object;
-			if (!object?.kind) return;
-
-			if ('in' in object.kind) {
-				object.kind = { in: object.kind.in.filter((id) => id !== option.value) };
-			} else {
-				object.kind = { notIn: object.kind.notIn.filter((id) => id !== option.value) };
-			}
-		},
+		create: (kind) => ({ object: { kind } }),
 		useOptions: () => {
 			return Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
@@ -299,49 +227,47 @@ export const filterRegistry = [
 		},
 		Render: ({ filter, options }) => {
 			return <FilterOptionList filter={filter} options={options} />;
-		},
-		apply: (filter, args) => {
-			(args.object ??= {}).kind = inOrNotIn(
-				args.object?.kind,
-				filter.value,
-				filter.condition
-			);
 		}
 	}),
 	createFilter({
 		name: 'Name',
 		icon: Textbox,
 		conditions: filterTypeCondition.textMatch,
-		setCondition: (args, condition: AllKeys<TextMatch>) => {
-			const filePath = (args.filePath ??= {});
+		find: (arg) => {
+			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
+		},
+		create: () => ({ filePath: { name: { contains: '' } } }),
+		getCondition: (data) => {
+			if ('contains' in data) return 'contains';
+			else if ('startsWith' in data) return 'startsWith';
+			else if ('endsWith' in data) return 'endsWith';
+			else if ('equals' in data) return 'equals';
+		},
+		setCondition: (data, condition) => {
+			let value: string;
 
-			let value = '';
+			if ('contains' in data) value = data.contains;
+			else if ('startsWith' in data) value = data.startsWith;
+			else if ('endsWith' in data) value = data.endsWith;
+			else value = data.equals;
 
-			const name = filePath.name;
-
-			if (name) {
-				if ('contains' in name) value = name.contains;
-				else if ('startsWith' in name) value = name.startsWith;
-				else if ('endsWith' in name) value = name.endsWith;
-				else if ('equals' in name) value = name.equals;
-			}
-
-			filePath.name = {
+			return {
 				[condition]: value
-			} as TextMatch;
+			};
 		},
-		applyAdd: (args, option: FilterArgs) => {
-			const name = args.filePath?.name;
-			if (!name) return;
-
-			if ('contains' in name) name.contains = option.value;
-			else if ('startsWith' in name) name.startsWith = option.value;
-			else if ('endsWith' in name) name.endsWith = option.value;
-			else if ('equals' in name) name.equals = option.value;
+		getOptionActive: (data, option) => {
+			if ('contains' in data) return data.contains === option.value;
+			else if ('startsWith' in data) return data.startsWith === option.value;
+			else if ('endsWith' in data) return data.endsWith === option.value;
+			else return data.equals === option.value;
 		},
-		applyRemove: (args) => {
-			delete args.filePath?.name;
+		applyAdd: (data, { value }) => {
+			if ('contains' in data) return { contains: value };
+			else if ('startsWith' in data) return { startsWith: value };
+			else if ('endsWith' in data) return { endsWith: value };
+			else if ('equals' in data) return { equals: value };
 		},
+		applyRemove: () => undefined,
 		useOptions: ({ search }) => {
 			return [
 				{
@@ -353,50 +279,15 @@ export const filterRegistry = [
 		},
 		Render: ({ filter }) => {
 			return <FilterOptionText filter={filter} />;
-		},
-		apply: (filter, args) => {
-			(args.filePath ??= {}).name = textMatch('contains')(filter.value);
 		}
 	}),
-	createFilter({
+	createInOrNotInFilter({
 		name: 'Extension',
 		icon: Textbox,
-		conditions: filterTypeCondition.inOrNotIn,
-		setCondition: (args, condition: 'in' | 'notIn') => {
-			const filePath = (args.filePath ??= {});
-
-			if (!filePath.extension)
-				filePath.extension = condition === 'in' ? { in: [] } : { notIn: [] };
-			else {
-				let contents: string[];
-
-				if ('in' in filePath.extension) contents = filePath.extension.in;
-				else contents = filePath.extension.notIn;
-
-				filePath.extension = condition === 'in' ? { in: contents } : { notIn: contents };
-			}
+		find: (arg) => {
+			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
 		},
-		applyAdd: (args, option: FilterArgs) => {
-			const extension = args.filePath?.extension;
-			if (!extension) return;
-
-			if ('in' in extension) extension.in.push(option.value);
-			else extension.notIn.push(option.value);
-		},
-		applyRemove: (args, option: FilterArgs) => {
-			const filePath = args.filePath;
-			if (!filePath?.extension) return;
-
-			if ('in' in filePath.extension) {
-				filePath.extension = {
-					in: filePath.extension.in.filter((id) => id !== option.value)
-				};
-			} else {
-				filePath.extension = {
-					notIn: filePath.extension.notIn.filter((id) => id !== option.value)
-				};
-			}
-		},
+		create: (extension) => ({ filePath: { extension } }),
 		useOptions: ({ search }) => {
 			return [
 				{
@@ -408,75 +299,66 @@ export const filterRegistry = [
 		},
 		Render: ({ filter }) => {
 			return <FilterOptionText filter={filter} />;
-		},
-		apply: (filter, currentArgs) => ({
-			filePath: {
-				extension: inOrNotIn(
-					currentArgs.filePath?.extension,
-					filter.value,
-					filter.condition
-				)
-			}
-		})
-	}),
-	createFilter({
-		name: 'Hidden',
-		icon: SelectionSlash,
-		conditions: filterTypeCondition.trueOrFalse,
-		setCondition: (args, condition: 'true' | 'false') => {
-			const filePath = (args.filePath ??= {});
-
-			filePath.hidden = condition === 'true';
-		},
-		applyAdd: () => {},
-		applyRemove: (args) => {
-			delete args.filePath?.hidden;
-		},
-		useOptions: () => {
-			return [
-				{
-					name: 'Hidden',
-					value: true,
-					icon: 'SelectionSlash' // Spacedrive folder icon
-				}
-			];
-		},
-		Render: ({ filter }) => {
-			return <FilterOptionBoolean filter={filter} />;
-		},
-		apply(filter, args) {
-			(args.filePath ??= {}).hidden = filter.condition;
-		}
-	}),
-	createFilter({
-		name: 'WithDescendants',
-		icon: SelectionSlash,
-		conditions: filterTypeCondition.trueOrFalse,
-		setCondition: (args, condition: 'true' | 'false') => {
-			const filePath = (args.filePath ??= {});
-
-			filePath.withDescendants = condition === 'true';
-		},
-		applyAdd: () => {},
-		applyRemove: (args) => {
-			delete args.filePath?.withDescendants;
-		},
-		useOptions: () => {
-			return [
-				{
-					name: 'With Descendants',
-					value: true,
-					icon: 'SelectionSlash' // Spacedrive folder icon
-				}
-			];
-		},
-		Render: ({ filter }) => {
-			return <FilterOptionBoolean filter={filter} />;
-		},
-		apply(filter, args) {
-			(args.filePath ??= {}).withDescendants = filter.condition;
 		}
 	})
+	// createFilter({
+	// 	name: 'Hidden',
+	// 	icon: SelectionSlash,
+	// 	conditions: filterTypeCondition.trueOrFalse,
+	// 	setCondition: (args, condition: 'true' | 'false') => {
+	// 		const filePath = (args.filePath ??= {});
+
+	// 		filePath.hidden = condition === 'true';
+	// 	},
+	// 	applyAdd: () => {},
+	// 	applyRemove: (args) => {
+	// 		delete args.filePath?.hidden;
+	// 	},
+	// 	useOptions: () => {
+	// 		return [
+	// 			{
+	// 				name: 'Hidden',
+	// 				value: true,
+	// 				icon: 'SelectionSlash' // Spacedrive folder icon
+	// 			}
+	// 		];
+	// 	},
+	// 	Render: ({ filter }) => {
+	// 		return <FilterOptionBoolean filter={filter} />;
+	// 	},
+	// 	apply(filter, args) {
+	// 		(args.filePath ??= {}).hidden = filter.condition;
+	// 	}
+	// }),
+	// createFilter({
+	// 	name: 'WithDescendants',
+	// 	icon: SelectionSlash,
+	// 	conditions: filterTypeCondition.trueOrFalse,
+	// 	setCondition: (args, condition: 'true' | 'false') => {
+	// 		const filePath = (args.filePath ??= {});
+
+	// 		filePath.withDescendants = condition === 'true';
+	// 	},
+	// 	applyAdd: () => {},
+	// 	applyRemove: (args) => {
+	// 		delete args.filePath?.withDescendants;
+	// 	},
+	// 	useOptions: () => {
+	// 		return [
+	// 			{
+	// 				name: 'With Descendants',
+	// 				value: true,
+	// 				icon: 'SelectionSlash' // Spacedrive folder icon
+	// 			}
+	// 		];
+	// 	},
+	// 	Render: ({ filter }) => {
+	// 		return <FilterOptionBoolean filter={filter} />;
+	// 	},
+	// 	apply(filter, args) {
+	// 		(args.filePath ??= {}).withDescendants = filter.condition;
+	// 	}
+	// })
 ] as const satisfies ReadonlyArray<RenderSearchFilter<any>>;
 
 export type FilterType = (typeof filterRegistry)[number]['name'];

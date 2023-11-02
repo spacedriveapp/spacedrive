@@ -33,63 +33,40 @@ struct SearchData<T> {
 	items: Vec<T>,
 }
 
-#[derive(Deserialize, Type, Default, Debug, Clone)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchFilterArgs {
-	#[specta(optional)]
-	file_path: Option<FilePathFilterArgs>,
-	#[specta(optional)]
-	object: Option<ObjectFilterArgs>,
+pub enum SearchFilterArgs {
+	FilePath(FilePathFilterArgs),
+	Object(ObjectFilterArgs),
 }
 
 impl SearchFilterArgs {
-	async fn into_params(
+	async fn into_params<T>(
 		self,
 		db: &PrismaClient,
-	) -> Result<
-		(
-			Vec<prisma::file_path::WhereParam>,
-			Vec<prisma::object::WhereParam>,
-		),
-		rspc::Error,
-	> {
-		let file_path = match self.file_path {
-			Some(file_path) => file_path.into_params(db).await?,
-			None => vec![],
-		};
-
-		let object = match self.object {
-			Some(object) => object.into_params(),
-			None => vec![],
-		};
-
-		Ok((file_path, object))
+		file_path: fn(Vec<prisma::file_path::WhereParam>) -> Vec<T>,
+		object: fn(Vec<prisma::object::WhereParam>) -> Vec<T>,
+	) -> Result<Vec<T>, rspc::Error> {
+		Ok(match self {
+			Self::FilePath(v) => file_path(v.into_params(db).await?),
+			Self::Object(v) => object(v.into_params()),
+		})
 	}
 
 	async fn into_file_path_params(
 		self,
 		db: &PrismaClient,
 	) -> Result<Vec<prisma::file_path::WhereParam>, rspc::Error> {
-		let (mut file_path, object) = self.into_params(db).await?;
-
-		if !object.is_empty() {
-			file_path.push(prisma::file_path::object::is(object));
-		}
-
-		Ok(file_path)
+		self.into_params(db, |v| v, |v| vec![prisma::file_path::object::is(v)])
+			.await
 	}
 
 	async fn into_object_params(
 		self,
 		db: &PrismaClient,
 	) -> Result<Vec<prisma::object::WhereParam>, rspc::Error> {
-		let (file_path, mut object) = self.into_params(db).await?;
-
-		if !file_path.is_empty() {
-			object.push(prisma::object::file_paths::some(file_path));
-		}
-
-		Ok(object)
+		self.into_params(db, |v| vec![prisma::object::file_paths::some(v)], |v| v)
+			.await
 	}
 }
 
@@ -169,7 +146,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order_and_pagination: Option<file_path::OrderAndPagination>,
 				#[serde(default)]
-				filter: SearchFilterArgs,
+				filter: Vec<SearchFilterArgs>,
 				#[serde(default = "default_group_directories")]
 				group_directories: bool,
 			}
@@ -188,9 +165,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
-					let mut query = db
-						.file_path()
-						.find_many(filter.into_file_path_params(db).await?);
+					let mut query = db.file_path().find_many({
+						let mut params = Vec::new();
+
+						for filter in filter {
+							params.extend(filter.into_file_path_params(db).await?);
+						}
+
+						params
+					});
 
 					if let Some(take) = take {
 						query = query.take(take as i64);
@@ -269,7 +252,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order_and_pagination: Option<object::OrderAndPagination>,
 				#[serde(default)]
-				filter: SearchFilterArgs,
+				filter: Vec<SearchFilterArgs>,
 			}
 
 			R.with2(library()).query(
@@ -285,7 +268,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					let mut query = db
 						.object()
-						.find_many(filter.into_object_params(db).await?)
+						.find_many({
+							let mut params = Vec::new();
+
+							for filter in filter {
+								params.extend(filter.into_object_params(db).await?);
+							}
+
+							params
+						})
 						.take(take as i64);
 
 					if let Some(order_and_pagination) = order_and_pagination {
@@ -344,7 +335,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[specta(inline)]
 			struct Args {
 				#[serde(default)]
-				filter: SearchFilterArgs,
+				filter: Vec<SearchFilterArgs>,
 			}
 
 			R.with2(library())
@@ -353,7 +344,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					Ok(db
 						.object()
-						.count(filter.into_object_params(db).await?)
+						.count({
+							let mut params = Vec::new();
+
+							for filter in filter {
+								params.extend(filter.into_object_params(db).await?);
+							}
+
+							params
+						})
 						.exec()
 						.await? as u32)
 				})

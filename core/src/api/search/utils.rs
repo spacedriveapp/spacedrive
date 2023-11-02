@@ -2,13 +2,11 @@ use sd_prisma::prisma;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Deserialize, Default, Type, Debug, Clone)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct OptionalRange<T> {
-	#[specta(optional)]
-	pub from: Option<T>,
-	#[specta(optional)]
-	pub to: Option<T>,
+pub enum Range<T> {
+	From(T),
+	To(T),
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone, Copy)]

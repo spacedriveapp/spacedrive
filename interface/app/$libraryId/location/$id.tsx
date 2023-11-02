@@ -192,28 +192,18 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filter = useSearchFilters('paths', [
-		{
-			name: location.name || '',
-			value: location.id,
-			type: 'Location',
-			icon: 'Folder'
-		},
-		...(explorerSettings.layoutMode === 'media'
-			? [
-					{
-						name: 'Image',
-						value: ObjectKindEnum.Image,
-						type: 'Kind' as FilterType
-					},
-					{
-						name: 'Video',
-						value: ObjectKindEnum.Video,
-						type: 'Kind' as FilterType
-					}
-			  ]
-			: [])
-	]);
+	const filter = useSearchFilters(
+		'paths',
+		useMemo(
+			() => [
+				{ filePath: { locations: { in: [location.id] } } },
+				...(explorerSettings.layoutMode === 'media'
+					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+					: [])
+			],
+			[location.id, explorerSettings.layoutMode]
+		)
+	);
 
 	(filter.filePath ??= {}).path = [location.id, path ?? ''];
 

@@ -32,7 +32,7 @@ export type Procedures = {
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
-        { key: "search.objectsCount", input: LibraryArgs<{ filter?: SearchFilterArgs }>, result: number } | 
+        { key: "search.objectsCount", input: LibraryArgs<{ filter?: SearchFilterArgs[] }>, result: number } | 
         { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filter?: SearchFilterArgs }>, result: number } | 
         { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
@@ -190,13 +190,13 @@ export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
 
 export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } | { sizeInBytes: SortOrder } | { dateCreated: CursorOrderItem<string> } | { dateModified: CursorOrderItem<string> } | { dateIndexed: CursorOrderItem<string> } | { object: FilePathObjectCursor }
 
-export type FilePathFilterArgs = { locations?: InOrNotIn<number> | null; path?: [number, string] | null; search?: string | null; name?: TextMatch | null; extension?: InOrNotIn<string> | null; createdAt?: OptionalRange<string>; modifiedAt?: OptionalRange<string>; indexedAt?: OptionalRange<string>; withDescendants?: boolean | null; hidden?: boolean | null }
+export type FilePathFilterArgs = { locations: InOrNotIn<number> } | { path: { location_id: number; path: string; include_descendants: boolean } } | { name: TextMatch } | { extension: InOrNotIn<string> } | { createdAt: Range<string> } | { modifiedAt: Range<string> } | { indexedAt: Range<string> } | { hidden: boolean }
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
-export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: SearchFilterArgs; groupDirectories?: boolean }
+export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filter?: SearchFilterArgs[]; groupDirectories?: boolean }
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: Object | null }
 
@@ -330,13 +330,13 @@ export type Object = { id: number; pub_id: number[]; kind: number | null; key_id
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
-export type ObjectFilterArgs = { favorite?: boolean | null; hidden?: ObjectHiddenFilter; dateAccessed?: OptionalRange<string> | null; kind?: InOrNotIn<number> | null; tags?: InOrNotIn<number> | null }
+export type ObjectFilterArgs = { favorite: boolean } | { hidden: ObjectHiddenFilter } | { kind: InOrNotIn<number> } | { tags: InOrNotIn<number> } | { dateAccessed: Range<string> }
 
 export type ObjectHiddenFilter = "exclude" | "include"
 
 export type ObjectOrder = { field: "dateAccessed"; value: SortOrder } | { field: "kind"; value: SortOrder } | { field: "mediaData"; value: MediaDataOrder }
 
-export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: SearchFilterArgs }
+export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagination<number, ObjectOrder, ObjectCursor> | null; filter?: SearchFilterArgs[] }
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
@@ -347,8 +347,6 @@ export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number |
  * This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
  */
 export type OperatingSystem = "Windows" | "Linux" | "MacOS" | "Ios" | "Android" | { Other: string }
-
-export type OptionalRange<T> = { from?: T | null; to?: T | null }
 
 export type OrderAndPagination<TId, TOrder, TCursor> = { orderOnly: TOrder } | { offset: { offset: number; order: TOrder | null } } | { cursor: { id: TId; cursor: TCursor } }
 
@@ -368,6 +366,8 @@ export type PeerId = string
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
 
 export type PlusCode = string
+
+export type Range<T> = { from: T } | { to: T }
 
 export type RelationOperation = { relation_item: any; relation_group: any; relation: string; data: RelationOperationData }
 
@@ -401,7 +401,7 @@ export type SavedSearchUpdateArgs = { id: number; name: string | null; filters: 
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
 
-export type SearchFilterArgs = { filePath?: FilePathFilterArgs | null; object?: ObjectFilterArgs | null }
+export type SearchFilterArgs = { filePath: FilePathFilterArgs } | { object: ObjectFilterArgs }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 

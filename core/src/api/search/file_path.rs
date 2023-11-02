@@ -51,29 +51,23 @@ impl FilePathOrder {
 	}
 }
 
-#[derive(Deserialize, Type, Default, Debug, Clone)]
+#[derive(Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct FilePathFilterArgs {
-	#[specta(optional)]
-	locations: Option<InOrNotIn<file_path::id::Type>>,
-	#[specta(optional)]
-	path: Option<(prisma::location::id::Type, String)>,
-	#[specta(optional)]
-	search: Option<String>, // deprecated
-	#[specta(optional)]
-	name: Option<TextMatch>,
-	#[specta(optional)]
-	extension: Option<InOrNotIn<String>>,
-	#[serde(default)]
-	created_at: OptionalRange<DateTime<Utc>>,
-	#[serde(default)]
-	modified_at: OptionalRange<DateTime<Utc>>,
-	#[serde(default)]
-	indexed_at: OptionalRange<DateTime<Utc>>,
-	#[specta(optional)]
-	with_descendants: Option<bool>,
-	#[specta(optional)]
-	hidden: Option<bool>,
+pub enum FilePathFilterArgs {
+	Locations(InOrNotIn<file_path::id::Type>),
+	Path {
+		location_id: prisma::location::id::Type,
+		path: String,
+		include_descendants: bool,
+	},
+	// #[deprecated]
+	// Search(String),
+	Name(TextMatch),
+	Extension(InOrNotIn<String>),
+	CreatedAt(Range<DateTime<Utc>>),
+	ModifiedAt(Range<DateTime<Utc>>),
+	IndexedAt(Range<DateTime<Utc>>),
+	Hidden(bool),
 }
 
 impl FilePathFilterArgs {
@@ -81,70 +75,82 @@ impl FilePathFilterArgs {
 		self,
 		db: &prisma::PrismaClient,
 	) -> Result<Vec<file_path::WhereParam>, rspc::Error> {
-		let location_conditions = self.locations.clone().and_then(|v| {
-			v.to_param(
-				file_path::location_id::in_vec,
-				file_path::location_id::not_in_vec,
-			)
-		});
+		use file_path::*;
 
-		let directory_materialized_path_str = match self.path {
-			Some((location_id, path)) if !path.is_empty() && path != "/" => {
-				let parent_iso_file_path =
-					IsolatedFilePathData::from_relative_str(location_id, &path);
+		Ok(match self {
+			Self::Locations(v) => v
+				.to_param(
+					file_path::location_id::in_vec,
+					file_path::location_id::not_in_vec,
+				)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::Path {
+				location_id,
+				path,
+				include_descendants,
+			} => {
+				let directory_materialized_path_str = if !path.is_empty() && path != "/" {
+					let parent_iso_file_path =
+						IsolatedFilePathData::from_relative_str(location_id, &path);
 
-				if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Directory not found".into(),
-					));
-				}
+					if !check_file_path_exists::<LocationError>(&parent_iso_file_path, db).await? {
+						return Err(rspc::Error::new(
+							ErrorCode::NotFound,
+							"Directory not found".into(),
+						));
+					}
 
-				parent_iso_file_path.materialized_path_for_children()
-			}
-			Some(_empty) => Some("/".into()),
-			_ => None,
-		};
+					parent_iso_file_path.materialized_path_for_children()
+				} else {
+					Some("/".into())
+				};
 
-		{
-			use file_path::*;
-
-			Ok(sd_utils::chain_optional_iter(
-				self.search
+				directory_materialized_path_str
+					.map(Some)
+					.map(|materialized_path| {
+						vec![if include_descendants {
+							materialized_path::starts_with(
+								materialized_path.unwrap_or_else(|| "/".into()),
+							)
+						} else {
+							materialized_path::equals(materialized_path)
+						}]
+					})
 					.unwrap_or_default()
-					.split(' ')
-					.map(str::to_string)
-					.map(name::contains),
-				[
-					location_conditions,
-					self.name.and_then(|v| {
-						v.to_param(name::contains, name::starts_with, name::ends_with, |s| {
-							name::equals(Some(s))
-						})
-					}),
-					self.extension
-						.and_then(|v| v.to_param(extension::in_vec, extension::not_in_vec)),
-					self.created_at.from.map(|v| date_created::gte(v.into())),
-					self.created_at.to.map(|v| date_created::lte(v.into())),
-					self.modified_at.from.map(|v| date_modified::gte(v.into())),
-					self.modified_at.to.map(|v| date_modified::lte(v.into())),
-					self.indexed_at.from.map(|v| date_indexed::gte(v.into())),
-					self.indexed_at.to.map(|v| date_indexed::lte(v.into())),
-					self.hidden.map(Some).map(hidden::equals),
-					directory_materialized_path_str
-						.map(Some)
-						.map(|materialized_path| {
-							if let Some(true) = self.with_descendants {
-								materialized_path::starts_with(
-									materialized_path.unwrap_or_else(|| "/".into()),
-								)
-							} else {
-								materialized_path::equals(materialized_path)
-							}
-						}),
-				],
-			))
-		}
+			}
+			Self::Name(v) => v
+				.to_param(name::contains, name::starts_with, name::ends_with, |s| {
+					name::equals(Some(s))
+				})
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::Extension(v) => v
+				.to_param(extension::in_vec, extension::not_in_vec)
+				.map(|v| vec![v])
+				.unwrap_or_default(),
+			Self::CreatedAt(v) => {
+				vec![match v {
+					Range::From(v) => date_created::gte(v.into()),
+					Range::To(v) => date_created::lte(v.into()),
+				}]
+			}
+			Self::ModifiedAt(v) => {
+				vec![match v {
+					Range::From(v) => date_modified::gte(v.into()),
+					Range::To(v) => date_modified::lte(v.into()),
+				}]
+			}
+			Self::IndexedAt(v) => {
+				vec![match v {
+					Range::From(v) => date_indexed::gte(v.into()),
+					Range::To(v) => date_indexed::lte(v.into()),
+				}]
+			}
+			Self::Hidden(v) => {
+				vec![hidden::equals(Some(v))]
+			}
+		})
 	}
 }
 
