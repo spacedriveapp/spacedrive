@@ -6,7 +6,7 @@ export type AudioMetadata = { duration: number | null; audio_codec: string | nul
 
 /**
  * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
- * 
+ *
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
 export type BackendFeature = "syncEmitMessages" | "filesOverP2P"
@@ -30,19 +30,19 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_enabled: boolean | n
 
 export type ColorProfile = "Normal" | "Custom" | "HDRNoOriginal" | "HDRWithOriginal" | "OriginalForHDR" | "Panorama" | "PortraitHDR" | "Portrait"
 
-export type Composite = 
+export type Composite =
 /**
  * The data is present, but we're unable to determine what they mean
  */
-"Unknown" | 
+"Unknown" |
 /**
  * Not a composite image
  */
-"False" | 
+"False" |
 /**
  * A general composite image
  */
-"General" | 
+"General" |
 /**
  * The composite image was captured while shooting
  */
@@ -111,46 +111,46 @@ export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: Or
 
 export type FilePathWithObject = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null } | null }
 
-export type Flash = { 
+export type Flash = {
 /**
  * Specifies how flash was used (on, auto, off, forced, onvalid)
- * 
+ *
  * [`FlashMode::Unknown`] isn't a valid EXIF state, but it's included as the default,
  * just in case we're unable to correctly match it to a known (valid) state.
- * 
+ *
  * This type should only ever be evaluated if flash EXIF data is present, so having this as a non-option shouldn't be an issue.
  */
-mode: FlashMode; 
+mode: FlashMode;
 /**
  * Did the flash actually fire?
  */
-fired: boolean | null; 
+fired: boolean | null;
 /**
  * Did flash return to the camera? (Unsure of the meaning)
  */
-returned: boolean | null; 
+returned: boolean | null;
 /**
  * Was red eye reduction used?
  */
 red_eye_reduction: boolean | null }
 
-export type FlashMode = 
+export type FlashMode =
 /**
  * The data is present, but we're unable to determine what they mean
  */
-"Unknown" | 
+"Unknown" |
 /**
  * FLash was on
  */
-"On" | 
+"On" |
 /**
  * Flash was off
  */
-"Off" | 
+"Off" |
 /**
  * Flash was set to automatically fire in certain conditions
  */
-"Auto" | 
+"Auto" |
 /**
  * Flash was forcefully fired
  */
@@ -177,10 +177,10 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
 /**
  * `IndexerRuleCreateArgs` is the argument received from the client using rspc to create a new indexer rule.
  * Note that `rules` field is a vector of tuples of `RuleKind` and `parameters`.
- * 
+ *
  * In case of  `RuleKind::AcceptFilesByGlob` or `RuleKind::RejectFilesByGlob`, it will be a
  * vector of strings containing a glob patterns.
- * 
+ *
  * In case of `RuleKind::AcceptIfChildrenDirectoriesArePresent` or `RuleKind::RejectIfChildrenDirectoriesArePresent` the
  * `parameters` field must be a vector of strings containing the names of the directories.
  */
@@ -201,15 +201,15 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 /**
  * LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
  */
-export type LibraryConfig = { 
+export type LibraryConfig = {
 /**
  * name is the display name of the library. This is used in the UI and is set by the user.
  */
-name: LibraryName; 
+name: LibraryName;
 /**
  * description is a user set description of the library. This is used in the UI and is set by the user.
  */
-description: string | null; 
+description: string | null;
 /**
  * id of the current instance so we know who this `.db` is. This can be looked up within the `Instance` table.
  */
@@ -236,7 +236,7 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  * `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
  * It contains the id of the location to be updated, possible a name to change the current location's name
  * and a vector of indexer rules ids to add or remove from the location.
- * 
+ *
  * It is important to note that only the indexer rule ids in this vector will be used from now on.
  * Old rules that aren't in this vector will be purged.
  */
@@ -256,11 +256,11 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type MediaMetadata = ({ type: "Image" } & ImageMetadata) | ({ type: "Video" } & VideoMetadata) | ({ type: "Audio" } & AudioMetadata)
 
-export type NodeState = ({ 
+export type NodeState = ({
 /**
  * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
  */
-id: string; 
+id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
@@ -344,11 +344,11 @@ export type Response = { Start: { user_code: string; verification_url: string; v
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
-export type SanitisedNodeConfig = { 
+export type SanitisedNodeConfig = {
 /**
  * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
  */
-id: string; 
+id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
@@ -366,7 +366,7 @@ export type SharedOperation = { record_id: any; model: string; data: SharedOpera
 
 export type SharedOperationData = "c" | { u: { field: string; value: any } } | "d"
 
-export type SingleInvalidateOperationEvent = { 
+export type SingleInvalidateOperationEvent = {
 /**
  * This fields are intentionally private.
  */
@@ -382,11 +382,11 @@ export type SystemLocations = { desktop: string | null; documents: string | null
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 
-export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
-
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type Target = { Object: number } | { FilePath: number }
 
 export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 

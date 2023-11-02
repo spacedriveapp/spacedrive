@@ -226,7 +226,9 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
+			dialogManager.create((dp) => (
+				<CreateDialog {...dp} items={objects.map((item) => ({ type: 'Object', item }))} />
+			));
 		},
 		[os, explorer.selectedItems]
 	);

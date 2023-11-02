@@ -1,31 +1,20 @@
-import {
-	Collection,
-	Collection_Light,
-	Image,
-	Image_Light,
-	Video,
-	Video_Light
-} from '@sd/assets/icons';
 import { ReactNode } from 'react';
 import { ExplorerLayout } from '@sd/client';
+import { Icon } from '~/components';
 import DismissibleNotice from '~/components/DismissibleNotice';
-import { useIsDark } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 
 import { useExplorerContext } from './Context';
-import { useExplorerStore } from './store';
 
 const MediaViewIcon = () => {
-	const isDark = useIsDark();
-
 	return (
 		<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
-			<img
-				src={isDark ? Image : Image_Light}
+			<Icon
+				name="Image"
 				className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden"
 			/>
-			<img
-				src={isDark ? Video : Video_Light}
+			<Icon
+				name="Video"
 				className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden"
 			/>
 		</div>
@@ -33,11 +22,9 @@ const MediaViewIcon = () => {
 };
 
 const CollectionIcon = () => {
-	const isDark = useIsDark();
-
 	return (
 		<div className="ml-3 mr-4 h-14 w-14 shrink-0">
-			<img src={isDark ? Collection : Collection_Light} />
+			<Icon name="Collection" />
 		</div>
 	);
 };

@@ -1,19 +1,23 @@
 use std::collections::BTreeMap;
 
 use chrono::Utc;
+use itertools::{Either, Itertools};
 use rspc::ErrorCode;
-use sd_prisma::prisma_sync;
+use sd_file_ext::kind::ObjectKind;
+use sd_prisma::{prisma, prisma_sync};
 use sd_sync::OperationFactory;
+use sd_utils::uuid_to_bytes;
 use serde::Deserialize;
 use specta::Type;
 
 use serde_json::json;
+use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
 	library::Library,
 	object::tag::TagCreateArgs,
-	prisma::{object, tag, tag_on_object},
+	prisma::{file_path, object, tag, tag_on_object},
 };
 
 use super::{utils::library, RouterBuilder, R};
@@ -97,78 +101,161 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.procedure("assign", {
 			#[derive(Debug, Type, Deserialize)]
-			pub struct TagAssignArgs {
-				pub object_ids: Vec<i32>,
-				pub tag_id: i32,
-				pub unassign: bool,
+			#[specta(inline)]
+			enum Target {
+				Object(prisma::object::id::Type),
+				FilePath(prisma::file_path::id::Type),
+			}
+
+			#[derive(Debug, Type, Deserialize)]
+			#[specta(inline)]
+			struct TagAssignArgs {
+				targets: Vec<Target>,
+				tag_id: i32,
+				unassign: bool,
 			}
 
 			R.with(library())
 				.mutation(|(_, library), args: TagAssignArgs| async move {
 					let Library { db, sync, .. } = library.as_ref();
 
-					let (tag, objects) = db
-						._batch((
-							db.tag()
-								.find_unique(tag::id::equals(args.tag_id))
-								.select(tag::select!({ pub_id })),
-							db.object()
-								.find_many(vec![object::id::in_vec(args.object_ids)])
-								.select(object::select!({ id pub_id })),
-						))
+					let tag = db
+						.tag()
+						.find_unique(tag::id::equals(args.tag_id))
+						.select(tag::select!({ pub_id }))
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(ErrorCode::NotFound, "Tag not found".to_string())
+						})?;
+
+					let (objects, file_paths) = db
+						._batch({
+							let (objects, file_paths): (Vec<_>, Vec<_>) = args
+								.targets
+								.into_iter()
+								.partition_map(|target| match target {
+									Target::Object(id) => Either::Left(id),
+									Target::FilePath(id) => Either::Right(id),
+								});
+
+							(
+								db.object()
+									.find_many(vec![object::id::in_vec(objects)])
+									.select(object::select!({
+										id
+										pub_id
+									})),
+								db.file_path()
+									.find_many(vec![file_path::id::in_vec(file_paths)])
+									.select(file_path::select!({
+										id
+										pub_id
+										object: select { id pub_id }
+									})),
+							)
+						})
 						.await?;
 
-					let tag = tag.ok_or_else(|| {
-						rspc::Error::new(ErrorCode::NotFound, "Tag not found".to_string())
-					})?;
-
 					macro_rules! sync_id {
-						($object:ident) => {
+						($pub_id:expr) => {
 							prisma_sync::tag_on_object::SyncId {
 								tag: prisma_sync::tag::SyncId {
 									pub_id: tag.pub_id.clone(),
 								},
-								object: prisma_sync::object::SyncId {
-									pub_id: $object.pub_id.clone(),
-								},
+								object: prisma_sync::object::SyncId { pub_id: $pub_id },
 							}
 						};
 					}
 
 					if args.unassign {
-						let query = db.tag_on_object().delete_many(vec![
-							tag_on_object::tag_id::equals(args.tag_id),
-							tag_on_object::object_id::in_vec(
-								objects.iter().map(|o| o.id).collect(),
-							),
-						]);
+						let query =
+							db.tag_on_object().delete_many(vec![
+								tag_on_object::tag_id::equals(args.tag_id),
+								tag_on_object::object_id::in_vec(
+									objects
+										.iter()
+										.map(|o| o.id)
+										.chain(file_paths.iter().filter_map(|fp| {
+											fp.object.as_ref().map(|o| o.id.clone())
+										}))
+										.collect(),
+								),
+							]);
 
 						sync.write_ops(
 							db,
 							(
 								objects
 									.into_iter()
-									.map(|object| sync.relation_delete(sync_id!(object)))
+									.map(|o| o.pub_id)
+									.chain(
+										file_paths
+											.into_iter()
+											.filter_map(|fp| fp.object.map(|o| o.pub_id)),
+									)
+									.map(|pub_id| sync.relation_delete(sync_id!(pub_id)))
 									.collect(),
 								query,
 							),
 						)
 						.await?;
 					} else {
-						let (sync_ops, db_creates) = objects.into_iter().fold(
-							(vec![], vec![]),
-							|(mut sync_ops, mut db_creates), object| {
-								db_creates.push(tag_on_object::CreateUnchecked {
-									tag_id: args.tag_id,
-									object_id: object.id,
-									_params: vec![],
-								});
+						let (new_objects, _) = db
+							._batch({
+								let (left, right): (Vec<_>, Vec<_>) = file_paths
+									.iter()
+									.filter(|fp| fp.object.is_none())
+									.map(|fp| {
+										let id = uuid_to_bytes(Uuid::new_v4());
 
-								sync_ops.extend(sync.relation_create(sync_id!(object), []));
+										(
+											db.object().create(
+												id.clone(),
+												vec![
+													object::date_created::set(None),
+													object::kind::set(Some(
+														ObjectKind::Folder as i32,
+													)),
+												],
+											),
+											db.file_path().update(
+												file_path::id::equals(fp.id),
+												vec![file_path::object::connect(
+													object::pub_id::equals(id),
+												)],
+											),
+										)
+									})
+									.unzip();
 
-								(sync_ops, db_creates)
-							},
-						);
+								(left, right)
+							})
+							.await?;
+
+						let (sync_ops, db_creates) = objects
+							.into_iter()
+							.map(|o| (o.id, o.pub_id))
+							.chain(
+								file_paths
+									.into_iter()
+									.filter_map(|fp| fp.object.map(|o| (o.id, o.pub_id))),
+							)
+							.chain(new_objects.into_iter().map(|o| (o.id, o.pub_id)))
+							.fold(
+								(vec![], vec![]),
+								|(mut sync_ops, mut db_creates), (id, pub_id)| {
+									db_creates.push(tag_on_object::CreateUnchecked {
+										tag_id: args.tag_id,
+										object_id: id,
+										_params: vec![],
+									});
+
+									sync_ops.extend(sync.relation_create(sync_id!(pub_id), []));
+
+									(sync_ops, db_creates)
+								},
+							);
 
 						sync.write_ops(db, (sync_ops, db.tag_on_object().create_many(db_creates)))
 							.await?;
@@ -176,6 +263,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 					invalidate_query!(library, "tags.getForObject");
 					invalidate_query!(library, "tags.getWithObjects");
+					invalidate_query!(library, "search.objects");
 
 					Ok(())
 				})

@@ -1,5 +1,4 @@
 import { Info } from '@phosphor-icons/react';
-import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -18,7 +17,7 @@ import {
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { Folder } from '~/components';
+import { Folder, Icon } from '~/components';
 import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
@@ -155,9 +154,7 @@ export const Component = () => {
 					emptyNotice={
 						<EmptyNotice
 							loading={location.isFetching}
-							icon={
-								<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />
-							}
+							icon={<Icon name="FolderNoSpace" size={128} />}
 							message="No files found here"
 						/>
 					}

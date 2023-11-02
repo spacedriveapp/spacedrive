@@ -104,12 +104,12 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			},
 			...(debugState.enabled
 				? ([
-						{
-							icon: Gear,
-							navigateTo: 'Debug',
-							title: 'Debug'
-						}
-				  ] as const)
+					{
+						icon: Gear,
+						navigateTo: 'Debug',
+						title: 'Debug'
+					}
+				] as const)
 				: [])
 		]
 	}
