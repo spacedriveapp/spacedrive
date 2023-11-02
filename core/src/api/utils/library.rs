@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use rspc::{
-	internal::middleware::{ArgMapper, ArgumentMapper, Middleware, Middleware2},
-	ErrorCode, MiddlewareContext,
+	internal::middleware::{ArgMapper, ArgumentMapper, Middleware},
+	ErrorCode,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
