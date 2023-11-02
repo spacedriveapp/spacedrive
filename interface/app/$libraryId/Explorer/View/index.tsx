@@ -62,7 +62,6 @@ export default memo(
 		const quickPreview = useQuickPreviewContext();
 		const quickPreviewStore = useQuickPreviewStore();
 		const { doubleClick } = useViewItemDoubleClick();
-		const shortcut = useShortcut();
 
 		const { layoutMode } = explorer.useSettingsSnapshot();
 
@@ -101,9 +100,10 @@ export default memo(
 			explorer.settingsStore.layoutMode = layout ?? 'grid';
 		}, [layoutMode, explorer.layouts, explorer.settingsStore]);
 
-		useKeys(shortcut.openObject, (e) => {
+		useShortcut('openObject', (e) => {
 			e.stopPropagation();
-			if (quickPreviewStore.open) return;
+			e.preventDefault();
+			if (quickPreviewStore.open || isRenaming) return;
 			doubleClick();
 		});
 

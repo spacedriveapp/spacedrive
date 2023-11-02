@@ -1,6 +1,5 @@
 import { ArrowsClockwise, Planet } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useKeysMatcher, useShortcut } from '~/hooks';
@@ -14,9 +13,8 @@ export default () => {
 	const { library } = useClientContext();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
-	const shortcut = useShortcut();
 
-	useKeys(shortcut.navToOverview, (e) => {
+	useShortcut('navToOverview', (e) => {
 		e.stopPropagation();
 		navigate('overview');
 	});

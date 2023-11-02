@@ -9,7 +9,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
+import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
@@ -101,7 +101,6 @@ export default () => {
 	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 	const settings = explorer.useSettingsSnapshot();
-	const shortcut = useShortcut();
 	const mouseNavigate = useMouseNavigate();
 
 	const tableRef = useRef<HTMLDivElement>(null);
@@ -608,15 +607,14 @@ export default () => {
 		};
 	}, [sized, isLeftMouseDown]);
 
-	// Handle key selection
-	useKey(shortcut.listObjectsNav, (e) => {
+	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
 
-		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+		if (explorer.selectedItems.size === 0) {
 			const item = rows[0]?.original;
 			if (item) {
 				explorer.addSelectedItem(item);
@@ -627,13 +625,7 @@ export default () => {
 
 		if (!range) return;
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			setRanges([]);
-			return;
-		}
-
-		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
+		const keyDirection = direction === 'ArrowDown' ? 'down' : 'up';
 
 		const nextRow = rows[range.end.index + (keyDirection === 'up' ? -1 : 1)];
 
@@ -767,6 +759,20 @@ export default () => {
 		} else explorer.resetSelectedItems([item]);
 
 		scrollToRow(nextRow);
+	};
+
+	useShortcut('explorerEscape', () => {
+		explorer.resetSelectedItems([]);
+		setRanges([]);
+		return;
+	});
+
+	useShortcut('explorerUp', (e) => {
+		keyboardHandler(e, 'ArrowUp');
+	});
+
+	useShortcut('explorerDown', (e) => {
+		keyboardHandler(e, 'ArrowDown');
 	});
 
 	// Reset resizing cursor

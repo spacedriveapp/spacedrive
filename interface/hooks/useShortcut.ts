@@ -1,3 +1,4 @@
+import { useKey, useKeys } from 'rooks';
 import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
 
@@ -123,14 +124,34 @@ const state = {
 			all: ['Delete']
 		}
 	},
+	explorerEscape: {
+		keys: {
+			all: ['Escape']
+		}
+	},
+	explorerDown: {
+		keys: {
+			all: ['ArrowDown']
+		}
+	},
+	explorerUp: {
+		keys: {
+			all: ['ArrowUp']
+		}
+	},
+	explorerLeft: {
+		keys: {
+			all: ['ArrowLeft']
+		}
+	},
+	explorerRight: {
+		keys: {
+			all: ['ArrowRight']
+		}
+	},
 	gridObjectsNav: {
 		keys: {
 			all: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
-		}
-	},
-	listObjectsNav: {
-		keys: {
-			all: ['ArrowUp', 'ArrowDown', 'Escape']
 		}
 	},
 	navBackwardHistory: {
@@ -181,20 +202,16 @@ export function getShortcutsStore() {
 	return shortcutsStore;
 }
 
-type keyofState = keyof typeof state;
+type shortcutKeys = keyof typeof state;
+type osKeys = keyof (typeof state)[shortcutKeys]['keys'];
 
-//returns an object with the shortcuts for the current OS
-//so we don't have to handle this in the components
-export const useShortcut = () => {
+export const useShortcut = (shortcut: shortcutKeys, func: (e: KeyboardEvent) => void) => {
 	const os = useOperatingSystem();
 	const shortcutsStore = getShortcutsStore();
-	const shortcutsForOs = {} as Record<keyofState, string[]>;
+	const shortcutKeys =
+		shortcutsStore[shortcut].keys[os as osKeys] || shortcutsStore[shortcut].keys.all;
 
-	//loop through the shortcuts and return the correct one for the current OS
-	//otherwise return 'all'
-	for (const shortcut in shortcutsStore) {
-		const osKeys = shortcutsStore[shortcut as keyofState].keys;
-		shortcutsForOs[shortcut as keyofState] = osKeys[os as keyof typeof osKeys] || osKeys['all'];
-	}
-	return shortcutsForOs;
+	useKeys(shortcutKeys, (e) => {
+		func(e);
+	});
 };

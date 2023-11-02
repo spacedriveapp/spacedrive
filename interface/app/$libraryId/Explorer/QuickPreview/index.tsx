@@ -22,7 +22,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
+import { useIsDark, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -59,7 +59,6 @@ export const QuickPreview = () => {
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
-	const shortcut = useShortcut();
 
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
@@ -120,7 +119,7 @@ export const QuickPreview = () => {
 	}, [item, open]);
 
 	// Toggle quick preview
-	useKeybind(shortcut.toggleQuickPreview, (e) => {
+	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming) return;
 
 		e.preventDefault();
@@ -129,16 +128,16 @@ export const QuickPreview = () => {
 	});
 
 	// Move between items
-	useKeybind(shortcut.quickPreviewMoveBetweenItems, (e) => {
+	useShortcut('quickPreviewMoveBetweenItems', (e) => {
 		if (isContextMenuOpen || isRenaming) return;
 		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
 
 	// Toggle metadata
-	useKeybind(shortcut.toggleMetaData, () => setShowMetadata(!showMetadata));
+	useShortcut('toggleMetaData', () => setShowMetadata(!showMetadata));
 
 	// Open file
-	useKeybind(shortcut.quickPreviewOpenNative, () => {
+	useShortcut('quickPreviewOpenNative', () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {

@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import TruncateMarkup from 'react-truncate-markup';
-import { useKey } from 'rooks';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
@@ -24,7 +23,6 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 
 		const renamable = useRef<boolean>(false);
 		const timeout = useRef<NodeJS.Timeout | null>(null);
-		const shortcut = useShortcut();
 
 		const ref = useRef<HTMLDivElement>(null);
 		useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(_ref, () => ref.current);
@@ -77,14 +75,12 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					blur();
 					break;
 				}
-
 				case 'Escape': {
 					e.stopPropagation();
 					reset();
 					blur();
 					break;
 				}
-
 				case 'z': {
 					if (os === 'macOS' ? e.metaKey : e.ctrlKey) {
 						reset();
@@ -109,7 +105,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			return `...${name.slice(-8)}`;
 		}, [name]);
 
-		useKey(shortcut.renameObject, (e) => {
+		useShortcut('renameObject', (e) => {
 			e.preventDefault();
 			if (allowRename) blur();
 			else if (!disabled) setAllowRename(true);

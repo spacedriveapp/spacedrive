@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useLibraryMutation } from '@sd/client';
 import { toast } from '@sd/ui';
-import { useKeybind, useKeyMatcher, useShortcut } from '~/hooks';
+import { useKeyMatcher, useShortcut } from '~/hooks';
 
 import { useQuickRescan } from '../../../hooks/useQuickRescan';
 import { KeyManager } from '../KeyManager';
@@ -36,7 +36,6 @@ export const useExplorerTopBarOptions = () => {
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
 	const settings = explorer.useSettingsSnapshot();
-	const shortcut = useShortcut();
 
 	const rescan = useQuickRescan();
 
@@ -106,7 +105,9 @@ export const useExplorerTopBarOptions = () => {
 
 	const [{ path }] = useExplorerSearchParams();
 
-	useKeybind(shortcut.rescan, () => rescan());
+	useShortcut('rescan', (e) => {
+		rescan();
+	});
 
 	useDocumentEventListener('keydown', (e: unknown) => {
 		if (!(e instanceof KeyboardEvent)) return;

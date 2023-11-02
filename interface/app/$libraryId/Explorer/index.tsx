@@ -1,6 +1,5 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
@@ -28,7 +27,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const shortcut = useShortcut();
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -45,12 +43,12 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeys(shortcut.showPathBar, (e) => {
+	useShortcut('showPathBar', (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
-	useKeys(shortcut.showHiddenFiles, (e) => {
+	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});

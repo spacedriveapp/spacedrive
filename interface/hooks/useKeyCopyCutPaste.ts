@@ -1,4 +1,3 @@
-import { useKeys } from 'rooks';
 import { useItemsAsFilePaths, useLibraryMutation } from '@sd/client';
 import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
@@ -10,7 +9,6 @@ import { useShortcut } from './useShortcut';
 export const useKeyCopyCutPaste = () => {
 	const { cutCopyState } = useExplorerStore();
 	const [{ path }] = useExplorerSearchParams();
-	const shortcut = useShortcut();
 
 	const copyFiles = useLibraryMutation('files.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
@@ -18,7 +16,7 @@ export const useKeyCopyCutPaste = () => {
 	const selectedFilePaths = useItemsAsFilePaths(Array.from(explorer.selectedItems));
 	const parent = explorer.parent;
 
-	useKeys(shortcut.copyObject, (e) => {
+	useShortcut('copyObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
@@ -30,7 +28,7 @@ export const useKeyCopyCutPaste = () => {
 		}
 	});
 
-	useKeys(shortcut.cutObject, (e) => {
+	useShortcut('cutObject', (e) => {
 		e.stopPropagation();
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
@@ -42,10 +40,9 @@ export const useKeyCopyCutPaste = () => {
 		}
 	});
 
-	useKeys(shortcut.duplicateObject, async (e) => {
+	useShortcut('duplicateObject', async (e) => {
 		e.stopPropagation();
 		if (parent?.type === 'Location') {
-			console.log('hello');
 			try {
 				await copyFiles.mutateAsync({
 					source_location_id: parent.location.id,
@@ -62,7 +59,7 @@ export const useKeyCopyCutPaste = () => {
 		}
 	});
 
-	useKeys(shortcut.pasteObject, async (e) => {
+	useShortcut('pasteObject', async (e) => {
 		e.stopPropagation();
 		if (parent?.type === 'Location' && cutCopyState.type !== 'Idle' && path) {
 			const { type, sourcePathIds, sourceParentPath, sourceLocationId } = cutCopyState;

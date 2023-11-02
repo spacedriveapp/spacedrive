@@ -1,6 +1,5 @@
 import { Gear } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useKeys } from 'rooks';
 import { JobManagerContextProvider, useClientContext, useDebugState } from '@sd/client';
 import { Button, ButtonLink, Popover, Tooltip, usePopover } from '@sd/ui';
 import { useKeysMatcher, useShortcut } from '~/hooks';
@@ -15,9 +14,8 @@ export default () => {
 	const debugState = useDebugState();
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
-	const shortcut = useShortcut();
 
-	useKeys(shortcut.navToSettings, (e) => {
+	useShortcut('navToSettings', (e) => {
 		e.stopPropagation();
 		navigate('settings/client/general');
 	});
