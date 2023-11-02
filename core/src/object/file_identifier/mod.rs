@@ -130,7 +130,7 @@ async fn identifier_job_step(
 							.map(|code| code == 362)
 							.unwrap_or(false)
 						{
-							error!("Attempted to extract metadata from on-demand file: {e:#?}");
+							error!("Failed to extract metadata from on-demand file: {e:#?}");
 						} else {
 							error!("Failed to extract file metadata: {e:#?}")
 						}
