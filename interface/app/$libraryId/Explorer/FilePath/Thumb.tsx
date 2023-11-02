@@ -49,6 +49,7 @@ export interface ThumbProps {
 	frameClassName?: string;
 	childClassName?: string | ((type: ThumbType | `${ThumbType}`) => string | undefined);
 	isSidebarPreview?: boolean;
+	zoomed?: boolean;
 }
 
 export const FileThumb = memo((props: ThumbProps) => {
@@ -283,6 +284,7 @@ export const FileThumb = memo((props: ThumbProps) => {
 							<Thumbnail
 								src={src}
 								cover={props.cover}
+								zoomed={props.zoomed}
 								onLoad={onLoad}
 								onError={onError}
 								decoding={props.size ? 'async' : 'sync'}
@@ -338,6 +340,7 @@ interface ThumbnailProps extends ImgHTMLAttributes<HTMLImageElement> {
 	blackBars?: boolean;
 	blackBarsSize?: number;
 	extension?: string;
+	zoomed?: boolean;
 }
 
 const Thumbnail = memo(
@@ -357,6 +360,10 @@ const Thumbnail = memo(
 
 		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 
+		useEffect(() => {
+			setZoomed(!!props.zoomed);
+		}, [props.zoomed]);
+
 		return (
 			<>
 				<img
@@ -365,7 +372,7 @@ const Thumbnail = memo(
 					{...(crossOrigin ? { crossOrigin } : {})}
 					ref={ref}
 					draggable={false}
-					onClick={() => setZoomed(!zoomed)}
+					onDoubleClick={() => setZoomed(!zoomed)}
 					onMouseMove={(e) => setMousePos({ x: e.pageX - ref.current!.offsetWidth, y: e.pageY - ref.current!.offsetHeight})}
 					style={{
 						...(blackBars ? blackBarsStyle : {}),
@@ -378,7 +385,6 @@ const Thumbnail = memo(
 					className={clsx(
 						blackBars && size.width === 0 && 'invisible',
 						className,
-						!crossOrigin && (zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
 					)}
 					{...props}
 				/>

@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, DotsThree, Plus, SidebarSimple, X } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import {
@@ -77,6 +78,7 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+	const [zoomed, setZoomed] = useState<boolean>(false);
 
 	const items = useMemo(
 		() => (open ? [...explorer.selectedItems] : []),
@@ -127,6 +129,7 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = false;
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
+		setZoomed(false);
 	}, [item, open]);
 
 	// Toggle quick preview
@@ -371,6 +374,9 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex flex-1 justify-end gap-1">
+										<IconButton onClick={() => setZoomed(!zoomed)}>
+											<MagnifyingGlass size={15} />
+										</IconButton>
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -467,6 +473,7 @@ export const QuickPreview = () => {
 										!icon && 'h-full',
 										textKinds.includes(kind) && 'select-text'
 									)}
+									zoomed={zoomed}
 								/>
 							</div>
 
