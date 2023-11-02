@@ -192,9 +192,9 @@ async fn main() -> tauri::Result<()> {
 	};
 
 	let app = app
-		.plugin(rspc::integrations::tauri::plugin(router, {
+		.plugin(rspc_tauri::plugin(router, {
 			let node = node.clone();
-			move || node.clone()
+			move |_| node.clone()
 		}))
 		.plugin(sd_server_plugin(node.clone()).unwrap()) // TODO: Handle `unwrap`
 		.manage(node.clone());

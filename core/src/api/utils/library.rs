@@ -1,35 +1,54 @@
 use std::sync::Arc;
 
-use rspc::{internal::middleware::ConstrainedMiddleware, ErrorCode};
+use rspc::{
+	internal::middleware::{ArgMapper, ArgumentMapper, Middleware, Middleware2},
+	ErrorCode, MiddlewareContext,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::{api::Ctx, library::Library};
+use crate::{
+	api::{Ctx, SdError},
+	library::Library,
+};
 
 /// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
 #[derive(Clone, Serialize, Deserialize, Type)]
-pub(crate) struct LibraryArgs<T> {
+pub struct LibraryArgs<T> {
 	library_id: Uuid,
 	arg: T,
 }
 
-pub(crate) fn library() -> impl ConstrainedMiddleware<Ctx, NewCtx = (Ctx, Arc<Library>)> {
-	|mw, ctx: Ctx| async move {
-		// 	let library = ctx
-		// 		.libraries
-		// 		.get_library(&library_id)
-		// 		.await
-		// 		.ok_or_else(|| {
-		// 			rspc::Error::new(
-		// 				ErrorCode::BadRequest,
-		// 				"You must specify a valid library to use this operation.".to_string(),
-		// 			)
-		// 		})?;
+pub enum LibraryArgsMapper {}
 
-		// 	Ok(mw.next((ctx, library)))
+impl ArgumentMapper for LibraryArgsMapper {
+	type State = Uuid;
+	type Input<T> = LibraryArgs<T>
+    where
+        T: DeserializeOwned + Type + 'static;
 
-		let library = todo!(); // TODO
-		mw.next((ctx, library))
+	fn map<T: Serialize + DeserializeOwned + Type + 'static>(
+		arg: Self::Input<T>,
+	) -> (T, Self::State) {
+		(arg.arg, arg.library_id)
 	}
+}
+
+pub(crate) fn library() -> impl Middleware<Ctx, NewCtx = (Ctx, Arc<Library>)> {
+	// TODO: Remove `ctx: Ctx` thing
+	ArgMapper::<LibraryArgsMapper>::new(|mw, ctx: Ctx, library_id| async move {
+		let library = ctx
+			.libraries
+			.get_library(&library_id)
+			.await
+			.ok_or_else(|| {
+				rspc::Error::new(
+					ErrorCode::BadRequest,
+					"You must specify a valid library to use this operation.".to_string(),
+				)
+			})?; // TODO: Error handling
+
+		Ok::<_, SdError>(mw.next((ctx, library)))
+	})
 }
