@@ -15,9 +15,9 @@ use axum::{
 use rand::{distributions::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
-use tauri::{async_runtime::block_on, plugin::TauriPlugin, Manager, RunEvent, Runtime};
+use tauri::{async_runtime::block_on, plugin::TauriPlugin, RunEvent, Runtime};
 use tokio::task::block_in_place;
-use tracing::{debug, error, info};
+use tracing::info;
 
 /// Inject `window.__SD_ERROR__` so the frontend can render core startup errors.
 /// It's assumed the error happened prior or during settings up the core and rspc.
@@ -75,7 +75,7 @@ pub fn sd_server_plugin<R: Runtime>(node: Arc<Node>) -> io::Result<TauriPlugin<R
 		.js_init_script(format!(
 		        r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = "http://{listen_addr}";"#
 		))
-		.on_event(move |app, e| {
+		.on_event(move |_app, e| {
 			if let RunEvent::Exit { .. } = e {
 				block_in_place(|| {
 					block_on(node.shutdown());
