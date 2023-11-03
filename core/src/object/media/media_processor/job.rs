@@ -17,6 +17,7 @@ use crate::{
 use std::{
 	hash::Hash,
 	path::{Path, PathBuf},
+	pin::pin,
 	time::Duration,
 };
 
@@ -225,19 +226,20 @@ impl StatefulJob for MediaProcessorJobInit {
 					)),
 				]);
 
-				let mut progress_rx =
-					if let Some(progress_rx) = data.maybe_thumbnailer_progress_rx.clone() {
-						progress_rx
-					} else {
-						let (progress_tx, progress_rx) = chan::unbounded();
+				let mut progress_rx = pin!(if let Some(progress_rx) =
+					data.maybe_thumbnailer_progress_rx.clone()
+				{
+					progress_rx
+				} else {
+					let (progress_tx, progress_rx) = chan::unbounded();
 
-						ctx.node
-							.thumbnailer
-							.register_reporter(self.location.id, progress_tx)
-							.await;
+					ctx.node
+						.thumbnailer
+						.register_reporter(self.location.id, progress_tx)
+						.await;
 
-						progress_rx
-					};
+					progress_rx
+				});
 
 				let mut total_completed = 0;
 

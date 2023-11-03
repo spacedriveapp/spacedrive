@@ -272,7 +272,6 @@ impl Thumbnailer {
 
 	#[inline]
 	pub async fn shutdown(&self) {
-		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		self.cancel_tx
 			.send(tx)
@@ -281,8 +280,6 @@ impl Thumbnailer {
 
 		rx.await
 			.expect("critical thumbnailer error: failed to receive shutdown signal response");
-
-		debug!("Thumbnailer has been shutdown in {:?}", start.elapsed());
 	}
 
 	/// WARNING!!!! DON'T USE THIS METHOD IN A LOOP!!!!!!!!!!!!! It will be pretty slow on purpose!
