@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import { Icon } from '@phosphor-icons/react';
 import { produce } from 'immer';
 import { useEffect, useMemo } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
@@ -15,7 +16,7 @@ export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 export interface FilterOption {
 	value: string | any;
 	name: string;
-	icon?: string; // "Folder" or "#efefef"
+	icon?: string | Icon; // "Folder" or "#efefef"
 }
 
 export interface FilterOptionWithType extends FilterOption {

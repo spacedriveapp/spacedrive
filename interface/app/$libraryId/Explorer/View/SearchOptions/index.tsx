@@ -109,14 +109,14 @@ const SearchOptions = () => {
 			onMouseLeave={() => {
 				getSearchStore().interactingWithSearchOptions = false;
 			}}
-			className="bg-app-darkerBox/90 flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 px-4 backdrop-blur"
+			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
 				<FilterContainer>
 					<InteractiveSection>Paths</InteractiveSection>
 				</FilterContainer>
 			</OptionContainer> */}
-			<AppliedOptions />
+
 			<OptionContainer>
 				<DropdownMenu.Root
 					onKeyDown={(e) => e.stopPropagation()}
@@ -203,6 +203,8 @@ const SearchOptions = () => {
 						  ))}
 				</DropdownMenu.Root>
 			</OptionContainer>
+			{/* We're keeping AppliedOptions to the right of the "Add Filter" button because its not worth rebuilding the dropdown with custom logic to lock the position as the trigger will move if to the right of the applied options and that is bad UX. */}
+			<AppliedOptions />
 			<div className="grow" />
 
 			{searchState.selectedFilters.size > 0 && (

@@ -538,7 +538,7 @@ export const filterRegistry = [
 				{
 					name: search,
 					value: search,
-					icon: 'Textbox'
+					icon: Textbox
 				}
 			];
 		},
@@ -565,7 +565,7 @@ export const filterRegistry = [
 				{
 					name: search,
 					value: search,
-					icon: 'Textbox'
+					icon: Textbox
 				}
 			];
 		},
