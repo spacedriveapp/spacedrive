@@ -133,10 +133,31 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 	);
 };
 
-const FilterOptionBoolean: React.FC<{ filter: SearchFilter }> = (props) => {
+const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
+	const { filterArgs } = useSearchStore();
+
 	return (
-		<SearchOptionItem icon={props.filter.icon} selected={false} setSelected={() => {}}>
-			{props.filter.name}
+		<SearchOptionItem
+			icon={filter.icon}
+			selected={filterArgs.find((a) => filter.find(a) !== undefined) !== undefined}
+			setSelected={() => {
+				getSearchStore().filterArgs = ref(
+					produce(filterArgs, (args) => {
+						const index = args.findIndex((f) => filter.find(f) !== undefined);
+
+						if (index !== -1) {
+							args.splice(index);
+						} else {
+							const arg = filter.create();
+							args.push(arg);
+
+							filter.applyAdd(arg, { name: filter.name, value: true });
+						}
+					})
+				);
+			}}
+		>
+			{filter.name}
 		</SearchOptionItem>
 	);
 };
@@ -264,6 +285,42 @@ function createTextMatchFilter(
 	};
 }
 
+function createBooleanFilter(
+	filter: Omit<
+		ReturnType<typeof createFilter<any, boolean>>,
+		| 'conditions'
+		| 'getCondition'
+		| 'getOptionActive'
+		| 'setCondition'
+		| 'applyAdd'
+		| 'applyRemove'
+		| 'create'
+	> & {
+		create(value: boolean): SearchFilterArgs;
+	}
+): ReturnType<typeof createFilter<(typeof filterTypeCondition)['trueOrFalse'], boolean>> {
+	return {
+		...filter,
+		conditions: filterTypeCondition.trueOrFalse,
+		create: () => {
+			return filter.create(true);
+		},
+		getCondition: (data) => {
+			return data ? 'true' : 'false';
+		},
+		setCondition: (_, condition) => {
+			return condition === 'true';
+		},
+		getOptionActive: (data, option) => {
+			return option.value === data;
+		},
+		applyAdd: (_, { value }) => {
+			return value;
+		},
+		applyRemove: () => undefined
+	};
+}
+
 export const filterRegistry = [
 	createInOrNotInFilter({
 		name: 'Location',
@@ -367,36 +424,29 @@ export const filterRegistry = [
 		Render: ({ filter }) => {
 			return <FilterOptionText filter={filter} />;
 		}
+	}),
+	createBooleanFilter({
+		name: 'Hidden',
+		icon: SelectionSlash,
+		find: (arg) => {
+			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
+		},
+		create: (hidden) => ({ filePath: { hidden } }),
+		useOptions: () => {
+			return [
+				{
+					name: 'Hidden',
+					value: true,
+					icon: 'SelectionSlash' // Spacedrive folder icon
+				}
+			];
+		},
+		Render: ({ filter }) => {
+			return <FilterOptionBoolean filter={filter} />;
+		}
 	})
-	// createFilter({
-	// 	name: 'Hidden',
-	// 	icon: SelectionSlash,
-	// 	conditions: filterTypeCondition.trueOrFalse,
-	// 	setCondition: (args, condition: 'true' | 'false') => {
-	// 		const filePath = (args.filePath ??= {});
-
-	// 		filePath.hidden = condition === 'true';
-	// 	},
-	// 	applyAdd: () => {},
-	// 	applyRemove: (args) => {
-	// 		delete args.filePath?.hidden;
-	// 	},
-	// 	useOptions: () => {
-	// 		return [
-	// 			{
-	// 				name: 'Hidden',
-	// 				value: true,
-	// 				icon: 'SelectionSlash' // Spacedrive folder icon
-	// 			}
-	// 		];
-	// 	},
-	// 	Render: ({ filter }) => {
-	// 		return <FilterOptionBoolean filter={filter} />;
-	// 	},
-	// 	apply(filter, args) {
-	// 		(args.filePath ??= {}).hidden = filter.condition;
-	// 	}
-	// }),
+	// idk how to handle this rn since include_descendants is part of 'path' now
+	//
 	// createFilter({
 	// 	name: 'WithDescendants',
 	// 	icon: SelectionSlash,
