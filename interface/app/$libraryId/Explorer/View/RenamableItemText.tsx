@@ -1,8 +1,9 @@
 import clsx from 'clsx';
 import { useMemo, useRef } from 'react';
 import {
+	getEphemeralPath,
 	getExplorerItemData,
-	getItemFilePath,
+	getIndexedItemFilePath,
 	useLibraryMutation,
 	useRspcLibraryContext,
 	type ExplorerItem
@@ -41,6 +42,11 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
 	});
 
+	const renameEphemeralFile = useLibraryMutation(['ephemeralFiles.renameFile'], {
+		onError: () => reset(),
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+	});
+
 	const renameLocation = useLibraryMutation(['locations.update'], {
 		onError: () => reset(),
 		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
@@ -71,11 +77,11 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 					break;
 				}
 
-				default: {
-					const filePathData = getItemFilePath(item);
+				case 'Path':
+				case 'Object': {
+					const filePathData = getIndexedItemFilePath(item);
 
-					if (!filePathData || !('id' in filePathData))
-						throw new Error('Unable to rename file');
+					if (!filePathData) throw new Error('Failed to get file path object');
 
 					const { id, location_id } = filePathData;
 
@@ -90,7 +96,29 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 							}
 						}
 					});
+
+					break;
 				}
+
+				case 'NonIndexedPath': {
+					const ephemeralFile = getEphemeralPath(item);
+
+					if (!ephemeralFile) throw new Error('Failed to get ephemeral file object');
+
+					renameEphemeralFile.mutate({
+						kind: {
+							One: {
+								from_path: ephemeralFile.path,
+								to: newName
+							}
+						}
+					});
+
+					break;
+				}
+
+				default:
+					throw new Error('Invalid explorer item type');
 			}
 		} catch (e) {
 			reset();
@@ -105,7 +133,6 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 		!selected ||
 		explorer.selectedItems.size > 1 ||
 		quickPreviewStore.open ||
-		item.type === 'NonIndexedPath' ||
 		item.type === 'SpacedropPeer';
 
 	return (

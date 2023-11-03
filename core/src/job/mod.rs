@@ -5,6 +5,7 @@ use std::{
 	fmt,
 	hash::{Hash, Hasher},
 	mem,
+	pin::pin,
 	sync::Arc,
 	time::Instant,
 };
@@ -810,11 +811,13 @@ async fn handle_init_phase<SJob: StatefulJob>(
 
 	let init_abort_handle = init_task.abort_handle();
 
-	let mut msg_stream = (
+	let mut msg_stream = pin!((
 		stream::once(init_task).map(StreamMessage::<SJob>::InitResult),
 		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
 	)
-		.merge();
+		.merge());
+
+	let mut commands_rx = pin!(commands_rx);
 
 	'messages: while let Some(msg) = msg_stream.next().await {
 		match msg {
@@ -1036,11 +1039,13 @@ async fn handle_single_step<SJob: StatefulJob>(
 
 	let mut status = JobStatus::Running;
 
-	let mut msg_stream = (
+	let mut msg_stream = pin!((
 		stream::once(&mut step_task).map(StreamMessage::<SJob>::StepResult),
 		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
 	)
-		.merge();
+		.merge());
+
+	let mut commands_rx = pin!(commands_rx);
 
 	'messages: while let Some(msg) = msg_stream.next().await {
 		match msg {
