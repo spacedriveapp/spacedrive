@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+
 import { getRelease, getReleaseFrontmatter, githubFetch } from '../../github';
 
 export const runtime = 'edge';
