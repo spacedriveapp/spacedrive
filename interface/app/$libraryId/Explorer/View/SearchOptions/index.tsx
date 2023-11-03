@@ -9,7 +9,6 @@ import { AppliedOptions } from './AppliedFilters';
 import { filterRegistry } from './Filters';
 import { useSavedSearches } from './SavedSearches';
 import {
-	deselectFilterOption,
 	getSearchStore,
 	selectFilterOption,
 	useRegisterSearchFilterOptions,

@@ -4,7 +4,7 @@ import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 
-import { FilterType, RenderSearchFilter } from './Filters';
+import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
 import { FilterTypeCondition } from './util';
 
 export type SearchType = 'paths' | 'objects';
@@ -40,51 +40,45 @@ const searchStore = proxy({
 	searchQuery: null as string | null,
 	filterArgs: ref([] as SearchFilterArgs[]),
 	fixedFilters: ref([] as SearchFilterArgs[]),
-	filterOptions: ref(new Map<RenderSearchFilter, FilterOption[]>()),
+	fixedFilterKeys: ref(new Set<string>()),
+	filterOptions: ref(new Map<string, FilterOption[]>()),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, Filter>,
 	// selected filters are applied to the search args
 	selectedFilters: proxyMap() as Map<string, SetFilter>
 });
 
-export const useSearchFiltersOld = <T extends SearchType>(
-	searchType: T,
-	fixedFilters?: Filter[]
-): SearchFilterArgs => {
-	const store = useSnapshot(searchStore);
-
-	useEffect(() => {
-		resetSearchStore();
-		if (fixedFilters) {
-			for (const filter of fixedFilters) {
-				if (filter.name) {
-					if (!filter.icon) filter.icon = filter.name;
-					searchStore.registeredFilters.set(getKey(filter), filter);
-					selectFilterOption(filter, true, false);
-				}
-			}
-		}
-	}, [JSON.stringify(fixedFilters)]);
-
-	const filters = useMemo(
-		() => mapFilterArgs(Array.from(store.selectedFilters.values())),
-		[store.selectedFilters]
-	);
-
-	return filters;
-};
-
 export function useSearchFilters<T extends SearchType>(
-	searchType: T,
-	fixedFilters: SearchFilterArgs[]
+	_searchType: T,
+	fixedArgs: SearchFilterArgs[]
 ) {
 	const state = useSearchStore();
 
+	const fixedArgsAsOptions = useMemo(() => {
+		return fixedArgs.flatMap((fixedArg) => {
+			const filter = filterRegistry.find((f) => f.find(fixedArg))!;
+
+			return filter
+				.argsToOptions(filter.find(fixedArg) as any)
+				.map((arg) => ({ arg, filter }));
+		});
+	}, [fixedArgs, state.filterOptions]);
+
 	useEffect(() => {
 		resetSearchStore();
-		searchStore.fixedFilters = ref(fixedFilters);
-		searchStore.filterArgs = ref(fixedFilters);
-	}, [fixedFilters]);
+		searchStore.fixedFilters = ref(fixedArgs);
+		searchStore.fixedFilterKeys = ref(
+			new Set(
+				fixedArgsAsOptions.map(({ arg, filter }) =>
+					getKey({
+						...arg,
+						type: filter.name
+					})
+				)
+			)
+		);
+		searchStore.filterArgs = ref(fixedArgs);
+	}, [fixedArgsAsOptions, fixedArgs]);
 
 	return [...state.filterArgs];
 }
@@ -101,9 +95,12 @@ export const useRegisterSearchFilterOptions = (
 	useEffect(
 		() => {
 			if (options) {
-				searchStore.filterOptions.set(filter, options);
+				searchStore.filterOptions.set(filter.name, options);
+				searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
+
 				return () => {
-					searchStore.filterOptions.delete(filter);
+					searchStore.filterOptions.delete(filter.name);
+					searchStore.filterOptions = ref(new Map(searchStore.filterOptions));
 				};
 			}
 		},

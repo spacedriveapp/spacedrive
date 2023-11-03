@@ -10,6 +10,7 @@ import {
 	AllKeys,
 	deselectFilterOption,
 	FilterOption,
+	getKey,
 	getSearchStore,
 	selectFilterOption,
 	SetFilter,
@@ -32,9 +33,10 @@ interface SearchFilterCRUD<
 	getCondition: (args: T) => keyof TConditions | undefined;
 	setCondition: (args: T, condition: keyof TConditions) => void;
 	getOptionActive: (args: T, option: FilterOption) => boolean;
-	getActiveOptions?: (args: T, allOptions: FilterOption[]) => FilterOption[];
+	getActiveOptions: (args: T, allOptions: FilterOption[]) => FilterOption[];
 	applyAdd: (args: T, option: FilterOption) => void;
 	applyRemove: (args: T, option: FilterOption) => T | undefined;
+	argsToOptions: (args: T) => FilterOption[];
 	find: (arg: SearchFilterArgs) => T | undefined;
 	create: () => SearchFilterArgs;
 }
@@ -72,8 +74,18 @@ const FilterOptionList = ({
 						(specificArg && filter.getOptionActive?.(specificArg, option)) ?? false
 					}
 					setSelected={(value) => {
-						getSearchStore().filterArgs = ref(
-							produce(store.filterArgs, (args) => {
+						const searchStore = getSearchStore();
+
+						searchStore.filterArgs = ref(
+							produce(searchStore.filterArgs, (args) => {
+								const key = getKey({
+									type: filter.name,
+									name: option.name,
+									value: option.value
+								});
+
+								if (searchStore.fixedFilterKeys.has(key)) return;
+
 								let rawArg = args.find((arg) => filter.find(arg));
 
 								if (!rawArg) {
@@ -117,8 +129,18 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 			<Button
 				variant="accent"
 				onClick={() => {
-					getSearchStore().filterArgs = ref(
+					const searchStore = getSearchStore();
+
+					searchStore.filterArgs = ref(
 						produce(store.filterArgs, (args) => {
+							const key = getKey({
+								type: filter.name,
+								name: value,
+								value
+							});
+
+							if (searchStore.fixedFilterKeys.has(key)) return;
+
 							const arg = filter.create();
 							args.push(arg);
 
@@ -141,8 +163,18 @@ const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
 			icon={filter.icon}
 			selected={filterArgs.find((a) => filter.find(a) !== undefined) !== undefined}
 			setSelected={() => {
-				getSearchStore().filterArgs = ref(
+				const searchStore = getSearchStore();
+
+				searchStore.filterArgs = ref(
 					produce(filterArgs, (args) => {
+						const key = getKey({
+							type: filter.name,
+							name: filter.name,
+							value: true
+						});
+
+						if (searchStore.fixedFilterKeys.has(key)) return;
+
 						const index = args.findIndex((f) => filter.find(f) !== undefined);
 
 						if (index !== -1) {
@@ -174,6 +206,8 @@ function createInOrNotInFilter<T extends string | number>(
 		| 'conditions'
 		| 'getCondition'
 		| 'getOptionActive'
+		| 'getActiveOptions'
+		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
 		| 'applyRemove'
@@ -209,6 +243,28 @@ function createInOrNotInFilter<T extends string | number>(
 
 			return value.map((v) => options.find((o) => o.value === v)!).filter(Boolean);
 		},
+		argsToOptions: (data) => {
+			let values: T[];
+
+			if ('in' in data) values = data.in;
+			else values = data.notIn;
+
+			return values
+				.map((value) => {
+					const option = getSearchStore()
+						.filterOptions.get(filter.name)
+						?.find((o) => o.value === value);
+
+					if (!option) return;
+
+					return {
+						type: filter.name,
+						name: option.name,
+						value
+					};
+				})
+				.filter(Boolean);
+		},
 		applyAdd: (data, option) => {
 			if ('in' in data) data.in.push(option.value);
 			else data.notIn.push(option.value);
@@ -237,6 +293,8 @@ function createTextMatchFilter(
 		| 'conditions'
 		| 'getCondition'
 		| 'getOptionActive'
+		| 'getActiveOptions'
+		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
 		| 'applyRemove'
@@ -269,6 +327,38 @@ function createTextMatchFilter(
 				[condition]: value
 			};
 		},
+		getActiveOptions: (data, options) => {
+			let value: string;
+
+			if ('contains' in data) value = data.contains;
+			else if ('startsWith' in data) value = data.startsWith;
+			else if ('endsWith' in data) value = data.endsWith;
+			else value = data.equals;
+
+			return [options.find((o) => o.value === v) ?? undefined].filter(Boolean);
+		},
+		argsToOptions: (data) => {
+			let value: string;
+
+			if ('contains' in data) value = data.contains;
+			else if ('startsWith' in data) value = data.startsWith;
+			else if ('endsWith' in data) value = data.endsWith;
+			else value = data.equals;
+
+			const option = getSearchStore()
+				.filterOptions.get(filter.name)
+				?.find((o) => o.value === value);
+
+			if (!option) return [];
+
+			return [
+				{
+					type: filter.name,
+					name: option.name,
+					value
+				}
+			];
+		},
 		getOptionActive: (data, option) => {
 			if ('contains' in data) return data.contains === option.value;
 			else if ('startsWith' in data) return data.startsWith === option.value;
@@ -291,6 +381,8 @@ function createBooleanFilter(
 		| 'conditions'
 		| 'getCondition'
 		| 'getOptionActive'
+		| 'getActiveOptions'
+		| 'argsToOptions'
 		| 'setCondition'
 		| 'applyAdd'
 		| 'applyRemove'
@@ -310,6 +402,24 @@ function createBooleanFilter(
 		},
 		setCondition: (_, condition) => {
 			return condition === 'true';
+		},
+		argsToOptions: (value) => {
+			const option = getSearchStore()
+				.filterOptions.get(filter.name)
+				?.find((o) => o.value === value);
+
+			if (!option) return [];
+
+			return [
+				{
+					type: filter.name,
+					name: option.name,
+					value
+				}
+			];
+		},
+		getActiveOptions: (data, options) => {
+			return options.filter((o) => o.value === data);
 		},
 		getOptionActive: (data, option) => {
 			return option.value === data;

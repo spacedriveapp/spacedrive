@@ -59,7 +59,7 @@ export const AppliedOptions = () => {
 				const filter = filterRegistry.find((f) => f.find(arg));
 				if (!filter) return;
 
-				const options = searchState.filterOptions.get(filter);
+				const options = searchState.filterOptions.get(filter.name);
 				if (!options) return;
 
 				const isFixed = searchState.fixedFilters.at(index) !== undefined;

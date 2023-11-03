@@ -85,34 +85,23 @@ function useItems({ tag, settings }: { tag: Tag; settings: UseExplorerSettings<O
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filter = useSearchFilters('objects', [
-		{
-			name: tag.name || '',
-			value: tag?.id,
-			type: 'Tags',
-			icon: tag.color || ''
-		},
-		...(explorerSettings.layoutMode === 'media'
-			? ([
-					{
-						name: 'Image',
-						value: ObjectKindEnum.Image,
-						type: 'Kind'
-					},
-					{
-						name: 'Video',
-						value: ObjectKindEnum.Video,
-						type: 'Kind'
-					}
-			  ] as const)
-			: [])
-	]);
+	const fixedFilters = useMemo(
+		() => [
+			{ object: { tags: { in: [tag.id] } } },
+			...(explorerSettings.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[tag.id, explorerSettings.layoutMode]
+	);
 
-	const count = useLibraryQuery(['search.objectsCount', { filter }]);
+	const filters = useSearchFilters('objects', fixedFilters);
+
+	const count = useLibraryQuery(['search.objectsCount', { filters }]);
 
 	const query = useObjectsInfiniteQuery({
 		library,
-		arg: { take: 100, filter },
+		arg: { take: 100, filters },
 		settings
 	});
 
