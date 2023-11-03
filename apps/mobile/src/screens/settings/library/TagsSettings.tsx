@@ -83,10 +83,7 @@ const TagsSettingsScreen = ({ navigation }: SettingsStackScreenProps<'TagsSettin
 				>
 					<Text style={tw`text-white`}>New</Text>
 				</AnimatedButton>
-			),
-			headerBackImage: () => (
-				<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-			),
+			)
 		});
 	}, [navigation]);
 

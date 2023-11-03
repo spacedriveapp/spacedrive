@@ -21,17 +21,24 @@ export function SharedScreens(
 ) {
 	return (
 		<>
-			<Stack.Screen name="Location" component={LocationScreen} options={{
-				headerBackImage: () => (
-					<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-				)
-			}}
+			<Stack.Screen
+				name="Location"
+				component={LocationScreen}
+				options={{
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
 			/>
-			<Stack.Screen name="Tag" component={TagScreen} options={{
-				headerBackImage: () => (
-					<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
-				)
-			}} />
+			<Stack.Screen
+				name="Tag"
+				component={TagScreen}
+				options={{
+					headerBackImage: () => (
+						<ArrowLeft size={23} color={tw.color('ink')} style={tw`ml-2`} />
+					)
+				}}
+			/>
 		</>
 	);
 }

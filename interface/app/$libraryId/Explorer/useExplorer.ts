@@ -111,7 +111,7 @@ export function useExplorerSettings<TOrder extends Ordering>({
 
 	useEffect(() => {
 		setStore(proxy(settings));
-	}, [location]);
+	}, [location, settings]);
 
 	useEffect(
 		() =>
