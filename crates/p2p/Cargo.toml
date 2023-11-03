@@ -30,11 +30,9 @@ mdns-sd = "0.7.4"
 thiserror = "1.0.48"
 tracing = { workspace = true }
 serde = { version = "1.0.188", features = ["derive"] } # TODO: Optional or remove feature
-rmp-serde = "1.1.2"
 specta = { workspace = true }
 flume = "0.10.0" # Must match version used by `mdns-sd`
 tokio-util = { version = "0.7.8", features = ["compat"] }
-arc-swap = "1.6.0"
 ed25519-dalek = { version = "2.0.0", features = [] }
 rand_core = { version = "0.6.4" }
 uuid = "1.4.1"
