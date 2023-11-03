@@ -9,6 +9,8 @@ export async function getReleasesCategories(): Promise<SectionMeta['categories']
 	const categories: Record<string, SectionMeta['categories'][number]> = {};
 
 	for (const release of releases) {
+		if (release.draft) continue;
+
 		const { frontmatter } = getReleaseFrontmatter(release);
 
 		const slug = frontmatter.category;
