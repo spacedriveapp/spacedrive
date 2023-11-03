@@ -1,7 +1,7 @@
 import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
-import { PropsWithChildren, useMemo, useState } from 'react';
+import { PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
@@ -78,6 +78,8 @@ const SearchOptions = () => {
 	const [newFilterName, setNewFilterName] = useState('');
 	const [searchValue, setSearchValue] = useState('');
 
+	const deferredSearchValue = useDeferredValue(searchValue);
+
 	useKeybind(['Escape'], () => {
 		getSearchStore().isSearching = false;
 	});
@@ -86,7 +88,7 @@ const SearchOptions = () => {
 
 	const filtersWithOptions = filterRegistry.map((filter) => {
 		const options = filter
-			.useOptions({ search: searchValue })
+			.useOptions({ search: deferredSearchValue })
 			.map((o) => ({ ...o, type: filter.name }));
 
 		// eslint-disable-next-line react-hooks/rules-of-hooks
@@ -95,7 +97,7 @@ const SearchOptions = () => {
 		return [filter, options] as const;
 	});
 
-	const searchResults = useSearchRegisteredFilters(searchValue);
+	const searchResults = useSearchRegisteredFilters(deferredSearchValue);
 
 	return (
 		<div
