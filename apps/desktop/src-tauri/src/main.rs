@@ -270,20 +270,26 @@ async fn main() -> tauri::Result<()> {
 		.on_menu_event(menu::handle_menu_event)
 		.on_window_event(|event| {
 			if let WindowEvent::Resized(_) = event.event() {
-				let command = if event
+				let (state, command) = if event
 					.window()
 					.is_fullscreen()
 					.expect("Can't get fullscreen state")
 				{
-					"window_fullscreened"
+					(true, "window_fullscreened")
 				} else {
-					"window_not_fullscreened"
+					(false, "window_not_fullscreened")
 				};
 
 				event
 					.window()
 					.emit("keybind", command)
 					.expect("Unable to emit window event");
+
+				#[cfg(target_os = "macos")]
+				{
+					let nswindow = event.window().ns_window().unwrap();
+					unsafe { sd_desktop_macos::set_titlebar_style(&nswindow, state) };
+				}
 			}
 		})
 		.menu(menu::get_menu())
