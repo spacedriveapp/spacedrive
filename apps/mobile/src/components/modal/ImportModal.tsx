@@ -1,12 +1,13 @@
 import { forwardRef, useCallback } from 'react';
-import { Alert, Text, View, Platform } from 'react-native';
+import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
 import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
-import RNFS from 'react-native-fs';
+
 // import * as ML from 'expo-media-library';
 
 // WIP component
@@ -51,7 +52,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				const dirName = decodeURIComponent(uri).split('/');
 				// Remove all elements before 'tree'
 				dirName.splice(0, dirName.indexOf('tree') + 1);
-				const parsedDirName = dirName.join('/').split(':')[1]
+				const parsedDirName = dirName.join('/').split(':')[1];
 				const dirPath = RNFS.ExternalStorageDirectoryPath + '/' + parsedDirName;
 				//Verify that the directory exists
 				const dirExists = await RNFS.exists(dirPath);
@@ -73,7 +74,6 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					indexer_rules_ids: []
 				});
 			}
-
 		} catch (err) {
 			console.error(err);
 		}
