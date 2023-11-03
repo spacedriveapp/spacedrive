@@ -14,6 +14,7 @@ import {
 	getSearchStore,
 	selectFilterOption,
 	SetFilter,
+	updateFilterArgs,
 	useSearchStore
 } from './store';
 import { FilterTypeCondition, filterTypeCondition, inOrNotIn, textMatch } from './util';
@@ -76,38 +77,34 @@ const FilterOptionList = ({
 					setSelected={(value) => {
 						const searchStore = getSearchStore();
 
-						searchStore.filterArgs = ref(
-							produce(searchStore.filterArgs, (args) => {
-								const key = getKey({
-									type: filter.name,
-									name: option.name,
-									value: option.value
-								});
+						updateFilterArgs((args) => {
+							const key = getKey({
+								type: filter.name,
+								name: option.name,
+								value: option.value
+							});
 
-								if (searchStore.fixedFilterKeys.has(key)) return;
+							if (searchStore.fixedFilterKeys.has(key)) return;
 
-								let rawArg = args.find((arg) => filter.find(arg));
+							let rawArg = args.find((arg) => filter.find(arg));
 
-								if (!rawArg) {
-									rawArg = filter.create();
-									args.push(rawArg);
-								}
+							if (!rawArg) {
+								rawArg = filter.create(option.value);
+								args.push(rawArg);
+							}
 
-								const rawArgIndex = args.findIndex((arg) => filter.find(arg))!;
+							const rawArgIndex = args.findIndex((arg) => filter.find(arg))!;
 
-								const arg = filter.find(rawArg)!;
+							const arg = filter.find(rawArg)!;
 
-								if (!filter.getCondition?.(arg))
-									filter.setCondition(arg, Object.keys(filter.conditions)[0]!);
+							if (!filter.getCondition?.(arg))
+								filter.setCondition(arg, Object.keys(filter.conditions)[0]!);
 
-								if (value) filter.applyAdd(arg, option);
-								else filter.applyRemove(arg, option);
-
-								if (!filter.getActiveOptions?.(arg, options).length) {
-									args.splice(rawArgIndex);
-								}
-							})
-						);
+							if (value) filter.applyAdd(arg, option);
+							else {
+								if (!filter.applyRemove(arg, option)) args.splice(rawArgIndex);
+							}
+						});
 					}}
 					key={option.value}
 					icon={option.icon}
@@ -131,24 +128,20 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 				onClick={() => {
 					const searchStore = getSearchStore();
 
-					searchStore.filterArgs = ref(
-						produce(searchStore.filterArgs, (args) => {
-							const key = getKey({
-								type: filter.name,
-								name: value,
-								value
-							});
+					updateFilterArgs((args) => {
+						const key = getKey({
+							type: filter.name,
+							name: value,
+							value
+						});
 
-							if (searchStore.fixedFilterKeys.has(key)) return;
+						if (searchStore.fixedFilterKeys.has(key)) return;
 
-							const arg = filter.create(value);
-							args.push(arg);
+						const arg = filter.create(value);
+						args.push(arg);
 
-							filter.applyAdd(filter.find(arg)!, { name: value, value });
-						})
-					);
-
-					console.log(snapshot(searchStore).filterArgs);
+						filter.applyAdd(filter.find(arg)!, { name: value, value });
+					});
 				}}
 			>
 				Apply
@@ -167,28 +160,26 @@ const FilterOptionBoolean = ({ filter }: { filter: SearchFilterCRUD }) => {
 			setSelected={() => {
 				const searchStore = getSearchStore();
 
-				searchStore.filterArgs = ref(
-					produce(filterArgs, (args) => {
-						const key = getKey({
-							type: filter.name,
-							name: filter.name,
-							value: true
-						});
+				updateFilterArgs((args) => {
+					const key = getKey({
+						type: filter.name,
+						name: filter.name,
+						value: true
+					});
 
-						if (searchStore.fixedFilterKeys.has(key)) return;
+					if (searchStore.fixedFilterKeys.has(key)) return;
 
-						const index = args.findIndex((f) => filter.find(f) !== undefined);
+					const index = args.findIndex((f) => filter.find(f) !== undefined);
 
-						if (index !== -1) {
-							args.splice(index);
-						} else {
-							const arg = filter.create();
-							args.push(arg);
+					if (index !== -1) {
+						args.splice(index);
+					} else {
+						const arg = filter.create();
+						args.push(arg);
 
-							filter.applyAdd(arg, { name: filter.name, value: true });
-						}
-					})
-				);
+						filter.applyAdd(arg, { name: filter.name, value: true });
+					}
+				});
 			}}
 		>
 			{filter.name}
@@ -476,7 +467,7 @@ export const filterRegistry = [
 
 					return {
 						type: this.name,
-						name: value,
+						name: option.name,
 						value
 					};
 				})

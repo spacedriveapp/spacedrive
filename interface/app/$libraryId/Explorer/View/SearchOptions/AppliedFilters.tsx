@@ -10,6 +10,7 @@ import {
 	getKey,
 	getSearchStore,
 	getSelectedFiltersGrouped,
+	updateFilterArgs,
 	useSearchStore
 } from './store';
 import { RenderIcon } from './util';
@@ -125,13 +126,11 @@ export const AppliedOptions = () => {
 						{!isFixed && (
 							<CloseTab
 								onClick={() => {
-									getSearchStore().filterArgs = ref(
-										produce(getSearchStore().filterArgs, (args) => {
-											args.splice(index);
+									updateFilterArgs((args) => {
+										args.splice(index);
 
-											return args;
-										})
-									);
+										return args;
+									});
 								}}
 							/>
 						)}

@@ -2,6 +2,7 @@ import { CaretRight, FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
+import { snapshot } from 'valtio';
 import { Button, ContextMenuDivItem, DropdownMenu, Input, RadixCheckbox, tw } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
@@ -11,6 +12,7 @@ import { useSavedSearches } from './SavedSearches';
 import {
 	getSearchStore,
 	selectFilterOption,
+	updateFilterArgs,
 	useRegisterSearchFilterOptions,
 	useSearchRegisteredFilters,
 	useSearchStore
@@ -73,7 +75,7 @@ export const SearchOptionSubMenu = (props: SearchOptionItemProps & { name?: stri
 export const Separator = () => <DropdownMenu.Separator className="!border-app-line" />;
 
 const SearchOptions = () => {
-	const searchStore = useSearchStore();
+	const searchState = useSearchStore();
 
 	const [newFilterName, setNewFilterName] = useState('');
 	const [searchValue, setSearchValue] = useState('');
@@ -137,29 +139,57 @@ const SearchOptions = () => {
 					/>
 					<Separator />
 					{searchValue
-						? searchResults.map((result) => {
-								const filter = filterRegistry.find((f) => f.name === result.type);
+						? searchResults.map((option) => {
+								const filter = filterRegistry.find((f) => f.name === option.type);
 								if (!filter) return;
 
 								return (
 									<SearchOptionItem
-										selected={searchStore.selectedFilters.has(result.key)}
-										setSelected={(value) =>
-											value
-												? selectFilterOption(result)
-												: deselectFilterOption(result)
-										}
-										key={result.key}
+										selected={searchState.filterArgsKeys.has(option.key)}
+										setSelected={(value) => {
+											const searchStore = getSearchStore();
+
+											updateFilterArgs((args) => {
+												if (searchStore.fixedFilterKeys.has(option.key))
+													return;
+
+												let rawArg = args.find((arg) => filter.find(arg));
+
+												if (!rawArg) {
+													rawArg = filter.create(option.value);
+													args.push(rawArg);
+												}
+
+												const rawArgIndex = args.findIndex((arg) =>
+													filter.find(arg)
+												)!;
+
+												const arg = filter.find(rawArg)! as any;
+
+												if (!filter.getCondition?.(arg))
+													filter.setCondition(
+														arg,
+														Object.keys(filter.conditions)[0] as any
+													);
+
+												if (value) filter.applyAdd(arg, option);
+												else {
+													if (!filter.applyRemove(arg, option))
+														args.splice(rawArgIndex);
+												}
+											});
+										}}
+										key={option.key}
 									>
 										<div className="mr-4 flex flex-row items-center gap-1.5">
-											<RenderIcon icon={filter.icon} />
+											<RenderIcon icon={option.icon} />
 											<span className="text-ink-dull">{filter.name}</span>
 											<CaretRight
 												weight="bold"
 												className="text-ink-dull/70"
 											/>
-											<RenderIcon icon={result.icon} />
-											{result.name}
+											<RenderIcon icon={option.icon} />
+											{option.name}
 										</div>
 									</SearchOptionItem>
 								);
@@ -175,7 +205,7 @@ const SearchOptions = () => {
 			</OptionContainer>
 			<div className="grow" />
 
-			{searchStore.selectedFilters.size > 0 && (
+			{searchState.selectedFilters.size > 0 && (
 				<DropdownMenu.Root
 					className={clsx(MENU_STYLES)}
 					trigger={
