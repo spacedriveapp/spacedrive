@@ -116,9 +116,6 @@ export const AppliedOptions = () => {
 										: activeOptions[0]?.name}
 								</>
 							)}
-							{/* {group.filters.length > 1
-								? `${group.filters.length} ${pluralize(meta?.name)}`
-								: group.filters[0]?.name}  */}
 						</InteractiveSection>
 
 						{!isFixed && (

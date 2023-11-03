@@ -110,25 +110,22 @@ export const useRegisterSearchFilterOptions = (
 		options?.map(getKey) ?? []
 	);
 
-	useEffect(
-		() => {
-			const keys = options?.map((filter) => {
-				const key = getKey(filter);
+	useEffect(() => {
+		const keys = options.map((filter) => {
+			const key = getKey(filter);
 
-				if (!searchStore.registeredFilters.has(key)) {
-					searchStore.registeredFilters.set(key, filter);
+			if (!searchStore.registeredFilters.has(key)) {
+				searchStore.registeredFilters.set(key, filter);
 
-					return key;
-				}
+				return key;
+			}
+		});
+
+		return () =>
+			keys.forEach((key) => {
+				if (key) searchStore.registeredFilters.delete(key);
 			});
-
-			return () =>
-				keys?.forEach((key) => {
-					if (key) searchStore.registeredFilters.delete(key);
-				});
-		},
-		options?.map(getKey) ?? []
-	);
+	}, options.map(getKey));
 };
 
 // this is used to render the applied filters
@@ -165,14 +162,18 @@ export const deselectFilterOption = (filter: Filter) => {
 	if (setFilter?.canBeRemoved !== false) searchStore.selectedFilters.delete(key);
 };
 
-export const searchRegisteredFilters = (query: string) => {
-	if (!query) return [];
+export const useSearchRegisteredFilters = (query: string) => {
+	const { registeredFilters } = useSearchStore();
 
-	return [...searchStore.registeredFilters.entries()]
-		.filter(([key, _]) => {
-			return key.toLowerCase().includes(query.toLowerCase());
-		})
-		.map(([key, filter]) => ({ ...filter, key }));
+	return useMemo(
+		() =>
+			!query
+				? []
+				: [...registeredFilters.entries()]
+						.filter(([key, _]) => key.toLowerCase().includes(query.toLowerCase()))
+						.map(([key, filter]) => ({ ...filter, key })),
+		[registeredFilters, query]
+	);
 };
 
 export const resetSearchStore = () => {

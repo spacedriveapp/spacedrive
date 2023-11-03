@@ -96,8 +96,6 @@ const FilterOptionList = ({
 								}
 							})
 						);
-
-						console.log(snapshot(getSearchStore()).filterArgs);
 					}}
 					key={option.value}
 					icon={option.icon}
@@ -109,12 +107,28 @@ const FilterOptionList = ({
 	);
 };
 
-const FilterOptionText: React.FC<{ filter: SearchFilter }> = (props) => {
+const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 	const [value, setValue] = useState('');
+	const store = useSearchStore();
+
 	return (
-		<SearchOptionSubMenu name={props.filter.name} icon={props.filter.icon}>
-			<Input />
-			<Button variant="accent">Apply</Button>
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<Input value={value} onChange={(e) => setValue(e.target.value)} />
+			<Button
+				variant="accent"
+				onClick={() => {
+					getSearchStore().filterArgs = ref(
+						produce(store.filterArgs, (args) => {
+							const arg = filter.create();
+							args.push(arg);
+
+							filter.applyAdd(arg, { name: value, value });
+						})
+					);
+				}}
+			>
+				Apply
+			</Button>
 		</SearchOptionSubMenu>
 	);
 };
@@ -196,6 +210,60 @@ function createInOrNotInFilter<T extends string | number>(
 	};
 }
 
+function createTextMatchFilter(
+	filter: Omit<
+		ReturnType<typeof createFilter<any, TextMatch>>,
+		| 'conditions'
+		| 'getCondition'
+		| 'getOptionActive'
+		| 'setCondition'
+		| 'applyAdd'
+		| 'applyRemove'
+		| 'create'
+	> & {
+		create(value: TextMatch): SearchFilterArgs;
+	}
+): ReturnType<typeof createFilter<(typeof filterTypeCondition)['textMatch'], TextMatch>> {
+	return {
+		...filter,
+		conditions: filterTypeCondition.textMatch,
+		create: () => {
+			return filter.create({ contains: '' });
+		},
+		getCondition: (data) => {
+			if ('contains' in data) return 'contains';
+			else if ('startsWith' in data) return 'startsWith';
+			else if ('endsWith' in data) return 'endsWith';
+			else if ('equals' in data) return 'equals';
+		},
+		setCondition: (data, condition) => {
+			let value: string;
+
+			if ('contains' in data) value = data.contains;
+			else if ('startsWith' in data) value = data.startsWith;
+			else if ('endsWith' in data) value = data.endsWith;
+			else value = data.equals;
+
+			return {
+				[condition]: value
+			};
+		},
+		getOptionActive: (data, option) => {
+			if ('contains' in data) return data.contains === option.value;
+			else if ('startsWith' in data) return data.startsWith === option.value;
+			else if ('endsWith' in data) return data.endsWith === option.value;
+			else return data.equals === option.value;
+		},
+		applyAdd: (data, { value }) => {
+			if ('contains' in data) return { contains: value };
+			else if ('startsWith' in data) return { startsWith: value };
+			else if ('endsWith' in data) return { endsWith: value };
+			else if ('equals' in data) return { equals: value };
+		},
+		applyRemove: () => undefined
+	};
+}
+
 export const filterRegistry = [
 	createInOrNotInFilter({
 		name: 'Location',
@@ -260,45 +328,13 @@ export const filterRegistry = [
 			return <FilterOptionList filter={filter} options={options} />;
 		}
 	}),
-	createFilter({
+	createTextMatchFilter({
 		name: 'Name',
 		icon: Textbox,
-		conditions: filterTypeCondition.textMatch,
 		find: (arg) => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
 		},
-		create: () => ({ filePath: { name: { contains: '' } } }),
-		getCondition: (data) => {
-			if ('contains' in data) return 'contains';
-			else if ('startsWith' in data) return 'startsWith';
-			else if ('endsWith' in data) return 'endsWith';
-			else if ('equals' in data) return 'equals';
-		},
-		setCondition: (data, condition) => {
-			let value: string;
-
-			if ('contains' in data) value = data.contains;
-			else if ('startsWith' in data) value = data.startsWith;
-			else if ('endsWith' in data) value = data.endsWith;
-			else value = data.equals;
-
-			return {
-				[condition]: value
-			};
-		},
-		getOptionActive: (data, option) => {
-			if ('contains' in data) return data.contains === option.value;
-			else if ('startsWith' in data) return data.startsWith === option.value;
-			else if ('endsWith' in data) return data.endsWith === option.value;
-			else return data.equals === option.value;
-		},
-		applyAdd: (data, { value }) => {
-			if ('contains' in data) return { contains: value };
-			else if ('startsWith' in data) return { startsWith: value };
-			else if ('endsWith' in data) return { endsWith: value };
-			else if ('equals' in data) return { equals: value };
-		},
-		applyRemove: () => undefined,
+		create: (name) => ({ filePath: { name } }),
 		useOptions: ({ search }) => {
 			return [
 				{

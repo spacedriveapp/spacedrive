@@ -11,9 +11,9 @@ import { useSavedSearches } from './SavedSearches';
 import {
 	deselectFilterOption,
 	getSearchStore,
-	searchRegisteredFilters,
 	selectFilterOption,
 	useRegisterSearchFilterOptions,
+	useSearchRegisteredFilters,
 	useSearchStore
 } from './store';
 import { RenderIcon } from './util';
@@ -79,10 +79,6 @@ const SearchOptions = () => {
 	const [newFilterName, setNewFilterName] = useState('');
 	const [searchValue, setSearchValue] = useState('');
 
-	const searchResults = useMemo(() => {
-		return searchRegisteredFilters(searchValue);
-	}, [searchValue]);
-
 	useKeybind(['Escape'], () => {
 		getSearchStore().isSearching = false;
 	});
@@ -99,6 +95,8 @@ const SearchOptions = () => {
 
 		return [filter, options] as const;
 	});
+
+	const searchResults = useSearchRegisteredFilters(searchValue);
 
 	return (
 		<div
