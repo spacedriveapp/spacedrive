@@ -1,9 +1,11 @@
 import { getIcon, iconNames } from '@sd/assets/util';
-import { HTMLAttributes } from 'react';
+import { ImgHTMLAttributes } from 'react';
 import { useIsDark } from '~/hooks';
 
-interface Props extends HTMLAttributes<HTMLImageElement> {
-	name: keyof typeof iconNames;
+export type IconName = keyof typeof iconNames;
+
+interface Props extends ImgHTMLAttributes<HTMLImageElement> {
+	name: IconName;
 	size?: number;
 	theme?: 'dark' | 'light';
 }

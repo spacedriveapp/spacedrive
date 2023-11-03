@@ -71,15 +71,19 @@ import Folder_Light from './Folder_Light.png';
 import Folder from './Folder.png';
 import FolderGrey_Light from './FolderGrey_Light.png';
 import FolderGrey from './FolderGrey.png';
+import FolderNoSpace_Light from './FolderNoSpace_Light.png';
 import FolderNoSpace from './FolderNoSpace.png';
 import Game_Light from './Game_Light.png';
 import Game from './Game.png';
+import Globe_Light from './Globe_Light.png';
 import Globe from './Globe.png';
 import GlobeAlt from './GlobeAlt.png';
 import GoogleDrive from './GoogleDrive.png';
+import HDD_Light from './HDD_Light.png';
 import HDD from './HDD.png';
 import Heart_Light from './Heart_Light.png';
 import Heart from './Heart.png';
+import Home_Light from './Home_Light.png';
 import Home from './Home.png';
 import Image_Light from './Image_Light.png';
 import Image from './Image.png';
@@ -110,8 +114,10 @@ import Package from './Package.png';
 import PCloud from './PCloud.png';
 import Scrapbook_Light from './Scrapbook_Light.png';
 import Scrapbook from './Scrapbook.png';
+import Screenshot_Light from './Screenshot_Light.png';
 import Screenshot from './Screenshot.png';
 import ScreenshotAlt from './ScreenshotAlt.png';
+import SD_Light from './SD_Light.png';
 import SD from './SD.png';
 import Server_Light from './Server_Light.png';
 import Server from './Server.png';
@@ -159,14 +165,14 @@ export {
 	Box,
 	Collection,
 	Collection_Light,
+	DAV,
 	Database,
 	Database_Light,
-	DAV,
 	DeleteLocation,
 	Document,
+	Document_Light,
 	Document_doc,
 	Document_doc_Light,
-	Document_Light,
 	Document_pdf,
 	Document_pdf_Light,
 	Document_xls,
@@ -176,10 +182,9 @@ export {
 	DriveBackBlaze,
 	DriveBackBlaze_Light,
 	DriveBox,
-	Drivebox_Light,
-	DriveDarker,
 	DriveDAV,
 	DriveDAV_Light,
+	DriveDarker,
 	DriveDropbox,
 	DriveDropbox_Light,
 	DriveGoogleDrive,
@@ -192,6 +197,7 @@ export {
 	DriveOpenStack_Light,
 	DrivePCloud,
 	DrivePCloud_Light,
+	Drivebox_Light,
 	Drive,
 	Drive_Light,
 	Dropbox,
@@ -208,22 +214,26 @@ export {
 	FolderGrey,
 	FolderGrey_Light,
 	FolderNoSpace,
+	FolderNoSpace_Light,
 	Folder_Light,
 	Game,
 	Game_Light,
 	Globe,
 	GlobeAlt,
+	Globe_Light,
 	GoogleDrive,
 	HDD,
+	HDD_Light,
 	Heart,
 	Heart_Light,
 	Home,
+	Home_Light,
 	Image,
 	Image_Light,
 	Key,
+	Key_Light,
 	Keys,
 	Keys_Light,
-	Key_Light,
 	Laptop,
 	Laptop_Light,
 	Link,
@@ -242,14 +252,16 @@ export {
 	Node_Light,
 	OneDrive,
 	OpenStack,
+	PCloud,
 	Package,
 	Package_Light,
-	PCloud,
+	SD,
+	SD_Light,
 	Scrapbook,
 	Scrapbook_Light,
 	Screenshot,
 	ScreenshotAlt,
-	SD,
+	Screenshot_Light,
 	Server,
 	Server_Light,
 	Spacedrop1,
@@ -263,10 +275,10 @@ export {
 	Text,
 	TextAlt,
 	TextAlt_Light,
-	TexturedMesh,
-	TexturedMesh_Light,
 	Text_Light,
 	Text_txt,
+	TexturedMesh,
+	TexturedMesh_Light,
 	Trash,
 	Trash_Light,
 	Undefined,
