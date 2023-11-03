@@ -1,4 +1,4 @@
-import { wsBatchLink } from '@rspc/client/v2';
+import { wsBatchLink } from '@rspc/client';
 
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [

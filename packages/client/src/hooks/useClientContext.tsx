@@ -1,4 +1,3 @@
-import { keepPreviousData } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
 
 import { LibraryConfigWrapped } from '../core';
@@ -10,7 +9,7 @@ const libraryCacheLocalStorageKey = 'sd-library-list';
 
 export const useCachedLibraries = () => {
 	const libraries = useBridgeQuery(['library.list'], {
-		placeholderData: keepPreviousData,
+		keepPreviousData: true,
 		initialData: () => {
 			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
