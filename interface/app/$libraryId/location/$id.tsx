@@ -192,33 +192,40 @@ const useItems = ({
 
 	const explorerSettings = settings.useSettingsSnapshot();
 
-	const filter = useSearchFilters(
-		'paths',
-		useMemo(
-			() => [
-				{ filePath: { locations: { in: [location.id] } } },
-				...(explorerSettings.layoutMode === 'media'
-					? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-					: [])
-			],
-			[location.id, explorerSettings.layoutMode]
-		)
+	// useMemo lets us embrace immutability and use fixedFilters in useEffects!
+	const fixedFilters = useMemo(
+		() => [
+			{ filePath: { locations: { in: [location.id] } } },
+			...(explorerSettings.layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [])
+		],
+		[location.id, explorerSettings.layoutMode]
 	);
 
-	(filter.filePath ??= {}).path = [location.id, path ?? ''];
+	const filters = useSearchFilters('paths', fixedFilters);
 
-	if (explorerSettings.layoutMode === 'media' && explorerSettings.mediaViewWithDescendants)
-		(filter.filePath ??= {}).withDescendants = true;
+	filters.push({
+		filePath: {
+			path: {
+				location_id: location.id,
+				path: path ?? '',
+				include_descendants:
+					explorerSettings.layoutMode === 'media' &&
+					explorerSettings.mediaViewWithDescendants
+			}
+		}
+	});
 
-	if (!explorerSettings.showHiddenFiles) (filter.filePath ??= {}).hidden = false;
+	if (!explorerSettings.showHiddenFiles) filters.push({ filePath: { hidden: false } });
 
 	const query = usePathsInfiniteQuery({
-		arg: { filter, take },
+		arg: { filters, take },
 		library,
 		settings
 	});
 
-	const count = useLibraryQuery(['search.pathsCount', { filter }], { enabled: query.isSuccess });
+	const count = useLibraryQuery(['search.pathsCount', { filters }], { enabled: query.isSuccess });
 
 	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
 

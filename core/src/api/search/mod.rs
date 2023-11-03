@@ -146,7 +146,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order_and_pagination: Option<file_path::OrderAndPagination>,
 				#[serde(default)]
-				filter: Vec<SearchFilterArgs>,
+				filters: Vec<SearchFilterArgs>,
 				#[serde(default = "default_group_directories")]
 				group_directories: bool,
 			}
@@ -160,7 +160,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 FilePathSearchArgs {
 				     take,
 				     order_and_pagination,
-				     filter,
+				     filters,
 				     group_directories,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
@@ -168,7 +168,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut query = db.file_path().find_many({
 						let mut params = Vec::new();
 
-						for filter in filter {
+						for filter in filters {
 							params.extend(filter.into_file_path_params(db).await?);
 						}
 
@@ -230,16 +230,24 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[specta(inline)]
 			struct Args {
 				#[specta(default)]
-				filter: SearchFilterArgs,
+				filters: Vec<SearchFilterArgs>,
 			}
 
 			R.with2(library())
-				.query(|(_, library), Args { filter }| async move {
+				.query(|(_, library), Args { filters }| async move {
 					let Library { db, .. } = library.as_ref();
 
 					Ok(db
 						.file_path()
-						.count(filter.into_file_path_params(db).await?)
+						.count({
+							let mut params = Vec::new();
+
+							for filter in filters {
+								params.extend(filter.into_file_path_params(db).await?);
+							}
+
+							params
+						})
 						.exec()
 						.await? as u32)
 				})
@@ -252,7 +260,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				#[specta(optional)]
 				order_and_pagination: Option<object::OrderAndPagination>,
 				#[serde(default)]
-				filter: Vec<SearchFilterArgs>,
+				filters: Vec<SearchFilterArgs>,
 			}
 
 			R.with2(library()).query(
@@ -260,7 +268,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				 ObjectSearchArgs {
 				     take,
 				     order_and_pagination,
-				     filter,
+				     filters,
 				 }| async move {
 					let Library { db, .. } = library.as_ref();
 
@@ -271,7 +279,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.find_many({
 							let mut params = Vec::new();
 
-							for filter in filter {
+							for filter in filters {
 								params.extend(filter.into_object_params(db).await?);
 							}
 
@@ -335,11 +343,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[specta(inline)]
 			struct Args {
 				#[serde(default)]
-				filter: Vec<SearchFilterArgs>,
+				filters: Vec<SearchFilterArgs>,
 			}
 
 			R.with2(library())
-				.query(|(_, library), Args { filter }| async move {
+				.query(|(_, library), Args { filters }| async move {
 					let Library { db, .. } = library.as_ref();
 
 					Ok(db
@@ -347,7 +355,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						.count({
 							let mut params = Vec::new();
 
-							for filter in filter {
+							for filter in filters {
 								params.extend(filter.into_object_params(db).await?);
 							}
 

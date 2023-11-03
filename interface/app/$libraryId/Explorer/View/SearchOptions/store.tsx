@@ -4,20 +4,20 @@ import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 
-import { filterRegistry, FilterType } from './Filters';
+import { FilterType, RenderSearchFilter } from './Filters';
 import { FilterTypeCondition } from './util';
 
 export type SearchType = 'paths' | 'objects';
 
 export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
-export interface FilterArgs {
+export interface FilterOption {
 	value: string | any;
 	name: string;
 	icon?: string; // "Folder" or "#efefef"
 }
 
-export interface Filter extends FilterArgs {
+export interface Filter extends FilterOption {
 	type: FilterType;
 }
 
@@ -39,13 +39,15 @@ const searchStore = proxy({
 	searchType: 'paths' as SearchType,
 	searchQuery: null as string | null,
 	filterArgs: ref([] as SearchFilterArgs[]),
+	fixedFilters: ref([] as SearchFilterArgs[]),
+	filterOptions: ref(new Map<RenderSearchFilter, FilterOption[]>()),
 	// we register filters so we can search them
 	registeredFilters: proxyMap() as Map<string, Filter>,
 	// selected filters are applied to the search args
 	selectedFilters: proxyMap() as Map<string, SetFilter>
 });
 
-export const useSearchFilters = <T extends SearchType>(
+export const useSearchFiltersOld = <T extends SearchType>(
 	searchType: T,
 	fixedFilters?: Filter[]
 ): SearchFilterArgs => {
@@ -72,15 +74,45 @@ export const useSearchFilters = <T extends SearchType>(
 	return filters;
 };
 
+export function useSearchFilters<T extends SearchType>(
+	searchType: T,
+	fixedFilters: SearchFilterArgs[]
+) {
+	const state = useSearchStore();
+
+	useEffect(() => {
+		resetSearchStore();
+		searchStore.fixedFilters = ref(fixedFilters);
+		searchStore.filterArgs = ref(fixedFilters);
+	}, [fixedFilters]);
+
+	return [...state.filterArgs];
+}
+
 // this makes the filter unique and easily searchable using .includes
 export const getKey = (filter: Filter) => `${filter.type}-${filter.name}-${filter.value}`;
 
 // this hook allows us to register filters to the search store
 // and returns the filters with the correct type
-export const useRegisterSearchFilterOptions = (filters?: (FilterArgs & { type: FilterType })[]) => {
+export const useRegisterSearchFilterOptions = (
+	filter: RenderSearchFilter,
+	options: (FilterOption & { type: FilterType })[]
+) => {
 	useEffect(
 		() => {
-			const keys = filters?.map((filter) => {
+			if (options) {
+				searchStore.filterOptions.set(filter, options);
+				return () => {
+					searchStore.filterOptions.delete(filter);
+				};
+			}
+		},
+		options?.map(getKey) ?? []
+	);
+
+	useEffect(
+		() => {
+			const keys = options?.map((filter) => {
 				const key = getKey(filter);
 
 				if (!searchStore.registeredFilters.has(key)) {
@@ -95,7 +127,7 @@ export const useRegisterSearchFilterOptions = (filters?: (FilterArgs & { type: F
 					if (key) searchStore.registeredFilters.delete(key);
 				});
 		},
-		filters?.map(getKey) ?? []
+		options?.map(getKey) ?? []
 	);
 };
 

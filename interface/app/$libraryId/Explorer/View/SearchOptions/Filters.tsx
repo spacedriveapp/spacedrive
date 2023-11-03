@@ -1,6 +1,7 @@
 import { CircleDashed, Cube, Folder, Icon, SelectionSlash, Textbox } from '@phosphor-icons/react';
 import { produce } from 'immer';
 import { useState } from 'react';
+import { ref, snapshot } from 'valtio';
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 
@@ -8,7 +9,7 @@ import { SearchOptionItem, SearchOptionSubMenu } from '.';
 import {
 	AllKeys,
 	deselectFilterOption,
-	FilterArgs,
+	FilterOption,
 	getSearchStore,
 	selectFilterOption,
 	SetFilter,
@@ -30,9 +31,10 @@ interface SearchFilterCRUD<
 > extends SearchFilter<TConditions> {
 	getCondition: (args: T) => keyof TConditions | undefined;
 	setCondition: (args: T, condition: keyof TConditions) => void;
-	getOptionActive: (args: T, option: FilterArgs) => boolean;
-	applyAdd: (args: T, option: FilterArgs) => void;
-	applyRemove: (args: T, option: FilterArgs) => T | undefined;
+	getOptionActive: (args: T, option: FilterOption) => boolean;
+	getActiveOptions?: (args: T, allOptions: FilterOption[]) => FilterOption[];
+	applyAdd: (args: T, option: FilterOption) => void;
+	applyRemove: (args: T, option: FilterOption) => T | undefined;
 	find: (arg: SearchFilterArgs) => T | undefined;
 	create: () => SearchFilterArgs;
 }
@@ -44,10 +46,10 @@ export interface RenderSearchFilter<
 	// Render is responsible for fetching the filter options and rendering them
 	Render: (props: {
 		filter: SearchFilterCRUD<TConditions>;
-		options: (FilterArgs & { type: string })[];
+		options: (FilterOption & { type: string })[];
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
-	useOptions: (props: { search: string }) => FilterArgs[];
+	useOptions: (props: { search: string }) => FilterOption[];
 }
 
 const FilterOptionList = ({
@@ -55,26 +57,47 @@ const FilterOptionList = ({
 	options
 }: {
 	filter: SearchFilterCRUD;
-	options: FilterArgs[];
+	options: FilterOption[];
 }) => {
 	const store = useSearchStore();
+
+	const arg = store.filterArgs.find(filter.find);
+	const specificArg = arg ? filter.find(arg) : undefined;
 
 	return (
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
 			{options?.map((option) => (
 				<SearchOptionItem
-					selected={filter.getOptionActive?.(store.filterArgs, option) ?? false}
+					selected={
+						(specificArg && filter.getOptionActive?.(specificArg, option)) ?? false
+					}
 					setSelected={(value) => {
-						getSearchStore().filterArgs = produce(store.filterArgs, (args) => {
-							if (!filter.getCondition?.(args))
-								filter.setCondition(args, Object.keys(filter.conditions)[0]!);
+						getSearchStore().filterArgs = ref(
+							produce(store.filterArgs, (args) => {
+								let rawArg = args.find((arg) => filter.find(arg));
 
-							if (value) filter.applyAdd(args, option);
-							else filter.applyRemove(args, option);
-						});
+								if (!rawArg) {
+									rawArg = filter.create();
+									args.push(rawArg);
+								}
 
-						if (value) selectFilterOption({ ...option, type: filter.name });
-						else deselectFilterOption({ ...option, type: filter.name });
+								const rawArgIndex = args.findIndex((arg) => filter.find(arg))!;
+
+								const arg = filter.find(rawArg)!;
+
+								if (!filter.getCondition?.(arg))
+									filter.setCondition(arg, Object.keys(filter.conditions)[0]!);
+
+								if (value) filter.applyAdd(arg, option);
+								else filter.applyRemove(arg, option);
+
+								if (!filter.getActiveOptions?.(arg, options).length) {
+									args.splice(rawArgIndex);
+								}
+							})
+						);
+
+						console.log(snapshot(getSearchStore()).filterArgs);
 					}}
 					key={option.value}
 					icon={option.icon}
@@ -110,7 +133,7 @@ function createFilter<TConditions extends FilterTypeCondition[keyof FilterTypeCo
 	return filter;
 }
 
-function createInOrNotInFilter<T>(
+function createInOrNotInFilter<T extends string | number>(
 	filter: Omit<
 		ReturnType<typeof createFilter<any, InOrNotIn<T>>>,
 		| 'conditions'
@@ -142,6 +165,14 @@ function createInOrNotInFilter<T>(
 		getOptionActive: (data, option) => {
 			if ('in' in data) return data.in.includes(option.value);
 			else return data.notIn.includes(option.value);
+		},
+		getActiveOptions: (data, options) => {
+			let value: T[];
+
+			if ('in' in data) value = data.in;
+			else value = data.notIn;
+
+			return value.map((v) => options.find((o) => o.value === v)!).filter(Boolean);
 		},
 		applyAdd: (data, option) => {
 			if ('in' in data) data.in.push(option.value);

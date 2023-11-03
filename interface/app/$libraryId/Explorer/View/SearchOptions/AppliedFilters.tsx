@@ -1,10 +1,13 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
+import { produce } from 'immer';
 import { forwardRef, useMemo } from 'react';
+import { ref, snapshot } from 'valtio';
 import { tw } from '@sd/ui';
 
 import { filterRegistry } from './Filters';
 import {
 	deselectFilterOption,
+	getKey,
 	getSearchStore,
 	getSelectedFiltersGrouped,
 	useSearchStore
@@ -23,7 +26,7 @@ const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick 
 	return (
 		<div
 			ref={ref}
-			className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
+			className="border-app-darkerBox/70 flex h-full items-center rounded-r border-l px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
 			onClick={onClick}
 		>
 			<RenderIcon className="h-3 w-3" icon={X} />
@@ -32,83 +35,103 @@ const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ onClick 
 });
 
 export const AppliedOptions = () => {
-	const searchStore = useSearchStore();
+	const searchState = useSearchStore();
 
 	// turn the above into use memo
 	const groupedFilters = useMemo(
 		() => getSelectedFiltersGrouped(),
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[searchStore.selectedFilters.size]
+		[searchState.selectedFilters.size]
 	);
 
 	return (
 		<div className="flex flex-row gap-2">
-			{searchStore.searchQuery && (
+			{searchState.searchQuery && (
 				<FilterContainer>
 					<StaticSection>
 						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
-						<FilterText>{searchStore.searchQuery}</FilterText>
+						<FilterText>{searchState.searchQuery}</FilterText>
 					</StaticSection>
 					<CloseTab onClick={() => (getSearchStore().searchQuery = null)} />
 				</FilterContainer>
 			)}
-			{groupedFilters?.map((group) => {
-				const showRemoveButton = group.filters.some((filter) => filter.canBeRemoved);
-				const meta = filterRegistry.find((f) => f.name === group.type);
+			{searchState.filterArgs.map((arg, index) => {
+				const filter = filterRegistry.find((f) => f.find(arg));
+				if (!filter) return;
+
+				const options = searchState.filterOptions.get(filter);
+				if (!options) return;
+
+				const isFixed = searchState.fixedFilters.at(index) !== undefined;
+
+				const activeOptions =
+					filter.getActiveOptions &&
+					filter.getActiveOptions(filter.find(arg)! as any, options);
 
 				return (
-					<FilterContainer key={group.type}>
+					<FilterContainer key={`${filter.name}-${index}`}>
 						<StaticSection>
-							<RenderIcon className="h-4 w-4" icon={meta?.icon} />
-							<FilterText>{meta?.name}</FilterText>
+							<RenderIcon className="h-4 w-4" icon={filter.icon} />
+							<FilterText>{filter.name}</FilterText>
 						</StaticSection>
-						{meta?.conditions && (
-							<InteractiveSection className="border-l">
-								{/* {Object.values(meta.conditions).map((condition) => (
-									<div key={condition}>{condition}</div>
-								))} */}
-
-								is
-							</InteractiveSection>
-						)}
-
-						<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
-							{group.filters.length > 1 && (
-								<div
-									className="relative"
-									style={{ width: `${group.filters.length * 12}px` }}
-								>
-									{group.filters.map((filter, index) => (
-										<div
-											key={index}
-											className="absolute -top-2 left-0"
-											style={{
-												zIndex: group.filters.length - index,
-												left: `${index * 10}px`
-											}}
-										>
-											<RenderIcon className="h-4 w-4" icon={filter.icon} />
-										</div>
-									))}
-								</div>
-							)}
-							{group.filters.length === 1 && (
-								<RenderIcon className="h-4 w-4" icon={group.filters[0]?.icon} />
-							)}
-							{group.filters.length > 1
-								? `${group.filters.length} ${pluralize(meta?.name)}`
-								: group.filters[0]?.name}
+						<InteractiveSection className="border-l">
+							{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
+								<div key={value}>{displayName}</div>
+							))} */}
+							in
 						</InteractiveSection>
 
-						{showRemoveButton && (
+						<InteractiveSection className="border-app-darkerBox/70 gap-1 border-l py-0.5 pl-1.5 pr-2 text-sm">
+							{activeOptions && (
+								<>
+									{activeOptions.length === 1 ? (
+										<RenderIcon
+											className="h-4 w-4"
+											icon={activeOptions[0]!.icon}
+										/>
+									) : (
+										<div
+											className="relative"
+											style={{ width: `${activeOptions.length * 12}px` }}
+										>
+											{activeOptions.map((option, index) => (
+												<div
+													key={index}
+													className="absolute -top-2 left-0"
+													style={{
+														zIndex: activeOptions.length - index,
+														left: `${index * 10}px`
+													}}
+												>
+													<RenderIcon
+														className="h-4 w-4"
+														icon={option.icon}
+													/>
+												</div>
+											))}
+										</div>
+									)}
+									{activeOptions.length > 1
+										? `${activeOptions.length} ${pluralize(filter.name)}`
+										: activeOptions[0]?.name}
+								</>
+							)}
+							{/* {group.filters.length > 1
+								? `${group.filters.length} ${pluralize(meta?.name)}`
+								: group.filters[0]?.name}  */}
+						</InteractiveSection>
+
+						{!isFixed && (
 							<CloseTab
-								onClick={() =>
-									group.filters.forEach((filter) => {
-										if (filter.canBeRemoved) {
-											deselectFilterOption(filter);
-										}
-									})
-								}
+								onClick={() => {
+									getSearchStore().filterArgs = ref(
+										produce(getSearchStore().filterArgs, (args) => {
+											args.splice(index);
+
+											return args;
+										})
+									);
+								}}
 							/>
 						)}
 					</FilterContainer>
@@ -122,3 +145,67 @@ function pluralize(word?: string) {
 	if (word?.endsWith('s')) return word;
 	return `${word}s`;
 }
+
+// {
+// 	groupedFilters?.map((group) => {
+// 		const showRemoveButton = group.filters.some((filter) => filter.canBeRemoved);
+// 		const meta = filterRegistry.find((f) => f.name === group.type);
+
+// 		return (
+// 			<FilterContainer key={group.type}>
+// 				<StaticSection>
+// 					<RenderIcon className="h-4 w-4" icon={meta?.icon} />
+// 					<FilterText>{meta?.name}</FilterText>
+// 				</StaticSection>
+// 				{meta?.conditions && (
+// 					<InteractiveSection className="border-l">
+// 						{/* {Object.values(meta.conditions).map((condition) => (
+// 									<div key={condition}>{condition}</div>
+// 								))} */}
+// 						is
+// 					</InteractiveSection>
+// 				)}
+
+// 				<InteractiveSection className="border-app-darkerBox/70 gap-1 border-l py-0.5 pl-1.5 pr-2 text-sm">
+// 					{group.filters.length > 1 && (
+// 						<div
+// 							className="relative"
+// 							style={{ width: `${group.filters.length * 12}px` }}
+// 						>
+// 							{group.filters.map((filter, index) => (
+// 								<div
+// 									key={index}
+// 									className="absolute -top-2 left-0"
+// 									style={{
+// 										zIndex: group.filters.length - index,
+// 										left: `${index * 10}px`
+// 									}}
+// 								>
+// 									<RenderIcon className="h-4 w-4" icon={filter.icon} />
+// 								</div>
+// 							))}
+// 						</div>
+// 					)}
+// 					{group.filters.length === 1 && (
+// 						<RenderIcon className="h-4 w-4" icon={group.filters[0]?.icon} />
+// 					)}
+// 					{group.filters.length > 1
+// 						? `${group.filters.length} ${pluralize(meta?.name)}`
+// 						: group.filters[0]?.name}
+// 				</InteractiveSection>
+
+// 				{showRemoveButton && (
+// 					<CloseTab
+// 						onClick={() =>
+// 							group.filters.forEach((filter) => {
+// 								if (filter.canBeRemoved) {
+// 									deselectFilterOption(filter);
+// 								}
+// 							})
+// 						}
+// 					/>
+// 				)}
+// 			</FilterContainer>
+// 		);
+// 	});
+// }

@@ -95,7 +95,7 @@ const SearchOptions = () => {
 			.map((o) => ({ ...o, type: filter.name }));
 
 		// eslint-disable-next-line react-hooks/rules-of-hooks
-		useRegisterSearchFilterOptions(options);
+		useRegisterSearchFilterOptions(filter, options);
 
 		return [filter, options] as const;
 	});
@@ -108,7 +108,7 @@ const SearchOptions = () => {
 			onMouseLeave={() => {
 				getSearchStore().interactingWithSearchOptions = false;
 			}}
-			className="flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 bg-app-darkerBox/90 px-4 backdrop-blur"
+			className="bg-app-darkerBox/90 flex h-[45px] w-full flex-row items-center gap-4 border-b border-app-line/50 px-4 backdrop-blur"
 		>
 			{/* <OptionContainer className="flex flex-row items-center">
 				<FilterContainer>
@@ -168,7 +168,7 @@ const SearchOptions = () => {
 						: filtersWithOptions.map(([filter, options]) => (
 								<filter.Render
 									key={filter.name}
-									filter={filter}
+									filter={filter as any}
 									options={options}
 								/>
 						  ))}
