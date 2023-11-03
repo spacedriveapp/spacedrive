@@ -96,12 +96,7 @@ export const Rename = new ConditionalItem({
 
 		const settings = useExplorerContext().useSettingsSnapshot();
 
-		if (
-			settings.layoutMode === 'media' ||
-			selectedItems.length > 1 ||
-			selectedItems.some((item) => item.type === 'NonIndexedPath')
-		)
-			return null;
+		if (settings.layoutMode === 'media' || selectedItems.length > 1) return null;
 
 		return {};
 	},

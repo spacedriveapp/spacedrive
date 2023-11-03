@@ -258,24 +258,27 @@ pub(super) async fn worker(
 
 			StreamMessage::Shutdown(cancel_tx) => {
 				debug!("Thumbnail actor is shutting down...");
+				let start = Instant::now();
 
 				// First stopping the current batch processing
-				let (tx, rx) = oneshot::channel();
-				match stop_older_processing_tx.try_send(tx) {
-					Ok(()) => {
-						// We put a timeout here to avoid a deadlock in case the older processing already
-						// finished its batch
-						if timeout(ONE_SEC, rx).await.is_err() {
+				if current_batch_processing_rx.is_some() {
+					let (tx, rx) = oneshot::channel();
+					match stop_older_processing_tx.try_send(tx) {
+						Ok(()) => {
+							// We put a timeout here to avoid a deadlock in case the older processing already
+							// finished its batch
+							if timeout(ONE_SEC, rx).await.is_err() {
+								stop_older_processing_rx.recv().await.ok();
+							}
+						}
+						Err(e) if e.is_full() => {
+							// The last signal we sent happened after a batch was already processed
+							// So we clean the channel and we're good to go.
 							stop_older_processing_rx.recv().await.ok();
 						}
-					}
-					Err(e) if e.is_full() => {
-						// The last signal we sent happened after a batch was already processed
-						// So we clean the channel and we're good to go.
-						stop_older_processing_rx.recv().await.ok();
-					}
-					Err(_) => {
-						error!("Thumbnail actor died when trying to stop older processing");
+						Err(_) => {
+							error!("Thumbnail actor died when trying to stop older processing");
+						}
 					}
 				}
 
@@ -312,6 +315,8 @@ pub(super) async fn worker(
 
 				// Signaling that we're done shutting down
 				cancel_tx.send(()).ok();
+
+				debug!("Thumbnailer has been shutdown in {:?}", start.elapsed());
 				return;
 			}
 
