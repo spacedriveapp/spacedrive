@@ -38,7 +38,7 @@ interface SearchFilterCRUD<
 	applyRemove: (args: T, option: FilterOption) => T | undefined;
 	argsToOptions: (args: T) => FilterOption[];
 	find: (arg: SearchFilterArgs) => T | undefined;
-	create: () => SearchFilterArgs;
+	create: (data: any) => SearchFilterArgs;
 }
 
 export interface RenderSearchFilter<
@@ -132,7 +132,7 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 					const searchStore = getSearchStore();
 
 					searchStore.filterArgs = ref(
-						produce(store.filterArgs, (args) => {
+						produce(searchStore.filterArgs, (args) => {
 							const key = getKey({
 								type: filter.name,
 								name: value,
@@ -141,12 +141,14 @@ const FilterOptionText = ({ filter }: { filter: SearchFilterCRUD }) => {
 
 							if (searchStore.fixedFilterKeys.has(key)) return;
 
-							const arg = filter.create();
+							const arg = filter.create(value);
 							args.push(arg);
 
-							filter.applyAdd(arg, { name: value, value });
+							filter.applyAdd(filter.find(arg)!, { name: value, value });
 						})
 					);
+
+					console.log(snapshot(searchStore).filterArgs);
 				}}
 			>
 				Apply
@@ -214,6 +216,7 @@ function createInOrNotInFilter<T extends string | number>(
 		| 'create'
 	> & {
 		create(value: InOrNotIn<T>): SearchFilterArgs;
+		argsToOptions(values: T[]): FilterOption[];
 	}
 ): ReturnType<typeof createFilter<(typeof filterTypeCondition)['inOrNotIn'], InOrNotIn<T>>> {
 	return {
@@ -249,21 +252,7 @@ function createInOrNotInFilter<T extends string | number>(
 			if ('in' in data) values = data.in;
 			else values = data.notIn;
 
-			return values
-				.map((value) => {
-					const option = getSearchStore()
-						.filterOptions.get(filter.name)
-						?.find((o) => o.value === value);
-
-					if (!option) return;
-
-					return {
-						type: filter.name,
-						name: option.name,
-						value
-					};
-				})
-				.filter(Boolean);
+			return filter.argsToOptions(values);
 		},
 		applyAdd: (data, option) => {
 			if ('in' in data) data.in.push(option.value);
@@ -306,8 +295,8 @@ function createTextMatchFilter(
 	return {
 		...filter,
 		conditions: filterTypeCondition.textMatch,
-		create: () => {
-			return filter.create({ contains: '' });
+		create: (contains) => {
+			return filter.create({ contains });
 		},
 		getCondition: (data) => {
 			if ('contains' in data) return 'contains';
@@ -327,7 +316,7 @@ function createTextMatchFilter(
 				[condition]: value
 			};
 		},
-		getActiveOptions: (data, options) => {
+		getActiveOptions: (data) => {
 			let value: string;
 
 			if ('contains' in data) value = data.contains;
@@ -335,7 +324,13 @@ function createTextMatchFilter(
 			else if ('endsWith' in data) value = data.endsWith;
 			else value = data.equals;
 
-			return [options.find((o) => o.value === v) ?? undefined].filter(Boolean);
+			return [
+				{
+					type: filter.name,
+					name: value,
+					value
+				}
+			];
 		},
 		argsToOptions: (data) => {
 			let value: string;
@@ -345,16 +340,10 @@ function createTextMatchFilter(
 			else if ('endsWith' in data) value = data.endsWith;
 			else value = data.equals;
 
-			const option = getSearchStore()
-				.filterOptions.get(filter.name)
-				?.find((o) => o.value === value);
-
-			if (!option) return [];
-
 			return [
 				{
 					type: filter.name,
-					name: option.name,
+					name: value,
 					value
 				}
 			];
@@ -439,6 +428,23 @@ export const filterRegistry = [
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
 		},
 		create: (locations) => ({ filePath: { locations } }),
+		argsToOptions(values) {
+			return values
+				.map((value) => {
+					const option = getSearchStore()
+						.filterOptions.get(this.name)
+						?.find((o) => o.value === value);
+
+					if (!option) return;
+
+					return {
+						type: this.name,
+						name: value,
+						value
+					};
+				})
+				.filter(Boolean) as any;
+		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 
@@ -459,6 +465,23 @@ export const filterRegistry = [
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
 		},
 		create: (tags) => ({ object: { tags } }),
+		argsToOptions(values) {
+			return values
+				.map((value) => {
+					const option = getSearchStore()
+						.filterOptions.get(this.name)
+						?.find((o) => o.value === value);
+
+					if (!option) return;
+
+					return {
+						type: this.name,
+						name: value,
+						value
+					};
+				})
+				.filter(Boolean) as any;
+		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
@@ -479,6 +502,23 @@ export const filterRegistry = [
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
 		},
 		create: (kind) => ({ object: { kind } }),
+		argsToOptions(values) {
+			return values
+				.map((value) => {
+					const option = getSearchStore()
+						.filterOptions.get(this.name)
+						?.find((o) => o.value === value);
+
+					if (!option) return;
+
+					return {
+						type: this.name,
+						name: value,
+						value
+					};
+				})
+				.filter(Boolean) as any;
+		},
 		useOptions: () => {
 			return Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
@@ -522,6 +562,13 @@ export const filterRegistry = [
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
 		},
 		create: (extension) => ({ filePath: { extension } }),
+		argsToOptions(values) {
+			return values.map((value) => ({
+				type: this.name,
+				name: value,
+				value
+			}));
+		},
 		useOptions: ({ search }) => {
 			return [
 				{

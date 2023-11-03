@@ -78,7 +78,11 @@ export const AppliedOptions = () => {
 							{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
 								<div key={value}>{displayName}</div>
 							))} */}
-							in
+							{
+								(filter.conditions as any)[
+									filter.getCondition(filter.find(arg) as any) as any
+								]
+							}
 						</InteractiveSection>
 
 						<InteractiveSection className="border-app-darkerBox/70 gap-1 border-l py-0.5 pl-1.5 pr-2 text-sm">
