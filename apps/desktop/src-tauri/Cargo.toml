@@ -29,10 +29,8 @@ sd-core = { path = "../../../core", features = [
 	"heif",
 ] }
 tokio = { workspace = true, features = ["sync"] }
-window-shadows = "0.2.2"
 tracing = { workspace = true }
 serde = "1.0.190"
-percent-encoding = "2.3.0"
 http = "0.2.9"
 opener = { version = "0.6.1", features = ["reveal"] }
 specta = { workspace = true }

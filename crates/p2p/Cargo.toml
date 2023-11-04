@@ -32,11 +32,9 @@ tracing = { workspace = true }
 serde = { version = "1.0.190", features = [
 	"derive",
 ] } # TODO: Optional or remove feature
-rmp-serde = "1.1.2"
 specta = { workspace = true }
 flume = "0.10.0" # Must match version used by `mdns-sd`
 tokio-util = { version = "0.7.10", features = ["compat"] }
-arc-swap = "1.6.0"
 ed25519-dalek = { version = "2.0.0", features = [] }
 rand_core = { version = "0.6.4" }
 uuid = "1.5.0"
