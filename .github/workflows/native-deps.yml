@@ -53,18 +53,20 @@ jobs:
           set -euxo pipefail
           cd .github/native-deps
           docker build --no-cache --build-arg TARGET=${{ matrix.settings.target }} -o . .
-          mv out/src.tar.xz ./
+          mv out/src.tar.xz ./native-deps-${{ matrix.settings.target }}-src.tar.xz
+          export XZ_OPT='-T0 -7'
+          tar -cJf "native-deps-${{ matrix.settings.target }}.tar.xz" -C out .
 
       - name: Publish native-deps
         uses: actions/upload-artifact@v3
         with:
           name: native-deps-${{ matrix.settings.target }}
-          path: .github/native-deps/out/*
+          path: .github/native-deps/native-deps-${{ matrix.settings.target }}.tar.xz
           if-no-files-found: error
 
       - name: Publish built source
         uses: actions/upload-artifact@v3
         with:
-          name: native-deps-${{ matrix.settings.target }}-source
+          name: native-deps-${{ matrix.settings.target }}-src
           path: .github/native-deps/src.tar.xz
           if-no-files-found: warn
