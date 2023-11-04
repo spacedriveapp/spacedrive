@@ -2,6 +2,7 @@ use crate::{api::CoreEvent, invalidate_query, library::Library, Node};
 
 use std::{
 	fmt,
+	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -361,7 +362,7 @@ impl Worker {
 		let mut last_reporter_watch_update = Instant::now();
 		invalidate_query!(library, "jobs.reports");
 
-		let mut finalized_events_rx = events_rx.clone();
+		let mut finalized_events_rx = pin!(events_rx.clone());
 
 		let mut is_paused = false;
 
@@ -391,12 +392,12 @@ impl Worker {
 			Tick,
 		}
 
-		let mut msg_stream = (
+		let mut msg_stream = pin!((
 			stream::once(&mut run_task).map(StreamMessage::JobResult),
 			events_rx.map(StreamMessage::NewEvent),
 			IntervalStream::new(timeout_checker).map(|_| StreamMessage::Tick),
 		)
-			.merge();
+			.merge());
 
 		let mut events_ended = false;
 

@@ -16,6 +16,7 @@ import {
 	getDismissibleNoticeStore,
 	useDismissibleNoticeStore,
 	useIsDark,
+	useKeyDeleteFile,
 	useOperatingSystem,
 	useZodSearchParams
 } from '~/hooks';
@@ -199,13 +200,16 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 
 		return ret;
-	}, [query.data, settingsSnapshot.layoutMode, settingsSnapshot.showHiddenFiles]);
+	}, [query.data, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,
+		parent: path != null ? { type: 'Ephemeral', path } : undefined,
 		settings: explorerSettings,
 		layouts: { media: false }
 	});
+
+	useKeyDeleteFile(explorer.selectedItems, null);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
