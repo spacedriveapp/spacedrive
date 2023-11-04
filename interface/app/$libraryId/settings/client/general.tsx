@@ -99,15 +99,6 @@ export const Component = () => {
 						</div>
 					</div>
 
-					<div className="flex w-full items-center gap-5">
-						<div className="flex flex-col">
-							{/* <Input
-								{...form.register('name', { required: true })}
-								defaultValue={node.data?.name}
-							/> */}
-						</div>
-					</div>
-
 					<div className="mt-6 gap-2">
 						{/* <div
 							onClick={() => {
