@@ -1,11 +1,12 @@
 name: Trigger Algolia Crawler
 
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - main
     paths:
       - 'docs/**'
+    branches:
+      - main
 
 jobs:
   trigger_crawler:
