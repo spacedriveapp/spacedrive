@@ -60,10 +60,8 @@ ARG OUT
 ENV OUT="${OUT:?}"
 ENV PREFIX="/opt/prefix"
 ENV SYSROOT="/opt/sysroot"
-ARG MACOS_SDK_VERSION
-ENV MACOS_SDK_VERSION="${MACOS_SDK_VERSION:?}"
-ENV MACOS_SDKROOT="/opt/MacOSX${MACOS_SDK_VERSION}.sdk"
 
+# Ensure sysroot is present on PATH
 ENV PATH="${SYSROOT}/bin:$PATH"
 
 # Create required directories
@@ -71,10 +69,6 @@ RUN mkdir -p "$OUT" "${PREFIX}/bin" "${SYSROOT}/bin" "${SYSROOT}/wrapper"
 
 # Utility to download, extract and cache archived files
 ADD --chmod=0750 ./scripts/curl_tar.sh "${SYSROOT}/bin/curl_tar"
-
-# Install macOS SDK
-RUN --mount=type=cache,target=/root/.cache `
-	curl_tar "https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION:?}/MacOSX${MACOS_SDK_VERSION:?}.sdk.tar.xz" "$MACOS_SDKROOT" 1
 
 # Download and install zig toolchain
 ARG ZIG_VERSION
@@ -159,10 +153,19 @@ COPY ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
 # Create a meson wrapper script with some pre-configurations
 COPY ./scripts/meson.sh "${SYSROOT}/wrapper/meson"
 
-# Create cmake and meson toolchain files
+# Install macOS SDK for darwin targets
 ARG TARGET
+ARG MACOS_SDK_VERSION
+ENV MACOS_SDK_VERSION="${MACOS_SDK_VERSION:?}"
+ENV MACOS_SDKROOT="/opt/MacOSX${MACOS_SDK_VERSION}.sdk"
+RUN --mount=type=cache,target=/root/.cache case "${TARGET:?}" in *darwin*) `
+	curl_tar `
+	"https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION:?}/MacOSX${MACOS_SDK_VERSION:?}.sdk.tar.xz" `
+	"$MACOS_SDKROOT" 1 ;; esac
+
+# Create cmake and meson toolchain files
 ENV TARGET="${TARGET:?}"
-RUN --mount=type=bind,source=scripts/toolchain.sh,target=/srv/toolchain.sh /srv/toolchain.sh
+RUN --mount=type=bind,rw,source=scripts/toolchain.sh,target=/srv/toolchain.sh /srv/toolchain.sh
 
 # Wrapper script that defines autotools and configure flags
 COPY ./scripts/build.sh /srv/build.sh
@@ -457,7 +460,7 @@ RUN rm -rf "${OUT}/srv"
 # Ensure all .so libs have the correct rpaths
 RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' \) -exec patchelf --set-rpath '$ORIGIN' {} \;
 # Strip debug symbols and ensure any .so, .dll, .dylib has the execution flag set
-RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' -o -name '*.dylib' \) -exec `
+RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' \) -exec `
 	sh -euxc 'llvm-strip-16 -S "$@" && chmod +x "$@"' sh {} +
 
 # Symlink .lib to .dll.a

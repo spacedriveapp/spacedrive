@@ -31,7 +31,7 @@ export async function downloadNativeDeps(machineId, nativeDeps, branches) {
 		}
 	}
 
-	console.log('Downloading FFMPeg...')
+	console.log('Downloading Native deps...')
 
 	const ffmpegSuffix = getSuffix(NATIVE_DEPS_SUFFIX, machineId)
 	if (ffmpegSuffix == null) throw new Error('NO_FFMPEG')

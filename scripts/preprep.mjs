@@ -8,11 +8,7 @@ import * as _mustache from 'mustache'
 import { downloadNativeDeps } from './utils/deps.mjs'
 import { getGitBranches } from './utils/git.mjs'
 import { getMachineId } from './utils/machineId.mjs'
-import {
-	setupMacOsFramework,
-	symlinkSharedLibsMacOS,
-	symlinkSharedLibsLinux,
-} from './utils/shared.mjs'
+import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
 import { which } from './utils/which.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
@@ -83,14 +79,9 @@ try {
 			throw e
 		})
 	} else if (machineId[0] === 'Darwin') {
-		console.log(`Setup Framework...`)
-		await setupMacOsFramework(nativeDeps).catch(e => {
-			console.error(`Failed to setup Framework. ${bugWarn}`)
-			throw e
-		})
 		// This is still required due to how ffmpeg-sys-next builds script works
 		console.log(`Symlink shared libs...`)
-		await symlinkSharedLibsMacOS(nativeDeps).catch(e => {
+		await symlinkSharedLibsMacOS(__root, nativeDeps).catch(e => {
 			console.error(`Failed to symlink shared libs. ${bugWarn}`)
 			throw e
 		})

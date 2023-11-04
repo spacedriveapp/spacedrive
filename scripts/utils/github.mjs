@@ -228,7 +228,6 @@ export async function getGh(route) {
 export async function* getGhReleasesAssets(repo) {
 	let page = 0
 	while (true) {
-		// "${_gh_url}/protocolbuffers/protobuf/releases?page=${_page}&per_page=100"
 		const releases = JSON.parse(
 			(await getGh(path.join(repo, `${RELEASES}?page=${page++}&per_page=100`))).toString(
 				'utf8'

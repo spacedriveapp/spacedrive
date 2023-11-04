@@ -19,58 +19,6 @@ async function link(origin, target, rename) {
 }
 
 /**
- * Move headers and dylibs of external deps to our framework
- * @param {string} nativeDeps
- */
-export async function setupMacOsFramework(nativeDeps) {
-	// External deps
-	const lib = path.join(nativeDeps, 'lib')
-	const include = path.join(nativeDeps, 'include')
-
-	// Framework
-	const framework = path.join(nativeDeps, 'Spacedrive.framework')
-	const headers = path.join(framework, 'Headers')
-	const libraries = path.join(framework, 'Libraries')
-	const documentation = path.join(framework, 'Resources', 'English.lproj', 'Documentation')
-
-	// Move files
-	await Promise.all([
-		// Move pdfium license to framework
-		fs.rename(
-			path.join(nativeDeps, 'LICENSE.pdfium'),
-			path.join(documentation, 'LICENSE.pdfium')
-		),
-		// Move dylibs to framework
-		fs.readdir(lib, { recursive: true, withFileTypes: true }).then(file =>
-			file
-				.filter(
-					entry =>
-						(entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.dylib')
-				)
-				.map(entry => {
-					const file = path.join(entry.path, entry.name)
-					const newFile = path.resolve(libraries, path.relative(lib, file))
-					return link(file, newFile, true)
-				})
-		),
-		// Move headers to framework
-		fs.readdir(include, { recursive: true, withFileTypes: true }).then(file =>
-			file
-				.filter(
-					entry =>
-						(entry.isFile() || entry.isSymbolicLink()) &&
-						!entry.name.endsWith('.proto')
-				)
-				.map(entry => {
-					const file = path.join(entry.path, entry.name)
-					const newFile = path.resolve(headers, path.relative(include, file))
-					return link(file, newFile, true)
-				})
-		),
-	])
-}
-
-/**
  * Symlink shared libs paths for Linux
  * @param {string} root
  * @param {string} nativeDeps
@@ -87,9 +35,13 @@ export async function symlinkSharedLibsLinux(root, nativeDeps) {
 
 /**
  * Symlink shared libs paths for macOS
+ * @param {string} root
  * @param {string} nativeDeps
  */
-export async function symlinkSharedLibsMacOS(nativeDeps) {
+export async function symlinkSharedLibsMacOS(root, nativeDeps) {
+	// rpath=@executable_path/../Frameworks/Spacedrive.framework
+	const targetFrameworks = path.join(root, 'target', 'Frameworks')
+
 	// External deps
 	const lib = path.join(nativeDeps, 'lib')
 	const include = path.join(nativeDeps, 'include')
@@ -98,6 +50,11 @@ export async function symlinkSharedLibsMacOS(nativeDeps) {
 	const framework = path.join(nativeDeps, 'Spacedrive.framework')
 	const headers = path.join(framework, 'Headers')
 	const libraries = path.join(framework, 'Libraries')
+
+	// Link Spacedrive.framework to target folder so sd-server can work ootb
+	await fs.rm(targetFrameworks, { recursive: true }).catch(() => {})
+	await fs.mkdir(targetFrameworks, { recursive: true })
+	await link(framework, path.join(targetFrameworks, 'Spacedrive.framework'))
 
 	// Link files
 	await Promise.all([

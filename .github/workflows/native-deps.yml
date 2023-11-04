@@ -68,5 +68,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: native-deps-${{ matrix.settings.target }}-src
-          path: .github/native-deps/src.tar.xz
+          path: .github/native-deps/native-deps-${{ matrix.settings.target }}.tar.xz
           if-no-files-found: warn

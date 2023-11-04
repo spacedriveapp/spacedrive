@@ -84,6 +84,9 @@ while [ "$#" -gt 0 ]; do
     continue
   elif [ "$1" = '-' ]; then
     stdin=1
+  # Drop debug symbols
+  elif [ "$1" = '-g' ]; then
+    true
   elif [ "$1" = '-lgcc_s' ]; then
     # Replace libgcc_s with libunwind
     argv+=('-lunwind')
