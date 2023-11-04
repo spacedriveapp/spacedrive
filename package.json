@@ -39,7 +39,7 @@
 		"@cspell/dict-rust": "^4.0.1",
 		"@cspell/dict-typescript": "^3.1.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.1",
-		"@storybook/react-vite": "^7.5.1",
+		"@storybook/react-vite": "^7.5.2",
 		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.6",
@@ -56,7 +56,7 @@
 		"pnpm": ">=8.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=18.17 <19 || >=20.1 <21"
+		"node": ">=18.17 <19 || >=20.1"
 	},
 	"eslintConfig": {
 		"root": true
