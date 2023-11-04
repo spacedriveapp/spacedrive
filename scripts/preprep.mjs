@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import * as _mustache from 'mustache'
 
-import { downloadFFMpeg, downloadPDFium, downloadProtc } from './utils/deps.mjs'
+import { downloadNativeDeps } from './utils/deps.mjs'
 import { getGitBranches } from './utils/git.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import {
@@ -66,30 +66,13 @@ await Promise.all(
 // Accepted git branches for querying for artifacts (current, main, master)
 const branches = await getGitBranches(__root)
 
-// Download all necessary external dependencies
-await Promise.all([
-	downloadProtc(machineId, nativeDeps).catch(e => {
-		console.error(
-			'Failed to download protobuf compiler, this is required to build Spacedrive. ' +
-				'Please install it with your system package manager'
-		)
-		throw e
-	}),
-	downloadPDFium(machineId, nativeDeps).catch(e => {
-		console.warn(
-			'Failed to download pdfium lib. ' +
-				"This is optional, but if one isn't present Spacedrive won't be able to generate thumbnails for PDF files"
-		)
-		if (__debug) console.error(e)
-	}),
-	downloadFFMpeg(machineId, nativeDeps, branches).catch(e => {
-		console.error(`Failed to download ffmpeg. ${bugWarn}`)
-		throw e
-	}),
-]).catch(e => {
+try {
+	await downloadNativeDeps(machineId, nativeDeps, branches)
+} catch (e) {
+	console.error(`Failed to download native dependencies. ${bugWarn}`)
 	if (__debug) console.error(e)
 	exit(1)
-})
+}
 
 // Extra OS specific setup
 try {

@@ -39,7 +39,7 @@
 				]
 			},
 			"macOS": {
-				"frameworks": ["../../.deps/FFMpeg.framework"],
+				"frameworks": ["../../.deps/Spacedrive.framework"],
 				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"entitlements": null

@@ -28,7 +28,7 @@ export async function setupMacOsFramework(nativeDeps) {
 	const include = path.join(nativeDeps, 'include')
 
 	// Framework
-	const framework = path.join(nativeDeps, 'FFMpeg.framework')
+	const framework = path.join(nativeDeps, 'Spacedrive.framework')
 	const headers = path.join(framework, 'Headers')
 	const libraries = path.join(framework, 'Libraries')
 	const documentation = path.join(framework, 'Resources', 'English.lproj', 'Documentation')
@@ -95,7 +95,7 @@ export async function symlinkSharedLibsMacOS(nativeDeps) {
 	const include = path.join(nativeDeps, 'include')
 
 	// Framework
-	const framework = path.join(nativeDeps, 'FFMpeg.framework')
+	const framework = path.join(nativeDeps, 'Spacedrive.framework')
 	const headers = path.join(framework, 'Headers')
 	const libraries = path.join(framework, 'Libraries')
 

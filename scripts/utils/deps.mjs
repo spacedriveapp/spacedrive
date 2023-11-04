@@ -1,119 +1,17 @@
-import * as fs from 'node:fs/promises'
-import * as os from 'node:os'
-import * as path from 'node:path'
 import { env } from 'node:process'
 
 import { extractTo } from 'archive-wasm/src/fs.mjs'
 
-import {
-	FFMPEG_SUFFFIX,
-	FFMPEG_WORKFLOW,
-	getConst,
-	getSuffix,
-	PDFIUM_SUFFIX,
-	PROTOC_SUFFIX,
-} from './consts.mjs'
-import {
-	getGh,
-	getGhArtifactContent,
-	getGhReleasesAssets,
-	getGhWorkflowRunArtifacts,
-} from './github.mjs'
+import { getConst, getSuffix, NATIVE_DEPS_SUFFIX, NATIVE_DEPS_WORKFLOW } from './consts.mjs'
+import { getGhArtifactContent, getGhWorkflowRunArtifacts } from './github.mjs'
 import { which } from './which.mjs'
 
-const noop = () => {}
-
 const __debug = env.NODE_ENV === 'debug'
-const __osType = os.type()
+
+const sizeLimit = 256n * 1024n * 1024n
 
 // Github repos
-const PDFIUM_REPO = 'bblanchon/pdfium-binaries'
-const PROTOBUF_REPO = 'protocolbuffers/protobuf'
 const SPACEDRIVE_REPO = 'spacedriveapp/spacedrive'
-
-/**
- * Download and extract protobuff compiler binary
- * @param {string[]} machineId
- * @param {string} nativeDeps
- */
-export async function downloadProtc(machineId, nativeDeps) {
-	if (await which('protoc')) return
-
-	console.log('Downloading protoc...')
-
-	const protocSuffix = getSuffix(PROTOC_SUFFIX, machineId)
-	if (protocSuffix == null) throw new Error('NO_PROTOC')
-
-	let found = false
-	for await (const release of getGhReleasesAssets(PROTOBUF_REPO)) {
-		if (!protocSuffix.test(release.name)) continue
-		try {
-			await extractTo(await getGh(release.downloadUrl), nativeDeps, {
-				chmod: 0o600,
-				overwrite: true,
-			})
-			found = true
-			break
-		} catch (error) {
-			console.warn('Failed to download protoc, re-trying...')
-			if (__debug) console.error(error)
-		}
-	}
-
-	if (!found) throw new Error('NO_PROTOC')
-
-	// cleanup
-	await fs.unlink(path.join(nativeDeps, 'readme.txt')).catch(__debug ? console.error : noop)
-}
-
-/**
- * Download and extract pdfium library for generating PDFs thumbnails
- * @param {string[]} machineId
- * @param {string} nativeDeps
- */
-export async function downloadPDFium(machineId, nativeDeps) {
-	console.log('Downloading pdfium...')
-
-	const pdfiumSuffix = getSuffix(PDFIUM_SUFFIX, machineId)
-	if (pdfiumSuffix == null) throw new Error('NO_PDFIUM')
-
-	let found = false
-	for await (const release of getGhReleasesAssets(PDFIUM_REPO)) {
-		if (!pdfiumSuffix.test(release.name)) continue
-		try {
-			await extractTo(await getGh(release.downloadUrl), nativeDeps, {
-				chmod: 0o600,
-				overwrite: true,
-			})
-			found = true
-			break
-		} catch (error) {
-			console.warn('Failed to download pdfium, re-trying...')
-			if (__debug) console.error(error)
-		}
-	}
-
-	if (!found) throw new Error('NO_PDFIUM')
-
-	// cleanup
-	const cleanup = [
-		fs.rename(path.join(nativeDeps, 'LICENSE'), path.join(nativeDeps, 'LICENSE.pdfium')),
-		...['args.gn', 'PDFiumConfig.cmake', 'VERSION'].map(file =>
-			fs.unlink(path.join(nativeDeps, file)).catch(__debug ? console.error : noop)
-		),
-	]
-
-	switch (__osType) {
-		case 'Linux':
-			cleanup.push(fs.chmod(path.join(nativeDeps, 'lib', 'libpdfium.so'), 0o750))
-			break
-		case 'Darwin':
-			cleanup.push(fs.chmod(path.join(nativeDeps, 'lib', 'libpdfium.dylib'), 0o750))
-			break
-	}
-
-	await Promise.all(cleanup)
-}
 
 /**
  * Download and extract ffmpeg libs for video thumbnails
@@ -121,8 +19,8 @@ export async function downloadPDFium(machineId, nativeDeps) {
  * @param {string} nativeDeps
  * @param {string[]} branches
  */
-export async function downloadFFMpeg(machineId, nativeDeps, branches) {
-	const workflow = getConst(FFMPEG_WORKFLOW, machineId)
+export async function downloadNativeDeps(machineId, nativeDeps, branches) {
+	const workflow = getConst(NATIVE_DEPS_WORKFLOW, machineId)
 	if (workflow == null) {
 		console.log('Checking FFMPeg...')
 		if (await which('ffmpeg')) {
@@ -135,7 +33,7 @@ export async function downloadFFMpeg(machineId, nativeDeps, branches) {
 
 	console.log('Downloading FFMPeg...')
 
-	const ffmpegSuffix = getSuffix(FFMPEG_SUFFFIX, machineId)
+	const ffmpegSuffix = getSuffix(NATIVE_DEPS_SUFFIX, machineId)
 	if (ffmpegSuffix == null) throw new Error('NO_FFMPEG')
 
 	let found = false
@@ -145,6 +43,7 @@ export async function downloadFFMpeg(machineId, nativeDeps, branches) {
 			const data = await getGhArtifactContent(SPACEDRIVE_REPO, artifact.id)
 			await extractTo(data, nativeDeps, {
 				chmod: 0o600,
+				sizeLimit,
 				recursive: true,
 				overwrite: true,
 			})

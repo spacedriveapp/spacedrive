@@ -15,7 +15,7 @@ use tracing::error;
 const BINDING_LOCATION: &str = ".";
 #[cfg(unix)]
 const BINDING_LOCATION: &str = if cfg!(target_os = "macos") {
-	"../Frameworks/FFMpeg.framework/Libraries"
+	"../Frameworks/Spacedrive.framework/Libraries"
 } else {
 	"../lib/spacedrive"
 };
