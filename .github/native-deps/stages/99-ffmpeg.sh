@@ -193,9 +193,16 @@ case "$TARGET" in
     ;;
 esac
 
+_arch="${TARGET%%-*}"
+case "$TARGET" in
+  aarch64-darwin*)
+    _arch=arm64
+    ;;
+esac
+
 if ! ./configure \
-  --cpu="${TARGET%%-*}" \
-  --arch="${TARGET%%-*}" \
+  --cpu="$_arch" \
+  --arch="$_arch" \
   --prefix="$OUT" \
   --target-os="$(
     case "$TARGET" in

@@ -46,7 +46,7 @@ env RC="$WINDRES" ./configure \
         echo '--disable-asm'
         ;;
       aarch64-darwin*)
-        echo '--host=aarch64-apple-darwin20'
+        echo '--host=arm64-apple-darwin20'
         echo '--disable-win32thread'
         # FIX-ME: x264 aarch64 asm causes ld64.lld (macOS) to segfault
         echo '--disable-asm'

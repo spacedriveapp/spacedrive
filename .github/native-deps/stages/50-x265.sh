@@ -24,10 +24,18 @@ common_config=(
   -DENABLE_CLI=Off
   -DENABLE_TESTS=Off
   -DENABLE_SHARED=Off
-  -DENABLE_ASSEMBLY=On
   -DENABLE_SVT_HEVC=Off
   -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
 )
+
+case "$TARGET" in
+  *darwin*)
+    common_config+=(-DENABLE_ASSEMBLY=Off)
+    ;;
+  *)
+    common_config+=(-DENABLE_ASSEMBLY=On)
+    ;;
+esac
 
 mkdir 8bit 10bit 12bit
 
