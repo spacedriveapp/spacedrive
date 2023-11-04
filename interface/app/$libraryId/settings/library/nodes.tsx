@@ -1,5 +1,4 @@
 import {
-	isEnabled,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
@@ -43,8 +42,6 @@ function IncorrectP2PPairingPane() {
 		}
 	});
 
-	const libraries = useBridgeQuery(['library.list']);
-
 	return (
 		<>
 			<div className="flex-space-4 flex w-full">
@@ -78,20 +75,6 @@ function IncorrectP2PPairingPane() {
 						</div>
 					))}
 				</div>
-			</div>
-			<div>
-				<p>Libraries:</p>
-				{libraries.data?.map((v) => (
-					<div key={v.uuid} className="pb-2">
-						<p>
-							{v.config.name} - {v.uuid}
-						</p>
-						<div className="pl-5">
-							<p>Instance: {`${v.config.instance_id}/${v.instance_id}`}</p>
-							<p>Instance PK: {`${v.instance_public_key}`}</p>
-						</div>
-					</div>
-				))}
 			</div>
 		</>
 	);
