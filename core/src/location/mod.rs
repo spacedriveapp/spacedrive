@@ -9,7 +9,7 @@ use crate::{
 	},
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	util::{
-		db::maybe_missing,
+		db::{maybe_missing, MissingFieldError},
 		error::{FileIOError, NonUtf8PathError},
 	},
 	Node,
@@ -48,6 +48,8 @@ pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
 use file_path_helper::IsolatedFilePathData;
+
+pub type LocationPubId = Uuid;
 
 // Location includes!
 location::include!(location_with_indexer_rules {
@@ -532,7 +534,7 @@ pub async fn light_scan_location(
 pub async fn relink_location(
 	Library { db, id, sync, .. }: &Library,
 	location_path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
+) -> Result<i32, LocationError> {
 	let location_path = location_path.as_ref();
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -556,13 +558,23 @@ pub async fn relink_location(
 			json!(path),
 		),
 		db.location().update(
-			location::pub_id::equals(pub_id),
+			location::pub_id::equals(pub_id.clone()),
 			vec![location::path::set(Some(path))],
 		),
 	)
 	.await?;
 
-	Ok(())
+	let location_id = db
+		.location()
+		.find_unique(location::pub_id::equals(pub_id))
+		.select(location::select!({ id }))
+		.exec()
+		.await?
+		.ok_or_else(|| {
+			LocationError::MissingField(MissingFieldError::new("missing id of location"))
+		})?;
+
+	Ok(location_id.id)
 }
 
 #[derive(Debug)]

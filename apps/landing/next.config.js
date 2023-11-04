@@ -3,6 +3,7 @@ const { withContentlayer } = require('next-contentlayer');
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
 	enabled: process.env.ANALYZE === 'true'
 });
+const { withPlausibleProxy } = require('next-plausible');
 
 // Validate env on build // TODO: I wish we could do this so Vercel can warn us when we are wrong but it's too hard.
 // import './src/env.mjs';
@@ -54,7 +55,7 @@ const nextConfig = {
 			// Convert all other *.svg imports to React components so it's compatible with Vite's plugin.
 			{
 				test: /\.svg$/i,
-				issuer: /\.[jt]sx?$/,
+				issuer: { not: /\.(css|scss|sass)$/ },
 				resourceQuery: { not: /url/ }, // exclude if *.svg?url
 				use: [
 					{
@@ -77,4 +78,4 @@ const nextConfig = {
 	}
 };
 
-module.exports = withBundleAnalyzer(withContentlayer(nextConfig));
+module.exports = withPlausibleProxy()(withBundleAnalyzer(withContentlayer(nextConfig)));

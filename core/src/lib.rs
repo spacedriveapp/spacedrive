@@ -4,7 +4,6 @@ use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
 	object::media::thumbnail::actor::Thumbnailer,
-	p2p::sync::NetworkedLibraries,
 };
 
 use api::notifications::{Notification, NotificationData, NotificationId};
@@ -65,7 +64,6 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub nlm: Arc<NetworkedLibraries>,
 	pub thumbnailer: Thumbnailer,
 	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub env: env::Env,
@@ -100,16 +98,14 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		let (p2p, p2p_stream) = p2p::P2PManager::new(config.clone()).await?;
-
 		let (locations, locations_actor) = location::Locations::new();
 		let (jobs, jobs_actor) = job::Jobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+		let (p2p, p2p_actor) = p2p::P2PManager::new(config.clone(), libraries.clone()).await?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			jobs,
 			locations,
-			nlm: NetworkedLibraries::new(p2p.clone(), &libraries),
 			notifications: notifications::Notifications::new(),
 			p2p,
 			config,
@@ -141,7 +137,7 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		node.p2p.start(p2p_stream, node.clone());
+		p2p_actor.start(node.clone());
 
 		let router = api::mount();
 

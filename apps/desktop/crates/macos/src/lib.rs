@@ -12,7 +12,7 @@ pub enum AppThemeType {
 
 swift!(pub fn lock_app_theme(theme_type: Int));
 swift!(pub fn blur_window_background(window: &NSObject));
-swift!(pub fn set_titlebar_style(window: &NSObject, transparent: Bool, large: Bool));
+swift!(pub fn set_titlebar_style(window: &NSObject, is_fullscreen: Bool));
 // swift!(pub fn setup_disk_watcher(window: &NSObject, transparent: Bool, large: Bool));
 // swift!(pub fn disk_event_callback(mounted: Bool, path: &SRString));
 swift!(pub fn reload_webview(webview: &NSObject));

@@ -33,7 +33,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate to Settings page',
 			keys: {
 				macOS: {
-					value: ['Shift', modifierSymbols.Meta.macOS, 'T']
+					value: [modifierSymbols.Shift.macOS, modifierSymbols.Meta.macOS, 'T']
 				},
 				all: {
 					value: ['Shift', modifierSymbols.Control.Other, 'T']
@@ -44,7 +44,7 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			action: 'Navigate to Overview page',
 			keys: {
 				macOS: {
-					value: ['Shift', modifierSymbols.Meta.macOS, 'O']
+					value: [modifierSymbols.Shift.macOS, modifierSymbols.Meta.macOS, 'O']
 				},
 				all: {
 					value: ['Shift', modifierSymbols.Control.Other, 'O']
@@ -187,6 +187,17 @@ const shortcutCategories: Record<string, Shortcut[]> = {
 			}
 		},
 		{
+			action: 'Reveal in Explorer/Finder',
+			keys: {
+				macOS: {
+					value: [modifierSymbols.Meta.macOS, 'Y']
+				},
+				all: {
+					value: [modifierSymbols.Control.Other, 'Y']
+				}
+			}
+		},
+		{
 			action: 'Rename file or folder',
 			keys: {
 				windows: {
@@ -323,7 +334,7 @@ function createKeybindColumns(os: OperatingSystem) {
 				});
 				return shortcuts.map((shortcut, idx) => {
 					if (shortcut) {
-						if (shortcut.length > 2) {
+						if (shortcut.length >= 2) {
 							return (
 								<div key={idx.toString()} className="inline-flex items-center">
 									<kbd

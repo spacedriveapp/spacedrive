@@ -5,6 +5,7 @@ use std::{
 	fmt,
 	hash::{Hash, Hasher},
 	mem,
+	pin::pin,
 	sync::Arc,
 	time::Instant,
 };
@@ -482,9 +483,9 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		let target_location = init.target_location();
 
-		let stateful_job = Arc::new(init);
+		let mut stateful_job = Arc::new(init);
 
-		let ctx = Arc::new(ctx);
+		let mut ctx = Arc::new(ctx);
 
 		let mut job_should_run = true;
 		let job_init_time = Instant::now();
@@ -497,7 +498,6 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 			let init_time = Instant::now();
 			let init_task = {
 				let ctx = Arc::clone(&ctx);
-				let stateful_job = Arc::clone(&stateful_job);
 				spawn(async move {
 					let mut new_data = None;
 					let res = stateful_job.init(&ctx, &mut new_data).await;
@@ -508,11 +508,15 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 						}
 					}
 
-					(new_data, res)
+					(stateful_job, new_data, res)
 				})
 			};
 
-			let InitPhaseOutput { maybe_data, output } = handle_init_phase::<SJob>(
+			let InitPhaseOutput {
+				stateful_job: returned_stateful_job,
+				maybe_data,
+				output,
+			} = handle_init_phase::<SJob>(
 				JobRunWorkTable {
 					id: job_id,
 					name: job_name,
@@ -524,6 +528,8 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				commands_rx.clone(),
 			)
 			.await?;
+
+			stateful_job = returned_stateful_job;
 
 			match output {
 				Ok(JobInitOutput {
@@ -547,13 +553,13 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 		// Run the job until it's done or we get a command
 		let data = if let Some(working_data) = working_data {
-			let working_data_arc = Arc::new(working_data);
+			let mut working_data_arc = Arc::new(working_data);
 
 			// Job run phase
 			while job_should_run && !steps.is_empty() {
-				let steps_len = steps.len();
+				let steps_len: usize = steps.len();
 
-				let run_metadata_arc = Arc::new(run_metadata);
+				let mut run_metadata_arc = Arc::new(run_metadata);
 				let step = Arc::new(steps.pop_front().expect("just checked that we have steps"));
 
 				let init_time = Instant::now();
@@ -584,6 +590,13 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let JobStepsPhaseOutput {
 					steps: returned_steps,
 					output,
+					step_arcs:
+						(
+							returned_ctx,
+							returned_run_metadata_arc,
+							returned_working_data_arc,
+							returned_stateful_job,
+						),
 				} = handle_single_step::<SJob>(
 					JobRunWorkTable {
 						id: job_id,
@@ -593,10 +606,11 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 					},
 					&job_init_time,
 					(
-						Arc::clone(&ctx),
-						Arc::clone(&run_metadata_arc),
-						Arc::clone(&working_data_arc),
-						Arc::clone(&stateful_job),
+						// Must not hold extra references here; moving and getting back on function completion
+						ctx,
+						run_metadata_arc,
+						working_data_arc,
+						stateful_job,
 					),
 					JobStepDataWorkTable {
 						step_number,
@@ -609,6 +623,10 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				.await?;
 
 				steps = returned_steps;
+				ctx = returned_ctx;
+				run_metadata_arc = returned_run_metadata_arc;
+				working_data_arc = returned_working_data_arc;
+				stateful_job = returned_stateful_job;
 
 				run_metadata =
 					Arc::try_unwrap(run_metadata_arc).expect("step already ran, no more refs");
@@ -751,6 +769,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 }
 
 struct InitPhaseOutput<SJob: StatefulJob> {
+	stateful_job: Arc<SJob>,
 	maybe_data: Option<SJob::Data>,
 	output: Result<JobInitOutput<SJob::RunMetadata, SJob::Step>, JobError>,
 }
@@ -763,6 +782,7 @@ struct JobRunWorkTable {
 }
 
 type InitTaskOutput<SJob> = (
+	Arc<SJob>,
 	Option<<SJob as StatefulJob>::Data>,
 	Result<
 		JobInitOutput<<SJob as StatefulJob>::RunMetadata, <SJob as StatefulJob>::Step>,
@@ -791,11 +811,13 @@ async fn handle_init_phase<SJob: StatefulJob>(
 
 	let init_abort_handle = init_task.abort_handle();
 
-	let mut msg_stream = (
+	let mut msg_stream = pin!((
 		stream::once(init_task).map(StreamMessage::<SJob>::InitResult),
 		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
 	)
-		.merge();
+		.merge());
+
+	let mut commands_rx = pin!(commands_rx);
 
 	'messages: while let Some(msg) = msg_stream.next().await {
 		match msg {
@@ -806,13 +828,17 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				);
 				return Err(join_error.into());
 			}
-			StreamMessage::InitResult(Ok((maybe_data, output))) => {
+			StreamMessage::InitResult(Ok((stateful_job, maybe_data, output))) => {
 				debug!(
 					"Init phase took {:?} Job <id='{id}', name='{name}'>",
 					init_time.elapsed()
 				);
 
-				return Ok(InitPhaseOutput { maybe_data, output });
+				return Ok(InitPhaseOutput {
+					stateful_job,
+					maybe_data,
+					output,
+				});
 			}
 			StreamMessage::NewCommand(WorkerCommand::IdentifyYourself(tx)) => {
 				if tx
@@ -978,6 +1004,7 @@ struct JobStepDataWorkTable<SJob: StatefulJob> {
 struct JobStepsPhaseOutput<SJob: StatefulJob> {
 	steps: VecDeque<SJob::Step>,
 	output: StepTaskOutput<SJob>,
+	step_arcs: StepArcs<SJob>,
 }
 
 type StepArcs<SJob> = (
@@ -1012,11 +1039,13 @@ async fn handle_single_step<SJob: StatefulJob>(
 
 	let mut status = JobStatus::Running;
 
-	let mut msg_stream = (
+	let mut msg_stream = pin!((
 		stream::once(&mut step_task).map(StreamMessage::<SJob>::StepResult),
 		commands_rx.clone().map(StreamMessage::<SJob>::NewCommand),
 	)
-		.merge();
+		.merge());
+
+	let mut commands_rx = pin!(commands_rx);
 
 	'messages: while let Some(msg) = msg_stream.next().await {
 		match msg {
@@ -1033,7 +1062,11 @@ async fn handle_single_step<SJob: StatefulJob>(
 					init_time.elapsed(),
 				);
 
-				return Ok(JobStepsPhaseOutput { steps, output });
+				return Ok(JobStepsPhaseOutput {
+					steps,
+					output,
+					step_arcs: (worker_ctx, run_metadata, working_data, stateful_job),
+				});
 			}
 			StreamMessage::NewCommand(WorkerCommand::IdentifyYourself(tx)) => {
 				if tx

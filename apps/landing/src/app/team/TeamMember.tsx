@@ -1,4 +1,4 @@
-import { Dribbble, Github, Twitch, Twitter } from '@sd/assets/svgs/brands';
+import { Dribbble, Github, Gitlab, Twitch, Twitter } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import Image from 'next/image';
 import NextLink from 'next/link';
@@ -19,6 +19,7 @@ export interface TeamMemberProps {
 		twitter?: string;
 		twitch?: string;
 		github?: string;
+		gitlab?: string;
 		dribbble?: string;
 	};
 
@@ -79,6 +80,11 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.socials?.github && (
 					<Link href={props.socials.github}>
 						<Github className="h-[20px] w-[20px]" />
+					</Link>
+				)}
+				{props.socials?.gitlab && (
+					<Link href={props.socials.gitlab}>
+						<Gitlab className="h-[20px] w-[20px]" />
 					</Link>
 				)}
 				{props.socials?.twitch && (

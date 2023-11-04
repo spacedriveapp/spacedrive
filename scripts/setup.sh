@@ -8,7 +8,7 @@ fi
 
 err() {
   for _line in "$@"; do
-    echo "$@" >&2
+    echo "$_line" >&2
   done
   exit 1
 }
@@ -52,7 +52,7 @@ if [ "${CI:-}" != "true" ]; then
       'https://pnpm.io/installation'
   fi
 
-  if ! has rustup rustc cargo; then
+  if ! has rustc cargo; then
     err 'Rust was not found.' \
       "Ensure the 'rustc' and 'cargo' binaries are in your \$PATH." \
       'https://rustup.rs'
@@ -72,6 +72,12 @@ if [ "${1:-}" = "mobile" ]; then
     err 'python3 was not found.' \
       'This is required for Android mobile development.' \
       "Ensure 'python3' is available in your \$PATH and try again."
+  fi
+
+  if ! has rustup; then
+    err 'Rustup was not found. It is required for cross-compiling rust to mobile targets.' \
+      "Ensure the 'rustup' binary is in your \$PATH." \
+      'https://rustup.rs'
   fi
 
   # Android targets
@@ -95,6 +101,13 @@ fi
 # Install system deps
 case "$(uname)" in
   "Darwin")
+    if [ "$(uname -m)" = 'x86_64' ]; then (
+      if [ "${CI:-}" = "true" ]; then
+        export NONINTERACTIVE=1
+      fi
+      brew install nasm
+    ); fi
+
     # Install rust deps for iOS
     if [ $MOBILE -eq 1 ]; then
       echo "Checking for Xcode..."
@@ -118,7 +131,7 @@ case "$(uname)" in
       echo "Installing dependencies with apt..."
 
       # Tauri dependencies
-      set -- build-essential curl wget file patchelf libssl-dev libgtk-3-dev librsvg2-dev \
+      set -- build-essential curl wget file patchelf openssl libssl-dev libgtk-3-dev librsvg2-dev \
         libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
       # FFmpeg dependencies
@@ -132,8 +145,8 @@ case "$(uname)" in
         gstreamer1.0-vaapi libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
         libgstreamer-plugins-bad1.0-dev
 
-      # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" llvm-dev libclang-dev clang
+      # C/C++ build dependencies, required to build some *-sys crates
+      set -- "$@" llvm-dev libclang-dev clang nasm
 
       sudo apt-get -y update
       sudo apt-get -y install "$@"
@@ -151,8 +164,11 @@ case "$(uname)" in
       set -- "$@" gst-libav gst-plugins-bad gst-plugins-base gst-plugins-good gst-plugins-ugly \
         gst-plugin-pipewire gstreamer-vaapi
 
-      # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" clang
+      # C/C++ build dependencies, required to build some *-sys crates
+      set -- "$@" clang nasm
+
+      # React dependencies
+      set -- "$@" libvips
 
       sudo pacman -Sy --needed "$@"
     elif has dnf; then
@@ -174,9 +190,7 @@ case "$(uname)" in
       fi
 
       # Tauri dependencies
-      # openssl is manually declared here as i don't think openssl and openssl-devel are actually dependant on eachother
-      # openssl also has a habit of being missing from some of my fresh Fedora installs - i've had to install it at least twice
-      set -- openssl openssl-devel curl wget file patchelf libappindicator-gtk3-devel librsvg2-devel
+      set -- openssl curl wget file patchelf libappindicator-gtk3-devel librsvg2-devel
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel \
@@ -185,8 +199,8 @@ case "$(uname)" in
         gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-devel \
         gstreamer1-plugins-bad-free-extras
 
-      # Bindgen dependencies - it's used by a dependency of Spacedrive
-      set -- "$@" clang clang-devel
+      # C/C++ build dependencies, required to build some *-sys crates
+      set -- "$@" clang clang-devel nasm
 
       sudo dnf install "$@"
 
@@ -196,9 +210,6 @@ case "$(uname)" in
           'This is likely because the RPM Fusion free repository is not enabled.' \
           'https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion'
       fi
-
-      # required for building the openssl-sys crate
-      # perl-FindBin perl-File-Compare perl-IPC-Cmd perl-File-Copy
     else
       if has lsb_release; then
         _distro="'$(lsb_release -s -d)' "

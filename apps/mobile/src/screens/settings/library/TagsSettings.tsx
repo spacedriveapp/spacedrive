@@ -1,4 +1,4 @@
-import { CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { ArrowLeft, CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';

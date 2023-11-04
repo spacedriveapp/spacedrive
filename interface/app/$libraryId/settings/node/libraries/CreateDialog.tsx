@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { LibraryConfigWrapped, useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 const schema = z.object({
 	name: z
@@ -17,6 +18,7 @@ export default (props: UseDialogProps) => {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const submitPlausibleEvent = usePlausibleEvent();
+	const platform = usePlatform();
 
 	const createLibrary = useBridgeMutation('library.create');
 
@@ -24,7 +26,10 @@ export default (props: UseDialogProps) => {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
-			const library = await createLibrary.mutateAsync({ name: data.name });
+			const library = await createLibrary.mutateAsync({
+				name: data.name,
+				default_locations: null
+			});
 
 			queryClient.setQueryData<LibraryConfigWrapped[]>(['library.list'], (libraries) => [
 				...(libraries || []),
@@ -34,6 +39,8 @@ export default (props: UseDialogProps) => {
 			submitPlausibleEvent({
 				event: { type: 'libraryCreate' }
 			});
+
+			platform.refreshMenuBar && platform.refreshMenuBar();
 
 			navigate(`/${library.uuid}/overview`);
 		} catch (e) {

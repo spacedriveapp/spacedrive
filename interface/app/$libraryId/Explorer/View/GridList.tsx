@@ -1,3 +1,4 @@
+import { Grid, useGrid } from '@virtual-grid/react';
 import {
 	createContext,
 	useCallback,
@@ -11,7 +12,6 @@ import {
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
-import { GridList, useGridList } from '~/components';
 import { useMouseNavigate, useOperatingSystem } from '~/hooks';
 
 import { useExplorerContext } from '../Context';
@@ -111,7 +111,6 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const explorer = useExplorerContext();
 	const settings = explorer.useSettingsSnapshot();
-	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
 
 	const selecto = useRef<Selecto>(null);
@@ -127,17 +126,15 @@ export default ({ children }: { children: RenderItem }) => {
 
 	const padding = settings.layoutMode === 'grid' ? 12 : 0;
 
-	const grid = useGridList({
-		ref: explorerView.ref,
+	const grid = useGrid({
+		scrollRef: explorer.scrollRef,
 		count: explorer.items?.length ?? 0,
 		totalCount: explorer.count,
-		overscan: explorer.overscan,
+		...(settings.layoutMode === 'grid'
+			? { size: { width: settings.gridItemSize, height: itemHeight } }
+			: { columns: settings.mediaColumns }),
+		rowVirtualizer: { overscan: explorer.overscan ?? 5 },
 		onLoadMore: explorer.loadMore,
-		size:
-			settings.layoutMode === 'grid'
-				? { width: settings.gridItemSize, height: itemHeight }
-				: undefined,
-		columns: settings.layoutMode === 'media' ? settings.mediaColumns : undefined,
 		getItemId: useCallback(
 			(index: number) => {
 				const item = explorer.items?.[index];
@@ -154,10 +151,7 @@ export default ({ children }: { children: RenderItem }) => {
 			x: padding,
 			y: padding
 		},
-		gap:
-			explorerView.gap ||
-			(settings.layoutMode === 'grid' ? explorerStore.gridGap : undefined),
-		top: explorerView.top
+		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : undefined)
 	});
 
 	function getElementId(element: Element) {
@@ -554,7 +548,7 @@ export default ({ children }: { children: RenderItem }) => {
 
 											let itemsInDragCount =
 												(dragHeight - grid.gap.y) /
-												(grid.virtualItemHeight + grid.gap.y);
+												(grid.virtualItemSize.height + grid.gap.y);
 
 											if (itemsInDragCount > 1) {
 												itemsInDragCount = Math.ceil(itemsInDragCount);
@@ -621,7 +615,7 @@ export default ({ children }: { children: RenderItem }) => {
 				/>
 			)}
 
-			<GridList grid={grid} scrollRef={explorer.scrollRef}>
+			<Grid grid={grid}>
 				{(index) => {
 					const item = explorer.items?.[index];
 					if (!item) return null;
@@ -655,7 +649,7 @@ export default ({ children }: { children: RenderItem }) => {
 						</GridListItem>
 					);
 				}}
-			</GridList>
+			</Grid>
 		</SelectoContext.Provider>
 	);
 };

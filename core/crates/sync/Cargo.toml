@@ -18,4 +18,3 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
 uhlc = "=0.5.2"
-slotmap = "1.0.6"

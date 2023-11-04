@@ -10,7 +10,7 @@ const AccessData = () => {
 				quality={100}
 				className="mx-auto mb-10"
 				alt="data globe"
-				src="/images/globe.webp"
+				src="/images/misc/globe.webp"
 			/>
 			<div className="relative">
 				<h1

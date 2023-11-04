@@ -11,12 +11,11 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useKey, useKeys } from 'rooks';
-import { ExplorerLayout, getItemObject, useLibraryContext, type Object } from '@sd/client';
+import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
 import { isNonEmpty } from '~/util';
-import { usePlatform } from '~/util/Platform';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
 import { useExplorerContext } from '../Context';
@@ -209,8 +208,6 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 	const explorer = useExplorerContext();
 
 	const os = useOperatingSystem();
-	const { library } = useLibraryContext();
-	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
@@ -229,7 +226,9 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 			)
 				return;
 
-			dialogManager.create((dp) => <CreateDialog {...dp} objects={objects} />);
+			dialogManager.create((dp) => (
+				<CreateDialog {...dp} items={objects.map((item) => ({ type: 'Object', item }))} />
+			));
 		},
 		[os, explorer.selectedItems]
 	);

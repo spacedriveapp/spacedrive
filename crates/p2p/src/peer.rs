@@ -1,29 +1,31 @@
 use std::{
 	fmt::{self, Formatter},
 	net::SocketAddr,
-	sync::Arc,
 };
 
-use crate::{Manager, ManagerStreamAction, Metadata, PeerId};
+use libp2p::PeerId;
+
+use crate::{spacetunnel::RemoteIdentity, Metadata};
 
 /// Represents a discovered peer.
 /// This is held by [Manager] to keep track of discovered peers
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
-pub struct DiscoveredPeer<TMetadata: Metadata> {
-	#[cfg_attr(any(feature = "serde", feature = "specta"), serde(skip))]
-	pub(crate) manager: Arc<Manager<TMetadata>>,
-	/// get the peer id of the discovered peer
+pub struct DiscoveredPeer<TMeta: Metadata> {
+	/// the public key of the discovered peer
+	pub identity: RemoteIdentity,
+	/// the libp2p peer id of the discovered peer
+	#[serde(skip)]
 	pub peer_id: PeerId,
 	/// get the metadata of the discovered peer
-	pub metadata: TMetadata,
+	pub metadata: TMeta,
 	/// get the addresses of the discovered peer
 	pub addresses: Vec<SocketAddr>,
 }
 
 // `Manager` impls `Debug` but it causes infinite loop and stack overflow, lmao.
-impl<TMetadata: Metadata> fmt::Debug for DiscoveredPeer<TMetadata> {
+impl<TMeta: Metadata> fmt::Debug for DiscoveredPeer<TMeta> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("DiscoveredPeer")
 			.field("peer_id", &self.peer_id)
@@ -33,26 +35,14 @@ impl<TMetadata: Metadata> fmt::Debug for DiscoveredPeer<TMetadata> {
 	}
 }
 
-impl<TMetadata: Metadata> DiscoveredPeer<TMetadata> {
-	/// dial will queue an event to start a connection with the peer
-	pub async fn dial(self) {
-		self.manager
-			.emit(ManagerStreamAction::Dial {
-				peer_id: self.peer_id,
-				addresses: self.addresses,
-			})
-			.await;
-	}
-}
-
 /// Represents a connected peer.
 /// This is held by [Manager] to keep track of connected peers
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ConnectedPeer {
-	/// get the peer id of the discovered peer
-	pub peer_id: PeerId,
+	/// get the identity of the discovered peer
+	pub identity: RemoteIdentity,
 	/// Did I open the connection?
 	pub establisher: bool,
 }

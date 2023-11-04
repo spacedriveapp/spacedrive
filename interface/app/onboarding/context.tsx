@@ -14,6 +14,7 @@ import {
 	usePlausibleEvent
 } from '@sd/client';
 import { RadioGroupField, z } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 export const OnboardingContext = createContext<ReturnType<typeof useContextValue> | null>(null);
 
@@ -69,6 +70,7 @@ const schemas = {
 
 const useFormState = () => {
 	const obStore = useOnboardingStore();
+	const platform = usePlatform();
 
 	const { handleSubmit, ...forms } = useMultiZodForm({
 		schemas,
@@ -112,10 +114,14 @@ const useFormState = () => {
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
-				queryClient.setQueryData(['library.list'], (libraries: any) => [
-					...(libraries ?? []),
-					library
-				]);
+				queryClient.setQueryData(['library.list'], (libraries: any) => {
+					// The invalidation system beat us to it
+					if (libraries.find((l: any) => l.uuid === library.uuid)) return libraries;
+
+					return [...(libraries || []), library];
+				});
+
+				platform.refreshMenuBar && platform.refreshMenuBar();
 
 				if (telemetryStore.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });

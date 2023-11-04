@@ -60,7 +60,11 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
 
 					return (
-						<Tooltip label={popoverText} key={index} tooltipClassName="max-w-[400px]">
+						<Tooltip
+							label={popoverText}
+							key={index}
+							tooltipClassName="max-w-[400px] tabular-nums"
+						>
 							<TextLine>
 								{filteredItems.map((textItem, index) => {
 									const Icon = textItem?.icon;
@@ -70,6 +74,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 												onClick={textItem?.onClick}
 												className={clsx(
 													// index > 0 && 'px-1.5 py-0.5 italic',
+													'tabular-nums',
 													textItem?.onClick &&
 														'-ml-1.5 rounded-md hover:bg-app-button/50'
 												)}

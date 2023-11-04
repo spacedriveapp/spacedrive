@@ -13,7 +13,7 @@ mod thumbnailer;
 mod utils;
 mod video_frame;
 
-pub use error::ThumbnailerError;
+pub use error::Error;
 pub use thumbnailer::{Thumbnailer, ThumbnailerBuilder};
 
 /// Helper function to generate a thumbnail file from a video file with reasonable defaults
@@ -22,7 +22,7 @@ pub async fn to_thumbnail(
 	output_thumbnail_path: impl AsRef<Path>,
 	size: u32,
 	quality: f32,
-) -> Result<(), ThumbnailerError> {
+) -> Result<(), Error> {
 	ThumbnailerBuilder::new()
 		.with_film_strip(false)
 		.size(size)
@@ -37,7 +37,7 @@ pub async fn to_webp_bytes(
 	video_file_path: impl AsRef<Path>,
 	size: u32,
 	quality: f32,
-) -> Result<Vec<u8>, ThumbnailerError> {
+) -> Result<Vec<u8>, Error> {
 	ThumbnailerBuilder::new()
 		.size(size)
 		.quality(quality)?

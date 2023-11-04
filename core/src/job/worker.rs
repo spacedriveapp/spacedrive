@@ -2,6 +2,7 @@ use crate::{api::CoreEvent, invalidate_query, library::Library, Node};
 
 use std::{
 	fmt,
+	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -40,6 +41,7 @@ pub struct JobProgressEvent {
 	pub library_id: Uuid,
 	pub task_count: i32,
 	pub completed_task_count: i32,
+	pub phase: String,
 	pub message: String,
 	pub estimated_completion: DateTime<Utc>,
 }
@@ -287,6 +289,14 @@ impl Worker {
 					trace!("job {} message: {}", report.id, message);
 					report.message = message;
 				}
+				JobReportUpdate::Phase(phase) => {
+					trace!(
+						"changing Job <id='{}'> phase: {} -> {phase}",
+						report.id,
+						report.phase
+					);
+					report.phase = phase;
+				}
 			}
 		}
 
@@ -323,6 +333,7 @@ impl Worker {
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,
+			phase: report.phase.clone(),
 			message: report.message.clone(),
 		}));
 	}
@@ -351,7 +362,7 @@ impl Worker {
 		let mut last_reporter_watch_update = Instant::now();
 		invalidate_query!(library, "jobs.reports");
 
-		let mut finalized_events_rx = events_rx.clone();
+		let mut finalized_events_rx = pin!(events_rx.clone());
 
 		let mut is_paused = false;
 
@@ -381,12 +392,12 @@ impl Worker {
 			Tick,
 		}
 
-		let mut msg_stream = (
+		let mut msg_stream = pin!((
 			stream::once(&mut run_task).map(StreamMessage::JobResult),
 			events_rx.map(StreamMessage::NewEvent),
 			IntervalStream::new(timeout_checker).map(|_| StreamMessage::Tick),
 		)
-			.merge();
+			.merge());
 
 		let mut events_ended = false;
 

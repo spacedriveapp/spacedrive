@@ -1,25 +1,46 @@
 import { useKey, useKeys } from 'rooks';
-import type { ExplorerItem } from '@sd/client';
+import { useItemsAsEphemeralPaths, useItemsAsFilePaths, type ExplorerItem } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
+import { isNonEmpty } from '~/util';
 
 import { useOperatingSystem } from './useOperatingSystem';
 
 export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {
 	const os = useOperatingSystem();
 
+	const filePaths = useItemsAsFilePaths([...selectedItems]);
+	const ephemeralPaths = useItemsAsEphemeralPaths([...selectedItems]);
+
 	const deleteHandler = (e: KeyboardEvent) => {
 		e.preventDefault();
-		if (!locationId || selectedItems.size === 0) return;
 
-		const pathIds: number[] = [];
+		if ((locationId == null || !isNonEmpty(filePaths)) && !isNonEmpty(ephemeralPaths)) return;
 
-		for (const item of selectedItems) {
-			if (item.type === 'Path') pathIds.push(item.item.id);
+		const indexedArgs =
+			locationId != null && isNonEmpty(filePaths)
+				? { locationId, pathIds: filePaths.map((p) => p.id) }
+				: undefined;
+		const ephemeralArgs = isNonEmpty(ephemeralPaths)
+			? { paths: ephemeralPaths.map((p) => p.path) }
+			: undefined;
+
+		let dirCount = 0;
+		let fileCount = 0;
+
+		for (const entry of [...filePaths, ...ephemeralPaths]) {
+			dirCount += entry.is_dir ? 1 : 0;
+			fileCount += entry.is_dir ? 0 : 1;
 		}
 
 		dialogManager.create((dp) => (
-			<DeleteDialog {...dp} locationId={locationId} pathIds={pathIds} />
+			<DeleteDialog
+				{...dp}
+				indexedArgs={indexedArgs}
+				ephemeralArgs={ephemeralArgs}
+				dirCount={dirCount}
+				fileCount={fileCount}
+			/>
 		));
 	};
 

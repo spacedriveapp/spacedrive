@@ -39,14 +39,14 @@
 		"@cspell/dict-rust": "^4.0.1",
 		"@cspell/dict-typescript": "^3.1.2",
 		"@ianvs/prettier-plugin-sort-imports": "^4.1.1",
-		"@storybook/react-vite": "^7.4.6",
+		"@storybook/react-vite": "^7.5.2",
 		"cspell": "^7.3.8",
 		"prettier": "^3.0.3",
 		"prettier-plugin-tailwindcss": "^0.5.6",
-		"turbo": "^1.10.15",
-		"turbo-ignore": "^1.10.15",
+		"turbo": "^1.10.16",
+		"turbo-ignore": "^1.10.16",
 		"typescript": "^5.2.2",
-		"vite": "^4.4.11"
+		"vite": "^4.5.0"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",

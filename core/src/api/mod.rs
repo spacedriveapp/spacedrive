@@ -51,6 +51,7 @@ impl BackendFeature {
 mod auth;
 mod backups;
 mod categories;
+mod ephemeral_files;
 mod files;
 mod jobs;
 mod keys;
@@ -175,6 +176,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("categories.", categories::mount())
 		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
+		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		.merge("p2p.", p2p::mount())

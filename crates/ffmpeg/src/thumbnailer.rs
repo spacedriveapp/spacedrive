@@ -1,4 +1,4 @@
-use crate::{film_strip_filter, MovieDecoder, ThumbnailSize, ThumbnailerError, VideoFrame};
+use crate::{film_strip_filter, Error, MovieDecoder, ThumbnailSize, VideoFrame};
 
 use std::{io, ops::Deref, path::Path};
 use tokio::{fs, task::spawn_blocking};
@@ -18,7 +18,7 @@ impl Thumbnailer {
 		&self,
 		video_file_path: impl AsRef<Path>,
 		output_thumbnail_path: impl AsRef<Path>,
-	) -> Result<(), ThumbnailerError> {
+	) -> Result<(), Error> {
 		let path = output_thumbnail_path.as_ref().parent().ok_or_else(|| {
 			io::Error::new(
 				io::ErrorKind::InvalidInput,
@@ -40,7 +40,7 @@ impl Thumbnailer {
 	pub async fn process_to_webp_bytes(
 		&self,
 		video_file_path: impl AsRef<Path>,
-	) -> Result<Vec<u8>, ThumbnailerError> {
+	) -> Result<Vec<u8>, Error> {
 		let video_file_path = video_file_path.as_ref().to_path_buf();
 		let prefer_embedded_metadata = self.builder.prefer_embedded_metadata;
 		let seek_percentage = self.builder.seek_percentage;
@@ -49,7 +49,7 @@ impl Thumbnailer {
 		let with_film_strip = self.builder.with_film_strip;
 		let quality = self.builder.quality;
 
-		spawn_blocking(move || -> Result<Vec<u8>, ThumbnailerError> {
+		spawn_blocking(move || -> Result<Vec<u8>, Error> {
 			let mut decoder = MovieDecoder::new(video_file_path.clone(), prefer_embedded_metadata)?;
 			// We actually have to decode a frame to get some metadata before we can start decoding for real
 			decoder.decode_video_frame()?;
@@ -149,18 +149,18 @@ impl ThumbnailerBuilder {
 	}
 
 	/// Seek percentage must be a value between 0.0 and 1.0
-	pub fn seek_percentage(mut self, seek_percentage: f32) -> Result<Self, ThumbnailerError> {
+	pub fn seek_percentage(mut self, seek_percentage: f32) -> Result<Self, Error> {
 		if !(0.0..=1.0).contains(&seek_percentage) {
-			return Err(ThumbnailerError::InvalidSeekPercentage(seek_percentage));
+			return Err(Error::InvalidSeekPercentage(seek_percentage));
 		}
 		self.seek_percentage = seek_percentage;
 		Ok(self)
 	}
 
 	/// Quality must be a value between 0.0 and 100.0
-	pub fn quality(mut self, quality: f32) -> Result<Self, ThumbnailerError> {
+	pub fn quality(mut self, quality: f32) -> Result<Self, Error> {
 		if !(0.0..=100.0).contains(&quality) {
-			return Err(ThumbnailerError::InvalidQuality(quality));
+			return Err(Error::InvalidQuality(quality));
 		}
 		self.quality = quality;
 		Ok(self)

@@ -1,102 +1,68 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	net::{IpAddr, SocketAddr},
 	pin::Pin,
 	str::FromStr,
-	sync::Arc,
+	sync::PoisonError,
+	task::{Context, Poll},
+	thread::sleep,
 	time::Duration,
 };
 
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use tokio::{
-	sync::{mpsc, RwLock},
-	time::{sleep_until, Instant, Sleep},
+use futures_core::Stream;
+use libp2p::{
+	futures::{FutureExt, StreamExt},
+	PeerId,
 };
-use tracing::{debug, error, trace, warn};
+use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use streamunordered::{StreamUnordered, StreamYield};
+use tokio::time::{sleep_until, Instant, Sleep};
+use tracing::{error, trace, warn};
 
-use crate::{DiscoveredPeer, Event, Manager, Metadata, MetadataManager, PeerId};
+use crate::{
+	spacetunnel::RemoteIdentity, DiscoveredPeerCandidate, ListenAddrs, ServiceEventInternal, State,
+};
 
 /// TODO
 const MDNS_READVERTISEMENT_INTERVAL: Duration = Duration::from_secs(60); // Every minute re-advertise
 
-/// TODO
-#[derive(Debug)]
-pub struct MdnsState<TMetadata: Metadata> {
-	pub discovered: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
-	pub listen_addrs: RwLock<HashSet<SocketAddr>>,
-}
-
-/// TODO
-pub struct Mdns<TMetadata>
-where
-	TMetadata: Metadata,
-{
-	// used to ignore events from our own mdns advertisement
+pub(crate) struct Mdns {
+	identity: RemoteIdentity,
 	peer_id: PeerId,
-	metadata_manager: Arc<MetadataManager<TMetadata>>,
-	mdns_daemon: ServiceDaemon,
-	mdns_service_receiver: flume::Receiver<ServiceEvent>,
 	service_name: String,
+	advertised_services: Vec<String>,
+	mdns_daemon: ServiceDaemon,
 	next_mdns_advertisement: Pin<Box<Sleep>>,
-	next_allowed_discovery_advertisement: Instant,
-	trigger_advertisement: mpsc::UnboundedReceiver<()>,
-	pub(crate) state: Arc<MdnsState<TMetadata>>,
+	// This is an ugly workaround for: https://github.com/keepsimple1/mdns-sd/issues/145
+	mdns_rx: StreamUnordered<MdnsRecv>,
 }
 
-impl<TMetadata> Mdns<TMetadata>
-where
-	TMetadata: Metadata,
-{
-	pub async fn new(
+impl Mdns {
+	pub(crate) fn new(
 		application_name: &'static str,
+		identity: RemoteIdentity,
 		peer_id: PeerId,
-		metadata_manager: Arc<MetadataManager<TMetadata>>,
-	) -> Result<(Self, Arc<MdnsState<TMetadata>>), mdns_sd::Error> {
+	) -> Result<Self, mdns_sd::Error> {
 		let mdns_daemon = ServiceDaemon::new()?;
-		let service_name = format!("_{}._udp.local.", application_name);
-		let mdns_service_receiver = mdns_daemon.browse(&service_name)?;
-		let (advertise_tx, advertise_rx) = mpsc::unbounded_channel();
 
-		metadata_manager.set_tx(advertise_tx).await;
-
-		let state = Arc::new(MdnsState {
-			discovered: RwLock::new(Default::default()),
-			listen_addrs: RwLock::new(Default::default()),
-		});
-		Ok((
-			Self {
-				peer_id,
-				metadata_manager,
-				mdns_daemon,
-				mdns_service_receiver,
-				service_name,
-				next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
-				next_allowed_discovery_advertisement: Instant::now(),
-				trigger_advertisement: advertise_rx,
-				state: state.clone(),
-			},
-			state,
-		))
-	}
-
-	pub fn unregister_mdns(&self) -> mdns_sd::Result<mdns_sd::Receiver<mdns_sd::UnregisterStatus>> {
-		self.mdns_daemon
-			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
+		Ok(Self {
+			identity,
+			peer_id,
+			service_name: format!("_{}._udp.local.", application_name),
+			advertised_services: Vec::new(),
+			mdns_daemon,
+			next_mdns_advertisement: Box::pin(sleep_until(Instant::now())), // Trigger an advertisement immediately
+			mdns_rx: StreamUnordered::new(),
+		})
 	}
 
 	/// Do an mdns advertisement to the network.
-	async fn advertise(&mut self) {
-		self.inner_advertise().await;
+	pub(super) fn do_advertisement(&mut self, listen_addrs: &ListenAddrs, state: &State) {
+		trace!("doing mDNS advertisement!");
 
-		self.next_mdns_advertisement =
-			Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
-	}
-
-	async fn inner_advertise(&self) {
-		let metadata = self.metadata_manager.get().to_hashmap();
+		// TODO: Second stage rate-limit
 
 		let mut ports_to_service = HashMap::new();
-		let listen_addrs = self.state.listen_addrs.read().await;
 		for addr in listen_addrs.iter() {
 			let addr = match addr {
 				SocketAddr::V4(addr) => addr,
@@ -111,193 +77,258 @@ where
 				.push(addr.ip());
 		}
 
+		// This method takes `&mut self` so we know we have exclusive access to `advertised_services`
+		let mut advertised_services_to_remove = self.advertised_services.clone();
+
+		let state = state.read().unwrap_or_else(PoisonError::into_inner);
 		for (port, ips) in ports_to_service.into_iter() {
-			let service = match ServiceInfo::new(
-				&self.service_name,
-				&self.peer_id.to_string(),
-				&format!("{}.", self.peer_id),
-				&*ips,
-				port,
-				Some(metadata.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
-			) {
-				Ok(service) => service,
-				Err(err) => {
-					warn!("error creating mdns service info: {}", err);
+			for (service_name, (_, metadata)) in &state.services {
+				let Some(metadata) = metadata else {
 					continue;
+				};
+
+				let service_domain =
+				    // TODO: Use "Selective Instance Enumeration" instead in future but right now it is causing `TMeta` to get garbled.
+					// format!("{service_name}._sub._{}", self.service_name)
+					format!("{service_name}._sub._{service_name}{}", self.service_name);
+
+				let mut meta = metadata.clone();
+				meta.insert("__peer_id".into(), self.peer_id.to_string());
+
+				let service = match ServiceInfo::new(
+					&service_domain,
+					&self.identity.to_string(), // TODO: This shows up in `fullname` without sub service. Is that a problem???
+					&format!("{}.{}.", service_name, self.identity), // TODO: Should this change???
+					&*ips,                      // TODO: &[] as &[Ipv4Addr],
+					port,
+					Some(meta.clone()), // TODO: Prevent the user defining a value that overflows a DNS record
+				) {
+					Ok(service) => service, // TODO: .enable_addr_auto(), // TODO: using autoaddrs or not???
+					Err(err) => {
+						warn!("error creating mdns service info: {}", err);
+						continue;
+					}
+				};
+
+				let service_name = service.get_fullname().to_string();
+				advertised_services_to_remove.retain(|s| *s != service_name);
+				self.advertised_services.push(service_name);
+
+				if !self
+					.mdns_rx
+					.iter_with_token()
+					.any(|(s, _)| s.1 == service_domain)
+				{
+					self.mdns_rx.insert(MdnsRecv(
+						self.mdns_daemon
+							.browse(&service_domain)
+							.unwrap()
+							.into_stream(),
+						service_domain,
+					));
 				}
-			};
 
-			trace!("advertising mdns service: {:?}", service);
-			match self.mdns_daemon.register(service) {
-				Ok(_) => {}
-				Err(err) => warn!("error registering mdns service: {}", err),
-			}
-		}
-	}
-
-	// TODO: if the channel's sender is dropped will this cause the `tokio::select` in the `manager.rs` to infinitely loop?
-	pub async fn poll(&mut self, manager: &Arc<Manager<TMetadata>>) -> Option<Event<TMetadata>> {
-		tokio::select! {
-			_ = &mut self.next_mdns_advertisement => self.advertise().await,
-			_ = self.trigger_advertisement.recv() => self.advertise().await,
-			event = self.mdns_service_receiver.recv_async() => {
-				let event = event.unwrap(); // TODO: Error handling
-				match event {
-					ServiceEvent::SearchStarted(_) => {}
-					ServiceEvent::ServiceFound(_, _) => {}
-					ServiceEvent::ServiceResolved(info) => {
-						let raw_peer_id = info
-							.get_fullname()
-							.replace(&format!(".{}", self.service_name), "");
-
-						match PeerId::from_str(&raw_peer_id) {
-							Ok(peer_id) => {
-								// Prevent discovery of the current peer.
-								if peer_id == self.peer_id {
-									return None;
-								}
-
-								match TMetadata::from_hashmap(
-									&peer_id,
-									&info
-										.get_properties()
-										.iter()
-										.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
-										.collect(),
-								) {
-									Ok(metadata) => {
-										let peer = {
-											let mut discovered_peers =
-												self.state.discovered.write().await;
-
-											let peer = if let Some(peer) = discovered_peers.remove(&peer_id) {
-												peer
-											} else {
-												// Found a new peer, let's readvertise our mdns service as it may have just come online
-												// `self.last_discovery_advertisement` is to prevent DOS-style attacks.
-												let now = Instant::now();
-												if self.next_allowed_discovery_advertisement <= now {
-													self.next_allowed_discovery_advertisement = now + Duration::from_secs(1);
-
-													self.inner_advertise().await;
-													self.next_mdns_advertisement =
-														Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
-												}
-
-												DiscoveredPeer {
-													manager: manager.clone(),
-													peer_id,
-													metadata,
-													addresses: info
-														.get_addresses()
-														.iter()
-														.map(|addr| {
-															SocketAddr::new(
-																IpAddr::V4(*addr),
-																info.get_port(),
-															)
-														})
-														.collect(),
-												}
-											};
-
-											discovered_peers.insert(peer_id, peer.clone());
-											peer
-										};
-										debug!(
-											"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-											peer.peer_id, peer.addresses, peer.metadata
-										);
-										return Some(Event::PeerDiscovered(peer));
-									}
-									Err(err) => error!("error parsing metadata for peer '{}': {}", raw_peer_id, err)
-								}
-							}
-							Err(_) => warn!(
-								"resolved peer advertising itself with an invalid peer_id '{}'",
-								raw_peer_id
-							),
-						}
-					}
-					ServiceEvent::ServiceRemoved(_, fullname) => {
-						let raw_peer_id = fullname.replace(&format!(".{}", self.service_name), "");
-
-						match PeerId::from_str(&raw_peer_id) {
-							Ok(peer_id) => {
-								// Prevent discovery of the current peer.
-								if peer_id == self.peer_id {
-									return None;
-								}
-
-								{
-									let mut discovered_peers =
-										self.state.discovered.write().await;
-									let peer = discovered_peers.remove(&peer_id);
-
-									let metadata = peer.map(|p| p.metadata);
-									debug!("Peer '{peer_id}' expired with metadata: {metadata:?}");
-									return Some(Event::PeerExpired {
-										id: peer_id,
-										metadata,
-									});
-								}
-							}
-							Err(_) => warn!(
-								"resolved peer de-advertising itself with an invalid peer_id '{}'",
-								raw_peer_id
-							),
-						}
-					}
-					ServiceEvent::SearchStopped(_) => {}
+				// TODO: Do a proper diff and remove old services
+				trace!("advertising mdns service: {:?}", service);
+				match self.mdns_daemon.register(service) {
+					Ok(_) => {}
+					Err(err) => warn!("error registering mdns service: {}", err),
 				}
 			}
-		};
-
-		None
-	}
-
-	pub async fn register_addr(&mut self, addr: SocketAddr) {
-		self.state.listen_addrs.write().await.insert(addr);
-
-		// If the next mdns advertisement is more than 250ms away, then we should queue one closer to now.
-		// This acts as a debounce for advertisements when many addresses are discovered close to each other (Eg. at startup)
-		if self.next_mdns_advertisement.deadline() > (Instant::now() + Duration::from_millis(250)) {
-			self.next_mdns_advertisement =
-				Box::pin(sleep_until(Instant::now() + Duration::from_millis(200)));
 		}
-	}
 
-	pub async fn unregister_addr(&mut self, addr: &SocketAddr) {
-		self.state.listen_addrs.write().await.remove(addr);
-
-		// If the next mdns advertisement is more than 250ms away, then we should queue one closer to now.
-		// This acts as a debounce for advertisements when many addresses are discovered close to each other (Eg. at startup)
-		if self.next_mdns_advertisement.deadline() > (Instant::now() + Duration::from_millis(250)) {
-			self.next_mdns_advertisement =
-				Box::pin(sleep_until(Instant::now() + Duration::from_millis(200)));
-		}
-	}
-
-	pub async fn shutdown(&self) {
-		match self
-			.mdns_daemon
-			.unregister(&format!("{}.{}", self.peer_id, self.service_name))
-			.map(|chan| chan.recv())
-		{
-			Ok(Ok(_)) => {}
-			Ok(Err(err)) => {
-				warn!(
-					"shutdown error recieving shutdown status from mdns service: {}",
-					err
-				);
+		for service_domain in advertised_services_to_remove {
+			if let Some((_, token)) = self
+				.mdns_rx
+				.iter_with_token()
+				.find(|(s, _)| s.1 == service_domain)
+			{
+				Pin::new(&mut self.mdns_rx).remove(token);
 			}
-			Err(err) => {
-				warn!("shutdown error unregistering mdns service: {}", err);
+			self.mdns_daemon.unregister(&service_domain).unwrap();
+		}
+
+		// If mDNS advertisement is not queued in future, queue one
+		if self.next_mdns_advertisement.is_elapsed() {
+			self.next_mdns_advertisement =
+				Box::pin(sleep_until(Instant::now() + MDNS_READVERTISEMENT_INTERVAL));
+		}
+	}
+
+	pub(crate) fn poll(
+		&mut self,
+		cx: &mut Context<'_>,
+		listen_addrs: &ListenAddrs,
+		state: &State,
+	) -> Poll<()> {
+		let mut is_pending = false;
+		while !is_pending {
+			match self.next_mdns_advertisement.poll_unpin(cx) {
+				Poll::Ready(()) => self.do_advertisement(listen_addrs, state),
+				Poll::Pending => is_pending = true,
+			}
+
+			match self.mdns_rx.poll_next_unpin(cx) {
+				Poll::Ready(Some((result, _))) => match result {
+					StreamYield::Item(event) => self.on_event(event, state),
+					StreamYield::Finished(_) => {}
+				},
+				Poll::Ready(None) => {}
+				Poll::Pending => is_pending = true,
 			}
 		}
+
+		Poll::Pending
+	}
+
+	fn on_event(&mut self, event: ServiceEvent, state: &State) {
+		match event {
+			ServiceEvent::SearchStarted(_) => {}
+			ServiceEvent::ServiceFound(_, _) => {}
+			ServiceEvent::ServiceResolved(info) => {
+				let Some(subdomain) = info.get_subtype() else {
+					warn!("resolved mDNS peer advertising itself with missing subservice");
+					return;
+				};
+
+				let service_name = subdomain.split("._sub.").next().unwrap(); // TODO: .replace(&format!("._sub.{}", self.service_name), "");
+				let raw_remote_identity = info
+					.get_fullname()
+					.replace(&format!("._{service_name}{}", self.service_name), "");
+
+				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+					warn!(
+						"resolved peer advertising itself with an invalid RemoteIdentity('{}')",
+						raw_remote_identity
+					);
+					return;
+				};
+
+				// Prevent discovery of the current peer.
+				if identity == self.identity {
+					return;
+				}
+
+				let mut meta = info
+					.get_properties()
+					.iter()
+					.map(|v| (v.key().to_owned(), v.val_str().to_owned()))
+					.collect::<HashMap<_, _>>();
+
+				let Some(peer_id) = meta.remove("__peer_id") else {
+					warn!(
+						"resolved mDNS peer advertising itself with missing '__peer_id' metadata"
+					);
+					return;
+				};
+				let Ok(peer_id) = PeerId::from_str(&peer_id) else {
+					warn!(
+						"resolved mDNS peer advertising itself with invalid '__peer_id' metadata"
+					);
+					return;
+				};
+
+				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+
+				if let Some((tx, _)) = state.services.get_mut(service_name) {
+					tx.send((
+						service_name.to_string(),
+						ServiceEventInternal::Discovered {
+							identity,
+							metadata: meta.clone(),
+						},
+					))
+					.unwrap();
+				} else {
+					warn!(
+						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+					);
+				}
+
+				if let Some(discovered) = state.discovered.get_mut(service_name) {
+					discovered.insert(
+						identity,
+						DiscoveredPeerCandidate {
+							peer_id,
+							meta,
+							addresses: info
+								.get_addresses()
+								.iter()
+								.map(|addr| SocketAddr::new(IpAddr::V4(*addr), info.get_port()))
+								.collect(),
+						},
+					);
+				} else {
+					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				}
+			}
+			ServiceEvent::ServiceRemoved(service_type, fullname) => {
+				let service_name = service_type.split("._sub.").next().unwrap();
+				let raw_remote_identity =
+					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
+
+				let Ok(identity) = RemoteIdentity::from_str(&raw_remote_identity) else {
+					warn!(
+						"resolved peer deadvertising itself with an invalid RemoteIdentity('{}')",
+						raw_remote_identity
+					);
+					return;
+				};
+
+				// Prevent discovery of the current peer.
+				if identity == self.identity {
+					return;
+				}
+
+				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+
+				if let Some((tx, _)) = state.services.get_mut(service_name) {
+					tx.send((
+						service_name.to_string(),
+						ServiceEventInternal::Expired { identity },
+					))
+					.unwrap();
+				} else {
+					warn!(
+						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
+					);
+				}
+
+				if let Some(discovered) = state.discovered.get_mut(service_name) {
+					discovered.remove(&identity);
+				} else {
+					warn!("mDNS service '{service_name}' is missing from 'state.discovered'. This is likely a bug!");
+				}
+			}
+			ServiceEvent::SearchStopped(_) => {}
+		}
+	}
+
+	pub(crate) fn shutdown(&self) {
+		for service in &self.advertised_services {
+			self.mdns_daemon
+				.unregister(service)
+				.map_err(|err| {
+					error!("error removing mdns service '{service}': {err}");
+				})
+				.ok();
+		}
+
+		// TODO: Without this mDNS is not sending it goodbye packets without a timeout. Try and remove this cause it makes shutdown slow.
+		sleep(Duration::from_millis(100));
 
 		self.mdns_daemon.shutdown().unwrap_or_else(|err| {
-			error!("shutdown error shutting down mdns daemon: {}", err);
+			error!("error shutting down mdns daemon: {err}");
 		});
+	}
+}
+
+struct MdnsRecv(flume::r#async::RecvStream<'static, ServiceEvent>, String);
+
+impl Stream for MdnsRecv {
+	type Item = ServiceEvent;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+		self.0.poll_next_unpin(cx)
 	}
 }

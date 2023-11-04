@@ -11,6 +11,7 @@ import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { useExplorerStore } from './store';
+import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
@@ -56,6 +57,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
+
+	useKeyRevealFinder();
 
 	return (
 		<>

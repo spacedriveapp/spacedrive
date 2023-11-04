@@ -216,7 +216,7 @@ function SpacedropDialog(props: UseDialogProps) {
 			onSubmit={form.handleSubmit((data) =>
 				doSpacedrop.mutateAsync({
 					file_path: getSpacedropState().droppedFiles,
-					peer_id: data.targetPeer! // `submitDisabled` ensures this
+					identity: data.targetPeer! // `submitDisabled` ensures this
 				})
 			)}
 			submitDisabled={value === undefined}

@@ -1,5 +1,4 @@
 import { Info } from '@phosphor-icons/react';
-import { getIcon, iconNames } from '@sd/assets/util';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { stringify } from 'uuid';
@@ -16,10 +15,10 @@ import {
 	useOnlineLocations,
 	useRspcLibraryContext
 } from '@sd/client';
-import { Tooltip } from '@sd/ui';
+import { Loader, Tooltip } from '@sd/ui';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
-import { Folder } from '~/components';
-import { useKeyDeleteFile, useZodRouteParams } from '~/hooks';
+import { Folder, Icon } from '~/components';
+import { useIsLocationIndexing, useKeyDeleteFile, useZodRouteParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -48,6 +47,8 @@ export const Component = () => {
 
 	const preferences = useLibraryQuery(['preferences.get']);
 	const updatePreferences = useLibraryMutation('preferences.update');
+
+	const isLocationIndexing = useIsLocationIndexing(locationId);
 
 	const settings = useMemo(() => {
 		const defaults = createDefaultExplorerSettings<FilePathOrder>({
@@ -144,15 +145,21 @@ export const Component = () => {
 				right={<DefaultTopBarOptions />}
 			/>
 
-			<Explorer
-				emptyNotice={
-					<EmptyNotice
-						loading={location.isFetching}
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
-						message="No files found here"
-					/>
-				}
-			/>
+			{isLocationIndexing ? (
+				<div className="flex h-full w-full items-center justify-center">
+					<Loader />
+				</div>
+			) : (
+				<Explorer
+					emptyNotice={
+						<EmptyNotice
+							loading={location.isFetching}
+							icon={<Icon name="FolderNoSpace" size={128} />}
+							message="No files found here"
+						/>
+					}
+				/>
+			)}
 		</ExplorerContextProvider>
 	);
 };

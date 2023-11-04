@@ -7,9 +7,9 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "categories.list", input: LibraryArgs<null>, result: { [key in Category]: number } } | 
+        { key: "ephemeralFiles.getMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: FilePath[] } | null } | 
         { key: "files.getConvertableImageExtensions", input: never, result: string[] } | 
-        { key: "files.getEphemeralMediaData", input: string, result: MediaMetadata | null } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaMetadata } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
@@ -29,7 +29,7 @@ export type Procedures = {
         { key: "notifications.dismiss", input: NotificationId, result: null } | 
         { key: "notifications.dismissAll", input: never, result: null } | 
         { key: "notifications.get", input: never, result: Notification[] } | 
-        { key: "p2p.nlmState", input: never, result: { [key: string]: LibraryData } } | 
+        { key: "p2p.state", input: never, result: P2PState } | 
         { key: "preferences.get", input: LibraryArgs<null>, result: LibraryPreferences } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
@@ -48,13 +48,16 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
+        { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
+        { key: "ephemeralFiles.cutFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
+        { key: "ephemeralFiles.deleteFiles", input: LibraryArgs<string[]>, result: null } | 
+        { key: "ephemeralFiles.renameFile", input: LibraryArgs<EphemeralRenameFileArgs>, result: null } | 
         { key: "files.convertImage", input: LibraryArgs<ConvertImageArgs>, result: null } | 
         { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
-        { key: "files.createEphemeralFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
         { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
         { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
-        { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
@@ -73,13 +76,13 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
+        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
         { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
@@ -87,11 +90,11 @@ export type Procedures = {
         { key: "notifications.testLibrary", input: LibraryArgs<null>, result: null } | 
         { key: "p2p.acceptSpacedrop", input: [string, string | null], result: null } | 
         { key: "p2p.cancelSpacedrop", input: string, result: null } | 
-        { key: "p2p.pair", input: PeerId, result: number } | 
+        { key: "p2p.pair", input: string, result: number } | 
         { key: "p2p.pairingResponse", input: [number, PairingDecision], result: null } | 
         { key: "p2p.spacedrop", input: SpacedropArgs, result: string } | 
         { key: "preferences.update", input: LibraryArgs<LibraryPreferences>, result: null } | 
-        { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
+        { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
@@ -146,7 +149,7 @@ export type CreateEphemeralFolderArgs = { path: string; name: string | null }
 
 export type CreateFolderArgs = { location_id: number; sub_path: string | null; name: string | null }
 
-export type CreateLibraryArgs = { name: LibraryName; default_locations?: DefaultLocations }
+export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultLocations | null }
 
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
@@ -158,9 +161,19 @@ export type DoubleClickAction = "openFile" | "quickPreview"
 
 export type EditLibraryArgs = { id: string; name: LibraryName | null; description: MaybeUndefined<string> }
 
+export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
+
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
+
+export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
+
+export type EphemeralRenameKind = { One: EphemeralRenameOne } | { Many: EphemeralRenameMany }
+
+export type EphemeralRenameMany = { from_pattern: FromPattern; to_pattern: string; from_paths: string[] }
+
+export type EphemeralRenameOne = { from_path: string; to: string }
 
 export type Error = { code: ErrorCode; message: string }
 
@@ -173,7 +186,7 @@ export type ExplorerItem = { type: "Path"; has_local_thumbnail: boolean; thumbna
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
-export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
+export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key: string]: boolean } | null; colSizes: { [key: string]: number } | null; order?: TOrder | null; showHiddenFiles?: boolean }
 
 export type Feedback = { message: string; emoji: number }
 
@@ -235,15 +248,13 @@ export type IndexerRule = { id: number; pub_id: number[]; name: string | null; d
  */
 export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([RuleKind, string[]])[] }
 
-export type InstanceState = "Unavailable" | { Discovered: PeerId } | { Connected: PeerId }
-
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
 export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
 
-export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: any | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; message: string; estimated_completion: string }
+export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key: string]: any } | null; is_background: boolean; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
@@ -258,8 +269,6 @@ export type LibraryArgs<T> = { library_id: string; arg: T }
 export type LibraryConfig = { name: LibraryName; description: string | null; instance_id: number }
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: string; config: LibraryConfig }
-
-export type LibraryData = { instances: { [key: string]: InstanceState } }
 
 export type LibraryName = string
 
@@ -291,6 +300,13 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
 
 export type LocationWithIndexerRules = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: { indexer_rule: IndexerRule }[] }
+
+/**
+ * The configuration for the P2P Manager
+ * DO NOT MAKE BREAKING CHANGES - This is embedded in the `node_config.json`
+ * For future me: `Keypair` is not on here cause hot reloading it hard.
+ */
+export type ManagerConfig = { enabled: boolean; port?: number | null }
 
 export type MaybeNot<T> = T | { not: T }
 
@@ -356,7 +372,9 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 /**
  * TODO: P2P event for the frontend
  */
-export type P2PEvent = { type: "DiscoveredPeer"; peer_id: PeerId; metadata: PeerMetadata } | { type: "ExpiredPeer"; peer_id: PeerId } | { type: "ConnectedPeer"; peer_id: PeerId } | { type: "DisconnectedPeer"; peer_id: PeerId } | { type: "SpacedropRequest"; id: string; peer_id: PeerId; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+export type P2PEvent = { type: "DiscoveredPeer"; identity: string; metadata: PeerMetadata } | { type: "ExpiredPeer"; identity: string } | { type: "ConnectedPeer"; identity: string } | { type: "DisconnectedPeer"; identity: string } | { type: "SpacedropRequest"; id: string; identity: string; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedout"; id: string } | { type: "SpacedropRejected"; id: string } | { type: "PairingRequest"; id: number; name: string; os: OperatingSystem } | { type: "PairingProgress"; id: number; status: PairingStatus }
+
+export type P2PState = { node: { [key: string]: PeerStatus }; libraries: ([string, { [key: string]: PeerStatus }])[]; self_peer_id: PeerId; self_identity: string; config: ManagerConfig; manager_connected: { [key: PeerId]: string }; manager_connections: PeerId[]; dicovery_services: { [key: string]: { [key: string]: string } | null }; discovery_discovered: { [key: string]: { [key: string]: [PeerId, { [key: string]: string }, string[]] } }; discovery_known: { [key: string]: string[] } }
 
 export type P2PStatus = { ipv4: ListenerStatus; ipv6: ListenerStatus }
 
@@ -366,7 +384,9 @@ export type PairingStatus = { type: "EstablishingConnection" } | { type: "Pairin
 
 export type PeerId = string
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null; email: string | null; img_url: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; version: string | null }
+
+export type PeerStatus = "Unavailable" | "Discovered" | "Connected"
 
 export type PlusCode = string
 
@@ -406,7 +426,7 @@ export type SingleInvalidateOperationEvent = { key: string; arg: any; result: an
 
 export type SortOrder = "Asc" | "Desc"
 
-export type SpacedropArgs = { peer_id: PeerId; file_path: string[] }
+export type SpacedropArgs = { identity: string; file_path: string[] }
 
 export type Statistics = { id: number; date_captured: string; total_object_count: number; library_db_size: string; total_bytes_used: string; total_bytes_capacity: string; total_unique_bytes: string; total_bytes_free: string; preview_media_bytes: string }
 
@@ -414,11 +434,11 @@ export type SystemLocations = { desktop: string | null; documents: string | null
 
 export type Tag = { id: number; pub_id: number[]; name: string | null; color: string | null; redundancy_goal: number | null; date_created: string | null; date_modified: string | null }
 
-export type TagAssignArgs = { object_ids: number[]; tag_id: number; unassign: boolean }
-
 export type TagCreateArgs = { name: string; color: string }
 
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
+
+export type Target = { Object: number } | { FilePath: number }
 
 export type VideoMetadata = { duration: number | null; video_codec: string | null; audio_codec: string | null }
 
