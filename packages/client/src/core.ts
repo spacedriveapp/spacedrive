@@ -276,7 +276,7 @@ export type LibraryPreferences = { location?: { [key: string]: LocationSettings 
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListenerStatus = { status: "Disabled" } | { status: "Listening" } | { status: "Error"; error: string }
+export type ListenerStatus = { status: "Disabled" } | { status: "Enabling" } | { status: "Listening"; port: number } | { status: "Error"; error: string }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null }
 

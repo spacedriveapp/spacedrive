@@ -7,7 +7,6 @@ import {
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
-	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
@@ -68,6 +67,8 @@ export const Component = () => {
 		});
 	}, [form]);
 
+	console.log(node.data); // TODO
+
 	return (
 		<>
 			<Heading
@@ -100,20 +101,14 @@ export const Component = () => {
 						</div>
 					</div>
 
-					{/* <div className="flex w-full items-center gap-5">
+					<div className="flex w-full items-center gap-5">
 						<div className="flex flex-col">
-							<NodeSettingLabel>
-								Listening on:{' '}
-								{node.data?.p2p.ipv4.status === 'Listening'
-									? `0.0.0.0:${node.data?.p2p_port || 0}`
-									: ''}
-							</NodeSettingLabel>
 							{/* <Input
 								{...form.register('name', { required: true })}
 								defaultValue={node.data?.name}
 							/> */}
 						</div>
-					</div> */}
+					</div>
 
 					<div className="mt-6 gap-2">
 						{/* <div
@@ -186,6 +181,16 @@ export const Component = () => {
 			</Setting>
 			<div className="flex flex-col gap-4">
 				<h1 className="mb-3 text-lg font-bold text-ink">Networking</h1>
+
+				{/* TODO: Add some UI for this stuff */}
+				{/* {node.data?.p2p.ipv4.status === 'Listening' ||
+				node.data?.p2p.ipv4.status === 'Enabling'
+					? `0.0.0.0:${node.data?.p2p.ipv4?.port || 0}`
+					: ''}
+				{node.data?.p2p.ipv6.status === 'Listening' ||
+				node.data?.p2p.ipv6.status === 'Enabling'
+					? `[::1]:${node.data?.p2p.ipv6?.port || 0}`
+					: ''} */}
 
 				<Setting
 					mini

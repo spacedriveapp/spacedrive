@@ -12,13 +12,12 @@ import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	NotificationContextProvider,
 	P2PContextProvider,
-	useBridgeQuery,
 	useDebugState,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
 
-import { P2P } from './app/p2p';
+import { P2P, useP2PErrorToast } from './app/p2p';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 
@@ -57,15 +56,7 @@ const Devtools = () => {
 
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	useLoadBackendFeatureFlags();
-
-	const nodeState = useBridgeQuery(['nodeState']);
-	useEffect(() => {
-		if (nodeState.data?.p2p_enabled && nodeState.data?.p2p.ipv4.status === 'Error')
-			console.error('TODO: Toast');
-
-		if (nodeState.data?.p2p_enabled && nodeState.data?.p2p.ipv6.status === 'Error')
-			console.error('TODO: Toast');
-	});
+	useP2PErrorToast();
 
 	return (
 		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
