@@ -61,6 +61,7 @@ pub mod encode {
 
 	/// Serialize string as it's u16 length and data.
 	pub fn string(buf: &mut Vec<u8>, s: &str) {
+		#[allow(clippy::panic)] // TODO: Remove this panic
 		if s.len() > u16::MAX as usize {
 			panic!("String is too long!"); // TODO: Chunk this so it will never error
 		}
@@ -70,6 +71,7 @@ pub mod encode {
 
 	/// Serialize buf as it's u16 length and data.
 	pub fn buf(buf: &mut Vec<u8>, b: &[u8]) {
+		#[allow(clippy::panic)] // TODO: Remove this panic
 		if b.len() > u32::MAX as usize {
 			panic!("Buf is too long!"); // TODO: Chunk this so it will never error
 		}

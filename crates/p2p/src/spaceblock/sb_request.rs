@@ -1,3 +1,5 @@
+use std::io;
+
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
@@ -18,14 +20,17 @@ pub enum Range {
 impl Range {
 	// TODO: Per field and proper error handling
 	pub async fn from_stream(stream: &mut (impl AsyncRead + Unpin)) -> std::io::Result<Self> {
-		match stream.read_u8().await.unwrap() {
+		match stream.read_u8().await? {
 			0 => Ok(Self::Full),
 			1 => {
-				let start = stream.read_u64_le().await.unwrap();
-				let end = stream.read_u64_le().await.unwrap();
+				let start = stream.read_u64_le().await?;
+				let end = stream.read_u64_le().await?;
 				Ok(Self::Partial(start..end))
 			}
-			_ => todo!(),
+			_ => Err(io::Error::new(
+				io::ErrorKind::Other,
+				"Invalid range discriminator",
+			)),
 		}
 	}
 
@@ -99,6 +104,7 @@ impl SpaceblockRequests {
 			block_size,
 			requests,
 		} = self;
+		#[allow(clippy::panic)] // TODO: Remove this panic
 		if requests.len() > 255 {
 			panic!("Can't Spacedrop more than 255 files at once!");
 		}
@@ -129,6 +135,9 @@ pub enum SpaceblockRequestError {
 	Name(decode::Error),
 	#[error("SpaceblockRequestError::Size({0})")]
 	Size(std::io::Error),
+	// TODO: From outside. Probs remove?
+	#[error("SpaceblockRequestError::RangeError({0:?})")]
+	RangeError(io::Error),
 }
 
 impl SpaceblockRequest {
@@ -147,7 +156,9 @@ impl SpaceblockRequest {
 		Ok(Self {
 			name,
 			size,
-			range: Range::from_stream(stream).await.unwrap(),
+			range: Range::from_stream(stream)
+				.await
+				.map_err(SpaceblockRequestError::Size)?,
 		})
 	}
 

@@ -245,8 +245,10 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 									let stream = service
 										.connect(state.node.p2p.manager.clone(), &identity)
 										.await
-										.map_err(|()| {
-											not_found("Error connecting to {identity}")
+										.map_err(|err| {
+											not_found(format!(
+												"Error connecting to {identity}: {err:?}"
+											))
 										})?;
 
 									let (tx, mut rx) =

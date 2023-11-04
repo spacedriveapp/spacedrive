@@ -133,7 +133,15 @@ pub async fn spacedrop(
 		for (file_id, (path, file)) in files.into_iter().enumerate() {
 			debug!("({id}): transmitting '{file_id}' from '{path:?}'");
 			let file = BufReader::new(file);
-			transfer.send(&mut stream, file).await;
+			if let Err(err) = transfer.send(&mut stream, file).await {
+				debug!("({id}): failed to send file '{file_id}': {err}");
+				// TODO: Error to frontend
+				// p2p.events
+				// 	.0
+				// 	.send(P2PEvent::SpacedropFailed { id, file_id })
+				// 	.ok();
+				return;
+			}
 		}
 
 		debug!("({id}): finished; took '{:?}", i.elapsed());
@@ -282,7 +290,13 @@ pub(crate) async fn reciever(
 							// TODO: Send error to remote peer
 						})?;
 						let f = BufWriter::new(f);
-						transfer.receive(&mut stream, f).await;
+						if let Err(err) = transfer.receive(&mut stream, f).await {
+							error!("({id}): error receiving file '{file_name}': '{err:?}'");
+
+							// TODO: Send error to frontend
+
+							break;
+						}
 					}
 
 					info!("({id}): complete");

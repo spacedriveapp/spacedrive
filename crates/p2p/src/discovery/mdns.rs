@@ -119,13 +119,15 @@ impl Mdns {
 					.iter_with_token()
 					.any(|(s, _)| s.1 == service_domain)
 				{
-					self.mdns_rx.insert(MdnsRecv(
-						self.mdns_daemon
-							.browse(&service_domain)
-							.unwrap()
-							.into_stream(),
-						service_domain,
-					));
+					let service = match self.mdns_daemon.browse(&service_domain) {
+						Ok(v) => v,
+						Err(err) => {
+							error!("error browsing mdns service: {}", err);
+							return;
+						}
+					};
+					self.mdns_rx
+						.insert(MdnsRecv(service.into_stream(), service_domain));
 				}
 
 				// TODO: Do a proper diff and remove old services
@@ -145,7 +147,9 @@ impl Mdns {
 			{
 				Pin::new(&mut self.mdns_rx).remove(token);
 			}
-			self.mdns_daemon.unregister(&service_domain).unwrap();
+			if let Err(err) = self.mdns_daemon.unregister(&service_domain) {
+				warn!("error unregistering mdns service: {}", err);
+			}
 		}
 
 		// If mDNS advertisement is not queued in future, queue one
@@ -191,7 +195,13 @@ impl Mdns {
 					return;
 				};
 
-				let service_name = subdomain.split("._sub.").next().unwrap(); // TODO: .replace(&format!("._sub.{}", self.service_name), "");
+				let service_name = match subdomain.split("._sub.").next() {
+					Some(service_name) => service_name,
+					None => {
+						warn!("resolved mDNS peer advertising itself with invalid subservice '{subdomain}'");
+						return;
+					}
+				}; // TODO: .replace(&format!("._sub.{}", self.service_name), "");
 				let raw_remote_identity = info
 					.get_fullname()
 					.replace(&format!("._{service_name}{}", self.service_name), "");
@@ -231,14 +241,17 @@ impl Mdns {
 				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
 				if let Some((tx, _)) = state.services.get_mut(service_name) {
-					tx.send((
+					if let Err(err) = tx.send((
 						service_name.to_string(),
 						ServiceEventInternal::Discovered {
 							identity,
 							metadata: meta.clone(),
 						},
-					))
-					.unwrap();
+					)) {
+						warn!(
+							"error sending mDNS service event to '{service_name}' channel: {err}"
+						);
+					}
 				} else {
 					warn!(
 						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"
@@ -263,7 +276,13 @@ impl Mdns {
 				}
 			}
 			ServiceEvent::ServiceRemoved(service_type, fullname) => {
-				let service_name = service_type.split("._sub.").next().unwrap();
+				let service_name = match service_type.split("._sub.").next() {
+					Some(service_name) => service_name,
+					None => {
+						warn!("resolved mDNS peer deadvertising itself with missing subservice '{service_type}'");
+						return;
+					}
+				};
 				let raw_remote_identity =
 					fullname.replace(&format!("._{service_name}{}", self.service_name), "");
 
@@ -283,11 +302,12 @@ impl Mdns {
 				let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
 
 				if let Some((tx, _)) = state.services.get_mut(service_name) {
-					tx.send((
+					if let Err(err) = tx.send((
 						service_name.to_string(),
 						ServiceEventInternal::Expired { identity },
-					))
-					.unwrap();
+					)) {
+						warn!("error sending mDNS service event '{service_name}': {err}");
+					}
 				} else {
 					warn!(
 						"mDNS service '{service_name}' is missing from 'state.services'. This is likely a bug!"

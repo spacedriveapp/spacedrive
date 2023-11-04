@@ -1,3 +1,5 @@
+use std::io::{self, ErrorKind};
+
 use tokio::io::AsyncReadExt;
 
 /// TODO
@@ -23,25 +25,25 @@ impl<'a> Block<'a> {
 	pub async fn from_stream(
 		stream: &mut (impl AsyncReadExt + Unpin),
 		data_buf: &mut [u8],
-	) -> Result<Block<'a>, ()> {
+	) -> Result<Block<'a>, io::Error> {
 		let mut offset = [0; 8];
-		stream.read_exact(&mut offset).await.map_err(|_| ())?; // TODO: Error handling
+		stream.read_exact(&mut offset).await?;
 		let offset = u64::from_le_bytes(offset);
 
 		let mut size = [0; 8];
-		stream.read_exact(&mut size).await.map_err(|_| ())?; // TODO: Error handling
+		stream.read_exact(&mut size).await?;
 		let size = u64::from_le_bytes(size);
 
 		// TODO: Ensure `size` is `block_size` or smaller else buffer overflow
 
 		if size as usize > data_buf.len() {
-			return Err(());
+			return Err(io::Error::new(
+				ErrorKind::Other,
+				"size and buffer length mismatch",
+			));
 		}
 
-		stream
-			.read_exact(&mut data_buf[..size as usize])
-			.await
-			.map_err(|_| ())?; // TODO: Error handling
+		stream.read_exact(&mut data_buf[..size as usize]).await?;
 
 		Ok(Self {
 			offset,

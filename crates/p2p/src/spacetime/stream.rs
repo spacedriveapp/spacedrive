@@ -139,8 +139,10 @@ pub enum UnicastStreamError {
 	// TODO: Technically this error is from the manager
 	#[error("peer id not found")]
 	PeerIdNotFound,
-	#[error("todo")]
+	#[error("error manager shutdown")]
 	ErrManagerShutdown(#[from] oneshot::error::RecvError),
+	#[error("error getting peer id for '{0}'")]
+	ErrPeerIdNotFound(RemoteIdentity),
 }
 
 #[derive(Debug)]

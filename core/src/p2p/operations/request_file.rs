@@ -91,7 +91,13 @@ pub async fn request_file(
 		&Arc::new(AtomicBool::new(false)),
 	)
 	.receive(&mut stream, output)
-	.await;
+	.await
+	.map_err(|err| {
+		warn!("({id}): transfer failed: {err:?}");
+
+		// TODO: Error in UI
+		// TODO: Send error to remote peer???
+	})?;
 
 	Ok(())
 }
@@ -226,7 +232,13 @@ pub(crate) async fn receiver(
 		&Arc::new(AtomicBool::new(false)),
 	)
 	.send(&mut stream, file)
-	.await;
+	.await
+	.map_err(|err| {
+		warn!("({id}): transfer failed: {err:?}");
+
+		// TODO: Error in UI
+		// TODO: Send error to remote peer???
+	})?;
 
 	Ok(())
 }
