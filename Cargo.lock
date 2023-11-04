@@ -194,12 +194,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arc-swap"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
-
-[[package]]
 name = "argon2"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1508,7 +1502,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core 0.9.8",
- "serde",
 ]
 
 [[package]]
@@ -3138,7 +3131,6 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
 dependencies = [
- "glob",
  "include_dir_macros",
 ]
 
@@ -6715,24 +6707,19 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
- "base64 0.21.5",
  "blake3",
  "bytes",
  "chrono",
  "ctor 0.2.4",
- "dashmap",
  "directories 5.0.1",
- "enumflags2 0.7.7",
  "flate2",
  "futures",
  "futures-concurrency",
  "globset",
- "hex",
  "hostname",
  "http-body",
  "http-range",
  "image",
- "include_dir",
  "int-enum",
  "itertools 0.11.0",
  "mini-moka",
@@ -6746,7 +6733,6 @@ dependencies = [
  "prisma-client-rust",
  "regex",
  "reqwest",
- "rmp",
  "rmp-serde",
  "rmpv",
  "rspc",
@@ -6767,7 +6753,6 @@ dependencies = [
  "slotmap",
  "specta",
  "static_assertions",
- "streamunordered",
  "strum",
  "strum_macros",
  "sysinfo",
@@ -6796,7 +6781,6 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
- "slotmap",
  "tokio",
  "tracing 0.2.0",
  "uhlc",
@@ -6838,7 +6822,6 @@ dependencies = [
  "futures",
  "http",
  "opener",
- "percent-encoding",
  "prisma-client-rust",
  "rand 0.8.5",
  "rspc",
@@ -6858,7 +6841,6 @@ dependencies = [
  "uuid",
  "webkit2gtk",
  "webview2-com",
- "window-shadows",
 ]
 
 [[package]]
@@ -6874,7 +6856,6 @@ dependencies = [
 name = "sd-desktop-macos"
 version = "0.1.0"
 dependencies = [
- "serde",
  "swift-rs",
 ]
 
@@ -6908,7 +6889,6 @@ dependencies = [
  "serde_json",
  "specta",
  "strum",
- "strum_macros",
  "tokio",
 ]
 
@@ -6980,7 +6960,6 @@ dependencies = [
 name = "sd-p2p"
 version = "0.1.0"
 dependencies = [
- "arc-swap",
  "base64 0.21.5",
  "ed25519-dalek",
  "flume",
@@ -6991,7 +6970,6 @@ dependencies = [
  "mdns-sd",
  "pin-project-lite",
  "rand_core 0.6.4",
- "rmp-serde",
  "serde",
  "specta",
  "streamunordered",
@@ -7033,9 +7011,7 @@ name = "sd-sync"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
- "rand 0.8.5",
  "serde",
- "serde-value",
  "serde_json",
  "specta",
  "uhlc",
@@ -7047,10 +7023,7 @@ name = "sd-sync-generator"
 version = "0.1.0"
 dependencies = [
  "nom",
- "once_cell",
  "prisma-client-rust-sdk",
- "proc-macro2",
- "quote",
  "serde",
  "thiserror",
 ]
@@ -9427,18 +9400,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "window-shadows"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29d30320647cfc3dc45554c8ad825b84831def81f967a2f7589931328ff9b16d"
-dependencies = [
- "cocoa",
- "objc",
- "raw-window-handle",
- "windows-sys 0.42.0",
-]
 
 [[package]]
 name = "windows"

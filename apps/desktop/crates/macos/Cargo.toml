@@ -6,7 +6,6 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-serde = { version = "1.0" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { workspace = true, features = ["serde"] }
