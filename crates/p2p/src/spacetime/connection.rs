@@ -28,13 +28,12 @@ const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 pub struct SpaceTimeConnection {
 	peer_id: PeerId,
 	manager: Arc<Manager>,
-	#[allow(deprecated)]
 	pending_events: VecDeque<
 		ConnectionHandlerEvent<
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
 			<Self as ConnectionHandler>::ToBehaviour,
-			<Self as ConnectionHandler>::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	>,
 }
@@ -92,7 +91,6 @@ impl ConnectionHandler for SpaceTimeConnection {
 		KeepAlive::Yes // TODO: Make this work how the old one did with storing it on `self` and updating on events
 	}
 
-	#[allow(deprecated)]
 	fn poll(
 		&mut self,
 		_cx: &mut Context<'_>,
@@ -101,7 +99,7 @@ impl ConnectionHandler for SpaceTimeConnection {
 			Self::OutboundProtocol,
 			Self::OutboundOpenInfo,
 			Self::ToBehaviour,
-			Self::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	> {
 		if let Some(event) = self.pending_events.pop_front() {
