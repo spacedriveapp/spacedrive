@@ -67,8 +67,6 @@ export const Component = () => {
 		});
 	}, [form]);
 
-	console.log(node.data); // TODO
-
 	return (
 		<>
 			<Heading
