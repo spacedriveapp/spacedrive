@@ -264,16 +264,16 @@ impl Manager {
 		P2PStatus {
 			ipv4: match state.ipv4_listener_id.clone() {
 				Some(Ok(_)) => match state.ipv4_port {
-				    Some(port) => ListenerStatus::Listening { port },
-                    None => ListenerStatus::Enabling,
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
 				},
 				Some(Err(error)) => ListenerStatus::Error { error },
 				None => ListenerStatus::Disabled,
 			},
 			ipv6: match state.ipv6_listener_id.clone() {
 				Some(Ok(_)) => match state.ipv6_port {
-				    Some(port) => ListenerStatus::Listening { port },
-                    None => ListenerStatus::Enabling,
+					Some(port) => ListenerStatus::Listening { port },
+					None => ListenerStatus::Enabling,
 				},
 				Some(Err(error)) => ListenerStatus::Error { error },
 				None => ListenerStatus::Disabled,

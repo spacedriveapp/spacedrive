@@ -231,27 +231,27 @@ impl ManagerStream {
 						SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 						SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
 						SwarmEvent::NewListenAddr { listener_id, address, .. } => {
-						    let addr = match quic_multiaddr_to_socketaddr(address.clone()) {
+							let addr = match quic_multiaddr_to_socketaddr(address.clone()) {
 								Ok(addr) => addr,
 								Err(err) => {
-                                    warn!("error passing listen address '{address:?}': {err:?}");
-                                    continue;
+									warn!("error passing listen address '{address:?}': {err:?}");
+									continue;
 								}
 							};
 
-						    {
-    							let mut state = self.manager.state.write().unwrap_or_else(PoisonError::into_inner);
-    						    if let Some(Ok(lid)) = &state.ipv4_listener_id {
-    								if *lid == listener_id {
-    								    state.ipv4_port = Some(addr.port());
-                                    }
-    							}
+							{
+								let mut state = self.manager.state.write().unwrap_or_else(PoisonError::into_inner);
+								if let Some(Ok(lid)) = &state.ipv4_listener_id {
+									if *lid == listener_id {
+										state.ipv4_port = Some(addr.port());
+									}
+								}
 
-                                if let Some(Ok(lid)) = &state.ipv6_listener_id {
-    								if *lid == listener_id {
-    								    state.ipv6_port = Some(addr.port());
-                                    }
-     							}
+								if let Some(Ok(lid)) = &state.ipv6_listener_id {
+									if *lid == listener_id {
+										state.ipv6_port = Some(addr.port());
+									}
+								 }
 							}
 
 							match quic_multiaddr_to_socketaddr(address) {
