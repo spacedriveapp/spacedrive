@@ -15,25 +15,19 @@ use crate::{
 			erase::FileEraserJobInit, error::FileSystemJobsError,
 			find_available_filename_for_duplicate,
 		},
-		media::{
-			media_data_extractor::{
-				can_extract_media_data_for_image, extract_media_data, MediaDataError,
-			},
-			media_data_image_from_prisma_data,
-		},
+		media::media_data_image_from_prisma_data,
 	},
 	prisma::{file_path, location, object},
 	util::{db::maybe_missing, error::FileIOError},
 };
 
-use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
+use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertableExtension;
 use sd_media_metadata::MediaMetadata;
 
 use std::{
 	ffi::OsString,
 	path::{Path, PathBuf},
-	str::FromStr,
 	sync::Arc,
 };
 
@@ -92,37 +86,6 @@ pub(crate) fn mount() -> RouterBuilder {
 							rspc::Error::new(ErrorCode::NotFound, "Object not found".to_string())
 						})?)
 				})
-		})
-		.procedure("getEphemeralMediaData", {
-			R.query(|_, full_path: PathBuf| async move {
-				let Some(extension) = full_path.extension().and_then(|ext| ext.to_str()) else {
-					return Ok(None);
-				};
-
-				// TODO(fogodev): change this when we have media data for audio and videos
-				let image_extension = ImageExtension::from_str(extension).map_err(|e| {
-					error!("Failed to parse image extension: {e:#?}");
-					rspc::Error::new(ErrorCode::BadRequest, "Invalid image extension".to_string())
-				})?;
-
-				if !can_extract_media_data_for_image(&image_extension) {
-					return Ok(None);
-				}
-
-				match extract_media_data(full_path).await {
-					Ok(img_media_data) => Ok(Some(MediaMetadata::Image(Box::new(img_media_data)))),
-					Err(MediaDataError::MediaData(sd_media_metadata::Error::NoExifDataOnPath(
-						_,
-					))) => Ok(None),
-					Err(e) => {
-						return Err(rspc::Error::with_cause(
-							ErrorCode::InternalServerError,
-							"Failed to extract media data".to_string(),
-							e,
-						))?;
-					}
-				}
-			})
 		})
 		.procedure("getPath", {
 			R.with(library()).query(|(_, library), id: i32| async move {
@@ -222,23 +185,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						path.push(sub_path);
 					}
 
-					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
-
-					dbg!(&path);
-
-					Ok(create_directory(path, &library).await?)
-				},
-			)
-		})
-		.procedure("createEphemeralFolder", {
-			#[derive(Type, Deserialize)]
-			pub struct CreateEphemeralFolderArgs {
-				pub path: PathBuf,
-				pub name: Option<String>,
-			}
-			R.with(library()).mutation(
-				|(_, library),
-				 CreateEphemeralFolderArgs { mut path, name }: CreateEphemeralFolderArgs| async move {
 					path.push(name.as_deref().unwrap_or(UNTITLED_FOLDER_STR));
 
 					Ok(create_directory(path, &library).await?)
@@ -535,12 +481,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
-			pub struct FromPattern {
-				pub pattern: String,
-				pub replace_all: bool,
-			}
-
-			#[derive(Type, Deserialize)]
 			pub struct RenameOne {
 				pub from_file_path_id: file_path::id::Type,
 				pub to: String,
@@ -760,7 +700,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 }
 
-async fn create_directory(
+pub(super) async fn create_directory(
 	mut target_path: PathBuf,
 	library: &Library,
 ) -> Result<String, rspc::Error> {
@@ -788,14 +728,19 @@ async fn create_directory(
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
 
-	println!("Created directory: {}", target_path.display());
-
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.ephemeralPaths");
 
 	Ok(target_path
 		.file_name()
 		.expect("Failed to get file name")
 		.to_string_lossy()
 		.to_string())
+}
+
+#[derive(Type, Deserialize)]
+pub struct FromPattern {
+	pub pattern: String,
+	pub replace_all: bool,
 }

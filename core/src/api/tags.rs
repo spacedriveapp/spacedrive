@@ -169,19 +169,20 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 
 					if args.unassign {
-						let query =
-							db.tag_on_object().delete_many(vec![
-								tag_on_object::tag_id::equals(args.tag_id),
-								tag_on_object::object_id::in_vec(
-									objects
-										.iter()
-										.map(|o| o.id)
-										.chain(file_paths.iter().filter_map(|fp| {
-											fp.object.as_ref().map(|o| o.id.clone())
-										}))
-										.collect(),
-								),
-							]);
+						let query = db.tag_on_object().delete_many(vec![
+							tag_on_object::tag_id::equals(args.tag_id),
+							tag_on_object::object_id::in_vec(
+								objects
+									.iter()
+									.map(|o| o.id)
+									.chain(
+										file_paths
+											.iter()
+											.filter_map(|fp| fp.object.as_ref().map(|o| o.id)),
+									)
+									.collect(),
+							),
+						]);
 
 						sync.write_ops(
 							db,

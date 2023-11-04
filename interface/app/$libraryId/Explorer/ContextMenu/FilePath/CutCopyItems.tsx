@@ -13,17 +13,35 @@ import { useContextMenuContext } from '../context';
 export const CutCopyItems = new ConditionalItem({
 	useCondition: () => {
 		const { parent } = useExplorerContext();
-		const { selectedFilePaths } = useContextMenuContext();
+		const { selectedFilePaths, selectedEphemeralPaths } = useContextMenuContext();
 
-		if (parent?.type !== 'Location' || !isNonEmpty(selectedFilePaths)) return null;
+		if (
+			(parent?.type !== 'Location' && parent?.type !== 'Ephemeral') ||
+			(!isNonEmpty(selectedFilePaths) && !isNonEmpty(selectedEphemeralPaths))
+		)
+			return null;
 
-		return { locationId: parent.location.id, selectedFilePaths };
+		return { parent, selectedFilePaths, selectedEphemeralPaths };
 	},
-	Component: ({ locationId, selectedFilePaths }) => {
+	Component: ({ parent, selectedFilePaths, selectedEphemeralPaths }) => {
 		const keybind = useKeybindFactory();
 		const [{ path }] = useExplorerSearchParams();
 
 		const copyFiles = useLibraryMutation('files.copyFiles');
+		const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
+
+		const indexedArgs =
+			parent.type === 'Location' && isNonEmpty(selectedFilePaths)
+				? {
+						sourceLocationId: parent.location.id,
+						sourcePathIds: selectedFilePaths.map((p) => p.id)
+				  }
+				: undefined;
+
+		const ephemeralArgs =
+			parent.type === 'Ephemeral' && isNonEmpty(selectedEphemeralPaths)
+				? { sourcePaths: selectedEphemeralPaths.map((p) => p.path) }
+				: undefined;
 
 		return (
 			<>
@@ -33,8 +51,8 @@ export const CutCopyItems = new ConditionalItem({
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
 							sourceParentPath: path ?? '/',
-							sourceLocationId: locationId,
-							sourcePathIds: selectedFilePaths.map((p) => p.id),
+							indexedArgs,
+							ephemeralArgs,
 							type: 'Cut'
 						};
 					}}
@@ -47,8 +65,8 @@ export const CutCopyItems = new ConditionalItem({
 					onClick={() => {
 						getExplorerStore().cutCopyState = {
 							sourceParentPath: path ?? '/',
-							sourceLocationId: locationId,
-							sourcePathIds: selectedFilePaths.map((p) => p.id),
+							indexedArgs,
+							ephemeralArgs,
 							type: 'Copy'
 						};
 					}}
@@ -60,12 +78,24 @@ export const CutCopyItems = new ConditionalItem({
 					keybind={keybind([ModifierKeys.Control], ['D'])}
 					onClick={async () => {
 						try {
-							await copyFiles.mutateAsync({
-								source_location_id: locationId,
-								sources_file_path_ids: selectedFilePaths.map((p) => p.id),
-								target_location_id: locationId,
-								target_location_relative_directory_path: path ?? '/'
-							});
+							if (parent.type === 'Location' && isNonEmpty(selectedFilePaths)) {
+								await copyFiles.mutateAsync({
+									source_location_id: parent.location.id,
+									sources_file_path_ids: selectedFilePaths.map((p) => p.id),
+									target_location_id: parent.location.id,
+									target_location_relative_directory_path: path ?? '/'
+								});
+							}
+
+							if (
+								parent.type === 'Ephemeral' &&
+								isNonEmpty(selectedEphemeralPaths)
+							) {
+								await copyEphemeralFiles.mutateAsync({
+									sources: selectedEphemeralPaths.map((p) => p.path),
+									target_dir: path ?? '/'
+								});
+							}
 						} catch (error) {
 							toast.error({
 								title: 'Failed to duplicate file',

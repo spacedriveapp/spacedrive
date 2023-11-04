@@ -194,12 +194,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arc-swap"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
-
-[[package]]
 name = "argon2"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -270,13 +264,15 @@ dependencies = [
 
 [[package]]
 name = "async-channel"
-version = "1.9.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
+checksum = "336d835910fab747186c56586562cb46f42809c2843ef3a84f47509009522838"
 dependencies = [
  "concurrent-queue",
- "event-listener",
+ "event-listener 3.0.1",
+ "event-listener-strategy",
  "futures-core",
+ "pin-project-lite",
 ]
 
 [[package]]
@@ -305,7 +301,18 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "287272293e9d8c41773cec55e365490fe034813a2f172f502d6ddcf75b2f582b"
 dependencies = [
- "event-listener",
+ "event-listener 2.5.3",
+]
+
+[[package]]
+name = "async-recursion"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd55a5ba1179988837d24ab4c7cc8ed6efdeff578ede0416b4225a5fca35bd0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -1502,7 +1509,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core 0.9.8",
- "serde",
 ]
 
 [[package]]
@@ -1939,6 +1945,27 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "event-listener"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01cec0252c2afff729ee6f00e903d479fba81784c8e2bd77447673471fdfaea1"
+dependencies = [
+ "concurrent-queue",
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96b852f1345da36d551b9473fa1e2b1eb5c5195585c6c018118bc92a8d91160"
+dependencies = [
+ "event-listener 3.0.1",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "exr"
@@ -3102,7 +3129,6 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
 dependencies = [
- "glob",
  "include_dir_macros",
 ]
 
@@ -6687,27 +6713,23 @@ version = "0.1.2"
 dependencies = [
  "aovec",
  "async-channel",
+ "async-recursion",
  "async-stream",
  "async-trait",
  "axum",
- "base64 0.21.5",
  "blake3",
  "bytes",
  "chrono",
  "ctor 0.2.4",
- "dashmap",
  "directories 5.0.1",
- "enumflags2 0.7.7",
  "flate2",
  "futures",
  "futures-concurrency",
  "globset",
- "hex",
  "hostname",
  "http-body",
  "http-range",
  "image",
- "include_dir",
  "int-enum",
  "itertools 0.11.0",
  "mini-moka",
@@ -6721,7 +6743,6 @@ dependencies = [
  "prisma-client-rust",
  "regex",
  "reqwest",
- "rmp",
  "rmp-serde",
  "rmpv",
  "rspc",
@@ -6742,7 +6763,6 @@ dependencies = [
  "slotmap",
  "specta",
  "static_assertions",
- "streamunordered",
  "strum",
  "strum_macros",
  "sysinfo",
@@ -6771,7 +6791,6 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
- "slotmap",
  "tokio",
  "tracing 0.2.0",
  "uhlc 0.5.2",
@@ -6813,7 +6832,6 @@ dependencies = [
  "futures",
  "http",
  "opener",
- "percent-encoding",
  "prisma-client-rust",
  "rand 0.8.5",
  "rspc-tauri",
@@ -6833,7 +6851,6 @@ dependencies = [
  "uuid",
  "webkit2gtk",
  "webview2-com",
- "window-shadows",
 ]
 
 [[package]]
@@ -6849,7 +6866,6 @@ dependencies = [
 name = "sd-desktop-macos"
 version = "0.1.0"
 dependencies = [
- "serde",
  "swift-rs",
 ]
 
@@ -6883,7 +6899,6 @@ dependencies = [
  "serde_json",
  "specta",
  "strum",
- "strum_macros",
  "tokio",
 ]
 
@@ -6955,7 +6970,6 @@ dependencies = [
 name = "sd-p2p"
 version = "0.1.0"
 dependencies = [
- "arc-swap",
  "base64 0.21.5",
  "ed25519-dalek",
  "flume",
@@ -6966,7 +6980,6 @@ dependencies = [
  "mdns-sd",
  "pin-project-lite",
  "rand_core 0.6.4",
- "rmp-serde",
  "serde",
  "specta",
  "streamunordered",
@@ -7008,9 +7021,7 @@ name = "sd-sync"
 version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
- "rand 0.8.5",
  "serde",
- "serde-value",
  "serde_json",
  "specta",
  "uhlc 0.5.2",
@@ -7022,10 +7033,7 @@ name = "sd-sync-generator"
 version = "0.1.0"
 dependencies = [
  "nom",
- "once_cell",
  "prisma-client-rust-sdk 0.6.8 (git+https://github.com/Brendonovich/prisma-client-rust?branch=spacedrive)",
- "proc-macro2",
- "quote",
  "serde",
  "thiserror",
 ]
@@ -9414,18 +9422,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "window-shadows"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29d30320647cfc3dc45554c8ad825b84831def81f967a2f7589931328ff9b16d"
-dependencies = [
- "cocoa",
- "objc",
- "raw-window-handle",
- "windows-sys 0.42.0",
-]
 
 [[package]]
 name = "windows"

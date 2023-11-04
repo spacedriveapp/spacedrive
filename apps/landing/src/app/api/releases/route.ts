@@ -6,12 +6,14 @@ export async function GET() {
 	const releases = await githubFetch(getRecentReleases);
 
 	return Response.json(
-		releases.map((release) => {
-			return {
-				...getReleaseFrontmatter(release),
-				version: release.tag_name,
-				published_at: release.published_at
-			};
-		})
+		releases
+			.filter((r) => !r.draft)
+			.map((release) => {
+				return {
+					...getReleaseFrontmatter(release),
+					version: release.tag_name,
+					published_at: release.published_at
+				};
+			})
 	);
 }

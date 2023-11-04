@@ -10,14 +10,14 @@ use crate::{
 	Node,
 };
 use itertools::Itertools;
-use rspc::{ErrorCode, ExportConfig, Rspc};
+use rspc::{ErrorCode, Rspc};
 use serde::{Deserialize, Serialize};
 use specta::{ts, Type};
 use std::sync::{atomic::Ordering, Arc};
 use thiserror::Error;
 use uuid::Uuid;
 
-use utils::{InvalidRequests, InvalidateOperationEvent};
+use utils::InvalidateOperationEvent;
 
 #[derive(Debug, Error, Serialize, Type)]
 pub enum SdError {
@@ -126,6 +126,7 @@ impl BackendFeature {
 mod auth;
 mod backups;
 mod categories;
+mod ephemeral_files;
 mod files;
 mod jobs;
 mod keys;
@@ -250,6 +251,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("categories", categories::mount())
 		// .merge("keys.", keys::mount())
 		.merge("locations", locations::mount())
+		.merge("ephemeralFiles", ephemeral_files::mount())
 		.merge("files", files::mount())
 		.merge("jobs", jobs::mount())
 		.merge("p2p", p2p::mount())
