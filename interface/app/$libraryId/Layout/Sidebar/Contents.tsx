@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Planet } from '@phosphor-icons/react';
+import { ArrowsClockwise, Planet, ShareNetwork } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useKeys } from 'rooks';
 import { LibraryContextProvider, useClientContext, useFeatureFlag } from '@sd/client';
@@ -46,6 +46,12 @@ export default () => {
 					<SidebarLink to="sync">
 						<Icon component={ArrowsClockwise} />
 						Sync
+					</SidebarLink>
+				)}
+				{useFeatureFlag('p2pRoute') && (
+					<SidebarLink to="p2p">
+						<Icon component={ShareNetwork} />
+						P2P
 					</SidebarLink>
 				)}
 			</div>

@@ -42,9 +42,7 @@ function IncorrectP2PPairingPane() {
 			console.log(data);
 		}
 	});
-	const nlmState = useBridgeQuery(['p2p.state'], {
-		refetchInterval: 1000
-	});
+
 	const libraries = useBridgeQuery(['library.list']);
 
 	return (
@@ -80,10 +78,6 @@ function IncorrectP2PPairingPane() {
 						</div>
 					))}
 				</div>
-			</div>
-			<div>
-				<p>NLM State:</p>
-				<pre className="pl-5">{JSON.stringify(nlmState.data || {}, undefined, 2)}</pre>
 			</div>
 			<div>
 				<p>Libraries:</p>
