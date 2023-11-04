@@ -61,27 +61,38 @@ function restore(
 	return item;
 }
 
-export function useNodes(data: { '__type': string; '__id': string; '#node': any }[] | undefined) {
+type CacheNode = { '__type': string; '__id': string; '#node': any };
+
+export function useNodes(data: CacheNode[] | undefined) {
 	const cache = useCacheContext();
 
 	// `useMemo` instead of `useEffect` here is cursed but it needs to run before the `useMemo` in the `useCache` hook.
 	useMemo(() => {
-		if (!data) return;
-
-		for (const item of data) {
-			if (!('__type' in item && '__id' in item))
-				throw new Error('Missing `__type` or `__id`');
-			if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
-			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
-
-			const copy = { ...item } as any;
-			delete copy.__type;
-			delete copy.__id;
-
-			if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
-			cache.nodes[item.__type]![item.__id] = copy;
-		}
+		updateNodes(cache, data);
 	}, [cache, data]);
+}
+
+export function useNodesCallback(): (data: CacheNode[] | undefined) => void {
+	const cache = useCacheContext();
+
+	return (data) => updateNodes(cache, data);
+}
+
+function updateNodes(cache: typeof defaultStore, data: CacheNode[] | undefined) {
+	if (!data) return;
+
+	for (const item of data) {
+		if (!('__type' in item && '__id' in item)) throw new Error('Missing `__type` or `__id`');
+		if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
+		if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
+
+		const copy = { ...item } as any;
+		delete copy.__type;
+		delete copy.__id;
+
+		if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
+		cache.nodes[item.__type]![item.__id] = copy;
+	}
 }
 
 type UseCacheResult<T> = T extends (infer A)[]

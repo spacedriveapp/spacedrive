@@ -7,6 +7,7 @@ import {
 	ObjectFilterArgs,
 	ObjectKindEnum,
 	ObjectOrder,
+	useCache,
 	useLibraryContext,
 	useLibraryQuery
 } from '@sd/client';
@@ -120,10 +121,11 @@ export function useCategoryExplorer(category: Category) {
 		settings: pathsExplorerSettings
 	});
 
-	const pathsItems = useMemo(
+	const pathsItemsReferences = useMemo(
 		() => pathsQuery.data?.pages?.flatMap((d) => d.items) ?? [],
 		[pathsQuery.data]
 	);
+	const pathsItems = useCache(pathsItemsReferences);
 
 	const loadMore = () => {
 		const query = isObjectQuery ? objectsQuery : pathsQuery;

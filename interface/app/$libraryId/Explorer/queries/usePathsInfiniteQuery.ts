@@ -5,6 +5,8 @@ import {
 	FilePathObjectCursor,
 	FilePathOrder,
 	FilePathSearchArgs,
+	useCache,
+	useNodesCallback,
 	useRspcLibraryContext
 } from '@sd/client';
 
@@ -19,6 +21,7 @@ export function usePathsInfiniteQuery({
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
 	const ctx = useRspcLibraryContext();
 	const explorerSettings = settings.useSettingsSnapshot();
+	const updateNodes = useNodesCallback();
 
 	if (explorerSettings.order) {
 		arg.orderAndPagination = { orderOnly: explorerSettings.order };
@@ -27,7 +30,7 @@ export function usePathsInfiniteQuery({
 
 	return useInfiniteQuery({
 		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
-		queryFn: ({ pageParam, queryKey: [_, { arg }] }) => {
+		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
 			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
 			const { order } = explorerSettings;
 
@@ -119,7 +122,9 @@ export function usePathsInfiniteQuery({
 
 			arg.orderAndPagination = orderAndPagination;
 
-			return ctx.client.query(['search.paths', arg]);
+			const { nodes, ...result } = await ctx.client.query(['search.paths', arg]);
+			updateNodes(nodes);
+			return result;
 		},
 		getNextPageParam: (lastPage) => {
 			if (arg.take === null || arg.take === undefined) return undefined;

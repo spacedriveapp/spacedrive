@@ -10,6 +10,7 @@ use crate::{
 	},
 	object::media::thumbnail::get_indexed_thumb_key,
 	prisma::{self, file_path, location, object, tag, tag_on_object, PrismaClient},
+	util::{CacheNode, Model, Normalise, Reference},
 };
 
 use std::{collections::BTreeSet, path::PathBuf};
@@ -29,6 +30,27 @@ const MAX_TAKE: u8 = 100;
 struct SearchData<T> {
 	cursor: Option<Vec<u8>>,
 	items: Vec<T>,
+}
+
+// TODO: Remove this
+#[derive(Serialize, Type, Debug)]
+struct SearchData2<T: Model> {
+	cursor: Option<Vec<u8>>,
+	items: Vec<Reference<T>>,
+	nodes: Vec<CacheNode>,
+}
+
+impl<T: Model> Model for SearchData2<T> {
+	fn name() -> &'static str {
+		T::name()
+	}
+}
+
+impl Model for ExplorerItem {
+	fn name() -> &'static str {
+		// TODO: Really this should be per-variant of `ExplorerItem`. Fix that!
+		"ExplorerItem"
+	}
 }
 
 #[derive(Deserialize, Default, Type, Debug)]
@@ -597,9 +619,19 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						})
 					}
 
-					Ok(SearchData {
+					let (nodes, items) = items.normalise(|item| {
+						match item {
+							ExplorerItem::Path { item, .. } => item.id,
+							// TODO: Avoid this unreachable
+							_ => unreachable!(),
+						}
+						.to_string()
+					});
+
+					Ok(SearchData2 {
 						items,
 						cursor: None,
+						nodes,
 					})
 				},
 			)

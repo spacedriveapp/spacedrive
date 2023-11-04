@@ -8,6 +8,7 @@ import {
 	FilePathFilterArgs,
 	FilePathOrder,
 	ObjectKindEnum,
+	useCache,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery,
@@ -195,7 +196,11 @@ const useItems = ({
 		settings
 	});
 
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
+	const itemsReferences = useMemo(
+		() => query.data?.pages.flatMap((d) => d.items) ?? null,
+		[query.data]
+	);
+	const items = useCache(itemsReferences);
 
 	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {

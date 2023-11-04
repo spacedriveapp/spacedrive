@@ -1,6 +1,12 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { memo, Suspense, useDeferredValue, useMemo } from 'react';
-import { FilePathOrder, getExplorerItemData, useLibraryQuery } from '@sd/client';
+import {
+	FilePathOrder,
+	getExplorerItemData,
+	useCache,
+	useLibraryQuery,
+	useNodes
+} from '@sd/client';
 import { SearchParamsSchema, type SearchParams } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
 
@@ -24,6 +30,8 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 		enabled: !!search,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});
+	useNodes(query.data?.nodes);
+	const queryItems = useCache(query.data?.items);
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(
@@ -42,7 +50,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 	const settingsSnapshot = explorerSettings.useSettingsSnapshot();
 
 	const items = useMemo(() => {
-		const items = query.data?.items ?? [];
+		const items = queryItems ?? [];
 
 		if (settingsSnapshot.layoutMode !== 'media') return items;
 
@@ -50,7 +58,7 @@ const SearchExplorer = memo((props: { args: SearchParams }) => {
 			const { kind } = getExplorerItemData(item);
 			return kind === 'Video' || kind === 'Image';
 		});
-	}, [query.data, settingsSnapshot.layoutMode]);
+	}, [queryItems, settingsSnapshot.layoutMode]);
 
 	const explorer = useExplorer({
 		items,

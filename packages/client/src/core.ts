@@ -35,7 +35,7 @@ export type Procedures = {
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: NonIndexedFileSystemEntries } | 
         { key: "search.objects", input: LibraryArgs<ObjectSearchArgs>, result: SearchData<ExplorerItem> } | 
         { key: "search.objectsCount", input: LibraryArgs<{ filter?: ObjectFilterArgs }>, result: number } | 
-        { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData<ExplorerItem> } | 
+        { key: "search.paths", input: LibraryArgs<FilePathSearchArgs>, result: SearchData2<ExplorerItem> } | 
         { key: "search.pathsCount", input: LibraryArgs<{ filter?: FilePathFilterArgs }>, result: number } | 
         { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
@@ -412,6 +412,8 @@ export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChil
 export type SanitisedNodeConfig = { id: string; name: string; p2p_enabled: boolean; p2p_port: number | null; features: BackendFeature[] }
 
 export type SearchData<T> = { cursor: number[] | null; items: T[] }
+
+export type SearchData2<T> = { cursor: number[] | null; items: { __type: "ExplorerItem"; __id: string; "#type": { type: "Path"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: FilePathWithObject } | { type: "Object"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: ObjectWithFilePaths } | { type: "Location"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: Location } | { type: "NonIndexedPath"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: NonIndexedPathItem } | { type: "SpacedropPeer"; has_local_thumbnail: boolean; thumbnail_key: string[] | null; item: PeerMetadata } }[]; nodes: { __type: string; __id: string; "#node": any }[] }
 
 export type SetFavoriteArgs = { id: number; favorite: boolean }
 

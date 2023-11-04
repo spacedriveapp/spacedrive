@@ -8,6 +8,7 @@ pub trait Model {
 	fn name() -> &'static str;
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Reference<T>(String, PhantomData<T>);
 
 impl<T: Model + Type> Reference<T> {
@@ -62,7 +63,7 @@ impl<T: Model> Serialize for Reference<T> {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone)] // TODO: `Hash, PartialEq, Eq`
 pub struct CacheNode(
 	&'static str,
 	serde_json::Value,
