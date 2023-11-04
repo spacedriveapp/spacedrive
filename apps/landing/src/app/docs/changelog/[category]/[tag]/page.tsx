@@ -1,5 +1,6 @@
 import { bundleMDX } from 'mdx-bundler';
 import { getMDXComponent } from 'next-contentlayer/hooks';
+import { notFound } from 'next/navigation';
 import { getRelease, githubFetch } from '~/app/api/github';
 import { DocMDXComponents } from '~/components/mdx';
 import { toTitleCase } from '~/utils/util';
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function Page({ params }: Props) {
 	const release = await githubFetch(getRelease(params.tag));
+	if (release.draft) notFound();
 
 	const { code } = await bundleMDX({ source: processComments(release.body ?? '') });
 	const MDXContent = getMDXComponent(code);

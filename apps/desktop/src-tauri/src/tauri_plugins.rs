@@ -77,17 +77,6 @@ pub fn sd_server_plugin<R: Runtime>(node: Arc<Node>) -> io::Result<TauriPlugin<R
 		))
 		.on_event(move |app, e| {
 			if let RunEvent::Exit { .. } = e {
-				debug!("Closing all open windows...");
-				app
-					.windows()
-					.iter()
-					.for_each(|(window_name, window)| {
-						debug!("closing window: {window_name}");
-						if let Err(e) = window.close() {
-							error!("failed to close window '{}': {:#?}", window_name, e);
-						}
-					});
-
 				block_in_place(|| {
 					block_on(node.shutdown());
 					block_on(tx.send(())).ok();

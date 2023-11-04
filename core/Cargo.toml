@@ -97,9 +97,9 @@ strum_macros = "0.25"
 regex = "1.9.5"
 hex = "0.4.3"
 int-enum = "0.5.0"
-tokio-stream = "0.1.14"
+tokio-stream = { version = "0.1.14", features = ["fs"] }
 futures-concurrency = "7.4.3"
-async-channel = "1.9"
+async-channel = "2.0.0"
 tokio-util = { version = "0.7.8", features = ["io"] }
 slotmap = "1.0.6"
 flate2 = "1.0.27"
@@ -112,6 +112,7 @@ bytes = "1.5.0"
 reqwest = { version = "0.11.20", features = ["json", "native-tls-vendored"] }
 directories = "5.0.1"
 streamunordered = "0.5.3"
+async-recursion = "1.0.5"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
