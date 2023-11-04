@@ -10,6 +10,7 @@
 		"typecheck": "contentlayer build && tsc -b"
 	},
 	"dependencies": {
+		"@docsearch/react": "3",
 		"@octokit/webhooks": "^12.0.3",
 		"@phosphor-icons/react": "^2.0.13",
 		"@react-three/drei": "^9.88.4",
