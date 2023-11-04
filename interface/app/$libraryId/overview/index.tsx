@@ -54,7 +54,7 @@ export const Component = () => {
 						</ContextMenu>
 					}
 					emptyNotice={
-						<div className="flex h-full flex-col items-center justify-center text-white">
+						<div className="flex flex-1 flex-col items-center justify-center text-white">
 							<img
 								src={getIcon(
 									IconForCategory[selectedCategory] || 'Document',

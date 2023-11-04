@@ -7,7 +7,8 @@ import { Button } from '@sd/ui';
 import { useExplorerContext } from '../Context';
 import { FileThumb } from '../FilePath/Thumb';
 import { getQuickPreviewStore } from '../QuickPreview/store';
-import GridList from './GridList';
+import Grid from './Grid';
+import { useExplorerDraggable } from './useExplorerDraggable';
 import { ViewItem } from './ViewItem';
 
 interface MediaViewItemProps {
@@ -17,52 +18,61 @@ interface MediaViewItemProps {
 }
 
 const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
-	const settings = useExplorerContext().useSettingsSnapshot();
 	const filePathData = getItemFilePath(data);
-	const hidden = filePathData?.hidden ?? false;
+
+	const { mediaAspectSquare } = useExplorerContext().useSettingsSnapshot();
+
+	const { setDraggableRef, attributes, listeners, style, isDragging } = useExplorerDraggable({
+		data
+	});
 
 	return (
 		<ViewItem
 			data={data}
 			className={clsx(
-				'h-full w-full overflow-hidden border-2',
-				selected ? 'border-accent' : 'border-transparent',
-				hidden && 'opacity-50'
+				'group relative h-full w-full border-2 hover:bg-app-selectedItem',
+				selected ? 'border-accent bg-app-selectedItem' : 'border-transparent'
 			)}
 		>
-			<div
+			<FileThumb
+				data={data}
+				cover={mediaAspectSquare}
+				blackBars
+				extension
 				className={clsx(
-					'group relative flex aspect-square items-center justify-center hover:bg-app-selectedItem',
-					selected && 'bg-app-selectedItem'
+					!mediaAspectSquare && 'p-0.5',
+					cut && 'opacity-60',
+					filePathData?.hidden && 'opacity-50'
 				)}
-			>
-				<FileThumb
-					data={data}
-					cover={settings.mediaAspectSquare}
-					blackBars
-					extension
-					className={clsx(!settings.mediaAspectSquare && 'px-1', cut && 'opacity-60')}
-				/>
+				ref={setDraggableRef}
+				childProps={{
+					style,
+					...attributes,
+					...listeners
+				}}
+			/>
 
-				<Button
-					variant="gray"
-					size="icon"
-					className="absolute right-2 top-2 hidden rounded-full shadow group-hover:block"
-					onClick={() => (getQuickPreviewStore().open = true)}
-				>
-					<ArrowsOutSimple />
-				</Button>
-			</div>
+			<Button
+				variant="gray"
+				size="icon"
+				className={clsx(
+					'absolute right-2 top-2 hidden rounded-full shadow',
+					!isDragging && 'group-hover:block'
+				)}
+				onClick={() => (getQuickPreviewStore().open = true)}
+			>
+				<ArrowsOutSimple />
+			</Button>
 		</ViewItem>
 	);
 });
 
-export default () => {
+export const MediaView = () => {
 	return (
-		<GridList>
+		<Grid>
 			{({ item, selected, cut }) => (
 				<MediaViewItem data={item} selected={selected} cut={cut} />
 			)}
-		</GridList>
+		</Grid>
 	);
 };

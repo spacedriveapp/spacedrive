@@ -28,7 +28,7 @@ import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Ex
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
 import { useExplorerSearchParams } from '../Explorer/util';
-import { EmptyNotice } from '../Explorer/View';
+import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 import LocationOptions from './LocationOptions';
 

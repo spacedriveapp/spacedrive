@@ -1,4 +1,5 @@
 import { Pencil, Plus, Trash } from '@phosphor-icons/react';
+import { PropsWithChildren } from 'react';
 import { useNavigate } from 'react-router';
 import { useLibraryContext } from '@sd/client';
 import { ContextMenu as CM, dialogManager, toast } from '@sd/ui';
@@ -7,12 +8,10 @@ import DeleteDialog from '~/app/$libraryId/settings/library/locations/DeleteDial
 import { openDirectoryPickerDialog } from '~/app/$libraryId/settings/library/locations/openDirectoryPickerDialog';
 import { usePlatform } from '~/util/Platform';
 
-interface Props {
-	children: React.ReactNode;
-	locationId: number;
-}
-
-export default ({ children, locationId }: Props) => {
+export const ContextMenu = ({
+	children,
+	locationId
+}: PropsWithChildren<{ locationId: number }>) => {
 	const navigate = useNavigate();
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;

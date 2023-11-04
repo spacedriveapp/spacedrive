@@ -16,7 +16,7 @@ interface Props {
 
 const TopBar = (props: Props) => {
 	const transparentBg = useShowControls().transparentBg;
-	const { isDragging } = useExplorerStore();
+	const explorerStore = useExplorerStore();
 	const os = useOperatingSystem();
 
 	return (
@@ -26,7 +26,7 @@ const TopBar = (props: Props) => {
 			className={clsx(
 				'top-bar-blur absolute inset-x-0 z-50 flex items-center gap-3.5 overflow-hidden border-b !border-sidebar-divider px-3.5',
 				'duration-250 transition-[background-color,border-color] ease-out',
-				isDragging && 'pointer-events-none',
+				explorerStore.isDragSelecting && 'pointer-events-none',
 				transparentBg ? 'bg-app/0' : 'bg-app/90'
 			)}
 		>

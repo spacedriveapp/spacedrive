@@ -1,0 +1,84 @@
+import clsx from 'clsx';
+import { Link, useMatch } from 'react-router-dom';
+import {
+	arraysEqual,
+	Location as LocationType,
+	useLibraryQuery,
+	useOnlineLocations
+} from '@sd/client';
+import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
+import { useExplorerDroppable } from '~/app/$libraryId/Explorer/View/useExplorerDroppable';
+import { AddLocationButton } from '~/app/$libraryId/settings/library/locations/AddLocationButton';
+import { Icon, SubtleButton } from '~/components';
+
+import SidebarLink from '../Link';
+import Section from '../Section';
+import SeeMore from '../SeeMore';
+import { ContextMenu } from './ContextMenu';
+
+export const Locations = () => {
+	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const onlineLocations = useOnlineLocations();
+
+	return (
+		<Section
+			name="Locations"
+			actionArea={
+				<Link to="settings/library/locations">
+					<SubtleButton />
+				</Link>
+			}
+		>
+			<SeeMore
+				items={locations ?? []}
+				renderItem={(location) => (
+					<Location
+						key={location.id}
+						location={location}
+						online={onlineLocations.some((l) => arraysEqual(location.pub_id, l))}
+					/>
+				)}
+			/>
+			<AddLocationButton className="mt-1" />
+		</Section>
+	);
+};
+
+const Location = ({ location, online }: { location: LocationType; online: boolean }) => {
+	const locationId = useMatch('/:libraryId/location/:locationId')?.params.locationId;
+	const [{ path }] = useExplorerSearchParams();
+
+	const { isDroppable, navigateClassName, setDroppableRef } = useExplorerDroppable({
+		id: `sidebar-location-${location.id}`,
+		allow: 'Path',
+		data: { type: 'location', path: '/', data: location },
+		disabled: Number(locationId) === location.id && !path,
+		navigateTo: `location/${location.id}`
+	});
+
+	return (
+		<ContextMenu locationId={location.id}>
+			<SidebarLink
+				ref={setDroppableRef}
+				to={`location/${location.id}`}
+				className={clsx(
+					'border radix-state-open:border-accent',
+					isDroppable ? ' border-accent' : 'border-transparent',
+					navigateClassName
+				)}
+			>
+				<div className="relative mr-1 shrink-0 grow-0">
+					<Icon name="Folder" size={18} />
+					<div
+						className={clsx(
+							'absolute bottom-0.5 right-0 h-1.5 w-1.5 rounded-full',
+							online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+				</div>
+
+				<span className="truncate">{location.name}</span>
+			</SidebarLink>
+		</ContextMenu>
+	);
+};

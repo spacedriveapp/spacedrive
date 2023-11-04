@@ -19,18 +19,15 @@ import {
 } from '@sd/client';
 import { isNonEmptyObject } from '~/util';
 
-import { useExplorerContext } from '../../../Context';
-import { FileThumb } from '../../../FilePath/Thumb';
-import { InfoPill } from '../../../Inspector';
-import { useQuickPreviewStore } from '../../../QuickPreview/store';
-import { isCut, useExplorerStore } from '../../../store';
-import { uniqueId } from '../../../util';
-import { RenamableItemText } from '../../RenamableItemText';
+import { useExplorerContext } from '../../Context';
+import { FileThumb } from '../../FilePath/Thumb';
+import { InfoPill } from '../../Inspector';
+import { isCut } from '../../store';
+import { uniqueId } from '../../util';
+import { RenamableItemText } from '../RenamableItemText';
 
 export const useTable = () => {
 	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
-	const quickPreviewStore = useQuickPreviewStore();
 
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -46,7 +43,7 @@ export const useTable = () => {
 				accessorFn: (file) => getExplorerItemData(file).fullName,
 				cell: (cell) => {
 					const item = cell.row.original;
-					const cut = isCut(item, explorerStore.cutCopyState);
+					const cut = isCut(item);
 
 					return (
 						<div className="relative flex items-center">
@@ -139,7 +136,7 @@ export const useTable = () => {
 				}
 			}
 		],
-		[explorerStore.cutCopyState, isEphemeralLocation]
+		[isEphemeralLocation]
 	);
 
 	const table = useReactTable({

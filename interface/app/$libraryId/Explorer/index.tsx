@@ -12,7 +12,8 @@ import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
-import View, { EmptyNotice, ExplorerViewProps } from './View';
+import View, { ExplorerViewProps } from './View';
+import { EmptyNotice } from './View/EmptyNotice';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
 
 interface Props {
@@ -63,37 +64,35 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	return (
 		<>
 			<ExplorerContextMenu>
-				<div className="flex-1 overflow-hidden">
-					<div
-						ref={explorer.scrollRef}
-						className="custom-scroll explorer-scroll h-screen overflow-x-hidden"
-						style={
-							{
-								'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
-								'--scrollbar-margin-bottom': `${
-									showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
-								}px`,
-								'paddingTop': TOP_BAR_HEIGHT,
-								'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
-							} as CSSProperties
-						}
-					>
-						{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
+				<div
+					ref={explorer.scrollRef}
+					className="custom-scroll explorer-scroll flex flex-1 flex-col overflow-x-hidden"
+					style={
+						{
+							'--scrollbar-margin-top': `${TOP_BAR_HEIGHT}px`,
+							'--scrollbar-margin-bottom': `${
+								showPathBar ? PATH_BAR_HEIGHT + 2 : 0 // TODO: Fix for web app
+							}px`,
+							'paddingTop': TOP_BAR_HEIGHT,
+							'paddingRight': explorerStore.showInspector ? INSPECTOR_WIDTH : 0
+						} as CSSProperties
+					}
+				>
+					{explorer.items && explorer.items.length > 0 && <DismissibleNotice />}
 
-						<View
-							contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
-							emptyNotice={
-								props.emptyNotice ?? (
-									<EmptyNotice
-										icon={FolderNotchOpen}
-										message="This folder is empty"
-									/>
-								)
-							}
-							listViewOptions={{ hideHeaderBorder: true }}
-							bottom={showPathBar ? PATH_BAR_HEIGHT : undefined}
-						/>
-					</div>
+					<View
+						contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
+						emptyNotice={
+							props.emptyNotice ?? (
+								<EmptyNotice
+									icon={FolderNotchOpen}
+									message="This folder is empty"
+								/>
+							)
+						}
+						listViewOptions={{ hideHeaderBorder: true }}
+						bottom={showPathBar ? PATH_BAR_HEIGHT : undefined}
+					/>
 				</div>
 			</ExplorerContextMenu>
 

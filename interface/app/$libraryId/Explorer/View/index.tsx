@@ -1,17 +1,15 @@
-import { Columns, GridFour, MonitorPlay, Rows, type Icon } from '@phosphor-icons/react';
+import { useDndMonitor } from '@dnd-kit/core';
 import clsx from 'clsx';
-import {
-	isValidElement,
-	memo,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-	type ReactNode
-} from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useKey, useKeys } from 'rooks';
-import { ExplorerLayout, getItemObject, type Object } from '@sd/client';
+import {
+	ExplorerLayout,
+	getIndexedItemFilePath,
+	getItemObject,
+	useLibraryMutation,
+	type Object
+} from '@sd/client';
 import { dialogManager, ModifierKeys } from '@sd/ui';
 import { Loader } from '~/components';
 import { useKeyCopyCutPaste, useKeyMatcher, useOperatingSystem } from '~/hooks';
@@ -22,11 +20,14 @@ import { useExplorerContext } from '../Context';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
 import { useQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore } from '../store';
+import { getExplorerStore, useExplorerStore } from '../store';
+import { useExplorerSearchParams } from '../util';
 import { ViewContext, type ExplorerViewContext } from '../ViewContext';
+import { DragOverlay } from './DragOverlay';
 import GridView from './GridView';
 import ListView from './ListView';
-import MediaView from './MediaView';
+import { MediaView } from './MediaView';
+import { explorerDroppableSchema, useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerViewPadding } from './util';
 import { useViewItemDoubleClick } from './ViewItem';
 
@@ -40,16 +41,7 @@ export interface ExplorerViewPadding {
 }
 
 export interface ExplorerViewProps
-	extends Omit<
-		ExplorerViewContext,
-		| 'selectable'
-		| 'isRenaming'
-		| 'isContextMenuOpen'
-		| 'setIsRenaming'
-		| 'setIsContextMenuOpen'
-		| 'ref'
-		| 'padding'
-	> {
+	extends Omit<ExplorerViewContext, 'selectable' | 'ref' | 'padding'> {
 	className?: string;
 	style?: React.CSSProperties;
 	emptyNotice?: JSX.Element;
@@ -59,33 +51,94 @@ export interface ExplorerViewProps
 export default memo(
 	({ className, style, emptyNotice, padding, ...contextProps }: ExplorerViewProps) => {
 		const explorer = useExplorerContext();
-		const quickPreview = useQuickPreviewContext();
-		const quickPreviewStore = useQuickPreviewStore();
-		const os = useOperatingSystem();
-		const { doubleClick } = useViewItemDoubleClick();
-
+		const explorerStore = useExplorerStore();
 		const { layoutMode } = explorer.useSettingsSnapshot();
 
-		const metaCtrlKey = useKeyMatcher('Meta').key;
+		const quickPreview = useQuickPreviewContext();
+		const quickPreviewStore = useQuickPreviewStore();
 
-		const ref = useRef<HTMLDivElement>(null);
+		const [{ path }] = useExplorerSearchParams();
 
-		const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
-		const [isRenaming, setIsRenaming] = useState(false);
+		const ref = useRef<HTMLDivElement | null>(null);
+
 		const [showLoading, setShowLoading] = useState(false);
+
+		const cutFiles = useLibraryMutation('files.cutFiles');
 
 		const viewPadding = useExplorerViewPadding(padding);
 
+		// Can stay here until we add columns view
+		// Once added, the provided parent related logic should move to useExplorerDroppable
+		// that way we don't have to re-use the same logic for each view
+		const { setDroppableRef } = useExplorerDroppable({
+			...(explorer.parent?.type === 'Location' && {
+				allow: 'Path',
+				data: { type: 'location', path: path ?? '/', data: explorer.parent.location },
+				disabled:
+					explorerStore.drag?.type === 'dragging' &&
+					explorer.parent.location.id === explorerStore.drag.sourceLocationId &&
+					(path ?? '/') === explorerStore.drag.sourceParentPath
+			})
+		});
+
+		useDndMonitor({
+			onDragStart: () => {
+				if (explorer.parent?.type !== 'Location') return;
+				getExplorerStore().drag = {
+					type: 'dragging',
+					items: [...explorer.selectedItems],
+					sourceParentPath: path ?? '/',
+					sourceLocationId: explorer.parent.location.id
+				};
+			},
+			onDragEnd: ({ over }) => {
+				const { drag } = getExplorerStore();
+				getExplorerStore().drag = null;
+
+				if (!over || !drag || drag.type === 'touched') return;
+
+				const drop = explorerDroppableSchema.parse(over.data.current);
+
+				const location =
+					drop.type === 'location' ? drop.data.id : drop.data.item.location_id;
+
+				const path =
+					drop.type === 'explorer-item'
+						? drop.data.item.materialized_path + drop.data.item.name + '/'
+						: drop.path;
+
+				if (
+					drop.type === 'location'
+						? location === drag.sourceLocationId && path === drag.sourceParentPath
+						: path === drag.sourceParentPath
+				) {
+					return;
+				}
+
+				const pathIds = drag.items
+					.map((item) => getIndexedItemFilePath(item)?.id)
+					.filter((id): id is number => id !== undefined); // Where is ts-reset
+
+				cutFiles.mutate({
+					source_location_id: drag.sourceLocationId,
+					sources_file_path_ids: pathIds,
+					target_location_id: location,
+					target_location_relative_directory_path: path
+				});
+			},
+			onDragCancel: () => (getExplorerStore().drag = null)
+		});
+
 		useKeyDownHandlers({
-			disabled: isRenaming || quickPreviewStore.open
+			disabled: explorerStore.isRenaming || quickPreviewStore.open
 		});
 
 		useEffect(() => {
-			if (!isContextMenuOpen || explorer.selectedItems.size !== 0) return;
+			if (!explorerStore.isContextMenuOpen || explorer.selectedItems.size !== 0) return;
 			// Close context menu when no items are selected
 			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-			setIsContextMenuOpen(false);
-		}, [explorer.selectedItems, isContextMenuOpen]);
+			getExplorerStore().isContextMenuOpen = false;
+		}, [explorer.selectedItems, explorerStore.isContextMenuOpen]);
 
 		useEffect(() => {
 			if (explorer.isFetchingNextPage) {
@@ -103,111 +156,79 @@ export default memo(
 			explorer.settingsStore.layoutMode = layout ?? 'grid';
 		}, [layoutMode, explorer.layouts, explorer.settingsStore]);
 
-		useKey(['Enter'], (e) => {
-			e.stopPropagation();
-			if (os === 'windows' && !isRenaming) {
-				doubleClick();
-			}
-		});
+		useEffect(() => {
+			return () => {
+				const store = getExplorerStore();
+				store.isRenaming = false;
+				store.isContextMenuOpen = false;
+				store.isDragSelecting = false;
+			};
+		}, [layoutMode]);
 
-		useKeys([metaCtrlKey, 'KeyO'], (e) => {
-			e.stopPropagation();
-			if (os === 'windows') return;
-			doubleClick();
-		});
-
-		useKeyCopyCutPaste();
+		// Reset drag state - has to be separate from above useEffect
+		// because not all locations use the same layout
+		useEffect(() => {
+			return () => {
+				getExplorerStore().drag = null;
+			};
+		}, []);
 
 		if (!explorer.layouts[layoutMode]) return null;
 
 		return (
-			<>
+			<ViewContext.Provider
+				value={{
+					ref,
+					padding: viewPadding,
+					selectable:
+						explorer.selectable &&
+						!explorerStore.isContextMenuOpen &&
+						!explorerStore.isRenaming &&
+						(!quickPreviewStore.open || explorer.selectedItems.size === 1),
+					...contextProps
+				}}
+			>
 				<div
 					ref={ref}
 					style={style}
-					className={clsx('h-full w-full', className)}
+					className={clsx('flex flex-1', className)}
 					onMouseDown={(e) => {
 						if (e.button === 2 || (e.button === 0 && e.shiftKey)) return;
-
 						explorer.resetSelectedItems();
 					}}
 				>
-					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
-						<ViewContext.Provider
-							value={{
-								...contextProps,
-								selectable:
-									explorer.selectable &&
-									!isContextMenuOpen &&
-									!isRenaming &&
-									(!quickPreviewStore.open || explorer.selectedItems.size === 1),
-								ref,
-								isRenaming,
-								isContextMenuOpen,
-								setIsRenaming,
-								setIsContextMenuOpen,
-								padding: viewPadding
-							}}
-						>
-							{layoutMode === 'grid' && <GridView />}
-							{layoutMode === 'list' && <ListView />}
-							{layoutMode === 'media' && <MediaView />}
-							{showLoading && (
-								<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
-							)}
-						</ViewContext.Provider>
-					) : (
-						emptyNotice
-					)}
+					<div ref={setDroppableRef} className="flex flex-1">
+						{explorer.items === null ||
+						(explorer.items && explorer.items.length > 0) ? (
+							<>
+								{layoutMode === 'grid' && <GridView />}
+								{layoutMode === 'list' && <ListView />}
+								{layoutMode === 'media' && <MediaView />}
+								{showLoading && (
+									<Loader className="fixed bottom-10 left-0 w-[calc(100%+180px)]" />
+								)}
+							</>
+						) : (
+							emptyNotice
+						)}
+					</div>
 				</div>
 
+				<DragOverlay />
+
 				{quickPreview.ref && createPortal(<QuickPreview />, quickPreview.ref)}
-			</>
+			</ViewContext.Provider>
 		);
 	}
 );
 
-export const EmptyNotice = (props: {
-	icon?: Icon | ReactNode;
-	message?: ReactNode;
-	loading?: boolean;
-}) => {
-	const { layoutMode } = useExplorerContext().useSettingsSnapshot();
-
-	const emptyNoticeIcon = (icon?: Icon) => {
-		const Icon =
-			icon ??
-			{
-				grid: GridFour,
-				media: MonitorPlay,
-				columns: Columns,
-				list: Rows
-			}[layoutMode];
-
-		return <Icon size={100} opacity={0.3} />;
-	};
-
-	if (props.loading) return null;
-
-	return (
-		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
-			{props.icon
-				? isValidElement(props.icon)
-					? props.icon
-					: emptyNoticeIcon(props.icon as Icon)
-				: emptyNoticeIcon()}
-
-			<p className="mt-5 text-sm font-medium">
-				{props.message !== undefined ? props.message : 'This list is empty'}
-			</p>
-		</div>
-	);
-};
-
 const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
+	const os = useOperatingSystem();
+	const { key: metaKey } = useKeyMatcher('Meta');
+
 	const explorer = useExplorerContext();
 
-	const os = useOperatingSystem();
+	const { doubleClick } = useViewItemDoubleClick();
 
 	const handleNewTag = useCallback(
 		async (event: KeyboardEvent) => {
@@ -243,6 +264,18 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		},
 		[os]
 	);
+
+	useKeyCopyCutPaste();
+
+	useKey(['Enter'], (e) => {
+		e.stopPropagation();
+		if (os === 'windows' && !disabled) doubleClick();
+	});
+
+	useKeys([metaKey, 'KeyO'], (e) => {
+		e.stopPropagation();
+		if (os !== 'windows') doubleClick();
+	});
 
 	useEffect(() => {
 		const handlers = [handleNewTag, handleExplorerShortcut];

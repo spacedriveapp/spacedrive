@@ -19,9 +19,16 @@ interface Props {
 	allowHighlight?: boolean;
 	style?: React.CSSProperties;
 	lines?: number;
+	highlight?: boolean;
 }
 
-export const RenamableItemText = ({ item, allowHighlight = true, style, lines }: Props) => {
+export const RenamableItemText = ({
+	item,
+	allowHighlight = true,
+	style,
+	lines,
+	highlight
+}: Props) => {
 	const rspc = useRspcLibraryContext();
 	const explorer = useExplorerContext();
 	const quickPreviewStore = useQuickPreviewStore();
@@ -115,7 +122,7 @@ export const RenamableItemText = ({ item, allowHighlight = true, style, lines }:
 			onRename={handleRename}
 			className={clsx(
 				'text-center font-medium',
-				selected && allowHighlight && ['bg-accent', !isDark && 'text-white']
+				(selected || highlight) && allowHighlight && ['bg-accent', !isDark && 'text-white']
 			)}
 			style={style}
 			lines={lines}

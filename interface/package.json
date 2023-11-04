@@ -9,6 +9,8 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@dnd-kit/core": "^6.0.8",
+		"@dnd-kit/modifiers": "^6.0.1",
 		"@fontsource/inter": "^4.5.15",
 		"@headlessui/react": "^1.7.17",
 		"@phosphor-icons/react": "^2.0.13",

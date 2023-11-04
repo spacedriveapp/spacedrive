@@ -10,7 +10,7 @@ import { useObjectsInfiniteQuery } from '../Explorer/queries';
 import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, UseExplorerSettings, useExplorerSettings } from '../Explorer/useExplorer';
-import { EmptyNotice } from '../Explorer/View';
+import { EmptyNotice } from '../Explorer/View/EmptyNotice';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {

@@ -1,4 +1,4 @@
-import { memo, useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
+import { forwardRef, memo, useCallback, type HTMLAttributes, type PropsWithChildren } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import {
 	isPath,
@@ -15,6 +15,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
+import { getExplorerStore } from '../store';
 import { uniqueId } from '../util';
 import { useExplorerViewContext } from '../ViewContext';
 
@@ -176,23 +177,25 @@ interface ViewItemProps extends PropsWithChildren, HTMLAttributes<HTMLDivElement
 	data: ExplorerItem;
 }
 
-export const ViewItem = memo(({ data, children, ...props }: ViewItemProps) => {
-	const explorerView = useExplorerViewContext();
+export const ViewItem = memo(
+	forwardRef<HTMLDivElement, ViewItemProps>(({ data, children, ...props }, ref) => {
+		const explorerView = useExplorerViewContext();
 
-	const { doubleClick } = useViewItemDoubleClick();
+		const { doubleClick } = useViewItemDoubleClick();
 
-	return (
-		<ContextMenu.Root
-			trigger={
-				<div onDoubleClick={() => doubleClick(data)} {...props}>
-					{children}
-				</div>
-			}
-			onOpenChange={explorerView.setIsContextMenuOpen}
-			disabled={explorerView.contextMenu === undefined}
-			onMouseDown={(e) => e.stopPropagation()}
-		>
-			{explorerView.contextMenu}
-		</ContextMenu.Root>
-	);
-});
+		return (
+			<ContextMenu.Root
+				trigger={
+					<div {...props} ref={ref} onDoubleClick={() => doubleClick(data)}>
+						{children}
+					</div>
+				}
+				onOpenChange={(open) => (getExplorerStore().isContextMenuOpen = open)}
+				disabled={explorerView.contextMenu === undefined}
+				onMouseDown={(e) => e.stopPropagation()}
+			>
+				{explorerView.contextMenu}
+			</ContextMenu.Root>
+		);
+	})
+);

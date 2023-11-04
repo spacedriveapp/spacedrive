@@ -13,7 +13,7 @@ import {
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
-import { EmptyNotice } from './Explorer/View';
+import { EmptyNotice } from './Explorer/View/EmptyNotice';
 import { TopBarPortal } from './TopBar/Portal';
 
 const SearchExplorer = memo((props: { args: SearchParams }) => {

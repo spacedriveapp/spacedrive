@@ -1,9 +1,11 @@
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Tooltip } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem, useSearchStore } from '~/hooks';
 
+import { useExplorerDroppable } from '../Explorer/View/useExplorerDroppable';
 import TopBarButton from './TopBarButton';
 
 export const NavigationButtons = () => {
@@ -12,6 +14,16 @@ export const NavigationButtons = () => {
 	const idx = history.state.idx as number;
 	const os = useOperatingSystem();
 	const { icon, key } = useKeyMatcher('Meta');
+
+	const droppableBack = useExplorerDroppable({
+		navigateTo: -1,
+		disabled: isFocused || idx === 0
+	});
+
+	const droppableForward = useExplorerDroppable({
+		navigateTo: 1,
+		disabled: isFocused || idx === history.length - 1
+	});
 
 	useKeybind([key, '['], () => {
 		if (idx === 0 || isFocused) return;
@@ -43,9 +55,13 @@ export const NavigationButtons = () => {
 			<Tooltip keybinds={[icon, '[']} label="Navigate back">
 				<TopBarButton
 					rounding="left"
-					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(-1)}
 					disabled={isFocused || idx === 0}
+					ref={droppableBack.setDroppableRef}
+					className={clsx(
+						droppableBack.isDroppable && '!bg-app-selected',
+						droppableBack.navigateClassName
+					)}
 				>
 					<ArrowLeft size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>
@@ -53,9 +69,13 @@ export const NavigationButtons = () => {
 			<Tooltip keybinds={[icon, ']']} label="Navigate forward">
 				<TopBarButton
 					rounding="right"
-					// className="text-[14px] text-ink-dull"
 					onClick={() => navigate(1)}
 					disabled={isFocused || idx === history.length - 1}
+					ref={droppableForward.setDroppableRef}
+					className={clsx(
+						droppableForward.isDroppable && '!bg-app-selected',
+						droppableForward.navigateClassName
+					)}
 				>
 					<ArrowRight size={14} className="m-[4px]" weight="bold" />
 				</TopBarButton>

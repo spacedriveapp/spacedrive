@@ -5,6 +5,7 @@ import { useKey } from 'rooks';
 import { Tooltip } from '@sd/ui';
 import { useOperatingSystem } from '~/hooks';
 
+import { getExplorerStore, useExplorerStore } from '../store';
 import { useExplorerViewContext } from '../ViewContext';
 
 interface Props extends React.HTMLAttributes<HTMLDivElement> {
@@ -16,6 +17,7 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 
 export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 	({ name, onRename, disabled, className, lines, ...props }, _ref) => {
+		const explorerStore = useExplorerStore();
 		const explorerView = useExplorerViewContext();
 		const os = useOperatingSystem();
 
@@ -132,10 +134,10 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 
 		useEffect(() => {
 			if (!disabled) {
-				if (explorerView.isRenaming && !allowRename) setAllowRename(true);
-				else explorerView.setIsRenaming(allowRename);
+				if (explorerStore.isRenaming && !allowRename) setAllowRename(true);
+				else getExplorerStore().isRenaming = allowRename;
 			} else resetState();
-		}, [explorerView.isRenaming, disabled, allowRename, explorerView]);
+		}, [explorerStore.isRenaming, disabled, allowRename, explorerView]);
 
 		useEffect(() => {
 			const onMouseDown = (event: MouseEvent) => {
@@ -150,7 +152,11 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 			<Tooltip
 				labelClassName="break-all"
 				tooltipClassName="!max-w-[250px]"
-				label={!isTruncated || allowRename ? null : name}
+				label={
+					!isTruncated || allowRename || explorerStore.drag?.type === 'dragging'
+						? null
+						: name
+				}
 				asChild
 			>
 				<div
@@ -180,7 +186,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, Props>(
 					onBlur={() => {
 						handleRename();
 						resetState();
-						explorerView.setIsRenaming(false);
+						getExplorerStore().isRenaming = false;
 					}}
 					onKeyDown={handleKeyDown}
 					{...props}

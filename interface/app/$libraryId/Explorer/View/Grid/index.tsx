@@ -1,129 +1,53 @@
 import { Grid, useGrid } from '@virtual-grid/react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	type ReactNode
-} from 'react';
+import { memo, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Selecto from 'react-selecto';
 import { useKey } from 'rooks';
 import { type ExplorerItem } from '@sd/client';
 import { useMouseNavigate, useOperatingSystem } from '~/hooks';
 
-import { useExplorerContext } from '../Context';
-import { getQuickPreviewStore } from '../QuickPreview/store';
-import { getExplorerStore, isCut, useExplorerStore } from '../store';
-import { uniqueId } from '../util';
-import { useExplorerViewContext } from '../ViewContext';
+import { useExplorerContext } from '../../Context';
+import { getQuickPreviewStore } from '../../QuickPreview/store';
+import { getExplorerStore, useExplorerStore } from '../../store';
+import { uniqueId } from '../../util';
+import { useExplorerViewContext } from '../../ViewContext';
+import { GridContext } from './context';
+import { GridItem } from './Item';
 
-const SelectoContext = createContext<{
-	selecto: React.RefObject<Selecto>;
-	selectoUnSelected: React.MutableRefObject<Set<string>>;
-} | null>(null);
-
-type RenderItem = (item: { item: ExplorerItem; selected: boolean; cut: boolean }) => ReactNode;
-
-const GridListItem = (props: {
-	index: number;
+export type RenderItem = (item: {
 	item: ExplorerItem;
-	children: RenderItem;
-	onMouseDown: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
-}) => {
-	const explorer = useExplorerContext();
-	const explorerStore = useExplorerStore();
-	const explorerView = useExplorerViewContext();
-
-	const selecto = useContext(SelectoContext);
-
-	const cut = isCut(props.item, explorerStore.cutCopyState);
-
-	const selected = useMemo(
-		// Even though this checks object equality, it should still be safe since `selectedItems`
-		// will be re-calculated before this memo runs.
-		() => explorer.selectedItems.has(props.item),
-		[explorer.selectedItems, props.item]
-	);
-
-	const itemId = uniqueId(props.item);
-
-	useEffect(() => {
-		if (!selecto?.selecto.current || !selecto.selectoUnSelected.current.has(itemId)) return;
-
-		if (!selected) {
-			selecto.selectoUnSelected.current.delete(itemId);
-			return;
-		}
-
-		const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
-
-		if (!element) return;
-
-		selecto.selectoUnSelected.current.delete(itemId);
-		selecto.selecto.current.setSelectedTargets([
-			...selecto.selecto.current.getSelectedTargets(),
-			element as HTMLElement
-		]);
-
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	useEffect(() => {
-		if (!selecto) return;
-
-		return () => {
-			const element = document.querySelector(`[data-selectable-id="${itemId}"]`);
-			if (selected && !element) selecto.selectoUnSelected.current.add(itemId);
-		};
-
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selected]);
-
-	return (
-		<div
-			className="h-full w-full"
-			data-selectable=""
-			data-selectable-index={props.index}
-			data-selectable-id={itemId}
-			onMouseDown={props.onMouseDown}
-			onContextMenu={(e) => {
-				if (explorerView.selectable && !explorer.selectedItems.has(props.item)) {
-					explorer.resetSelectedItems([props.item]);
-					selecto?.selecto.current?.setSelectedTargets([e.currentTarget]);
-				}
-			}}
-		>
-			{props.children({ item: props.item, selected, cut })}
-		</div>
-	);
-};
+	selected: boolean;
+	cut: boolean;
+}) => ReactNode;
 
 const CHROME_REGEX = /Chrome/;
 
-export default ({ children }: { children: RenderItem }) => {
+export default memo(({ children }: { children: RenderItem }) => {
 	const os = useOperatingSystem();
 	const realOS = useOperatingSystem(true);
+	const mouseNavigate = useMouseNavigate();
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const explorer = useExplorerContext();
-	const settings = explorer.useSettingsSnapshot();
+	const explorerStore = useExplorerStore();
 	const explorerView = useExplorerViewContext();
+	const settings = explorer.useSettingsSnapshot();
 
 	const selecto = useRef<Selecto>(null);
-	const selectoUnSelected = useRef<Set<string>>(new Set());
+	const selectoUnselected = useRef<Set<string>>(new Set());
 	const selectoFirstColumn = useRef<number | undefined>();
 	const selectoLastColumn = useRef<number | undefined>();
 
+	// The item that further selection will move from (shift + arrow for example).
+	// This used to be calculated from the last item of selectedItems,
+	// but Set ordering isn't reliable.
+	// Ref bc we never actually render this.
+	const activeItem = useRef<ExplorerItem | null>(null);
+
 	const [dragFromThumbnail, setDragFromThumbnail] = useState(false);
-	const mouseNavigate = useMouseNavigate();
 
 	const itemDetailsHeight = 44 + (settings.showBytesInGridView ? 20 : 0);
 	const itemHeight = settings.gridItemSize + itemDetailsHeight;
-
 	const padding = settings.layoutMode === 'grid' ? 12 : 0;
 
 	const grid = useGrid({
@@ -151,7 +75,7 @@ export default ({ children }: { children: RenderItem }) => {
 			x: padding,
 			y: padding
 		},
-		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : undefined)
+		gap: explorerView.gap || (settings.layoutMode === 'grid' ? settings.gridGap : 1)
 	});
 
 	function getElementId(element: Element) {
@@ -189,6 +113,16 @@ export default ({ children }: { children: RenderItem }) => {
 		return activeItem;
 	}
 
+	function handleDragEnd() {
+		getExplorerStore().isDragSelecting = false;
+		selectoFirstColumn.current = undefined;
+		selectoLastColumn.current = undefined;
+		setDragFromThumbnail(false);
+
+		const allSelected = selecto.current?.getSelectedTargets() ?? [];
+		activeItem.current = getActiveItem(allSelected);
+	}
+
 	useEffect(
 		() => {
 			const element = explorer.scrollRef.current;
@@ -222,7 +156,7 @@ export default ({ children }: { children: RenderItem }) => {
 			return selected;
 		});
 
-		selectoUnSelected.current = set;
+		selectoUnselected.current = set;
 		selecto.current.setSelectedTargets(items as HTMLElement[]);
 
 		activeItem.current = getActiveItem(items);
@@ -230,16 +164,10 @@ export default ({ children }: { children: RenderItem }) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [grid.columnCount, explorer.items]);
 
-	// The item that further selection will move from (shift + arrow for example).
-	// This used to be calculated from the last item of selectedItems,
-	// but Set ordering isn't reliable.
-	// Ref bc we never actually render this.
-	const activeItem = useRef<ExplorerItem | null>(null);
-
 	useEffect(() => {
 		if (explorer.selectedItems.size !== 0) return;
 
-		selectoUnSelected.current = new Set();
+		selectoUnselected.current = new Set();
 		// Accessing refs during render is bad
 		activeItem.current = null;
 	}, [explorer.selectedItems]);
@@ -322,7 +250,7 @@ export default ({ children }: { children: RenderItem }) => {
 			} else {
 				explorer.resetSelectedItems([newSelectedItem.data]);
 				selecto.current?.setSelectedTargets([selectedItemDom as HTMLElement]);
-				if (selectoUnSelected.current.size > 0) selectoUnSelected.current = new Set();
+				if (selectoUnselected.current.size > 0) selectoUnselected.current = new Set();
 			}
 		}
 
@@ -369,7 +297,7 @@ export default ({ children }: { children: RenderItem }) => {
 	});
 
 	return (
-		<SelectoContext.Provider value={selecto.current ? { selecto, selectoUnSelected } : null}>
+		<GridContext.Provider value={{ selecto, selectoUnselected }}>
 			{explorer.allowMultiSelect && (
 				<Selecto
 					ref={selecto}
@@ -385,22 +313,19 @@ export default ({ children }: { children: RenderItem }) => {
 					selectableTargets={['[data-selectable]']}
 					toggleContinueSelect="shift"
 					hitRate={0}
-					// selectFromInside={explorerStore.layoutMode === 'media'}
-					onDragStart={(e) => {
-						getExplorerStore().isDragging = true;
-						if ((e.inputEvent as MouseEvent).target instanceof HTMLImageElement) {
+					onDrag={(e) => {
+						if (!explorerStore.drag) return;
+						e.stop();
+						handleDragEnd();
+					}}
+					onDragStart={({ inputEvent }) => {
+						getExplorerStore().isDragSelecting = true;
+
+						if ((inputEvent as MouseEvent).target instanceof HTMLImageElement) {
 							setDragFromThumbnail(true);
 						}
 					}}
-					onDragEnd={() => {
-						getExplorerStore().isDragging = false;
-						selectoFirstColumn.current = undefined;
-						selectoLastColumn.current = undefined;
-						setDragFromThumbnail(false);
-
-						const allSelected = selecto.current?.getSelectedTargets() ?? [];
-						activeItem.current = getActiveItem(allSelected);
-					}}
+					onDragEnd={handleDragEnd}
 					onScroll={({ direction }) => {
 						selecto.current?.findSelectableTargets();
 						explorer.scrollRef.current?.scrollBy(
@@ -430,7 +355,7 @@ export default ({ children }: { children: RenderItem }) => {
 								if (explorer.selectedItems.has(item.data)) {
 									selecto.current?.setSelectedTargets(e.beforeSelected);
 								} else {
-									selectoUnSelected.current = new Set();
+									selectoUnselected.current = new Set();
 									explorer.resetSelectedItems([item.data]);
 								}
 
@@ -605,8 +530,8 @@ export default ({ children }: { children: RenderItem }) => {
 							}
 
 							if (unselectedItems.length > 0) {
-								selectoUnSelected.current = new Set([
-									...selectoUnSelected.current,
+								selectoUnselected.current = new Set([
+									...selectoUnselected.current,
 									...unselectedItems
 								]);
 							}
@@ -621,7 +546,7 @@ export default ({ children }: { children: RenderItem }) => {
 					if (!item) return null;
 
 					return (
-						<GridListItem
+						<GridItem
 							index={index}
 							item={item}
 							onMouseDown={(e) => {
@@ -646,10 +571,10 @@ export default ({ children }: { children: RenderItem }) => {
 							}}
 						>
 							{children}
-						</GridListItem>
+						</GridItem>
 					);
 				}}
 			</Grid>
-		</SelectoContext.Provider>
+		</GridContext.Provider>
 	);
-};
+});

@@ -1,3 +1,4 @@
+import { DndContext, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
 import clsx from 'clsx';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
@@ -69,6 +70,14 @@ const Layout = () => {
 
 	useUpdater();
 
+	const sensors = useSensors(
+		useSensor(PointerSensor, {
+			activationConstraint: {
+				distance: 4
+			}
+		})
+	);
+
 	if (library === null && libraries.data) {
 		const firstLibrary = libraries.data[0];
 
@@ -95,27 +104,31 @@ const Layout = () => {
 					return false;
 				}}
 			>
-				<Sidebar />
-				<div
-					className={clsx(
-						'relative flex w-full overflow-hidden',
-						showControls.transparentBg ? 'bg-app/80' : 'bg-app'
-					)}
-				>
-					{library ? (
-						<QuickPreviewContextProvider>
-							<LibraryContextProvider library={library}>
-								<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
-									<Outlet />
-								</Suspense>
-							</LibraryContextProvider>
-						</QuickPreviewContextProvider>
-					) : (
-						<h1 className="p-4 text-white">
-							Please select or create a library in the sidebar.
-						</h1>
-					)}
-				</div>
+				<DndContext sensors={sensors} collisionDetection={pointerWithin}>
+					<Sidebar />
+					<div
+						className={clsx(
+							'relative flex w-full overflow-hidden',
+							showControls.transparentBg ? 'bg-app/80' : 'bg-app'
+						)}
+					>
+						{library ? (
+							<QuickPreviewContextProvider>
+								<LibraryContextProvider library={library}>
+									<Suspense
+										fallback={<div className="h-screen w-screen bg-app" />}
+									>
+										<Outlet />
+									</Suspense>
+								</LibraryContextProvider>
+							</QuickPreviewContextProvider>
+						) : (
+							<h1 className="p-4 text-white">
+								Please select or create a library in the sidebar.
+							</h1>
+						)}
+					</div>
+				</DndContext>
 			</div>
 		</LayoutContext.Provider>
 	);
