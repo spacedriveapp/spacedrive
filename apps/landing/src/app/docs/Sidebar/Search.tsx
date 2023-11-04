@@ -2,9 +2,6 @@
 
 import { DocSearch } from '@docsearch/react';
 
-import '@docsearch/css';
-import '~/styles/search.scss';
-
 import { useMenuContext } from './MobileSidebar';
 
 export function SearchBar() {
