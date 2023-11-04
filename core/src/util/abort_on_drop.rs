@@ -1,5 +1,7 @@
 use futures::{pin_mut, Future, Stream};
 
+use crate::api::SdError;
+
 pub struct AbortOnDrop<T>(pub tokio::task::JoinHandle<T>);
 
 impl<T> Drop for AbortOnDrop<T> {
@@ -24,7 +26,7 @@ impl<T> Future for AbortOnDrop<T> {
 }
 
 impl<T> Stream for AbortOnDrop<T> {
-	type Item = Result<(), rspc::Error>; // TODO: Use `rspc::Infallible` -> Right now inner and outer result must match in rspc which is cringe???
+	type Item = Result<(), SdError>; // TODO: Having this error type hardcoded sucks
 
 	fn poll_next(
 		mut self: std::pin::Pin<&mut Self>,

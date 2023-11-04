@@ -1,4 +1,5 @@
 use crate::{
+	api::SdError,
 	invalidate_query,
 	job::StatefulJob,
 	location::{
@@ -332,57 +333,57 @@ pub(crate) fn mount() -> RouterBuilder {
 				},
 			)
 		})
-		// .procedure("quickRescan", {
-		// 	#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-		// 	pub struct LightScanArgs {
-		// 		pub location_id: location::id::Type,
-		// 		pub sub_path: String,
-		// 	}
-		// 	R.with(library()).subscription(
-		// 		|(node, library),
-		// 		 LightScanArgs {
-		// 		     location_id,
-		// 		     sub_path,
-		// 		 }: LightScanArgs| async move {
-		// 			// node.jobs
-		// 			// 	.has_job_running(|job_identity| {
-		// 			// 		job_identity.target_location == location_id
-		// 			// 			&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
-		// 			// 				|| job_identity.name
-		// 			// 					== <FileIdentifierJobInit as StatefulJob>::NAME)
-		// 			// 	})
-		// 			// 	.await
-		// 			// 	.then(|| ())
-		// 			// 	.ok_or(|| {
-		// 			// 		rspc::Error::new(
-		// 			// 			ErrorCode::Conflict,
-		// 			// 			"We're still indexing this location, pleases wait a bit..."
-		// 			// 				.to_string(),
-		// 			// 		)
-		// 			// 	})?;
-		// 			// let location = find_location(&library, location_id)
-		// 			// 	.include(location_with_indexer_rules::include())
-		// 			// 	.exec()
-		// 			// 	.await
-		// 			// 	.map_err(|err| {
-		// 			// 		rspc::Error::with_cause(
-		// 			// 			rspc::ErrorCode::InternalServerError,
-		// 			// 			"Internal server error occurred while completing database operation!"
-		// 			// 				.into(),
-		// 			// 			err,
-		// 			// 		)
-		// 			// 	})?
-		// 			// 	.ok_or(LocationError::IdNotFound(location_id))?;
-		// 			// let handle = tokio::spawn(async move {
-		// 			// 	if let Err(e) = light_scan_location(node, library, location, sub_path).await
-		// 			// 	{
-		// 			// 		error!("light scan error: {e:#?}");
-		// 			// 	}
-		// 			// });
-		// 			Ok(todo!()) // TODO: AbortOnDrop(handle)
-		// 		},
-		// 	)
-		// })
+		.procedure("quickRescan", {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct LightScanArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: String,
+			}
+			R.with(library()).subscription(
+				|(node, library),
+				 LightScanArgs {
+				     location_id,
+				     sub_path,
+				 }: LightScanArgs| async move {
+					node.jobs
+						.has_job_running(|job_identity| {
+							job_identity.target_location == location_id
+								&& (job_identity.name == <IndexerJobInit as StatefulJob>::NAME
+									|| job_identity.name
+										== <FileIdentifierJobInit as StatefulJob>::NAME)
+						})
+						.await
+						.then(|| ())
+						.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::Conflict,
+								"We're still indexing this location, pleases wait a bit..."
+									.to_string(),
+							)
+						})?;
+					let location = find_location(&library, location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await
+						.map_err(|err| {
+							rspc::Error::with_cause(
+								rspc::ErrorCode::InternalServerError,
+								"Internal server error occurred while completing database operation!"
+									.into(),
+								err,
+							)
+						})?
+						.ok_or(LocationError::IdNotFound(location_id))?;
+					let handle = tokio::spawn(async move {
+						if let Err(e) = light_scan_location(node, library, location, sub_path).await
+						{
+							error!("light scan error: {e:#?}");
+						}
+					});
+					Ok(AbortOnDrop(handle))
+				},
+			)
+		})
 		.procedure(
 			"online",
 			R.subscription(|node, _: ()| async move {
