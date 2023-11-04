@@ -1,6 +1,6 @@
 use std::{
 	collections::HashMap,
-	net::{IpAddr, SocketAddr},
+	net::SocketAddr,
 	pin::Pin,
 	str::FromStr,
 	sync::PoisonError,
@@ -64,13 +64,6 @@ impl Mdns {
 
 		let mut ports_to_service = HashMap::new();
 		for addr in listen_addrs.iter() {
-			let addr = match addr {
-				SocketAddr::V4(addr) => addr,
-				// TODO: Our mdns library doesn't support Ipv6. This code has the infra to support it so once this issue is fixed upstream we can just flip it on.
-				// Refer to issue: https://github.com/keepsimple1/mdns-sd/issues/61
-				SocketAddr::V6(_) => continue,
-			};
-
 			ports_to_service
 				.entry(addr.port())
 				.or_insert_with(Vec::new)
@@ -254,7 +247,7 @@ impl Mdns {
 							addresses: info
 								.get_addresses()
 								.iter()
-								.map(|addr| SocketAddr::new(IpAddr::V4(*addr), info.get_port()))
+								.map(|addr| SocketAddr::new(*addr, info.get_port()))
 								.collect(),
 						},
 					);
