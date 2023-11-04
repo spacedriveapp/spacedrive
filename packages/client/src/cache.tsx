@@ -2,21 +2,48 @@ import {
 	createContext,
 	PropsWithChildren,
 	useContext,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
 	useSyncExternalStore
 } from 'react';
-import { proxy, subscribe } from 'valtio';
+import { proxy, snapshot, subscribe } from 'valtio';
 
-const defaultStore = {
+declare global {
+	interface Window {
+		__REDUX_DEVTOOLS_EXTENSION__: any;
+	}
+}
+
+const defaultStore = () => ({
 	nodes: {} as Record<string, Record<string, unknown>>
-} as const;
+});
 
-const Context = createContext<typeof defaultStore>(undefined!);
+type Context = ReturnType<typeof defaultStore>;
+
+const Context = createContext<Context>(undefined!);
 
 export function CacheProvider({ children }: PropsWithChildren) {
-	const state = useRef(proxy(defaultStore)).current;
+	const state = useMemo(() => proxy(defaultStore()), []);
+
+	useEffect(() => {
+		const devtools = window.__REDUX_DEVTOOLS_EXTENSION__.connect({});
+
+		const unsub = devtools.subscribe((_message: any) => {
+			// console.log(message);
+		});
+
+		devtools.init();
+		subscribe(state, () => devtools.send('change', snapshot(state)));
+
+		return () => {
+			unsub();
+			window.__REDUX_DEVTOOLS_EXTENSION__.disconnect();
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	return <Context.Provider value={state}>{children}</Context.Provider>;
 }
 
@@ -26,11 +53,7 @@ export function useCacheContext() {
 	return context;
 }
 
-function restore(
-	cache: typeof defaultStore,
-	subscribed: Map<string, Set<unknown>>,
-	item: unknown
-): unknown {
+function restore(cache: Context, subscribed: Map<string, Set<unknown>>, item: unknown): unknown {
 	if (item === undefined || item === null) {
 		return item;
 	} else if (Array.isArray(item)) {
@@ -78,7 +101,7 @@ export function useNodesCallback(): (data: CacheNode[] | undefined) => void {
 	return (data) => updateNodes(cache, data);
 }
 
-function updateNodes(cache: typeof defaultStore, data: CacheNode[] | undefined) {
+function updateNodes(cache: Context, data: CacheNode[] | undefined) {
 	if (!data) return;
 
 	for (const item of data) {
