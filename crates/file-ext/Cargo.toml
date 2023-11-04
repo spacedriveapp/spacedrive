@@ -10,7 +10,7 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.190", features = ["derive"] }
 serde_json = { workspace = true }
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
