@@ -90,26 +90,26 @@ impl LibraryServices {
 	}
 
 	pub(crate) async fn load_library(&self, manager: Arc<P2PManager>, library: &Library) {
-		let identities = library
-			.db
-			.instance()
-			.find_many(vec![])
-			.exec()
-			.await
-			.unwrap()
-			.into_iter()
-			.filter_map(
-				// TODO: Error handling
-				|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity) {
-					Err(err) => {
-						warn!("error parsing identity: {err:?}");
-						None
-					}
-					Ok(IdentityOrRemoteIdentity::Identity(_)) => None,
-					Ok(IdentityOrRemoteIdentity::RemoteIdentity(identity)) => Some(identity),
-				},
-			)
-			.collect();
+		let identities = match library.db.instance().find_many(vec![]).exec().await {
+			Ok(library) => library
+				.into_iter()
+				.filter_map(
+					// TODO: Error handling
+					|i| match IdentityOrRemoteIdentity::from_bytes(&i.identity) {
+						Err(err) => {
+							warn!("error parsing identity: {err:?}");
+							None
+						}
+						Ok(IdentityOrRemoteIdentity::Identity(_)) => None,
+						Ok(IdentityOrRemoteIdentity::RemoteIdentity(identity)) => Some(identity),
+					},
+				)
+				.collect(),
+			Err(err) => {
+				warn!("error loading library '{}': {err:?}", library.id);
+				return;
+			}
+		};
 
 		let mut inserted = false;
 

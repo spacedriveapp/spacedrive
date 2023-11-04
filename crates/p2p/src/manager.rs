@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, warn};
 
 use crate::{
-	spacetime::{SpaceTime, UnicastStream},
+	spacetime::{SpaceTime, UnicastStream, UnicastStreamError},
 	spacetunnel::{Identity, RemoteIdentity},
 	DiscoveryManager, DiscoveryManagerState, Keypair, ManagerStream, ManagerStreamAction,
 	ManagerStreamAction2,
@@ -160,7 +160,10 @@ impl Manager {
 	}
 
 	// TODO: Maybe remove this?
-	pub async fn stream(&self, identity: RemoteIdentity) -> Result<UnicastStream, ()> {
+	pub async fn stream(
+		&self,
+		identity: RemoteIdentity,
+	) -> Result<UnicastStream, UnicastStreamError> {
 		let peer_id = {
 			let state = self
 				.discovery_state
@@ -172,7 +175,7 @@ impl Manager {
 				.discovered
 				.iter()
 				.find_map(|(_, i)| i.iter().find(|(i, _)| **i == identity))
-				.ok_or(())?
+				.ok_or(UnicastStreamError::PeerIdNotFound)?
 				.1
 				.peer_id
 		};
@@ -184,21 +187,22 @@ impl Manager {
 	// TODO: Does this need any timeouts to be added cause hanging forever is bad?
 	// be aware this method is `!Sync` so can't be used from rspc. // TODO: Can this limitation be removed?
 	#[allow(clippy::unused_unit)] // TODO: Remove this clippy override once error handling is added
-	pub(crate) async fn stream_inner(&self, peer_id: PeerId) -> Result<UnicastStream, ()> {
+	pub(crate) async fn stream_inner(
+		&self,
+		peer_id: PeerId,
+	) -> Result<UnicastStream, UnicastStreamError> {
 		// TODO: With this system you can send to any random peer id. Can I reduce that by requiring `.connect(peer_id).unwrap().send(data)` or something like that.
 		let (tx, rx) = oneshot::channel();
-		match self
+		if let Err(err) = self
 			.event_stream_tx2
 			.send(ManagerStreamAction2::StartStream(peer_id, tx))
 			.await
 		{
-			Ok(_) => {}
-			Err(err) => warn!("error emitting event: {}", err),
-		}
-		let stream = rx.await.map_err(|_| {
+			warn!("error emitting event: {err}");
+		};
+		let stream = rx.await.map_err(|err| {
 			warn!("failed to queue establishing stream to peer '{peer_id}'!");
-
-			()
+			UnicastStreamError::ErrManagerShutdown(err)
 		})?;
 
 		stream.build(self, peer_id).await
