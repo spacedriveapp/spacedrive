@@ -65,3 +65,7 @@
 		display: block;
 	}
 }
+
+.DocSearch-Input:focus {
+	@apply ring-0;
+}
