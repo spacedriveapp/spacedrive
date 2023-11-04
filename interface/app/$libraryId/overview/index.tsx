@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import 'react-loading-skeleton/dist/skeleton.css';
 
 import { useSnapshot } from 'valtio';
-import { Category } from '@sd/client';
+import { Category, useBridgeQuery, useCache, useCacheContext, useNodes } from '@sd/client';
 
 import { useIsDark } from '../../../hooks';
 import { ExplorerContextProvider } from '../Explorer/Context';
@@ -70,7 +70,42 @@ export const Component = () => {
 					}
 				/>
 				<Inspector />
+
+				<Demo />
 			</div>
 		</ExplorerContextProvider>
 	);
 };
+
+let i = 0; // Not using `setState` so we rely on the `useCache` to re-render
+
+function Demo() {
+	const cache = useCacheContext();
+
+	const result = useBridgeQuery(['demo']);
+	useNodes(result.data?.nodes);
+	const data = useCache(result.data?.data);
+
+	console.log(data);
+
+	return (
+		<div className="w-[500px]">
+			<button
+				onClick={() => {
+					console.log('UPDATE', i);
+					i += 1;
+					cache.nodes['user']!['1'] = {
+						id: '1',
+						name: `User One ${i}`
+					};
+				}}
+			>
+				Update
+			</button>
+			<br />
+			{(data || []).map((v) => (
+				<p key={v.id}>{v.name}</p>
+			))}
+		</div>
+	);
+}

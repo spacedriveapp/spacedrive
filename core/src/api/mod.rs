@@ -1,7 +1,14 @@
-use crate::{invalidate_query, job::JobProgressEvent, node::config::NodeConfig, Node};
+use crate::{
+	invalidate_query,
+	job::JobProgressEvent,
+	node::config::NodeConfig,
+	util::{Model, Reference},
+	Node,
+};
 use itertools::Itertools;
 use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 use std::sync::{atomic::Ordering, Arc};
 use uuid::Uuid;
@@ -162,6 +169,47 @@ pub(crate) fn mount() -> Arc<Router> {
 				invalidate_query!(node; node, "nodeState");
 
 				Ok(())
+			})
+		})
+		.procedure("demo", {
+			#[derive(Debug, Serialize, Type)]
+			pub struct User {
+				id: i32,
+				name: String,
+			}
+
+			impl Model for User {
+				fn name() -> &'static str {
+					"user"
+				}
+			}
+
+			#[derive(Serialize, Type)]
+			pub struct DemoResult {
+				// TODO: Types
+				nodes: Vec<serde_json::Value>,
+				data: Vec<Reference<User>>,
+			}
+
+			R.query(|_, _: ()| async move {
+				Ok(DemoResult {
+					// TODO: Helper for nodes & unzip'ing to node and reference
+					nodes: vec![
+						json!({
+							"__type": "user",
+							"__id": "1",
+							"id": "1",
+							"name": "User 1",
+						}),
+						json!({
+							"__type": "user",
+							"__id": "2",
+							"id": "2",
+							"name": "User 2",
+						}),
+					],
+					data: vec![Reference::<User>::new("1"), Reference::<User>::new("2")],
+				})
 			})
 		})
 		.merge("api.", web_api::mount())

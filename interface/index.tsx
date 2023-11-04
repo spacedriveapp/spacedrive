@@ -2,22 +2,21 @@ import { init, Integrations } from '@sentry/browser';
 
 import '@fontsource/inter/variable.css';
 
-import { defaultContext } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
+	CacheProvider,
 	NotificationContextProvider,
 	P2PContextProvider,
-	useDebugState,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
 import { TooltipProvider } from '@sd/ui';
 
 import { P2P } from './app/p2p';
+import { Devtools } from './components/Devtools';
 import { WithPrismTheme } from './components/TextViewer/prism';
 import ErrorFallback, { BetterErrorBoundary } from './ErrorFallback';
 
@@ -37,38 +36,23 @@ init({
 	integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
 });
 
-const Devtools = () => {
-	const debugState = useDebugState();
-
-	// The `context={defaultContext}` part is required for this to work on Windows.
-	// Why, idk, don't question it
-	return debugState.reactQueryDevtools !== 'disabled' ? (
-		<ReactQueryDevtools
-			position="bottom-right"
-			context={defaultContext}
-			toggleButtonProps={{
-				tabIndex: -1,
-				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
-			}}
-		/>
-	) : null;
-};
-
 export const SpacedriveInterface = (props: { router: RouterProviderProps['router'] }) => {
 	useLoadBackendFeatureFlags();
 
 	return (
 		<BetterErrorBoundary FallbackComponent={ErrorFallback}>
-			<TooltipProvider>
-				<P2PContextProvider>
-					<NotificationContextProvider>
-						<P2P />
-						<Devtools />
-						<WithPrismTheme />
-						<RouterProvider router={props.router} />
-					</NotificationContextProvider>
-				</P2PContextProvider>
-			</TooltipProvider>
+			<CacheProvider>
+				<TooltipProvider>
+					<P2PContextProvider>
+						<NotificationContextProvider>
+							<P2P />
+							<Devtools />
+							<WithPrismTheme />
+							<RouterProvider router={props.router} />
+						</NotificationContextProvider>
+					</P2PContextProvider>
+				</TooltipProvider>
+			</CacheProvider>
 		</BetterErrorBoundary>
 	);
 };
