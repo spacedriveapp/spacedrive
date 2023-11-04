@@ -61,8 +61,7 @@ function restore(
 	return item;
 }
 
-// TODO: Remove `any`
-export function useNodes(data: any[] | undefined) {
+export function useNodes(data: { '__type': string; '__id': string; '#node': any }[] | undefined) {
 	const cache = useCacheContext();
 
 	// `useMemo` instead of `useEffect` here is cursed but it needs to run before the `useMemo` in the `useCache` hook.
@@ -75,13 +74,12 @@ export function useNodes(data: any[] | undefined) {
 			if (typeof item.__type !== 'string') throw new Error('Invalid `__type`');
 			if (typeof item.__id !== 'string') throw new Error('Invalid `__id`');
 
-			const n = cache.nodes[item.__type]!;
-			if (!n) cache.nodes[item.__type] = {};
-
-			const copy = { ...item };
+			const copy = { ...item } as any;
 			delete copy.__type;
 			delete copy.__id;
-			n[item.__id] = copy;
+
+			if (!cache.nodes[item.__type]) cache.nodes[item.__type] = {};
+			cache.nodes[item.__type]![item.__id] = copy;
 		}
 	}, [cache, data]);
 }
@@ -89,7 +87,7 @@ export function useNodes(data: any[] | undefined) {
 type UseCacheResult<T> = T extends (infer A)[]
 	? UseCacheResult<A>[]
 	: T extends object
-	? T extends { '__type': any; '__id': any; '#type': infer U }
+	? T extends { '__type': any; '__id': string; '#type': infer U }
 		? U
 		: { [K in keyof T]: UseCacheResult<T[K]> }
 	: T;

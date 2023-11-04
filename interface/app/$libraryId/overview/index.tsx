@@ -77,7 +77,7 @@ export const Component = () => {
 	);
 };
 
-let i = 0; // Not using `setState` so we rely on the `useCache` to re-render
+let i = 0; // Not using `setState` so we rely on the `useCache` to trigger the re-render
 
 function Demo() {
 	const cache = useCacheContext();
@@ -86,16 +86,13 @@ function Demo() {
 	useNodes(result.data?.nodes);
 	const data = useCache(result.data?.data);
 
-	console.log(data);
-
 	return (
 		<div className="w-[500px]">
 			<button
 				onClick={() => {
-					console.log('UPDATE', i);
 					i += 1;
-					cache.nodes['user']!['1'] = {
-						id: '1',
+					cache.nodes['user']![1] = {
+						id: 1,
 						name: `User One ${i}`
 					};
 				}}

@@ -156,7 +156,7 @@ export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
-export type DemoResult = { nodes: any[]; data: { __type: "user"; __id: any; "#type": { id: number; name: string } }[] }
+export type DemoResult = { nodes: { __type: string; __id: string; "#node": any }[]; data: { __type: "user"; __id: string; "#type": { id: number; name: string } }[] }
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
