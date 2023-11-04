@@ -19,9 +19,9 @@ export function SearchBar() {
 		>
 			<DocSearch
 				appId="O2QT1W1OHH"
-				apiKey="644931a3b4382b641270dd6e4d24012b"
+				apiKey="765d32dcfd1971b2b21cea6cc343e259"
 				indexName="spacedrivedocs"
-				placeholder="Search..."
+				placeholder="Search"
 			/>
 		</div>
 	);
