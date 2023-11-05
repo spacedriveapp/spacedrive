@@ -30,7 +30,7 @@ import {
 } from './Explorer/store';
 import { DefaultTopBarOptions } from './Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from './Explorer/useExplorer';
-import { EmptyNotice } from './Explorer/View';
+import { EmptyNotice } from './Explorer/View/EmptyNotice';
 import { AddLocationButton } from './settings/library/locations/AddLocationButton';
 import { TOP_BAR_HEIGHT } from './TopBar';
 import { TopBarPortal } from './TopBar/Portal';
