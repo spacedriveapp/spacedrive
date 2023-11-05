@@ -179,7 +179,7 @@ export const FileThumb = memo(
 				}}
 				className={clsx(
 					'relative flex shrink-0 items-center justify-center',
-					!loaded && 'invisible',
+					// !loaded && 'invisible',
 					!props.size && 'h-full w-full',
 					props.cover && 'overflow-hidden',
 					props.className

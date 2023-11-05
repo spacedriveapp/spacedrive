@@ -1,4 +1,3 @@
-import { Laptop } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
@@ -12,6 +11,7 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
+import { Icon } from '~/components';
 import { useDebouncedFormWatch } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -33,7 +33,7 @@ export const Component = () => {
 
 	const form = useZodForm({
 		schema: z.object({
-			name: z.string().min(1).optional(),
+			name: z.string().min(1).max(250).optional(),
 			p2p_enabled: z.boolean().optional(),
 			p2p_port: u16,
 			customOrDefault: z.enum(['Custom', 'Default'])
@@ -90,8 +90,7 @@ export const Component = () => {
 
 					<hr className="mb-4 mt-2 flex w-full border-app-line" />
 					<div className="flex w-full items-center gap-5">
-						<img src={Laptop} className="mt-2 h-14 w-14" />
-
+						<Icon name="Laptop" className="mt-2 h-14 w-14" />
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input

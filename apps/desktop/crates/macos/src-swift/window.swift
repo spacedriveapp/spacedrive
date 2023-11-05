@@ -45,7 +45,17 @@ public func blurWindowBackground(window: NSWindow) {
 }
 
 @_cdecl("set_titlebar_style")
-public func setTitlebarStyle(window: NSWindow, transparent: Bool) {
-  window.titleVisibility = transparent ? .hidden : .visible
-  window.titlebarAppearsTransparent = transparent
+public func setTitlebarStyle(window: NSWindow, fullScreen: Bool) {
+  // this results in far less visual artifacts if we just manage it ourselves (the native taskbar re-appears when fullscreening/un-fullscreening)
+  window.titlebarAppearsTransparent = true
+  if fullScreen { // fullscreen, give control back to the native OS
+    window.toolbar = nil
+  } else { // non-fullscreen
+    // here we create a uniquely identifiable invisible toolbar in order to correctly pad out the traffic lights
+    // this MUST be hidden while fullscreen as macos has a unique dropdown bar for that, and it's far easier to just let it do its thing
+    let toolbar = NSToolbar(identifier: "window_invisible_toolbar")
+    toolbar.showsBaselineSeparator = false
+    window.toolbar = toolbar
+  }
+  window.titleVisibility = fullScreen ? .visible : .hidden
 }

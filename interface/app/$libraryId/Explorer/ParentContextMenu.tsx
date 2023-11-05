@@ -23,65 +23,105 @@ export default (props: PropsWithChildren) => {
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
+	const copyEphemeralFiles = useLibraryMutation('ephemeralFiles.copyFiles');
 	const cutFiles = useLibraryMutation('files.cutFiles');
+	const cutEphemeralFiles = useLibraryMutation('ephemeralFiles.cutFiles');
 
 	return (
 		<CM.Root trigger={props.children}>
-			{parent?.type === 'Location' && cutCopyState.type !== 'Idle' && (
-				<>
-					<CM.Item
-						label="Paste"
-						keybind={keybind([ModifierKeys.Control], ['V'])}
-						onClick={async () => {
-							const path = currentPath ?? '/';
-							const { type, sourcePathIds, sourceParentPath, sourceLocationId } =
-								cutCopyState;
+			{(parent?.type === 'Location' || parent?.type === 'Ephemeral') &&
+				cutCopyState.type !== 'Idle' && (
+					<>
+						<CM.Item
+							label="Paste"
+							keybind={keybind([ModifierKeys.Control], ['V'])}
+							onClick={async () => {
+								const path = currentPath ?? '/';
+								const { type, sourceParentPath, indexedArgs, ephemeralArgs } =
+									cutCopyState;
 
-							const sameLocation =
-								sourceLocationId === parent.location.id &&
-								sourceParentPath === path;
+								try {
+									if (type == 'Copy') {
+										if (
+											parent?.type === 'Location' &&
+											indexedArgs != undefined
+										) {
+											await copyFiles.mutateAsync({
+												source_location_id: indexedArgs.sourceLocationId,
+												sources_file_path_ids: [
+													...indexedArgs.sourcePathIds
+												],
+												target_location_id: parent.location.id,
+												target_location_relative_directory_path: path
+											});
+										}
 
-							try {
-								if (type == 'Copy') {
-									await copyFiles.mutateAsync({
-										source_location_id: sourceLocationId,
-										sources_file_path_ids: [...sourcePathIds],
-										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path
-									});
-								} else if (sameLocation) {
-									toast.error('File already exists in this location');
-								} else {
-									await cutFiles.mutateAsync({
-										source_location_id: sourceLocationId,
-										sources_file_path_ids: [...sourcePathIds],
-										target_location_id: parent.location.id,
-										target_location_relative_directory_path: path
+										if (
+											parent?.type === 'Ephemeral' &&
+											ephemeralArgs != undefined
+										) {
+											await copyEphemeralFiles.mutateAsync({
+												sources: [...ephemeralArgs.sourcePaths],
+												target_dir: path
+											});
+										}
+									} else {
+										if (
+											parent?.type === 'Location' &&
+											indexedArgs != undefined
+										) {
+											if (
+												indexedArgs.sourceLocationId ===
+													parent.location.id &&
+												sourceParentPath === path
+											) {
+												toast.error('File already exists in this location');
+											}
+											await cutFiles.mutateAsync({
+												source_location_id: indexedArgs.sourceLocationId,
+												sources_file_path_ids: [
+													...indexedArgs.sourcePathIds
+												],
+												target_location_id: parent.location.id,
+												target_location_relative_directory_path: path
+											});
+										}
+
+										if (
+											parent?.type === 'Ephemeral' &&
+											ephemeralArgs != undefined
+										) {
+											if (sourceParentPath !== path) {
+												await cutEphemeralFiles.mutateAsync({
+													sources: [...ephemeralArgs.sourcePaths],
+													target_dir: path
+												});
+											}
+										}
+									}
+								} catch (error) {
+									toast.error({
+										title: `Failed to ${type.toLowerCase()} file`,
+										body: `Error: ${error}.`
 									});
 								}
-							} catch (error) {
-								toast.error({
-									title: `Failed to ${type.toLowerCase()} file`,
-									body: `Error: ${error}.`
-								});
-							}
-						}}
-						icon={Clipboard}
-					/>
+							}}
+							icon={Clipboard}
+						/>
 
-					<CM.Item
-						label="Deselect"
-						onClick={() => {
-							getExplorerStore().cutCopyState = {
-								type: 'Idle'
-							};
-						}}
-						icon={FileX}
-					/>
+						<CM.Item
+							label="Deselect"
+							onClick={() => {
+								getExplorerStore().cutCopyState = {
+									type: 'Idle'
+								};
+							}}
+							icon={FileX}
+						/>
 
-					<CM.Separator />
-				</>
-			)}
+						<CM.Separator />
+					</>
+				)}
 
 			<CM.Item
 				label="Share"

@@ -6,13 +6,12 @@ import {
 	Eraser,
 	FolderOpen,
 	Hash,
-	Icon,
 	Link,
 	Lock,
 	Path,
+	Icon as PhosphorIcon,
 	Snowflake
 } from '@phosphor-icons/react';
-import { Image, Image_Light } from '@sd/assets/icons';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
@@ -44,12 +43,12 @@ import {
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
-import AssignTagMenuItems from '~/components/AssignTagMenuItems';
-import { useIsDark, useZodRouteParams } from '~/hooks';
+import { Folder, Icon } from '~/components';
+import { useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
-import { Folder } from '../../../../components';
 import { useExplorerContext } from '../Context';
+import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { getExplorerStore, useExplorerStore } from '../store';
@@ -91,7 +90,6 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 	({ showThumbnail = true, style, ...props }, ref) => {
 		const explorer = useExplorerContext();
 
-		const isDark = useIsDark();
 		const pathname = useLocation().pathname;
 
 		const selectedItems = useMemo(() => [...explorer.selectedItems], [explorer.selectedItems]);
@@ -112,7 +110,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 							{isNonEmpty(selectedItems) ? (
 								<Thumbnails items={selectedItems} />
 							) : (
-								<img src={isDark ? Image : Image_Light} />
+								<Icon name="Image" />
 							)}
 						</div>
 					)}
@@ -192,7 +190,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 			break;
 		}
 		case 'SpacedropPeer': {
-			objectData = item.item as unknown as Object;
+			// objectData = item.item as unknown as Object;
 			// filePathData = item.item.file_paths[0] ?? null;
 			break;
 		}
@@ -228,7 +226,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	});
 
 	const ephemeralLocationMediaData = useBridgeQuery(
-		['files.getEphemeralMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
+		['ephemeralFiles.getMediaData', ephemeralPathData != null ? ephemeralPathData.path : ''],
 		{
 			enabled: ephemeralPathData?.kind === ObjectKindEnum.Image && readyToFetch
 		}
@@ -347,16 +345,17 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					</NavLink>
 				))}
 
-				{objectData && (
-					<DropdownMenu.Root
-						trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
-						side="left"
-						sideOffset={5}
-						alignOffset={-10}
-					>
-						<AssignTagMenuItems objects={[objectData]} />
-					</DropdownMenu.Root>
-				)}
+				{item.type === 'Object' ||
+					(item.type === 'Path' && (
+						<DropdownMenu.Root
+							trigger={<PlaceholderPill>Add Tag</PlaceholderPill>}
+							side="left"
+							sideOffset={5}
+							alignOffset={-10}
+						>
+							<AssignTagMenuItems items={[item]} />
+						</DropdownMenu.Root>
+					))}
 			</MetaContainer>
 
 			{!isDir && objectData && (
@@ -520,7 +519,12 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 						sideOffset={5}
 						alignOffset={-10}
 					>
-						<AssignTagMenuItems objects={selectedObjects} />
+						<AssignTagMenuItems
+							items={items.flatMap((item) => {
+								if (item.type === 'Object' || item.type === 'Path') return [item];
+								else return [];
+							})}
+						/>
 					</DropdownMenu.Root>
 				)}
 			</MetaContainer>
@@ -529,7 +533,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 };
 
 interface MetaDataProps {
-	icon?: Icon;
+	icon?: PhosphorIcon;
 	label: string;
 	value: ReactNode;
 	tooltipValue?: ReactNode;

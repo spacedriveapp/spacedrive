@@ -12,6 +12,7 @@ import PlausibleProvider from 'next-plausible';
 import { Providers } from './Providers';
 
 export const metadata = {
+	metadataBase: new URL('https://spacedrive.com'),
 	themeColor: { color: '#E751ED', media: 'not screen' },
 	robots: 'index, follow',
 	description:

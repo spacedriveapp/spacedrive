@@ -1,6 +1,6 @@
 /* eslint-disable tailwindcss/classnames-order */
-import { Keys } from '@sd/assets/icons';
 import { Button, Tooltip } from '@sd/ui';
+import { Icon } from '~/components';
 
 export function KeyManager() {
 	// const isUnlocked = useLibraryQuery(['keys.isUnlocked']);
@@ -9,7 +9,7 @@ export function KeyManager() {
 	return (
 		<div className="flex h-full max-w-[300px] flex-col">
 			<div className="flex w-full flex-col items-center p-4">
-				<img src={Keys} className="h-14 w-14" />
+				<Icon name="Keys" size={56} />
 				<span className="text-lg font-bold">Key Manager</span>
 				<span className="mt-2 text-center text-ink-dull">
 					Create encryption keys, mount and unmount your keys to see files decrypted on
