@@ -1,6 +1,5 @@
 import {
 	ArrowClockwise,
-	FolderPlus,
 	Icon,
 	Key,
 	MonitorPlay,
@@ -13,8 +12,8 @@ import {
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
-import { ExplorerLayout, useLibraryMutation } from '@sd/client';
-import { ModifierKeys, toast } from '@sd/ui';
+import { ExplorerLayout } from '@sd/client';
+import { ModifierKeys } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import { useQuickRescan } from '../../../hooks/useQuickRescan';
@@ -23,7 +22,6 @@ import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarO
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';
-import { useExplorerSearchParams } from './util';
 
 const layoutIcons: Record<ExplorerLayout, Icon> = {
 	grid: SquaresFour,
@@ -36,29 +34,7 @@ export const useExplorerTopBarOptions = () => {
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
 	const settings = explorer.useSettingsSnapshot();
-
 	const rescan = useQuickRescan();
-
-	const createFolder = useLibraryMutation(['files.createFolder'], {
-		onError: (e) => {
-			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
-			console.error(e);
-		},
-		onSuccess: (folder) => {
-			toast.success({ title: `Created new folder "${folder}"` });
-			rescan();
-		}
-	});
-	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
-		onError: (e) => {
-			toast.error({ title: 'Error creating folder', body: `Error: ${e}.` });
-			console.error(e);
-		},
-		onSuccess: (folder) => {
-			toast.success({ title: `Created new folder "${folder}"` });
-			rescan();
-		}
-	});
 
 	const viewOptions = useMemo(
 		() =>
@@ -113,8 +89,6 @@ export const useExplorerTopBarOptions = () => {
 
 	const { parent } = useExplorerContext();
 
-	const [{ path }] = useExplorerSearchParams();
-
 	const os = useOperatingSystem();
 
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
@@ -133,26 +107,6 @@ export const useExplorerTopBarOptions = () => {
 	});
 
 	const toolOptions = [
-		(parent?.type === 'Location' || parent?.type === 'Ephemeral') && {
-			toolTipLabel: 'New Folder',
-			icon: <FolderPlus className={TOP_BAR_ICON_STYLE} />,
-			onClick: () => {
-				if (parent?.type === 'Location') {
-					createFolder.mutate({
-						location_id: parent.location.id,
-						sub_path: path || null,
-						name: null
-					});
-				} else {
-					createEphemeralFolder.mutate({
-						path: parent?.path,
-						name: null
-					});
-				}
-			},
-			individual: true,
-			showAtResolution: 'xs:flex'
-		},
 		{
 			toolTipLabel: 'Key Manager',
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
