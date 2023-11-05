@@ -38,89 +38,17 @@ else
 fi
 
 case "$TARGET" in
-  x86_64-darwin*)
-    # FIX-ME: x86 external asm is disabled on macOS, because ld64 segfaults when linking assembly for some reason
-    env_specific_arg+=(
-      --x86asmexe=false
-      --disable-x86asm
-      --disable-altivec
-      --disable-vsx
-      --disable-power8
-      --disable-armv5te
-      --disable-armv6
-      --disable-armv6t2
-      --disable-vfp
-      --disable-neon
-      --disable-mipsdsp
-      --disable-mipsdspr2
-      --disable-msa
-      --disable-mipsfpu
-      --disable-mmi
-      --disable-lsx
-      --disable-lasx
-      --disable-rvv
-    )
-    ;;
   x86_64*)
     env_specific_arg+=(
       --x86asmexe=nasm
       --enable-x86asm
-      --disable-altivec
-      --disable-vsx
-      --disable-power8
-      --disable-armv5te
-      --disable-armv6
-      --disable-armv6t2
-      --disable-vfp
-      --disable-neon
-      --disable-mipsdsp
-      --disable-mipsdspr2
-      --disable-msa
-      --disable-mipsfpu
-      --disable-mmi
-      --disable-lsx
-      --disable-lasx
-      --disable-rvv
     )
     ;;
   aarch64*)
     env_specific_arg+=(
+      --x86asmexe=false
       --enable-vfp
       --enable-neon
-      --x86asmexe=false
-      --disable-altivec
-      --disable-vsx
-      --disable-power8
-      --disable-amd3dnow
-      --disable-amd3dnowext
-      --disable-mmx
-      --disable-mmxext
-      --disable-sse
-      --disable-sse2
-      --disable-sse3
-      --disable-ssse3
-      --disable-sse4
-      --disable-sse42
-      --disable-avx
-      --disable-xop
-      --disable-fma3
-      --disable-fma4
-      --disable-avx2
-      --disable-avx512
-      --disable-avx512icl
-      --disable-aesni
-      --disable-armv5te
-      --disable-armv6
-      --disable-armv6t2
-      --disable-x86asm
-      --disable-mipsdsp
-      --disable-mipsdspr2
-      --disable-msa
-      --disable-mipsfpu
-      --disable-mmi
-      --disable-lsx
-      --disable-lasx
-      --disable-rvv
     )
     ;;
 esac
@@ -132,15 +60,12 @@ case "$TARGET" in
       # TODO: Maybe try macOS own metal compiler under darling? https://github.com/darlinghq/darling/issues/326
       # TODO: Add support for vulkan (+ libplacebo) on macOS with MoltenVK
       --sysroot="${MACOS_SDKROOT:?Missing macOS SDK path}"
+      --disable-lto
       --disable-metal
       --disable-vulkan
       --disable-libshaderc
       --disable-libplacebo
       --disable-mediafoundation
-      --disable-amd3dnow
-      --disable-amd3dnowext
-      --disable-fast-unaligned
-      --enable-lto
       --enable-pthreads
       --enable-coreimage
       --enable-videotoolbox
@@ -218,10 +143,10 @@ if ! ./configure \
     esac
   )" \
   --cc=cc \
-  --nm=llvm-nm-16 \
+  --nm=nm \
   --ar=ar \
   --cxx=c++ \
-  --strip=llvm-strip-16 \
+  --strip=strip \
   --ranlib=ranlib \
   --host-cc=clang-16 \
   --windres="windres" \
@@ -299,4 +224,4 @@ esac
 
 make -j"$(nproc)" V=1
 
-make PREFIX="$OUT" install
+make install

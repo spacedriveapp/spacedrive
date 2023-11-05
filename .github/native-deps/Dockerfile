@@ -40,7 +40,6 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	curl `
 	make `
 	patch `
-	lld-16 `
 	libtool `
 	python3 `
 	gettext `
@@ -60,12 +59,13 @@ ARG OUT
 ENV OUT="${OUT:?}"
 ENV PREFIX="/opt/prefix"
 ENV SYSROOT="/opt/sysroot"
+ENV CCTOOLS="/opt/cctools"
 
-# Ensure sysroot is present on PATH
-ENV PATH="${SYSROOT}/bin:$PATH"
+# Ensure sysroot and cctools are present on PATH
+ENV PATH="${CCTOOLS}/bin:${SYSROOT}/bin:$PATH"
 
 # Create required directories
-RUN mkdir -p "$OUT" "${PREFIX}/bin" "${SYSROOT}/bin" "${SYSROOT}/wrapper"
+RUN mkdir -p "$OUT" "$CCTOOLS" "${PREFIX}/bin" "${SYSROOT}/bin" "${SYSROOT}/wrapper"
 
 # Utility to download, extract and cache archived files
 ADD --chmod=0750 ./scripts/curl_tar.sh "${SYSROOT}/bin/curl_tar"
@@ -111,21 +111,8 @@ ADD --chmod=0750 'https://github.com/FFmpeg/FFmpeg/raw/master/compat/windows/mak
 RUN cd "${SYSROOT}/lib/libc/mingw/lib-common" `
 	&& { [ -f 'synchronization.def' ] || ln -s 'api-ms-win-core-synch-l1-2-0.def' 'synchronization.def'; }
 
-# Wrapper for ld64 to fix some arguments
-COPY ./scripts/ld64.sh "${SYSROOT}/bin/ld64"
-
 # Polyfill macOS sw_vers command
 COPY ./scripts/sw_vers.sh "${SYSROOT}/bin/sw_vers"
-
-# Symlink some LLVM tools to their generic names
-RUN ln -s "$(command -v llvm-nm-16)" "${SYSROOT}/bin/nm" `
-	&& ln -s "$(command -v llvm-lipo-16)" "${SYSROOT}/bin/lipo" `
-	&& ln -s "$(command -v llvm-strip-16)" "${SYSROOT}/bin/strip" `
-	&& ln -s "$(command -v llvm-otool-16)" "${SYSROOT}/bin/otool" `
-	&& ln -s "$(command -v llvm-readelf-16)" "${SYSROOT}/bin/readelf" `
-	&& ln -s "$(command -v llvm-objdump-16)" "${SYSROOT}/bin/objdump" `
-	&& ln -s "$(command -v llvm-libtool-darwin-16)" "${SYSROOT}/bin/libtool" `
-	&& ln -s "$(command -v llvm-install-name-tool-16)" "${SYSROOT}/bin/install_name_tool"
 
 # Create a llvm rc wrapper script with some pre-configurations
 # Do not name this llvm-rc or rc.exe, to avoid cmake weird special behavior for those tool names
@@ -139,13 +126,24 @@ ADD ./scripts/cc.sh "${SYSROOT}/bin/cc"
 RUN ln -s 'cc' "${SYSROOT}/bin/c++"
 RUN chmod +x "${SYSROOT}/bin/cc" "${SYSROOT}/bin/c++"
 
-# Script wrappers for some common build tools, auto detects llvm or zig and because cmake doesn't allow passing arguments to tools
+# Script wrappers for some common build tools, auto choosen between llvm, zig or apple specific tools
 COPY ./scripts/tool-wrapper.sh "${SYSROOT}/bin/tool-wrapper.sh"
 RUN ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ar" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/nm" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/lib" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/lipo" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/size" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/otool" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/strip" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/ranlib" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/readelf" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/libtool" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/objdump" `
 	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/dlltool" `
-	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/objcopy"
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/objcopy" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/strings" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/bitcode-strip" `
+	&& ln -s "$(command -v tool-wrapper.sh)" "${SYSROOT}/bin/install_name_tool"
 
 # Create a cmake wrapper script with some pre-configurations
 COPY ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
@@ -153,18 +151,19 @@ COPY ./scripts/cmake.sh "${SYSROOT}/wrapper/cmake"
 # Create a meson wrapper script with some pre-configurations
 COPY ./scripts/meson.sh "${SYSROOT}/wrapper/meson"
 
-# Install macOS SDK for darwin targets
+# Export which target we are building for
 ARG TARGET
+ENV TARGET="${TARGET:?}"
+
+# Configure macOS SDK for darwin targets
 ARG MACOS_SDK_VERSION
 ENV MACOS_SDK_VERSION="${MACOS_SDK_VERSION:?}"
 ENV MACOS_SDKROOT="/opt/MacOSX${MACOS_SDK_VERSION}.sdk"
-RUN --mount=type=cache,target=/root/.cache case "${TARGET:?}" in *darwin*) `
-	curl_tar `
-	"https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION:?}/MacOSX${MACOS_SDK_VERSION:?}.sdk.tar.xz" `
-	"$MACOS_SDKROOT" 1 ;; esac
+RUN --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=stages/00-apple/00-sdk.sh,target=/srv/00-sdk.sh `
+	/srv/00-sdk.sh
 
 # Create cmake and meson toolchain files
-ENV TARGET="${TARGET:?}"
 RUN --mount=type=bind,rw,source=scripts/toolchain.sh,target=/srv/toolchain.sh /srv/toolchain.sh
 
 # Wrapper script that defines autotools and configure flags
@@ -172,19 +171,36 @@ COPY ./scripts/build.sh /srv/build.sh
 
 #--
 
-FROM build-base AS layer-10-sse2neon
+FROM build-base AS layer-00-apple
 
-RUN --mount=type=cache,target=/root/.cache `
-	--mount=type=bind,source=stages/10-sse2neon.sh,target=/srv/stage.sh `
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=stages/00-apple/01-xar.sh,target=/srv/01-xar.sh `
+	/srv/01-xar.sh
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=stages/00-apple/02-libtapi.sh,target=/srv/02-libtapi.sh `
+	/srv/02-libtapi.sh
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=stages/00-apple/03-cctools.sh,target=/srv/03-cctools.sh `
+	/srv/03-cctools.sh
+
+FROM build-base AS layer-00
+
+COPY --from=layer-00-apple "${CCTOOLS}/." $CCTOOLS
+
+FROM layer-00 AS layer-10-sse2neon
+
+RUN --mount=type=cache,target=/root/.cache --mount=type=bind,source=stages/10-sse2neon.sh,target=/srv/stage.sh `
 	/srv/build.sh
 
-FROM build-base AS layer-10-compiler-rt
+FROM layer-00 AS layer-10-compiler-rt
 
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/10-compiler-rt.sh,target=/srv/stage.sh `
 	/srv/build.sh
 
-FROM build-base AS layer-10
+FROM layer-00 AS layer-10
 
 COPY --from=layer-10-sse2neon "${PREFIX}/." $PREFIX
 COPY --from=layer-10-compiler-rt "/usr/lib/llvm-16/lib/clang/16/." '/usr/lib/llvm-16/lib/clang/16'
@@ -408,7 +424,7 @@ RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/99-heif.sh,target=/srv/stage.sh `
 	/srv/build.sh
 
-FROM build-base AS layer-99-protoc
+FROM layer-00 AS layer-99-protoc
 
 ADD https://raw.githubusercontent.com/protocolbuffers/protobuf/v25.0/LICENSE '/srv/protoc/LICENSE'
 
@@ -416,7 +432,7 @@ RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/99-protoc.sh,target=/srv/stage.sh `
 	/srv/build.sh
 
-FROM build-base AS layer-99-pdfium
+FROM layer-00 AS layer-99-pdfium
 
 RUN --mount=type=cache,target=/root/.cache `
 	--mount=type=bind,source=stages/99-pdfium.sh,target=/srv/stage.sh `
@@ -459,16 +475,20 @@ RUN rm -rf "${OUT}/srv"
 
 # Ensure all .so libs have the correct rpaths
 RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' \) -exec patchelf --set-rpath '$ORIGIN' {} \;
+
 # Strip debug symbols and ensure any .so, .dll, .dylib has the execution flag set
-RUN find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' \) -exec `
-	sh -euxc 'llvm-strip-16 -S "$@" && chmod +x "$@"' sh {} +
+RUN --mount=type=cache,target=/root/.cache `
+	echo 'strip -S "$@" && chmod +x "$@"' >/srv/stage.sh `
+	&& find "$OUT" -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dll' -o -name '*.dylib' \) -exec /srv/build.sh {} +
 
 # Symlink .lib to .dll.a
 RUN find "$OUT/lib" -name '*.lib' -exec `
 	sh -euxc 'for _file in "$@"; do ln -sf "$(basename "$_file")" "$(dirname "$_file")/lib$(basename "$_file" .lib).dll.a"; done' sh {} +
 
 # Create macOS Frameworks from the built libs
-RUN --mount=type=bind,source=scripts/create-framework.sh,target=/srv/create-framework.sh /srv/create-framework.sh
+RUN --mount=type=cache,target=/root/.cache `
+	--mount=type=bind,source=scripts/create-framework.sh,target=/srv/stage.sh `
+	/srv/build.sh
 
 FROM scratch
 

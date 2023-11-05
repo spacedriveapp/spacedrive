@@ -21,21 +21,13 @@ echo "Build x265..."
 
 common_config=(
   -DENABLE_PIC=On
+  -DENABLE_ASSEMBLY=On
   -DENABLE_CLI=Off
   -DENABLE_TESTS=Off
   -DENABLE_SHARED=Off
   -DENABLE_SVT_HEVC=Off
   -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
 )
-
-case "$TARGET" in
-  *darwin*)
-    common_config+=(-DENABLE_ASSEMBLY=Off)
-    ;;
-  *)
-    common_config+=(-DENABLE_ASSEMBLY=On)
-    ;;
-esac
 
 mkdir 8bit 10bit 12bit
 
@@ -71,7 +63,8 @@ ln -s ../12bit/libx265.a libx265_main12.a
 ln -s ../10bit/libx265.a libx265_main10.a
 mv libx265.a libx265_main.a
 
-ar -M <<EOF
+# Must use llvm ar due to mri-script
+llvm-ar-16 -M <<EOF
 CREATE libx265.a
 ADDLIB libx265_main.a
 ADDLIB libx265_main10.a

@@ -38,6 +38,6 @@ It uses LLVM/Clang with some modifications from osxcross for building the Darwin
 
 The pre-packaged macOS SDK comes from: https://github.com/joseluisq/macosx-sdks
 
-> By building the Darwin target you are agreeing with [Xcode license terms](https://www.apple.com/legal/sla/docs/xcode.pdf)
+> By building the Darwin target you are agreeing with the [Apple Public Source License (APSL)](https://opensource.apple.com/apsl/) and the [Xcode license terms](https://www.apple.com/legal/sla/docs/xcode.pdf)
 
 Thanks to all the developers involved in making the dependencies used in this project

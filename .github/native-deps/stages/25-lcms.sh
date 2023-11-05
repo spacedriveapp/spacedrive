@@ -24,9 +24,11 @@ done
 
 sed -i "/subdir('utils')/d" lcms/meson.build
 sed -i "/subdir('testbed')/d" lcms/meson.build
+sed -i "/subdir('testbed')/d" lcms/plugins/threaded/meson.build
+sed -i "/subdir('testbed')/d" lcms/plugins/fast_float/meson.build
 
 # Remove some superfluous files
-rm -rf lcms/{.github,configure.ac,install-sh,depcomp,Makefile.in,config.sub,aclocal.m4,config.guess,ltmain.sh,m4,utils,configure,Projects,doc,testbed}
+rm -rf lcms/{.github,configure.ac,install-sh,depcomp,Makefile.in,config.sub,aclocal.m4,config.guess,ltmain.sh,m4,utils,configure,Projects,doc,testbed,plugins/{threaded/testbed,fast_float/testbed}}
 
 # Backup source
 bak_src 'lcms'

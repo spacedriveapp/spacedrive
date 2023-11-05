@@ -38,7 +38,10 @@ while IFS= read -r _lib; do
   done
 
   # Update the library's own id
-  install_name_tool -id "@executable_path/../Frameworks/${_framework}/Libraries/$(basename "$_lib")" "$_lib"
+  if ! install_name_tool -id "@executable_path/../Frameworks/${_framework}/Libraries/$(basename "$_lib")" "$_lib"; then
+    # Some libraries have a header pad too small, so use a relative path instead
+    install_name_tool -id "./$(basename "$_lib")" "$_lib"
+  fi
 done < <(find "${OUT}/${_framework}/Versions/A/Libraries" -type f -name '*.dylib')
 
 # Move headers to Framework

@@ -37,10 +37,10 @@ echo "Build zimg..."
         echo "--host=${TARGET%%-*}-windows-gnu"
         ;;
       x86_64-darwin*)
-        echo '--host=x86_64-apple-darwin19'
+        echo "--host=${APPLE_TARGET}"
         ;;
       aarch64-darwin*)
-        echo '--host=aarch64-apple-darwin20'
+        echo "--host=${APPLE_TARGET}"
         ;;
     esac
   ) \

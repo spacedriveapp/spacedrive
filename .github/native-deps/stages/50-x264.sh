@@ -40,16 +40,12 @@ env RC="$WINDRES" ./configure \
         echo "--host=${TARGET%%-*}-windows-mingw64"
         ;;
       x86_64-darwin*)
-        echo '--host=x86_64-apple-darwin19'
+        echo "--host=${APPLE_TARGET}"
         echo '--disable-win32thread'
-        # FIX-ME: x264 x86 asm causes ld64.lld (macOS) to segfault
-        echo '--disable-asm'
         ;;
       aarch64-darwin*)
-        echo '--host=arm64-apple-darwin20'
+        echo "--host=${APPLE_TARGET}"
         echo '--disable-win32thread'
-        # FIX-ME: x264 aarch64 asm causes ld64.lld (macOS) to segfault
-        echo '--disable-asm'
         ;;
     esac
   ) \

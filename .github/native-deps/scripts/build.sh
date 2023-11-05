@@ -5,7 +5,7 @@ set -euo pipefail
 # Import any environment specific variables
 set -o allexport
 # shellcheck disable=SC1091
-. /etc/environment
+. /root/.cache/environment
 set +o allexport
 
 # Configure cross compiler environment variables
@@ -13,14 +13,14 @@ export RC="rc"
 export CC="cc"
 export LD="cc"
 export AR="ar"
-export NM="llvm-nm-16"
+export NM="nm"
 export CXX="c++"
-export STRIP="llvm-strip-16"
+export STRIP="strip"
 export RANLIB="ranlib"
 export WINDRES="windres"
 export DLLTOOL="dlltool"
 export OBJCOPY="objcopy"
-export OBJDUMP="llvm-objdump-16"
+export OBJDUMP="objdump"
 export PKG_CONFIG="pkg-config"
 export PKG_CONFIG_LIBDIR="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig"
 
@@ -54,10 +54,15 @@ case "$TARGET" in
     export SHARED_FLAGS="-fno-semantic-interposition"
     ;;
   *darwin*)
+    # https://github.com/tpoechtrager/osxcross/issues/366
+    export LTO=0
+    # Ugly workaround for apple linker not finding the macOS SDK's Framework directory
+    ln -fs "${MACOS_SDKROOT}/System" '/System'
+
     export SDKROOT="$MACOS_SDKROOT"
 
     # https://trac.macports.org/ticket/59246
-    LDFLAGS="-fuse-ld=$(command -v ld64) -fno-stack-protector -fno-stack-check"
+    LDFLAGS="-fuse-ld=$(command -v "${APPLE_TARGET:?}-ld") -fno-stack-protector -fno-stack-check"
     case "$TARGET" in
       x86_64*)
         export CMAKE_OSX_ARCHITECTURES='x86_64'
@@ -76,12 +81,9 @@ case "$TARGET" in
     # https://github.com/tpoechtrager/osxcross/commit/3279f86
     CFLAGS="-D__ENVIRONMENT_OS_VERSION_MIN_REQUIRED__=$(LC_ALL=C printf '%.2f' "11.0" | tr -d '.')"
     # https://trac.macports.org/ticket/59246
-    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fno-stack-protector -fno-stack-check -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} ${CFLAGS}"
+    export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fno-stack-protector -fno-stack-check -mmacos-version-min=${MACOSX_DEPLOYMENT_TARGET} -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} ${CFLAGS}"
     export CXXFLAGS="$CFLAGS"
-    export LDFLAGS="${LDFLAGS} -L${SDKROOT}/usr/lib -L${SDKROOT}/usr/lib/system -F${SDKROOT}/System/Library/Frameworks -L${PREFIX}/lib -pipe -fstack-protector-strong"
-    if [ -f '/usr/lib/llvm-16/lib/clang/16/lib/darwin/libclang_rt.osx.a' ]; then
-      export LDFLAGS="${LDFLAGS} -lcompiler_rt"
-    fi
+    export LDFLAGS="${LDFLAGS} -L${SDKROOT}/usr/lib -L${SDKROOT}/usr/lib/system -F${SDKROOT}/System/Library/Frameworks -L${PREFIX}/lib -pipe"
     ;;
   *windows*)
     export CFLAGS="-I${PREFIX}/include -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong"

@@ -14,10 +14,9 @@ case "${TARGET:?TARGET envvar is required to be defined}" in
     SDKROOT="$MACOS_SDKROOT"
     TARGET="x86_64-apple-darwin-macho"
     ;;
-  aarch64-darwin-apple | aarch64-apple-darwin-macho)
+  aarch64-darwin-apple | arm64-apple-darwin-macho)
     SDKROOT="$MACOS_SDKROOT"
-    TARGET="aarch64-apple-darwin-macho"
-    # aarch64 requires a higher min macOS version
+    TARGET="arm64-apple-darwin-macho"
     ;;
   x86_64-windows-gnu | aarch64-windows-gnu) ;;
   *)
@@ -103,6 +102,11 @@ while [ "$#" -gt 0 ]; do
     if [ "$lto" != '-fno-lto' ]; then
       lto="$1"
     fi
+  elif [ "$1" = '-target' ]; then
+    shift 2
+    continue
+  elif (case "$1" in --target=*) exit 0 ;; *) exit 1 ;; esac) then
+    true
   elif (case "$1" in -O* | --optimize*) exit 0 ;; *) exit 1 ;; esac) then
     # Drop optmize flags, we force -Os below
     # This also misteriosly fix an aarch64 compiler bug in clang 16
@@ -186,7 +190,7 @@ while [ "$#" -gt 0 ]; do
         exec zig lld-link -help
         ;;
       *darwin*)
-        exec clang-16 "${c_argv[@]}" -fuse-ld="$(command -v ld64)" -Wl,--help
+        exec clang-16 "${c_argv[@]}" -fuse-ld="$(command -v "${APPLE_TARGET:?}-ld")" -Wl,--help
         ;;
     esac
   elif [ "$1" = '-v' ]; then
@@ -294,7 +298,7 @@ if [ "$help" -eq 0 ]; then
           ;;
       esac
       ;;
-    aarch64*)
+    arm64* | aarch64*)
       case "${TARGET:-}" in
         *darwin*)
           c_argv+=(-mcpu=apple-m1)
@@ -388,11 +392,11 @@ catch() {
 if [ "${_USING_GAS_PREPROCESSOR:-0}" -eq 0 ] && [ "$preprocessor" -eq 0 ] && {
   [ $assembler -eq 1 ] || [ $assembler_file -eq 1 ]
 }; then
-  _zig_out=
-  _zig_err=
-  if catch _zig_out _zig_err $CMD "${c_argv[@]}" "${argv[@]}"; then
-    printf '%s' "$_zig_out"
-    printf '%s' "$_zig_err" >&2
+  _cc_out=
+  _cc_err=
+  if catch _cc_out _cc_err $CMD "${c_argv[@]}" "${argv[@]}"; then
+    printf '%s' "$_cc_out"
+    printf '%s' "$_cc_err" >&2
   else
     _gas_out=
     _gas_err=
@@ -402,8 +406,8 @@ if [ "${_USING_GAS_PREPROCESSOR:-0}" -eq 0 ] && [ "$preprocessor" -eq 0 ] && {
       printf '%s' "$_gas_out"
       printf '%s' "$_gas_err" >&2
     else
-      printf '%s' "$_zig_out"
-      printf '%s' "$_zig_err" >&2
+      printf '%s' "$_cc_out"
+      printf '%s' "$_cc_err" >&2
       printf '%s' "$_gas_out"
       printf '%s' "$_gas_err" >&2
       exit 1

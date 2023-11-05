@@ -61,13 +61,13 @@ c = ['cc']
 ar = ['ar']
 cpp = ['c++']
 lib = ['lib']
-strip = ['llvm-strip-16']
+strip = ['strip']
 ranlib = ['ranlib']
 windres = ['rc']
 dlltool = ['dlltool']
 objcopy = ['objcopy']
-objdump = ['llvm-objdump-16']
-readelf = ['llvm-readelf-16']
+objdump = ['objdump']
+readelf = ['readelf']
 
 [properties]
 cmake_defaults = false
@@ -106,8 +106,8 @@ set(CMAKE_C_COMPILER_RANLIB ranlib)
 set(CMAKE_CXX_COMPILER_RANLIB ranlib)
 set(CMAKE_AR ar)
 set(CMAKE_OBJCOPY objcopy)
-set(CMAKE_OBJDUMP llvm-objdump-16)
-set(CMAKE_READELF llvm-readelf-16)
+set(CMAKE_OBJDUMP objdump)
+set(CMAKE_READELF readelf)
 set(CMAKE_C_COMPILER_AR ar)
 set(CMAKE_CXX_COMPILER_AR ar)
 set(CMAKE_RC_COMPILER rc)
