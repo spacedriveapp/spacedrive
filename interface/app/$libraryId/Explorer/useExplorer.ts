@@ -20,7 +20,7 @@ export type ExplorerParent =
 			location: Location;
 			subPath?: FilePath;
 	  }
-	  | {
+	| {
 			type: 'Ephemeral';
 			path: string;
 	  }
