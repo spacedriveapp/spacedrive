@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# Ensure file exists before sourcing
+touch /root/.cache/environment
 # Import any environment specific variables
 set -o allexport
 # shellcheck disable=SC1091
