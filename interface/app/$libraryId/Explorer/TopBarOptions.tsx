@@ -12,8 +12,8 @@ import {
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
-import { ExplorerLayout, useLibraryMutation } from '@sd/client';
-import { ModifierKeys, toast } from '@sd/ui';
+import { ExplorerLayout } from '@sd/client';
+import { ModifierKeys } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import { useQuickRescan } from '../../../hooks/useQuickRescan';
@@ -22,7 +22,6 @@ import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarO
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { getExplorerStore, useExplorerStore } from './store';
-import { useExplorerSearchParams } from './util';
 
 const layoutIcons: Record<ExplorerLayout, Icon> = {
 	grid: SquaresFour,
@@ -90,8 +89,6 @@ export const useExplorerTopBarOptions = () => {
 
 	const { parent } = useExplorerContext();
 
-	const [{ path }] = useExplorerSearchParams();
-
 	const os = useOperatingSystem();
 
 	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'r'], () => rescan());
@@ -110,7 +107,7 @@ export const useExplorerTopBarOptions = () => {
 	});
 
 	const toolOptions = [
-		(parent?.type === 'Location' || parent?.type === 'Ephemeral') && {
+		{
 			toolTipLabel: 'Key Manager',
 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
 			popOverComponent: <KeyManager />,
