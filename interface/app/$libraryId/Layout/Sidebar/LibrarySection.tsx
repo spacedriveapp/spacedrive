@@ -1,4 +1,3 @@
-import { EjectSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
@@ -40,12 +39,6 @@ type TriggeredContextItem =
 			type: 'tag';
 			tagId: number;
 	  };
-
-const EjectButton = ({ className }: { className?: string }) => (
-	<Button className={clsx('absolute right-[2px] !p-[5px]', className)} variant="subtle">
-		<EjectSimple weight="bold" size={18} className="h-3 w-3 opacity-70" />
-	</Button>
-);
 
 export const LibrarySection = () => {
 	const node = useBridgeQuery(['nodeState']);
