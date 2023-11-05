@@ -13,7 +13,7 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout } from '@sd/client';
-import { ModifierKeys } from '@sd/ui';
+import { ModifierKeys, toast } from '@sd/ui';
 import { useKeybind, useKeyMatcher, useOperatingSystem } from '~/hooks';
 
 import { useQuickRescan } from '../../../hooks/useQuickRescan';
@@ -122,7 +122,9 @@ export const useExplorerTopBarOptions = () => {
 					className={TOP_BAR_ICON_STYLE}
 				/>
 			),
-			onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			// TODO: Assign tag mode is not yet implemented!
+			// onClick: () => (getExplorerStore().tagAssignMode = !explorerStore.tagAssignMode),
+			onClick: () => toast.info('Coming soon!'),
 			topBarActive: explorerStore.tagAssignMode,
 			individual: true,
 			showAtResolution: 'xl:flex'
