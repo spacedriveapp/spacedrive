@@ -225,7 +225,7 @@ const EditLocationForm = () => {
 					<FlexCol>
 						<div>
 							<Button
-								onClick={() => alert('Archiving locations is coming soon...')}
+								onClick={() => toast.info('Archiving locations is coming soon...')}
 								size="sm"
 								variant="outline"
 								className=""
