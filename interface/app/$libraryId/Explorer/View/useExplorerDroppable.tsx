@@ -70,7 +70,7 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 
 	const resetNavigate = () => {
 		setCanNavigate(false);
-		setTimeout(() => setCanNavigate(true), 2000);
+		setTimeout(() => setCanNavigate(true), 1250);
 	};
 
 	const blocked = useMemo(() => {
@@ -130,14 +130,14 @@ export const useExplorerDroppable = ({ allow, navigateTo, ...props }: Props) => 
 			}
 
 			resetNavigate();
-		}, 2000);
+		}, 1250);
 
 		return () => clearTimeout(timeout);
 	}, [isDroppable, navigate, props.data, navigateTo, filePathData, canNavigate]);
 
 	const navigateClassName =
 		isDroppable && canNavigate && (filePathData || navigateTo)
-			? 'animate-pulse duration-200 [animation-delay:1700ms]'
+			? 'animate-pulse duration-200 [animation-delay:1000ms]'
 			: undefined;
 
 	return { setDroppableRef: setNodeRef, ...droppable, isDroppable, navigateClassName };
