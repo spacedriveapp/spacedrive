@@ -1,8 +1,7 @@
-import { Laptop } from '@sd/assets/icons';
 import { Link } from 'react-router-dom';
 import { useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-import { SubtleButton } from '~/components';
+import { Icon, SubtleButton } from '~/components';
 
 import SidebarLink from '../Link';
 import Section from '../Section';
@@ -24,7 +23,7 @@ export const Devices = () => {
 		>
 			{node && (
 				<SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
-					<img src={Laptop} className="mr-1 h-5 w-5" />
+					<Icon name="Laptop" className="mr-1 h-5 w-5" />
 					<span className="truncate">{node.name}</span>
 				</SidebarLink>
 			)}
