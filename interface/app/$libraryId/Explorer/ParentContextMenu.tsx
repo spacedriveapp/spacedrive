@@ -1,4 +1,12 @@
-import { Clipboard, FileX, Image, FolderPlus, Repeat, Share, ShieldCheck } from '@phosphor-icons/react';
+import {
+	Clipboard,
+	FileX,
+	FolderPlus,
+	Image,
+	Repeat,
+	Share,
+	ShieldCheck
+} from '@phosphor-icons/react';
 import { PropsWithChildren } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { ContextMenu as CM, ModifierKeys, toast } from '@sd/ui';
