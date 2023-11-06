@@ -53,7 +53,6 @@ export const useTable = () => {
 							<FileThumb
 								data={item}
 								size={35}
-								blackBars
 								className={clsx('mr-2.5', cut && 'opacity-60')}
 							/>
 

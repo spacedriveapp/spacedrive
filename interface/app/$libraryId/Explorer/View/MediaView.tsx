@@ -39,7 +39,6 @@ const MediaViewItem = memo(({ data, selected, cut }: MediaViewItemProps) => {
 				<FileThumb
 					data={data}
 					cover={settings.mediaAspectSquare}
-					blackBars
 					extension
 					className={clsx(!settings.mediaAspectSquare && 'px-1', cut && 'opacity-60')}
 				/>
