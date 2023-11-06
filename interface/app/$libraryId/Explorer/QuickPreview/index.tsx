@@ -127,7 +127,6 @@ export const QuickPreview = () => {
 
 	// Toggle quick preview
 	useShortcut('toggleQuickPreview', (e) => {
-		console.log(e.key);
 		if (isRenaming) return;
 
 		e.preventDefault();

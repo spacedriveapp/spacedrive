@@ -50,7 +50,7 @@ const state = {
 	},
 	toggleQuickPreview: {
 		keys: {
-			all: ['space']
+			all: [' ']
 		}
 	},
 	toggleMetaData: {
