@@ -181,7 +181,7 @@ export const EmptyNotice = (props: {
 	if (props.loading) return null;
 
 	return (
-		<div className="flex flex-col items-center justify-center h-full text-ink-faint">
+		<div className="flex h-full flex-col items-center justify-center text-ink-faint">
 			{props.icon
 				? isValidElement(props.icon)
 					? props.icon
@@ -224,26 +224,13 @@ const useKeyDownHandlers = ({ disabled }: { disabled: boolean }) => {
 		[os, explorer.selectedItems]
 	);
 
-	const handleExplorerShortcut = useCallback(
-		(event: KeyboardEvent) => {
-			if (
-				event.key.toUpperCase() !== 'I' ||
-				!event.getModifierState(os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control)
-			)
-				return;
-
-			getExplorerStore().showInspector = !getExplorerStore().showInspector;
-		},
-		[os]
-	);
-
 	useEffect(() => {
-		const handlers = [handleNewTag, handleExplorerShortcut];
+		const handlers = [handleNewTag];
 		const handler = (event: KeyboardEvent) => {
 			if (event.repeat || disabled) return;
 			for (const handler of handlers) handler(event);
 		};
 		document.body.addEventListener('keydown', handler);
 		return () => document.body.removeEventListener('keydown', handler);
-	}, [disabled, handleNewTag, handleExplorerShortcut]);
+	}, [disabled, handleNewTag]);
 };

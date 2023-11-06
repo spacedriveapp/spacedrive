@@ -32,8 +32,6 @@ export const Delete = new ConditionalItem({
 		return { selectedFilePaths, selectedEphemeralPaths };
 	},
 	Component: ({ selectedFilePaths, selectedEphemeralPaths }) => {
-		const keybind = useKeybindFactory();
-
 		const rescan = useQuickRescan();
 
 		const dirCount =
@@ -63,7 +61,6 @@ export const Delete = new ConditionalItem({
 				icon={Trash}
 				label="Delete"
 				variant="danger"
-				keybind={keybind}
 				onClick={() =>
 					dialogManager.create((dp) => (
 						<DeleteDialog

@@ -1,4 +1,3 @@
-import { useKeys } from 'rooks';
 import { useItemsAsEphemeralPaths, useItemsAsFilePaths, useLibraryMutation } from '@sd/client';
 import { toast } from '@sd/ui';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
@@ -24,7 +23,7 @@ export const useKeyCopyCutPaste = () => {
 	const selectedEphemeralPaths = useItemsAsEphemeralPaths(Array.from(explorer.selectedItems));
 
 	const indexedArgs =
-		parent?.type === 'Location' && !isNonEmpty(selectedFilePaths)
+		parent?.type === 'Location'
 			? {
 					sourceLocationId: parent.location.id,
 					sourcePathIds: selectedFilePaths.map((p) => p.id)
@@ -32,7 +31,7 @@ export const useKeyCopyCutPaste = () => {
 			: undefined;
 
 	const ephemeralArgs =
-		parent?.type === 'Ephemeral' && !isNonEmpty(selectedEphemeralPaths)
+		parent?.type === 'Ephemeral'
 			? { sourcePaths: selectedEphemeralPaths.map((p) => p.path) }
 			: undefined;
 
@@ -41,9 +40,9 @@ export const useKeyCopyCutPaste = () => {
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
 				sourceParentPath: path ?? '/',
+				type: 'Copy',
 				indexedArgs,
 				ephemeralArgs,
-				type: 'Copy'
 			};
 		}
 	});
@@ -53,9 +52,9 @@ export const useKeyCopyCutPaste = () => {
 		if (explorer.parent?.type === 'Location') {
 			getExplorerStore().cutCopyState = {
 				sourceParentPath: path ?? '/',
+				type: 'Cut',
 				indexedArgs,
 				ephemeralArgs,
-				type: 'Cut'
 			};
 		}
 	});
