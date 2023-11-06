@@ -15,7 +15,7 @@ export const Component = () => {
 		<>
 			<Heading title="Changelog" description="See what cool new features we're making" />
 			{changelog.data?.map((release: any) => (
-				<article key={release.version} className={'prose prose-invert'}>
+				<article key={release.version} className={'prose prose-sm prose-invert'}>
 					<Markdown
 						className=""
 						skipHtml

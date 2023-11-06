@@ -7,7 +7,6 @@ import {
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
-	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';

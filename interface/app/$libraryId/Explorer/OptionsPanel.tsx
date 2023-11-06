@@ -8,7 +8,6 @@ import { createOrdering, getOrderingDirection, orderingKey, useExplorerStore } f
 const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;
 
 export default () => {
-	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
 
@@ -145,7 +144,6 @@ export default () => {
 						name="showHiddenFiles"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
-
 							explorer.settingsStore.showHiddenFiles = value;
 						}}
 					/>

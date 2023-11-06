@@ -1,6 +1,5 @@
 import {
 	FilePath,
-	libraryClient,
 	Object,
 	Target,
 	useLibraryMutation,

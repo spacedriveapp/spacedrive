@@ -9,11 +9,11 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
-import { useKey, useMutationObserver, useWindowEventListener } from 'rooks';
+import { useMutationObserver, useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
 import { getItemFilePath, type ExplorerItem } from '@sd/client';
 import { ContextMenu, Tooltip } from '@sd/ui';
-import { useIsTextTruncated, useMouseNavigate } from '~/hooks';
+import { useIsTextTruncated, useMouseNavigate, useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
@@ -51,7 +51,7 @@ const ListViewItem = memo((props: ListViewItemProps) => {
 	return (
 		<ViewItem
 			data={props.row.original}
-			className="relative flex h-full items-center"
+			className="relative flex items-center h-full"
 			style={{ paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}
 		>
 			{props.row.getVisibleCells().map((cell) => (
@@ -607,15 +607,14 @@ export default () => {
 		};
 	}, [sized, isLeftMouseDown]);
 
-	// Handle key selection
-	useKey(['ArrowUp', 'ArrowDown', 'Escape'], (e) => {
+	const keyboardHandler = (e: KeyboardEvent, direction: 'ArrowDown' | 'ArrowUp') => {
 		if (!explorerView.selectable) return;
 
 		e.preventDefault();
 
 		const range = getRangeByIndex(ranges.length - 1);
 
-		if (e.key === 'ArrowDown' && explorer.selectedItems.size === 0) {
+		if (explorer.selectedItems.size === 0) {
 			const item = rows[0]?.original;
 			if (item) {
 				explorer.addSelectedItem(item);
@@ -626,13 +625,7 @@ export default () => {
 
 		if (!range) return;
 
-		if (e.key === 'Escape') {
-			explorer.resetSelectedItems([]);
-			setRanges([]);
-			return;
-		}
-
-		const keyDirection = e.key === 'ArrowDown' ? 'down' : 'up';
+		const keyDirection = direction === 'ArrowDown' ? 'down' : 'up';
 
 		const nextRow = rows[range.end.index + (keyDirection === 'up' ? -1 : 1)];
 
@@ -766,6 +759,20 @@ export default () => {
 		} else explorer.resetSelectedItems([item]);
 
 		scrollToRow(nextRow);
+	};
+
+	useShortcut('explorerEscape', () => {
+		explorer.resetSelectedItems([]);
+		setRanges([]);
+		return;
+	});
+
+	useShortcut('explorerUp', (e) => {
+		keyboardHandler(e, 'ArrowUp');
+	});
+
+	useShortcut('explorerDown', (e) => {
+		keyboardHandler(e, 'ArrowDown');
 	});
 
 	// Reset resizing cursor
@@ -1002,7 +1009,7 @@ export default () => {
 								return (
 									<div
 										key={row.id}
-										className="absolute left-0 top-0 min-w-full"
+										className="absolute top-0 left-0 min-w-full"
 										style={{
 											height: virtualRow.size,
 											transform: `translateY(${
@@ -1033,7 +1040,7 @@ export default () => {
 											}}
 										>
 											{selectedPrior && (
-												<div className="absolute inset-x-3 top-0 h-px bg-accent/10" />
+												<div className="absolute top-0 h-px inset-x-3 bg-accent/10" />
 											)}
 										</div>
 
