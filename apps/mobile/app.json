@@ -30,6 +30,7 @@
 			}
 		},
 		"android": {
+			"permissions": ["android.permission.MANAGE_EXTERNAL_STORAGE"],
 			"package": "com.spacedrive.app"
 		},
 		"splash": {

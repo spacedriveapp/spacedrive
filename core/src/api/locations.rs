@@ -1,5 +1,4 @@
 use crate::{
-	api::SdError,
 	invalidate_query,
 	job::StatefulJob,
 	location::{

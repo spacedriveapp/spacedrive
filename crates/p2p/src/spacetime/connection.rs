@@ -33,7 +33,7 @@ pub struct SpaceTimeConnection {
 			OutboundProtocol,
 			<Self as ConnectionHandler>::OutboundOpenInfo,
 			<Self as ConnectionHandler>::ToBehaviour,
-			<Self as ConnectionHandler>::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	>,
 }
@@ -99,7 +99,7 @@ impl ConnectionHandler for SpaceTimeConnection {
 			Self::OutboundProtocol,
 			Self::OutboundOpenInfo,
 			Self::ToBehaviour,
-			Self::Error,
+			StreamUpgradeError<io::Error>,
 		>,
 	> {
 		if let Some(event) = self.pending_events.pop_front() {

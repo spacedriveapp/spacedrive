@@ -30,12 +30,12 @@ sd-core = { path = "../../../core", features = [
 ] }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
-serde = "1.0.188"
+serde = "1.0.190"
 http = "0.2.9"
 opener = { version = "0.6.1", features = ["reveal"] }
 specta = { workspace = true, features = ["functions"] }
 tauri-specta = { workspace = true, features = ["typescript"] }
-uuid = { version = "1.4.1", features = ["serde"] }
+uuid = { version = "1.5.0", features = ["serde"] }
 futures = "0.3"
 axum = { version = "0.6.20", features = ["headers", "query"] }
 rand = "0.8.5"

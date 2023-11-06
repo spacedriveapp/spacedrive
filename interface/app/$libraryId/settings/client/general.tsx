@@ -7,7 +7,6 @@ import {
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
-	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
 import { Button, Card, Input, Select, SelectOption, Switch, tw, z } from '@sd/ui';
@@ -33,7 +32,7 @@ export const Component = () => {
 
 	const form = useZodForm({
 		schema: z.object({
-			name: z.string().min(1).optional(),
+			name: z.string().min(1).max(250).optional(),
 			p2p_enabled: z.boolean().optional(),
 			p2p_port: u16,
 			customOrDefault: z.enum(['Custom', 'Default'])

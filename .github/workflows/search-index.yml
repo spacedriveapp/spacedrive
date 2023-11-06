@@ -1,0 +1,24 @@
+name: Trigger Algolia Crawler
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'docs/**'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '.github/workflows/search-index.yml'
+
+jobs:
+  trigger_crawler:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Trigger Algolia Crawler
+        run: |
+          curl -X POST --user ${{secrets.CRAWLER_USER_ID}}:${{secrets.CRAWLER_API_KEY}} "https://crawler.algolia.com/api/1/crawlers/${{secrets.CRAWLER_ID}}/reindex"

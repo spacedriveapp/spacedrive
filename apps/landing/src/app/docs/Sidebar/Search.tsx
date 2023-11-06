@@ -1,14 +1,24 @@
 'use client';
 
-import { SearchInput } from '@sd/ui';
+import { DocSearch } from '@docsearch/react';
+
+import { useMenuContext } from './MobileSidebar';
 
 export function SearchBar() {
+	const menu = useMenuContext();
+
 	return (
-		<div onClick={() => alert('Search coming soon...')} className="mb-5">
-			<SearchInput
-				placeholder="Search..."
-				disabled
-				right={<span className="pr-2 text-xs font-semibold text-gray-400">⌘K</span>}
+		<div
+			className="mb-5"
+			onClick={() => {
+				menu.open && menu.setOpen(false);
+			}}
+		>
+			<DocSearch
+				appId="O2QT1W1OHH"
+				apiKey="765d32dcfd1971b2b21cea6cc343e259"
+				indexName="spacedrivedocs"
+				placeholder="Search"
 			/>
 		</div>
 	);

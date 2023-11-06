@@ -87,10 +87,7 @@ export const CutCopyItems = new ConditionalItem({
 								});
 							}
 
-							if (
-								parent.type === 'Ephemeral' &&
-								isNonEmpty(selectedEphemeralPaths)
-							) {
+							if (parent.type === 'Ephemeral' && isNonEmpty(selectedEphemeralPaths)) {
 								await copyEphemeralFiles.mutateAsync({
 									sources: selectedEphemeralPaths.map((p) => p.path),
 									target_dir: path ?? '/'
