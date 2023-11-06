@@ -45,7 +45,7 @@ export const DragOverlay = memo(() => {
 			{!drag || drag.type === 'touched' ? null : (
 				<div className="space-y-[2px] pl-2.5 pt-2.5 duration-300 animate-in fade-in">
 					{drag.items.length > 1 && (
-						<div className="absolute -left-5 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-white">
+						<div className="absolute right-full top-3 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-accent px-1 text-sm text-white">
 							{drag.items.length}
 						</div>
 					)}
