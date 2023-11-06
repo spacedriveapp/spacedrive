@@ -17,3 +17,13 @@ export async function GET() {
 			})
 	);
 }
+
+export async function OPTIONS() {
+	return new Response('', {
+		status: 200,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, OPTIONS'
+		}
+	});
+}
