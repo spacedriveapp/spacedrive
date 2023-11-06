@@ -1,8 +1,7 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
-import { useKeys } from 'rooks';
 import { getExplorerLayoutStore, useExplorerLayoutStore, useLibrarySubscription } from '@sd/client';
-import { useKeysMatcher, useOperatingSystem } from '~/hooks';
+import { useShortcut } from '~/hooks';
 
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { useExplorerContext } from './Context';
@@ -10,7 +9,7 @@ import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
-import { useExplorerStore } from './store';
+import { getExplorerStore, useExplorerStore } from './store';
 import { useKeyRevealFinder } from './useKeyRevealFinder';
 import View, { EmptyNotice, ExplorerViewProps } from './View';
 import { ExplorerPath, PATH_BAR_HEIGHT } from './View/ExplorerPath';
@@ -28,10 +27,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorerStore = useExplorerStore();
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const shortcuts = useKeysMatcher(['Meta', 'Shift', 'Alt']);
-	const os = useOperatingSystem();
-	const hiddenFilesShortcut =
-		os === 'macOS' ? [shortcuts.Meta.key, 'Shift', '.'] : [shortcuts.Meta.key, 'KeyH'];
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 
@@ -48,12 +43,17 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useKeys([shortcuts.Alt.key, shortcuts.Meta.key, 'KeyP'], (e) => {
+	useShortcut('showPathBar', (e) => {
 		e.stopPropagation();
 		getExplorerLayoutStore().showPathBar = !layoutStore.showPathBar;
 	});
 
-	useKeys(hiddenFilesShortcut, (e) => {
+	useShortcut('showInspector', (e) => {
+		e.stopPropagation();
+		getExplorerStore().showInspector = !explorerStore.showInspector;
+	});
+
+	useShortcut('showHiddenFiles', (e) => {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});

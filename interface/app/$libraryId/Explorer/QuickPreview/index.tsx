@@ -22,17 +22,8 @@ import {
 	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import {
-	dialogManager,
-	DropdownMenu,
-	Form,
-	ModifierKeys,
-	toast,
-	ToastMessage,
-	Tooltip,
-	z
-} from '@sd/ui';
-import { useIsDark, useKeybind, useOperatingSystem } from '~/hooks';
+import { dialogManager, DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
+import { useIsDark, useKeybind, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
@@ -43,7 +34,6 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import DeleteDialog from '../FilePath/DeleteDialog';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
@@ -63,11 +53,10 @@ const useQuickPreviewContext = () => {
 };
 
 export const QuickPreview = () => {
-	const os = useOperatingSystem();
 	const rspc = useRspcLibraryContext();
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const { openFilePaths, revealItems, openEphemeralFiles } = usePlatform();
+	const { openFilePaths, openEphemeralFiles } = usePlatform();
 
 	const explorer = useExplorerContext();
 	const { open, itemIndex } = useQuickPreviewStore();
@@ -78,6 +67,7 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+	const os = useOperatingSystem();
 
 	const items = useMemo(
 		() => (open ? [...explorer.selectedItems] : []),
@@ -136,7 +126,8 @@ export const QuickPreview = () => {
 	}, [item, open]);
 
 	// Toggle quick preview
-	useKeybind(['space'], (e) => {
+	useShortcut('toggleQuickPreview', (e) => {
+		console.log(e.key);
 		if (isRenaming) return;
 
 		e.preventDefault();
@@ -144,21 +135,17 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().open = !open;
 	});
 
-	useKeybind('Escape', (e) => open && e.stopPropagation());
-
 	// Move between items
-	useKeybind([['left'], ['right']], (e) => {
+	useShortcut('quickPreviewMoveBetweenItems', (e) => {
 		if (isContextMenuOpen || isRenaming) return;
 		changeCurrentItem(e.key === 'ArrowLeft' ? itemIndex - 1 : itemIndex + 1);
 	});
 
 	// Toggle metadata
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'i'], () =>
-		setShowMetadata(!showMetadata)
-	);
+	useShortcut('toggleMetaData', () => setShowMetadata(!showMetadata));
 
 	// Open file
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'o'], () => {
+	useShortcut('quickPreviewOpenNative', () => {
 		if (!item || !openFilePaths || !openEphemeralFiles) return;
 
 		try {
@@ -176,66 +163,6 @@ export const QuickPreview = () => {
 				title: 'Failed to open file',
 				body: `Couldn't open file, due to an error: ${error}`
 			});
-		}
-	});
-
-	// Reveal in native explorer
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'y'], () => {
-		if (!item || !revealItems) return;
-
-		try {
-			const toReveal = [];
-			if (item.type === 'Location') {
-				toReveal.push({ Location: { id: item.item.id } });
-			} else if (item.type === 'NonIndexedPath') {
-				toReveal.push({ Ephemeral: { path: item.item.path } });
-			} else {
-				const filePath = getIndexedItemFilePath(item);
-				if (!filePath) throw 'No file path found';
-				toReveal.push({ FilePath: { id: filePath.id } });
-			}
-
-			revealItems(library.uuid, toReveal);
-		} catch (error) {
-			toast.error({
-				title: 'Failed to reveal',
-				body: `Couldn't reveal file, due to an error: ${error}`
-			});
-		}
-	});
-
-	// Open delete dialog
-	useKeybind([os === 'macOS' ? ModifierKeys.Meta : ModifierKeys.Control, 'backspace'], () => {
-		if (!item) return;
-
-		const path = getIndexedItemFilePath(item);
-
-		if (path != null && path.location_id !== null) {
-			return dialogManager.create((dp) => (
-				<DeleteDialog
-					{...dp}
-					indexedArgs={{
-						locationId: path.location_id!,
-						pathIds: [path.id]
-					}}
-					dirCount={path.is_dir ? 1 : 0}
-					fileCount={path.is_dir ? 0 : 1}
-				/>
-			));
-		}
-
-		const ephemeralFile = getEphemeralPath(item);
-		if (ephemeralFile != null) {
-			return dialogManager.create((dp) => (
-				<DeleteDialog
-					{...dp}
-					ephemeralArgs={{
-						paths: [ephemeralFile.path]
-					}}
-					dirCount={ephemeralFile.is_dir ? 1 : 0}
-					fileCount={ephemeralFile.is_dir ? 0 : 1}
-				/>
-			));
 		}
 	});
 

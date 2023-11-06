@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
-import { useKeys } from 'rooks';
 import { useLibraryContext } from '@sd/client';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
-import { useKeysMatcher } from '~/hooks';
+import { useShortcut } from '~/hooks';
 import { usePlatform, type Platform } from '~/util/Platform';
 
 export const useKeyRevealFinder = () => {
 	const explorer = useExplorerContext();
 	const { revealItems } = usePlatform();
-	const shortcuts = useKeysMatcher(['Meta']);
 	const { library } = useLibraryContext();
 
 	const items = useMemo(() => {
@@ -55,7 +53,7 @@ export const useKeyRevealFinder = () => {
 		return array;
 	}, [explorer.selectedItems]);
 
-	useKeys([shortcuts.Meta.key, 'KeyY'], (e) => {
+	useShortcut('revealNative', (e) => {
 		e.stopPropagation();
 		if (!revealItems) return;
 		revealItems(library.uuid, items);
