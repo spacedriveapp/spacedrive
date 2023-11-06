@@ -1,10 +1,13 @@
+import { Question } from '@phosphor-icons/react';
 import { Button, Form, RadioGroupField } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
 
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './components';
 import { shareTelemetry, useOnboardingContext } from './context';
 
 export default function OnboardingPrivacy() {
 	const { forms, submit } = useOnboardingContext();
+	const platform = usePlatform();
 
 	const form = forms.useForm('privacy');
 
@@ -29,6 +32,20 @@ export default function OnboardingPrivacy() {
 							</RadioGroupField.Item>
 						))}
 					</RadioGroupField.Root>
+					<div className="flex grow flex-col items-center">
+						<Button
+							size="md"
+							className="mt-2 flex flex-row text-ink-faint"
+							onClick={() => {
+								platform.openLink(
+									'https://www.spacedrive.com/docs/product/resources/privacy'
+								);
+							}}
+						>
+							<Question />
+							<div className="ml-1 mt-0.5">More info</div>
+						</Button>
+					</div>
 				</div>
 				<Button type="submit" className="text-center" variant="accent" size="sm">
 					Continue
